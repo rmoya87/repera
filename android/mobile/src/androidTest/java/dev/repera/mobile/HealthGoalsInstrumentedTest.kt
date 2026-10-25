@@ -22,5 +22,19 @@ class HealthGoalsInstrumentedTest {
         assertEquals(HealthGoals(),HealthGoals.read(reread));assertFalse(reread.getJSONObject("settings").has("dailyStepsGoal"))
         assertEquals("preserve",reread.getJSONObject("settings").getString("future"))
         assertEquals("lb",reread.getJSONObject("settings").getString("weightUnit"))
+    }    @Test fun selectedDayDurationsAndWeeklyCountsIncludeExternalSamplesAndKeepMissingEnergyUnknown() {
+        val state=JSONObject().put("exercises",JSONArray()).put("routines",JSONArray()).put("bodyWeights",JSONArray())
+            .put("workouts",JSONArray().put(JSONObject().put("id","live").put("title","Carrera").put("phase","finished")
+                .put("startedAt","2026-10-25T10:00:00Z").put("finishedAt","2026-10-25T11:00:00Z")
+                .put("liveSportID","running").put("activeDurationSeconds",1800.0).put("exercises",JSONArray())))
+        val day=java.time.LocalDate.of(2026,10,25)
+        val external=dev.repera.domain.HealthMuscleMapper.ExternalActivity(day.atTime(18,0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),"walking",20.0)
+        val health=HealthSamples(emptyList(),emptyList(),listOf(external))
+        val overview=StateOverview.fromBytes(state.toString().toByteArray(),health)!!
+        assertEquals(50.0,overview.dayWorkoutMinutes[day]!!,0.00001)
+        assertEquals(2,overview.dayWorkoutCounts[day])
+        assertNull(overview.dayEnergyKcal[day])
+        assertNull(overview.dayWorkoutMinutes[day.minusDays(1)])
     }
+
 }

@@ -110,10 +110,17 @@ internal fun HomeTab(
     focusDay: java.time.LocalDate? = null,
     professionalSessions:List<BusinessCenterStore.ProfessionalSession> = emptyList(),
     centerName:(String)->String = {"Centro"},
-    onOpenMessages:()->Unit = {}
+    onOpenMessages:()->Unit = {},
+    dayHealthProvider:suspend (java.time.LocalDate)->TodayHealth? = {null}
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
+    val selectedDay=LocalDate.parse(homeDateIso)
+    var selectedHealth by remember(selectedDay) {mutableStateOf<TodayHealth?>(null)}
+    LaunchedEffect(selectedDay) {selectedHealth=dayHealthProvider(selectedDay)}
+    val dayHealth=selectedHealth ?: todayHealth.takeIf {selectedDay==LocalDate.now()}
+    val weekStart=dev.repera.domain.StatsEngine.startOfWeek(selectedDay,overview?.trainingSettings?.weekStartsOnMonday ?: true)
+    val selectedWeekCount=(0L..6L).sumOf {overview?.dayWorkoutCounts?.get(weekStart.plusDays(it)) ?: 0}
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
@@ -134,15 +141,17 @@ internal fun HomeTab(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Actividad del día", style = MaterialTheme.typography.titleMedium)
-                    Text("Pasos: " + (todayHealth?.steps?.toString() ?: "—"))
-                    Text("Energía activa: " + (todayHealth?.activeKcal?.let {
-                        "${it.toInt()} kcal"
-                    } ?: "—"))
+                    Text("Actividad · ${selectedDay.format(reperaDayFormatter)}", style = MaterialTheme.typography.titleMedium)
+                    Text("Pasos: " + (dayHealth?.steps?.toString() ?: "—"))
+                    val energy=dayHealth?.activeKcal ?: overview?.dayEnergyKcal?.get(selectedDay)
+                    Text("Energía activa: " + (energy?.let {"${it.toInt()} kcal"} ?: "—"))
+                    val minutes=overview?.dayWorkoutMinutes?.get(selectedDay)
+                    Text("Tiempo de entreno: " + (minutes?.let {"${it.toInt()} min"} ?: "—"))
                     overview?.healthGoals?.let { goals ->
-                        goals.steps?.let { target -> Text("Objetivo pasos: ${todayHealth?.steps?.let { "$it / $target" } ?: "Sin datos / $target"}") }
-                        goals.energyKcal?.let { target -> Text("Objetivo energía: ${todayHealth?.activeKcal?.let { "${it.toInt()} / $target kcal" } ?: "Sin datos / $target kcal"}") }
-                        goals.weeklyWorkouts?.let { target -> Text("Objetivo semanal: ${overview.workoutsThisWeek} / $target entrenamientos") }
+                        goals.steps?.let {target -> Text("Objetivo pasos: ${dayHealth?.steps?.let {"$it / $target"} ?: "Sin datos / $target"}")}
+                        goals.energyKcal?.let {target -> Text("Objetivo energía: ${energy?.let {"${it.toInt()} / $target kcal"} ?: "Sin datos / $target kcal"}")}
+                        goals.minutes?.let {target -> Text("Objetivo tiempo: ${minutes?.let {"${it.toInt()} / $target min"} ?: "Sin datos / $target min"}")}
+                        goals.weeklyWorkouts?.let {target -> Text("Objetivo semanal: $selectedWeekCount / $target entrenamientos")}
                     }
                     TextButton(
                         enabled = !busy,

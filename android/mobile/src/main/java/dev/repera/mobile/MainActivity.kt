@@ -585,6 +585,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         exerciseId, targetReps, targetRir)
                 },
                 todayHealth = todayHealth,
+                dayHealthProvider = {day ->
+                    val owner=profile?.uniqueId
+                    val revision=centerGate.revision
+                    val data=withContext(Dispatchers.IO) {runCatching {
+                        val reader=HealthConnectReader(this@MainActivity)
+                        if(reader.hasPermissions()) reader.readDay(day) else null
+                    }.getOrNull()}
+                    data.takeIf {profile?.uniqueId==owner && centerGate.revision==revision}
+                },
                 onHealthConnect = ::connectHealth,
                 activeWorkout = activeWorkout,
                 wodTimer = wodTimer,
@@ -1221,37 +1230,31 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     private fun loadHealthToday() {
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        fun current()=profile?.uniqueId==owner && centerGate.revision==revision
         lifecycleScope.launch {
             try {
-                val reader = HealthConnectReader(this@MainActivity)
-                todayHealth = withContext(Dispatchers.IO) { reader.readToday() }
-                // Ventana amplia: cubre el rango más largo de Progreso (370).
-                healthSamples = withContext(Dispatchers.IO) {
-                    runCatching { reader.readSamples(370,HealthExclusionSnapshot.windows(profile?.uniqueId?.let {LocalSnapshotStore(this@MainActivity,it).read()})) }.getOrNull()
-                }
-                recoveryRead = withContext(Dispatchers.IO) {
-                    runCatching { reader.readRecovery(45) }.getOrNull()
-                }
-                // Sincronización bidireccional de peso como iOS:
-                // Salud → local y días solo locales → Salud.
+                val reader=HealthConnectReader(this@MainActivity)
+                val today=withContext(Dispatchers.IO) {reader.readToday()}
+                val samples=withContext(Dispatchers.IO) {runCatching {reader.readSamples(370,
+                    HealthExclusionSnapshot.windows(LocalSnapshotStore(this@MainActivity,owner).read()))}.getOrNull()}
+                val recovery=withContext(Dispatchers.IO) {runCatching {reader.readRecovery(45)}.getOrNull()}
+                if(!current()) return@launch
+                todayHealth=today;healthSamples=samples;recoveryRead=recovery
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val samples = reader.readBodyMass()
-                        if (samples.isNotEmpty()) {
-                            val repo = WorkoutRepository(
-                                this@MainActivity, profile?.uniqueId ?: return@runCatching)
-                            val localOnly = repo.mergeHealthBodyWeights(samples)
-                            localOnly.forEach { (millis, kg) ->
-                                runCatching { reader.saveBodyMass(kg, millis) }
-                            }
+                        val weights=reader.readBodyMass()
+                        if(current() && weights.isNotEmpty()) {
+                            val localOnly=WorkoutRepository(this@MainActivity,owner).mergeHealthBodyWeights(weights)
+                            localOnly.forEach {(millis,kg) -> if(current()) runCatching {reader.saveBodyMass(kg,millis)}}
                         }
                     }
                 }
-                profile?.let { reloadFor(it.uniqueId) }
-                status = null
-            } catch (error: Exception) {
-                todayHealth = null
-                status = "No se pudo leer Salud: " + error.localizedMessage
+                if(!current()) return@launch
+                reloadFor(owner);status=null
+            } catch(error:Exception) {
+                if(current()) {todayHealth=null;status="No se pudo leer Salud: "+error.localizedMessage}
             }
         }
     }
@@ -1583,7 +1586,10 @@ data class StateOverview(
     internal val trainingSettings:TrainingSettings = TrainingSettings(),
     internal val rotationPlan:dev.repera.domain.RotationPlan? = null,
     val healthGoals:HealthGoals=HealthGoals(),
-    val profileSettings:ProfileSettings=ProfileSettings()
+    val profileSettings:ProfileSettings=ProfileSettings(),
+    val dayWorkoutMinutes:Map<java.time.LocalDate,Double> = emptyMap(),
+    val dayWorkoutCounts:Map<java.time.LocalDate,Int> = emptyMap(),
+    val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1911,7 +1917,19 @@ data class StateOverview(
                     recentAverageSleepHours = avg
                 )
             }
+            val localStats=ProgressSnapshotBuilder.statsWorkouts(json).filter {it.finished}
+            val zone=java.time.ZoneId.systemDefault()
+            val minutesByDay=mutableMapOf<java.time.LocalDate,Double>()
+            val countsByDay=mutableMapOf<java.time.LocalDate,Int>()
+            localStats.forEach {s -> val day=java.time.Instant.ofEpochMilli(s.epochMillis).atZone(zone).toLocalDate()
+                minutesByDay[day]=(minutesByDay[day] ?: 0.0)+s.durationMinutes
+                countsByDay[day]=(countsByDay[day] ?: 0)+1}
+            health?.externalActivities.orEmpty().forEach {s ->val day=java.time.Instant.ofEpochMilli(s.epochMillis).atZone(zone).toLocalDate()
+                minutesByDay[day]=(minutesByDay[day] ?: 0.0)+s.durationMinutes
+                countsByDay[day]=(countsByDay[day] ?: 0)+1}
             return StateOverview(
+                dayWorkoutMinutes=minutesByDay,dayWorkoutCounts=countsByDay,
+                dayEnergyKcal=health?.energyDays.orEmpty().associate {it.date to it.kcal},
                 trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),healthGoals=HealthGoals.read(json),profileSettings=ProfileSettings.read(json),
                 liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,

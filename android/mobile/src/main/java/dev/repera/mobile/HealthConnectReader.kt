@@ -122,14 +122,17 @@ class HealthConnectReader(private val context: Context) {
         return granted.containsAll(permissions)
     }
 
-    suspend fun readToday(): TodayHealth {
+    suspend fun readToday(): TodayHealth = readDay(LocalDate.now())
+
+    suspend fun readDay(day:LocalDate):TodayHealth {
         check(available()) { "Health Connect no está disponible en este dispositivo" }
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
         require(granted.containsAll(permissions)) { "Debes autorizar Salud para leer actividad" }
         val zone = ZoneId.systemDefault()
-        val start = LocalDate.now(zone).atStartOfDay(zone).toInstant()
-        val now = Instant.now()
+        val start = day.atStartOfDay(zone).toInstant()
+        val now = minOf(day.plusDays(1).atStartOfDay(zone).toInstant(),Instant.now())
+        if(start>=now) return TodayHealth(null,null)
         val result = client.aggregate(
             AggregateRequest(
                 metrics = setOf(StepsRecord.COUNT_TOTAL, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
