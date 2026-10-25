@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
         if(connected && linked.isNotEmpty() && snapshot?.notices.orEmpty().isEmpty()) item {Text("Todavía no hay mensajes.")}
         items(snapshot?.notices.orEmpty()) {n -> Card {Column(Modifier.padding(12.dp)) {
             Text(n.title,style=MaterialTheme.typography.titleMedium);Text(n.body)
-            Text("${snapshot?.centerName(n.orgId)} · ${n.createdAt}",style=MaterialTheme.typography.bodySmall)
+            Text("${snapshot?.centerName(n.orgId)} · ${noticeTime(n.createdAt)}",style=MaterialTheme.typography.bodySmall)
         }}}
         if(linked.isNotEmpty()) item {OutlinedButton(onClick={target=linked.first().id;title="";body="";compose=true}) {Text("Escribir mensaje")}}
     }
@@ -41,3 +41,8 @@ import androidx.compose.ui.unit.dp
         error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
     }},confirmButton={TextButton(enabled=!submitting && body.trim().length>=2 && target in linked.map {it.id},onClick={target?.let {awaited=true;sawSubmitting=false;onSend(it,title,body)}}) {Text(if(submitting) "Enviando" else "Enviar")}},dismissButton={TextButton(enabled=!submitting,onClick={compose=false}) {Text("Cancelar")}})
 }
+
+private fun noticeTime(raw:String):String = runCatching {
+    java.time.Instant.parse(raw).atZone(java.time.ZoneId.systemDefault()).format(
+        java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm",java.util.Locale("es")))
+}.getOrElse {raw}

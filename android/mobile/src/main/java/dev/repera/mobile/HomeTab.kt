@@ -117,7 +117,7 @@ internal fun HomeTab(
     LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
     val selectedDay=LocalDate.parse(homeDateIso)
     var selectedHealth by remember(selectedDay) {mutableStateOf<TodayHealth?>(null)}
-    LaunchedEffect(selectedDay) {selectedHealth=dayHealthProvider(selectedDay)}
+    LaunchedEffect(selectedDay,todayHealth,overview?.dayEnergyKcal) {selectedHealth=dayHealthProvider(selectedDay)}
     val dayHealth=selectedHealth ?: todayHealth.takeIf {selectedDay==LocalDate.now()}
     val weekStart=dev.repera.domain.StatsEngine.startOfWeek(selectedDay,overview?.trainingSettings?.weekStartsOnMonday ?: true)
     val selectedWeekCount=(0L..6L).sumOf {overview?.dayWorkoutCounts?.get(weekStart.plusDays(it)) ?: 0}
