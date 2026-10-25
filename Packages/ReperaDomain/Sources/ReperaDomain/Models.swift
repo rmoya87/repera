@@ -1994,6 +1994,12 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var locationPin: WorkoutLocationPin?
     /// Ruta GPS propia (outdoor); independiente de la ruta de Salud.
     public var routePoints: [WorkoutRoutePoint]
+    /// Deportes registrados directamente desde la pestaña En vivo.
+    public var liveSportID: String?
+    /// Distancia acumulada con el GPS en movimiento (no la longitud de un GPX planificado).
+    public var recordedDistanceMeters: Double?
+    /// Duración activa, sin pausas; es una medición de Repera, no de Apple Salud.
+    public var activeDurationSeconds: TimeInterval?
 
     public init(
         id: UUID = UUID(),
@@ -2014,7 +2020,10 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         routineBlocks: [RoutineBlock]? = nil,
         sessionReview: SessionReview? = nil,
         locationPin: WorkoutLocationPin? = nil,
-        routePoints: [WorkoutRoutePoint] = []
+        routePoints: [WorkoutRoutePoint] = [],
+        liveSportID: String? = nil,
+        recordedDistanceMeters: Double? = nil,
+        activeDurationSeconds: TimeInterval? = nil
     ) {
         self.id = id
         self.title = title
@@ -2035,6 +2044,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.sessionReview = sessionReview
         self.locationPin = locationPin
         self.routePoints = routePoints
+        self.liveSportID = liveSportID
+        self.recordedDistanceMeters = recordedDistanceMeters
+        self.activeDurationSeconds = activeDurationSeconds
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2042,7 +2054,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         case startedAt, finishedAt, notes
         case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
-        case locationPin, routePoints
+        case locationPin, routePoints, liveSportID, recordedDistanceMeters, activeDurationSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -2066,6 +2078,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         sessionReview = try c.decodeIfPresent(SessionReview.self, forKey: .sessionReview)
         locationPin = try c.decodeIfPresent(WorkoutLocationPin.self, forKey: .locationPin)
         routePoints = try c.decodeIfPresent([WorkoutRoutePoint].self, forKey: .routePoints) ?? []
+        liveSportID = try c.decodeIfPresent(String.self, forKey: .liveSportID)
+        recordedDistanceMeters = try c.decodeIfPresent(Double.self, forKey: .recordedDistanceMeters)
+        activeDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .activeDurationSeconds)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2089,6 +2104,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(sessionReview, forKey: .sessionReview)
         try c.encodeIfPresent(locationPin, forKey: .locationPin)
         try c.encode(routePoints, forKey: .routePoints)
+        try c.encodeIfPresent(liveSportID, forKey: .liveSportID)
+        try c.encodeIfPresent(recordedDistanceMeters, forKey: .recordedDistanceMeters)
+        try c.encodeIfPresent(activeDurationSeconds, forKey: .activeDurationSeconds)
     }
 
     public var currentExercise: SessionExercise? {
@@ -2109,6 +2127,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
 
     /// Minutos del entreno: prioriza Apple Salud / Watch.
     public var durationMinutes: Double {
+        if liveSportID != nil, let activeDurationSeconds { return max(0, activeDurationSeconds / 60) }
         if let apple = appleDurationSeconds, apple > 0 {
             return apple / 60
         }
@@ -2120,6 +2139,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     /// Minutos del chip en listas (Inicio / Historial): reloj de pared inicio→fin.
     /// No usa el time-cap ni la duración de Salud (esos van a kcal / detalle).
     public var displayDurationMinutes: Double {
+        if liveSportID != nil, let activeDurationSeconds { return max(0, activeDurationSeconds / 60) }
         if let start = startedAt {
             let end = finishedAt ?? start.addingTimeInterval(60)
             let wall = max(0, end.timeIntervalSince(start) / 60)
