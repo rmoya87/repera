@@ -607,6 +607,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { updateRoutineDetails(id, title, schedule) }
                 },
                 onDeleteRoutine = { id -> runWorkoutAction { deleteRoutine(id) } },
+                onCopyPreviousWeek = {
+                    var copied = 0
+                    runWorkoutAction(onSuccess = {
+                        status = if (copied == 0) "No hay entrenos nuevos que copiar" else "$copied entrenos copiados"
+                    }) { copied = copyPreviousWeekSchedule() }
+                },
+                onClearWeeklySchedule = { runWorkoutAction { clearWeeklySchedule() } },
                 onReplaceRoutineBlocks = { id, drafts ->
                     runWorkoutAction {
                         replaceRoutineBlocks(id, drafts) { before ->

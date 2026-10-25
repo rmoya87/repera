@@ -77,6 +77,8 @@ internal fun DiaryTab(
     onStartRoutine: (String) -> Unit,
     onEditRoutine: (String, String, RoutineSchedule) -> Unit,
     onDeleteRoutine: (String) -> Unit,
+    onCopyPreviousWeek: () -> Unit = {},
+    onClearWeeklySchedule: () -> Unit = {},
     onEditRoutineContent: (String) -> Unit = {},
     onSetRoutineProgression: (String, String) -> Unit = { _, _ -> },
     onSetRoutineFavorite: (String, Boolean) -> Unit = { _, _ -> },
@@ -95,6 +97,8 @@ internal fun DiaryTab(
     modifier: Modifier = Modifier
 ) {
     var diaryDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var showScheduleMenu by remember { mutableStateOf(false) }
+    var confirmClearSchedule by remember { mutableStateOf(false) }
     var showDayPlus by rememberSaveable { mutableStateOf(false) }
     val routines = overview?.routineEntries.orEmpty()
     val day = LocalDate.parse(diaryDateIso)
@@ -120,6 +124,18 @@ internal fun DiaryTab(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Diario", style = MaterialTheme.typography.headlineMedium)
+                androidx.compose.foundation.layout.Box {
+                    TextButton(onClick = { showScheduleMenu = true }, enabled = !busy,
+                        modifier = Modifier.testTag("diary_schedule_menu")) { Text("Opciones") }
+                    androidx.compose.material3.DropdownMenu(expanded = showScheduleMenu,
+                        onDismissRequest = { showScheduleMenu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(text = { Text("Copiar semana pasada") },
+                            onClick = { showScheduleMenu = false; onCopyPreviousWeek() })
+                        if (weekly.isNotEmpty()) androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Vaciar programación") },
+                            onClick = { showScheduleMenu = false; confirmClearSchedule = true })
+                    }
+                }
                 // Menú «＋» del día seleccionado (paridad DayPlusSheet iOS).
                 TextButton(onClick = { showDayPlus = true },
                     modifier = Modifier.testTag("day_plus_open")) {
@@ -222,6 +238,12 @@ internal fun DiaryTab(
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
     }
+    if (confirmClearSchedule) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmClearSchedule = false },
+        title = { Text("¿Vaciar programación?") },
+        text = { Text("Se quitan las rutinas de todos los días. Las plantillas en Rutinas se conservan. Los entrenos ya registrados se mantienen.") },
+        confirmButton = { TextButton(onClick = { confirmClearSchedule = false; onClearWeeklySchedule() }, enabled = !busy) { Text("Vaciar") } },
+        dismissButton = { TextButton(onClick = { confirmClearSchedule = false }) { Text("Cancelar") } })
     if (showDayPlus) {
         val dayName = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL,
             java.util.Locale("es")).replaceFirstChar { it.uppercase() }

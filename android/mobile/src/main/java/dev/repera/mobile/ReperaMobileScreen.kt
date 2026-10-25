@@ -87,6 +87,8 @@ fun ReperaMobileScreen(
     onStartRoutine: (String) -> Unit,
     onEditRoutine: (String, String, RoutineSchedule) -> Unit,
     onDeleteRoutine: (String) -> Unit,
+    onCopyPreviousWeek: () -> Unit = {},
+    onClearWeeklySchedule: () -> Unit = {},
     onReplaceRoutineBlocks: (String, List<RoutineBlockDraft>) -> Unit,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
@@ -362,6 +364,8 @@ fun ReperaMobileScreen(
                         onStartRoutine = onStartRoutine,
                         onEditRoutine = onEditRoutine,
                         onDeleteRoutine = onDeleteRoutine,
+                        onCopyPreviousWeek = onCopyPreviousWeek,
+                        onClearWeeklySchedule = onClearWeeklySchedule,
                         onEditRoutineContent = { routineId ->
                             navController.navigate("rutina/$routineId")
                         },

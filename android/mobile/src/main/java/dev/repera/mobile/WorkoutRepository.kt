@@ -31,6 +31,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
     }
 
+    @Synchronized fun clearWeeklySchedule() {
+        val state = requireState(); WeeklyScheduleActions.clear(state); save(state)
+    }
+    @Synchronized fun copyPreviousWeekSchedule(today: LocalDate = LocalDate.now()): Int {
+        val state = requireState()
+        val count = WeeklyScheduleActions.copyPreviousWeek(state, today)
+        if (count > 0) save(state)
+        return count
+    }
+
     @Synchronized internal fun updateTrainingSettings(value:TrainingSettings) {
         val state=requireState()
         TrainingSettings.apply(state,value)
