@@ -19,6 +19,23 @@ class LiveLocationSourceInstrumentedTest {
     // A foreground location request must be tested while the app is visible,
     // not from a background instrumentation process without an Activity/FGS.
     @get:org.junit.Rule val compose=androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @Test fun deniedLocationDoesNotStartProviderOrInventSamples() {
+        val real=InstrumentationRegistry.getInstrumentation().targetContext
+        val denied=object:android.content.ContextWrapper(real) {
+            override fun checkPermission(permission:String,pid:Int,uid:Int):Int =
+                if(permission==Manifest.permission.ACCESS_FINE_LOCATION || permission==Manifest.permission.ACCESS_COARSE_LOCATION)
+                    android.content.pm.PackageManager.PERMISSION_DENIED else super.checkPermission(permission,pid,uid)
+        }
+        var count=0
+        val source=LiveLocationSource(denied) { count++ }
+        compose.runOnIdle {
+            assertFalse(source.isAuthorized)
+            assertFalse(source.start("synthetic-denied",LiveSport.RUNNING,emptyList(),0.0))
+            assertEquals("GPS no autorizado. Seguimos registrando el tiempo.",source.lastError)
+            source.stop("synthetic-denied")
+        }
+        assertEquals(0,count);assertEquals(0,source.receivedFixCount)
+    }
     @Suppress("DEPRECATION")
     @Test fun syntheticPlatformProviderStopsOnPauseAndResumeDoesNotBridgeGap() {
         val instrument=InstrumentationRegistry.getInstrumentation()
