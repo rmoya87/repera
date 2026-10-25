@@ -753,6 +753,12 @@ internal fun SettingsTab(
     proStatus:String? = null,
     onUpdateProfile:(ProfileSettings)->Unit = {}
 ) {
+    var confirmSignOut by remember {mutableStateOf(false)}
+    if(confirmSignOut) androidx.compose.material3.AlertDialog(
+        onDismissRequest={confirmSignOut=false},title={Text("¿Cerrar sesión?")},
+        text={Text("Volverás al acceso con Google. Tus datos locales se conservan.")},
+        confirmButton={androidx.compose.material3.TextButton(enabled=!busy,onClick={confirmSignOut=false;onSignOut()}) {Text("Cerrar sesión")}},
+        dismissButton={androidx.compose.material3.TextButton(onClick={confirmSignOut=false}) {Text("Cancelar")}})
     Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(rememberScrollState())).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Ajustes", style = MaterialTheme.typography.titleLarge)
@@ -768,7 +774,7 @@ internal fun SettingsTab(
         Text("Datos", style = MaterialTheme.typography.titleMedium)
         overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
         OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null) {Text("Exportar JSON")}
-        OutlinedButton(onClick=onSignOut,enabled=!busy) {Text("Cerrar sesión")}
+        OutlinedButton(onClick={confirmSignOut=true},enabled=!busy) {Text("Cerrar sesión")}
         Row(modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpenAIAccess)
