@@ -86,7 +86,8 @@ internal fun ExercisesTab(
     onSignOut: () -> Unit,
     onNavigateHome: () -> Unit,
     modifier: Modifier = Modifier,
-    accountId: String = "", onArchiveChanged: () -> Unit = {}
+    accountId: String = "", onArchiveChanged: () -> Unit = {},
+    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> }
 ) {
     var selectedLiveSessionID by rememberSaveable { mutableStateOf<String?>(null) }
     var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
@@ -154,7 +155,11 @@ internal fun ExercisesTab(
                     item { detail.review?.let { SessionReviewCard(it) } }
                     if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty()) }
                     item { LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds) }
-                    detail.notes?.let { note -> item { Text(note) } }
+                    item {
+                        FinishedWorkoutEditorSection(detail, accountId, busy, overview?.exerciseEntries.orEmpty()) { edit ->
+                            onUpdateFinishedWorkout(detail.id, edit)
+                        }
+                    }
                 }
             } else if (selected != null && evolutionRouteID != null && savedRoutes.any { it.id == evolutionRouteID }) {
                 LiveRouteEvolutionScreen(savedRoutes.first { it.id == evolutionRouteID }, selected,

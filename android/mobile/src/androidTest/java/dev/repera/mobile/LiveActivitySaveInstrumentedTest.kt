@@ -64,6 +64,24 @@ class LiveActivitySaveInstrumentedTest {
         assertEquals(1,overview.liveSportSessions.size)
         assertEquals("synthetic-live",overview.completeHistory.single().id)
     }
+    @Test fun savingNewGPSRouteArchivesStableRouteWithoutDuplicates() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val account = "test-route-archive-${UUID.randomUUID()}"
+        val local = LocalSnapshotStore(context,account)
+        local.write(JSONObject().put("workouts",JSONArray()).put("exercises",JSONArray()).put("routines",JSONArray()).toString().toByteArray())
+        val recorder = LiveActivityState();recorder.start(1_000_000,"synthetic-gps")
+        recorder.receive("synthetic-gps",dev.repera.domain.WorkoutRoutePoint(0,40.438,-3.703,1_000_000),0.0)
+        recorder.receive("synthetic-gps",dev.repera.domain.WorkoutRoutePoint(1,40.441,-3.700,1_060_000),400.0)
+        recorder.finish(1_060_000)
+        val repo = WorkoutRepository(context,account)
+        repeat(2) { repo.saveLiveActivity(recorder.snapshot(1_060_000)!!,1_060_000,60.0,"Parque","") }
+        val workout = JSONObject(String(local.read()!!)).getJSONArray("workouts").getJSONObject(0)
+        val route = LiveRoutesStore(context,account).routes.single()
+        assertEquals(route.id,workout.getString("liveRouteID"))
+        assertEquals(recorder.points,route.points)
+        assertFalse(route.isFavorite)
+        assertEquals("running",route.sportID)
+    }
     @Test fun runtimeRestoresCheckpointPausedAcrossAccountIsolationAndDiscardsLocally() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val account = "test-runtime-${UUID.randomUUID()}"

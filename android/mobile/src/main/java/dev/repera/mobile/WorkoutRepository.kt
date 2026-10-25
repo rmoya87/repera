@@ -20,7 +20,7 @@ import java.util.UUID
  * No synthetic workouts, no inferred Health Connect readings, no skipped WOD blocks.
  * A WOD requires the Swift-equivalent planner and is explicitly rejected for now.
  */
-class WorkoutRepository(context: Context, googleId: String) {
+class WorkoutRepository(private val context: Context, private val googleId: String) {
     private val local = LocalSnapshotStore(context, googleId)
     // Espejo remoto: noteDeleted solo toca SharedPreferences (outbox), sin red.
     private val mirror = WorkoutMirrorStore(context, googleId)
@@ -59,6 +59,19 @@ class WorkoutRepository(context: Context, googleId: String) {
             .put("liveSportID", sport.id).put("activeDurationSeconds", activeSeconds)
         if (notes.trim().isNotEmpty()) session.put("notes", notes.trim())
         snapshot.selectedRouteID?.let { session.put("liveRouteID", it) }
+        if (snapshot.selectedRouteID == null && sport.usesGPS && snapshot.points.size >= 2) {
+            // ID estable por sesión: si falla guardar el archivo principal,
+            // el reintento no duplica la ruta ya archivada.
+            val routeID = UUID.nameUUIDFromBytes(("live-route:" + snapshot.gpsSessionID).toByteArray()).toString()
+            session.put("liveRouteID", routeID)
+            runCatching {
+                LiveRoutesStore(context, googleId).recoverFromSessions(listOf(LiveSavedRoute(
+                    id = routeID, title = session.getString("title"), points = snapshot.points,
+                    sportID = sport.id, createdAtMillis = snapshot.startedMillis)))
+            }
+            // Si falla biblioteca, queda el ID en la actividad y la próxima
+            // recuperación podrá reconstruirla sin perder el entrenamiento.
+        }
         if (sport.usesGPS) session.put("recordedDistanceMeters", snapshot.distanceMeters)
         if (snapshot.splitsSeconds.isNotEmpty()) session.put("liveKilometerSplitsSeconds", JSONArray(snapshot.splitsSeconds))
         session.put("routePoints", JSONArray(snapshot.points.map { p -> JSONObject()
