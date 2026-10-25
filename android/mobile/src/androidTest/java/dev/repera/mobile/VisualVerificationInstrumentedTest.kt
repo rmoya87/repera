@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -140,11 +141,20 @@ class VisualVerificationInstrumentedTest {
     // Capturar con MaterialTheme a pelo dibuja la paleta Material por defecto
     // (lavanda) y NO representa la app.
     private fun brandContent(content: @Composable () -> Unit) {
+        // Host de prueba edge-to-edge como producción (targetSdk 37): contenido
+        // fuera de la barra de estado e iconos oscuros sobre fondo claro, para
+        // que las capturas de pantalla completa muestren barras legibles.
+        compose.activity.window.let { w ->
+            androidx.core.view.WindowInsetsControllerCompat(w, w.decorView).apply {
+                isAppearanceLightStatusBars = true
+                isAppearanceLightNavigationBars = true
+            }
+        }
         compose.setContent {
             // Mismo esquema claro que producción (ReperaMobileScreen): verde legible.
             MaterialTheme(colorScheme = lightColorScheme(
                 primary = brandGreenReadable, onPrimary = Color.White)) {
-                Surface(modifier = Modifier.fillMaxSize()) { content() }
+                Surface(modifier = Modifier.fillMaxSize().statusBarsPadding()) { content() }
             }
         }
     }

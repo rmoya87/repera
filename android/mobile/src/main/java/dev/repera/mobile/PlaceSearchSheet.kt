@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,12 +44,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowInsetsControllerCompat
 import dev.repera.domain.PlaceSearchPolicy
 import dev.repera.domain.WorkoutLocationPin
 import kotlinx.coroutines.delay
@@ -251,7 +256,20 @@ fun PlaceSearchSheet(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(modifier = Modifier.fillMaxSize()) {
+        // Edge-to-edge (targetSdk 37): el Dialog de pantalla completa dibuja
+        // bajo las barras del sistema; el contenido va fuera de ellas y los
+        // iconos de la barra en oscuro sobre la superficie clara.
+        val dialogView = LocalView.current
+        LaunchedEffect(Unit) {
+            (dialogView.parent as? DialogWindowProvider)?.window?.let { w ->
+                WindowInsetsControllerCompat(w, dialogView).apply {
+                    isAppearanceLightStatusBars = true
+                    isAppearanceLightNavigationBars = true
+                }
+            }
+        }
+        Surface(modifier = Modifier.fillMaxSize()
+            .statusBarsPadding().navigationBarsPadding()) {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
