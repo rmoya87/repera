@@ -12,6 +12,8 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -56,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import dev.repera.domain.ExerciseAliasSearch
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WodClock
@@ -88,13 +91,17 @@ internal fun ExercisesTab(
     modifier: Modifier = Modifier,
     accountId: String = "", onArchiveChanged: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
-    heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() }
+    heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() },
+    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+        List<ExerciseProgressPoint> = { _, _, _ -> emptyList() }
 ) {
     var selectedLiveSessionID by rememberSaveable { mutableStateOf<String?>(null) }
     var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
     var selectedSportID by rememberSaveable { mutableStateOf<String?>(null) }
     var sportSearch by rememberSaveable { mutableStateOf("") }
     var exerciseSearch by rememberSaveable { mutableStateOf("") }
+    var selectedExerciseID by rememberSaveable { mutableStateOf<String?>(null) }
+    val expandedLayout = LocalConfiguration.current.screenWidthDp >= 600
     var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
     // Ordenación de biblioteca por grupo (paridad ExerciseSortMode iOS):
     // por defecto alfabético; búsqueda siempre plana por relevancia.
@@ -211,12 +218,17 @@ internal fun ExercisesTab(
         }
         return
     }
+    val openEntry: (String) -> Unit = { id ->
+        if (expandedLayout) selectedExerciseID = id
+        else onOpenExercise(id)
+    }
+    val renderLibrary: @Composable (Modifier) -> Unit = { paneModifier ->
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = paneModifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Biblioteca", style = MaterialTheme.typography.headlineMedium) }
+        item { Text("Ejercicios", style = MaterialTheme.typography.headlineLarge) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
@@ -277,7 +289,7 @@ internal fun ExercisesTab(
                         modifier = Modifier.padding(top = 4.dp))
                 }
                 items(groupEntries, key = { it.id }) { entry ->
-        Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
+        Card(modifier = Modifier.fillMaxWidth().clickable { openEntry(entry.id) }) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -359,7 +371,7 @@ internal fun ExercisesTab(
             }
         } else {
         items(entries, key = { it.id }) { entry ->
-Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
+Card(modifier = Modifier.fillMaxWidth().clickable { openEntry(entry.id) }) {
     Column(modifier = Modifier.padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically) {
@@ -443,6 +455,66 @@ Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) 
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
+    }
+    }
+
+    if (expandedLayout) {
+        Row(modifier = modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            renderLibrary(Modifier.weight(1f))
+            Box(modifier = Modifier.weight(1f).fillMaxHeight(),
+                contentAlignment = Alignment.Center) {
+                val selected = overview?.exerciseEntries?.firstOrNull { it.id == selectedExerciseID }
+                if (selected == null) {
+                    Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.FitnessCenter, contentDescription = null,
+                                tint = brandGreen)
+                            Text("Selecciona ejercicio", style = MaterialTheme.typography.titleLarge)
+                            Text("Elige un ejercicio de la lista para ver sus datos y progreso.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = {
+                                onSetExerciseFavorite(selected.id, !selected.isFavorite)
+                            }, enabled = !busy) {
+                                Icon(if (selected.isFavorite) Icons.Default.Star
+                                    else Icons.Default.StarBorder,
+                                    contentDescription = if (selected.isFavorite)
+                                        "Quitar de favoritos" else "Marcar favorito",
+                                    tint = if (selected.isFavorite) brandGreen
+                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = {
+                                onQuickLog(selected.id)
+                                onNavigateHome()
+                            }, enabled = !busy && activeWorkout == null && selected.supportsBasicInput) {
+                                Icon(Icons.Outlined.AddCircleOutline,
+                                    contentDescription = "Apuntar series", tint = brandGreen)
+                            }
+                        }
+                        ExerciseDetailScreen(
+                            entry = selected,
+                            exerciseSeries = exerciseSeries,
+                            onBack = { selectedExerciseID = null },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        renderLibrary(modifier)
     }
 }
 
