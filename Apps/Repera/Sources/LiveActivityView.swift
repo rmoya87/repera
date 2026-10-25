@@ -2682,7 +2682,6 @@ private struct LiveAllRoutesView: View {
 
 private struct LiveRouteLibraryRow: View {
     @State private var routes = LiveRoutesStore.shared
-    @State private var favoriteError: String?
     let routeID: UUID
     var onUseRoute: (LiveSavedRoute) -> Void
     var onDeleteRoute: (UUID) -> Void
@@ -2693,45 +2692,37 @@ private struct LiveRouteLibraryRow: View {
 
     var body: some View {
         if let route {
-            HStack(spacing: 10) {
-                NavigationLink {
-                    LiveRouteLibraryDetailView(
-                        routeID: routeID,
-                        onUseRoute: onUseRoute,
-                        onDeleteRoute: onDeleteRoute
-                    )
-                } label: {
-                    HStack(spacing: 12) {
-                        LiveRouteTrace(points: route.points)
-                            .stroke(OG.accent, style: StrokeStyle(
-                                lineWidth: 2.8, lineCap: .round, lineJoin: .round
-                            ))
-                            .frame(width: 64, height: 54)
-                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(route.title.isEmpty ? route.sportTitle : route.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                                .lineLimit(2)
-                            Text(String(format: "%.2f km · %@", route.distanceKm, route.sportTitle))
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
+            // Link directo en la List: el chevron nativo ocupa el extremo derecho.
+            // Los favoritos se gestionan desde la ficha de ruta.
+            NavigationLink {
+                LiveRouteLibraryDetailView(
+                    routeID: routeID,
+                    onUseRoute: onUseRoute,
+                    onDeleteRoute: onDeleteRoute
+                )
+            } label: {
+                HStack(spacing: 12) {
+                    LiveRouteTrace(points: route.points)
+                        .stroke(OG.accent, style: StrokeStyle(
+                            lineWidth: 2.8, lineCap: .round, lineJoin: .round
+                        ))
+                        .frame(width: 64, height: 54)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(route.title.isEmpty ? route.sportTitle : route.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                        Text(String(format: "%.2f km · %@", route.distanceKm, route.sportTitle))
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-                    .padding(.vertical, 5)
                 }
-                // NavigationLink dibuja su flecha nativa en el extremo derecho.
-                // La gestión de favoritos permanece en el detalle de la ruta.
+                .padding(.vertical, 5)
             }
-            .alert("No se pudo guardar", isPresented: Binding(
-                get: { favoriteError != nil },
-                set: { if !$0 { favoriteError = nil } }
-            )) {
-                Button("Aceptar", role: .cancel) { favoriteError = nil }
-            } message: { Text(favoriteError ?? "") }
         }
     }
 }
