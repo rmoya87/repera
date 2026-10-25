@@ -3,6 +3,8 @@ package dev.repera.mobile
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.Record
+import kotlin.reflect.KClass
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -160,9 +162,9 @@ class HealthConnectReader(private val context: Context) {
             return emptyList()
         val lo = Instant.ofEpochMilli(startEpochMs - dev.repera.domain.SessionHealthMatcher.QUERY_SLACK_MS)
         val hi = Instant.ofEpochMilli(endEpochMs + dev.repera.domain.SessionHealthMatcher.QUERY_SLACK_MS)
-        val response = client.readRecords(ReadRecordsRequest(
-            ExerciseSessionRecord::class, TimeRangeFilter.between(lo, hi)))
-        return response.records.map {
+        val response = client.readAllRecords(
+            ExerciseSessionRecord::class, TimeRangeFilter.between(lo, hi))
+        return response.map {
             dev.repera.domain.SessionHealthMatcher.CandidateSession(
                 id = it.metadata.id,
                 startEpochMs = it.startTime.toEpochMilli(),
@@ -179,9 +181,9 @@ class HealthConnectReader(private val context: Context) {
         val end = Instant.ofEpochMilli(endEpochMs)
         var heart = emptyList<dev.repera.domain.SessionHealthMatcher.HeartSample>()
         if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
-                HeartRateRecord::class, TimeRangeFilter.between(start, end)))
-            heart = response.records.flatMap { record ->
+            val response = client.readAllRecords(
+                HeartRateRecord::class, TimeRangeFilter.between(start, end))
+            heart = response.flatMap { record ->
                 record.samples.map {
                     dev.repera.domain.SessionHealthMatcher.HeartSample(
                         epochMs = it.time.toEpochMilli(),
@@ -194,9 +196,9 @@ class HealthConnectReader(private val context: Context) {
         var kcal = emptyList<KcalSample>()
         if (granted.contains(HealthPermission.getReadPermission(
                 ActiveCaloriesBurnedRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
-                ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end)))
-            kcal = response.records.map {
+            val response = client.readAllRecords(
+                ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end))
+            kcal = response.map {
                 KcalSample(it.startTime.toEpochMilli(), it.endTime.toEpochMilli(),
                     it.energy.inKilocalories, it.metadata.dataOrigin.packageName)
             }
@@ -303,9 +305,9 @@ class HealthConnectReader(private val context: Context) {
         val heartRateDays = mutableMapOf<LocalDate, Triple<Double, Double, Double>>()
         val heartRateCounts = mutableMapOf<LocalDate, Int>()
         if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
-                HeartRateRecord::class, TimeRangeFilter.between(start, now)))
-            for (record in response.records) {
+            val response = client.readAllRecords(
+                HeartRateRecord::class, TimeRangeFilter.between(start, now))
+            for (record in response) {
                 val day = record.startTime.atZone(zone).toLocalDate()
                 val bpm = record.samples.map { it.beatsPerMinute }
                 if (bpm.isEmpty()) continue
@@ -322,9 +324,9 @@ class HealthConnectReader(private val context: Context) {
         val energyDays = mutableMapOf<LocalDate, Double>()
         if (granted.contains(HealthPermission.getReadPermission(
                 ActiveCaloriesBurnedRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
-                ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, now)))
-            for (record in response.records) {
+            val response = client.readAllRecords(
+                ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, now))
+            for (record in response) {
                 val day = record.startTime.atZone(zone).toLocalDate()
                 energyDays[day] = (energyDays[day] ?: 0.0) + record.energy.inKilocalories
             }
@@ -335,9 +337,9 @@ class HealthConnectReader(private val context: Context) {
         val linkedIDs=localSessions.mapNotNull {it.linkedHealthId}.toSet()
         if (granted.contains(HealthPermission.getReadPermission(
                 ExerciseSessionRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
-                ExerciseSessionRecord::class, TimeRangeFilter.between(start, now)))
-            for (record in response.records) {
+            val response = client.readAllRecords(
+                ExerciseSessionRecord::class, TimeRangeFilter.between(start, now))
+            for (record in response) {
                 val measured=HealthWorkoutMinutes.measured(record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),
                     record.segments.filter {it.segmentType==androidx.health.connect.client.records.ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE}
                         .map {it.startTime.toEpochMilli() to it.endTime.toEpochMilli()})
@@ -405,9 +407,9 @@ class HealthConnectReader(private val context: Context) {
         val stageSamples = mutableListOf<dev.repera.domain.SleepStageSample>()
         if (granted.contains(HealthPermission.getReadPermission(
                 SleepSessionRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
-                SleepSessionRecord::class, TimeRangeFilter.between(start, now)))
-            for (record in response.records) {
+            val response = client.readAllRecords(
+                SleepSessionRecord::class, TimeRangeFilter.between(start, now))
+            for (record in response) {
                 val source = record.metadata.dataOrigin.packageName
                 for (stage in record.stages) {
                     val key = when (stage.stage) {
@@ -439,20 +441,20 @@ class HealthConnectReader(private val context: Context) {
         val hrv = mutableListOf<Pair<Long, Double>>()
         if (granted.contains(HealthPermission.getReadPermission(
                 HeartRateVariabilityRmssdRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
+            val response = client.readAllRecords(
                 HeartRateVariabilityRmssdRecord::class,
-                TimeRangeFilter.between(start, now)))
-            for (record in response.records) {
+                TimeRangeFilter.between(start, now))
+            for (record in response) {
                 hrv.add(record.time.toEpochMilli() to record.heartRateVariabilityMillis.toDouble())
             }
         }
         val rest = mutableListOf<Pair<Long, Double>>()
         if (granted.contains(HealthPermission.getReadPermission(
                 RestingHeartRateRecord::class))) {
-            val response = client.readRecords(ReadRecordsRequest(
+            val response = client.readAllRecords(
                 RestingHeartRateRecord::class,
-                TimeRangeFilter.between(start, now)))
-            for (record in response.records) {
+                TimeRangeFilter.between(start, now))
+            for (record in response) {
                 rest.add(record.time.toEpochMilli() to record.beatsPerMinute.toDouble())
             }
         }
@@ -478,10 +480,10 @@ class HealthConnectReader(private val context: Context) {
         val granted = client.permissionController.getGrantedPermissions()
         if (!granted.contains(HealthPermission.getReadPermission(
                 WeightRecord::class))) return emptyList()
-        val response = client.readRecords(ReadRecordsRequest(
+        val response = client.readAllRecords(
             WeightRecord::class,
-            TimeRangeFilter.between(Instant.EPOCH, Instant.now())))
-        return response.records.map {
+            TimeRangeFilter.between(Instant.EPOCH, Instant.now()))
+        return response.map {
             it.time.toEpochMilli() to it.weight.inKilograms
         }.sortedByDescending { it.first }
     }
@@ -502,4 +504,13 @@ class HealthConnectReader(private val context: Context) {
                 .Metadata.manualEntry()
         )))
     }
+}
+
+/** Fetch all pages. A non-null token is opaque and is never guessed or reused.
+ * Errors propagate: returning only the first pages would silently invent completeness. */
+private suspend fun <T : Record> HealthConnectClient.readAllRecords(
+    type: KClass<T>, range: TimeRangeFilter
+): List<T> = collectHealthPages { token ->
+    val page = readRecords(ReadRecordsRequest(type, range, pageToken = token))
+    HealthRecordPage(page.records, page.pageToken)
 }
