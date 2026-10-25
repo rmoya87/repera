@@ -177,6 +177,10 @@ targets:
       - path: Apps/ReperaRestWidget
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
+      # El logotipo corporativo se empaqueta también en la extensión WidgetKit;
+      # los assets de la app no son visibles automáticamente desde otra bundle.
+      - path: Apps/Repera/Resources/Assets.xcassets
+        buildPhase: resources
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.ReperaRestWidget
       # Las configuraciones del target heredan la versión compartida del proyecto.
