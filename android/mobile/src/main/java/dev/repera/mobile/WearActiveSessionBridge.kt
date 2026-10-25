@@ -96,5 +96,9 @@ object WearActiveSessionBridge {
     }
 
     /** Explicit account logout: revoke cached identity and pending commands on the watch. */
-    fun signOut(context: Context) = publish(context, null, signedOut = true)
+    fun signOut(context: Context) {
+        publish(context, null, signedOut = true)
+        publishTodayPlan(context,null)
+        publishWodTimer(context,null,0,null,null)
+    }
 }

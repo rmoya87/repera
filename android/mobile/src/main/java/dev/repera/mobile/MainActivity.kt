@@ -996,13 +996,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 is BusinessCenterStore.LoadResult.Loaded -> {
                     centerSnapshot = result.snapshot
                     centerError = null
+                    profile?.uniqueId?.let {id ->
+                        val plan=withContext(Dispatchers.IO) {WorkoutRepository(this@MainActivity,id).todayPlanSession(professional=result.snapshot.trainingSessions)}
+                        if(centerRevision==revision && verifiedSupabase?.userId==session.userId)
+                            WearActiveSessionBridge.publishTodayPlan(this@MainActivity,plan)
+                    }
                 }
                 is BusinessCenterStore.LoadResult.Failed -> {
                     centerSnapshot=null
                     centerError = result.message
                 }
             }
-            centerLoading = false
+            if(centerRevision==revision) centerLoading = false
         }
     }
 
@@ -1403,7 +1408,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         withContext(Dispatchers.IO) {
             runCatching { WearActiveSessionBridge.publish(this@MainActivity, bytes) }
             runCatching {
-                val plan = WorkoutRepository(this@MainActivity, id).todayPlanSession()
+                val plan = WorkoutRepository(this@MainActivity, id).todayPlanSession(professional=centerSnapshot?.trainingSessions.orEmpty())
                 WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
             }
         }

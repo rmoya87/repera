@@ -46,6 +46,42 @@ class BusinessProjectionInstrumentedTest {
         compose.onNodeWithText("Enviar").performClick()
         assertEquals(Triple("org","Consulta","Prueba local"),sent)
     }
+    @Test fun professionalWearPlanIsFallbackAndNeverPersistsCatalogOrRoutine() {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val id="professional-watch-${java.util.UUID.randomUUID()}";val local=LocalSnapshotStore(ctx,id)
+        val state=JSONObject().put("workouts",JSONArray()).put("routines",JSONArray()).put("exercises",JSONArray())
+        local.write(state.toString().toByteArray());val repo=WorkoutRepository(ctx,id)
+        val prescription=JSONObject().put("schemaVersion",1).put("blocks",JSONArray().put(JSONObject()
+            .put("id","block").put("kind","strength").put("title","Fuerza")
+            .put("exercises",JSONArray().put(JSONObject().put("id","entry").put("name","Sentadilla libre")
+                .put("plannedSets",JSONArray().put(JSONObject().put("id","set").put("targetReps",5).put("targetWeightKg",30)))))))
+        val session=BusinessCenterStore.ProfessionalSession("coach-plan","org","client","coach","2026-10-25","Sesión profesional","","scheduled",prescription)
+        val date=java.time.LocalDate.of(2026,10,25)
+        val before=local.read()!!
+        val plan=repo.todayPlanSession(date,listOf(session))!!
+        assertEquals("coach-plan",plan.getString("routineId"))
+        val exercise=plan.getJSONArray("exercises").getJSONObject(0)
+        assertEquals("Sentadilla libre",exercise.getJSONObject("exercise").getString("name"))
+        assertEquals(5,exercise.getJSONArray("plannedSets").getJSONObject(0).getInt("targetReps"))
+        assertEquals(0,exercise.getJSONArray("loggedSets").length())
+        assertArrayEquals(before,local.read())
+        assertNull(repo.todayPlanSession(date.plusDays(1),listOf(session)))
+        assertNull(repo.todayPlanSession(date,listOf(session.copy(status="completed"))))
+        // Personal plan takes priority; professional entries do not enter the library.
+        val personalExercise=JSONObject().put("id","personal-ex").put("name","Press banca").put("muscleGroup","Pecho")
+        state.getJSONArray("exercises").put(personalExercise)
+        val personalBlock=JSONObject().put("id","personal-block").put("kind","strength").put("title","Personal")
+            .put("exercises",JSONArray().put(JSONObject().put("id","personal-entry").put("exerciseId","personal-ex")
+                .put("plannedSets",JSONArray().put(JSONObject().put("id","personal-set").put("targetReps",8)))))
+        state.getJSONArray("routines").put(JSONObject().put("id","personal").put("title","Rutina propia")
+            .put("scheduledDate","2026-10-25").put("blocks",JSONArray().put(personalBlock)))
+        local.write(state.toString().toByteArray())
+        assertEquals("personal",repo.todayPlanSession(date,listOf(session))!!.getString("routineId"))
+        val stored=local.read()!!
+        state.put("activeSession",plan);local.write(state.toString().toByteArray())
+        assertNull(repo.todayPlanSession(date,listOf(session)))
+        local.write(stored)
+    }
     private fun capture(name:String) {
         compose.waitForIdle()
         val ctx=InstrumentationRegistry.getInstrumentation().targetContext
