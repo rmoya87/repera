@@ -406,7 +406,14 @@ ninguno aparecía en las auditorías del 23/10.
   entreno» (con confirmación) en las tarjetas de fuerza y WOD, deteniendo
   la captura de ubicación como iOS.
 - **Heatmap de actividad** (`ActivityHeatmapView` 488, usada por
-  `StatsView`): NO es gap de capacidad — Android ya tiene
+  `StatsView`): FIDELIDAD PORTADA (25/10): `ActivityHeatmapCard` en
+  `ProgressCharts.kt` — UNA tarjeta con selector segmentado Tiempo/Volumen
+  (SingleChoiceSegmentedButtonRow), franja de días con etiquetas en
+  Hoy/Semana, rejilla por semanas (lunes) con gutter L/X/V, etiquetas de
+  mes, scroll horizontal al final, hoy con borde y futuro al 25%
+  (HeatmapGrid/HeatmapLayout.resolve portados). Capturas:
+  heatmap_franja_semana, heatmap_rejilla_90d, heatmap_rejilla_volumen.
+  Histórico: Android ya tenía
   `StatsEngine.heatmapLevel/heatmapThresholds` (dominio) + `HeatmapCard`
   (rejilla semanal por cuartiles) en Progreso. Diferencias de presentación
   abiertas (fidelidad, no capacidad): iOS usa un segmented picker
@@ -625,8 +632,15 @@ defecto (40124402423); con -gpu guest el arranque es inestable (~50%: arrancó e
 imagen no soporta guest rendering y cae a lavapipe). Cuando la imagen arranca, el
 usuario tarda ~7 min en pasar a RUNNING_UNLOCKED: el workflow ya espera la
 precondición real (run-as = almacenamiento CE) con timeout de pata de 45 min.
-Siguiente intento: gpu guest + -verbose -show-kernel para capturar la causa del
-crash de arranque. Emulador fijado a 37.3.5 (build 16632760) en esa pata para
+Diagnóstico RESUELTO (run 40184763940, gpu guest→lavapipe + -verbose
+-show-kernel): el boot llega a sys.boot_completed=1 y en ese instante
+surfaceflinger recibe SIGABRT (t≈54s del guest) → init mata zygote → adb
+pierde el pipe (exit 224). No es OOM ni un fallo de tests: es el render
+lavapipe. Último intento con hipótesis nueva (25/10): -gpu
+swiftshader_indirect, la config estable de las patas 30/35/37.2, nunca
+probada en 36.1. Si tampoco arranca, la pata queda documentada como
+inestabilidad de imagen 36.1 + emulador en CI y se detiene (sin reruns
+idénticos). Emulador fijado a 37.3.5 (build 16632760) en esa pata para
 eliminar la variable del emulador recién publicado (37.2.12 también crasheó).
 
 Wear OS 6.1 (API 36.1; único build oficial publicado: 36.1_signed_r01):
@@ -636,7 +650,84 @@ SIGKILL repetido a netd/media/audioserver; sys.init.updatable_crashing=1) con AM
 renderers (swiftshader_indirect y guest/lavapipe), sin OOM; adb nunca llega a subir
 y nuestro código nunca se ejecuta (kernel logs de 40178955252 y 40181550822).
 Aislamiento: Wear OS 6.0 (API 36, también android-wear-signed) SÍ arranca y pasa
-los tests en el mismo runner y emulador (40183447742), así que la firma es
-específica del build 6.1 r01 y no de la clase de imágenes signed ni del entorno.
-Sin más reintentos de esa pata hasta nueva señal (build nuevo de la imagen u otra
-evidencia). Queda pendiente; no cerrado ni sustituido por 5.1/6.0.
+los tests en el mismo runner y emulador (40183447742). Lectura limitada: el build
+6.1 falla EN ESTA CONFIGURACIÓN mientras 6.0 pasa en ella; no se demuestra un
+defecto exclusivo de la imagen independiente del entorno. Sin más reintentos de
+esa pata hasta nueva señal (build nuevo de la imagen u otra evidencia). Queda
+pendiente; no cerrado ni sustituido por 5.1/6.0.
+
+## Reconciliación global del inventario (25/10, con la evidencia de ejecución actual)
+
+Clasificación contra CAPABILITY_INVENTORY.md y PARITY_BACKLOG_2026_10_23.md,
+distinguiendo trabajo EJECUTABLE sin más decisiones de lo BLOQUEADO (y por qué).
+
+### Verificado en ejecución/captura hoy (no solo compilado)
+- Patas CI verdes con tests ejecutados (XML): teléfono API 30 (208/208), API 35
+  (208/208), Android 17 API 37.2 canary (202/202), Wear OS 5.1, Wear OS 6.0
+  (signed), job android-native (JVM + builds). Runs 40178955252/40183447742.
+- Editores de plan y de entreno terminado: instrumentados + capturas inspeccionadas
+  (selector de formatos sin hueco ni chips estrangulados, swipe sin sangrado,
+  contraste de acciones, drag A->B visible, acciones Guardar/Cancelar/favorito).
+- Catálogo 288 (seed + migración verificadas), progresión con movimientos WOD
+  como Apple (4/4 instrumentadas), mapa muscular (gate de píxeles), reloj WOD
+  apaisado/vertical (capturas), fixes de arrastre y copia de favorito.
+
+### Ejecutable sin la decisión WOD (autorizado, pendiente de hacer)
+Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
+- #1 PlaceSearchSheet: CABLEADO en los tres call sites de iOS (WorkoutView ->
+  HomeTab:235 activo; HistoryView -> FinishedWorkoutEditor:79 con la misma
+  regla "sin pin manual si hay ruta de Salud"; PlanView completedDetails ->
+  mismo editor de terminado). Búsqueda POI: YA hay proveedor compuesto
+  Photon + Geocoder (PhotonPlaceSearchProvider/GeocoderPlaceSearchProvider).
+  Verificación integrada HECHA (25/10): seam `providerOverride` en
+  PlaceSearchSheet + test flujoBusquedaLugarConProveedorSimulado (proveedor
+  falso determinista: resultados -> confirmar -> pin fijado) y capturas
+  lugar_selector_vacio/con_pin; el provider real sigue sin ser determinista
+  en CI.
+- #3 Salud: el escritor YA EXISTE (HealthConnectWriter.syncFinishedSession
+  con clientRecordId estable, adopción de vínculo y sin escritura de kcal/FC),
+  llamado desde MainActivity al terminar; contrato de degradación probado en
+  CI SIN escribir registros reales (HealthConnectInstrumentedTest). Resta: la
+  verificación de comportamiento completo requiere la app Health Connect real
+  (entorno, no código).
+- #2 RouteMap: verificación de píxeles PREPARADA (25/10): seam
+  `onStyleLoaded` en RouteMapView + test capturaRutaCardioMapa (ruta
+  sintética del Retiro, latch de estilo 60 s, captura con
+  UiAutomation.takeScreenshot porque el GL de MapLibre no lo cubre
+  captureToImage; fallback al canvas degradado determinista).
+- Ubicación (pin + ruta) y descartar sesión: pruebas integradas en CI con
+  ubicación simulada.
+- Fidelidad: ~~ActivityHeatmapView~~ PORTADA (25/10, ver entrada del heatmap);
+  SessionPreviewView (contraste visual); OnboardingFlowView
+  (colores de marca del botón Google, busy por proveedor, layout); verificación
+  táctil del swipe-to-reveal y de los scrubs cardio en integración.
+
+### Bloqueado de verdad (y causa)
+- Decisión WOD ladder (Ramón, preguntada 09:30, sin respuesta): SOLO bloquea
+  revisar el criterio de progresión sobre movimientos WOD; la política en vigor
+  es la réplica literal de Apple. Nada más depende de ella.
+- Comercial/monetización (Play Console, productos, precios, backend de compras):
+  SIN autorización del usuario. Bloqueo de autorización, no técnico.
+- Sync multidispositivo: separado en (a) verificable con el backend EXISTENTE
+  (Supabase/Google Drive ya usados por la app: qué flujos se comportan igual en
+  dos dispositivos hoy, con almacenamiento/proveedores simulados) y (b) lo que
+  exige cambio de backend NUEVO no autorizado (equivalente al iCloud
+  best-effort de iOS). Solo (b) está bloqueado por autorización.
+- Hardware físico y E2E teléfono-reloj real: fuera del alcance de CI/sandbox.
+- Wear OS 6.1: bloqueado pre-app (firma documentada arriba; en esta
+  configuración el build 6.1 falla y el 6.0 pasa; no se afirma defecto
+  exclusivo de la imagen independiente del entorno). Sin reruns idénticos.
+- Teléfono API 36.1: arranque inestable con -gpu guest (~50%); diagnóstico con
+  -show-kernel en curso (última iteración planificada sin hipótesis nueva).
+- Arte: el lote solicitado está CERRADO (489 raíz + 488 thumbs verificados por
+  hash) y main b151c4d no añadió assets; NO está bloqueado. Solo re-verificar si
+  aparece una señal actual de assets nuevos.
+- Distribución (firma, Play Console, P2 #12): no autorizada.
+
+### Conflicto resuelto (25/10)
+PARITY_BACKLOG_2026_10_23.md pedía "#30D158 con contenido negro" en ambos temas.
+Corrección de LEGIBILIDAD dentro del encargo de paridad (fuente: revisión de
+capturas por main, 25/10; no una preferencia estética nueva atribuida a Ramón):
+en el esquema CLARO el primary pasa a #0E7A38 con onPrimary blanco
+(~2:1 -> ~4.9:1); el esquema oscuro mantiene #30D158. Alcance: solo el esquema
+claro y sus capturas. Supersede a la nota del 23/10.

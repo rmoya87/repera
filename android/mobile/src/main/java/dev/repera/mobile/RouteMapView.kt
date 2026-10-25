@@ -52,7 +52,9 @@ import org.json.JSONObject
 internal fun RouteMapView(
     points: List<WorkoutRoutePoint>,
     isInteractive: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Solo verificación: avisa cuando el estilo cargó y la ruta se pintó. */
+    onStyleLoaded: (() -> Unit)? = null
 ) {
     var failed by remember { mutableStateOf(false) }
     if (failed) {
@@ -100,6 +102,7 @@ internal fun RouteMapView(
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
                         runCatching { applyRoute(map, style, points) }
                             .onFailure { failed = true }
+                            .onSuccess { onStyleLoaded?.invoke() }
                     }
                 }
             }

@@ -79,10 +79,12 @@ jobs:
           # Intento controlado: el set sano (con -noaudio) + -gpu guest
           # (renderizado software en el invitado, sin libs de host).
           - api: '36.1'
-            # -verbose -show-kernel: el arranque con gpu guest es inestable
-            # (~50%; la imagen no soporta guest rendering y cae a lavapipe).
-            # Si QEMU vuelve a morir al iniciar, el log del guest dirá dónde.
-            emu_opts: '-no-window -gpu guest -no-snapshot -noaudio -no-boot-anim -memory 4096 -verbose -show-kernel'
+            # Diagnóstico 40184763940 (gpu guest→lavapipe, -show-kernel):
+            # el boot llega a sys.boot_completed=1 pero en ese instante
+            # surfaceflinger recibe SIGABRT → init mata zygote → adb pierde el
+            # pipe (exit 224). Hipótesis nueva no probada: swiftshader_indirect
+            # (GLES por software puro), la config estable de las patas 30/35/37.2.
+            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
             job_timeout: 45
             # 40181550822: con el emulador 37.2.12 recién publicado, -gpu guest cae a
             # lavapipe (la imagen 36.1 no soporta guest rendering) y QEMU muere al

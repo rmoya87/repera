@@ -21,6 +21,15 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import dev.repera.domain.WorkoutLocationPin
+import dev.repera.domain.WorkoutRoutePoint
+import org.junit.Assert.assertEquals
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -273,8 +282,8 @@ class VisualVerificationInstrumentedTest {
         }
         brandContent {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                HeatmapCard("Constancia (minutos por día)", time)
-                HeatmapCard("Volumen (kg por día)", volume)
+                ActivityHeatmapCard(time, volume,
+                    dev.repera.domain.ProgressTimeRange.DAYS_90)
             }
         }
         compose.waitForIdle()
@@ -681,6 +690,133 @@ class VisualVerificationInstrumentedTest {
         compose.onNodeWithText("Añadir bloque").performScrollTo()
         compose.waitForIdle()
         save("editor_plan_bloques_inferior", compose.onRoot().captureToImage())
+    }
+
+    // ---- Selector de lugar + mapa de ruta: evidencia visual real (25/10) ----
+
+    private class FakePlaceProvider : PlaceSearchProvider {
+        override suspend fun search(query: String, biasMinLat: Double?, biasMinLon: Double?,
+                                    biasMaxLat: Double?, biasMaxLon: Double?) = listOf(
+            PlaceSearchResult("Box Ejemplo Norte", 40.4380, -3.7030, "fake-1",
+                addressLine = "Calle Falsa 1, Madrid"),
+            PlaceSearchResult("Parque Ejemplo", 40.4200, -3.6900, "fake-2",
+                addressLine = "Av. de Prueba 22, Madrid"))
+    }
+
+    @Test
+    fun capturaSelectorLugarEstados() {
+        var pin by mutableStateOf<WorkoutLocationPin?>(null)
+        brandContent {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                WorkoutPlacePickerRow(pin = pin, accountId = "acc-vis", onPinChange = { pin = it })
+            }
+        }
+        compose.waitForIdle()
+        save("lugar_selector_vacio", compose.onRoot().captureToImage())
+        pin = WorkoutLocationPin(40.4380, -3.7030, 1_700_000_000_000L,
+            name = "Box Ejemplo Norte", mapItemIdentifier = "fake-1")
+        compose.waitForIdle()
+        save("lugar_selector_con_pin", compose.onRoot().captureToImage())
+    }
+
+    @Test
+    fun flujoBusquedaLugarConProveedorSimulado() {
+        var selected: WorkoutLocationPin? = null
+        brandContent {
+            PlaceSearchSheet(initialPin = null, accountId = "acc-vis",
+                onSelect = { selected = it }, onDismiss = {},
+                providerOverride = FakePlaceProvider())
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("place_query").performTextInput("box madrid")
+        // Política de dominio real: debounce 800 ms antes de consultar.
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithText("Box Ejemplo Norte").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitForIdle()
+        save("lugar_hoja_resultados", compose.onRoot().captureToImage())
+        compose.onNodeWithText("Box Ejemplo Norte").performClick()
+        compose.waitForIdle()
+        save("lugar_hoja_confirmar", compose.onRoot().captureToImage())
+        compose.onNodeWithTag("place_confirm").performClick()
+        compose.waitForIdle()
+        assertEquals("Box Ejemplo Norte", selected?.name)
+        assertEquals("fake-1", selected?.mapItemIdentifier)
+    }
+
+    /** ActivityHeatmapCard: franja (semana) vs rejilla (90 días) + cambio de
+     *  métrica, para fidelidad con ActivityHeatmapView iOS. */
+    @Test
+    fun capturaHeatmapActividadFranjaYRejilla() {
+        val hoy = java.time.LocalDate.now()
+        val niveles = { seed: Int ->
+            (0..97).map { i ->
+                val dia = hoy.minusDays((97 - i).toLong())
+                dia to ((i * 7 + seed) % 5)
+            }
+        }
+        var range by mutableStateOf(dev.repera.domain.ProgressTimeRange.WEEK)
+        brandContent {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                ActivityHeatmapCard(
+                    timeLevels = niveles(1).takeLast(if (range == dev.repera.domain.ProgressTimeRange.WEEK) 7 else 98),
+                    volumeLevels = niveles(3).takeLast(if (range == dev.repera.domain.ProgressTimeRange.WEEK) 7 else 98),
+                    range = range)
+            }
+        }
+        compose.waitForIdle()
+        save("heatmap_franja_semana", compose.onRoot().captureToImage())
+        range = dev.repera.domain.ProgressTimeRange.DAYS_90
+        compose.waitForIdle()
+        save("heatmap_rejilla_90d", compose.onRoot().captureToImage())
+        compose.onNodeWithTag("heatmap_metric_volume").performClick()
+        compose.waitForIdle()
+        save("heatmap_rejilla_volumen", compose.onRoot().captureToImage())
+        // El selector segmentado conmuta la leyenda a volumen.
+        compose.onAllNodesWithText("Menos volumen").fetchSemanticsNodes().isNotEmpty().let { hay ->
+            if (!hay) throw AssertionError("La leyenda de volumen no aparece tras cambiar de métrica")
+        }
+    }
+
+    private fun rutaCardioSintetica(): List<WorkoutRoutePoint> {
+        // Bucle sintético ~1,2 km alrededor del Retiro (Madrid) con velocidad
+        // variable para cubrir los colores por segmento (paridad speedColor iOS).
+        val base = listOf(
+            40.4153 to -3.6845, 40.4160 to -3.6830, 40.4170 to -3.6820,
+            40.4180 to -3.6825, 40.4188 to -3.6840, 40.4190 to -3.6860,
+            40.4182 to -3.6880, 40.4170 to -3.6890, 40.4158 to -3.6885,
+            40.4150 to -3.6870, 40.4148 to -3.6855, 40.4153 to -3.6845)
+        val speeds = listOf(2.2, 2.6, 3.1, 3.4, 2.9, 2.4, 2.8, 3.3, 3.0, 2.5, 2.3, 0.0)
+        return base.mapIndexed { i, (lat, lon) ->
+            WorkoutRoutePoint(i, lat, lon, 1_700_000_000_000L + i * 45_000L,
+                speedMps = speeds[i], altitudeMeters = 640.0 + i)
+        }
+    }
+
+    @Test
+    fun capturaRutaCardioMapa() {
+        // El mapa nativo (MapLibre/GL) NO lo captura captureToImage: hay que
+        // leer el framebuffer real (UiAutomation, API 30+). Se espera a que el
+        // estilo cargue (seam de verificación) y a que lleguen teselas.
+        val styleLoaded = java.util.concurrent.CountDownLatch(1)
+        brandContent {
+            Column(Modifier.fillMaxSize()) {
+                RouteMapView(points = rutaCardioSintetica(), isInteractive = false,
+                    modifier = Modifier.fillMaxWidth().height(420.dp),
+                    onStyleLoaded = { styleLoaded.countDown() })
+            }
+        }
+        compose.waitForIdle()
+        val loaded = styleLoaded.await(60, java.util.concurrent.TimeUnit.SECONDS)
+        if (!loaded) {
+            // Sin red/teselas el componente degrada a Canvas: captura lo que haya.
+            save("ruta_cardio_mapa", compose.onRoot().captureToImage())
+            return
+        }
+        Thread.sleep(8_000) // teselas asíncronas tras el estilo
+        val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        checkNotNull(shot) { "UiAutomation.takeScreenshot devolvió null" }
+        save("ruta_cardio_mapa", shot.asImageBitmap())
     }
 
     private val editorTerminadoBlocksJson = """[{"id":"b1","title":"A","kind":"strength","exercises":[

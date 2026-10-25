@@ -231,12 +231,10 @@ internal fun ProgressTab(
                 item { ProgressChartsCard(charts) }
             }
             if (snapshot.heatmapTime.isNotEmpty()) {
-                item { HeatmapCard("Constancia (minutos por día)",
-                    snapshot.heatmapTime) }
-            }
-            if (snapshot.heatmapVolume.isNotEmpty()) {
-                item { HeatmapCard("Volumen (kg por día)",
-                    snapshot.heatmapVolume) }
+                // ActivityHeatmapView iOS: UNA tarjeta con picker segmentado.
+                item { ActivityHeatmapCard(snapshot.heatmapTime,
+                    snapshot.heatmapVolume,
+                    dev.repera.domain.ProgressTimeRange.entries.first { it.wire == selectedRange }) }
             }
             if (snapshot.cardioSeries.isNotEmpty()) {
                 item {

@@ -1,6 +1,12 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -115,38 +123,190 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts) {
     }
 }
 
-/** Mapa de calor por semanas (columnas) y días (filas), niveles 0-4. */
+/** Heatmap de actividad (ActivityHeatmapView iOS): UNA tarjeta con selector
+ *  segmentado Tiempo/Volumen (iOS tenía picker segmentado dentro de la tarjeta;
+ *  antes había aquí dos tarjetas separadas). Hoy/Esta semana = franja de días
+ *  estirada a lo ancho con etiquetas de día; rangos largos = rejilla por semanas
+ *  (semana que empieza en lunes) con gutter L/X/V, etiquetas de mes y scroll
+ *  horizontal que arranca al final. Hoy lleva borde claro; futuro al 25%. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, Int>>) {
+internal fun ActivityHeatmapCard(
+    timeLevels: List<Pair<java.time.LocalDate, Int>>,
+    volumeLevels: List<Pair<java.time.LocalDate, Int>>,
+    range: dev.repera.domain.ProgressTimeRange
+) {
+    if (timeLevels.isEmpty() && volumeLevels.isEmpty()) return
+    var metric by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("time") }
+    val levels = if (metric == "time") timeLevels else volumeLevels
     if (levels.isEmpty()) return
+    val isStrip = range == dev.repera.domain.ProgressTimeRange.TODAY ||
+        range == dev.repera.domain.ProgressTimeRange.WEEK
+    val es = java.util.Locale("es", "ES")
+    val dayFmt = java.time.format.DateTimeFormatter.ofPattern("EEE", es)
+    val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM", es)
+
+    // Modelo de presentación portado de HeatmapGrid.build (iOS).
+    data class Col(val cells: List<Triple<java.time.LocalDate?, Int, Boolean>>) // (día, nivel, futuro)
+    val today = levels.last().first
+    val levelByDay = levels.toMap()
+    val columns: List<Col>
+    val monthLabels: List<String>
+    val dayLabels: List<String>
+    if (isStrip) {
+        val days = levels.take(15) // iOS: tope tras 15 columnas
+        columns = days.map { (day, level) ->
+            Col(listOf(Triple(day, level, false)))
+        }
+        monthLabels = emptyList()
+        dayLabels = days.map { (day, _) -> dayFmt.format(day).replace(".", "") }
+    } else {
+        val weeksBack = when (range) {
+            dev.repera.domain.ProgressTimeRange.MONTH -> 4
+            dev.repera.domain.ProgressTimeRange.DAYS_90 -> 13
+            dev.repera.domain.ProgressTimeRange.DAYS_180 -> 26
+            dev.repera.domain.ProgressTimeRange.DAYS_360 -> 52
+            else -> 0
+        }
+        val offsetInWeek = today.dayOfWeek.value - 1 // lunes = 0, como iOS (firstWeekday 2)
+        val endOfWeek = today.minusDays(offsetInWeek.toLong())
+        val start = endOfWeek.minusWeeks(weeksBack.toLong())
+        val cols = mutableListOf<Col>()
+        val months = mutableListOf<String>()
+        var lastMonth = -1
+        for (wk in 0..weeksBack) {
+            val colStart = start.plusWeeks(wk.toLong())
+            val mo = colStart.monthValue
+            val showM = mo != lastMonth && colStart.dayOfMonth <= 7 && wk < weeksBack
+            months.add(if (showM) monthFmt.format(colStart) else "")
+            if (colStart.dayOfMonth <= 7) lastMonth = mo
+            val cells = (0..6).map { d ->
+                val date = colStart.plusDays(d.toLong())
+                val future = date.isAfter(today)
+                Triple(date, if (future) 0 else (levelByDay[date] ?: 0), future)
+            }
+            cols.add(Col(cells))
+        }
+        columns = cols
+        monthLabels = months
+        dayLabels = emptyList()
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            // Paleta 1:1 con iOS: BodyMapPalette.fill(level) (gris→verde→
-            // amarillo→naranja→rojo), no alfa escalado del primario.
-            Canvas(modifier = Modifier
-                .fillMaxWidth()
-                .height(118.dp)
-                .padding(top = 8.dp)) {
-                val first = levels.first().first
-                // Semana que empieza en lunes, como iOS.
-                val offset = first.dayOfWeek.value - 1
-                val totalCells = levels.size + offset
-                val weeks = (totalCells + 6) / 7
-                val cw = size.width / weeks
-                val ch = size.height / 7
-                val gap = minOf(cw, ch) * 0.16f
-                levels.forEachIndexed { i, (day, level) ->
-                    val cell = offset + i
-                    val col = cell / 7
-                    val row = cell % 7
-                    drawRoundRect(
-                        color = BodyMapPalette.fill(level),
-                        topLeft = Offset(col * cw + gap / 2, row * ch + gap / 2),
-                        size = androidx.compose.ui.geometry.Size(
-                            cw - gap, ch - gap),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f)
-                    )
+            Text("Actividad", style = MaterialTheme.typography.titleLarge)
+            // Picker .segmented de iOS.
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    .testTag("heatmap_metric")
+            ) {
+                listOf("time" to "Tiempo", "volume" to "Volumen").forEachIndexed { i, (key, label) ->
+                    SegmentedButton(
+                        selected = metric == key,
+                        onClick = { metric = key },
+                        shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                            index = i, count = 2),
+                        modifier = Modifier.testTag("heatmap_metric_$key"),
+                        label = { Text(label) })
+                }
+            }
+
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                // HeatmapLayout.resolve de iOS, en dp.
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val widthDp = with(density) { maxWidth }
+                val cols = columns.size.coerceAtLeast(1)
+                val rows = if (isStrip) 1 else 7
+                val labelWidth = if (isStrip) 0.dp else 14.dp
+                val gapRatio = if (isStrip) 0.12f else 0.2f
+                val minCell = if (isStrip) 28.dp else 11.dp
+                val usable = maxOf(40.dp, widthDp - labelWidth - if (isStrip) 0.dp else 4.dp)
+                val ideal = usable / (cols + gapRatio * (cols - 1).coerceAtLeast(0))
+                val needsScroll = ideal < minCell
+                val cell = if (needsScroll) minCell else ideal
+                val gap = if (needsScroll) (if (isStrip) 4.dp else 3.dp)
+                          else maxOf(2.dp, cell * gapRatio)
+                val canvasWidth = cell * cols + gap * (cols - 1).coerceAtLeast(0)
+                val canvasHeight = cell * rows + gap * (rows - 1).coerceAtLeast(0)
+                val radius = maxOf(2.dp, minOf(8.dp, cell * 0.2f))
+                val scroll = androidx.compose.foundation.rememberScrollState()
+
+                Column {
+                    if (!isStrip) {
+                        // Etiquetas de mes sobre las columnas (monthLabelsRow iOS).
+                        Row(modifier = Modifier.horizontalScroll(scroll)) {
+                            Spacer(Modifier.width(labelWidth + gap))
+                            monthLabels.forEach { label ->
+                                Text(label, fontSize = 9.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, softWrap = false,
+                                    modifier = Modifier.width(cell + gap))
+                            }
+                        }
+                    }
+                    Row {
+                        if (!isStrip) {
+                            // Gutter de días: L/X/V en filas 1/3/5 (weekDayGutter iOS).
+                            val gutter = listOf("", "L", "", "X", "", "V", "")
+                            Column {
+                                gutter.forEach { g ->
+                                    Box(modifier = Modifier.width(labelWidth).height(cell + gap),
+                                        contentAlignment = Alignment.CenterEnd) {
+                                        Text(g, fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.width(gap))
+                        }
+                        val canvas: @Composable () -> Unit = {
+                            Canvas(modifier = Modifier
+                                .width(canvasWidth).height(canvasHeight)
+                                .testTag("heatmap_canvas")) {
+                                val cellPx = cell.toPx(); val gapPx = gap.toPx()
+                                columns.forEachIndexed { colIdx, col ->
+                                    col.cells.forEachIndexed { row, (date, level, future) ->
+                                        val x = colIdx * (cellPx + gapPx)
+                                        val y = row * (cellPx + gapPx)
+                                        var color = BodyMapPalette.fill(level)
+                                        if (future) color = color.copy(alpha = 0.25f)
+                                        drawRoundRect(color = color,
+                                            topLeft = Offset(x, y),
+                                            size = androidx.compose.ui.geometry.Size(cellPx, cellPx),
+                                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                                radius.toPx()))
+                                        if (date == today) {
+                                            drawRoundRect(color = Color.White.copy(alpha = 0.75f),
+                                                topLeft = Offset(x, y),
+                                                size = androidx.compose.ui.geometry.Size(cellPx, cellPx),
+                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                                    radius.toPx()),
+                                                style = Stroke(width = maxOf(1f, cellPx * 0.05f)))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (needsScroll) {
+                            Row(modifier = Modifier.horizontalScroll(scroll)) { canvas() }
+                            // iOS arranca con el scroll al final (lo más reciente).
+                            androidx.compose.runtime.LaunchedEffect(cols, metric) {
+                                scroll.scrollTo(scroll.maxValue)
+                            }
+                        } else canvas()
+                    }
+                    if (isStrip) {
+                        // Etiquetas de día bajo la franja (dayLabelsRow iOS).
+                        Row {
+                            dayLabels.forEach { label ->
+                                Text(label, fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, softWrap = false,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.width(cell + gap))
+                            }
+                        }
+                    }
                 }
             }
             // Leyenda 1:1 con ActivityHeatmapView iOS.
@@ -155,7 +315,8 @@ internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, I
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Menos", style = MaterialTheme.typography.bodySmall,
+                Text(if (metric == "volume") "Menos volumen" else "Menos tiempo",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 (0..4).forEach { level ->
                     Spacer(Modifier.width(4.dp))
@@ -163,7 +324,8 @@ internal fun HeatmapCard(title: String, levels: List<Pair<java.time.LocalDate, I
                         .background(BodyMapPalette.fill(level)))
                 }
                 Spacer(Modifier.width(4.dp))
-                Text("Más", style = MaterialTheme.typography.bodySmall,
+                Text(if (metric == "volume") "Más volumen" else "Más tiempo",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text("Intensidad por cuartiles del periodo",

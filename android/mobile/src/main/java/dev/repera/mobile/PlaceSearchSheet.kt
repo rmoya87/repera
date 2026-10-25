@@ -192,10 +192,13 @@ fun PlaceSearchSheet(
     initialPin: WorkoutLocationPin?,
     accountId: String,
     onSelect: (WorkoutLocationPin?) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** Solo verificación: proveedor simulado. Producción siempre usa el compuesto. */
+    providerOverride: PlaceSearchProvider? = null
 ) {
     val context = LocalContext.current
-    val provider = remember { CompositePlaceSearchProvider(PhotonPlaceSearchProvider(), GeocoderPlaceSearchProvider(context)) }
+    val composite = remember { CompositePlaceSearchProvider(PhotonPlaceSearchProvider(), GeocoderPlaceSearchProvider(context)) }
+    val provider = providerOverride ?: composite
     val recentStore = remember { RecentPlacesStore(context, accountId) }
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<PlaceSearchResult>>(emptyList()) }
@@ -232,7 +235,7 @@ fun PlaceSearchSheet(
                 resolveError = "No se pudo buscar el lugar."
                 emptyList()
             }
-        limitedNotice = provider.establishmentsUnavailable
+        limitedNotice = (provider as? CompositePlaceSearchProvider)?.establishmentsUnavailable == true
         isResolving = false
     }
 
