@@ -1219,7 +1219,7 @@ struct LiveActivityView: View {
                                 reviewTile(
                                     "Distancia",
                                     value: String(format: "%.2f km",
-                                        session.recordedDistanceMeters ?? 0 / 1000),
+                                        (session.recordedDistanceMeters ?? 0) / 1000),
                                     icon: "point.bottomleft.forward.to.point.topright.scurvepath",
                                     tint: OG.accent
                                 )
