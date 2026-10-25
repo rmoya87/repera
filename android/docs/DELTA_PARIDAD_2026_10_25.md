@@ -140,3 +140,11 @@ main móvil invisible.)
 - D1/D4: añadidas precisiones horizontal/vertical con defaults y round-trip
   en modelo, snapshot/historial, almacén de rutas y tracker clásico.
   Local: dominio 269/0 + mobile JVM 189/0. Cambios aún no en SHA verde CI.
+
+- D4 recorder puro (LiveActivityState) implementado: fases idle/recording/
+  paused/review, reloj activo, snapshot/restauración siempre en pausa, ID de
+  sesión para descartar callbacks antiguos, odómetro filtrado sin sumar dos
+  veces, parciales interpolados incluso varios cruces, elevación validada con
+  umbral 3m y precisión ≤15m, limpieza al descartar. 6 tests nuevos verdes;
+  dominio 275/0. Falta integración proveedor GPS/FGS/persistencia/audio/UI;
+  estos tests NO prueban segundo plano ni hardware.
