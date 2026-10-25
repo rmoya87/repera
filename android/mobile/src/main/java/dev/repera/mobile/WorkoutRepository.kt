@@ -544,7 +544,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * {id, date, weightKg, source:"manual"}). Un registro por día: repetir
      * el mismo día sustituye la medición anterior.
      */
-    @Synchronized fun logBodyWeight(weightKg: Double, date: String? = null) {
+    @Synchronized fun logBodyWeight(weightKg: Double, date: String? = null): Pair<Long,Double> {
         require(weightKg.isFinite() && weightKg in 20.0..400.0) {
             "Peso fuera de rango"
         }
@@ -552,17 +552,19 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val state = requireState()
         val weights = state.optJSONArray("bodyWeights")
             ?: JSONArray().also { state.put("bodyWeights", it) }
-        // Un registro por día: se sustituye el existente.
+        // Apple keeps the entry identity and uses the actual capture time, not midnight.
+        val instant=if(date==null) Instant.now() else day.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        var preservedId:String?=null
         for (i in weights.length() - 1 downTo 0) {
             val entry = weights.optJSONObject(i) ?: continue
-            if (BodyWeightHistory.day(entry.optString("date")) == day) weights.remove(i)
+            if (BodyWeightHistory.day(entry.optString("date")) == day) {
+                preservedId=entry.optString("id").takeIf {it.isNotBlank()};weights.remove(i)
+            }
         }
-        weights.put(JSONObject()
-            .put("id", UUID.randomUUID().toString())
-            .put("date", day.atStartOfDay(ZoneId.systemDefault()).toInstant().toString())
-            .put("weightKg", weightKg)
-            .put("source", "manual"))
+        weights.put(JSONObject().put("id",preservedId ?: UUID.randomUUID().toString())
+            .put("date",instant.toString()).put("weightKg",weightKg).put("source","manual"))
         save(state)
+        return instant.toEpochMilli() to weightKg
     }
 
     /**

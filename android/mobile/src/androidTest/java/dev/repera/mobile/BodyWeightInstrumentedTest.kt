@@ -29,19 +29,26 @@ class BodyWeightInstrumentedTest {
 
     @Test fun logWritesSharedFormatAndOnePerDay() {
         val (repo, local) = repo()
-        repo.logBodyWeight(80.5)
+        val before=System.currentTimeMillis()
+        val captured=repo.logBodyWeight(80.5)
+        assertTrue(captured.first>=before && captured.first<=System.currentTimeMillis())
         var array = weights(local)
         assertEquals(1, array.length())
         val entry = array.getJSONObject(0)
         assertEquals(80.5, entry.getDouble("weightKg"), 0.001)
         assertEquals("manual", entry.getString("source"))
         assertTrue(entry.getString("id").isNotBlank())
-        assertTrue(entry.getString("date").startsWith(LocalDate.now().toString()))
+        assertEquals(LocalDate.now(),BodyWeightHistory.day(entry.getString("date")))
+        val identity=entry.getString("id")
         // Mismo día: sustituye, no duplica.
         repo.logBodyWeight(81.0)
         array = weights(local)
         assertEquals(1, array.length())
         assertEquals(81.0, array.getJSONObject(0).getDouble("weightKg"), 0.001)
+        assertEquals(identity,array.getJSONObject(0).getString("id"))
+        // Empty authorized provider still exports local-only days.
+        val outbound=repo.mergeHealthBodyWeights(emptyList())
+        assertEquals(1,outbound.size);assertEquals(81.0,outbound.single().second,0.0)
         // Otro día explícito: coexisten.
         repo.logBodyWeight(79.0, "2026-10-01")
         assertEquals(2, weights(local).length())

@@ -496,7 +496,8 @@ class HealthConnectReader(private val context: Context) {
     }
 
     /** Escribe un peso en Salud (saveBodyMass de iOS). */
-    suspend fun saveBodyMass(kg: Double, epochMillis: Long) {
+    suspend fun saveBodyMass(kg: Double, epochMillis: Long, owner:String) {
+        require(kg.isFinite() && kg>0 && owner.isNotBlank())
         check(available()) { "Health Connect no está disponible en este dispositivo" }
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
@@ -508,7 +509,8 @@ class HealthConnectReader(private val context: Context) {
             time = instant, zoneOffset = offset,
             weight = androidx.health.connect.client.units.Mass.kilograms(kg),
             metadata = androidx.health.connect.client.records.metadata
-                .Metadata.manualEntry()
+                .Metadata.manualEntry(clientRecordId=BodyWeightHealthIdentity.recordId(owner,epochMillis),
+                    clientRecordVersion=epochMillis)
         )))
     }
 }

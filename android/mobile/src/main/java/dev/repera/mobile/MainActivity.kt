@@ -767,7 +767,20 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onDeleteBodyWeight = { id -> runWorkoutAction { deleteBodyWeight(id) } },
                 onLogBodyWeight = { kg ->
-                    runWorkoutAction { logBodyWeight(kg) }
+                    val owner=profile?.uniqueId
+                    val revision=centerGate.revision
+                    var recorded:Pair<Long,Double>?=null
+                    runWorkoutAction(onSuccess={
+                        recorded?.let {(millis,value) ->
+                            if(owner!=null && profile?.uniqueId==owner && centerGate.revision==revision) lifecycleScope.launch {
+                                // Local save succeeds even if Health is unavailable or permission was denied.
+                                withContext(Dispatchers.IO) {runCatching {
+                                    if(profile?.uniqueId==owner && centerGate.revision==revision)
+                                        HealthConnectReader(this@MainActivity).saveBodyMass(value,millis,owner)
+                                }}
+                            }
+                        }
+                    }) {recorded=logBodyWeight(kg)}
                 },
                 onSetRoutineProgression = { id, policy ->
                     runWorkoutAction { setRoutineProgression(id, policy) }
@@ -1295,9 +1308,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val weights=reader.readBodyMass()
-                        if(current() && weights.isNotEmpty()) {
+                        if(current()) {
                             val localOnly=WorkoutRepository(this@MainActivity,owner).mergeHealthBodyWeights(weights)
-                            localOnly.forEach {(millis,kg) -> if(current()) runCatching {reader.saveBodyMass(kg,millis)}}
+                            localOnly.forEach {(millis,kg) -> if(current()) runCatching {reader.saveBodyMass(kg,millis,owner)}}
                         }
                     }
                 }
