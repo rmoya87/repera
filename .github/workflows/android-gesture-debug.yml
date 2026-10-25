@@ -54,13 +54,13 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
           # UNA linea (la accion ejecuta cada linea en un sh -c distinto).
-          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; adb shell wm dismiss-keyguard || true; gradle -p android :mobile:installDebug --no-daemon --stacktrace; for i in $(seq 1 60); do if adb shell run-as com.app.repera true 2>/dev/null; then echo "usuario-desbloqueado-$i"; break; fi; adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; sleep 10; done; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveSportHistoryInstrumentedTest,dev.repera.mobile.LiveActivitySaveInstrumentedTest' --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; echo "TEST_EXIT=$TEST_EXIT"; X=$(ls android/mobile/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); cat "$X" || true; adb logcat -d -t 3000 || true; exit $TEST_EXIT
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; adb shell wm dismiss-keyguard || true; gradle -p android :mobile:installDebug --no-daemon --stacktrace; for i in $(seq 1 60); do if adb shell run-as com.app.repera true 2>/dev/null; then echo "usuario-desbloqueado-$i"; break; fi; adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; sleep 10; done; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveActivitySaveInstrumentedTest' --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; echo "TEST_EXIT=$TEST_EXIT"; X=$(ls android/mobile/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); cat "$X" || true; adb logcat -d -t 3000 || true; exit $TEST_EXIT
 
       - name: Upload focused screenshots and reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: delta-d3-api30-evidence
+          name: delta-save-map-api30-evidence
           path: |
             android/screenshots/**
             android/mobile/build/outputs/androidTest-results/**
