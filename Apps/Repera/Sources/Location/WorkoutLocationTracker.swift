@@ -50,7 +50,7 @@ final class WorkoutLocationTracker: NSObject {
     private(set) var trackingSessionID: UUID?
     private(set) var currentFix: WorkoutGPSFix?
 
-    @ObservationIgnored private let manager = CLLocationManager()
+    @ObservationIgnored private let manager: CLLocationManager
     @ObservationIgnored private var backgroundSession: CLBackgroundActivitySession?
     @ObservationIgnored private var lastAccepted: CLLocation?
     @ObservationIgnored private var segmentBeganAt: Date?
