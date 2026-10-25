@@ -375,11 +375,16 @@ private enum LiveGPXTurnDetection {
         var turns: [LiveRouteTurn] = []
         // Analizar como máximo ~1200 vértices sin perder los cambios fuertes de dirección.
         let step = max(1, points.count / 1200)
-        for index in stride(from: step, to: points.count - step, by: step) {
+        for index in stride(from: 1, to: points.count - 1, by: step) {
             let at = along[index]
-            let before = max(0, index - step)
-            let after = min(points.count - 1, index + step)
-            guard at - along[before] >= 12, along[after] - at >= 12 else { continue }
+            // Analizar el rumbo a ~30 m a ambos lados de un vértice.
+            // Los GPX de alta densidad tienen vértices cada 1–5 m y no
+            // producirían indicaciones con solo usar los vecinos inmediatos.
+            var before = index - 1
+            var after = index + 1
+            while before > 0 && at - along[before] < 30 { before -= 1 }
+            while after < points.count - 1 && along[after] - at < 30 { after += 1 }
+            guard at - along[before] >= 20, along[after] - at >= 20 else { continue }
             let oldBearing = bearing(points[before], points[index])
             let newBearing = bearing(points[index], points[after])
             let delta = (newBearing - oldBearing + 540)
