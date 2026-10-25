@@ -265,7 +265,7 @@ internal fun ProgressTab(
             if(!pro) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
                 Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
                 Text("Datos ficticios. Objetivo de ejemplo:74kg")
-                DayPointLineChart(ProgressPreview.weight(today),goal=74.0)
+                DayPointLineChart(ProgressPreview.weight(today),goal=74.0,interactive=false)
             }}}
             }
             if(topic=="Entreno") {
@@ -309,7 +309,11 @@ internal fun ProgressTab(
                 }
             }
             }
-            if(topic=="Actividad" && pro && snapshot.weightPoints.isEmpty()) item {Text("Peso corporal: sin mediciones en el periodo.")}
+            if(topic=="Actividad" && pro && snapshot.weightPoints.isEmpty()) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
+                Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
+                Text("Sin mediciones en el periodo.")
+                EmptyHealthChartAxes(40.0,100.0)
+            }}}
             if (topic=="Actividad" && pro && snapshot.weightPoints.isNotEmpty()) {
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {

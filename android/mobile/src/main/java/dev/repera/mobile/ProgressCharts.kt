@@ -392,7 +392,8 @@ internal fun DayPointLineChart(
     modifier: Modifier = Modifier,
     valueFormat: (Double) -> String = { formatWeight(it) },
     goal:Double? = null,
-    bounds:ClosedFloatingPointRange<Double>? = null
+    bounds:ClosedFloatingPointRange<Double>? = null,
+    interactive:Boolean=true
 ) {
     if (points.isEmpty()) return
     val line = MaterialTheme.colorScheme.primary
@@ -442,7 +443,8 @@ internal fun DayPointLineChart(
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
-                .pointerInput(points) {
+                .pointerInput(points,interactive) {
+                    if(!interactive) return@pointerInput
                     detectTapGestures { offset ->
                         val idx = if (points.size == 1) 0
                         else ((offset.x / size.width) * (points.size - 1))
@@ -450,7 +452,8 @@ internal fun DayPointLineChart(
                         selected = if (selected == idx) null else idx
                     }
                 }
-                .pointerInput(points) {
+                .pointerInput(points,interactive) {
+                    if(!interactive) return@pointerInput
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
                         val idx = if (points.size == 1) 0
@@ -506,7 +509,7 @@ internal fun DayPointLineChart(
 }
 
 @Composable
-private fun EmptyHealthChartAxes(low:Double,high:Double) {
+internal fun EmptyHealthChartAxes(low:Double,high:Double) {
     val axis=MaterialTheme.colorScheme.onSurfaceVariant
     Text(formatWeight(high),style=MaterialTheme.typography.bodySmall)
     Canvas(Modifier.fillMaxWidth().height(96.dp)) {

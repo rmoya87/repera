@@ -24,7 +24,7 @@ internal fun SessionScoreProgressCard(points:List<ProgressDayPoint>,preview:Bool
    Text("Todavía no hay puntuaciones basadas en tu historial.")
   } else {
    Text("${kotlin.math.round(points.map {it.value}.average()).toInt()}/10")
-   DayPointLineChart(points,valueFormat={"${formatWeight(it)}/10"},bounds=0.0..10.0)
+   DayPointLineChart(points,valueFormat={"${formatWeight(it)}/10"},bounds=0.0..10.0,interactive=!preview)
   }
  }}
 }
