@@ -23,4 +23,15 @@ class CloudHistoryConflictTest {
         assertFalse(CloudHistoryConflict.requiresManualResolution(
             setOf("one", "two"), setOf("two", "one"), null, null))
     }
+
+    // Escenario mirror-antes-que-Drive (ids con prefijo de colección, como DriveSnapshotService.divergentTraining).
+    @Test fun mirrorRecoveredSubsetOfDriveHistoryDoesNotConflict() {
+        assertFalse(CloudHistoryConflict.requiresManualResolution(
+            setOf("workouts:a"), setOf("workouts:a", "workouts:b", "routines:r"), null, null))
+    }
+
+    @Test fun mirrorRecoveredWorkoutMissingFromDriveWhileDriveHasRoutinesConflicts() {
+        assertTrue(CloudHistoryConflict.requiresManualResolution(
+            setOf("workouts:new"), setOf("workouts:a", "routines:r"), null, null))
+    }
 }
