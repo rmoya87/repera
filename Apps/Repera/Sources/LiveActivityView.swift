@@ -2288,6 +2288,153 @@ private struct LiveRouteLibraryRow: View {
     }
 }
 
+/// Edición en página propia: el campo es nativo y el deporte navega a otro nivel.
+private struct LiveRouteEditView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var routes = LiveRoutesStore.shared
+    @State private var editedTitle = ""
+    @State private var editedSportID = ""
+    @State private var editError: String?
+    let routeID: UUID
+
+    private var selectedSportTitle: String {
+        LiveSport(rawValue: editedSportID)?.title ?? "Sin asignar"
+    }
+
+    var body: some View {
+        List {
+            Section("Nombre de la ruta") {
+                TextField("Por ejemplo, Caminata", text: $editedTitle)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled(false)
+                    .submitLabel(.done)
+                    .font(.body)
+                    .padding(.vertical, 6)
+                    .foregroundStyle(OG.label)
+            }
+            Section("Deporte") {
+                NavigationLink {
+                    LiveRouteSportOptionsView(selectedSportID: $editedSportID)
+                } label: {
+                    HStack {
+                        Text("Tipo de deporte").foregroundStyle(OG.label)
+                        Spacer()
+                        Text(selectedSportTitle)
+                            .foregroundStyle(OG.label2)
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+            Section {
+                Button {
+                    save()
+                } label: {
+                    Text("Guardar cambios")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .foregroundStyle(.black)
+                        .background(OG.accent, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(editedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
+        .navigationTitle("Editar ruta")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            guard let route = routes.routes.first(where: { $0.id == routeID }) else { return }
+            editedTitle = route.title
+            editedSportID = route.sportID ?? ""
+        }
+        .alert("No se pudo guardar", isPresented: Binding(
+            get: { editError != nil },
+            set: { if !$0 { editError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { editError = nil }
+        } message: { Text(editError ?? "") }
+    }
+
+    private func save() {
+        do {
+            try routes.update(
+                routeID, title: editedTitle,
+                sportID: editedSportID.isEmpty ? nil : editedSportID
+            )
+            dismiss()
+        } catch {
+            editError = error.localizedDescription
+        }
+    }
+}
+
+private struct LiveRouteSportOptionsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedSportID: String
+    @State private var query = ""
+    private let groups = [
+        "A pie", "Ciclismo", "Fuerza y fitness",
+        "Deportes de raqueta", "Deportes acuáticos", "Otros deportes"
+    ]
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    selectedSportID = ""
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text("Sin asignar")
+                        Spacer()
+                        if selectedSportID.isEmpty {
+                            Image(systemName: "checkmark").foregroundStyle(OG.accent)
+                        }
+                    }
+                    .foregroundStyle(OG.label)
+                }
+            }
+            ForEach(groups, id: \.self) { group in
+                let sports = LiveSport.allCases.filter {
+                    $0.group == group &&
+                    (query.isEmpty || $0.title.localizedStandardContains(query))
+                }
+                if !sports.isEmpty {
+                    Section(group) {
+                        ForEach(sports) { sport in
+                            Button {
+                                selectedSportID = sport.rawValue
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: sport.symbol)
+                                        .foregroundStyle(OG.accent)
+                                        .frame(width: 28)
+                                    Text(sport.title)
+                                    Spacer()
+                                    if selectedSportID == sport.rawValue {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(OG.accent)
+                                    }
+                                }
+                                .foregroundStyle(OG.label)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .searchable(text: $query, prompt: "Buscar deporte")
+        .listStyle(.insetGrouped)
+        .ogListChrome()
+        .navigationTitle("Elegir deporte")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 /// Ficha de una ruta (GPX importado o una salida grabada) desde «Cargar ruta».
 /// Muestra el mapa, estadísticas verificables, edición y eliminación sin tocar
 /// las sesiones históricas que pudieran haber recorrido esta ruta.
@@ -2296,9 +2443,6 @@ private struct LiveRouteLibraryDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var routes = LiveRoutesStore.shared
     @State private var position: MapCameraPosition = .automatic
-    @State private var editing = false
-    @State private var editedTitle = ""
-    @State private var editedSportID = ""
     @State private var deleteConfirmation = false
     @State private var editError: String?
 
@@ -2430,32 +2574,10 @@ private struct LiveRouteLibraryDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Gestionar ruta").font(.headline)
 
-                    if editing {
-                        TextField("Nombre de la ruta", text: $editedTitle)
-                            .textFieldStyle(.roundedBorder)
-                        Picker("Deporte", selection: $editedSportID) {
-                            Text("Sin asignar").tag("")
-                            ForEach(LiveSport.allCases) { sport in
-                                Text(sport.title).tag(sport.rawValue)
-                            }
-                        }
-                        Button {
-                            saveEditing()
-                        } label: {
-                            Label("Guardar cambios", systemImage: "checkmark")
-                        }
-                        .disabled(editedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        Button("Cancelar") { editing = false }
-                    } else {
-                        Button {
-                            if let route {
-                                editedTitle = route.title
-                                editedSportID = route.sportID ?? ""
-                                editing = true
-                            }
-                        } label: {
-                            Label("Editar nombre y deporte", systemImage: "pencil")
-                        }
+                    NavigationLink {
+                        LiveRouteEditView(routeID: routeID)
+                    } label: {
+                        Label("Editar nombre y deporte", systemImage: "pencil")
                     }
                     Divider()
                     Button(role: .destructive) {
@@ -2508,6 +2630,23 @@ private struct LiveRouteLibraryDetailView: View {
         .background(OG.bg.ignoresSafeArea())
         .navigationTitle(route?.title ?? "Ruta")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if let route {
+                    Button {
+                        do {
+                            try routes.setFavorite(routeID, !route.isFavorite)
+                        } catch {
+                            editError = "No se pudo actualizar el favorito."
+                        }
+                    } label: {
+                        Image(systemName: route.isFavorite ? "star.fill" : "star")
+                            .foregroundStyle(route.isFavorite ? OG.yellow : OG.label)
+                    }
+                    .accessibilityLabel(route.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos")
+                }
+            }
+        }
         .alert("No se pudo modificar la ruta", isPresented: Binding(
             get: { editError != nil }, set: { if !$0 { editError = nil } }
         )) {
@@ -2529,17 +2668,6 @@ private struct LiveRouteLibraryDetailView: View {
         }
     }
 
-    private func saveEditing() {
-        do {
-            try routes.update(
-                routeID, title: editedTitle,
-                sportID: editedSportID.isEmpty ? nil : editedSportID
-            )
-            editing = false
-        } catch {
-            editError = error.localizedDescription
-        }
-    }
 
     private func stat(_ name: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
