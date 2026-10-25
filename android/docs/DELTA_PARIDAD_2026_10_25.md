@@ -254,3 +254,12 @@ main móvil invisible.)
 - Test instrumentado añadido de runtime interior sintético: inicio/pausa,
   cambio de cuenta, restauración pausada con mismo UUID/reloj, revisión y
   descarte. No usa servicio ni sensores, compila pero espera ejecución.
+
+## Validación guardado/mapa 20:22 CET
+- 40224535920 SUCCESS XML2/0 sin omitidos: guardado En vivo UUID-idempotente
+  probado en disco real aislado, duración activa y sin Salud/ejercicios falsos.
+- Captura ventana real mapa evolución inspeccionada: teselas, ruta, extremos
+  y atribución visibles. Tema del fixture era Material genérico (violeta), NO
+  evidencia de fidelidad Repera. Fixture corregido a primary=brandGreen.
+- Próxima ejecución incluye ciclo runtime interior aislado/restauración sin
+  sensores (3 pruebas en clase). FGS/permisos/background siguen sin validar.
