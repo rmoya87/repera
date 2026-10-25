@@ -35,6 +35,8 @@ class FreeMuscleAccessInstrumentedTest {
         }}
         compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Equilibrio muscular"))
         compose.onNodeWithText("Equilibrio muscular").assertIsDisplayed()
+        compose.onNodeWithTag("progress_list").performScrollToNode(hasTestTag("body_map_loaded"))
+        compose.onNodeWithTag("body_map_loaded").assertIsDisplayed()
         compose.onNodeWithText("Conoce tu equilibrio muscular").assertDoesNotExist()
         compose.waitForIdle()
         val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
