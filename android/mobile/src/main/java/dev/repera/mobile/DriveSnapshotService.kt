@@ -30,7 +30,9 @@ class DriveSnapshotService(private val token: String, private val local: LocalSn
         data object Conflict : Outcome
     }
 
-    fun synchronize(): Outcome {
+    fun synchronize(): Outcome = CloudSyncGate.driveSync { synchronizeInternal() }
+
+    private fun synchronizeInternal(): Outcome {
         val remoteId = findSingleFile()
         val localBytes = local.read()
         val remoteBytes = remoteId?.let { request(

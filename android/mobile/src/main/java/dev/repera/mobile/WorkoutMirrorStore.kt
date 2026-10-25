@@ -80,7 +80,9 @@ class WorkoutMirrorStore(
             val localIds = repository.finishedWorkoutsSnapshot()
                 .map { it.optString("id") }.toSet()
             val recovered = mutableListOf<JSONObject>()
-            for (row in remote) {
+            // Con Drive sincronizando no se recupera ni se marca nada como visto: se reintenta en el siguiente ciclo.
+            val recoveryAllowed = !CloudSyncGate.isDriveSyncRunning()
+            for (row in if (recoveryAllowed) remote else emptyList()) {
                 if (!row.isNull("deleted_at")) continue
                 val id = row.optString("id")
                 if (id.isBlank() || localIds.contains(id) ||
@@ -91,7 +93,7 @@ class WorkoutMirrorStore(
                 recovered.add(payload)
                 seen[id] = canonicalDigest(payload)
             }
-            val recoveredCount = if (recovered.isEmpty()) 0 else {
+            val recoveredCount = if (recovered.isEmpty() || false) 0 else {
                 saveFingerprints(seen)
                 repository.mergeRecoveredWorkoutsFromSupabase(recovered)
             }

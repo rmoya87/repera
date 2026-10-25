@@ -559,3 +559,9 @@ Implementado (no ejecutado): como `applySuggestions` de Apple, con acceso a prog
 - Efecto real: WorkoutView usa `exercise.plannedSets` de la sesión; se aplanan los objetivos de la sesión, no la definición. `applySuggestions` devuelve solo la sesión: la rutina guardada y sus bloques no cambian. `routineForEditing` (WorkoutView ~306) devuelve la rutina guardada si existe; solo reconstruye desde la sesión (con el aplanado) cuando no hay rutina asociada.
 - Android replica: sesión aplanada, definición persistida (rutina y routineBlocks de la sesión) intacta. Fixture: ProgressionApplyInstrumentedTest.wodMovementsAreProgressedLikeAppleOnlyWithAdvancedAccess distingue definición original / sesión generada (compilado, no ejecutado). No he verificado el efecto en la UI de grabación WOD de Apple ni de Android.
 - DECISIÓN ABIERTA para Ramón: replicar el aplanado de Apple (estado actual) o preservar el esquema del ladder/movimientos WOD y progresar solo fuerza (se desviaría de Apple, que no se toca).
+
+### Sincronización: recuperación del espejo vs Apple (revisión 5d)
+- Apple `mergeRecoveredWorkoutsFromSupabase` solo corre con `didCompleteInitialRemoteSync` y sin `isSyncingiCloud`. Android ya portaba el merge solo-IDs-nuevos (androidTest compilado), pero no tenía ninguna guarda.
+- Implementado: `CloudSyncGate` cierra la recuperación remota→local del espejo mientras una sincronización de Drive (Activity o worker) está en curso; en ese caso no se marca ningún ID como visto y se reintenta en el siguiente ciclo. JVM EJECUTADO: CloudSyncGateTest 2/2 (apertura/cierre, liberación en fallo, anidado). La integración con WorkoutMirrorStore no tiene test ejecutado (necesita Context).
+- No replicado: `didCompleteInitialRemoteSync` (Android no tiene fase inicial equivalente a refreshFromiCloud(isInitial)). Diferencia documentada, no equivalencia.
+- Sin E2E con Drive/Supabase reales.
