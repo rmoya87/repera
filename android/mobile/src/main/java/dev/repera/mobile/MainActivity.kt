@@ -746,6 +746,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // endActiveSession(save: false) iOS: borra la sesión en curso
                 // sin guardarla y detiene la captura de ubicación.
                 accountId = profile?.uniqueId.orEmpty(),
+                onLiveActivitySaved = {
+                    profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
+                },
                 onUpdateFinishedWorkout = { workoutId, edit ->
                   // Como Apple: con Favorito, si la cuota de rutinas no deja, paywall y NO se aplica nada.
                   if (edit.saveAsFavorite && !subscriptions.canCreateLibraryRoutine(isNew = true).allowed) {
@@ -1036,6 +1039,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 refreshCatalogSilently(stored.uniqueId)
             } catch (_: Exception) {
                 // Expired or revoked refresh token: back to the login screen.
+                LiveActivityRuntime.stopAll()
+                LiveActivityService.stop(this@MainActivity)
                 sessionStore.clear()
                 aiPlansRealtime.stop()
                 verifiedSupabase = null

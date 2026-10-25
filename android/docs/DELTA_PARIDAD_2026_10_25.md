@@ -183,3 +183,11 @@ main móvil invisible.)
 ### Pendiente
 - UI/comienzo/guardado/favoritos/evolución/audio y pruebas instrumentadas/
   capturas. D5 notificación es parcial hasta ejecución y métricas completas.
+
+- D4/D6 primer wiring UI: pestaña Comenzar sustituye Crear/Center (herramientas
+  accesibles por botones), picker de deportes, permiso ubicación, reloj,
+  pausa/reanudar/finalizar/revisión/guardar/descarte confirmado conectados al
+  runtime. Guardado local UUID-idempotente sin ejercicios/Salud ficticios;
+  signout detiene runtime/FGS. UI y nuevo test de guardado COMPILAN, aún no
+  ejecutados: no se declara finalización de D4/D6 ni fidelidad visual.
+  Restan audio/rutas-favoritos-evolución/import UI/deeplinks y ejecución.

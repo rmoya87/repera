@@ -31,6 +31,36 @@ class WorkoutRepository(context: Context, googleId: String) {
         }
     }
 
+    /** Actividad En vivo confirmada desde revisión, sin ejercicios ficticios
+     * ni escritura de Salud. UUID idempotente evita duplicar tras reintento. */
+    @Synchronized fun saveLiveActivity(snapshot: dev.repera.domain.LiveActivityState.Snapshot,
+        finishedMillis: Long, activeSeconds: Double, title: String, notes: String): String {
+        require(snapshot.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW)
+        require(activeSeconds.isFinite() && activeSeconds >= 0)
+        val state = loadOrNull() ?: error("Inicializa el almacenamiento local antes de guardar.")
+        val archive = state.getJSONArray("workouts")
+        if ((0 until archive.length()).any { archive.getJSONObject(it).optString("id") == snapshot.gpsSessionID })
+            return snapshot.gpsSessionID
+        val sport = dev.repera.domain.LiveSport.byId(snapshot.sportID) ?: error("Deporte desconocido")
+        val session = JSONObject().put("id", snapshot.gpsSessionID)
+            .put("title", title.trim().ifBlank { sport.title }).put("phase", "finished")
+            .put("startedAt", Instant.ofEpochMilli(snapshot.startedMillis).toString())
+            .put("finishedAt", Instant.ofEpochMilli(maxOf(finishedMillis, snapshot.startedMillis + 1000)).toString())
+            .put("exercises", JSONArray()).put("wodResults", JSONArray())
+            .put("liveSportID", sport.id).put("activeDurationSeconds", activeSeconds)
+        if (notes.trim().isNotEmpty()) session.put("notes", notes.trim())
+        snapshot.selectedRouteID?.let { session.put("liveRouteID", it) }
+        if (sport.usesGPS) session.put("recordedDistanceMeters", snapshot.distanceMeters)
+        if (snapshot.splitsSeconds.isNotEmpty()) session.put("liveKilometerSplitsSeconds", JSONArray(snapshot.splitsSeconds))
+        session.put("routePoints", JSONArray(snapshot.points.map { p -> JSONObject()
+            .put("id", p.id).put("latitude", p.latitude).put("longitude", p.longitude)
+            .put("recordedAtEpochMs", p.recordedAtEpochMs)
+            .put("speedMps", p.speedMps ?: JSONObject.NULL).put("altitudeMeters", p.altitudeMeters ?: JSONObject.NULL)
+            .put("horizontalAccuracyMeters", p.horizontalAccuracyMeters ?: JSONObject.NULL)
+            .put("verticalAccuracyMeters", p.verticalAccuracyMeters ?: JSONObject.NULL) }))
+        archive.put(session); save(state); return snapshot.gpsSessionID
+    }
+
     /**
      * Creates a real native routine using the existing Swift Routine/RoutineBlock wire format.
      * Never creates completed work or a synthetic athlete result.

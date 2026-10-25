@@ -62,7 +62,7 @@ private data class TabSpec(val route: String, val label: String, val icon: Image
 private val tabs = listOf(
     TabSpec("inicio", "Inicio", Icons.Outlined.Home),
     TabSpec("diario", "Diario", Icons.Outlined.CalendarMonth),
-    TabSpec("crear", "Crear", Icons.Outlined.AddCircleOutline),
+    TabSpec("en-vivo", "Comenzar", Icons.Outlined.AddCircleOutline),
     TabSpec("progreso", "Progreso", Icons.Outlined.TrendingUp),
     TabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
 )
@@ -158,6 +158,7 @@ fun ReperaMobileScreen(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
+    onLiveActivitySaved: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
     onImportJson: () -> Unit,
@@ -236,10 +237,7 @@ fun ReperaMobileScreen(
             }
         }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
-        val visibleTabs = tabs.map { tab ->
-            if (tab.route == "crear" && centerVisible)
-                TabSpec("center", "Center", Icons.Outlined.Apartment) else tab
-        }
+        val visibleTabs = tabs
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -441,6 +439,12 @@ fun ReperaMobileScreen(
                         },
                         onBack = { navController.popBackStack() }
                     )
+                }
+                composable("en-vivo") {
+                    LiveActivityScreen(accountId = accountId,
+                        onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
+                        onOpenTools = { navController.navigate("crear") },
+                        onOpenCenter = if (centerVisible) ({ navController.navigate("center") }) else null)
                 }
                 composable("center") {
                     CenterTab(
