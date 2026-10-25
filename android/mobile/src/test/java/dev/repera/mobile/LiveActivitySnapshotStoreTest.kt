@@ -33,6 +33,14 @@ class LiveActivitySnapshotStoreTest {
         try { store.write(snap.copy(distanceMeters=2000.0));fail() } catch (_: java.io.IOException) {}
         assertEquals(snap,store.read())
     }
+    @Test fun syntacticallyValidButInvalidCheckpointIsPreservedAndRejected() {
+        val file=File(folder.root,"activity.json");val store=LiveActivitySnapshotStore(file)
+        store.write(snapshot())
+        val json=org.json.JSONObject(file.readText()).put("distanceMeters",-1)
+        file.writeText(json.toString())
+        try {store.read();fail("invalid checkpoint accepted")} catch (_:IllegalArgumentException) {}
+        assertEquals(-1,org.json.JSONObject(file.readText()).getInt("distanceMeters"))
+    }
     @Test fun corruptFileRemainsAvailableRatherThanBeingSilentlyDeleted() {
         val file=File(folder.root,"activity.json");file.writeText("broken")
         try { LiveActivitySnapshotStore(file).read();fail() } catch (_: org.json.JSONException) {}

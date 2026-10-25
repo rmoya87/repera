@@ -23,7 +23,14 @@ internal class LiveActivitySnapshotStore(private val file: File) {
         if (!file.exists()) return null
         // No borrar un archivo corrupto silenciosamente: se conserva para
         // recuperación y la UI puede informar del problema sin arrancar GPS.
-        return decode(JSONObject(file.readText()))
+        return decode(JSONObject(file.readText())).also { s ->
+            require(dev.repera.domain.LiveSport.byId(s.sportID) != null && s.phase != LiveActivityState.Phase.IDLE)
+            require(s.gpsSessionID.isNotBlank() && s.pausedSeconds.isFinite() && s.pausedSeconds >= 0)
+            require(s.distanceMeters.isFinite() && s.distanceMeters >= 0 && s.savedMillis >= s.startedMillis)
+            require(s.lastBoundarySeconds.isFinite() && s.lastBoundarySeconds >= 0)
+            require(s.splitsSeconds.all { it.isFinite() && it > 0 })
+            require(s.points.all { it.latitude in -90.0..90.0 && it.longitude in -180.0..180.0 })
+        }
     }
     @Synchronized fun clear() {
         if (file.exists()) check(file.delete()) { "No se pudo descartar la actividad guardada." }
