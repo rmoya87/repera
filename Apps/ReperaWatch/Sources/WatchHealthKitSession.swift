@@ -23,6 +23,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private var lastRecordedBlockID: UUID?
     private var pendingBlock: (id: UUID, isInterval: Bool)?
     private var finishHandler: ((Result) -> Void)?
+    var onRecordingReady: (() -> Void)?
     var onPauseResumeRequest: (() -> Void)?
     var onPauseStateChanged: ((Bool) -> Void)?
     private var finishing = false
@@ -179,6 +180,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     try await liveBuilder.beginCollection(at: date)
                     guard self.workoutID == id, self.builder === liveBuilder else { return }
                     self.isRecording = true
+                    self.onRecordingReady?()
                     // La app del reloj puede abrirse cuando iPhone ya estaba
                     // en pausa. No iniciar sensores como sesión activa por error.
                     if initiallyPaused { session.pause() }
