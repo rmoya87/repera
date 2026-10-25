@@ -38,10 +38,10 @@ final class WorkoutLiveActivityCoordinator {
             phase: phase, title: sport.title, symbol: sport.symbol,
             subtitle: isGPS ? "Recorrido GPS" : "Entrenamiento libre",
             timerAnchor: Date().addingTimeInterval(-TimeInterval(elapsed)), elapsedSeconds: elapsed,
-            primaryValue: isGPS ? pace : sport.title,
-            primaryLabel: isGPS ? (sport.displaysSpeed ? "km/h" : "min/km") : "Actividad",
+            primaryValue: isGPS ? pace : "—",
+            primaryLabel: isGPS ? (sport.displaysSpeed ? "Veloc. media" : "Ritmo medio") : "FC (ppm)",
             secondaryValue: isGPS ? String(format: "%.2f", max(0, distanceMeters) / 1000) : "—",
-            secondaryLabel: isGPS ? "Distancia (km)" : "Calorías"
+            secondaryLabel: isGPS ? "Distancia (km)" : "Kcal"
         )
         await upsert(id: key, isPlanned: false, state: state)
     }
