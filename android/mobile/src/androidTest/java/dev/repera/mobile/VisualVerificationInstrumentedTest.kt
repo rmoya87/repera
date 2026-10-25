@@ -782,6 +782,23 @@ class VisualVerificationInstrumentedTest {
         return colors.size < 32
     }
 
+    /** Píxeles de la barra superior real: el mapa no puede satisfacer este
+     * criterio solo por tener colores. Exige superficie clara y tinta oscura
+     * en la franja que contiene título y acciones, debajo de status bar. */
+    private fun hasConfirmationChrome(bmp: android.graphics.Bitmap): Boolean {
+        var light = 0; var dark = 0; var n = 0
+        for (y in (bmp.height * 0.06).toInt() until (bmp.height * 0.11).toInt() step 2) {
+            for (x in (bmp.width * 0.1).toInt() until (bmp.width * 0.9).toInt() step 2) {
+                val c = bmp.getPixel(x, y)
+                val r = android.graphics.Color.red(c); val g = android.graphics.Color.green(c); val b = android.graphics.Color.blue(c)
+                if (r > 240 && g > 235 && b > 240) light++
+                if (r < 100 && g < 100 && b < 100) dark++
+                n++
+            }
+        }
+        return n > 0 && light.toDouble() / n > 0.65 && dark.toDouble() / n > 0.005
+    }
+
     /** El SurfaceView GL del mapa fuerza una re-sincronización de superficie
      *  del diálogo al entrar (API 30 con GL por software: la captura sale en
      *  blanco y el título reporta no mostrado un instante, "No local sync
@@ -823,13 +840,13 @@ class VisualVerificationInstrumentedTest {
         val tChoose = android.os.SystemClock.elapsedRealtime()
         waitTitleDisplayed("Lugar")
         var confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        while (confirmShot != null && isMostlyBlank(confirmShot) &&
+        while (confirmShot != null && (isMostlyBlank(confirmShot) || !hasConfirmationChrome(confirmShot)) &&
             android.os.SystemClock.elapsedRealtime() - tChoose < 15_000) {
             Thread.sleep(500)
             confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         }
         assertTrue("contenido visible tras elegir (recuperación del estado vacío)",
-            confirmShot != null && !isMostlyBlank(confirmShot))
+            confirmShot != null && !isMostlyBlank(confirmShot) && hasConfirmationChrome(confirmShot))
         save("lugar_hoja_confirmar", confirmShot!!.asImageBitmap())
         // Estado lógico tras elegir: modo confirmar, panel cerrado (iOS).
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")

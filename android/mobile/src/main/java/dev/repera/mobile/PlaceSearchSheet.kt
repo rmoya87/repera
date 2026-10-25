@@ -113,7 +113,10 @@ internal fun PlacePinMap(
             .testTag("place_pin_map"),
         factory = { context ->
             MapLibre.getInstance(context)
-            MapView(context).also { mapView = it }.apply {
+            // TextureView participa en la composición del Dialog; evita que una
+            // superficie GL separada tape la barra de confirmación (API30).
+            MapView(context, org.maplibre.android.maps.MapLibreMapOptions.createFromAttributes(context)
+                .textureMode(true)).also { mapView = it }.apply {
                 onCreate(null)
                 if (onMapClick != null) {
                     // Tap a nivel de vista, NO listener MapLibre: getMapAsync
@@ -252,6 +255,7 @@ fun PlaceSearchSheet(
 ) {
     val context = LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val composite = remember { CompositePlaceSearchProvider(PhotonPlaceSearchProvider(), GeocoderPlaceSearchProvider(context)) }
     val provider = providerOverride ?: composite
     val recentStore = remember { RecentPlacesStore(context, accountId) }
@@ -433,6 +437,7 @@ fun PlaceSearchSheet(
                                         // no está garantizado tras clearFocus.
                                         searchFocused = false
                                         focusManager.clearFocus(force = true)
+                                        keyboard?.hide()
                                     }
                                 }
                             } else if (!isResolving && resolveError == null &&
