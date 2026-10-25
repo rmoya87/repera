@@ -37,7 +37,14 @@ internal object MirrorRecoveryReconciler {
             if (WorkoutMirrorStore.canonicalDigest(w) != expected) return Result.NotApplicable
         }
         val remoteWorkouts = r.optJSONArray("workouts") ?: JSONArray()
-        val remoteIds = (0 until remoteWorkouts.length()).map { remoteWorkouts.getJSONObject(it).optString("id") }.toSet()
+        val remoteById = (0 until remoteWorkouts.length()).map { remoteWorkouts.getJSONObject(it) }.associateBy { it.optString("id") }
+        // Misma ID con contenido distinto en Drive y local: incertidumbre -> camino normal (conflicto/copias), nunca elegir aquí.
+        for (i in 0 until localWorkouts.length()) {
+            val w = localWorkouts.getJSONObject(i)
+            val other = remoteById[w.optString("id")] ?: continue
+            if (WorkoutMirrorStore.canonicalDigest(other) != WorkoutMirrorStore.canonicalDigest(w)) return Result.NotApplicable
+        }
+        val remoteIds = remoteById.keys
         val extras = (0 until localWorkouts.length()).map { localWorkouts.getJSONObject(it) }
             .filter { it.optString("id") !in remoteIds }
         if (extras.isEmpty()) return Result.UseRemote

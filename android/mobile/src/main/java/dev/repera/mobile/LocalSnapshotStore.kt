@@ -10,17 +10,17 @@ import java.security.MessageDigest
  * Account-isolated local-first storage. No Google token is written to disk.
  * State payload stays in ReperaDomain's JSON field schema.
  */
-class LocalSnapshotStore(context: Context, uniqueGoogleId: String) {
+class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotStorage {
     private val folder = File(context.filesDir, "users/" + sha256(uniqueGoogleId))
         .apply { mkdirs() }
     private val stateFile = AtomicFile(File(folder, "app_state.json"))
     private val backup = File(folder, "previous_app_state.json")
     private val remoteBackup = AtomicFile(File(folder, "remote_before_upload.json"))
 
-    @Synchronized fun read(): ByteArray? =
+    @Synchronized override fun read(): ByteArray? =
         if (stateFile.baseFile.exists()) stateFile.openRead().use { it.readBytes() } else null
 
-    @Synchronized fun write(bytes: ByteArray) {
+    @Synchronized override fun write(bytes: ByteArray) {
         validate(bytes)
         val existing = read()
         if (existing != null && !existing.contentEquals(bytes)) backup.writeBytes(existing)
@@ -35,7 +35,7 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) {
     }
 
     /** Safeguard a remote document before replacing it with a newer local revision. */
-    @Synchronized fun preserveRemoteBackup(bytes: ByteArray) {
+    @Synchronized override fun preserveRemoteBackup(bytes: ByteArray) {
         validate(bytes)
         val stream = remoteBackup.startWrite()
         try {
@@ -50,7 +50,7 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) {
     private val provenanceFile = File(folder, "mirror_recovered.json")
 
     /** Procedencia: id -> huella de entrenos recuperados del espejo (por cuenta, junto al snapshot). */
-    @Synchronized fun readMirrorProvenance(): Map<String, String> = runCatching {
+    @Synchronized override fun readMirrorProvenance(): Map<String, String> = runCatching {
         if (!provenanceFile.exists()) emptyMap() else JSONObject(provenanceFile.readText()).let { j ->
             j.keys().asSequence().associateWith { j.getString(it) } }
     }.getOrDefault(emptyMap())

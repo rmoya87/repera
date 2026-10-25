@@ -17,11 +17,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * Drive appDataFolder via a short-lived AuthorizationClient OAuth access token.
  * No broad Google Drive scope, service-role key, or persistent bearer token.
  */
-class DriveSnapshotService(private val token: String, private val local: LocalSnapshotStore) {
-    private val client = OkHttpClient.Builder()
-        .callTimeout(45, TimeUnit.SECONDS)
-        .build()
-
+class DriveSnapshotService(
+    private val token: String,
+    private val local: SnapshotStorage,
+    private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build()
+) {
     sealed interface Outcome {
         data object Empty : Outcome
         data object Unchanged : Outcome
