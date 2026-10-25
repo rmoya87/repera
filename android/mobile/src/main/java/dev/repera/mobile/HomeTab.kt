@@ -232,6 +232,7 @@ internal fun HomeTab(
                         )
                     } else {
                         ActiveWorkoutCard(
+                            effortUnit=overview?.trainingSettings?.effortUnit ?: "rir",
                             active = activeWorkout,
                             busy = busy,
                             onLogSet = onLogSet,

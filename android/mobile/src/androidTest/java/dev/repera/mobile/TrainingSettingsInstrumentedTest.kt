@@ -86,8 +86,9 @@ class TrainingSettingsInstrumentedTest {
             val overview=StateOverview.fromBytes(store.read())!!
             assertFalse(overview.trainingSettings.weekStartsOnMonday)
             assertEquals(105,overview.trainingSettings.defaultRestSeconds)
-            repo.updateTrainingSettings(value.copy(defaultProgression="double",weightIncrementKg=3.0,restSoundEnabled=false,restHapticEnabled=false))
+            repo.updateTrainingSettings(value.copy(effortUnit="rpe",defaultProgression="double",weightIncrementKg=3.0,restSoundEnabled=false,restHapticEnabled=false))
             val reread=TrainingSettings.read(JSONObject(String(store.read()!!)))
+            assertEquals("rpe",reread.effortUnit);assertEquals("lb",reread.weightUnit)
             assertFalse(reread.restSoundEnabled);assertFalse(reread.restHapticEnabled)
             assertEquals("double",reread.defaultProgression);assertEquals(3.0,reread.weightIncrementKg,0.0)
             assertEquals(java.time.LocalDate.of(2026,10,25),dev.repera.domain.StatsEngine.startOfWeek(java.time.LocalDate.of(2026,10,28),reread.weekStartsOnMonday))

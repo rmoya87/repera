@@ -103,7 +103,8 @@ internal fun ActiveWorkoutCard(
     onFinish: () -> Unit,
     onDiscard: () -> Unit = {},
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>) -> Unit = { _, _, _ -> },
-    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> }
+    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> },
+    effortUnit:String="rir"
 ) {
     var technique by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("normal")
@@ -150,7 +151,7 @@ internal fun ActiveWorkoutCard(
     var warmup by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(false)
     }
-    var rirText by remember(active.id, active.index, active.completedSets) {
+    var rirText by remember(active.id, active.index, active.completedSets,effortUnit) {
         mutableStateOf("")
     }
     var editingId by remember(active.id, active.index) { mutableStateOf<String?>(null) }
@@ -167,7 +168,7 @@ internal fun ActiveWorkoutCard(
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
         (!active.allowsDeficit || deficit.isBlank() ||
             (deficit.toIntOrNull()?.let { it in 0..100 } == true)) &&
-        (rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0)) &&
+        (rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
         validDuration && (unit in if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
     Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
@@ -187,7 +188,7 @@ internal fun ActiveWorkoutCard(
                         } +
                         (set.weightKg?.let { " · $it kg" } ?: "") +
                         (set.deficitCm?.let { " · $it cm déficit" } ?: "") +
-                        (set.rir?.let { " · RIR $it" } ?: "") +
+                        (set.rir?.let { " · ${effortUnit.uppercase()} ${dev.repera.domain.Effort.fromRIR(it,effortUnit)}" } ?: "") +
                         (set.durationSeconds?.let { " · ${it / 60}:${(it % 60).toString().padStart(2,'0')}" } ?: ""))
                     Row {
                         TextButton(onClick = {
@@ -331,7 +332,7 @@ internal fun ActiveWorkoutCard(
             if (!active.durationInput) OutlinedTextField(
                 value = rirText,
                 onValueChange = { rirText = it },
-                label = { Text("RIR opcional (repeticiones en reserva)") },
+                label = { Text(if(effortUnit=="rpe") "RPE opcional (0–10)" else "RIR opcional (repeticiones en reserva)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -409,7 +410,7 @@ internal fun ActiveWorkoutCard(
                         else -> onLogSet(
                             parsedQuantity,
                             if (active.allowsWeight) parsedWeight else null,
-                            if (active.durationInput) null else parsedRir,
+                            if (active.durationInput || warmup) null else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)},
                             if (active.durationInput) false else warmup,
                             unit,
                             parsedDuration,

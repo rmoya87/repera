@@ -82,6 +82,20 @@ class BusinessProjectionInstrumentedTest {
         assertNull(repo.todayPlanSession(date,listOf(session)))
         local.write(stored)
     }
+    @Test fun rpeInputAndHistoryUseRirOnWire() {
+        var logged:Double?=null
+        val workout=ActiveWorkout(id="rpe",title="Fuerza",index=0,total=1,exerciseName="Sentadilla",completedSets=0,
+            prescribedQuantity=5,prescribedWeightKg=80.0,allowsWeight=true,sets=emptyList())
+        compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.fillMaxSize()) {
+            androidx.compose.foundation.lazy.LazyColumn { item {
+                ActiveWorkoutCard(workout,false,{_,_,rir,_,_,_,_->logged=rir},{_,_,_,_,_,_->},{},{},{},effortUnit="rpe")
+            } }
+        }}}
+        compose.onNodeWithText("RPE opcional (0–10)").performScrollTo().performTextInput("8")
+        capture("registro_esfuerzo_rpe")
+        compose.onNodeWithText("Registrar serie").performScrollTo().performClick()
+        assertEquals(2.0,logged!!,0.00001)
+    }
     private fun capture(name:String) {
         compose.waitForIdle()
         val ctx=InstrumentationRegistry.getInstrumentation().targetContext

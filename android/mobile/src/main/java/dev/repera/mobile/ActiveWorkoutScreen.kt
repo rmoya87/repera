@@ -20,7 +20,8 @@ internal fun ActiveWorkoutScreen(
     onReviseSet:(String,Int,Double?,String?,Int?,Int?)->Unit,onDeleteSet:(String)->Unit,
     onNext:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onOpenClock:()->Unit,onBack:()->Unit,
     pin:dev.repera.domain.WorkoutLocationPin?,accountId:String,
-    onPinChange:(dev.repera.domain.WorkoutLocationPin?)->Unit
+    onPinChange:(dev.repera.domain.WorkoutLocationPin?)->Unit,
+    effortUnit:String="rir"
 ) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -32,7 +33,7 @@ internal fun ActiveWorkoutScreen(
                 onMovement=onWodMovement,onCompleteBlock=onCompleteWodBlock,
                 onReviseMovement=onReviseWodMovement,onDeleteMovement=onDeleteWodMovement,
                 onFinish=onFinish,onDiscard=onDiscard,onOpenClock=onOpenClock)
-            else ActiveWorkoutCard(active=workout,busy=busy,onLogSet=onLogSet,
+            else ActiveWorkoutCard(effortUnit=effortUnit,active=workout,busy=busy,onLogSet=onLogSet,
                 onLogDropSet=onLogDropSet,onLogRestPauseSet=onLogRestPauseSet,
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
                 onFinish=onFinish,onDiscard=onDiscard)

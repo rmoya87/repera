@@ -479,7 +479,7 @@ fun ReperaMobileScreen(
                             onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
                             onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
                             onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
-                            overview?.activeLocationPin,accountId,onActivePinChange)
+                            overview?.activeLocationPin,accountId,onActivePinChange,overview?.trainingSettings?.effortUnit ?: "rir")
                     }
                 }
                 composable("en-vivo") {
