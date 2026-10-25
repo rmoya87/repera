@@ -30,6 +30,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     // An HKWorkoutSession can still report .paused while an asynchronous
     // resume request is in flight. Do not send the same command twice.
     private var pendingStateTransition: HKWorkoutSessionState?
+    private var pauseRequestedBeforeStart = false
     private(set) var pulseBpm: Int?
     private(set) var kcal: Double?
     private(set) var averageBpm: Double?
@@ -101,6 +102,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pendingBlock = nil
         finishing = false
         pendingStateTransition = nil
+        pauseRequestedBeforeStart = initiallyPaused
         permissionIssue = nil
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
@@ -183,7 +185,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     self.onRecordingReady?()
                     // La app del reloj puede abrirse cuando iPhone ya estaba
                     // en pausa. No iniciar sensores como sesión activa por error.
-                    if initiallyPaused { session.pause() }
+                    if self.pauseRequestedBeforeStart { session.pause() }
                     if let pending = self.pendingBlock {
                         self.beginBlock(id: pending.id, isInterval: pending.isInterval)
                     }
@@ -218,6 +220,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     /// In particular, the builder is already Running after startActivity,
     /// so tapping "Iniciar bloque" must NOT resume it again.
     func pause() {
+        if !finishing, workout == nil, workoutID != nil {
+            pauseRequestedBeforeStart = true
+            return
+        }
         guard !finishing, let workout, workout.state == .running,
               pendingStateTransition != .paused else { return }
         pendingStateTransition = .paused
@@ -225,6 +231,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     }
 
     func resume() {
+        if !finishing, workout == nil, workoutID != nil {
+            pauseRequestedBeforeStart = false
+            return
+        }
         guard !finishing, let workout, workout.state == .paused,
               pendingStateTransition != .running else { return }
         pendingStateTransition = .running
@@ -243,6 +253,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workoutID = nil
         pendingBlock = nil
         pendingStateTransition = nil
+        pauseRequestedBeforeStart = false
         isRecording = false
         pulseBpm = nil
         kcal = nil
