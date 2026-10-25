@@ -298,3 +298,21 @@ main móvil invisible.)
   swipe guardar ruta y otras alineaciones menores D7 por auditar.
 - Servicio con GPS/background, permisos denegados, ciclo vida, audio real;
   después regresión global del bloque coherente. Beta draft 51500 intacta.
+
+## Tema compartido y auditoría D7, 20:35 CET
+- Tema real anterior solo fijaba primary: superficies/chips seguían violeta
+  Material. ReperaColorScheme extrae bg/surface/label adaptativos de Apple
+  Theme.swift 5890215d; conserva verde oscuro legible en claro. Cambia TODA
+  la app Android, no solo Comenzar. Requiere capturas de pantallas afectadas
+  en claro y oscuro antes de cerrar visual; no basta evolución de rutas.
+- VisualVerificationInstrumentedTest ahora usa el esquema real compartido;
+  argumento reperaDark=true habilita pasada oscura. Solo compilado.
+- D7 auditoría HistoryView detectó otro cambio: no unir pérdida de GPS/pausa,
+  velocidad geométrica si no hay instantánea válida, gates30s/25m/s. Portado
+  al modelo de trazo, con prueba nueva (mobile193/0). Ruta planificada GPX
+  conserva trazo azul completo, distinto de una actividad medida.
+- Inicio ya muestra deporte, reloj activo y distancia registrados, y texto
+  Ver actividad en lugar de Ver ejercicios para sesiones Live. Compilado.
+- Parciales activos muestran km/h en deportes displaysSpeed y min/km en
+  resto. Falta FC por parcial cuando existe señal medida, y meteo/viento
+  equivalente de D7 no existe aún en Android. No declarar D7 terminado.
