@@ -508,7 +508,7 @@ class HealthConnectReader(private val context: Context) {
 
 /** Fetch all pages. A non-null token is opaque and is never guessed or reused.
  * Errors propagate: returning only the first pages would silently invent completeness. */
-private suspend fun <T : Record> HealthConnectClient.readAllRecords(
+internal suspend fun <T : Record> HealthConnectClient.readAllRecords(
     type: KClass<T>, range: TimeRangeFilter
 ): List<T> = collectHealthPages { token ->
     val page = readRecords(ReadRecordsRequest(type, range, pageToken = token))

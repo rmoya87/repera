@@ -5,7 +5,6 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Metadata
-import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import dev.repera.domain.HealthSessionLink
 import dev.repera.domain.SessionHealthMatcher
@@ -51,9 +50,9 @@ class HealthConnectWriter(private val context: Context) {
             if (granted.contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class))) {
                 val lo = start.minusMillis(SessionHealthMatcher.QUERY_SLACK_MS)
                 val hi = end.plusMillis(SessionHealthMatcher.QUERY_SLACK_MS)
-                val response = client.readRecords(ReadRecordsRequest(
-                    ExerciseSessionRecord::class, TimeRangeFilter.between(lo, hi)))
-                candidates = response.records.map {
+                val response = client.readAllRecords(
+                    ExerciseSessionRecord::class, TimeRangeFilter.between(lo, hi))
+                candidates = response.map {
                     SessionHealthMatcher.CandidateSession(
                         id = it.metadata.id,
                         startEpochMs = it.startTime.toEpochMilli(),

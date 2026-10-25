@@ -275,31 +275,14 @@ internal fun ProgressTab(
             }
             if (snapshot.muscleStatuses.isNotEmpty()) {
                 item {
-                    // Análisis muscular avanzado = Pro (paridad iOS
-                    // advancedMuscleAnalysis, contexto muscleAnalysis).
-                    val muscleAllowed = subscriptions
-                        ?.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_MUSCLE_ANALYSIS)
-                        ?.allowed ?: true
-                    if (muscleAllowed) {
-                        MuscleBalanceCard(
-                            loadAll = snapshot.muscleLoadAll,
-                            loadHard = snapshot.muscleLoadHard,
-                            fatigueAll = snapshot.muscleFatigueAll,
-                            fatigueHard = snapshot.muscleFatigueHard,
-                            hasHardSets = snapshot.hasHardSets)
-                    } else {
-                        dev.repera.mobile.monetization.ProTeaserCard(
-                            title = "Conoce tu equilibrio muscular",
-                            bodyText = "Visualiza grupos musculares y cómo se reparte tu entrenamiento.",
-                            cta = "Ver con Repera Pro",
-                            appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS
-                        ) {
-                            subscriptions?.presentPaywall(
-                                dev.repera.domain.monetization.PaywallContext.MUSCLE_ANALYSIS,
-                                feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_MUSCLE_ANALYSIS
-                            )
-                        }
-                    }
+                    // Current Apple StatsView explicitly exposes map and bars to Free.
+                    // Range selection remains gated separately; do not gate this whole card.
+                    MuscleBalanceCard(
+                        loadAll = snapshot.muscleLoadAll,
+                        loadHard = snapshot.muscleLoadHard,
+                        fatigueAll = snapshot.muscleFatigueAll,
+                        fatigueHard = snapshot.muscleFatigueHard,
+                        hasHardSets = snapshot.hasHardSets)
                 }
             }
             if (snapshot.weightPoints.isNotEmpty()) {

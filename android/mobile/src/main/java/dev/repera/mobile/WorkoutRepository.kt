@@ -587,7 +587,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             var foundKg = 0.0
             for (i in 0 until weights.length()) {
                 val entry = weights.optJSONObject(i) ?: continue
-                if (entry.optString("date").take(10) == day) {
+                if (BodyWeightHistory.day(entry.optString("date"),zone)?.toString() == day) {
                     foundIndex = i
                     foundMillis = runCatching {
                         Instant.parse(entry.optString("date")).toEpochMilli()
@@ -630,7 +630,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val localOnly = mutableListOf<Pair<Long, Double>>()
         for (i in 0 until weights.length()) {
             val entry = weights.optJSONObject(i) ?: continue
-            val day = entry.optString("date").take(10)
+            val day = BodyWeightHistory.day(entry.optString("date"),zone)?.toString() ?: continue
             if (byDay.containsKey(day)) continue
             val millis = runCatching {
                 Instant.parse(entry.optString("date")).toEpochMilli()
