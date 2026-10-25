@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   gesture:
-    name: Delta controls and save tests (API 30)
+    name: Delta controls save and theme (API 30)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -54,14 +54,15 @@ jobs:
           disable-animations: true
           emulator-options: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
           # UNA linea (la accion ejecuta cada linea en un sh -c distinto).
-          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; mkdir -p android/focused-evidence/controls android/focused-evidence/save; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveActivityControlsInstrumentedTest' --no-daemon --stacktrace; FIRST=$?; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/controls/ || true; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class='dev.repera.mobile.LiveActivitySaveInstrumentedTest' --no-daemon --stacktrace; SECOND=$?; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/save/ || true; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; echo "CONTROLS_EXIT=$FIRST SAVE_EXIT=$SECOND"; adb logcat -d -t 3000 || true; test $FIRST -eq 0 -a $SECOND -eq 0
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; gradle -p android :mobile:installDebug --no-daemon --stacktrace; RESULT=0; mkdir -p android/focused-evidence; for CLASS in LiveActivityControlsInstrumentedTest LiveActivitySaveInstrumentedTest ReperaThemeInstrumentedTest; do mkdir -p android/focused-evidence/$CLASS; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.repera.mobile.$CLASS --no-daemon --stacktrace; CODE=$?; echo "CLASS=$CLASS EXIT=$CODE"; if [ $CODE -ne 0 ]; then RESULT=1; fi; cp -r android/mobile/build/outputs/androidTest-results/connected/debug/. android/focused-evidence/$CLASS/ || true; done; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; adb logcat -d -t 3000 || true; exit $RESULT
+
 
 
       - name: Upload focused screenshots and reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: delta-controls-save-api30-evidence
+          name: delta-canvas-theme-api30-evidence
           path: |
             android/screenshots/**
             android/focused-evidence/**
