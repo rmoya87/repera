@@ -394,6 +394,11 @@ jobs:
                   for r in t.get("releases", []):
                       for vc in r.get("versionCodes", []):
                           play_max = max(play_max, int(vc))
+              # Bundles subidos aunque no esten en ninguna release (p.ej. el
+              # draft subido a mano): tambien cuentan para el maximo.
+              bundles = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid + "/bundles", headers=H)))
+              for bd in bundles.get("bundles", []):
+                  play_max = max(play_max, int(bd.get("versionCode", 0)))
           finally:
               urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid, headers=H, method="DELETE"))
           epoch_min = now // 60 - 29453760

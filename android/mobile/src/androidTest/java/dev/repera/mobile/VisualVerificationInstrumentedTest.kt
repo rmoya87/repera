@@ -854,13 +854,31 @@ class VisualVerificationInstrumentedTest {
         // inyeccion Compose comprime todo el gesto en ~10ms (tiempo virtual)
         // y MapLibre no lo traduce a pan (evidencia run 40204331198: el
         // detector de vista ve DOWN+20 MOVE+UP pero no hay cameraMoveStarted).
+        // Cerrar el IME antes de medir: con el teclado abierto el mapa se
+        // reubica y un swipe calculado sobre el layout sin teclado puede
+        // caer EN la ventana del IME (evidencia run 40207491825 API35: el
+        // stream tactil nunca llego al mapa; API30 sin teclado si).
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.waitForIdle()
         val pinMapBounds = compose.onNodeWithTag("place_pin_map")
             .fetchSemanticsNode().boundsInWindow
         val uiDevice = androidx.test.uiautomator.UiDevice.getInstance(
             androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
+        // Swipe desde el centro del mapa, con delta limitado para quedar
+        // siempre dentro de sus bounds (margen 48px por lado).
+        val margin = 48f
+        val dx = minOf(220f, pinMapBounds.width / 2 - margin)
+        val dy = minOf(220f, pinMapBounds.height / 2 - margin)
         val swipeFromX = (pinMapBounds.left + pinMapBounds.width / 2).toInt()
-        val swipeFromY = (pinMapBounds.top + pinMapBounds.height / 2 - 260).toInt()
-        uiDevice.swipe(swipeFromX, swipeFromY, swipeFromX + 220, swipeFromY + 220, 20)
+        val swipeFromY = (pinMapBounds.top + pinMapBounds.height / 2).toInt()
+        android.util.Log.i("PlaceSearchTest",
+            "pinMapBounds=$pinMapBounds swipe ($swipeFromX,$swipeFromY)->" +
+            "(${swipeFromX + dx.toInt()},${swipeFromY + dy.toInt()}) pkg=" +
+            uiDevice.currentPackageName)
+        uiDevice.swipe(swipeFromX, swipeFromY,
+            swipeFromX + dx.toInt(), swipeFromY + dy.toInt(), 20)
+        android.util.Log.i("PlaceSearchTest",
+            "tras swipe pkg=" + uiDevice.currentPackageName)
         compose.waitUntil(timeoutMillis = 15_000) {
             cameraRef.get()?.let { it.second != cam0.second || it.third != cam0.third } == true
         }
