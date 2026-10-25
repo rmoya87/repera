@@ -317,6 +317,7 @@ struct HomeView: View {
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
+                if let focusDay { selectedDay = calendar.startOfDay(for: focusDay) }
                 // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
                 rebuildDayBuckets()
                 rebuildWeekChrome()
