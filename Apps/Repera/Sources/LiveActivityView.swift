@@ -589,8 +589,11 @@ struct LiveActivityView: View {
     @State private var sportPicker = false
     @State private var routePicker = false
     @State private var importing = false
+    @State private var importAfterRouteSheet = false
     @State private var showDiscard = false
     @State private var showingFinish = false
+    /// Vista inicial: mapa para exteriores. Al iniciar, métricas a primer plano.
+    /// El botón flotante permite volver al mapa sin pestañas ni controles segmentados.
     @State private var showingMetrics = false
     @State private var routeError: String?
     @State private var title = ""
@@ -604,82 +607,57 @@ struct LiveActivityView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            Group {
                 if recorder.phase == .review {
                     review
+                } else if recorder.sport.usesGPS && !showingMetrics {
+                    mapView
                 } else {
-                    if recorder.sport.usesGPS {
-                        Picker("Vista", selection: $showingMetrics) {
-                            Text("Mapa").tag(false)
-                            Text("Métricas").tag(true)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 10)
-                    }
-
-                    if recorder.sport.usesGPS && !showingMetrics {
-                        mapView
-                    } else {
+                    VStack(spacing: 0) {
                         metricsView
+                        bottomControls
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 12)
                     }
-                    bottomControls
                 }
             }
             .background(OG.bg)
-            .navigationTitle("En vivo")
+            .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
+            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "En vivo")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if recorder.phase == .idle {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            sportPicker = true
-                        } label: {
-                            Label("Deporte", systemImage: "list.bullet")
-                        }
-                    }
-                    if let onOpenCenter {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(action: onOpenCenter) {
-                                Label("Mi centro", systemImage: "building.2")
-                            }
-                        }
-                    }
-                } else if recorder.phase != .review {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Descartar", systemImage: "xmark") { showDiscard = true }
-                            .tint(OG.label2)
-                    }
-                }
-            }
             .sheet(isPresented: $sportPicker) {
-                LiveSportPicker(choose: recorder.choose)
-            }
-            .sheet(isPresented: $routePicker) { routeSheet }
-            .fileImporter(isPresented: $importing,
-                          allowedContentTypes: [UTType(filenameExtension: "gpx") ?? .xml, .xml]) { result in
-                switch result {
-                case .success(let url):
-                    let access = url.startAccessingSecurityScopedResource()
-                    defer { if access { url.stopAccessingSecurityScopedResource() } }
-                    do {
-                        try routes.addGPX(data: Data(contentsOf: url),
-                                          name: url.deletingPathExtension().lastPathComponent)
-                        recorder.selectRoute(routes.routes.first)
-                    } catch { routeError = error.localizedDescription }
-                case .failure(let error): routeError = error.localizedDescription
+                LiveSportPicker { sport in
+                    recorder.choose(sport)
+                    showingMetrics = false
+                    position = .userLocation(fallback: .automatic)
                 }
             }
-            .alert("No se pudo importar la ruta", isPresented: Binding(
+            // Nunca abrir fileImporter mientras se está cerrando otra sheet.
+            .sheet(isPresented: $routePicker, onDismiss: {
+                if importAfterRouteSheet {
+                    importAfterRouteSheet = false
+                    importing = true
+                }
+            }) {
+                routeSheet
+            }
+            // .data cubre archivos .gpx cuya UTI no esté registrada en el dispositivo.
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.xml, .data]) { result in
+                importResult(result)
+            }
+            .alert("No se pudo cargar la ruta", isPresented: Binding(
                 get: { routeError != nil }, set: { if !$0 { routeError = nil } }
             )) {
                 Button("Aceptar", role: .cancel) { routeError = nil }
-            } message: { Text(routeError ?? "") }
+            } message: {
+                Text(routeError ?? "")
+            }
             .confirmationDialog("¿Descartar la actividad?", isPresented: $showDiscard) {
                 Button("Descartar sin guardar", role: .destructive) {
                     recorder.discard()
                     title = ""
                     notes = ""
+                    showingMetrics = false
                 }
                 Button("Cancelar", role: .cancel) {}
             } message: {
@@ -699,94 +677,209 @@ struct LiveActivityView: View {
         }
     }
 
+    /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
+    /// Tab bar principal permanece nativa y aparece superpuesta al mapa.
     private var mapView: some View {
-        VStack(spacing: 10) {
-            ZStack(alignment: .top) {
-                Map(position: $position) {
-                    if let route = recorder.chosenRoute, route.points.count > 1 {
-                        MapPolyline(coordinates: route.points.map {
-                            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                        })
-                        .stroke(OG.blue, lineWidth: 5)
-                    }
-                    if recorder.routePoints.count > 1 {
-                        MapPolyline(coordinates: recorder.routePoints.map {
-                            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                        })
-                        .stroke(OG.accent, lineWidth: 5)
-                    }
-                    if let current = recorder.currentCoordinate {
-                        Annotation("Tú", coordinate: current) {
-                            Circle().fill(OG.accent)
-                                .frame(width: 16, height: 16)
-                                .padding(5)
-                                .background(.white, in: Circle())
-                                .shadow(radius: 2)
-                        }
-                    }
+        ZStack {
+            Map(position: $position) {
+                if let route = recorder.chosenRoute, route.points.count > 1 {
+                    MapPolyline(coordinates: route.points.map {
+                        CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                    })
+                    .stroke(OG.blue, lineWidth: 5)
                 }
-                .mapControls {
-                    MapUserLocationButton()
-                    MapCompass()
+                if recorder.routePoints.count > 1 {
+                    MapPolyline(coordinates: recorder.routePoints.map {
+                        CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                    })
+                    .stroke(OG.accent, lineWidth: 5)
                 }
-                .mapStyle(.standard(elevation: .realistic))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                if let offRoute = recorder.offRouteMeters, offRoute > 60 {
-                    Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle")
-                        .font(.caption.weight(.semibold))
-                        .padding(10)
-                        .background(.regularMaterial, in: Capsule())
-                        .padding(12)
+                if let current = recorder.currentCoordinate {
+                    Annotation("Tú", coordinate: current) {
+                        Circle()
+                            .fill(OG.accent)
+                            .frame(width: 16, height: 16)
+                            .padding(5)
+                            .background(.white, in: Circle())
+                            .shadow(radius: 2)
+                    }
                 }
             }
-            .frame(maxHeight: .infinity)
-            .padding(.horizontal, 12)
+            .mapStyle(.standard(elevation: .realistic))
+            .ignoresSafeArea()
 
-            TimelineView(.periodic(from: .now, by: 1)) { timeline in
-                HStack(spacing: 6) {
-                    smallMetric("Tiempo", value: formattedTime(recorder.duration(at: timeline.date)))
-                    smallMetric("Distancia", value: String(format: "%.2f km", recorder.recordedDistanceMeters / 1000))
-                    smallMetric(recorder.sport.displaysSpeed ? "km/h" : "min/km",
-                                value: paceOrSpeed)
+            VStack(spacing: 12) {
+                mapHeader
+
+                if let offRoute = recorder.offRouteMeters, offRoute > 60 {
+                    Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: .capsule)
                 }
-                .padding(.horizontal, 12)
+                Spacer(minLength: 0)
+                mapMetricStrip
+                bottomControls
             }
-            if let message = recorder.gpsMessage {
-                Text(message).font(.caption).foregroundStyle(OG.label2).padding(.horizontal, 16)
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+        }
+        .onChange(of: recorder.routePoints.count) { _, _ in
+            guard recorder.phase == .recording,
+                  let coordinate = recorder.currentCoordinate else { return }
+            position = .region(MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+            ))
+        }
+    }
+
+    private var mapHeader: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: recorder.phase == .paused ? "pause.fill" : "location.fill")
+                    .foregroundStyle(recorder.phase == .paused ? OG.orange : OG.accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(recorder.phase == .paused ? "En pausa" : "En vivo")
+                        .font(.subheadline.weight(.bold))
+                    if let route = recorder.chosenRoute {
+                        Text(route.title)
+                            .font(.caption2)
+                            .lineLimit(1)
+                    } else {
+                        Text(recorder.sport.title)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .glassEffect(.regular, in: .capsule)
+
+            Spacer(minLength: 0)
+
+            if recorder.phase == .idle, let onOpenCenter {
+                mapCircleButton("building.2", label: "Mi centro", action: onOpenCenter)
+            }
+            mapCircleButton("location.north.line.fill", label: "Centrar mapa") {
+                position = .userLocation(fallback: .automatic)
+            }
+            if recorder.phase == .recording || recorder.phase == .paused {
+                mapCircleButton("arrow.up.left.and.arrow.down.right", label: "Ver métricas") {
+                    showingMetrics = true
+                }
+                mapCircleButton("xmark", label: "Descartar actividad") {
+                    showDiscard = true
+                }
             }
         }
-        .onChange(of: recorder.currentCoordinate?.latitude) { _, _ in
-            guard recorder.phase == .recording, let point = recorder.currentCoordinate else { return }
-            position = .region(MKCoordinateRegion(
-                center: point, span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            ))
+    }
+
+    private func mapCircleButton(
+        _ symbol: String, label: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .frame(width: 44, height: 44)
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private var mapMetricStrip: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            HStack(spacing: 5) {
+                smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)))
+                smallMetric(recorder.sport.displaysSpeed ? "Velocidad" : "Ritmo",
+                            value: paceOrSpeed)
+                smallMetric("Distancia (km)",
+                            value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 14)
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
         }
     }
 
     private var metricsView: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            VStack(spacing: 25) {
-                Spacer(minLength: 12)
-                Text(formattedTime(recorder.duration(at: timeline.date)))
-                    .font(.system(size: 39, weight: .bold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                Text("DURACIÓN").font(.caption.weight(.medium)).foregroundStyle(OG.label2)
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: recorder.sport.symbol)
+                        .font(.title2.weight(.medium))
+                        .foregroundStyle(OG.accent)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(recorder.sport.title).font(.headline)
+                        if recorder.phase == .paused {
+                            Text("En pausa").font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.orange)
+                        } else {
+                            Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
+                                .font(.caption).foregroundStyle(OG.label2)
+                        }
+                    }
+                    Spacer()
+                    if recorder.sport.usesGPS {
+                        Button {
+                            showingMetrics = false
+                        } label: {
+                            Label("Mapa", systemImage: "map")
+                                .labelStyle(.iconOnly)
+                                .font(.title3.weight(.medium))
+                                .frame(width: 44, height: 44)
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                        .accessibilityLabel("Ver mapa")
+                    }
+                    if recorder.phase != .idle {
+                        Button {
+                            showDiscard = true
+                        } label: {
+                            Image(systemName: "xmark")
+                                .frame(width: 44, height: 44)
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                        .accessibilityLabel("Descartar actividad")
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 14)
+
                 Spacer(minLength: 16)
-                Text(recorder.sport.usesGPS ? paceOrSpeed : recorder.phase == .idle ? "Listo" : "En vivo")
-                    .font(.system(size: 69, weight: .bold, design: .rounded).monospacedDigit())
-                    .minimumScaleFactor(0.65)
+                Text(formattedTime(recorder.duration(at: timeline.date)))
+                    .font(.system(size: 46, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .minimumScaleFactor(0.6).lineLimit(1)
+                Text("Duración")
+                    .font(.subheadline).foregroundStyle(OG.label2)
+                Spacer(minLength: 14)
+                Text(recorder.sport.usesGPS ? paceOrSpeed :
+                     recorder.phase == .idle ? "Listo" : "En vivo")
+                    .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                    .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.usesGPS ?
-                     (recorder.sport.displaysSpeed ? "Velocidad (km/h)" : "Ritmo (min/km)") : recorder.sport.title)
+                    (recorder.sport.displaysSpeed ? "Velocidad (km/h)" : "Ritmo (min/km)") :
+                    recorder.sport.title)
                     .font(.subheadline).foregroundStyle(OG.label2)
+                Spacer(minLength: 14)
                 if recorder.sport.usesGPS {
                     Text(String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
-                        .font(.system(size: 48, weight: .semibold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
                 } else {
-                    Text("Los datos de pulsaciones y calorías se muestran cuando Apple Salud dispone de mediciones reales.")
-                        .font(.caption).multilineTextAlignment(.center)
-                        .foregroundStyle(OG.label2).padding(.horizontal, 32)
+                    Text("Las pulsaciones y las calorías aparecen cuando Apple Salud facilita mediciones reales.")
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(OG.label2)
+                        .padding(.horizontal, 38)
                 }
                 Spacer(minLength: 16)
             }
@@ -797,63 +890,148 @@ struct LiveActivityView: View {
         }
     }
 
+    /// La misma base inferior para exterior e interior. Al aire libre, una caja
+    /// adicional con las métricas flota justo encima; dentro no es necesaria.
     private var bottomControls: some View {
-        VStack(spacing: 12) {
-            if recorder.phase == .idle {
-                HStack {
-                    Button { sportPicker = true } label: {
-                        Label(recorder.sport.title, systemImage: recorder.sport.symbol)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if recorder.sport.usesGPS {
-                        Button { routePicker = true } label: {
-                            Label(recorder.chosenRoute?.title ?? "Cargar ruta", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                                .lineLimit(1)
+        Group {
+            switch recorder.phase {
+            case .idle:
+                HStack(alignment: .center, spacing: 12) {
+                    Button {
+                        sportPicker = true
+                    } label: {
+                        VStack(spacing: 7) {
+                            Image(systemName: recorder.sport.symbol)
+                                .font(.system(size: 25, weight: .medium))
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 58, height: 58)
+                                .glassEffect(.regular.interactive(), in: .circle)
+                            Text(recorder.sport.title)
+                                .font(.caption2.weight(.medium))
+                                .lineLimit(1).minimumScaleFactor(0.7)
                         }
+                        .frame(maxWidth: .infinity)
                     }
-                }
-                .font(.subheadline.weight(.medium))
-                .padding(.bottom, 7)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Elegir actividad: \(recorder.sport.title)")
 
-                if store.hasActiveSession {
-                    Button(action: onOpenWorkout) {
-                        Label("Continuar entrenamiento en curso", systemImage: "play.fill")
+                    Button {
+                        if store.hasActiveSession {
+                            onOpenWorkout()
+                        } else {
+                            recorder.start()
+                            showingMetrics = recorder.sport.usesGPS
+                        }
+                    } label: {
+                        VStack(spacing: 7) {
+                            Image(systemName: store.hasActiveSession ? "arrow.uturn.forward" : "play.fill")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(.black)
+                                .frame(width: 70, height: 70)
+                                .background(OG.accent, in: Circle())
+                            Text(store.hasActiveSession ? "Continuar" : "Iniciar")
+                                .font(.caption.weight(.bold))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+
+                    if recorder.sport.usesGPS {
+                        Button {
+                            routePicker = true
+                        } label: {
+                            VStack(spacing: 7) {
+                                Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                                    .font(.system(size: 23, weight: .medium))
+                                    .foregroundStyle(OG.label)
+                                    .frame(width: 58, height: 58)
+                                    .glassEffect(.regular.interactive(), in: .circle)
+                                Text(recorder.chosenRoute == nil ? "Cargar ruta" : "Ruta elegida")
+                                    .font(.caption2.weight(.medium))
+                                    .lineLimit(1).minimumScaleFactor(0.7)
+                            }
                             .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear.frame(maxWidth: .infinity).frame(height: 60)
+                            .accessibilityHidden(true)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
-                } else {
-                    Button { recorder.start() } label: {
-                        Label("Iniciar actividad", systemImage: "play.fill")
-                            .frame(maxWidth: .infinity).font(.headline)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
                 }
-            } else if recorder.phase == .recording {
-                Button { recorder.pause() } label: {
+                .padding(.horizontal, 10)
+                .padding(.vertical, 12)
+                .glassEffect(.regular, in: .rect(cornerRadius: 28))
+
+            case .recording:
+                Button {
+                    recorder.pause()
+                } label: {
                     Label("Pausar", systemImage: "pause.fill")
-                        .frame(maxWidth: .infinity).font(.headline)
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 58)
+                        .foregroundStyle(.black)
+                        .background(OG.accent, in: Capsule())
                 }
-                .buttonStyle(.borderedProminent).tint(OG.accent)
-            } else if recorder.phase == .paused {
-                HStack(spacing: 12) {
-                    Button { recorder.resume() } label: {
-                        Label("Reanudar", systemImage: "play.fill").frame(maxWidth: .infinity)
+                .buttonStyle(.plain)
+                .padding(12)
+                .glassEffect(.regular, in: .rect(cornerRadius: 28))
+
+            case .paused:
+                HStack(spacing: 10) {
+                    Button {
+                        recorder.resume()
+                    } label: {
+                        Label("Reanudar", systemImage: "play.fill")
+                            .font(.subheadline.weight(.bold))
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .foregroundStyle(.black)
+                            .background(OG.accent, in: Capsule())
                     }
-                    .buttonStyle(.borderedProminent).tint(OG.accent)
-                    Button { showingFinish = true } label: {
-                        Label("Finalizar", systemImage: "flag.checkered").frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+                    Button {
+                        showingFinish = true
+                    } label: {
+                        Label("Finalizar", systemImage: "flag.checkered")
+                            .font(.subheadline.weight(.bold))
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .foregroundStyle(.white)
+                            .background(Color.black, in: Capsule())
                     }
-                    .buttonStyle(.borderedProminent).tint(OG.label)
+                    .buttonStyle(.plain)
                 }
+                .padding(12)
+                .glassEffect(.regular, in: .rect(cornerRadius: 28))
+            case .review:
+                EmptyView()
             }
         }
-        .controlSize(.large)
-        .foregroundStyle(.black)
-        .padding(16)
-        .background(OG.surface)
+        .foregroundStyle(OG.label)
+    }
+
+    private func importResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            let fileExtension = url.pathExtension.lowercased()
+            guard fileExtension == "gpx" || fileExtension == "xml" else {
+                routeError = "Selecciona un recorrido en formato GPX."
+                return
+            }
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                try routes.addGPX(data: data, name: url.deletingPathExtension().lastPathComponent)
+                guard let route = routes.routes.first else { return }
+                recorder.selectRoute(route)
+                position = .region(routeRegion(route.points))
+            } catch {
+                routeError = "No hemos podido leer este recorrido. Guárdalo en Archivos como GPX e inténtalo de nuevo."
+            }
+        case .failure(let error):
+            // Cerrar el selector de Archivos no es un fallo de la aplicación.
+            guard (error as NSError).code != NSUserCancelledError else { return }
+            routeError = "No se pudo abrir el archivo. Comprueba que está descargado en Archivos."
+        }
     }
 
     private var review: some View {
@@ -902,8 +1080,8 @@ struct LiveActivityView: View {
             List {
                 Section {
                     Button {
+                        importAfterRouteSheet = true
                         routePicker = false
-                        importing = true
                     } label: { Label("Importar archivo GPX", systemImage: "square.and.arrow.down") }
                     Button("Sin ruta", systemImage: "xmark.circle") {
                         recorder.selectRoute(nil)
@@ -976,11 +1154,14 @@ struct LiveActivityView: View {
 
     private func smallMetric(_ label: String, value: String) -> some View {
         VStack(spacing: 5) {
-            Text(value).font(.system(size: 20, weight: .semibold, design: .rounded).monospacedDigit())
-                .lineLimit(1).minimumScaleFactor(0.7)
-            Text(label).font(.caption2).foregroundStyle(OG.label2)
+            Text(value)
+                .font(.system(size: 19, weight: .semibold, design: .rounded).monospacedDigit())
+                .lineLimit(1).minimumScaleFactor(0.65)
+                .foregroundStyle(OG.label)
+            Text(label)
+                .font(.caption2).foregroundStyle(OG.label2)
+                .lineLimit(1).minimumScaleFactor(0.65)
         }
-        .frame(maxWidth: .infinity).padding(12)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+        .frame(maxWidth: .infinity)
     }
 }
