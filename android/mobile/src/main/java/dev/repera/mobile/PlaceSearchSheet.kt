@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.layout.imePadding
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -310,14 +312,26 @@ fun PlaceSearchSheet(
         val dialogView = LocalView.current
         LaunchedEffect(Unit) {
             (dialogView.parent as? DialogWindowProvider)?.window?.let { w ->
+                // Impedir que adjustPan desplace la ventana completa y saque
+                // del marco la cabecera y la acción de confirmar.
+                w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
                 WindowInsetsControllerCompat(w, dialogView).apply {
                     isAppearanceLightStatusBars = true
                     isAppearanceLightNavigationBars = true
                 }
             }
         }
+        LaunchedEffect(showsConfirmMap) {
+            if (showsConfirmMap) {
+                // Usar el token del Dialog, no el del controlador de la Activity.
+                dialogView.clearFocus()
+                (dialogView.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                    as? android.view.inputmethod.InputMethodManager)
+                    ?.hideSoftInputFromWindow(dialogView.windowToken, 0)
+            }
+        }
         Surface(modifier = Modifier.fillMaxSize()
-            .statusBarsPadding().navigationBarsPadding()) {
+            .statusBarsPadding().navigationBarsPadding().imePadding()) {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
