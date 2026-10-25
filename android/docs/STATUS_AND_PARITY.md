@@ -411,7 +411,10 @@ ninguno aparecía en las auditorías del 23/10.
   (SingleChoiceSegmentedButtonRow), franja de días con etiquetas en
   Hoy/Semana, rejilla por semanas (lunes) con gutter L/X/V, etiquetas de
   mes, scroll horizontal al final, hoy con borde y futuro al 25%
-  (HeatmapGrid/HeatmapLayout.resolve portados). Capturas:
+  (HeatmapGrid/HeatmapLayout.resolve portados). VERIFICADO POR PÍXELES
+  (25/10, run 40185662289): franja con 7 días + etiquetas + hoy con borde;
+  rejilla 90d con gutter L/X/V, etiquetas ago/sept/oct y hoy con borde;
+  cambio de métrica a Volumen con leyenda. Capturas:
   heatmap_franja_semana, heatmap_rejilla_90d, heatmap_rejilla_volumen.
   Histórico: Android ya tenía
   `StatsEngine.heatmapLevel/heatmapThresholds` (dominio) + `HeatmapCard`
@@ -609,7 +612,7 @@ Pagos:
 - Proveedor: Play Billing directo sin RevenueCat (decisión de Ramón, iMessage 24/10 20:06, verificada en el canal). Compra detectada = pendiente de verificación (UNKNOWN, no concede Pro): Play no expone expiryTime en dispositivo y su documentación pide verificación en backend. Sin backend/Play Console (autoridad pendiente) no hay compras ni Pro en producción. No es un gap que pueda cerrar sin cuentas/backend; sigue ABIERTO y declarado, no cerrado.
 - Diferencia con Apple (StoreKit verifica en dispositivo con JWS y expirationDate): en Android no hay equivalente on-device de la vigencia.
 Validaciones por versión:
-- Build: minSdk 30, compileSdk/targetSdk 37 (mobile, wear, domain). Matriz CI: 30, 35, 37.2 canary, Wear 5.1 y Wear 6.0 VERDES ejecutadas; teléfono 36.1 y Wear 6.1 sin validar (ver sección siguiente).
+- Build: minSdk 30, compileSdk/targetSdk 37 (mobile, wear, domain). Matriz CI: 30, 35, 37.2 canary, Wear 5.1 y Wear 6.0 VERDES ejecutadas (run 40185662289: 37.2 = 206/206 con los 4 tests nuevos de verificación); teléfono 36.1 RETIRADO (tres renderers, fallo pre-app) y Wear 6.1 sin validar (ver sección siguiente).
 - Revisión de manifiestos: `WodTimerService` es el único servicio en primer plano; declara `specialUse` con subtipo y permiso, y llama a startForeground con tipo en API 34+ (coherente). `StrengthRestService` no usa startForeground. POST_NOTIFICATIONS se pide en ≥33. Wear declara FOREGROUND_SERVICE_HEALTH sin servicio de salud en primer plano (inocuo). Las ramas SDK_INT ≤29 son código muerto con minSdk 30 (inocuo).
 - Ejecución: ver la sección siguiente (estado por pata al 25/10 con runs y evidencia).
 
@@ -632,16 +635,18 @@ defecto (40124402423); con -gpu guest el arranque es inestable (~50%: arrancó e
 imagen no soporta guest rendering y cae a lavapipe). Cuando la imagen arranca, el
 usuario tarda ~7 min en pasar a RUNNING_UNLOCKED: el workflow ya espera la
 precondición real (run-as = almacenamiento CE) con timeout de pata de 45 min.
-Diagnóstico RESUELTO (run 40184763940, gpu guest→lavapipe + -verbose
--show-kernel): el boot llega a sys.boot_completed=1 y en ese instante
-surfaceflinger recibe SIGABRT (t≈54s del guest) → init mata zygote → adb
-pierde el pipe (exit 224). No es OOM ni un fallo de tests: es el render
-lavapipe. Último intento con hipótesis nueva (25/10): -gpu
-swiftshader_indirect, la config estable de las patas 30/35/37.2, nunca
-probada en 36.1. Si tampoco arranca, la pata queda documentada como
-inestabilidad de imagen 36.1 + emulador en CI y se detiene (sin reruns
-idénticos). Emulador fijado a 37.3.5 (build 16632760) en esa pata para
-eliminar la variable del emulador recién publicado (37.2.12 también crasheó).
+Diagnóstico (run 40184763940, gpu guest→lavapipe + -verbose -show-kernel):
+el boot llega a sys.boot_completed=1 y en ese instante surfaceflinger recibe
+SIGABRT (t≈54s del guest) → init mata zygote → adb pierde el pipe (exit 224).
+Fallo PRE-APP de display en esta configuración; que el renderer (lavapipe)
+sea la causa es HIPÓTESIS sin contrastar (el SIGABRT no lleva el motivo en el
+kernel log). Contraste final con swiftshader_indirect + emulador 37.3.5
+(build 16632760, run 40185662289): adb nunca llegó a subir (exit 1 al
+minuto). PATA RETIRADA de la matriz (25/10): los tres renderers mueren
+pre-app en el display en esta configuración de CI (gpu por defecto:
+40124402423; swiftshader_indirect: RegionSamplingThread x2 y 40136277749 sin
+boot con emulador 37.2.12, 40185662289 sin adb; guest→lavapipe: 40184763940).
+No reintentar sin señal nueva (imagen 36.1 nueva o cambio de runner).
 
 Wear OS 6.1 (API 36.1; único build oficial publicado: 36.1_signed_r01):
 BLOQUEADO / NO VALIDADO (fallo pre-app). Firma: ~17 s tras el boot el guest entra
@@ -679,11 +684,16 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
   regla "sin pin manual si hay ruta de Salud"; PlanView completedDetails ->
   mismo editor de terminado). Búsqueda POI: YA hay proveedor compuesto
   Photon + Geocoder (PhotonPlaceSearchProvider/GeocoderPlaceSearchProvider).
-  Verificación integrada HECHA (25/10): seam `providerOverride` en
-  PlaceSearchSheet + test flujoBusquedaLugarConProveedorSimulado (proveedor
-  falso determinista: resultados -> confirmar -> pin fijado) y capturas
-  lugar_selector_vacio/con_pin; el provider real sigue sin ser determinista
-  en CI.
+  Verificación integrada HECHA (25/10, run 40185662289): seam
+  `providerOverride` + flujoBusquedaLugarConProveedorSimulado VERDE con
+  capturas inspeccionadas (resultados del proveedor falso listados con
+  atribución OSM; estado confirmar con papelera+check). La inspección de
+  píxeles encontró y se corrigieron DOS diferencias con iOS: el panel de
+  recientes/hint quedaba visible en estado confirmar (iOS cierra el panel:
+  ahora clearFocus al elegir) y el placeholder del campo era el texto del
+  hint (iOS: "Buscar otro sitio…"). El preview del pin en el picker es GL
+  (invisible a captureToImage): captura real lugar_selector_pin_mapa vía
+  UiAutomation + seam onMapStyleLoaded (ejecución pendiente del próximo run).
 - #3 Salud: el escritor YA EXISTE (HealthConnectWriter.syncFinishedSession
   con clientRecordId estable, adopción de vínculo y sin escritura de kcal/FC),
   llamado desde MainActivity al terminar; contrato de degradación probado en
@@ -692,11 +702,11 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
   lecturas/escrituras con Health Connect: el E2E real queda PENDIENTE,
   requiere la app Health Connect real (entorno, no código) y no se ejecuta
   con datos reales sin autoridad.
-- #2 RouteMap: verificación de píxeles PREPARADA (25/10): seam
-  `onStyleLoaded` en RouteMapView + test capturaRutaCardioMapa (ruta
-  sintética del Retiro, latch de estilo 60 s, captura con
-  UiAutomation.takeScreenshot porque el GL de MapLibre no lo cubre
-  captureToImage; fallback al canvas degradado determinista).
+- #2 RouteMap: VERIFICADO CON MAPLIBRE REAL (25/10, run 40185662289):
+  captura ruta_cardio_mapa (UiAutomation.takeScreenshot, NO el fallback) —
+  teselas del Retiro cargadas en CI, polilínea naranja y marcador inicio/fin
+  visibles, inspeccionada por píxeles. El fallback degradado se guarda con
+  nombre propio (ruta_cardio_mapa_fallback_canvas) y no se ejecutó.
 - Ubicación (pin + ruta) y descartar sesión: pruebas integradas en CI con
   ubicación simulada.
 - Fidelidad: ~~ActivityHeatmapView~~ PORTADA (25/10, ver entrada del heatmap);
@@ -727,10 +737,8 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
 - Wear OS 6.1: bloqueado pre-app (firma documentada arriba; en esta
   configuración el build 6.1 falla y el 6.0 pasa; no se afirma defecto
   exclusivo de la imagen independiente del entorno). Sin reruns idénticos.
-- Teléfono API 36.1: NO VALIDADO. Tres renderers con fallo pre-app de display
-  (ver historial arriba); run en curso con swiftshader_indirect + emulador
-  37.3.5 como último contraste. Si falla, la pata se retira con la firma
-  documentada y no se reintenta sin señal nueva.
+- Teléfono API 36.1: NO VALIDADO — pata RETIRADA (25/10) tras el fallo
+  pre-app de display con los tres renderers (firma arriba).
 - Arte: el lote solicitado está CERRADO (489 raíz + 488 thumbs verificados por
   hash) y main b151c4d no añadió assets; NO está bloqueado. Solo re-verificar si
   aparece una señal actual de assets nuevos.
