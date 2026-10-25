@@ -550,3 +550,6 @@ Port del Picker "Unidad de cardio" de Apple: chips Calorías/Metros en el editor
 - Cambio de comportamiento respecto a Android anterior: una rutina con progresión off ahora recibe la política por defecto (lineal) al iniciar, como Apple, solo con la función avanzada.
 - Diferencia conocida no replicada: Apple aplica sugerencias también a movimientos de WOD; Android solo a fuerza.
 - Cobertura: ProgressionApplyInstrumentedTest y DraftSessionRepositoryInstrumentedTest (almacenamiento temporal, id de usuario aleatorio) están COMPILADOS, no ejecutados.
+
+### Progresión sobre movimientos WOD (revisión 5b)
+Implementado (no ejecutado): como `applySuggestions` de Apple, con acceso a progresión avanzada también los movimientos WOD pasan por `ProgressionEngine.suggest` y quedan con series uniformes (reps/peso sugeridos). Consecuencia literal de Apple: un ladder 21-15-9 pierde su esquema por movimiento al iniciar si la política efectiva no es off (incluida la política por defecto lineal). Replicado tal cual por paridad; sin acceso avanzado se conservan los objetivos. Cobertura: `ProgressionApplyInstrumentedTest.wodMovementsAreProgressedLikeAppleOnlyWithAdvancedAccess` (compilada, no ejecutada). Pendiente de decisión de Ramón si prefiere NO replicar esta pérdida de ladder (se mantendría la paridad con Apple por defecto).

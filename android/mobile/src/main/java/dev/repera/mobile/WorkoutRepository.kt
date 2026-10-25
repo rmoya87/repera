@@ -682,6 +682,29 @@ class WorkoutRepository(context: Context, googleId: String) {
         return summarize(session)
     }
 
+    /** Apple ProgressionEngine.applySuggestions por ejercicio: series uniformes con reps/peso sugeridos. */
+    private fun progressedPlannedSets(
+        exerciseId: String, plannedSets: JSONArray, policy: dev.repera.domain.ProgressionPolicy,
+        history: List<dev.repera.domain.StatsWorkout>, incrementKg: Double
+    ): JSONArray {
+        val targets = (0 until plannedSets.length()).map { t ->
+            val set = plannedSets.getJSONObject(t)
+            dev.repera.domain.PlannedTarget(
+                targetReps = set.optInt("targetReps").takeIf { it > 0 } ?: 8,
+                targetWeightKg = if (set.has("targetWeightKg") && !set.isNull("targetWeightKg"))
+                    set.optDouble("targetWeightKg") else null)
+        }
+        val suggestion = dev.repera.domain.ProgressionEngine.suggest(
+            exerciseId = exerciseId, planned = targets, policy = policy, workouts = history, incrementKg = incrementKg)
+        val out = JSONArray()
+        repeat(maxOf(suggestion.setCount, 1)) {
+            val set = JSONObject().put("id", UUID.randomUUID().toString()).put("targetReps", suggestion.reps)
+            suggestion.weightKg?.let { w -> set.put("targetWeightKg", w) }
+            out.put(set)
+        }
+        return out
+    }
+
     /** Monta el JSON de sesión de una rutina sin persistirlo (plan del día). */
     private fun assembleSession(
         state: JSONObject, routine: JSONObject,
@@ -720,7 +743,17 @@ class WorkoutRepository(context: Context, googleId: String) {
         for (blockIndex in 0 until blocks.length()) {
             val block = blocks.getJSONObject(blockIndex)
             if (block.optString("kind") == "wod") {
+                val firstWod = planned.length()
                 WodSessionAssembler.append(block, catalog, planned)
+                if (policy != dev.repera.domain.ProgressionPolicy.OFF) {
+                    // Apple applySuggestions recorre TODOS los ejercicios de la sesión, también movimientos WOD, y
+                    // sustituye plannedSets por series uniformes (reps/peso sugeridos). Réplica literal.
+                    for (k in firstWod until planned.length()) {
+                        val mv = planned.getJSONObject(k)
+                        mv.put("plannedSets", progressedPlannedSets(mv.getJSONObject("exercise").getString("id"),
+                            mv.getJSONArray("plannedSets"), policy, history, incrementKg))
+                    }
+                }
                 continue
             }
             val entries = block.optJSONArray("exercises") ?: JSONArray()
@@ -734,30 +767,7 @@ class WorkoutRepository(context: Context, googleId: String) {
                 var plannedSets = JSONArray(
                     (entry.optJSONArray("plannedSets") ?: JSONArray()).toString())
                 if (policy != dev.repera.domain.ProgressionPolicy.OFF) {
-                    // iOS aplica ProgressionEngine.applySuggestions al iniciar:
-                    // los objetivos planificados se recalculan con el historial.
-                    val targets = (0 until plannedSets.length()).map { t ->
-                        val set = plannedSets.getJSONObject(t)
-                        dev.repera.domain.PlannedTarget(
-                            targetReps = set.optInt("targetReps").takeIf { it > 0 } ?: 8,
-                            targetWeightKg = if (set.has("targetWeightKg") &&
-                                !set.isNull("targetWeightKg"))
-                                set.optDouble("targetWeightKg") else null)
-                    }
-                    val suggestion = dev.repera.domain.ProgressionEngine.suggest(
-                        exerciseId = entry.getString("exerciseId"),
-                        planned = targets,
-                        policy = policy,
-                        workouts = history,
-                        incrementKg = incrementKg)
-                    plannedSets = JSONArray()
-                    repeat(maxOf(suggestion.setCount, 1)) {
-                        val set = JSONObject()
-                            .put("id", UUID.randomUUID().toString())
-                            .put("targetReps", suggestion.reps)
-                        suggestion.weightKg?.let { w -> set.put("targetWeightKg", w) }
-                        plannedSets.put(set)
-                    }
+                    plannedSets = progressedPlannedSets(entry.getString("exerciseId"), plannedSets, policy, history, incrementKg)
                 }
                 val item = JSONObject()
                     .put("id", UUID.randomUUID().toString())

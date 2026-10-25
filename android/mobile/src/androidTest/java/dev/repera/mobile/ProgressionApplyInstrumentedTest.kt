@@ -125,4 +125,20 @@ class ProgressionApplyInstrumentedTest {
             assertEquals(if (allow) 102.5 else 100.0, w, 0.001)
         }
     }
+
+    /** Apple applySuggestions también recorre movimientos WOD y los deja con series uniformes. Con el gate de plan cerrado, el WOD conserva sus objetivos. */
+    @Test fun wodMovementsAreProgressedLikeAppleOnlyWithAdvancedAccess() {
+        for (allow in listOf(true, false)) {
+            val (repo, local) = repo()
+            val id = exerciseId(local)
+            repo.createRoutine("Escalera", "ladder", listOf(RoutineDraftEntry(id, 21)),
+                timeCapMinutes = 20, ladderScheme = listOf(21, 15, 9))
+            val routineId = JSONObject(String(local.read()!!)).getJSONArray("routines").getJSONObject(0).getString("id")
+            repo.startRoutine(routineId, allowAdvancedProgression = allow)
+            val sets = JSONObject(String(local.read()!!)).getJSONObject("activeSession").getJSONArray("exercises")
+                .getJSONObject(0).getJSONArray("plannedSets")
+            val reps = (0 until sets.length()).map { sets.getJSONObject(it).getInt("targetReps") }
+            if (allow) assertEquals(1, reps.distinct().size) else assertEquals(listOf(21, 15, 9), reps)
+        }
+    }
 }
