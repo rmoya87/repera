@@ -1534,9 +1534,8 @@ final class HealthKitStore {
         let locations = points.compactMap { point -> CLLocation? in
             guard (-90...90).contains(point.latitude),
                   (-180...180).contains(point.longitude),
-                  let date = point.recordedAt,
-                  date >= workout.startDate.addingTimeInterval(-60),
-                  date <= workout.endDate.addingTimeInterval(60)
+                  point.recordedAt >= workout.startDate.addingTimeInterval(-60),
+                  point.recordedAt <= workout.endDate.addingTimeInterval(60)
             else { return nil }
             let courseSpeed = point.speedMps ?? -1
             return CLLocation(
@@ -1548,7 +1547,7 @@ final class HealthKitStore {
                 verticalAccuracy: point.altitudeMeters == nil ? -1 : 15,
                 course: -1,
                 speed: courseSpeed,
-                timestamp: date
+                timestamp: point.recordedAt
             )
         }
         guard locations.count >= 2 else { return }
