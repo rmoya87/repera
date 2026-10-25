@@ -571,7 +571,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
                 onStartRoutine = { id ->
-                    runWorkoutAction(onSuccess = { beginLocationCapture() }) { startRoutine(id) }
+                    runWorkoutAction(onSuccess = { beginLocationCapture() }) { startRoutine(id, subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed) }
                 },
                 onEditRoutine = { id, title, schedule ->
                     runWorkoutAction { updateRoutineDetails(id, title, schedule) }
@@ -594,7 +594,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onStartSessionFromDrafts = { title, drafts, fav ->
                     runWorkoutAction(onSuccess = { beginLocationCapture() }) {
-                        startSessionFromDrafts(title, drafts, fav) { before ->
+                        startSessionFromDrafts(title, drafts, fav,
+                            subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed) { before ->
                             subscriptions.syncCounts(snapshot?.routines ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }

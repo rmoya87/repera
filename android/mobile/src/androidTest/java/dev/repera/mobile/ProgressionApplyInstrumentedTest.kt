@@ -98,6 +98,8 @@ class ProgressionApplyInstrumentedTest {
         val routineId = JSONObject(String(local.read()!!)).getJSONArray("routines")
             .getJSONObject(0).getString("id")
         val state = JSONObject(String(local.read()!!))
+        // La política por defecto de ajustes también es off: solo así la rutina off no progresa (Apple: off -> defaultProgression).
+        state.put("settings", JSONObject().put("defaultProgression", "off"))
         state.getJSONArray("workouts").put(finishedSession(id, 8, 100.0, 2))
         local.write(state.toString().toByteArray(Charsets.UTF_8))
         repo.startRoutine(routineId)
@@ -105,5 +107,22 @@ class ProgressionApplyInstrumentedTest {
             .getJSONObject("activeSession").getJSONArray("exercises")
             .getJSONObject(0).getJSONArray("plannedSets")
         assertEquals(100.0, planned.getJSONObject(0).getDouble("targetWeightKg"), 0.001)
+    }
+
+    /** Apple: routine.progression == off usa settings.defaultProgression (lineal si falta). */
+    @Test fun offRoutineUsesDefaultPolicyAndFreeTierKeepsPlan() {
+        for (allow in listOf(true, false)) {
+            val (repo, local) = repo()
+            val id = exerciseId(local)
+            repo.createRoutine("Fuerza", "strength", listOf(RoutineDraftEntry(id, 8, sets = 3, weightKg = 100.0)))
+            val routineId = JSONObject(String(local.read()!!)).getJSONArray("routines").getJSONObject(0).getString("id")
+            val state = JSONObject(String(local.read()!!))
+            state.getJSONArray("workouts").put(finishedSession(id, 8, 100.0, 2))
+            local.write(state.toString().toByteArray(Charsets.UTF_8))
+            repo.startRoutine(routineId, allowAdvancedProgression = allow)
+            val w = JSONObject(String(local.read()!!)).getJSONObject("activeSession").getJSONArray("exercises")
+                .getJSONObject(0).getJSONArray("plannedSets").getJSONObject(0).getDouble("targetWeightKg")
+            assertEquals(if (allow) 102.5 else 100.0, w, 0.001)
+        }
     }
 }

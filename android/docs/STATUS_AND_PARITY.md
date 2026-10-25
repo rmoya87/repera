@@ -543,3 +543,10 @@ Port del Picker "Unidad de cardio" de Apple: chips Calorías/Metros en el editor
 - Implementado: «Guardar también como favorito» al editar un entreno terminado: copia independiente con ids nuevos de los bloques editados (nunca sobrescribe la rutina original); cuota comprobada antes de aplicar nada.
 - Verificación: solo compilación + androidTest compilados (sessionModeStartsWithFavoriteChoice, saveAsFavoriteFlagReachesEdit). No hay test JVM de startSessionFromDrafts ni de la copia favorita (dependen del repositorio con ficheros): NO probado en ejecución. Diferencia posible: Apple arranca sesión con progresión del motor (applySuggestions); aquí la sesión se ensambla sin sugerencias de progresión porque la rutina es off.
 - Pendiente general sin cambios (ver secciones anteriores): ejecución/visual, dispositivo, backend de monetización, Wear 6.1, sync final de arte.
+
+## Progresión al iniciar sesión - contraste con Apple (revisión 5)
+- Apple: `ReperaStore.startSession(from:)` aplica `ProgressionEngine.applySuggestions` solo si `canAccess(.advancedStrengthProgression)`; con `routine.progression == .off` usa `settings.defaultProgression` (si falta, `.linear`); el incremento viene de `weightIncrementKg` (2,5 por defecto).
+- Android (implementado, NO ejecutado): `WorkoutRepository.assembleSession(..., applyDefaultPolicy)` replica esa resolución; sin acceso avanzado la política es off. `startRoutine` y `startSessionFromDrafts` reciben `allowAdvancedProgression` desde `subscriptions`.
+- Cambio de comportamiento respecto a Android anterior: una rutina con progresión off ahora recibe la política por defecto (lineal) al iniciar, como Apple, solo con la función avanzada.
+- Diferencia conocida no replicada: Apple aplica sugerencias también a movimientos de WOD; Android solo a fuerza.
+- Cobertura: ProgressionApplyInstrumentedTest y DraftSessionRepositoryInstrumentedTest (almacenamiento temporal, id de usuario aleatorio) están COMPILADOS, no ejecutados.

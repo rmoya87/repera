@@ -651,6 +651,7 @@ class WorkoutRepository(context: Context, googleId: String) {
      */
     @Synchronized fun startSessionFromDrafts(
         title: String, drafts: List<RoutineBlockDraft>, saveAsFavorite: Boolean,
+        allowAdvancedProgression: Boolean = true,
         canCreateCustom: (Int) -> Boolean = { true }
     ): ActiveWorkout {
         val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
@@ -660,7 +661,7 @@ class WorkoutRepository(context: Context, googleId: String) {
         val routine = JSONObject().put("id", UUID.randomUUID().toString()).put("title", cleaned)
             .put("blocks", validatedDraftBlocks(materializePendingCustoms(drafts, state, canCreateCustom), state))
             .put("progression", "off").put("isFavorite", saveAsFavorite)
-        val session = assembleSession(state, routine)
+        val session = assembleSession(state, routine, allowAdvancedProgression, applyDefaultPolicy = true)
         if (saveAsFavorite) state.getJSONArray("routines").put(routine)
         state.put("activeSession", session)
         save(state)
@@ -669,20 +670,23 @@ class WorkoutRepository(context: Context, googleId: String) {
 
     @Synchronized fun startStrengthRoutine(id: String): ActiveWorkout = startRoutine(id)
 
-    @Synchronized fun startRoutine(id: String): ActiveWorkout {
+    @Synchronized fun startRoutine(id: String, allowAdvancedProgression: Boolean = true): ActiveWorkout {
         val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
         check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
         val routines = state.getJSONArray("routines")
         val routine = (0 until routines.length()).map { routines.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
-        val session = assembleSession(state, routine)
+        val session = assembleSession(state, routine, allowAdvancedProgression, applyDefaultPolicy = true)
         state.put("activeSession", session)
         save(state)
         return summarize(session)
     }
 
     /** Monta el JSON de sesión de una rutina sin persistirlo (plan del día). */
-    private fun assembleSession(state: JSONObject, routine: JSONObject): JSONObject {
+    private fun assembleSession(
+        state: JSONObject, routine: JSONObject,
+        allowAdvanced: Boolean = true, applyDefaultPolicy: Boolean = false
+    ): JSONObject {
         val blocks = routine.optJSONArray("blocks") ?: JSONArray()
         require(blocks.length() > 0) { "Esta rutina no tiene bloques" }
         // Refuse unsupported formats atomically before touching the local document.
@@ -695,9 +699,21 @@ class WorkoutRepository(context: Context, googleId: String) {
             val exercise = catalog.getJSONObject(it)
             exercise.getString("id") to exercise
         }
-        val policy = dev.repera.domain.ProgressionPolicy
+        // ReperaStore.startSession iOS: sin acceso a progresión avanzada no se aplican sugerencias; con acceso,
+        // ProgressionEngine.applySuggestions usa `routine.progression == .off ? settings.defaultProgression : routine.progression`.
+        val routinePolicy = dev.repera.domain.ProgressionPolicy
             .fromWire(routine.optString("progression"))
             ?: dev.repera.domain.ProgressionPolicy.OFF
+        val settings = state.optJSONObject("settings")
+        val policy = when {
+            !allowAdvanced -> dev.repera.domain.ProgressionPolicy.OFF
+            applyDefaultPolicy && routinePolicy == dev.repera.domain.ProgressionPolicy.OFF ->
+                dev.repera.domain.ProgressionPolicy.fromWire(settings?.optString("defaultProgression").orEmpty())
+                    ?: dev.repera.domain.ProgressionPolicy.LINEAR
+            else -> routinePolicy
+        }
+        val incrementKg = settings?.takeIf { it.has("weightIncrementKg") && !it.isNull("weightIncrementKg") }
+            ?.getDouble("weightIncrementKg")?.takeIf { it > 0 } ?: dev.repera.domain.ProgressionEngine.defaultIncrementKg
         val history = if (policy != dev.repera.domain.ProgressionPolicy.OFF)
             ProgressSnapshotBuilder.statsWorkouts(state) else emptyList()
         val planned = JSONArray()
@@ -732,7 +748,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                         exerciseId = entry.getString("exerciseId"),
                         planned = targets,
                         policy = policy,
-                        workouts = history)
+                        workouts = history,
+                        incrementKg = incrementKg)
                     plannedSets = JSONArray()
                     repeat(maxOf(suggestion.setCount, 1)) {
                         val set = JSONObject()
