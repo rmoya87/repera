@@ -381,6 +381,7 @@ struct RouteWeatherStrip: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var temperatureC: Double?
     @State private var humidity: Double?
+    @State private var windKmh: Double?
     @State private var symbol = "cloud.sun"
     @State private var attributionURL: URL?
     @State private var attributionMarkURL: URL?
@@ -406,8 +407,11 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
                 Divider().frame(height: 36).padding(.horizontal, 4)
-                // AQI histórico: WeatherKit no lo ofrece → siempre «—» a propósito.
-                weatherStat(symbol: "aqi.medium", title: "Calidad aire", value: nil, loading: false)
+                weatherStat(
+                    symbol: "wind", title: "Viento",
+                    value: windKmh.map { String(format: "%.0f km/h", $0) },
+                    loading: isLoading
+                )
             }
             if let attributionURL, let attributionMarkURL, hasWeather {
                 Link(destination: attributionURL) {
@@ -434,7 +438,7 @@ struct RouteWeatherStrip: View {
                     .font(.caption2)
                     .foregroundStyle(OG.label3)
             } else {
-                Text("Calidad del aire histórica no disponible.")
+                Text("Datos meteorológicos no disponibles.")
                     .font(.caption2)
                     .foregroundStyle(OG.label3)
             }
@@ -486,6 +490,7 @@ struct RouteWeatherStrip: View {
 
     private func loadWeather() async {
         humidity = nil
+        windKmh = nil
         temperatureC = nil
         attributionURL = nil
         attributionMarkURL = nil
@@ -537,6 +542,7 @@ struct RouteWeatherStrip: View {
 
         temperatureC = hour.temperature.converted(to: .celsius).value
         humidity = hour.humidity
+        windKmh = hour.wind.speed.converted(to: .kilometersPerHour).value
         symbol = hour.symbolName
 
         // Atribución aparte: si falla, igual mostramos temperatura/humedad.
