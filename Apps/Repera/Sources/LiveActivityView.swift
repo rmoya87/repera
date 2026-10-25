@@ -1004,7 +1004,9 @@ final class LiveActivityRecorder: NSObject {
                 announcedTurnIndices.insert(next.routeIndex)
                 // La guía procede solo de la geometría GPX: no sustituye
                 // señalización ni navegación vial oficial.
-                let didSpeak = speakNavigation(upcomingTurn ?? next.instruction)
+                let didSpeak = speakNavigation(
+                    "Dentro de \(meters) metros, \(next.instruction.lowercased())."
+                )
                 notifyDuringBackground(
                     identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
                     title: "Giro orientativo del GPX",
