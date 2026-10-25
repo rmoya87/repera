@@ -99,4 +99,15 @@ class LiveSportHistoryInstrumentedTest {
         compose.onNodeWithContentDescription("2 intentos: 5.00 km, 4.90 km").assertExists()
     }
 
+    @Test fun activeSplitsUseSpeedForCyclingAndOnlyMeasuredHeartRate() {
+        val points=(0..30).map { i -> dev.repera.domain.WorkoutRoutePoint(i,40.0+i*0.0003,-3.7,i*10_000L) }
+        compose.setContent {
+            MaterialTheme(colorScheme=reperaColorScheme(false)) {
+                LiveKilometerSplitsSection(listOf(300.0),true,points,listOf(10_000L to 130,150_000L to 150,280_000L to 170))
+            }
+        }
+        compose.onNodeWithText("12.0 km/h").assertIsDisplayed()
+        compose.onNodeWithText("150 lpm").assertIsDisplayed()
+    }
+
 }

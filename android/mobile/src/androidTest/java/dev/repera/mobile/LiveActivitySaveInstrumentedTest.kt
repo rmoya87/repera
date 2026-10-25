@@ -85,6 +85,23 @@ class LiveActivitySaveInstrumentedTest {
         assertFalse(route.isFavorite)
         assertEquals("running",route.sportID)
     }
+    @Test fun corruptCheckpointCannotBeOverwrittenUntilExplicitDiscard() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val account="test-corrupt-${UUID.randomUUID()}"
+        val hash=java.security.MessageDigest.getInstance("SHA-256").digest(account.toByteArray()).joinToString("") { "%02x".format(it) }
+        val file=java.io.File(context.filesDir,"users/$hash/live_activity.json")
+        file.parentFile!!.mkdirs();file.writeText("original-corrupt-checkpoint")
+        val runtime=LiveActivityRuntime.forAccount(context,account)
+        assertTrue(runtime.recoveryBlocked)
+        assertTrue(LiveActivityRuntime.hasPendingActivity(context,account))
+        runtime.start()
+        assertEquals(LiveActivityState.Phase.IDLE,runtime.state.phase)
+        assertEquals("original-corrupt-checkpoint",file.readText())
+        assertTrue(runtime.discard());assertFalse(file.exists())
+        assertFalse(runtime.recoveryBlocked)
+        assertFalse(LiveActivityRuntime.hasPendingActivity(context,account))
+        LiveActivityRuntime.stopAll()
+    }
     @Test fun runtimeRestoresCheckpointPausedAcrossAccountIsolationAndDiscardsLocally() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val account = "test-runtime-${UUID.randomUUID()}"
