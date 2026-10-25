@@ -2,6 +2,10 @@ package dev.repera.mobile
 
 import dev.repera.mobile.monetization.LocalSubscriptions
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -250,6 +258,20 @@ fun ReperaMobileScreen(
             }
         }
         var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
+        val expandedLayout = LocalConfiguration.current.screenWidthDp >= 600
+        var settingsRightPane by remember { mutableStateOf(false) }
+        var routineRightPaneID by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(expandedLayout) {
+            if (!expandedLayout) {
+                settingsRightPane = false
+                routineRightPaneID = null
+            }
+        }
+        BackHandler(enabled = expandedLayout &&
+            (settingsRightPane || routineRightPaneID != null)) {
+            settingsRightPane = false
+            routineRightPaneID = null
+        }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
         var showCenter by remember { mutableStateOf(false) }
         if (showCenter && centerVisible) {
@@ -263,12 +285,18 @@ fun ReperaMobileScreen(
             }
         }
         val visibleTabs = tabs
+        Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { Text("repera") },
                     actions = {
-                        IconButton(onClick = { navigateTab("ajustes") }) {
+                        IconButton(onClick = {
+                            if (expandedLayout && currentRoute == "inicio") {
+                                settingsRightPane = true
+                                routineRightPaneID = null
+                            } else navigateTab("ajustes")
+                        }) {
                             Icon(imageVector = Icons.Outlined.Settings,
                                 contentDescription = "Ajustes")
                         }
@@ -363,7 +391,10 @@ fun ReperaMobileScreen(
                         onEditRoutine = onEditRoutine,
                         onDeleteRoutine = onDeleteRoutine,
                         onEditRoutineContent = { routineId ->
-                            navController.navigate("rutina/$routineId")
+                            if (expandedLayout) {
+                                routineRightPaneID = routineId
+                                settingsRightPane = false
+                            } else navController.navigate("rutina/$routineId")
                         },
                         onSetRoutineProgression = onSetRoutineProgression,
                         onSetRoutineFavorite = onSetRoutineFavorite,
@@ -551,6 +582,7 @@ fun ReperaMobileScreen(
                         activeWorkout = activeWorkout,
                         onQuickLog = onQuickLog,
                         onSetExerciseFavorite = onSetExerciseFavorite,
+                        exerciseSeries = exerciseSeries,
                         onOpenExercise = { exerciseId ->
                             navController.navigate("ejercicio/$exerciseId")
                         },
@@ -727,6 +759,75 @@ fun ReperaMobileScreen(
                     }
                 }
             }
+        }
+        AnimatedVisibility(
+            visible = expandedLayout && (settingsRightPane || routineRightPaneID != null),
+            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(280)),
+            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(280)),
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.5f)
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), tonalElevation = 6.dp,
+                color = MaterialTheme.colorScheme.background) {
+                if (settingsRightPane) {
+                    Column {
+                        Row(modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { settingsRightPane = false }) { Text("‹ Volver") }
+                            Text("Ajustes", style = MaterialTheme.typography.headlineMedium)
+                        }
+                        val subscriptions = LocalSubscriptions.current
+                        SettingsTab(
+                            busy = busy,
+                            onOpenAIAccess = {
+                                settingsRightPane = false
+                                navController.navigate("acceso-ia")
+                            },
+                            onImportJson = onImportJson,
+                            onImportCsv = onImportCsv,
+                            onOpenCenter = {
+                                settingsRightPane = false
+                                navController.navigate("center")
+                            },
+                            onOpenPro = { subscriptions?.presentPaywall(
+                                dev.repera.domain.monetization.PaywallContext.SETTINGS,
+                                feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
+                            ) },
+                            proStatus = if (subscriptions?.businessSponsoredAccess == true)
+                                "Acceso por centro o entrenador" else subscriptions?.status?.displayName,
+                            onUpdateProfile = onUpdateProfile,
+                            overview = overview,
+                            onUpdateTrainingSettings = onUpdateTrainingSettings,
+                            onUpdateRotation = onUpdateRotation,
+                            onUpdateHealthGoals = onUpdateHealthGoals,
+                            onExportJson = onExportJson,
+                            onHealthConnect = onHealthConnect,
+                            onSignOut = onSignOut
+                        )
+                    }
+                } else {
+                    val id = routineRightPaneID
+                    val routine = overview?.routineEntries?.firstOrNull { it.id == id }
+                    if (id != null && routine != null) {
+                        RoutineBlocksEditorScreen(
+                            routine = routine,
+                            exercises = overview?.exerciseEntries.orEmpty(),
+                            busy = busy,
+                            loadGuideProvider = loadGuideProvider,
+                            importableRoutines = overview?.routineEntries.orEmpty(),
+                            onTitleSuggested = { title ->
+                                onEditRoutine(id, title, RoutineSchedule(
+                                    routine.scheduledDate, routine.weekday, routine.timeMinutes))
+                            },
+                            onReplace = { drafts ->
+                                onReplaceRoutineBlocks(id, drafts)
+                                routineRightPaneID = null
+                            },
+                            onBack = { routineRightPaneID = null }
+                        )
+                    }
+                }
+            }
+        }
         }
     }
 }
