@@ -144,15 +144,16 @@ internal fun HomeTab(
         item {
             val day = LocalDate.parse(homeDateIso)
             val dayRoutines = overview?.routineEntries.orEmpty().filter {
-                it.scheduledDate == day.toString() ||
-                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
+                (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
+                    (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
+                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
             }
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Calendario y entrenamientos",
                         style = MaterialTheme.typography.titleLarge)
-                    WeekCalendarStrip(day) { homeDateIso = it.toString() }
+                    WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true) { homeDateIso = it.toString() }
                     Text("Entrenamientos · " + day.format(reperaDayFormatter),
                         style = MaterialTheme.typography.titleMedium)
                     if (dayRoutines.isEmpty()) {

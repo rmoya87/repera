@@ -31,6 +31,21 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
     }
 
+    @Synchronized internal fun updateTrainingSettings(value:TrainingSettings) {
+        val state=requireState()
+        TrainingSettings.apply(state,value)
+        save(state)
+    }
+
+    @Synchronized internal fun updateRotation(plan:dev.repera.domain.RotationPlan?) {
+        val state=requireState()
+        val routines=state.getJSONArray("routines")
+        val known=(0 until routines.length()).map { routines.getJSONObject(it).getString("id") }.toSet()
+        require(plan==null || plan.routineIds.all { it in known })
+        require(plan==null || plan.routineIds.distinct().size==plan.routineIds.size)
+        RotationSettings.write(state,plan);save(state)
+    }
+
     @Synchronized fun setLiveRouteID(sessionID: String, routeID: String) {
         val state = requireState()
         val archive = state.getJSONArray("workouts")
@@ -1393,7 +1408,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val index = exerciseIndex ?: session.optInt("currentIndex", -1)
         if (index !in 0 until array.length()) return null
         val exercise = array.getJSONObject(index)
-        val rest = exercise.optInt("restSeconds", -1)
+        val rest = exercise.optInt("restSeconds", TrainingSettings.read(state).defaultRestSeconds)
         if (rest <= 0) return null
         val name = exercise.optJSONObject("exercise")?.optString("name")
             ?: return null
@@ -1414,8 +1429,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val state = loadOrNull() ?: return null
         if (!state.isNull("activeSession")) return null
         val routines = state.optJSONArray("routines") ?: return null
-        val routine = (0 until routines.length()).map { routines.getJSONObject(it) }
-            .firstOrNull { routine ->
+        val choices=(0 until routines.length()).map { routines.getJSONObject(it) }
+        val rotationID=RotationSettings.nextRoutineId(state)
+        val routine = if(TrainingSettings.read(state).scheduleMode=="rotation") choices.firstOrNull {it.optString("id")==rotationID}
+        else choices.firstOrNull { routine ->
                 val scheduled = routine.optString("scheduledDate")
                     .takeIf { it.isNotBlank() && it != "null" }
                     ?.take(10)
@@ -1423,7 +1440,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     (scheduled == null &&
                         routine.optInt("weekday", -1) == today.dayOfWeek.value)
             } ?: return null
-        return runCatching { assembleSession(state, routine) }.getOrNull()
+        return runCatching { assembleSession(state, routine ?: return null) }.getOrNull()
     }
 
     /**
@@ -2250,6 +2267,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         session.put("phase", "finished").put("finishedAt", nowISO8601())
         state.getJSONArray("workouts").put(session)
         state.remove("activeSession")
+        RotationSettings.advanceIfNeeded(state,session.optString("routineId").takeIf { it.isNotBlank() })
         // Valoración post-entreno (paridad ReperaStore.attachSessionReview iOS):
         // se calcula con todo el historial y se persiste dentro de la sesión.
         val review = SessionReviewSupport.attachToFinishedSession(state, session)

@@ -97,8 +97,9 @@ internal fun DiaryTab(
     val routines = overview?.routineEntries.orEmpty()
     val day = LocalDate.parse(diaryDateIso)
     val todays = routines.filter {
-        it.scheduledDate == day.toString() ||
-            (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)
+        (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
+            (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
+            (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
     }
     val dated = routines.filter {
         it.scheduledDate != null && it.scheduledDate != day.toString()
@@ -163,7 +164,7 @@ internal fun DiaryTab(
             }
         }
         item {
-            WeekCalendarStrip(day) { chosen -> diaryDateIso = chosen.toString() }
+            WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true) { chosen -> diaryDateIso = chosen.toString() }
         }
         if (routines.isEmpty()) item { Text("No hay rutinas creadas") }
         if (todays.isNotEmpty()) item {

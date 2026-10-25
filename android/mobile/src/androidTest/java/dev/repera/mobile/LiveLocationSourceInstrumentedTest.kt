@@ -61,7 +61,8 @@ class LiveLocationSourceInstrumentedTest {
         }
         compose.setContent { androidx.compose.material3.Text("GPS sintético en primer plano") }
         compose.waitForIdle()
-        val provider="fused"
+        // API30 getProviders(true) excludes fused: product selects gps.
+        val provider=LocationManager.GPS_PROVIDER
         instrument.uiAutomation.grantRuntimePermission(context.packageName,Manifest.permission.ACCESS_COARSE_LOCATION)
         instrument.uiAutomation.grantRuntimePermission(context.packageName,Manifest.permission.ACCESS_FINE_LOCATION)
         shell("appops set ${context.packageName} android:mock_location allow")
@@ -77,8 +78,10 @@ class LiveLocationSourceInstrumentedTest {
                 })
             }
             fix(40.438,0);awaitCount(1)
+            assertEquals(40.438,updates.last().point.latitude,0.000001)
             android.util.Log.i("ReperaSyntheticGPS","First fix accepted; enabled=${manager.getProviders(true)} activity=${compose.activity.lifecycle.currentState}")
             Thread.sleep(5_100);fix(40.4381,5);awaitCount(2)
+            assertEquals(40.4381,updates.last().point.latitude,0.000001)
             val meters=updates.last().distanceMeters
             assertTrue(meters>10)
             instrument.runOnMainSync { source.stop("synthetic-provider",false) }
@@ -86,6 +89,7 @@ class LiveLocationSourceInstrumentedTest {
             assertEquals(2,updates.size)
             instrument.runOnMainSync { assertTrue(source.start("synthetic-provider",LiveSport.RUNNING,updates.map { it.point },meters)) }
             Thread.sleep(1_100);fix(40.45,7);awaitCount(3)
+            assertEquals(40.45,updates.last().point.latitude,0.000001)
             assertEquals(meters,updates.last().distanceMeters,0.001)
             assertEquals(3,updates.last().point.id+1)
         } finally {

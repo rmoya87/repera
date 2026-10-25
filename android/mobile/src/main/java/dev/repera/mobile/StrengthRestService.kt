@@ -27,6 +27,8 @@ internal class StrengthRestService : Service() {
     private var remaining = 0
     private var exerciseName = ""
     private var running = false
+    private var soundEnabled=true
+    private var hapticEnabled=true
 
     private val tick = object : Runnable {
         override fun run() {
@@ -59,6 +61,8 @@ internal class StrengthRestService : Service() {
                     stopSelf()
                     return START_NOT_STICKY
                 }
+                soundEnabled=intent.getBooleanExtra("sound",true)
+                hapticEnabled=intent.getBooleanExtra("haptic",true)
                 exerciseName = name
                 remaining = seconds
                 running = true
@@ -119,7 +123,7 @@ internal class StrengthRestService : Service() {
             .setAutoCancel(true)
             .build()
         runCatching { manager().notify(NOTIFICATION_ID, notification) }
-        RestNotifier.notifyRest(this, "Descanso terminado", 0)
+        RestNotifier.notifyRest(this, "Descanso terminado", 0,soundEnabled,hapticEnabled)
     }
 
     private fun cancelNotification() {
@@ -134,11 +138,11 @@ internal class StrengthRestService : Service() {
         private const val EXTRA_SECONDS = "seconds"
         private const val EXTRA_NAME = "name"
 
-        fun start(context: Context, exerciseName: String, seconds: Int) {
+        fun start(context: Context, exerciseName: String, seconds: Int,sound:Boolean=true,haptic:Boolean=true) {
             val intent = Intent(context, StrengthRestService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_SECONDS, seconds)
-                .putExtra(EXTRA_NAME, exerciseName)
+                .putExtra(EXTRA_NAME, exerciseName).putExtra("sound",sound).putExtra("haptic",haptic)
             runCatching { context.startService(intent) }
         }
 

@@ -44,7 +44,8 @@ internal class WodTimerService : Service() {
             updateNotification(specData.title, face.primarySeconds, face.label)
             val restLabel = face.label?.takeIf { it.startsWith("Descanso") }
             if (restLabel != null && restLabel != lastRestLabel) {
-                RestNotifier.notifyRest(this@WodTimerService, restLabel, face.primarySeconds)
+                val settings=trainingSettingsForAccount(this@WodTimerService,lastStoreKey?.third)
+                RestNotifier.notifyRest(this@WodTimerService, restLabel, face.primarySeconds,settings.restSoundEnabled,settings.restHapticEnabled)
             } else if (restLabel == null && lastRestLabel != null) {
                 RestNotifier.cancel(this@WodTimerService)
             }

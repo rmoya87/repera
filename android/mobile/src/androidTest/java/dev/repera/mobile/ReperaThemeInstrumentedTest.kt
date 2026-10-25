@@ -128,7 +128,7 @@ class ReperaThemeInstrumentedTest {
                     6 -> DiaryTab(busy=false,syncing=false,status=null,overview=overview,activeWorkout=null,
                         onStartRoutine={},onEditRoutine={_,_,_->},onDeleteRoutine={},onInitializeLocal={},
                         onImportJson={},onDriveSync={},onExportJson={},onSignOut={},onNavigateHome={})
-                    7 -> SettingsTab(false,{},{},{})
+                    7 -> SettingsTab(false,{},{},{},overview)
                     8 -> LiveSportsCatalogScreen(listOf(dev.repera.domain.LiveSportHistory.LiveSession(
                         "theme-run","Carrera medida","running",1792918800000L,1792922400000L,1800.0,5000.0,null,null)),"",{})
                     9 -> CreateTab(busy=false,syncing=false,status=null,overview=overview,
