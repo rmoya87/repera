@@ -457,7 +457,7 @@ final class LiveActivityRecorder: NSObject {
                 }
                 gpsMessage = nil
             } else {
-                gpsMessage = "Seguimiento GPS activo. Para registrar con la pantalla bloqueada, actualiza la app con la capacidad de ubicación en segundo plano."
+                gpsMessage = "GPS solo con la app abierta."
             }
             manager.startUpdatingLocation()
         default:
@@ -765,6 +765,8 @@ struct LiveActivityView: View {
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+    /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
+    @State private var mapIsCentered = true
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -788,7 +790,7 @@ struct LiveActivityView: View {
             }
             .background(OG.bg)
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
-            .navigationTitle(recorder.phase == .review ? "Guardar actividad" : "Comenzar")
+            .navigationTitle(recorder.phase == .review ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
@@ -817,16 +819,22 @@ struct LiveActivityView: View {
             } message: {
                 Text(routeError ?? "")
             }
-            .confirmationDialog("¿Descartar la actividad?", isPresented: $showDiscard) {
-                Button("Descartar sin guardar", role: .destructive) {
-                    recorder.discard()
-                    title = ""
-                    notes = ""
-                    showingMetrics = false
-                }
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text("El recorrido y los datos registrados se perderán.")
+            .sheet(isPresented: $showDiscard) {
+                OGConfirmSheet(
+                    systemImage: "trash",
+                    title: "¿Descartar entreno?",
+                    message: "Perderás el recorrido y los datos que no hayas guardado.",
+                    confirmTitle: "Descartar sin guardar",
+                    onConfirm: {
+                        showDiscard = false
+                        recorder.discard()
+                        title = ""
+                        notes = ""
+                        showingMetrics = false
+                        mapIsCentered = true
+                    },
+                    onCancel: { showDiscard = false }
+                )
             }
         }
         .tint(OG.accent)
@@ -1328,7 +1336,7 @@ struct LiveActivityView: View {
                     Button {
                         saveRecordedActivity()
                     } label: {
-                        Label("Guardar actividad", systemImage: "checkmark")
+                        Text("Guardar")
                             .font(.headline)
                             .frame(maxWidth: .infinity, minHeight: 52)
                             .foregroundStyle(.black)
@@ -1339,7 +1347,19 @@ struct LiveActivityView: View {
                 }
 
                 Section {
-                    Button("Descartar actividad", role: .destructive) { showDiscard = true }
+                    Button(role: .destructive) {
+                        showDiscard = true
+                    } label: {
+                        Text("Descartar")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(OG.red)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
             }
         }
