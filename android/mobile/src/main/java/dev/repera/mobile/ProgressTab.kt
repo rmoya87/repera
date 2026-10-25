@@ -313,7 +313,12 @@ internal fun ProgressTab(
                                 Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
                                     style = MaterialTheme.typography.bodyMedium)
                             }
-                            DayPointLineChart(snapshot.weightPoints)
+                            overview?.healthGoals?.weightKg?.let {goal ->
+                                val delta=last.value-goal
+                                Text(if(kotlin.math.abs(delta)<0.3) "En objetivo (${formatWeight(goal)} kg)"
+                                    else "${if(delta>0) "+" else ""}${formatWeight(delta)} kg vs ${formatWeight(goal)} kg")
+                            }
+                            DayPointLineChart(snapshot.weightPoints,goal=overview?.healthGoals?.weightKg)
                             var weightInput by rememberSaveable { mutableStateOf("") }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {

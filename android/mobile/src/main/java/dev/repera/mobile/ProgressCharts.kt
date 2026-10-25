@@ -382,13 +382,14 @@ internal fun ActivityHeatmapCard(
 internal fun DayPointLineChart(
     points: List<dev.repera.domain.ProgressDayPoint>,
     modifier: Modifier = Modifier,
-    valueFormat: (Double) -> String = { formatWeight(it) }
+    valueFormat: (Double) -> String = { formatWeight(it) },
+    goal:Double? = null
 ) {
     if (points.isEmpty()) return
     val line = MaterialTheme.colorScheme.primary
     var selected by remember(points) { mutableStateOf<Int?>(null) }
-    val minV = points.minOf { it.value }
-    val maxV = points.maxOf { it.value }
+    val minV = minOf(points.minOf { it.value },goal ?: Double.POSITIVE_INFINITY)
+    val maxV = maxOf(points.maxOf { it.value },goal ?: Double.NEGATIVE_INFINITY)
     val span = (maxV - minV).coerceAtLeast(1e-9)
     val firstDay = points.first().day
     val midDay = points[points.size / 2].day
@@ -458,6 +459,10 @@ internal fun DayPointLineChart(
                 points.forEachIndexed { i, p ->
                     if (i == 0) path.moveTo(x(i), y(p.value))
                     else path.lineTo(x(i), y(p.value))
+                }
+                goal?.let {target ->
+                    drawLine(color=line.copy(alpha=0.55f),start=Offset(0f,y(target)),end=Offset(size.width,y(target)),
+                        strokeWidth=2f,pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f,8f)))
                 }
                 drawPath(path, color = line, style = Stroke(width = 4f))
                 drawCircle(color = line, radius = 6f,
