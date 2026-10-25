@@ -237,8 +237,7 @@ fun ReperaMobileScreen(
         }
         LaunchedEffect(initialExternalRoute) {
             initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" || it == "entreno-activo" }?.let {
-                if(it=="entreno-activo" && activeWorkout==null) navigateTab("inicio")
-                else navigateTab(it)
+                navigateTab(LiveNavigationTarget.resolvedRoute(it,activeWorkout!=null))
                 onExternalRouteHandled()
             }
         }

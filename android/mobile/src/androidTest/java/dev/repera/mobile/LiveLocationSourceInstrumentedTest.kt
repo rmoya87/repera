@@ -34,8 +34,8 @@ class LiveLocationSourceInstrumentedTest {
             assertEquals("Expected synthetic provider updates",count,updates.size)
         }
         val provider="fused"
-        shell("pm grant ${context.packageName} ${Manifest.permission.ACCESS_FINE_LOCATION}")
         shell("pm grant ${context.packageName} ${Manifest.permission.ACCESS_COARSE_LOCATION}")
+        shell("pm grant ${context.packageName} ${Manifest.permission.ACCESS_FINE_LOCATION}")
         shell("appops set ${context.packageName} android:mock_location allow")
         try {
             manager.addTestProvider(provider,false,false,false,false,true,true,true,1,1)
