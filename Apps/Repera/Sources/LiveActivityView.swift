@@ -1073,6 +1073,8 @@ private struct LiveSportPicker: View {
 }
 
 struct LiveActivityView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
     @Environment(\.scenePhase) private var scenePhase
@@ -1529,6 +1531,26 @@ struct LiveActivityView: View {
         }
     }
 
+    /// Solo los selectores laterales son opacos. La barra general puede seguir
+    /// usando Liquid Glass, pero las superficies de Actividad/Ruta nunca.
+    private var selectionCircleBackground: Color {
+        colorScheme == .dark ? .black : .white
+    }
+
+    private func selectionCircle(_ symbol: String, foreground: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 25, weight: .medium))
+            .foregroundStyle(foreground)
+            .frame(width: 58, height: 58)
+            .background(selectionCircleBackground, in: Circle())
+            .overlay {
+                Circle().strokeBorder(
+                    OG.label.opacity(colorScheme == .dark ? 0.22 : 0.10),
+                    lineWidth: 1
+                )
+            }
+    }
+
     /// La misma base inferior para exterior e interior. Al aire libre, una caja
     /// adicional con las métricas flota justo encima; dentro no es necesaria.
     private var bottomControls: some View {
@@ -1540,11 +1562,7 @@ struct LiveActivityView: View {
                         sportPicker = true
                     } label: {
                         VStack(spacing: 7) {
-                            Image(systemName: recorder.sport.symbol)
-                                .font(.system(size: 25, weight: .medium))
-                                .foregroundStyle(OG.accent)
-                                .frame(width: 58, height: 58)
-                                .glassEffect(.regular.interactive(), in: .circle)
+                            selectionCircle(recorder.sport.symbol, foreground: OG.accent)
                             Text(recorder.sport.title)
                                 .font(.caption2.weight(.medium))
                                 .lineLimit(1).minimumScaleFactor(0.7)
@@ -1580,11 +1598,10 @@ struct LiveActivityView: View {
                             routePicker = true
                         } label: {
                             VStack(spacing: 7) {
-                                Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
-                                    .font(.system(size: 23, weight: .medium))
-                                    .foregroundStyle(OG.label)
-                                    .frame(width: 58, height: 58)
-                                    .glassEffect(.regular.interactive(), in: .circle)
+                                selectionCircle(
+                                    "point.topleft.down.curvedto.point.bottomright.up",
+                                    foreground: OG.label
+                                )
                                 Text(recorder.chosenRoute == nil ? "Cargar ruta" : "Ruta elegida")
                                     .font(.caption2.weight(.medium))
                                     .lineLimit(1).minimumScaleFactor(0.7)
