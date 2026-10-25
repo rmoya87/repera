@@ -23,6 +23,17 @@ class ProgressRecordsScoreInstrumentedTest {
   capture("progreso_todos_records.png")
   compose.onNodeWithText("Ejercicio 0").performClick();compose.runOnIdle {assertEquals("e0",selected)}
  }
+ @Test fun allPeriodExercisesRevealSixthWithoutFallingBackToFullCatalog() {
+  var selected:String?=null
+  val exercises=(0..5).map {ProgressExerciseRow("e$it","Ejercicio $it",60.0)}
+  compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+   LazyColumn {item {ProgressExercisesCard(exercises) {selected=it}}}
+  }}}
+  compose.onNodeWithText("Ejercicio 5").assertDoesNotExist()
+  compose.onNodeWithText("Ver todos los ejercicios (6)").performScrollTo().performClick()
+  compose.onNodeWithText("Ejercicio 5").performScrollTo().performClick()
+  compose.runOnIdle {assertEquals("e5",selected)}
+ }
  @Test fun verifiedScoresAndEmptyAxesAreRenderedWithoutMadeUpMeasurements() {
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Box(Modifier.fillMaxSize().safeDrawingPadding()) {
    SessionScoreProgressCard(listOf(ProgressDayPoint(java.time.LocalDate.of(2026,10,24),6.0),ProgressDayPoint(java.time.LocalDate.of(2026,10,25),8.0)))
