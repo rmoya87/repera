@@ -45,7 +45,7 @@ struct LiveSportsCatalogView: View {
                                     .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(sport.title).font(.body.weight(.semibold))
-                                    Text("\(related.count) actividades · \(String(format: "%.1f", totalKm(related))) km")
+                                    Text(activitySummary(for: sport, sessions: related))
                                         .font(.caption).foregroundStyle(OG.label2)
                                 }
                             }
@@ -59,8 +59,15 @@ struct LiveSportsCatalogView: View {
         .ogListChrome()
     }
 
-    private func totalKm(_ workouts: [WorkoutSession]) -> Double {
-        workouts.reduce(0) { $0 + max(0, $1.recordedDistanceMeters ?? 0) } / 1000
+    private func activitySummary(for sport: LiveSport, sessions: [WorkoutSession]) -> String {
+        if sport.usesGPS {
+            let kilometers = sessions.reduce(0) {
+                $0 + max(0, $1.recordedDistanceMeters ?? 0)
+            } / 1000
+            return "\(sessions.count) actividades · \(String(format: "%.1f", kilometers)) km"
+        }
+        let totalSeconds = sessions.reduce(0) { $0 + max(0, $1.activeDurationSeconds ?? 0) }
+        return "\(sessions.count) actividades · \(LiveSportStatsFormat.duration(totalSeconds))"
     }
 }
 
@@ -99,6 +106,16 @@ struct LiveSportHistoryView: View {
         sessions.reduce(0) { $0 + max(0, $1.recordedDistanceMeters ?? 0) } / 1000
     }
 
+    private var measuredEnergyKcal: Double? {
+        let values = sessions.compactMap(\.appleActiveEnergyKcal).filter { $0 > 0 }
+        return values.isEmpty ? nil : values.reduce(0, +)
+    }
+
+    private var measuredHeartRateBpm: Double? {
+        let values = sessions.compactMap(\.appleAverageHeartRateBpm).filter { $0 > 0 }
+        return values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+    }
+
     var body: some View {
         List {
             Section("Resumen") {
@@ -107,9 +124,21 @@ struct LiveSportHistoryView: View {
                     tile("Tiempo", value: LiveSportStatsFormat.duration(totalDuration))
                     if sport.usesGPS {
                         tile("Distancia", value: String(format: "%.1f km", totalKm))
+                    } else if let kcal = measuredEnergyKcal {
+                        tile("Energía medida", value: "\(Int(kcal.rounded())) kcal")
+                    } else if let heart = measuredHeartRateBpm {
+                        tile("Pulso medio", value: "\(Int(heart.rounded())) lpm")
                     }
                 }
                 .padding(.vertical, 8)
+                if let heart = measuredHeartRateBpm, sport.usesGPS || measuredEnergyKcal != nil {
+                    Label(
+                        "Pulso medio medido: \(Int(heart.rounded())) lpm",
+                        systemImage: "heart"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                }
             }
 
             if sport.usesGPS && !relatedRoutes.isEmpty {
@@ -153,6 +182,13 @@ struct LiveSportHistoryView: View {
                                     Text(LiveSportStatsFormat.duration(session.activeDurationSeconds ?? 0))
                                     if let distance = session.recordedDistanceMeters, distance > 0 {
                                         Text(String(format: "%.2f km", distance / 1000))
+                                    }
+                                    if let heartRate = session.appleAverageHeartRateBpm,
+                                       heartRate > 0 {
+                                        Text("\(Int(heartRate.rounded())) lpm")
+                                    }
+                                    if let kcal = session.appleActiveEnergyKcal, kcal > 0 {
+                                        Text("\(Int(kcal.rounded())) kcal")
                                     }
                                     if isFavorite(session) {
                                         Image(systemName: "star.fill").foregroundStyle(OG.yellow)
