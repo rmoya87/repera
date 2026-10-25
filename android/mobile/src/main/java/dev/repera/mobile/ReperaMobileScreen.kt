@@ -607,7 +607,7 @@ fun ReperaMobileScreen(
                 composable("historial") {
                     CompleteHistoryScreen(overview,busy,accountId,onReviseFinishedSet,onDeleteFinishedSet,onDeleteWorkout,
                         onUpdateFinishedWorkout,heartSeriesProvider) {exerciseId,sessionId,instanceId ->
-                        navController.navigate("ejercicio/"+Uri.encode(exerciseId)+"?sessionId="+Uri.encode(sessionId)+"&instanceId="+Uri.encode(instanceId))
+                        navController.navigate("ejercicio/"+Uri.encode(exerciseId)+"?sesion="+Uri.encode(sessionId)+"&instancia="+Uri.encode(instanceId))
                     }
                 }
                 composable("peso-corporal") {
