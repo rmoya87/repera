@@ -24,7 +24,7 @@ class ActiveSessionControlsInstrumentedTest {
         var active by mutableStateOf(repo.startRoutine(routine))
         compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
             androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.fillMaxSize().safeDrawingPadding()) {
-                ActiveSessionControls(active,false,{active=repo.selectActiveExercise(it)},{repo.updateActiveSessionNotes(it);active=repo.active()!!})
+                ActiveSessionControls(active,false,{active=repo.selectActiveExercise(it)},{repo.updateActiveSessionNotes(it);active=repo.active()!!},{active=repo.saveActiveSessionAsFavorite()})
             }
         }}
         compose.onNodeWithTag("active_navigate_next").performClick()
@@ -44,6 +44,9 @@ class ActiveSessionControlsInstrumentedTest {
         compose.onNodeWithTag("active_notes_input").performTextInput("  Rodilla sin molestias  ")
         compose.onNodeWithText("Guardar notas").performClick()
         compose.runOnIdle {assertEquals("Rodilla sin molestias",WorkoutRepository(context,account).active()!!.notes)}
+        compose.onNodeWithText("Favorito").performClick()
+        compose.onNodeWithText("En favoritos").assertIsDisplayed()
+        compose.runOnIdle {assertTrue(WorkoutRepository(context,account).active()!!.isFavorite)}
         capture("entreno_navegacion_notas.png")
         compose.runOnIdle {
             repo.logCurrentSet(5,40.0);repo.next();repo.selectActiveExercise(0)

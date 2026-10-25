@@ -1176,6 +1176,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return summarize(session)
     }
 
+    @Synchronized fun saveActiveSessionAsFavorite(): ActiveWorkout {
+        val state=requireState()
+        ActiveSessionFavorite.save(state)
+        save(state)
+        return summarize(requireActive(state))
+    }
+
     /** Navigation never confirms an exercise or fabricates completed work. */
     @Synchronized fun selectActiveExercise(index: Int): ActiveWorkout {
         val state = requireState(); val session = requireActive(state)
@@ -2613,6 +2620,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 current.getJSONObject("exercise").getString("name"),
                 current.getJSONObject("exercise").optString("equipment")),
             wod = wod,
+            isFavorite = loadOrNull()?.optJSONArray("routines")?.let { list ->
+                (0 until list.length()).any {list.getJSONObject(it).optString("id")==session.optString("routineId") && list.getJSONObject(it).optBoolean("isFavorite")}
+            } ?: false,
             notes = session.optString("notes").takeIf {it.isNotBlank()},
             navigationEntries = (0 until exercises.length()).map { n ->
                 val entry=exercises.getJSONObject(n)
@@ -2674,6 +2684,7 @@ data class ActiveWorkout(
     val durationInput: Boolean = false,
     val cardioToggle: Boolean = false,
     val wod: WodExecution? = null,
+    val isFavorite: Boolean = false,
     val notes: String? = null,
     val navigationEntries: List<ActiveExerciseNavigation> = emptyList()
 )

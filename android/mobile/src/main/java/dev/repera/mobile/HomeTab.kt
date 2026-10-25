@@ -89,6 +89,7 @@ internal fun HomeTab(
     onNext: () -> Unit,
     onSelectActiveExercise:(Int)->Unit = {},
     onUpdateActiveNotes:(String)->Unit = {},
+    onSaveActiveFavorite:()->Unit = {},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -227,7 +228,7 @@ internal fun HomeTab(
             if (activeWorkout != null) {
                 key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
                 Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes)
+                    ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite)
                     if (activeWorkout.wod != null) {
                         WodScoreCard(
                             active = activeWorkout,

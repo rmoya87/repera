@@ -783,6 +783,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { selectActiveExercise(index) }
                 },
                 onUpdateActiveNotes = { notes -> runWorkoutAction { updateActiveSessionNotes(notes) } },
+                onSaveActiveFavorite = { runWorkoutAction { saveActiveSessionAsFavorite() } },
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)

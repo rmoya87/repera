@@ -23,13 +23,14 @@ internal fun ActiveWorkoutScreen(
     onPinChange:(dev.repera.domain.WorkoutLocationPin?)->Unit,
     effortUnit:String="rir",
     onSelectExercise:(Int)->Unit = {},
-    onUpdateNotes:(String)->Unit = {}
+    onUpdateNotes:(String)->Unit = {},
+    onSaveFavorite:()->Unit = {}
 ) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item { TextButton(onClick=onBack) { Text("Volver") } }
         item { Text("Entrenamiento activo",style=MaterialTheme.typography.headlineMedium) }
-        item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes)}
+        item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes,onSaveFavorite)}
         item {
             if(workout.wod!=null) WodScoreCard(active=workout,busy=busy,timer=timer,
                 onTimerAction=onTimerAction,onTimerTick=onTimerTick,onSave=onWodScore,
