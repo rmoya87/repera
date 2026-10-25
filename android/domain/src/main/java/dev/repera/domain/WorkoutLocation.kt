@@ -25,7 +25,9 @@ data class WorkoutRoutePoint(
     /** m/s (≥ 0). Null si no se pudo estimar. */
     val speedMps: Double? = null,
     /** Altitud GPS validada (precisión vertical 0-50 m), metros sobre el mar. */
-    val altitudeMeters: Double? = null
+    val altitudeMeters: Double? = null,
+    val horizontalAccuracyMeters: Double? = null,
+    val verticalAccuracyMeters: Double? = null
 )
 
 /** Lógica pura del tracker de ubicación (port WorkoutLocationTracker iOS). */

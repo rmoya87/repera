@@ -2148,6 +2148,8 @@ class WorkoutRepository(context: Context, googleId: String) {
                 .apply {
                     point.speedMps?.let { put("speedMps", it) }
                     point.altitudeMeters?.let { put("altitudeMeters", it) }
+                    point.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
+                    point.verticalAccuracyMeters?.let { put("verticalAccuracyMeters", it) }
                 })
         }
         target.put("routePoints", array)

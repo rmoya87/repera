@@ -1683,7 +1683,9 @@ data class StateOverview(
                                         speedMps = point.optDouble("speedMps")
                                             .takeIf { !it.isNaN() },
                                         altitudeMeters = point.optDouble("altitudeMeters")
-                                            .takeIf { !it.isNaN() }
+                                            .takeIf { !it.isNaN() },
+                                        horizontalAccuracyMeters = point.optDouble("horizontalAccuracyMeters", Double.NaN).takeIf { it.isFinite() },
+                                        verticalAccuracyMeters = point.optDouble("verticalAccuracyMeters", Double.NaN).takeIf { it.isFinite() }
                                     )
                             }
                         } ?: emptyList()

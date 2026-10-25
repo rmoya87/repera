@@ -9,7 +9,7 @@ import java.io.File
 
 class LiveRoutesStoreTest {
     @get:Rule val folder = TemporaryFolder()
-    private val points = listOf(WorkoutRoutePoint(0,40.0,-3.0,0), WorkoutRoutePoint(1,40.01,-3.0,60_000))
+    private val points = listOf(WorkoutRoutePoint(0,40.0,-3.0,0), WorkoutRoutePoint(1,40.01,-3.0,60_000, altitudeMeters = 650.0, horizontalAccuracyMeters = 8.0, verticalAccuracyMeters = 12.0))
     @Test fun favoriteEditAndGeometryRoundTripWithStableIdentity() {
         val file = File(folder.root,"routes.json"); val s = LiveRoutesStore(file)
         val r = s.addRecordedRoute("Ruta",points,"running",true,123L)

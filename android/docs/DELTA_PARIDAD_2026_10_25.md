@@ -127,3 +127,16 @@ main móvil invisible.)
   con UUID estable, orden reciente por actividad, recuperación sin duplicados
   ni favoritos inventados y tombstones persistentes. 4 tests JVM verdes,
   incluido fallo de escritura con memoria/disco sin cambios. Aún sin wiring UI.
+
+## Regresión y defecto visual, 19:15 CET
+- Run 40218496197 SUCCESS a 212dcbe3: teléfono 30/35/37.2 = 212/0 cada
+  uno, Wear 35/36 = 6/0 cada uno, dominio 254/0, sin omitidos. Deploy skipped.
+- Píxeles: API30 lugar_hoja_confirmar muestra mapa + IME SIN cabecera/check;
+  API35 sí cabecera. El detector no-vacío era insuficiente. No cierre visual.
+  Hipótesis aislada: superficie GL/IME superpuesta. Prueba enfocada
+  https://github.com/rmoya87/repera/actions/runs/40220246818 (dfb463ba):
+  TextureView y ocultar teclado al elegir, exigir píxeles de barra superior.
+  Se conservan gestos y before completo, artifact after pendiente.
+- D1/D4: añadidas precisiones horizontal/vertical con defaults y round-trip
+  en modelo, snapshot/historial, almacén de rutas y tracker clásico.
+  Local: dominio 269/0 + mobile JVM 189/0. Cambios aún no en SHA verde CI.

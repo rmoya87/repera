@@ -137,7 +137,9 @@ class WorkoutLocationTracker(private val context: Context) {
             // Misma regla que iOS: altitud solo con precisión vertical 0-50 m.
             altitudeMeters = if (location.hasVerticalAccuracy() &&
                 location.verticalAccuracyMeters in 0f..50f
-            ) location.altitude else null
+            ) location.altitude else null,
+            horizontalAccuracyMeters = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
+            verticalAccuracyMeters = if (location.hasVerticalAccuracy()) location.verticalAccuracyMeters.toDouble() else null
         )
         pointCounter += 1
     }

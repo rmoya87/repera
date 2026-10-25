@@ -99,14 +99,18 @@ internal class LiveRoutesStore(private val file: File) {
         .put("isFavorite", route.isFavorite).put("createdAtMillis", route.createdAtMillis)
         .put("points", JSONArray(route.points.map { p -> JSONObject().put("id", p.id)
             .put("latitude", p.latitude).put("longitude", p.longitude).put("recordedAtEpochMs", p.recordedAtEpochMs)
-            .put("speedMps", p.speedMps ?: JSONObject.NULL).put("altitudeMeters", p.altitudeMeters ?: JSONObject.NULL) }))
+            .put("speedMps", p.speedMps ?: JSONObject.NULL).put("altitudeMeters", p.altitudeMeters ?: JSONObject.NULL)
+            .put("horizontalAccuracyMeters", p.horizontalAccuracyMeters ?: JSONObject.NULL)
+            .put("verticalAccuracyMeters", p.verticalAccuracyMeters ?: JSONObject.NULL) }))
     private fun decode(j: JSONObject): LiveSavedRoute {
         val points = j.getJSONArray("points")
         return LiveSavedRoute(j.getString("id"), j.getString("title"),
             (0 until points.length()).map { i -> val p = points.getJSONObject(i)
                 WorkoutRoutePoint(p.optInt("id", i), p.getDouble("latitude"), p.getDouble("longitude"),
                     p.optLong("recordedAtEpochMs"), p.optDouble("speedMps", Double.NaN).takeIf { it.isFinite() },
-                    p.optDouble("altitudeMeters", Double.NaN).takeIf { it.isFinite() }) },
+                    p.optDouble("altitudeMeters", Double.NaN).takeIf { it.isFinite() },
+                    p.optDouble("horizontalAccuracyMeters", Double.NaN).takeIf { it.isFinite() },
+                    p.optDouble("verticalAccuracyMeters", Double.NaN).takeIf { it.isFinite() }) },
             j.optString("sportID").takeIf { it.isNotBlank() && it != "null" },
             j.optBoolean("isFavorite", false), if (j.has("createdAtMillis")) j.getLong("createdAtMillis") else Long.MIN_VALUE)
     }
