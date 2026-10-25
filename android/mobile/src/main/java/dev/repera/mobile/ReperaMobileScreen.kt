@@ -240,6 +240,7 @@ fun ReperaMobileScreen(
                 navigateTab(it);onExternalRouteHandled()
             }
         }
+        var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
         var showCenter by remember { mutableStateOf(false) }
         if (showCenter && centerVisible) {
@@ -284,6 +285,7 @@ fun ReperaMobileScreen(
             ) {
                 composable("inicio") {
                     HomeTab(
+                        focusDay=homeFocusDay,
                         heartSeriesProvider = heartSeriesProvider,
                         displayName = displayName,
                         busy = busy,
@@ -459,6 +461,7 @@ fun ReperaMobileScreen(
                     LiveActivityScreen(accountId = accountId,
                         hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navigateTab("inicio") },
                         onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
+                        onSavedDay={ homeFocusDay=java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() },
                         onOpenTools = { navController.navigate("crear") },
                         onOpenCenter = if (centerVisible) ({ showCenter = true }) else null)
                 }
@@ -694,7 +697,7 @@ fun ReperaMobileScreen(
  *  ubicación de iOS en SettingsView). El resto de ajustes de iOS aún no
  *  tiene pantalla Android. */
 @Composable
-private fun SettingsTab(
+internal fun SettingsTab(
     busy: Boolean,
     onOpenAIAccess: () -> Unit,
     onImportJson: () -> Unit,

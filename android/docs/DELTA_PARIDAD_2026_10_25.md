@@ -346,3 +346,19 @@ main móvil invisible.)
 - FC por parcial conecta proveedor medido existente; conserva segundos
   activos y usa km/h según deporte. Curva del detalle reutilizada. Nueva
   prueba sintética compilada, sin leer Salud real.
+
+## Checkpoint 21:07 CET (local, todavía sin cierre)
+- Enfocado40227284906 verde a c40323c1: controles5/0, save4/0, tema2/0,
+  sin omitidos. Inspeccionadas12 capturas claro/oscuro de6 pantallas. Canvas
+  activo NO aceptado: teselas pendientes en captura; atribución idle oculta.
+- c8cb5efc sincroniza onStart/onResume de MapView montado con owner ya
+  reanudado, mueve atribución por encima de controles y espera callback de
+  mapa completamente renderizado en test. En ejecución40229021477,
+  debug1c4edd6c. No sustituye prueba de píxeles ni suite global.
+- Local siguiente: swipe trailing revela Guardar ruta (tap explícito antes
+  de escribir, acción accesible); guardar revisión transmite fecha de inicio
+  a calendario Inicio. Tests compilan, ejecución pendiente. Más vistas de
+  tema preparadas: Diario, Ajustes, catálogo Deportes y Crear claro/oscuro.
+- Meteo/viento sigue sin equivalente: Apple usa WeatherKit autenticado;
+  Android no tiene transporte/backend existente. No se añaden proveedores
+  ni se transmiten coordenadas privadas a servicios nuevos silenciosamente.

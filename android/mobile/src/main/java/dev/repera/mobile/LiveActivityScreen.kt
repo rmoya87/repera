@@ -27,7 +27,8 @@ import kotlinx.coroutines.launch
 internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
     hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {},
-    onMapRendered: (() -> Unit)? = null) {
+    onMapRendered: (() -> Unit)? = null,
+    onSavedDay: (Long) -> Unit = {}) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
@@ -377,9 +378,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 Button(onClick={
                     try {
                         val now=System.currentTimeMillis()
+                        val savedDay=state.startedMillis ?: now
                         WorkoutRepository(context,accountId).saveLiveActivity(state.snapshot(now)!!,
                             state.finishedMillis ?: now,state.durationSeconds(now),title,notes)
-                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSaved() }
+                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSavedDay(savedDay);onSaved() }
                         else error="La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
                     } catch (_: Exception) {error="No se pudo guardar. La actividad sigue disponible para reintentar."}
                 },modifier=Modifier.testTag("live_save")) {Text("Guardar actividad")}

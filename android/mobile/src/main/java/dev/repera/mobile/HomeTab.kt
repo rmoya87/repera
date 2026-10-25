@@ -106,9 +106,11 @@ internal fun HomeTab(
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
     onOpenClock: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusDay: java.time.LocalDate? = null
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(

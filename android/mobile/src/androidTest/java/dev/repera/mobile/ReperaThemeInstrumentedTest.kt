@@ -120,6 +120,15 @@ class ReperaThemeInstrumentedTest {
                     4 -> LiveSportHistoryScreen(dev.repera.domain.LiveSport.RUNNING,listOf(
                         dev.repera.domain.LiveSportHistory.LiveSession("theme-run","Carrera medida","running",
                             1792918800000L,1792922400000L,1800.0,5000.0,140.0,250.0)),{})
+                    6 -> DiaryTab(busy=false,syncing=false,status=null,overview=overview,activeWorkout=null,
+                        onStartRoutine={},onEditRoutine={_,_,_->},onDeleteRoutine={},onInitializeLocal={},
+                        onImportJson={},onDriveSync={},onExportJson={},onSignOut={},onNavigateHome={})
+                    7 -> SettingsTab(false,{},{},{})
+                    8 -> LiveSportsCatalogScreen(listOf(dev.repera.domain.LiveSportHistory.LiveSession(
+                        "theme-run","Carrera medida","running",1792918800000L,1792922400000L,1800.0,5000.0,null,null)),"",{})
+                    9 -> CreateTab(busy=false,syncing=false,status=null,overview=overview,
+                        onCreateRoutine={_,_,_,_,_,_,_,_,_,_->},onAddWodTemplate={},onOpenBoardScan={},
+                        onOpenTimer={},onInitializeLocal={},onImportJson={},onDriveSync={},onExportJson={},onSignOut={})
                     5 -> Column(Modifier.padding(16.dp)) {
                         FinishedWorkoutEditorSection(overview.completeHistory.first(),account,false) {}
                     }
@@ -127,7 +136,7 @@ class ReperaThemeInstrumentedTest {
                 }
             }
         }
-        val names = listOf("inicio","progreso","ejercicios","comenzar_padel","historial_deporte","editor_terminado")
+        val names = listOf("inicio","progreso","ejercicios","comenzar_padel","historial_deporte","editor_terminado","diario","ajustes","catalogo_deportes","crear")
         names.forEachIndexed { index,name ->
             compose.runOnIdle { screen=index }
             compose.waitForIdle()
