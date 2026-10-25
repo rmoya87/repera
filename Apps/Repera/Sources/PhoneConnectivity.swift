@@ -90,7 +90,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         latestPayloadLock.withLock {
             var queue = UserDefaults.standard.array(forKey: pendingLiveKey) as? [Data] ?? []
             queue.append(data)
-            UserDefaults.standard.set(queue.suffix(20), forKey: pendingLiveKey)
+            UserDefaults.standard.set(Array(queue.suffix(20)), forKey: pendingLiveKey)
         }
         flushCriticalLiveEvents()
     }
