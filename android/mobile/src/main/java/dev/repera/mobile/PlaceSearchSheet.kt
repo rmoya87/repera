@@ -445,34 +445,41 @@ fun PlaceSearchSheet(
                     HorizontalDivider()
                 }
                 val p = pending
-                if (showsConfirmMap && p != null) {
+                if (p != null && !isTyping) {
+                    // Mapa del lugar pendiente: MISMO composable en modo
+                    // confirmar y con la búsqueda presentada (iOS mantiene el
+                    // mapa y solo superpone/oculta el panel), así la vista GL
+                    // no se recrea al presentar/cerrar la búsqueda y tocarlo
+                    // la cierra (dismissSearch iOS). El panel inferior solo
+                    // aparece en modo confirmar (showsConfirmMap iOS).
                     Box(Modifier.fillMaxSize()) {
-                        // Tocar el mapa cierra la búsqueda presentada (iOS).
                         PlacePinMap(p.latitude, p.longitude, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)
                             })
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(16.dp)
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(p.name, style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurface)
-                                p.addressLine?.takeIf { it.isNotBlank() }?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (showsConfirmMap) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(16.dp)
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(p.name, style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurface)
+                                    p.addressLine?.takeIf { it.isNotBlank() }?.let {
+                                        Text(it, style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
+                                Icon(Icons.Filled.LocationOn, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(28.dp))
                             }
-                            Icon(Icons.Filled.LocationOn, contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(28.dp))
                         }
                     }
                 } else {
