@@ -1580,11 +1580,6 @@ final class ReperaStore: NSObject {
     /// - Parameter immediate: start / end / Watch inbound — flush now. Set logging uses debounce.
     private func pushActiveToWatch(immediate: Bool = false) {
         publishSessionChrome()
-        if let active = state.activeSession, active.startedAt != nil {
-            Task {
-                await WorkoutLiveActivityCoordinator.shared.updatePlanned(active)
-            }
-        }
         if immediate {
             watchPushTask?.cancel()
             watchPushTask = nil
@@ -1613,6 +1608,13 @@ final class ReperaStore: NSObject {
             changed = true
         }
         if changed { sessionEpoch &+= 1 }
+        // También recupera la Live Activity al hidratar una sesión persistida:
+        // no depende de la pantalla Play ni de una transmisión al Watch.
+        if let active, active.startedAt != nil {
+            Task {
+                await WorkoutLiveActivityCoordinator.shared.updatePlanned(active)
+            }
+        }
     }
 
     private func professionalWorkoutForWatchToday() -> WorkoutSession? {
