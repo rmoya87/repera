@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
@@ -648,5 +651,87 @@ class VisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         save("pantalla_inicio_tema_repera", compose.onRoot().captureToImage())
+    }
+
+    // ---- Editores (plan y entreno terminado): evidencia visual real en emulador ----
+    // Main 25/10: los editores no se dan por listos sin capturas de sus flujos.
+
+    private fun editorPlanVisualFixture() = RoutineEntry(
+        id = "r-vis", title = "Plan visual", supported = true,
+        blocks = listOf(
+            RoutineBlockInfo(title = "Fuerza", format = "strength", id = "b-s",
+                entries = listOf(RoutineBlockEntryInfo(exerciseId = "ex-1", name = "Dominadas",
+                    quantity = 5, sets = 2, weightKg = 40.0, id = "it-1",
+                    plannedSets = listOf(PlannedSetDraft(5, 40.0, 2.0, "sp-1"),
+                        PlannedSetDraft(3, 45.0, null, "sp-2"))))),
+            RoutineBlockInfo(title = "WOD", format = "amrap", id = "b-w", entries = emptyList())))
+
+    @Test
+    fun capturaEditorPlanBloques() {
+        val exercise = ExerciseEntry(id = "ex-1", name = "Dominadas", supportsBasicInput = true,
+            allowsWeight = true, muscleGroup = "Espalda")
+        brandContent {
+            RoutineBlocksEditorScreen(routine = editorPlanVisualFixture(),
+                exercises = listOf(exercise), busy = false, onReplace = {}, onBack = {})
+        }
+        compose.waitForIdle()
+        save("editor_plan_bloques", compose.onRoot().captureToImage())
+        // Parte inferior del editor (bloque WOD + acciones) tras scroll real.
+        compose.onNodeWithText("Añadir bloque").performScrollTo()
+        compose.waitForIdle()
+        save("editor_plan_bloques_inferior", compose.onRoot().captureToImage())
+    }
+
+    private val editorTerminadoBlocksJson = """[{"id":"b1","title":"A","kind":"strength","exercises":[
+        {"id":"e1","exerciseId":"x1","plannedSets":[{"id":"p1","targetReps":5,"targetWeightKg":60,"targetRir":2}]}]},
+        {"id":"b2","title":"B","kind":"strength","exercises":[]}]"""
+
+    private fun editorTerminadoVisualFixture() = WorkoutHistoryEntry(
+        id = "w-vis", title = "Entreno visual", startedAt = "25 oct", results = emptyList(),
+        movements = emptyList(), startedAtIso = "2026-10-25T10:00:00Z",
+        finishedAtIso = "2026-10-25T11:00:00Z", notes = "nota",
+        editableBlocksJson = editorTerminadoBlocksJson)
+
+    private val editorTerminadoCatalog =
+        listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))
+
+    @Test
+    fun capturaEditorEntrenoTerminado() {
+        brandContent {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                FinishedWorkoutEditorSection(editorTerminadoVisualFixture(), "acc", false,
+                    editorTerminadoCatalog) {}
+            }
+        }
+        compose.waitForIdle()
+        save("editor_terminado_colapsado", compose.onRoot().captureToImage())
+        compose.onNodeWithTag("edit_finished_workout").performScrollTo().performClick()
+        compose.waitForIdle()
+        save("editor_terminado_edicion", compose.onRoot().captureToImage())
+    }
+
+    @Test
+    fun capturaEditorTerminadoDragABloqueVacio() {
+        // Mismo flujo que dragExerciseIntoEmptyBlockMovesItKeepingId (el test de
+        // datos afirma ids): aquí queda la evidencia visual antes/después del drop.
+        brandContent {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                FinishedWorkoutEditorSection(editorTerminadoVisualFixture(), "acc", false,
+                    editorTerminadoCatalog) {}
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("edit_finished_workout").performScrollTo().performClick()
+        compose.waitForIdle()
+        save("editor_terminado_drag_antes", compose.onRoot().captureToImage())
+        val startY = compose.onNodeWithTag("ex_drag_0_0").fetchSemanticsNode().boundsInRoot.center.y
+        val targetY = compose.onNodeWithTag("block_title_1").fetchSemanticsNode().boundsInRoot.center.y
+        compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
+            down(center); advanceEventTime(700)
+            repeat(12) { moveBy(Offset(0f, (targetY - startY) / 12f)); advanceEventTime(50) }
+            advanceEventTime(50); up()
+        }
+        compose.waitForIdle()
+        save("editor_terminado_drag_despues", compose.onRoot().captureToImage())
     }
 }
