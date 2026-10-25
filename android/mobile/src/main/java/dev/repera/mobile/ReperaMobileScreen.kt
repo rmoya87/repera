@@ -448,6 +448,7 @@ fun ReperaMobileScreen(
                 }
                 composable("en-vivo") {
                     LiveActivityScreen(accountId = accountId,
+                        hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navigateTab("inicio") },
                         onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
                         onOpenTools = { navController.navigate("crear") },
                         onOpenCenter = if (centerVisible) ({ navController.navigate("center") }) else null)

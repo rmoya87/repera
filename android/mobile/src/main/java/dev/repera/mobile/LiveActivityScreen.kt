@@ -23,7 +23,8 @@ import kotlinx.coroutines.delay
  * Rutas, voz y revisión visual se completan por separado, no se ocultan. */
 @Composable
 internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
-    onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null) {
+    onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
+    hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {}) {
     val context=LocalContext.current
     if(accountId.isBlank()) { Text("Inicia sesión para guardar actividades.");return }
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
@@ -57,6 +58,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var notes by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var showSportPicker by remember { mutableStateOf(false) }
     fun startService() {
         try { LiveActivityService.startFromVisibleUI(context,accountId) }
         catch (_: Exception) { runtime.pause();error="No se pudo mantener el registro en segundo plano. La actividad queda en pausa." }
@@ -92,6 +94,25 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     LaunchedEffect(runtime) {
         while(true) { delay(1000);runtime.publish() }
     }
+    if (showSportPicker) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showSportPicker = false }) {
+            Surface(shape = MaterialTheme.shapes.large) {
+                Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
+                    Text("Elegir actividad", style = MaterialTheme.typography.titleLarge)
+                    LiveSport.groups.forEach { group ->
+                        Text(group, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+                        LiveSport.entries.filter { it.group == group }.forEach { sport ->
+                            TextButton(onClick = { runtime.choose(sport);showSportPicker = false },
+                                modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")) {
+                                Text((if (state.sport == sport) "✓ " else "") + sport.title)
+                            }
+                        }
+                    }
+                    TextButton(onClick = { showSportPicker = false }) { Text("Cerrar") }
+                }
+            }
+        }
+    }
     pendingDeleteRoute?.let { route ->
         AlertDialog(onDismissRequest = { pendingDeleteRoute = null },
             title = { Text("¿Eliminar ruta?") }, text = { Text("Se borrará la ruta guardada. Tus actividades realizadas se conservan.") },
@@ -115,13 +136,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         Text("Comenzar",style=MaterialTheme.typography.headlineMedium)
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
         if(state.phase==LiveActivityState.Phase.IDLE) {
-            LiveSport.groups.forEach { group ->
-                Text(group,style=MaterialTheme.typography.titleSmall)
-                FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                    LiveSport.entries.filter { it.group==group }.forEach { sport ->
-                        FilterChip(selected=state.sport==sport,onClick={runtime.choose(sport)},label={Text(sport.title)})
-                    }
-                }
+            OutlinedButton(onClick = { showSportPicker = true }, modifier = Modifier.testTag("live_sport_picker")) {
+                Text("Elegir actividad: ${state.sport.title}")
             }
             Text(state.sport.metricDescription)
             TextButton(onClick = {
@@ -189,10 +205,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 }
             }
             Button(onClick={
-                if(state.sport.usesGPS && ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
+                if (hasActiveWorkout) onOpenWorkout()
+                else if(state.sport.usesGPS && ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
                     permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
                 else start()
-            },modifier=Modifier.testTag("live_start")) {Text("Empezar actividad")}
+            },modifier=Modifier.testTag("live_start")) {Text(if (hasActiveWorkout) "Continuar entrenamiento" else "Empezar actividad")}
             TextButton(onClick=onOpenTools) {Text("Crear entrenamiento")}
             onOpenCenter?.let {TextButton(onClick=it) {Text("Center")}}
         } else {

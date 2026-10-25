@@ -263,3 +263,11 @@ main móvil invisible.)
   evidencia de fidelidad Repera. Fixture corregido a primary=brandGreen.
 - Próxima ejecución incluye ciclo runtime interior aislado/restauración sin
   sensores (3 pruebas en clase). FGS/permisos/background siguen sin validar.
+
+- D4/D6 selector de deporte pasa a Dialog como Apple, no lista de 36 antes
+  del botón iniciar. Si existe entreno clásico activo, Comenzar ofrece
+  Continuar y no inicia segundo GPS. Destino Continuar sigue siendo Inicio,
+  no detalle concreto: pendiente alinear navegación.
+- D7 Settings: no existe botón Android de resync completo en Ajustes actual;
+  no procede retirar algo inexistente. Resto de Settings no se declara a
+  paridad por este gap-check puntual.
