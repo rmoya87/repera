@@ -240,3 +240,9 @@ main móvil invisible.)
 - D4 voz: preferir voz es-ES instalada offline de mayor calidad, fallback a
   notificación con permiso en background cuando voz apagada/falla; solicitud
   POST_NOTIFICATIONS al desactivar voz. Compila, sin validación audio/FGS aún.
+
+- D6 deeplinks repera://live→Comenzar y repera://workout→Inicio añadidos,
+  notificación abre Comenzar. workout aún NO presenta sesión activa concreta
+  (diferencia explícita). Solo compila, no validación de intents aún.
+- Biblioteca recupera rutas de sesiones completas por UUID al abrir, sin
+  favoritos inventados y respetando tombstones. Compila, store ya probado.

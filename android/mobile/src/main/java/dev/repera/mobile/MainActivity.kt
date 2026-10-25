@@ -475,8 +475,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if (user != null) refreshCatalogSilently(user.uniqueId)
     }
 
+    private var externalRoute by mutableStateOf<String?>(null)
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        externalRoute = routeFromIntent(intent)
+    }
+    private fun routeFromIntent(intent: android.content.Intent?): String? {
+        val uri = intent?.data ?: return null
+        if (uri.scheme != "repera") return null
+        return when (uri.host) { "live" -> "en-vivo"; "workout" -> "inicio"; else -> null }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        externalRoute = routeFromIntent(intent)
         restoreStoredSession()
         lifecycleScope.launch { subscriptions.start() }
         setContent {
@@ -746,6 +759,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // endActiveSession(save: false) iOS: borra la sesión en curso
                 // sin guardarla y detiene la captura de ubicación.
                 accountId = profile?.uniqueId.orEmpty(),
+                initialExternalRoute = externalRoute,
+                onExternalRouteHandled = { externalRoute = null },
                 onLiveActivitySaved = {
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
                 },

@@ -34,6 +34,21 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var showRoutes by remember { mutableStateOf(false) }
     var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
     var routeListMode by remember { mutableStateOf("Últimas 5") }
+    LaunchedEffect(routesStore) {
+        if (routesStore != null) {
+            try {
+                val overview = StateOverview.fromBytes(LocalSnapshotStore(context, accountId).read())
+                val candidates = overview?.liveSportSessions.orEmpty().mapNotNull { session ->
+                    val routeID = session.liveRouteID ?: return@mapNotNull null
+                    val detail = overview?.completeHistory?.firstOrNull { it.id == session.id } ?: return@mapNotNull null
+                    if (detail.routePoints.size < 2) return@mapNotNull null
+                    LiveSavedRoute(id = routeID, title = detail.title, points = detail.routePoints,
+                        sportID = session.sportID, createdAtMillis = session.startedEpochMillis ?: Long.MIN_VALUE)
+                }
+                routesStore.recoverFromSessions(candidates);routesVersion++
+            } catch (_: Exception) { /* Keep prior routes; no destructive recovery. */ }
+        }
+    }
     val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(runCatching {
         val bytes = LocalSnapshotStore(context, accountId).read()
         bytes?.let { LiveSportSnapshot.sessions(org.json.JSONObject(String(it))) }.orEmpty()
