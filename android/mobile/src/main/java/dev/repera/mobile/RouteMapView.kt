@@ -69,7 +69,6 @@ internal fun RouteMapView(
     var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
     androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
-        if (points == renderedPoints && !plannedRoute && plannedPoints.isEmpty()) return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
                 style.removeLayer("route-line");style.removeSource("route-src")
@@ -82,7 +81,7 @@ internal fun RouteMapView(
         }
     }
     if (failed) {
-        RouteMapFallback(points, modifier, plannedRoute)
+        RouteMapFallback(points, modifier, plannedRoute,plannedPoints)
         return
     }
     // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
@@ -219,18 +218,21 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
 
 /** Degradado sin teselas: polilínea normalizada con los mismos colores. */
 @Composable
-private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean) {
-    val segments = remember(points, plannedRoute) {
-        if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
+private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean,
+    plannedPoints:List<WorkoutRoutePoint> = emptyList()) {
+    val allPoints=points+plannedPoints
+    val segments = remember(points, plannedRoute,plannedPoints) {
+        val measured=if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
         else RouteMapModel.segments(points)
+        plannedPoints.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }+measured
     }
     Box(modifier = modifier.testTag("route_map_fallback")) {
         Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-            if (points.size >= 2) {
-                val minLat = points.minOf { it.latitude }
-                val maxLat = points.maxOf { it.latitude }
-                val minLon = points.minOf { it.longitude }
-                val maxLon = points.maxOf { it.longitude }
+            if (allPoints.size >= 2) {
+                val minLat = allPoints.minOf { it.latitude }
+                val maxLat = allPoints.maxOf { it.latitude }
+                val minLon = allPoints.minOf { it.longitude }
+                val maxLon = allPoints.maxOf { it.longitude }
                 val spanLat = (maxLat - minLat).takeIf { it > 0 } ?: 1e-6
                 val spanLon = (maxLon - minLon).takeIf { it > 0 } ?: 1e-6
                 fun xy(p: WorkoutRoutePoint) = Offset(
