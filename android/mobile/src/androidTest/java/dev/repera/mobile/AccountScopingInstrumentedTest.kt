@@ -23,6 +23,7 @@ class AccountScopingInstrumentedTest {
         val state = JSONObject()
             .put("exercises", org.json.JSONArray())
             .put("workouts", org.json.JSONArray())
+            .put("routines", org.json.JSONArray())
             .put("marker", marker)
             .put("syncRevision", 1)
             .put("updatedAt", "2026-10-25T00:00:00Z")

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.down
 import androidx.compose.ui.test.moveBy
@@ -38,13 +39,31 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         }
     }
 
+    /** Host real del editor es desplazable (LazyColumn en Home/Progress); el
+     *  fixture reproduce ese host para que los nodos bajo el pliegue sean
+     *  alcanzables con performScrollTo antes de pulsarlos. */
+    private fun showEditor(w: WorkoutHistoryEntry, catalog: List<ExerciseEntry> = emptyList(),
+                           onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit) {
+        compose.setContent {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.fillMaxSize()
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                FinishedWorkoutEditorSection(w, "acc", false, catalog, onSave)
+            }
+        }
+    }
+
+    private fun clickTag(tag: String) {
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+    }
+
     @Test fun saveEmitsEditedDraft() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         show { saved = it }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("edit_title").performTextClearance()
-        compose.onNodeWithTag("edit_title").performTextInput("Nuevo")
-        compose.onNodeWithTag("edit_save").performClick()
+        clickTag("edit_finished_workout")
+        compose.onNodeWithTag("edit_title").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("edit_title").performScrollTo().performTextInput("Nuevo")
+        clickTag("edit_save")
         assertEquals("Nuevo", saved?.title)
         assertEquals("nota", saved?.notes)
         assertEquals(false, saved?.pinEdited)
@@ -54,9 +73,9 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun cancelEmitsNothingAndRestoresView() {
         var calls = 0
         show { calls++ }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("edit_title").performTextInput("basura")
-        compose.onNodeWithTag("edit_cancel").performClick()
+        clickTag("edit_finished_workout")
+        compose.onNodeWithTag("edit_title").performScrollTo().performTextInput("basura")
+        clickTag("edit_cancel")
         assertEquals(0, calls)
         compose.onNodeWithTag("edit_finished_workout").assertIsDisplayed()
     }
@@ -68,26 +87,20 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun reorderAndCancelNeverEmitsContent() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent {
-            FinishedWorkoutEditorSection(w, "acc", false,
-                listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
-        }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("ex_down_0_0").performClick()
-        compose.onNodeWithTag("edit_cancel").performClick()
+        showEditor(w, listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("ex_down_0_0")
+        clickTag("edit_cancel")
         assertNull(saved)
     }
 
     @Test fun reorderThenSaveEmitsReorderedBlocksOnly() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent {
-            FinishedWorkoutEditorSection(w, "acc", false,
-                listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
-        }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("ex_down_0_0").performClick()
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("ex_down_0_0")
+        clickTag("edit_save")
         val ids = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
         assertEquals("e2", ids.getJSONObject(0).getString("id"))
         assertEquals("e1", ids.getJSONObject(1).getString("id"))
@@ -96,9 +109,9 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun untouchedContentEmitsNoBlocks() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, emptyList()) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("edit_save")
         assertNull(saved!!.blocksJson)
     }
 
@@ -111,14 +124,11 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun moveBetweenBlocksKeepsItemIdAndEmitsOnSave() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = twoBlocks)
-        compose.setContent {
-            FinishedWorkoutEditorSection(w, "acc", false,
-                listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
-        }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("ex_move_0_0").performClick()
-        compose.onNodeWithTag("ex_move_to_0_0_1").performClick()
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("ex_move_0_0")
+        clickTag("ex_move_to_0_0_1")
+        clickTag("edit_save")
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals(0, arr.getJSONObject(0).getJSONArray("exercises").length())
         val dest = arr.getJSONObject(1).getJSONArray("exercises")
@@ -130,12 +140,12 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         val catalog = (1..200).map { ExerciseEntry("c$it", "Ejercicio $it", true, true) } +
             ExerciseEntry("tri", "Extensión de tríceps", true, true)
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, catalog) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("ex_add_0").performClick()
-        compose.onNodeWithTag("ex_search").performTextInput("triceps")
-        compose.onNodeWithTag("ex_pick_tri").performClick()
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, catalog) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("ex_add_0")
+        compose.onNodeWithTag("ex_search").performScrollTo().performTextInput("triceps")
+        clickTag("ex_pick_tri")
+        clickTag("edit_save")
         val items = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
         assertEquals(3, items.length())
         assertEquals("tri", items.getJSONObject(2).getString("exerciseId"))
@@ -145,11 +155,11 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun rirEditPersistsInDraft() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = twoBlocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("set_rir_0_0_0").performTextClearance()
-        compose.onNodeWithTag("set_rir_0_0_0").performTextInput("1")
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, emptyList()) { saved = it }
+        clickTag("edit_finished_workout")
+        compose.onNodeWithTag("set_rir_0_0_0").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("set_rir_0_0_0").performScrollTo().performTextInput("1")
+        clickTag("edit_save")
         val set = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
             .getJSONObject(0).getJSONArray("plannedSets").getJSONObject(0)
         assertEquals(1.0, set.getDouble("targetRir"), 0.0)
@@ -164,11 +174,11 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun wodMovementEditSavesAndKeepsOtherFields() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = wodBlocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("mv_name_1_0").performTextClearance()
-        compose.onNodeWithTag("mv_name_1_0").performTextInput("Thruster")
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
+        compose.onNodeWithTag("mv_name_1_0").performScrollTo().performTextClearance()
+        compose.onNodeWithTag("mv_name_1_0").performScrollTo().performTextInput("Thruster")
+        clickTag("edit_save")
         val m = org.json.JSONArray(saved!!.blocksJson).getJSONObject(1).getJSONArray("movements").getJSONObject(0)
         assertEquals("Thruster", m.getString("name")); assertEquals("m1", m.getString("id"))
         assertEquals("30 kg", m.getString("scaleAlternative")); assertEquals(30.0, m.getDouble("weightFemaleKg"), 0.0)
@@ -177,23 +187,23 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun moveStrengthToWodConvertsAndCancelKeepsHistory() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = wodBlocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("ex_move_0_0").performClick()
-        compose.onNodeWithTag("ex_move_to_0_0_1").performClick()
-        compose.onNodeWithTag("edit_cancel").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("ex_move_0_0")
+        clickTag("ex_move_to_0_0_1")
+        clickTag("edit_cancel")
         assertNull(saved)
     }
 
     @Test fun addWodBlockAndChangeFormat() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = wodBlocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("block_add_wod").performClick()
-        compose.onNodeWithTag("block_format_1").performClick()
-        compose.onNodeWithTag("block_format_1_emom").performClick()
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("block_add_wod")
+        clickTag("block_format_1")
+        clickTag("block_format_1_emom")
+        clickTag("edit_save")
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals(3, arr.length()); assertEquals("emom", arr.getJSONObject(1).getString("wodFormat"))
     }
@@ -202,13 +212,13 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun longPressDragReordersExercises() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
             down(center); advanceEventTime(700); moveBy(Offset(0f, 600f)); advanceEventTime(50); up()
         }
         compose.waitForIdle()
-        compose.onNodeWithTag("edit_save").performClick()
+        clickTag("edit_save")
         val ids = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
         assertEquals("e2", ids.getJSONObject(0).getString("id")); assertEquals("e1", ids.getJSONObject(1).getString("id"))
     }
@@ -216,24 +226,24 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun quickSwipeWithoutLongPressDoesNotReorder() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         compose.onNodeWithTag("ex_drag_0_0").performTouchInput { down(center); moveBy(Offset(0f, 600f)); up() }
         compose.waitForIdle()
-        compose.onNodeWithTag("edit_save").performClick()
+        clickTag("edit_save")
         assertNull(saved!!.blocksJson)
     }
 
     @Test fun longPressDragReordersBlocks() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = wodBlocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         compose.onNodeWithTag("block_drag_0").performTouchInput {
             down(center); advanceEventTime(700); moveBy(Offset(0f, 2500f)); advanceEventTime(50); up()
         }
         compose.waitForIdle()
-        compose.onNodeWithTag("edit_save").performClick()
+        clickTag("edit_save")
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals("b2", arr.getJSONObject(0).getString("id")); assertEquals("b1", arr.getJSONObject(1).getString("id"))
     }
@@ -250,10 +260,10 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun dragExerciseIntoEmptyBlockMovesItKeepingId() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         dragExercise("ex_drag_0_0", 900f)
-        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        compose.waitForIdle(); clickTag("edit_save")
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals(0, arr.getJSONObject(0).getJSONArray("exercises").length())
         assertEquals("e1", arr.getJSONObject(1).getJSONArray("exercises").getJSONObject(0).getString("id"))
@@ -263,10 +273,10 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun dragExerciseIntoWodBlockConvertsToMovement() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = wodBlocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         dragExercise("ex_drag_0_0", 900f)
-        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        compose.waitForIdle(); clickTag("edit_save")
         val mv = org.json.JSONArray(saved!!.blocksJson).getJSONObject(1).getJSONArray("movements")
         assertTrue((0 until mv.length()).any { mv.getJSONObject(it).getString("id") == "e1" })
     }
@@ -275,10 +285,10 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun dropOutsideAnyBlockLeavesDraftUntouched() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         dragExercise("ex_drag_0_0", -3000f)
-        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        compose.waitForIdle(); clickTag("edit_save")
         assertNull(saved!!.blocksJson)
     }
 
@@ -301,14 +311,14 @@ class FinishedWorkoutEditorUiInstrumentedTest {
                 }
             }
         }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        clickTag("edit_finished_workout")
         compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
             down(center); advanceEventTime(700)
             repeat(40) { moveBy(Offset(0f, 60f)); advanceEventTime(50) }
             advanceEventTime(1500) // dedo quieto en el borde: el autoscroll continuo debe seguir
             up()
         }
-        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        compose.waitForIdle(); clickTag("edit_save")
         val arr = org.json.JSONArray(saved!!.blocksJson)
         val ids = (0 until arr.length()).flatMap { b -> val ex = arr.getJSONObject(b).getJSONArray("exercises")
             (0 until ex.length()).map { ex.getJSONObject(it).getString("id") } }
@@ -319,12 +329,12 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun cancelledGestureMovesNothing() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, cat) { saved = it }
+        clickTag("edit_finished_workout")
         compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
             down(center); advanceEventTime(700); moveBy(Offset(0f, 900f)); advanceEventTime(50); cancel()
         }
-        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        compose.waitForIdle(); clickTag("edit_save")
         assertNull(saved!!.blocksJson)
     }
 
@@ -332,11 +342,11 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun swipeRemovesExerciseFromDraft() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
+        showEditor(w, emptyList()) { saved = it }
+        clickTag("edit_finished_workout")
         val before = org.json.JSONArray(blocks).getJSONObject(0).getJSONArray("exercises").length()
         compose.onAllNodesWithTag("ex_swipe")[0].performTouchInput { swipeLeft() }
-        compose.onNodeWithTag("edit_save").performClick()
+        clickTag("edit_save")
         val after = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises").length()
         assertEquals(before - 1, after)
     }
@@ -344,10 +354,10 @@ class FinishedWorkoutEditorUiInstrumentedTest {
     @Test fun saveAsFavoriteFlagReachesEdit() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = blocks)
-        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
-        compose.onNodeWithTag("edit_finished_workout").performClick()
-        compose.onNodeWithTag("edit_save_favorite").performClick()
-        compose.onNodeWithTag("edit_save").performClick()
+        showEditor(w, emptyList()) { saved = it }
+        clickTag("edit_finished_workout")
+        clickTag("edit_save_favorite")
+        clickTag("edit_save")
         assertEquals(true, saved!!.saveAsFavorite)
     }
 }

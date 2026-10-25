@@ -72,7 +72,7 @@ class MobilityCatalogInstrumentedTest {
             val cid = catalog.getJSONObject(i).optString("catalogId")
             if (cid.startsWith("mobility-") || cid.startsWith("hyrox-")) catalog.remove(i)
         }
-        assertEquals(196, catalog.length())
+        assertEquals(204, catalog.length()) // seed actual: 288 - 84 mobility/hyrox
         val importedId = UUID.randomUUID().toString()
         catalog.put(JSONObject()
             .put("id", importedId).put("name", "Burpee Broad Jump")
@@ -112,7 +112,7 @@ class MobilityCatalogInstrumentedTest {
             if (cid.startsWith("mobility-") || cid.startsWith("hyrox-") ||
                 item.optString("name") in newHaltero) catalog.remove(i)
         }
-        assertEquals(196, catalog.length())
+        assertEquals(204, catalog.length()) // seed actual: 288 - 84 mobility/hyrox
         existing.getJSONArray("exercises").put(JSONObject()
             .put("id", UUID.randomUUID().toString()).put("name", "Mi ejercicio")
             .put("isCustom", true).put("muscleGroup", "Core"))

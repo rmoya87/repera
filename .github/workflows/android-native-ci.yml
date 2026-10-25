@@ -231,12 +231,12 @@ jobs:
             target: android-wear
             label: 'Wear OS 5.1 (API 35)'
             emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim'
-          # Intento controlado 36.1 (STATUS_AND_PARITY.md 25/10): flags
-          # explícitos + captura de arranque; el default de la acción ya
-          # incluía -noaudio, así que el timeout histórico NO queda explicado
-          # por el loader. -verbose y el log de arranque van a artefacto.
+          # Intento controlado 36.1 (STATUS_AND_PARITY.md 25/10): la imagen
+          # Wear OS 6.1 se publica como android-wear-signed (android-wear no
+          # existe para 36.1: "Failed to find package" en 40164143521).
+          # -verbose y el log de arranque van a artefacto.
           - api: '36.1'
-            target: android-wear
+            target: android-wear-signed
             label: 'Wear OS 6.1 (API 36.1, intento controlado)'
             emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -wipe-data -verbose'
             experimental: true

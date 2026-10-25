@@ -95,9 +95,13 @@ class RoutineBlocksEditorInstrumentedTest {
         }
         assertThrows(IllegalArgumentException::class.java) {
             repo.replaceRoutineBlocks(id, listOf(
-                RoutineBlockDraft(format = "forTime", entries = listOf(
+                RoutineBlockDraft(format = "strength", entries = listOf(
                     RoutineDraftEntry(pullId, 10), RoutineDraftEntry(pullId, 5)))))
         }
+        // Ladder/WOD sí admite movimientos repetidos (WODTemplate.makeBlock de Apple).
+        repo.replaceRoutineBlocks(id, listOf(
+            RoutineBlockDraft(format = "forTime", entries = listOf(
+                RoutineDraftEntry(pullId, 10), RoutineDraftEntry(pullId, 5)))))
         assertThrows(IllegalStateException::class.java) {
             repo.replaceRoutineBlocks(UUID.randomUUID().toString(), listOf(
                 RoutineBlockDraft(format = "strength",

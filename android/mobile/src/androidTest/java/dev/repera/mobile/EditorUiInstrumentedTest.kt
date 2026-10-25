@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onAllNodesWithText
@@ -54,7 +55,7 @@ class EditorUiInstrumentedTest {
                     onReplace = { delivered = it }, onBack = {})
             }
         }
-        compose.onNodeWithText("Añadir bloque").performClick()
+        clickText("Añadir bloque")
         compose.onNodeWithText("Guardar").performClick()
         compose.waitForIdle()
         assertEquals("Guardar entrega el bloque original + el añadido",
@@ -71,7 +72,7 @@ class EditorUiInstrumentedTest {
                     onReplace = { delivered = it }, onBack = { backed = true })
             }
         }
-        compose.onNodeWithText("Añadir bloque").performClick()
+        clickText("Añadir bloque")
         compose.onNodeWithText("Volver").performClick()
         compose.waitForIdle()
         assertTrue("Volver navega atrás", backed)
@@ -92,7 +93,8 @@ class EditorUiInstrumentedTest {
                     onReplace = {}, onBack = {})
             }
         }
-        compose.onAllNodesWithText("Añadir bloque").onFirst().assertDoesNotExist()
+        // Column + verticalScroll compone todo el árbol: el nodo existe aunque
+        // esté fuera de la ventana; lo que se verifica es que el scroll lo alcanza.
         compose.onNode(hasScrollAction())
             .performScrollToNode(androidx.compose.ui.test.hasText("Añadir bloque"))
         compose.onNodeWithText("Añadir bloque").assertIsDisplayed()
@@ -101,6 +103,17 @@ class EditorUiInstrumentedTest {
     @androidx.compose.runtime.Composable
     private fun MaterialThemeForTest(content: @androidx.compose.runtime.Composable () -> Unit) {
         androidx.compose.material3.MaterialTheme(content = content)
+    }
+
+    /** La pantalla es una Column con verticalScroll: los nodos bajo el pliegue
+     *  existen en el árbol pero su centro cae fuera de la ventana y el toque se
+     *  pierde en silencio. Hay que hacer scroll hasta ellos antes de pulsar. */
+    private fun clickTag(tag: String) {
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+    }
+
+    private fun clickText(text: String) {
+        compose.onNodeWithText(text).performScrollTo().performClick()
     }
 
     private fun planRoutine() = RoutineEntry(
@@ -117,8 +130,8 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
-        compose.onNodeWithTag("plan_entry_move").performClick()
-        compose.onNodeWithTag("plan_entry_move_to_1").performClick()
+        clickTag("plan_entry_move")
+        clickTag("plan_entry_move_to_1")
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         val wod = delivered!![1].entries.single()
         assertEquals("it-1", wod.itemId)
@@ -131,7 +144,7 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
-        compose.onNodeWithTag("plan_add_rest").performClick()
+        clickTag("plan_add_rest")
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         val rest = delivered!![1].entries.single()
         assertTrue(org.json.JSONObject(rest.sourceJson!!).getBoolean("isRest"))
@@ -143,7 +156,7 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
-        compose.onAllNodesWithTag("plan_entry_drag")[0].performTouchInput {
+        compose.onAllNodesWithTag("plan_entry_drag")[0].performScrollTo().performTouchInput {
             down(center); advanceEventTime(700); moveBy(androidx.compose.ui.geometry.Offset(0f, -6000f)); advanceEventTime(50); up() }
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals(1, delivered!![0].entries.size)
@@ -160,7 +173,7 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = r, exercises = listOf(bike), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
-        compose.onNodeWithTag("plan_unit_meters").performClick()
+        clickTag("plan_unit_meters")
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals("meters", delivered!![0].entries[0].quantityUnit)
     }
@@ -175,8 +188,8 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = target, exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}, importableRoutines = listOf(src)) } }
-        compose.onNodeWithTag("plan_add_routine").performClick()
-        compose.onNodeWithTag("plan_import_r-src").performClick()
+        clickTag("plan_add_routine")
+        clickTag("plan_import_r-src")
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
         assertTrue(delivered!![1].blockId != "b-s" && delivered!![1].blockId != null)
@@ -188,8 +201,9 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
-        compose.onNodeWithTag("plan_pick_wod").performClick()
-        compose.onNodeWithTag("plan_wod_pick_" + t.id).performClick()
+        clickTag("plan_pick_wod")
+        compose.onNodeWithTag("plan_wod_search").performTextInput(t.name)
+        clickTag("plan_wod_pick_" + t.id)
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
         assertEquals(t.movements.size, delivered!![2].entries.size)
@@ -203,8 +217,9 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = empty, exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}, onTitleSuggested = { title = it }) } }
-        compose.onNodeWithTag("plan_pick_wod").performClick()
-        compose.onNodeWithTag("plan_wod_pick_21-15-9-thruster-bjo").performClick()
+        clickTag("plan_pick_wod")
+        compose.onNodeWithTag("plan_wod_search").performTextInput("21-15-9")
+        clickTag("plan_wod_pick_21-15-9-thruster-bjo")
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals("21-15-9 Thruster + BJO", title)
         val b = delivered!!.last()
@@ -216,8 +231,8 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
-        compose.onAllNodesWithTag("plan_block_down")[0].performClick()
-        compose.onAllNodesWithTag("plan_entry_swipe")[0].performTouchInput { swipeLeft() }
+        compose.onAllNodesWithTag("plan_block_down")[0].performScrollTo().performClick()
+        compose.onAllNodesWithTag("plan_entry_swipe")[0].performScrollTo().performTouchInput { swipeLeft() }
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         assertEquals("b-w", delivered!![0].blockId)
         assertEquals(0, delivered!![1].entries.size)
@@ -229,7 +244,7 @@ class EditorUiInstrumentedTest {
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}, sessionMode = true, onFavoriteChosen = { fav = it }) } }
-        compose.onNodeWithTag("session_favorite_switch").performClick()
+        clickTag("session_favorite_switch")
         compose.onNodeWithText("Empezar").performClick(); compose.waitForIdle()
         assertEquals(true, fav); assertEquals(2, delivered!!.size)
     }

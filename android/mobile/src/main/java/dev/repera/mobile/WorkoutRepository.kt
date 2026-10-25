@@ -2113,7 +2113,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                 })
         }
         if (edit.saveAsFavorite) {
-            val src = target.optJSONArray("routineBlocks") ?: JSONArray()
+            // routineForEditing de Apple: la rutina guardada si existe; si no, se
+            // reconstruye desde la sesión (p. ej. quick log sin routineBlocks).
+            val src = CompletedWorkoutEditing.blocksFrom(target, null)
             val copy = JSONArray()
             for (k in 0 until src.length())
                 EditorBlockOps.freshIds(src.getJSONObject(k).toString())?.let { copy.put(JSONObject(it)) }
