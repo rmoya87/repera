@@ -109,12 +109,16 @@ final class RemoteExerciseCatalogStore {
     func restoreCached(to store: ReperaStore) async {
         var saved = await localSnapshot()
         guard saved.revision > 0 else { return }
+        let originalIDs = saved.localIDs
         if await apply(saved: &saved, to: store) {
             store.bumpCatalogEpoch()
             store.persistLocalOnly(immediate: true)
         }
         snapshot = saved
-        try? await disk.write(saved)
+        // Do not rewrite 288 entries on every iCloud restore or app launch.
+        if originalIDs != saved.localIDs {
+            try? await disk.write(saved)
+        }
     }
 
     /// Called headlessly by native BGAppRefresh, then applied to UI at next foreground.
@@ -184,15 +188,20 @@ final class RemoteExerciseCatalogStore {
             // Guardar el feed completo antes de actualizar la UI: nunca avanzar
             // el cursor solo en memoria y perder actualizaciones tras un cierre.
             try Task.checkCancellation()
+            // First write is the crash-consistent cursor checkpoint.
             try await disk.write(working)
             snapshot = working
+            let idsBeforeMerge = working.localIDs
             if let store, await apply(saved: &working, to: store) {
                 store.bumpCatalogEpoch()
                 store.persistLocalOnly(immediate: true)
                 store.notifyCatalogChangedForWatch()
             }
             snapshot = working
-            try await disk.write(working)
+            // One write normally; a second only if UUID identity was learned.
+            if idsBeforeMerge != working.localIDs {
+                try await disk.write(working)
+            }
             lastSuccessfulSync = Date()
             lastErrorMessage = nil
         } catch {
