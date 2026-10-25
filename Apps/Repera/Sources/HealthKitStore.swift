@@ -1876,10 +1876,11 @@ final class HealthKitStore {
         // para respetar los tiempos/FC guardados por Apple Watch.
         let previous = await existingReperaWorkout(sessionId: sessionId, start: start, end: safeEnd)
         let overlapping = await overlappingWorkout(from: start, to: safeEnd)
-        let external = overlapping.flatMap {
-            guard activityType == .traditionalStrengthTraining || $0.workoutActivityType == activityType else { return nil }
-            return (Self.isReperaSource($0.sourceRevision.source) &&
-             !Self.isWatchRecordedSource($0.sourceRevision.source)) ? nil : $0
+        let external: HKWorkout? = overlapping.flatMap { candidate -> HKWorkout? in
+            guard activityType == .traditionalStrengthTraining ||
+                    candidate.workoutActivityType == activityType else { return nil }
+            return (Self.isReperaSource(candidate.sourceRevision.source) &&
+                !Self.isWatchRecordedSource(candidate.sourceRevision.source)) ? nil : candidate
         }
         let legacyOwn = overlapping.flatMap { candidate -> HKWorkout? in
             guard Self.isReperaSource(candidate.sourceRevision.source),
