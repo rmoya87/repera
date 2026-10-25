@@ -139,6 +139,14 @@ class ProgressionApplyInstrumentedTest {
                 .getJSONObject(0).getJSONArray("plannedSets")
             val reps = (0 until sets.length()).map { sets.getJSONObject(it).getInt("targetReps") }
             if (allow) assertEquals(1, reps.distinct().size) else assertEquals(listOf(21, 15, 9), reps)
+            // Definición original intacta: la rutina persistida y la copia de bloques de la sesión conservan el repScheme 21-15-9.
+            val snap = JSONObject(String(local.read()!!))
+            fun scheme(block: JSONObject) = block.getJSONArray("movements").getJSONObject(0).getJSONArray("repScheme")
+            for (blocks in listOf(snap.getJSONArray("routines").getJSONObject(0).getJSONArray("blocks"),
+                snap.getJSONObject("activeSession").getJSONArray("routineBlocks"))) {
+                val sc = scheme(blocks.getJSONObject(0))
+                assertEquals(listOf(21, 15, 9), (0 until sc.length()).map { sc.getInt(it) })
+            }
         }
     }
 }
