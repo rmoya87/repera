@@ -78,7 +78,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         try { LiveActivityService.startFromVisibleUI(context,accountId) }
         catch (_: Exception) { runtime.pause();error="No se pudo mantener el registro en segundo plano. La actividad queda en pausa." }
     }
-    fun start() { runtime.start();startService() }
+    val currentActiveWorkout by rememberUpdatedState(hasActiveWorkout)
+    val currentOpenWorkout by rememberUpdatedState(onOpenWorkout)
+    fun start() {
+        // También comprobar tras volver del diálogo de permiso, no solo
+        // antes: puede haberse reactivado un entreno clásico mientras tanto.
+        if (currentActiveWorkout) { currentOpenWorkout();return }
+        runtime.start();startService()
+    }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { start() }
     val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
