@@ -116,7 +116,7 @@ private fun DateTimeRow(label: String, iso: String?, tag: String, onChange: (Str
     }
 }
 
-/** Editor de bloques de fuerza de un entreno terminado: reordenar, quitar, añadir
+/** Editor de bloques de un entreno terminado: reordenar, quitar, añadir
  *  ejercicio y editar series (reps / kg / RIR). Los bloques WOD se muestran sin
  *  edición (Android no tiene editor de movimientos). Opera sobre el borrador. */
 @Composable
@@ -130,12 +130,30 @@ private fun FinishedContentEditor(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (b in 0 until blocks.length()) {
             val block = blocks.getJSONObject(b)
-            Text(block.optString("title").ifBlank { "Bloque ${b + 1}" },
-                style = MaterialTheme.typography.titleSmall)
+            var title by remember(block.optString("id")) { mutableStateOf(block.optString("title")) }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                OutlinedTextField(value = title, singleLine = true, label = { Text("Bloque ${b + 1}") },
+                    modifier = Modifier.weight(1f).testTag("block_title_$b"),
+                    onValueChange = { title = it; block.put("title", it); onEdited() })
+                TextButton(enabled = b > 0, modifier = Modifier.testTag("block_up_$b"), onClick = {
+                    EditorBlockOps.moveBlock(blocks, b, b - 1); onChanged() }) { Text("↑") }
+                TextButton(enabled = b < blocks.length() - 1, modifier = Modifier.testTag("block_down_$b"), onClick = {
+                    EditorBlockOps.moveBlock(blocks, b, b + 1); onChanged() }) { Text("↓") }
+                TextButton(modifier = Modifier.testTag("block_remove_$b"), onClick = {
+                    EditorBlockOps.removeBlock(blocks, b); onChanged() }) { Text("Quitar") }
+            }
             if (block.optString("kind") != "strength") {
-                Text("Bloque WOD: contenido no editable en Android todavía.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                var fmtOpen by remember { mutableStateOf(false) }
+                val cur = dev.repera.domain.WodFormat.fromWire(block.optString("wodFormat"))
+                TextButton(modifier = Modifier.testTag("block_format_$b"), onClick = { fmtOpen = true }) {
+                    Text("Formato: ${cur?.displayName ?: "sin formato"}") }
+                DropdownMenu(expanded = fmtOpen, onDismissRequest = { fmtOpen = false }) {
+                    dev.repera.domain.WodFormat.values().forEach { f ->
+                        DropdownMenuItem(text = { Text(f.displayName) }, modifier = Modifier.testTag("block_format_${b}_${f.wireName}"),
+                            onClick = { fmtOpen = false; block.put("wodFormat", f.wireName); onChanged() })
+                    }
+                }
+                WodMovementsEditor(blocks, b, nameById, catalog, onEdited, onChanged)
                 continue
             }
             val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
@@ -149,8 +167,7 @@ private fun FinishedContentEditor(
                     TextButton(enabled = i < items.length() - 1, modifier = Modifier.testTag("ex_down_${b}_$i"), onClick = {
                         swap(items, i, i + 1); onChanged() }) { Text("↓") }
                     var moving by remember { mutableStateOf(false) }
-                    val targets = (0 until blocks.length()).filter {
-                        it != b && blocks.getJSONObject(it).optString("kind") == "strength" }
+                    val targets = (0 until blocks.length()).filter { it != b }
                     if (targets.isNotEmpty()) {
                         TextButton(modifier = Modifier.testTag("ex_move_${b}_$i"),
                             onClick = { moving = true }) { Text("Mover") }
@@ -161,10 +178,9 @@ private fun FinishedContentEditor(
                                     modifier = Modifier.testTag("ex_move_to_${b}_${i}_$t"),
                                     onClick = {
                                         moving = false
-                                        val moved = items.get(i)
-                                        items.remove(i)
-                                        val dest = blocks.getJSONObject(t)
-                                        (dest.optJSONArray("exercises") ?: org.json.JSONArray().also { dest.put("exercises", it) }).put(moved)
+                                        val ok = EditorBlockOps.moveItem(blocks, b, item.optString("id"), t, null,
+                                            { id -> nameById[id] ?: "Ejercicio" }, { null })
+                                        if (!ok) onEdited()
                                         onChanged()
                                     })
                             }
@@ -264,6 +280,12 @@ private fun FinishedContentEditor(
                 )
             }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(modifier = Modifier.testTag("block_add_strength"), onClick = {
+                blocks.put(EditorBlockOps.newBlock("strength", blocks.length() + 1)); onChanged() }) { Text("Añadir bloque de fuerza") }
+            TextButton(modifier = Modifier.testTag("block_add_wod"), onClick = {
+                blocks.put(EditorBlockOps.newBlock("wod", blocks.length() + 1, "amrap")); onChanged() }) { Text("Añadir bloque WOD") }
+        }
     }
 }
 
@@ -276,3 +298,137 @@ private fun swap(array: org.json.JSONArray, a: Int, b: Int) {
 internal fun foldForSearch(text: String): String =
     java.text.Normalizer.normalize(text.trim().lowercase(), java.text.Normalizer.Form.NFD)
         .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+
+
+/** Editor de movimientos WOD (WODMovementEditor de Apple): REST, nombre, series, cal/m, peso H/M, escala, notas. */
+@Composable
+private fun WodMovementsEditor(
+    blocks: org.json.JSONArray, b: Int, nameById: Map<String, String>, catalog: List<ExerciseEntry>,
+    onEdited: () -> Unit, onChanged: () -> Unit
+) {
+    val block = blocks.getJSONObject(b)
+    val moves = block.optJSONArray("movements") ?: org.json.JSONArray().also { block.put("movements", it) }
+    for (i in 0 until moves.length()) {
+        val m = moves.getJSONObject(i)
+        val id = m.optString("id")
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(if (m.optBoolean("isRest")) "REST" else m.optString("name"),
+                style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            TextButton(enabled = i > 0, modifier = Modifier.testTag("mv_up_${b}_$i"), onClick = {
+                EditorBlockOps.moveItem(blocks, b, id, b, moves.getJSONObject(i - 1).optString("id"), { "" }, { null }); onChanged() }) { Text("↑") }
+            TextButton(enabled = i < moves.length() - 1, modifier = Modifier.testTag("mv_down_${b}_$i"), onClick = {
+                val next = if (i + 2 < moves.length()) moves.getJSONObject(i + 2).optString("id") else null
+                EditorBlockOps.moveItem(blocks, b, id, b, next, { "" }, { null }); onChanged() }) { Text("↓") }
+            var moving by remember { mutableStateOf(false) }
+            val targets = (0 until blocks.length()).filter { it != b }
+            if (targets.isNotEmpty() && !m.optBoolean("isRest") || targets.any { blocks.getJSONObject(it).optString("kind") != "strength" }) {
+                TextButton(modifier = Modifier.testTag("mv_move_${b}_$i"), onClick = { moving = true }) { Text("Mover") }
+                DropdownMenu(expanded = moving, onDismissRequest = { moving = false }) {
+                    targets.forEach { t ->
+                        DropdownMenuItem(text = { Text(blocks.getJSONObject(t).optString("title").ifBlank { "Bloque ${t + 1}" }) },
+                            modifier = Modifier.testTag("mv_move_to_${b}_${i}_$t"),
+                            onClick = {
+                                moving = false
+                                val ok = EditorBlockOps.moveItem(blocks, b, id, t, null, { "" }) { mv ->
+                                    mv.optString("exerciseId").takeIf { x -> x.isNotBlank() && catalog.any { c -> c.id == x } }
+                                        ?: catalog.firstOrNull { c -> c.name.equals(mv.optString("name"), true) }?.id }
+                                if (ok) onChanged() else onEdited()
+                            })
+                    }
+                }
+            }
+            TextButton(modifier = Modifier.testTag("mv_remove_${b}_$i"), onClick = { moves.remove(i); onChanged() }) { Text("Quitar") }
+        }
+        if (m.optBoolean("isRest")) {
+            var secs by remember(id) { mutableStateOf((if (m.has("restSeconds")) m.optInt("restSeconds") else 60).toString()) }
+            OutlinedTextField(value = secs, singleLine = true, label = { Text("Segundos") },
+                modifier = Modifier.fillMaxWidth().testTag("mv_rest_${b}_$i"),
+                onValueChange = { v -> secs = v.filter { it.isDigit() }.take(3)
+                    m.put("restSeconds", (secs.toIntOrNull() ?: 60).coerceIn(15, 300)); onEdited() })
+            continue
+        }
+        var name by remember(id) { mutableStateOf(m.optString("name")) }
+        OutlinedTextField(value = name, singleLine = true, label = { Text("Nombre") },
+            modifier = Modifier.fillMaxWidth().testTag("mv_name_${b}_$i"),
+            onValueChange = { name = it; m.put("name", it); onEdited() })
+        val machine = m.has("calories") && !m.isNull("calories") || m.has("distanceMeters") && !m.isNull("distanceMeters") && !m.has("reps")
+        val sets = m.optJSONArray("explicitPlannedSets")?.takeIf { it.length() > 0 }
+            ?: CompletedWorkoutEditing.derivedSetsFor(block, m).also { m.put("explicitPlannedSets", it) }
+        for (s in 0 until sets.length()) {
+            val set = sets.getJSONObject(s)
+            var reps by remember(id, set.optString("id")) { mutableStateOf(set.optInt("targetReps").toString()) }
+            var kg by remember(id, set.optString("id")) { mutableStateOf(
+                if (set.has("targetWeightKg") && !set.isNull("targetWeightKg")) set.getDouble("targetWeightKg").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } else "") }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
+                OutlinedTextField(value = reps, singleLine = true,
+                    label = { Text(if (m.has("calories") && !m.isNull("calories")) "Cal" else if (machine) "m" else "Reps") },
+                    modifier = Modifier.weight(1f).testTag("mv_set_reps_${b}_${i}_$s"),
+                    onValueChange = { v -> reps = v.filter { it.isDigit() }.take(4)
+                        set.put("targetReps", (reps.toIntOrNull() ?: 1).coerceAtLeast(1))
+                        EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
+                if (!machine) OutlinedTextField(value = kg, singleLine = true, label = { Text("Kg") },
+                    modifier = Modifier.weight(1f).testTag("mv_set_kg_${b}_${i}_$s"),
+                    onValueChange = { v -> kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
+                        val parsed = kg.replace(',', '.').toDoubleOrNull()
+                        if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
+                        EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
+                TextButton(enabled = sets.length() > 1, modifier = Modifier.testTag("mv_set_remove_${b}_${i}_$s"),
+                    onClick = { sets.remove(s); EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged() }) { Text("×") }
+            }
+        }
+        TextButton(enabled = sets.length() < 20, modifier = Modifier.testTag("mv_set_add_${b}_$i"), onClick = {
+            val last = sets.optJSONObject(sets.length() - 1)
+            sets.put(org.json.JSONObject().put("id", java.util.UUID.randomUUID().toString())
+                .put("targetReps", last?.optInt("targetReps") ?: 10)
+                .apply { if (last != null && last.has("targetWeightKg")) put("targetWeightKg", last.get("targetWeightKg")) })
+            EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged() }) { Text("Añadir serie") }
+        var female by remember(id) { mutableStateOf(if (m.has("weightFemaleKg") && !m.isNull("weightFemaleKg")) m.getDouble("weightFemaleKg").toString() else "") }
+        var scale by remember(id) { mutableStateOf(m.optString("scaleAlternative")) }
+        var notes by remember(id) { mutableStateOf(m.optString("notes")) }
+        var dist by remember(id) { mutableStateOf(if (!machine && m.has("distanceMeters") && !m.isNull("distanceMeters")) m.optInt("distanceMeters").toString() else "") }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedTextField(value = female, singleLine = true, label = { Text("Peso M (kg)") },
+                modifier = Modifier.weight(1f).testTag("mv_female_${b}_$i"),
+                onValueChange = { v -> female = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
+                    val p = female.replace(',', '.').toDoubleOrNull()
+                    if (p != null) m.put("weightFemaleKg", p) else m.remove("weightFemaleKg"); onEdited() })
+            if (!machine) OutlinedTextField(value = dist, singleLine = true, label = { Text("Metros") },
+                modifier = Modifier.weight(1f).testTag("mv_dist_${b}_$i"),
+                onValueChange = { v -> dist = v.filter { it.isDigit() }.take(4)
+                    val p = dist.toIntOrNull()?.coerceIn(0, 5000)
+                    if (p != null && p > 0) m.put("distanceMeters", p) else m.remove("distanceMeters"); onEdited() })
+        }
+        OutlinedTextField(value = scale, singleLine = true, label = { Text("Escala alternativa") },
+            modifier = Modifier.fillMaxWidth().testTag("mv_scale_${b}_$i"),
+            onValueChange = { scale = it; if (it.isEmpty()) m.remove("scaleAlternative") else m.put("scaleAlternative", it); onEdited() })
+        OutlinedTextField(value = notes, singleLine = true, label = { Text("Notas") },
+            modifier = Modifier.fillMaxWidth().testTag("mv_notes_${b}_$i"),
+            onValueChange = { notes = it; if (it.isEmpty()) m.remove("notes") else m.put("notes", it); onEdited() })
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(modifier = Modifier.testTag("mv_add_rest_$b"), onClick = { moves.put(EditorBlockOps.restMovement()); onChanged() }) { Text("Añadir REST") }
+        var picking by remember { mutableStateOf(false) }
+        TextButton(modifier = Modifier.testTag("mv_add_$b"), enabled = catalog.isNotEmpty(), onClick = { picking = true }) { Text("Añadir movimiento") }
+        if (picking) {
+            var q by remember { mutableStateOf("") }
+            val n = remember(q) { foldForSearch(q) }
+            val filtered = remember(q, catalog) { if (n.isBlank()) catalog else catalog.filter { foldForSearch(it.name).contains(n) } }
+            AlertDialog(onDismissRequest = { picking = false }, title = { Text("Añadir movimiento") },
+                text = { Column {
+                    OutlinedTextField(value = q, onValueChange = { q = it }, singleLine = true,
+                        label = { Text("Buscar en todo el catálogo") }, modifier = Modifier.fillMaxWidth().testTag("mv_search"))
+                    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(filtered.size, key = { filtered[it].id }) { idx ->
+                            val e = filtered[idx]
+                            TextButton(modifier = Modifier.fillMaxWidth().testTag("mv_pick_${e.id}"), onClick = {
+                                picking = false
+                                moves.put(org.json.JSONObject().put("id", java.util.UUID.randomUUID().toString())
+                                    .put("exerciseId", e.id).put("name", e.name).put("reps", 10))
+                                onChanged() }) { Text(e.name, modifier = Modifier.fillMaxWidth()) }
+                        }
+                    } } },
+                confirmButton = {}, dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancelar") } })
+        }
+    }
+}

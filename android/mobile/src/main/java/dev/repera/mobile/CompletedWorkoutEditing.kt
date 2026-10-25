@@ -146,6 +146,8 @@ object CompletedWorkoutEditing {
         })
 
     /** RoutineBlock.plannedSets(for:) de Apple para un movimiento sin series explícitas. */
+    internal fun derivedSetsFor(block: JSONObject, movement: JSONObject): JSONArray = derivedSets(block, movement)
+
     private fun derivedSets(block: JSONObject, movement: JSONObject): JSONArray {
         val all = block.optJSONArray("movements") ?: JSONArray()
         val values = dev.repera.domain.WodPlannedSets.forMovement(

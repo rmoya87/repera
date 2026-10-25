@@ -144,4 +144,47 @@ class FinishedWorkoutEditorUiInstrumentedTest {
             .getJSONObject(0).getJSONArray("plannedSets").getJSONObject(0)
         assertEquals(1.0, set.getDouble("targetRir"), 0.0)
     }
+
+    private val wodBlocks = """[{"id":"b1","title":"A","kind":"strength","exercises":[
+        {"id":"e1","exerciseId":"x1","plannedSets":[{"id":"p1","targetReps":5,"targetWeightKg":60}]}]},
+        {"id":"b2","title":"W","kind":"wod","wodFormat":"amrap","movements":[
+        {"id":"m1","exerciseId":"x2","name":"Press","reps":10,"weightFemaleKg":30,"scaleAlternative":"30 kg","notes":"n"}]}]"""
+    private val cat = listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))
+
+    @Test fun wodMovementEditSavesAndKeepsOtherFields() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = wodBlocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("mv_name_1_0").performTextClearance()
+        compose.onNodeWithTag("mv_name_1_0").performTextInput("Thruster")
+        compose.onNodeWithTag("edit_save").performClick()
+        val m = org.json.JSONArray(saved!!.blocksJson).getJSONObject(1).getJSONArray("movements").getJSONObject(0)
+        assertEquals("Thruster", m.getString("name")); assertEquals("m1", m.getString("id"))
+        assertEquals("30 kg", m.getString("scaleAlternative")); assertEquals(30.0, m.getDouble("weightFemaleKg"), 0.0)
+    }
+
+    @Test fun moveStrengthToWodConvertsAndCancelKeepsHistory() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = wodBlocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_move_0_0").performClick()
+        compose.onNodeWithTag("ex_move_to_0_0_1").performClick()
+        compose.onNodeWithTag("edit_cancel").performClick()
+        assertNull(saved)
+    }
+
+    @Test fun addWodBlockAndChangeFormat() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = wodBlocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("block_add_wod").performClick()
+        compose.onNodeWithTag("block_format_1").performClick()
+        compose.onNodeWithTag("block_format_1_emom").performClick()
+        compose.onNodeWithTag("edit_save").performClick()
+        val arr = org.json.JSONArray(saved!!.blocksJson)
+        assertEquals(3, arr.length()); assertEquals("emom", arr.getJSONObject(1).getString("wodFormat"))
+    }
 }
