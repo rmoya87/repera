@@ -316,3 +316,17 @@ main móvil invisible.)
 - Parciales activos muestran km/h en deportes displaysSpeed y min/km en
   resto. Falta FC por parcial cuando existe señal medida, y meteo/viento
   equivalente de D7 no existe aún en Android. No declarar D7 terminado.
+
+## Comenzar canvas, 20:38 CET (solo local/compilado)
+- GPS en idle pasa a mapa con header/controles superpuestos, sin inventar
+  ubicación; centrar pide permiso y captura puntual con timeout. Sin fix,
+  texto explícito de que mapa no representa tu ubicación. Nunca usa un
+  centro Madrid como ubicación del usuario. Plan GPX azul y trazo registrado
+  separados. MapLibre TextureView para controles superpuestos verificables.
+- Iniciar muestra métricas y deja alternar Ver mapa/Ver métricas; interiores
+  conservan métricas sin mapa. Símbolos Material para 36 deportes en picker
+  y catálogo. Controles en FlowRow para anchuras pequeñas.
+- Captura puntual retira listener al cancelar/timeout y rechaza fix de más
+  de15s. Solo compilado; no se afirma continuidad GPS física.
+- Test nuevo canvas idle/activo/métricas usando puntos sintéticos directos,
+  sin sensores ni FGS. Pendiente enfocado posterior al actual40226505506.
