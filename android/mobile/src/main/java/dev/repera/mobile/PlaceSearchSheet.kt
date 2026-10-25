@@ -78,7 +78,9 @@ internal fun PlacePinMap(
     isInteractive: Boolean,
     modifier: Modifier = Modifier,
     /** Solo verificación: avisa cuando el estilo del mapa terminó de cargar. */
-    onStyleLoaded: (() -> Unit)? = null
+    onStyleLoaded: (() -> Unit)? = null,
+    /** iOS: tocar el mapa cierra la búsqueda presentada (dismissSearch). */
+    onMapClick: (() -> Unit)? = null
 ) {
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
@@ -107,6 +109,9 @@ internal fun PlacePinMap(
             MapView(context).also { mapView = it }.apply {
                 onCreate(null)
                 getMapAsync { map ->
+                    if (onMapClick != null) {
+                        map.addOnMapClickListener { onMapClick.invoke(); true }
+                    }
                     map.uiSettings.apply {
                         isLogoEnabled = true
                         isAttributionEnabled = true
@@ -428,8 +433,13 @@ fun PlaceSearchSheet(
                 val p = pending
                 if (showsConfirmMap && p != null) {
                     Box(Modifier.fillMaxSize()) {
+                        // Tocar el mapa cierra la búsqueda presentada (iOS).
                         PlacePinMap(p.latitude, p.longitude, isInteractive = true,
-                            modifier = Modifier.fillMaxSize())
+                            modifier = Modifier.fillMaxSize(),
+                            onMapClick = {
+                                searchFocused = false
+                                focusManager.clearFocus()
+                            })
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -456,7 +466,11 @@ fun PlaceSearchSheet(
                     val center = initialPin ?: recents.firstOrNull()
                     if (center != null) {
                         PlacePinMap(center.latitude, center.longitude, isInteractive = true,
-                            modifier = Modifier.fillMaxSize())
+                            modifier = Modifier.fillMaxSize(),
+                            onMapClick = {
+                                searchFocused = false
+                                focusManager.clearFocus()
+                            })
                     } else {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Busca un lugar para situar el pin",

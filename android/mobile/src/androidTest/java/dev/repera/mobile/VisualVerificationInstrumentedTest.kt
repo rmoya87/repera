@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onAllNodesWithText
@@ -782,6 +783,24 @@ class VisualVerificationInstrumentedTest {
         compose.onNodeWithText("Box Ejemplo Norte").performClick()
         compose.waitForIdle()
         save("lugar_hoja_confirmar", compose.onRoot().captureToImage())
+        // Estado lógico tras elegir: modo confirmar, panel cerrado (iOS).
+        compose.onNodeWithText("Lugar").assertIsDisplayed()
+        compose.onNodeWithText("Busca un gimnasio, parque o dirección")
+            .assertDoesNotExist()
+        // Tocar el campo PRESENTA la búsqueda de nuevo (iOS searchable):
+        // título de búsqueda + panel visible. No es un fallo del estado.
+        compose.onNodeWithTag("place_query").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
+        compose.onNodeWithText("Busca un gimnasio, parque o dirección")
+            .assertIsDisplayed()
+        // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
+        // vuelve el modo confirmar con el panel cerrado.
+        compose.onNodeWithTag("place_pin_map").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Lugar").assertIsDisplayed()
+        compose.onNodeWithText("Busca un gimnasio, parque o dirección")
+            .assertDoesNotExist()
         compose.onNodeWithTag("place_confirm").performClick()
         compose.waitForIdle()
         assertEquals("Box Ejemplo Norte", selected?.name)
