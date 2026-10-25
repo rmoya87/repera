@@ -1254,8 +1254,13 @@ struct LiveActivityView: View {
                     Text("Resumen").foregroundStyle(OG.accent).textCase(nil)
                 }
 
-                if session.routePoints.count >= 2 {
-                    let route = session.routePoints.map { point in
+                // Si el GPS no adquirió señal, enseñar igualmente el mapa
+                // de la ruta elegida, diferenciándolo del recorrido registrado.
+                let previewPoints = session.routePoints.count >= 2
+                    ? session.routePoints : (recorder.chosenRoute?.points ?? [])
+                if previewPoints.count >= 2 {
+                    let isRecordedRoute = session.routePoints.count >= 2
+                    let route = previewPoints.map { point in
                         HealthKitStore.RoutePoint(
                             id: point.id,
                             latitude: point.latitude,
@@ -1275,16 +1280,26 @@ struct LiveActivityView: View {
                         }
                         .ogCardListRow()
                     } header: {
-                        Text("Recorrido").foregroundStyle(OG.accent).textCase(nil)
+                        Text(isRecordedRoute ? "Recorrido registrado" : "Ruta seleccionada")
+                            .foregroundStyle(OG.accent).textCase(nil)
                     }
-                    Section {
-                        CardioSplitsView(
-                            routePoints: route, heartRate: [],
-                            cycling: recorder.sport.displaysSpeed
-                        )
-                        .ogCardListRow()
-                    } header: {
-                        Text("Parciales").foregroundStyle(OG.accent).textCase(nil)
+                    if isRecordedRoute {
+                        Section {
+                            CardioSplitsView(
+                                routePoints: route, heartRate: [],
+                                cycling: recorder.sport.displaysSpeed
+                            )
+                            .ogCardListRow()
+                        } header: {
+                            Text("Parciales").foregroundStyle(OG.accent).textCase(nil)
+                        }
+                    } else {
+                        Section {
+                            Text("No hay suficientes puntos GPS grabados para calcular los parciales. El mapa muestra la ruta planificada.")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .ogCardListRow()
+                        }
                     }
                 } else if recorder.sport.usesGPS {
                     Section {
