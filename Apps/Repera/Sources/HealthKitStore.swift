@@ -1913,6 +1913,10 @@ final class HealthKitStore {
             resolvedEnd = owned.endDate
             await discardLocalBuilder()
             lastError = nil
+        } else if isWatchWorkoutMirrored {
+            // Jamás crear una segunda sesión mientras Watch es el propietario.
+            lastError = "Apple Watch sigue grabando. La conciliación se realizará cuando termine."
+            await discardLocalBuilder()
         } else if canWriteWorkouts {
             savedUUID = await saveStrengthWorkout(
                 sessionId: sessionId,
