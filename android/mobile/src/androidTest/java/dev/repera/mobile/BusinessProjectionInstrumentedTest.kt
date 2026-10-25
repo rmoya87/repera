@@ -100,6 +100,7 @@ class BusinessProjectionInstrumentedTest {
     }
     private fun capture(name:String) {
         compose.waitForIdle()
+        Thread.sleep(700) // Semantic assertions can precede the committed window frame.
         val ctx=InstrumentationRegistry.getInstrumentation().targetContext
         val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
         val values=android.content.ContentValues().apply {
