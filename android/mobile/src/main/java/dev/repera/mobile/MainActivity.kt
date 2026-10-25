@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         set(value) {
             if(centerGate.update(value?.userId)) {
                 centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
+                todayHealth=null;healthSamples=null;recoveryRead=null
             }
             field=value
         }

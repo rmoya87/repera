@@ -56,6 +56,11 @@ class LiveActivityControlsInstrumentedTest {
         } }
         compose.onNodeWithTag("live_sport_picker").performClick()
         compose.onNodeWithTag("choose_sport_running").assertIsDisplayed()
+        compose.onNodeWithTag("choose_sport_gravel").assertDoesNotExist()
+        compose.onNodeWithTag("choose_sport_other").assertDoesNotExist()
+        compose.onNodeWithText("Ciclismo de carretera").performScrollTo().assertIsDisplayed()
+        capture("comenzar_ciclismo_actual.png")
+        compose.onNodeWithTag("choose_sport_running").performScrollTo()
         compose.waitForIdle();Thread.sleep(500)
         capture("comenzar_selector_deporte.png")
         compose.onNodeWithTag("choose_sport_padel").performScrollTo().performClick()

@@ -16,7 +16,8 @@ internal val LiveSport.materialIcon: ImageVector get() = when (this) {
     LiveSport.TENNIS, LiveSport.PADEL -> Icons.Outlined.SportsTennis
     LiveSport.SURFING -> Icons.Outlined.Surfing
     LiveSport.SWIMMING -> Icons.Outlined.Pool
-    LiveSport.WINDSURFING, LiveSport.KITESURFING -> Icons.Outlined.Air
+    LiveSport.WINDSURFING -> Icons.Outlined.Sailing
+    LiveSport.KITESURFING -> Icons.Outlined.Surfing
     LiveSport.KAYAKING -> Icons.Outlined.Kayaking
     LiveSport.ROWING, LiveSport.CANOEING -> Icons.Outlined.Rowing
     LiveSport.SAILING -> Icons.Outlined.Sailing
