@@ -283,7 +283,7 @@ struct HomeView: View {
                 isExpandedLayout = expanded
             }
             .refreshable { await businessData.refresh() }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), backgroundColor: OG.surface) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
