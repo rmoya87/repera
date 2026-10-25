@@ -310,6 +310,7 @@ fun ReperaMobileScreen(
                         professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
                         centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
                         onOpenMessages={navController.navigate("mensajes")},
+                        onOpenHistory={navController.navigate("historial")},
                         focusDay=homeFocusDay,
                         heartSeriesProvider = heartSeriesProvider,
                         displayName = displayName,
@@ -541,7 +542,8 @@ fun ReperaMobileScreen(
                         onReviseFinishedSet = onReviseFinishedSet,
                         onDeleteFinishedSet = onDeleteFinishedSet,
                         onLogBodyWeight = onLogBodyWeight,
-                        onOpenBodyWeights = { navController.navigate("peso-corporal") }
+                        onOpenBodyWeights = { navController.navigate("peso-corporal") },
+                        onOpenHistory = {navController.navigate("historial")}
                     )
                 }
                 composable("reloj") {
@@ -593,6 +595,7 @@ fun ReperaMobileScreen(
                         onImportCsv = onImportCsv,
                         onOpenCenter={navController.navigate("center")},
                         onOpenBodyWeights={navController.navigate("peso-corporal")},
+                        onOpenHistory={navController.navigate("historial")},
                         onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
                             feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
                         proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
@@ -600,6 +603,12 @@ fun ReperaMobileScreen(
                         overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
                         onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
+                }
+                composable("historial") {
+                    CompleteHistoryScreen(overview,busy,accountId,onReviseFinishedSet,onDeleteFinishedSet,onDeleteWorkout,
+                        onUpdateFinishedWorkout,heartSeriesProvider) {exerciseId,sessionId,instanceId ->
+                        navController.navigate("ejercicio/"+Uri.encode(exerciseId)+"?sessionId="+Uri.encode(sessionId)+"&instanceId="+Uri.encode(instanceId))
+                    }
                 }
                 composable("peso-corporal") {
                     BodyWeightHistoryScreen(overview?.bodyWeightHistory.orEmpty(),busy,onLogBodyWeight,onDeleteBodyWeight)
@@ -778,6 +787,7 @@ internal fun SettingsTab(
     onOpenCenter:()->Unit = {},
     onOpenPro:()->Unit = {},
     onOpenBodyWeights:()->Unit = {},
+    onOpenHistory:()->Unit = {},
     proStatus:String? = null,
     onUpdateProfile:(ProfileSettings)->Unit = {}
 ) {
@@ -801,6 +811,7 @@ internal fun SettingsTab(
         OutlinedButton(onClick=onOpenPro,enabled=!busy) {Text("Repera Pro")}
         PermissionSettingsSection(onHealthConnect)
         HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
+        OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null) {Text("Historial de entrenamientos")}
         OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null) {Text("Peso corporal")}
         Text("Datos", style = MaterialTheme.typography.titleMedium)
         overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }

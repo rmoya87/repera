@@ -85,6 +85,7 @@ internal fun ProgressTab(
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onLogBodyWeight: (Double) -> Unit = {},
     onOpenBodyWeights:()->Unit = {},
+    onOpenHistory:()->Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Deliberately limited to the recent archive loaded by StateOverview.
@@ -353,6 +354,7 @@ internal fun ProgressTab(
                 }
             }
         }
+        item {TextButton(onClick=onOpenHistory,enabled=overview!=null) {Text("Ver historial completo")} }
         if (recent.isNotEmpty()) {
             item {
                 Text("Resultados recientes", style = MaterialTheme.typography.titleMedium)

@@ -35,11 +35,14 @@ data class RecoveryRead(
     val vitals: List<dev.repera.domain.RecoveryEngine.DailyVitals>
 )
 
+data class ExternalHealthHistoryEntry(val id:String,val title:String,val startMillis:Long,val endMillis:Long,val minutes:Double,val sourcePackage:String)
+
 data class HealthSamples(
     val heartRateDays: List<DailyHeartRatePoint>,
     val energyDays: List<DailyEnergyPoint>,
     val externalActivities: List<HealthMuscleMapper.ExternalActivity>,
-    val verifiedWorkoutMinutes: Map<String,HealthWorkoutMinutes.Verified> = emptyMap()
+    val verifiedWorkoutMinutes: Map<String,HealthWorkoutMinutes.Verified> = emptyMap(),
+    val externalHistory:List<ExternalHealthHistoryEntry> = emptyList()
 ) {
     val daySamples: List<dev.repera.domain.ExternalDaySample>
         get() = HealthMuscleMapper.daySamples(externalActivities)
@@ -333,6 +336,7 @@ class HealthConnectReader(private val context: Context) {
         }
 
         val externalActivities = mutableListOf<HealthMuscleMapper.ExternalActivity>()
+        val externalHistory=mutableListOf<ExternalHealthHistoryEntry>()
         val verifiedMinutes=mutableMapOf<String,HealthWorkoutMinutes.Verified>()
         val linkedIDs=localSessions.mapNotNull {it.linkedHealthId}.toSet()
         if (granted.contains(HealthPermission.getReadPermission(
@@ -352,6 +356,9 @@ class HealthConnectReader(private val context: Context) {
                 if(dev.repera.domain.ReperaHealthExclusion.matches(record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),record.metadata.id,localSessions)) continue
                 val minutes = measured
                 if (minutes <= 0) continue
+                externalHistory.add(ExternalHealthHistoryEntry(record.metadata.id,
+                    record.title?.takeIf {it.isNotBlank()} ?: exerciseTypeKey(record.exerciseType),
+                    record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),minutes,record.metadata.dataOrigin.packageName))
                 externalActivities.add(HealthMuscleMapper.ExternalActivity(
                     epochMillis = record.startTime.toEpochMilli(),
                     type = exerciseTypeKey(record.exerciseType),
@@ -371,7 +378,7 @@ class HealthConnectReader(private val context: Context) {
             energyDays = energyDays.map { (day, kcal) -> DailyEnergyPoint(day, kcal) }
                 .sortedBy { it.date },
             externalActivities = externalActivities.sortedBy { it.epochMillis },
-            verifiedWorkoutMinutes=verifiedMinutes
+            verifiedWorkoutMinutes=verifiedMinutes,externalHistory=externalHistory.sortedByDescending {it.startMillis}
         )
     }
 

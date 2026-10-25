@@ -1644,7 +1644,8 @@ data class StateOverview(
     val dayWorkoutCounts:Map<java.time.LocalDate,Int> = emptyMap(),
     val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap(),
     val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList(),
-    val testedOneRMByExercise:Map<String,Double> = emptyMap()
+    val testedOneRMByExercise:Map<String,Double> = emptyMap(),
+    val externalHealthHistory:List<ExternalHealthHistoryEntry> = emptyList()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -2004,6 +2005,7 @@ data class StateOverview(
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
                 bodyWeightHistory = BodyWeightHistory.entries(json),
                 testedOneRMByExercise = ExerciseLoadPreference.all(json),
+                externalHealthHistory = health?.externalHistory.orEmpty(),
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
                 activeSessionId = json.optJSONObject("activeSession")?.optString("id")?.takeIf { it.isNotEmpty() },
                 activeLocationPin = json.optJSONObject("activeSession")?.optJSONObject("locationPin")?.let { o ->

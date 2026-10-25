@@ -113,6 +113,7 @@ internal fun HomeTab(
     professionalSessions:List<BusinessCenterStore.ProfessionalSession> = emptyList(),
     centerName:(String)->String = {"Centro"},
     onOpenMessages:()->Unit = {},
+    onOpenHistory:()->Unit = {},
     dayHealthProvider:suspend (java.time.LocalDate)->TodayHealth? = {null}
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
@@ -278,8 +279,11 @@ internal fun HomeTab(
             }
         }
         item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
+        item {TextButton(onClick=onOpenHistory) {Text("Ver historial completo")} }
         item { Text("Historial reciente", style = MaterialTheme.typography.titleMedium) }
-        val workouts = overview?.history.orEmpty()
+        val workouts = overview?.completeHistory.orEmpty().filter {entry ->
+            entry.startedAtIso?.let {BodyWeightHistory.day(it)}==selectedDay
+        }
         if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
         items(workouts, key = { it.id }) { workout ->
             WorkoutHistoryCard(workout, busy,
