@@ -309,8 +309,22 @@ fun PlaceSearchSheet(
                         ) { Icon(Icons.Filled.Check, contentDescription = "Guardar lugar") }
                     }
                 }
+                // iOS .searchable: tocar el campo PRESENTA la búsqueda. La
+                // interacción de press lo garantiza aunque el evento de foco
+                // no llegue (foco visual retenido tras clearFocus en emulador).
+                val fieldInteraction = remember {
+                    androidx.compose.foundation.interaction.MutableInteractionSource()
+                }
+                LaunchedEffect(fieldInteraction) {
+                    fieldInteraction.interactions.collect {
+                        if (it is androidx.compose.foundation.interaction.PressInteraction.Press) {
+                            searchFocused = true
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = query,
+                    interactionSource = fieldInteraction,
                     onValueChange = { query = it },
                     // Prompt iOS (.searchable): "Buscar otro sitio…" también
                     // en la primera búsqueda; el hint largo va solo en el panel.
@@ -379,7 +393,7 @@ fun PlaceSearchSheet(
                                         // DIRECTAMENTE: el evento onFocusChanged
                                         // no está garantizado tras clearFocus.
                                         searchFocused = false
-                                        focusManager.clearFocus()
+                                        focusManager.clearFocus(force = true)
                                     }
                                 }
                             } else if (!isResolving && resolveError == null &&
@@ -422,7 +436,7 @@ fun PlaceSearchSheet(
                                             featureName = pin.name
                                         )
                                         searchFocused = false
-                                        focusManager.clearFocus() // dismissSearch iOS
+                                        focusManager.clearFocus(force = true) // dismissSearch iOS
                                     }
                                 }
                             }
@@ -438,7 +452,7 @@ fun PlaceSearchSheet(
                             modifier = Modifier.fillMaxSize(),
                             onMapClick = {
                                 searchFocused = false
-                                focusManager.clearFocus()
+                                focusManager.clearFocus(force = true)
                             })
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -469,7 +483,7 @@ fun PlaceSearchSheet(
                             modifier = Modifier.fillMaxSize(),
                             onMapClick = {
                                 searchFocused = false
-                                focusManager.clearFocus()
+                                focusManager.clearFocus(force = true)
                             })
                     } else {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
