@@ -327,6 +327,7 @@ struct StatsView: View {
             caloriesHealthSection
             weightHealthSection
         }
+        healthPermissionCard
     }
 
     @ViewBuilder
@@ -338,9 +339,11 @@ struct StatsView: View {
             range: model.range,
             weekStartsOnMonday: mondayFirst
         )
+    }
 
-        // Las gráficas reales siempre ocupan su lugar, incluso sin permisos
-        // o sin mediciones: eje y mensaje, nunca valores simulados en Pro.
+    @ViewBuilder
+    private var healthPermissionCard: some View {
+        // El aviso de permisos no desplaza los cuatro gráficos de la cuadrícula.
         if !health.isAuthorized && health.recentDailyHeartRate.isEmpty
             && health.recentDailyActiveEnergy.isEmpty {
             progressEmptyCard(
@@ -481,27 +484,47 @@ struct StatsView: View {
     @ViewBuilder
     private var freeHealthPreview: some View {
         let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
-        VStack(alignment: .leading, spacing: 12) {
-            ProgressSessionScoreChartCard(
-                workouts: [],
-                range: .week,
-                weekStartsOnMonday: mondayFirst,
-                isTeaserPreview: true
-            )
-            ProgressCardioChartCard(prepared: sample)
-            ProgressCaloriesChartCard(prepared: sample)
-            ProgressWeightChartCard(
-                entries: [],
-                goalKg: 74.0, // Meta ficticia para mostrar los mismos tiles que Pro.
-                range: .week,
-                weekStartsOnMonday: mondayFirst,
-                preparedPoints: ProgressPreparedCharts.teaserWeightPoints(),
-                isTeaserPreview: true
-            )
+        Group {
+            if isExpandedLayout {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 12, alignment: .top),
+                    GridItem(.flexible(), spacing: 12, alignment: .top)
+                ], spacing: 12) {
+                    freeHealthScoreCard
+                    ProgressCardioChartCard(prepared: sample)
+                    ProgressCaloriesChartCard(prepared: sample)
+                    freeHealthWeightCard
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    freeHealthScoreCard
+                    ProgressCardioChartCard(prepared: sample)
+                    ProgressCaloriesChartCard(prepared: sample)
+                    freeHealthWeightCard
+                }
+            }
         }
         .opacity(0.88)
         .allowsHitTesting(false)
         .accessibilityLabel("Gráficas de ejemplo de actividad. Los valores no son datos reales.")
+    }
+
+    private var freeHealthScoreCard: some View {
+        ProgressSessionScoreChartCard(
+            workouts: [], range: .week,
+            weekStartsOnMonday: mondayFirst, isTeaserPreview: true
+        )
+    }
+
+    private var freeHealthWeightCard: some View {
+        ProgressWeightChartCard(
+            entries: [],
+            goalKg: 74.0, // Meta ficticia de la previsualización.
+            range: .week,
+            weekStartsOnMonday: mondayFirst,
+            preparedPoints: ProgressPreparedCharts.teaserWeightPoints(),
+            isTeaserPreview: true
+        )
     }
 
     private func schedulePrepare(reason: String) {
