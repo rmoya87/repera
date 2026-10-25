@@ -58,7 +58,7 @@ struct RootTabView: View {
                     )
                 }
 
-                SwiftUI.Tab("Progreso", systemImage: "chart.bar", value: AppTab.stats) {
+                SwiftUI.Tab("Progreso", systemImage: "gauge", value: AppTab.stats) {
                     StatsView()
                 }
 
