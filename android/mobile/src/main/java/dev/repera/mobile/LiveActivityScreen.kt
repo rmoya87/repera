@@ -199,7 +199,24 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())),style=MaterialTheme.typography.displayMedium)
             if(state.sport.usesGPS) {
                 Text("%.2f km".format(state.distanceMeters/1000),style=MaterialTheme.typography.headlineSmall)
-                state.averageSpeedKmh(System.currentTimeMillis())?.let {Text("%.1f km/h de media".format(it))}
+                val now = System.currentTimeMillis()
+                if (state.sport.displaysSpeed) {
+                    state.averageSpeedKmh(now)?.let { Text("%.1f km/h de media".format(it)) }
+                    state.currentSpeedMps?.let { Text("%.1f km/h".format(it * 3.6)) }
+                } else {
+                    val speed = state.currentSpeedMps
+                    if (speed != null && speed > 0.5) Text("${LiveSportHistory.formatDuration(1000 / speed)} min/km")
+                    else Text("Ritmo sin datos")
+                }
+                if (state.sport.tracksElevation && state.hasElevationSamples)
+                    Text("+%.0f m / -%.0f m".format(state.elevationGainMeters, state.elevationLossMeters))
+                if (state.activeKilometerMeters >= 40) {
+                    val split = state.currentSplitSeconds(now)
+                    val current = if (state.sport.displaysSpeed && split > 0)
+                        "%.1f km/h".format(state.activeKilometerMeters / split * 3.6)
+                    else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
+                    Text("Km ${state.activeKilometer} · $current")
+                }
                 if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp))
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }

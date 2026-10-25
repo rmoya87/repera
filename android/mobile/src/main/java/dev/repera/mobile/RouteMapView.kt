@@ -57,6 +57,24 @@ internal fun RouteMapView(
     onStyleLoaded: (() -> Unit)? = null
 ) {
     var failed by remember { mutableStateOf(false) }
+    val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
+    var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
+    var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
+    androidx.compose.runtime.LaunchedEffect(points, loadedMap) {
+        val map = loadedMap ?: return@LaunchedEffect
+        if (points == renderedPoints) return@LaunchedEffect
+        map.getStyle { style ->
+            runCatching {
+                for (i in 0 until maxOf(0, renderedPoints.size - 1)) {
+                    style.removeLayer("route-line-$i");style.removeSource("route-src-$i")
+                }
+                for (i in 0..1) {
+                    style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
+                }
+                applyRoute(map, style, points);renderedPoints = points.toList()
+            }.onFailure { failed = true }
+        }
+    }
     if (failed) {
         RouteMapFallback(points, modifier)
         return
@@ -100,9 +118,9 @@ internal fun RouteMapView(
                         isCompassEnabled = isInteractive
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
-                        runCatching { applyRoute(map, style, points) }
+                        runCatching { applyRoute(map, style, currentPoints) }
                             .onFailure { failed = true }
-                            .onSuccess { onStyleLoaded?.invoke() }
+                            .onSuccess { renderedPoints = currentPoints.toList();loadedMap = map;onStyleLoaded?.invoke() }
                     }
                 }
             }

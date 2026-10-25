@@ -246,3 +246,7 @@ main móvil invisible.)
   (diferencia explícita). Solo compila, no validación de intents aún.
 - Biblioteca recupera rutas de sesiones completas por UUID al abrir, sin
   favoritos inventados y respetando tombstones. Compila, store ya probado.
+
+- D4 métricas UI ritmo/velocidad por deporte, elevación medida y parcial en
+  curso añadidas. Mapa actualiza polilínea al recibir puntos (antes era solo
+  creación inicial). Compila, pendiente ejecución y perf con ruta larga.
