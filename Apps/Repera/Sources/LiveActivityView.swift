@@ -6,6 +6,7 @@ import Observation
 import ReperaDomain
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 
 /// El deporte determina qué se mide; no se infiere del nombre del entrenamiento.
 enum LiveSport: String, CaseIterable, Identifiable {
@@ -323,6 +324,10 @@ final class LiveActivityRecorder: NSObject {
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
     private let manager = CLLocationManager()
+    /// La sesión de Core Location actual mantiene visibilidad y autorización
+    /// When In Use en segundo plano sin tocar allowsBackgroundLocationUpdates,
+    /// cuyo setter aborta el proceso si la app compilada no es backgroundable.
+    private var backgroundLocationSession: CLBackgroundActivitySession?
     private let snapshotKey = "repera.live.current.v1"
 
     private override init() {
@@ -409,12 +414,33 @@ final class LiveActivityRecorder: NSObject {
             gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
             manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
-            manager.allowsBackgroundLocationUpdates = true
+            // CLBackgroundActivitySession es la API moderna de iOS 17+.
+            // Se crea solo si el Info.plist REAL del proceso incluye location.
+            // No usar CLLocationManager.allowsBackgroundLocationUpdates = true:
+            // Core Location lanza una excepción Objective-C no recuperable si
+            // falta la capacidad, por ejemplo con un proyecto Xcode antiguo.
+            let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+            let isApp = Bundle.main.bundleURL.pathExtension == "app"
+            let isTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            if modes.contains("location"), isApp, !isTest,
+               UIApplication.shared.applicationState == .active {
+                if backgroundLocationSession == nil {
+                    backgroundLocationSession = CLBackgroundActivitySession()
+                }
+                gpsMessage = nil
+            } else {
+                gpsMessage = "Seguimiento GPS activo. Para registrar con la pantalla bloqueada, actualiza la app con la capacidad de ubicación en segundo plano."
+            }
             manager.startUpdatingLocation()
-            gpsMessage = nil
         default:
             gpsMessage = "GPS no autorizado. Puedes continuar registrando el tiempo."
         }
+    }
+
+    private func stopGPS() {
+        manager.stopUpdatingLocation()
+        backgroundLocationSession?.invalidate()
+        backgroundLocationSession = nil
     }
 
     /// Checkpoint al pasar a segundo plano y mientras la vista está activa.
@@ -426,6 +452,7 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .recording else { return }
         pausedAt = Date()
         phase = .paused
+        if sport.usesGPS { stopGPS() }
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
@@ -483,8 +510,7 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = nil
         finishedAt = now
         phase = .review
-        manager.stopUpdatingLocation()
-        manager.allowsBackgroundLocationUpdates = false
+        stopGPS()
         persistSnapshot()
         updateLiveActivity()
     }
@@ -516,8 +542,7 @@ final class LiveActivityRecorder: NSObject {
                 )
             }
         }
-        manager.stopUpdatingLocation()
-        manager.allowsBackgroundLocationUpdates = false
+        stopGPS()
         phase = .idle
         startedAt = nil
         finishedAt = nil
