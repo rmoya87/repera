@@ -134,6 +134,7 @@ targets:
           - com.app.repera.catalog.refresh
         UIBackgroundModes:
           - fetch
+          - location
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -146,7 +147,7 @@ targets:
         NSPhotoLibraryUsageDescription: Repera lee fotos de pizarras o pantallas para importar el entrenamiento.
         NSHealthShareUsageDescription: Repera lee con tu permiso pasos, calorías activas, entrenamientos, pulsaciones, zonas cardíacas y, si los autorizas, sueño, variabilidad cardíaca, pulso en reposo, respiración, oxígeno y temperatura nocturna para mostrar actividad, objetivos y recuperación. Estos datos de Salud se analizan en tu iPhone y no se envían a Supabase.
         NSHealthUpdateUsageDescription: Repera guarda el entreno en Apple Salud usando las calorías y el tiempo que reporta Salud / Apple Watch.
-        NSLocationWhenInUseUsageDescription: Repera usa tu ubicación para mostrar en el mapa dónde entrenaste y, en entrenos outdoor, el recorrido.
+        NSLocationWhenInUseUsageDescription: Repera utiliza el GPS durante una actividad en vivo, incluso con la pantalla bloqueada, para registrar distancia y recorrido y seguir rutas guardadas.
         NSLocationTemporaryUsageDescriptionDictionary:
           WorkoutPreciseLocation: Repera usa ubicación precisa para el pin del gym y la ruta del entreno.
         NSUbiquitousContainers:
