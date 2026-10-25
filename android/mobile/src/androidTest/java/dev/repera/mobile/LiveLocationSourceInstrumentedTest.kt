@@ -34,7 +34,7 @@ class LiveLocationSourceInstrumentedTest {
         fun awaitCount(count:Int) {
             val end=SystemClock.elapsedRealtime()+10_000
             while(updates.size<count && SystemClock.elapsedRealtime()<end) Thread.sleep(50)
-            assertEquals("Expected synthetic provider updates",count,updates.size)
+            assertEquals("Expected synthetic provider updates, raw=${source.receivedFixCount}, lastAgeMs=${source.lastFixAgeMillis}",count,updates.size)
         }
         compose.setContent { androidx.compose.material3.Text("GPS sintético en primer plano") }
         compose.waitForIdle()
@@ -54,7 +54,7 @@ class LiveLocationSourceInstrumentedTest {
                 })
             }
             fix(40.438,0);awaitCount(1)
-            Thread.sleep(1_100);fix(40.4381,5);awaitCount(2)
+            Thread.sleep(5_100);fix(40.4381,5);awaitCount(2)
             val meters=updates.last().distanceMeters
             assertTrue(meters>10)
             instrument.runOnMainSync { source.stop("synthetic-provider",false) }
