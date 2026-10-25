@@ -23,6 +23,8 @@ REQUIRED = (
     "AITrainingProgramsView.swift",
     "AIChangeRequestStore.swift",
     "RemoteExerciseCatalogStore.swift",
+    "LiveActivityView.swift",
+    "WorkoutLiveActivityCoordinator.swift",
 )
 WATCH_REQUIRED = (
     "ReperaWatchApp.swift",
@@ -81,11 +83,15 @@ def validate(root: Path) -> None:
     spec = (root / "project.yml").read_text(encoding="utf-8")
     if "- path: Apps/Repera/Sources" not in spec:
         raise ValueError("project.yml ya no incluye el directorio del target Repera.")
-    if "- path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift" not in spec:
-        raise ValueError(
-            "project.yml no incluye expresamente RemoteExerciseCatalogStore.swift. "
-            "Comprueba el target Repera y regenera Xcode."
-        )
+    for name in ("RemoteExerciseCatalogStore.swift", "LiveActivityView.swift",
+                 "WorkoutLiveActivityCoordinator.swift"):
+        if f"- path: Apps/Repera/Sources/{name}" not in spec:
+            raise ValueError(
+                f"project.yml no incluye expresamente {name}. "
+                "Comprueba el target Repera y regenera Xcode."
+            )
+    if "- path: Apps/Shared/TrainingActivityAttributes.swift" not in spec:
+        raise ValueError("project.yml no incluye TrainingActivityAttributes.swift para ActivityKit.")
     if "  ReperaWatch:" not in spec or "- path: Apps/ReperaWatch/Sources" not in spec:
         raise ValueError("project.yml no incluye todas las fuentes del target ReperaWatch.")
     if "product: Supabase" not in spec:
@@ -128,7 +134,7 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print("OK: fuentes iOS y ReperaWatch, incluidos RemoteExerciseCatalogStore y WatchHealthKitSession, en Compile Sources.")
+    print("OK: fuentes iOS, ReperaWatch y En vivo incluidas en Compile Sources.")
     return 0
 
 
