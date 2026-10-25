@@ -67,7 +67,7 @@ private const val PIN_LAYER = "place-pin-layer"
 /** Mapa no interactivo con un único pin (preview de la fila y confirmación).
  *  Paridad WorkoutLocationPinMap iOS; teselas OpenFreeMap como RouteMapView. */
 @Composable
-private fun PlacePinMap(
+internal fun PlacePinMap(
     latitude: Double,
     longitude: Double,
     isInteractive: Boolean,
@@ -201,6 +201,7 @@ fun PlaceSearchSheet(
     var results by remember { mutableStateOf<List<PlaceSearchResult>>(emptyList()) }
     var isResolving by remember { mutableStateOf(false) }
     var resolveError by remember { mutableStateOf<String?>(null) }
+    var limitedNotice by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf(initialPin?.let {
         PlaceSearchResult(
             name = it.name ?: "Lugar",
@@ -231,6 +232,7 @@ fun PlaceSearchSheet(
                 resolveError = "No se pudo buscar el lugar."
                 emptyList()
             }
+        limitedNotice = provider.establishmentsUnavailable
         isResolving = false
     }
 
@@ -294,6 +296,15 @@ fun PlaceSearchSheet(
                         Text("Buscando…", style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+                if (limitedNotice && !isResolving && PlaceSearchPolicy.shouldSearch(query)) {
+                    Text("La búsqueda de establecimientos no está disponible ahora: " +
+                        "solo se muestran direcciones. Un resultado vacío no significa que no exista; " +
+                        "puedes colocar el pin en el mapa.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            .testTag("place_limited_notice"))
                 }
                 resolveError?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium,

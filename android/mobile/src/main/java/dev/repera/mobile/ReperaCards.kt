@@ -1228,7 +1228,7 @@ internal fun WorkoutHistoryCard(
     onDeleteWorkout: (String) -> Unit = {},
     onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
     accountId: String = "",
-    onPinChange: (String, dev.repera.domain.WorkoutLocationPin?) -> Unit = { _, _ -> },
+    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
      *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() }
@@ -1424,14 +1424,12 @@ internal fun WorkoutHistoryCard(
                 // (CardioRouteComponents iOS; el análisis es 1:1 en dominio).
                 if (workout.routePoints.size >= 2) {
                     CardioRouteSection(workout.routePoints)
-                } else {
-                    // Sección «Lugar» (HistoryView iOS): sólo sin ruta de Salud/GPS.
-                    Text("Lugar", style = MaterialTheme.typography.titleMedium)
-                    WorkoutPlacePickerRow(
-                        pin = workout.locationPin,
-                        accountId = accountId,
-                        onPinChange = { onPinChange(workout.id, it) })
                 }
+                FinishedWorkoutEditorSection(
+                    workout = workout,
+                    accountId = accountId,
+                    busy = busy,
+                    onSave = { onUpdateFinishedWorkout(workout.id, it) })
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),

@@ -1928,24 +1928,48 @@ class WorkoutRepository(context: Context, googleId: String) {
     @Synchronized internal fun activeSessionLocationPinForTest(): JSONObject? =
         loadOrNull()?.optJSONObject("activeSession")?.optJSONObject("locationPin")
 
-    /** Pin de un entreno ya archivado (HistoryView iOS: locationPinBinding).
-     *  Sólo sin ruta GPS: con ruta el mapa de la ruta ya es el lugar. Devuelve
-     *  false si no existe, o si tiene ruta (no se toca). pin == null lo borra. */
-    @Synchronized fun setFinishedLocationPin(workoutId: String, pin: dev.repera.domain.WorkoutLocationPin?): Boolean {
+    /** Edición de un entreno archivado desde el borrador del editor
+     *  (HistoryView/DayEditorView iOS + ReperaStore.saveWorkout). Se aplica
+     *  SOLO al confirmar. Reglas iOS: fin < inicio => fin = inicio + 60 s; la
+     *  valoración previa (sessionReview) ya no corresponde y se elimina; el
+     *  pin solo se escribe si el entreno no tiene ruta (>= 2 puntos).
+     *  No crea ni borra entrenos (cuota/tombstones intactos). false si no existe. */
+    data class FinishedWorkoutEdit(
+        val title: String,
+        val startedAtIso: String?,
+        val finishedAtIso: String?,
+        val notes: String?,
+        val pinEdited: Boolean,
+        val pin: dev.repera.domain.WorkoutLocationPin?
+    )
+
+    @Synchronized fun updateFinishedWorkout(workoutId: String, edit: FinishedWorkoutEdit): Boolean {
         val state = loadOrNull() ?: return false
         val archive = state.optJSONArray("workouts") ?: return false
         val target = (0 until archive.length()).map { archive.getJSONObject(it) }
             .firstOrNull { it.optString("id") == workoutId } ?: return false
-        if ((target.optJSONArray("routePoints")?.length() ?: 0) >= 2) return false
-        if (pin == null) target.remove("locationPin") else target.put("locationPin", JSONObject()
-            .put("latitude", pin.latitude)
-            .put("longitude", pin.longitude)
-            .put("recordedAtEpochMs", pin.recordedAtEpochMs)
-            .apply {
-                pin.name?.let { put("name", it) }
-                pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
-                pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
-            })
+        val start = edit.startedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+        var end = edit.finishedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+        if (start != null && end != null && end.isBefore(start)) end = start.plusSeconds(60)
+        target.put("title", edit.title.trim().ifEmpty { "Entreno" })
+        if (start != null) target.put("startedAt", start.toString())
+        if (end != null) target.put("finishedAt", end.toString())
+        val notes = edit.notes?.trim().orEmpty()
+        if (notes.isEmpty()) target.remove("notes") else target.put("notes", notes)
+        target.remove("sessionReview")
+        val hasRoute = (target.optJSONArray("routePoints")?.length() ?: 0) >= 2
+        if (edit.pinEdited && !hasRoute) {
+            val pin = edit.pin
+            if (pin == null) target.remove("locationPin") else target.put("locationPin", JSONObject()
+                .put("latitude", pin.latitude)
+                .put("longitude", pin.longitude)
+                .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                .apply {
+                    pin.name?.let { put("name", it) }
+                    pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                    pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+                })
+        }
         save(state)
         return true
     }

@@ -53,15 +53,19 @@ class PhotonPlaceSearchProviderTest {
         assertEquals(1, calls.get())
     }
 
-    @Test fun minIntervalThrottlesBurstsWithoutError() = runBlocking {
+    @Test fun minIntervalWaitsInsteadOfFailing() = runBlocking {
         val calls = AtomicInteger()
+        val waits = mutableListOf<Long>()
         var t = 1_000_000L
-        val p = PhotonPlaceSearchProvider({ calls.incrementAndGet(); PhotonPlaceSearchProvider.HttpResult(200, fixture) }, { t })
+        val p = PhotonPlaceSearchProvider(
+            { calls.incrementAndGet(); PhotonPlaceSearchProvider.HttpResult(200, fixture) },
+            { t }, { waits += it })
         p.search("gimnasio")
         t += 200
-        assertTrue(p.search("gimnasio centro").isEmpty())
-        assertTrue(p.degraded)
-        assertEquals(1, calls.get())
+        assertEquals(1, p.search("gimnasio centro").size)
+        assertFalse(p.degraded)
+        assertEquals(2, calls.get())
+        assertEquals(800L, waits.last())
     }
 
     @Test fun rateLimitOpensCooldownThenRecovers() = runBlocking {

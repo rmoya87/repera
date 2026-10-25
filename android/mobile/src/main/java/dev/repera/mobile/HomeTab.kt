@@ -90,7 +90,7 @@ internal fun HomeTab(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
-    onFinishedPinChange: (String, dev.repera.domain.WorkoutLocationPin?) -> Unit = { _, _ -> },
+    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
@@ -253,7 +253,7 @@ internal fun HomeTab(
             WorkoutHistoryCard(workout, busy,
                         onReviseFinishedSet, onDeleteFinishedSet,
                         onDeleteWorkout, onOpenExerciseFromSession,
-                        accountId, onFinishedPinChange,
+                        accountId, onUpdateFinishedWorkout,
                         heartSeriesProvider)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }

@@ -23,7 +23,8 @@ import java.util.Locale
  *  redondeado a 2 decimales (~1 km), nunca la ubicación exacta ni identidad. */
 class PhotonPlaceSearchProvider(
     private val fetch: suspend (url: String) -> HttpResult = ::httpGet,
-    private val nowMs: () -> Long = System::currentTimeMillis
+    private val nowMs: () -> Long = System::currentTimeMillis,
+    private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
 ) : PlaceSearchProvider {
 
     data class HttpResult(val code: Int, val body: String)
@@ -35,7 +36,8 @@ class PhotonPlaceSearchProvider(
     private var lastCallAt = 0L
     private var cooldownUntil = 0L
 
-    /** true cuando el último intento fue rechazado/limitado: el compuesto usa el respaldo. */
+    /** true cuando el último intento no pudo consultar el servicio (límite, caída,
+     *  enfriamiento): un resultado vacío NO significa «sin establecimientos». */
     @Volatile var degraded: Boolean = false
         private set
 
@@ -51,11 +53,15 @@ class PhotonPlaceSearchProvider(
         val url = buildUrl(q, centerLat, centerLon)
         synchronized(cache) { cache[url] }?.let { degraded = false; return it }
         val now = nowMs()
-        if (now < cooldownUntil || now - lastCallAt < MIN_INTERVAL_MS) {
+        if (now < cooldownUntil) {
             degraded = true
             return emptyList()
         }
-        lastCallAt = now
+        // Separación mínima: se ESPERA (no se descarta) para que dos búsquedas
+        // legítimas seguidas no parezcan un fallo del servicio.
+        val wait = MIN_INTERVAL_MS - (now - lastCallAt)
+        if (wait > 0) pause(wait)
+        lastCallAt = nowMs()
         val result = runCatching { fetch(url) }.getOrNull()
         if (result == null || result.code == 429 || result.code >= 500) {
             cooldownUntil = nowMs() + COOLDOWN_MS
@@ -136,6 +142,10 @@ class CompositePlaceSearchProvider(
     private val primary: PlaceSearchProvider,
     private val fallback: PlaceSearchProvider
 ) : PlaceSearchProvider {
+    /** La búsqueda de establecimientos (primaria) no pudo consultarse en la última búsqueda. */
+    val establishmentsUnavailable: Boolean
+        get() = (primary as? PhotonPlaceSearchProvider)?.degraded == true
+
     override suspend fun search(
         query: String,
         biasMinLat: Double?, biasMinLon: Double?,

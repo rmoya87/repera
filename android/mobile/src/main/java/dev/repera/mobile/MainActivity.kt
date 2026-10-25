@@ -729,8 +729,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // endActiveSession(save: false) iOS: borra la sesión en curso
                 // sin guardarla y detiene la captura de ubicación.
                 accountId = profile?.uniqueId.orEmpty(),
-                onFinishedPinChange = { workoutId, pin ->
-                    runWorkoutAction { setFinishedLocationPin(workoutId, pin) }
+                onUpdateFinishedWorkout = { workoutId, edit ->
+                    runWorkoutAction { updateFinishedWorkout(workoutId, edit) }
                 },
                 onActivePinChange = { pin ->
                     val sid = snapshot?.activeSessionId
@@ -1628,6 +1628,9 @@ data class StateOverview(
                         results = results,
                         movements = movements,
                         locationPin = pinFromJson(session.optJSONObject("locationPin")),
+                        startedAtIso = session.optString("startedAt").takeIf { it.isNotBlank() },
+                        finishedAtIso = session.optString("finishedAt").takeIf { it.isNotBlank() },
+                        notes = session.optString("notes").takeIf { it.isNotBlank() },
                         routePoints = session.optJSONArray("routePoints")?.let { rp ->
                             (0 until rp.length()).mapNotNull { i ->
                                 val point = rp.getJSONObject(i)
@@ -1956,7 +1959,10 @@ data class WorkoutHistoryEntry(
     val movements: List<WorkoutHistoryMovement>,
     val review: dev.repera.domain.SessionReview? = null,
     val routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList(),
-    val locationPin: dev.repera.domain.WorkoutLocationPin? = null
+    val locationPin: dev.repera.domain.WorkoutLocationPin? = null,
+    val startedAtIso: String? = null,
+    val finishedAtIso: String? = null,
+    val notes: String? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,
