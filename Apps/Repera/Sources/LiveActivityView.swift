@@ -437,7 +437,7 @@ final class LiveActivityRecorder: NSObject {
     private(set) var currentCourseDegrees: Double?
     private(set) var gpsMessage: String?
     private(set) var chosenRoute: LiveSavedRoute?
-    private(set) var kilometerSplits: [LiveKmSplit] = []
+    private var kilometerSplits: [LiveKmSplit] = []
     private(set) var latestKilometerReport: String?
     private(set) var upcomingTurn: String?
     private var lastKilometerBoundarySeconds: TimeInterval = 0
