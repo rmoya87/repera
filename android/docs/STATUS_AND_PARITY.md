@@ -530,3 +530,10 @@ Port del Picker "Unidad de cardio" de Apple: chips Calorías/Metros en el editor
 - Favorito/Día/Progresión contrastados con DayEditorView: Favorito (estrella), Día (Sin fecha/Día concreto/Semanal + L-D) y Progresión (chips de las 5 políticas) están en la ficha de rutina, no dentro del editor de contenido; funcionalmente cubiertos, estructuralmente distintos (Apple los muestra en la cabecera del mismo formulario). "También en Programado" (modo favorito) y "Favorito" del modo sesión no tienen equivalente verificado.
 - No portado: swipe-to-delete en el editor de entreno terminado, hoja Reordenar separada, chrome NavigationStack.
 - Verificación: JVM ejecutado (DayEditorImportTest, AppleCardioUnitsTest, CardioUnitTest, EditorBlockOpsTest); androidTest solo compilado (ladder+título, bloque↓+swipe, etc.); sin dispositivo ni píxeles.
+
+### DayEditorView - revisión 3
+- Ladder: además de importar/guardar, la ejecución se comprueba en JVM: WodSessionAssembler acepta el bloque y genera 6 movimientos con plannedSets 21,21,15,15,9,9 (LadderTemplateExecutionTest). La edición posterior usa el mismo editor (cantidad por movimiento; esquema en blanco = sin repScheme). NO verificado: el grabador/cronómetro de WOD en pantalla con ese bloque.
+- «También en Programado» (modo favorito): chips "Solo favorito" + L-D en cada favorito del hub de Favoritos (conserva título y hora si hay día). Sin test instrumentado propio (requiere StateOverview).
+- Swipe para quitar en el editor de entreno terminado (ejercicios y movimientos WOD), ligado a id. androidTest compilado.
+- PENDIENTE: Favorito en modo sesión (StartHubSheet «Crear entreno» → DayEditorView .session: empezar sesión desde borrador, opcionalmente guardado como favorito, título por defecto «Mi entreno», progresión off) y «guardar como favorito» al editar un entreno terminado (copia independiente con ids nuevos). No hay equivalente verificado en Android; se portan en el siguiente hito.
+- Diferencia nativa documentada: sin hoja «Reordenar» separada ni NavigationStack; las acciones (subir/bajar, mover, quitar, arrastrar, deslizar) están en la propia pantalla.

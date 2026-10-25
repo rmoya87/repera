@@ -343,7 +343,11 @@ fun ReperaMobileScreen(
                             if (favId != null) navController.navigate("temporizador?fav=" + favId)
                             else navController.navigate("temporizador")
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onSetWeekday = { r, d ->
+                            onEditRoutine(r.id, r.title, RoutineSchedule(weekday = d,
+                                timeMinutes = if (d == null) null else r.timeMinutes))
+                        }
                     )
                 }
                 composable(

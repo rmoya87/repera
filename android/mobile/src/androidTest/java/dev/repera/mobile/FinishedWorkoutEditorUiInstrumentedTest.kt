@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -324,5 +326,18 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         }
         compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
         assertNull(saved!!.blocksJson)
+    }
+
+    /** Deslizar una fila de ejercicio la quita del borrador (no de lo guardado hasta Guardar). Solo compilado. */
+    @Test fun swipeRemovesExerciseFromDraft() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = blocks)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, emptyList()) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        val before = org.json.JSONArray(blocks).getJSONObject(0).getJSONArray("exercises").length()
+        compose.onAllNodesWithTag("ex_swipe")[0].performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("edit_save").performClick()
+        val after = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises").length()
+        assertEquals(before - 1, after)
     }
 }

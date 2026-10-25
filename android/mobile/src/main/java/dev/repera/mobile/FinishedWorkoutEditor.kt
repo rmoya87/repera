@@ -179,6 +179,7 @@ private fun FinishedContentEditor(
                         { id -> nameById[id] ?: "Ejercicio" },
                         { null }, onChanged) },
                     onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[item.optString("id")] = top to bottom }) { handle ->
+                SwipeRemove(item.optString("id"), "ex_swipe", { val ix = (0 until items.length()).firstOrNull { items.getJSONObject(it).optString("id") == item.optString("id") }; if (ix != null) { items.remove(ix); onChanged() } }) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Text("⠿", modifier = handle.testTag("ex_drag_${b}_$i").padding(8.dp))
                     Text(item.optString("exerciseId").let { id ->
@@ -211,6 +212,7 @@ private fun FinishedContentEditor(
                     }
                     TextButton(modifier = Modifier.testTag("ex_remove_${b}_$i"), onClick = {
                         items.remove(i); onChanged() }) { Text("Quitar") }
+                }
                 }
                 val sets = item.optJSONArray("plannedSets") ?: org.json.JSONArray().also { item.put("plannedSets", it) }
                 for (s in 0 until sets.length()) {
@@ -343,6 +345,7 @@ private fun WodMovementsEditor(
                     ?: catalog.firstOrNull { c -> c.name.equals(mv.optString("name"), true) }?.id
                     ?: mv.optString("name").trim().takeIf { n -> n.isNotEmpty() }?.let { n -> EditorBlockOps.PENDING_PREFIX + n } }, onChanged) },
             onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[id] = top to bottom }) { handle ->
+        SwipeRemove(id, "mv_swipe", { val ix = (0 until moves.length()).firstOrNull { moves.getJSONObject(it).optString("id") == id }; if (ix != null) { moves.remove(ix); onChanged() } }) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("⠿", modifier = handle.testTag("mv_drag_${b}_$i").padding(8.dp))
             Text(if (m.optBoolean("isRest")) "REST" else m.optString("name"),
@@ -372,6 +375,7 @@ private fun WodMovementsEditor(
                 }
             }
             TextButton(modifier = Modifier.testTag("mv_remove_${b}_$i"), onClick = { moves.remove(i); onChanged() }) { Text("Quitar") }
+        }
         }
         if (m.optBoolean("isRest")) {
             var secs by remember(id) { mutableStateOf((if (m.has("restSeconds")) m.optInt("restSeconds") else 60).toString()) }
@@ -582,4 +586,19 @@ internal fun handleItemDrop(
     }
     val before = EditorBlockOps.dropBeforeId(centerY, (geo.items[tb] ?: emptyMap<String, Pair<Float, Float>>()).toList())
     if (EditorBlockOps.moveItem(blocks, b, itemId, tb, before, nameFor, resolve)) onChanged()
+}
+
+
+/** Deslizar para quitar (OGSwipeDeleteButton de Apple). El estado va ligado al id para no reutilizarse con otra fila. */
+@Composable
+internal fun SwipeRemove(id: String, tag: String, onRemove: () -> Unit, content: @Composable () -> Unit) {
+    androidx.compose.runtime.key(id) {
+        val current by androidx.compose.runtime.rememberUpdatedState(onRemove)
+        val st = androidx.compose.material3.rememberSwipeToDismissBoxState(confirmValueChange = { v ->
+            if (v == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) { current(); true } else false })
+        androidx.compose.material3.SwipeToDismissBox(state = st, enableDismissFromStartToEnd = false,
+            modifier = Modifier.testTag(tag),
+            backgroundContent = { Text("Quitar", color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth().padding(16.dp)) }) { content() }
+    }
 }

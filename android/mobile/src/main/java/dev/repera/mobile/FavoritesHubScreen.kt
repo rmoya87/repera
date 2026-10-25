@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,7 +41,9 @@ internal fun FavoritesHubScreen(
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
     onOpenTimer: (String?) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /** «También en Programado» (DayEditorView modo favorito): día de la semana opcional del favorito. */
+    onSetWeekday: (routine: RoutineEntry, weekday: Int?) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val timerStore = remember { StandaloneTimerStore(context) }
@@ -72,6 +75,19 @@ internal fun FavoritesHubScreen(
                     Text(routine.title, style = MaterialTheme.typography.titleMedium)
                     Text("Toca para empezar", fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("También en Programado", fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
+                        androidx.compose.material3.FilterChip(selected = routine.weekday == null && routine.scheduledDate == null,
+                            enabled = !busy, modifier = Modifier.testTag("fav_weekday_none_" + routine.id),
+                            onClick = { onSetWeekday(routine, null) }, label = { Text("Solo favorito") })
+                        listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { i, d ->
+                            androidx.compose.material3.FilterChip(selected = routine.weekday == i + 1, enabled = !busy,
+                                modifier = Modifier.testTag("fav_weekday_" + (i + 1) + "_" + routine.id),
+                                onClick = { onSetWeekday(routine, i + 1) }, label = { Text(d) })
+                        }
+                    }
                 }
             }
         }

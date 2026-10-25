@@ -230,3 +230,19 @@ class DayEditorImportTest {
         org.junit.Assert.assertEquals(listOf(21, 21, 15, 15, 9, 9), ladder.entries.map { it.quantity })
     }
 }
+
+class LadderTemplateExecutionTest {
+    @org.junit.Test fun ladderTemplateAssemblesSixMovementsWithOwnReps() {
+        val info = EditorBlockOps.templateToBlockInfo(
+            dev.repera.domain.CatalogWods.template("21-15-9-thruster-bjo")!!, emptyList())
+        val block = org.json.JSONObject(info.sourceJson!!).put("kind", "wod")
+            .put("movements", org.json.JSONArray(info.entries.map { org.json.JSONObject(it.sourceJson!!) }))
+        org.junit.Assert.assertTrue(WodSessionAssembler.supports(block))
+        val out = org.json.JSONArray()
+        WodSessionAssembler.append(block, org.json.JSONArray(), out)
+        org.junit.Assert.assertEquals(6, out.length())
+        val reps = (0 until 6).map { out.getJSONObject(it).getJSONArray("plannedSets").getJSONObject(0).getInt("targetReps") }
+        org.junit.Assert.assertEquals(listOf(21, 21, 15, 15, 9, 9), reps)
+        org.junit.Assert.assertEquals("ladder", out.getJSONObject(0).getString("wodFormat"))
+    }
+}
