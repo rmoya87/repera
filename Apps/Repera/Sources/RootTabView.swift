@@ -8,14 +8,16 @@ enum WorkoutFlowRoute: Hashable {
     case workout
 }
 
-/// Menú principal: Inicio · Diario · Crear|Center · Progreso · Ejercicios.
-/// Center solo si el atleta está vinculado a un gimnasio/entrenador (o tiene invitación).
+/// Menú principal: Inicio · Diario · En vivo · Progreso · Ejercicios.
+/// Las herramientas de Crear y el centro profesional siguen disponibles sin ocupar la pestaña.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(BusinessDataStore.self) private var businessData
     @State private var tab: AppTab = .home
     @State private var planSection: DiarioSection = .schedule
     @State private var showStartHub = false
+    @State private var showCenter = false
+    @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
 
@@ -34,6 +36,7 @@ struct RootTabView: View {
                 SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
                     HomeView(
                         onOpenWorkout: openWorkout,
+                        focusDay: homeFocusDay,
                         onStart: openTodayPreview,
                         onStartRoutine: openRoutinePreview,
                         onGoPlan: { planSection = .schedule; tab = .plan }
@@ -44,17 +47,15 @@ struct RootTabView: View {
                     PlanView(section: $planSection, onOpenRoutine: openRoutinePreview)
                 }
 
-                if showsCenterTab {
-                    SwiftUI.Tab("Center", systemImage: "building.2", value: AppTab.center) {
-                        CenterView()
-                    }
-                } else {
-                    SwiftUI.Tab("Crear", systemImage: "plus.circle", value: AppTab.center) {
-                        StartHubSheet(
-                            onGoPlan: { planSection = .schedule; tab = .plan },
-                            onOpenedWorkout: openWorkout
-                        )
-                    }
+                SwiftUI.Tab("En vivo", systemImage: "waveform.path.ecg", value: AppTab.center) {
+                    LiveActivityView(
+                        onSaved: { date in
+                            homeFocusDay = date
+                            tab = .home
+                        },
+                        onOpenWorkout: openWorkout,
+                        onOpenCenter: showsCenterTab ? { showCenter = true } : nil
+                    )
                 }
 
                 SwiftUI.Tab("Progreso", systemImage: "chart.bar", value: AppTab.stats) {
@@ -86,6 +87,9 @@ struct RootTabView: View {
                 .transition(.move(edge: .trailing))
                 .zIndex(1)
             }
+        }
+        .sheet(isPresented: $showCenter) {
+            NavigationStack { CenterView() }
         }
         .sheet(isPresented: $showStartHub) {
             // The former Crear tab remains available from Inicio, without losing tools.
