@@ -18,7 +18,9 @@ struct WatchSessionView: View {
                 if let finished = hub.presentedSummary {
                     finishedView(finished)
                 } else if let active = hub.active {
-                    if hub.reviewingBlock {
+                    if active.liveSportID != nil {
+                        liveSportView(active)
+                    } else if hub.reviewingBlock {
                         blockReviewView(active)
                     } else if active.phase == .counting {
                         runningView(active)
@@ -47,9 +49,90 @@ struct WatchSessionView: View {
         if hub.presentedSummary != nil { return "Resultado" }
         if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }
         if let active = hub.active {
+            if active.liveSportID != nil { return active.title }
             return hub.current?.displayBlockHeader ?? active.title
         }
         return hub.todaysWorkout?.title ?? "Repera"
+    }
+
+    /// Mismo HealthKit y registro offline que los programados, adaptado
+    /// al deporte. Ninguna serie ficticia y nunca kcal ni pulso estimados.
+    private func liveSportView(_ session: WorkoutSession) -> some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                VStack(spacing: 3) {
+                    Text(durationLabel(hub.sessionElapsed))
+                        .font(.system(size: 39, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Text(hub.isPaused ? "En pausa" : "Tiempo activo")
+                        .font(.caption2)
+                        .foregroundStyle(hub.isPaused ? .yellow : .secondary)
+                }
+                HStack(spacing: 12) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "heart.fill").foregroundStyle(.red)
+                        Text(hub.heartRateBpm.map { "\($0)" } ?? "—")
+                            .font(.title3.weight(.semibold)).monospacedDigit()
+                        Text("ppm").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    VStack(spacing: 4) {
+                        Image(systemName: "flame.fill").foregroundStyle(.orange)
+                        Text(hub.measuredEnergyKcal.map { "\(Int($0.rounded()))" } ?? "—")
+                            .font(.title3.weight(.semibold)).monospacedDigit()
+                        Text("kcal").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                if let meters = session.recordedDistanceMeters, meters > 0 {
+                    HStack(spacing: 6) {
+                        Image(systemName: "figure.walk")
+                            .foregroundStyle(accent)
+                        Text(String(format: "%.2f km", meters / 1000))
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
+                        Text("GPS iPhone")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                if hub.healthWarning != nil {
+                    Label("Revisar acceso a Salud", systemImage: "exclamationmark.triangle")
+                        .font(.caption2).foregroundStyle(.yellow)
+                }
+                Button {
+                    if hub.isPaused { hub.play() } else { hub.pause() }
+                } label: {
+                    Label(hub.isPaused ? "Reanudar" : "Pausar",
+                          systemImage: hub.isPaused ? "play.fill" : "pause.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .foregroundStyle(.black)
+                if hub.isPaused {
+                    Button {
+                        hub.finishWorkout()
+                    } label: {
+                        Label("Finalizar", systemImage: "flag.checkered")
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .foregroundStyle(.black)
+                }
+            }
+            .padding(.horizontal, 6)
+        }
+    }
+
+    private func durationLabel(_ total: Int) -> String {
+        let secs = max(0, total)
+        return secs >= 3600
+            ? String(format: "%d:%02d:%02d", secs / 3600, secs / 60 % 60, secs % 60)
+            : String(format: "%02d:%02d", secs / 60, secs % 60)
     }
 
     private var emptyView: some View {

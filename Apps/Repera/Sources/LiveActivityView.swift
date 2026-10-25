@@ -405,6 +405,8 @@ private enum LiveGPXTurnDetection {
 }
 
 private struct LiveSnapshot: Codable {
+    var watchTrackingConfirmed: Bool?
+    var sessionID: UUID?
     var sport: String
     var phase: String
     var startedAt: Date
@@ -426,6 +428,8 @@ final class LiveActivityRecorder: NSObject {
 
     enum Phase: String { case idle, recording, paused, review }
     private(set) var phase: Phase = .idle
+    private(set) var sessionID: UUID?
+    private(set) var watchTrackingConfirmed = false
     private(set) var sport: LiveSport = .running
     private(set) var startedAt: Date?
     private(set) var finishedAt: Date?
@@ -476,6 +480,8 @@ final class LiveActivityRecorder: NSObject {
            let restoredSport = LiveSport(rawValue: snapshot.sport),
            snapshot.phase != Phase.idle.rawValue {
             sport = restoredSport
+            sessionID = snapshot.sessionID ?? UUID()
+            watchTrackingConfirmed = snapshot.watchTrackingConfirmed ?? false
             startedAt = snapshot.startedAt
             pausedAt = snapshot.pausedAt ?? snapshot.savedAt
             pausedSeconds = snapshot.pausedSeconds
@@ -564,6 +570,8 @@ final class LiveActivityRecorder: NSObject {
 
     func start() {
         guard phase == .idle else { return }
+        sessionID = UUID()
+        watchTrackingConfirmed = false
         startedAt = Date()
         finishedAt = nil
         pausedAt = nil
@@ -709,12 +717,14 @@ final class LiveActivityRecorder: NSObject {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return WorkoutSession(
+            id: sessionID ?? UUID(),
             title: cleaned.isEmpty ? sport.title : cleaned,
             exercises: [],
             phase: .finished,
             startedAt: startedAt,
             finishedAt: max(finishedAt, startedAt.addingTimeInterval(1)),
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            appleHealthProvenance: watchTrackingConfirmed ? "watchHealthKitPending" : nil,
             routePoints: routePoints,
             liveSportID: sport.rawValue,
             liveRouteID: chosenRoute?.id,
@@ -722,6 +732,41 @@ final class LiveActivityRecorder: NSObject {
             activeDurationSeconds: durationSeconds,
             liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds)
         )
+    }
+
+    /// La misma WorkoutSession que enviamos al Watch es la que termina en
+    /// Inicio/Progreso. Nunca usar un UUID nuevo al pulsar Guardar.
+    /// Solo los datos pequeños viajan por WCSession; el GPS queda en iPhone.
+    func watchSnapshot() -> WorkoutSession? {
+        guard let id = sessionID, let startedAt, phase != .idle else { return nil }
+        let state: SessionPhase = switch phase {
+        case .recording: .counting
+        case .paused, .review: .ready
+        case .idle: .idle
+        }
+        return WorkoutSession(
+            id: id, title: sport.title, exercises: [], phase: state,
+            startedAt: startedAt, finishedAt: phase == .review ? finishedAt : nil,
+            liveSportID: sport.rawValue, liveRouteID: chosenRoute?.id,
+            recordedDistanceMeters: sport.usesGPS ? recordedDistanceMeters : nil,
+            activeDurationSeconds: durationSeconds
+        )
+    }
+
+    /// Watch ofrece la pausa, pero el iPhone sigue siendo propietario del GPS.
+    /// La actualización no genera un nuevo entreno ni otra escritura a Salud.
+    func applyWatchState(_ session: WorkoutSession) {
+        guard let id = sessionID, session.id == id, phase != .idle else { return }
+        if session.appleHealthProvenance == "watchHealthKitPending" ||
+            session.appleHealthProvenance == "watchHealthKit" {
+            watchTrackingConfirmed = true
+        }
+        switch session.phase {
+        case .ready where phase == .recording: pause()
+        case .counting where phase == .paused: resume()
+        case .finished where phase == .recording || phase == .paused: finish()
+        default: break
+        }
     }
 
     func discard(saved: Bool = false) {
@@ -734,6 +779,8 @@ final class LiveActivityRecorder: NSObject {
         }
         stopGPS()
         phase = .idle
+        sessionID = nil
+        watchTrackingConfirmed = false
         startedAt = nil
         finishedAt = nil
         pausedAt = nil
@@ -754,6 +801,8 @@ final class LiveActivityRecorder: NSObject {
     private func persistSnapshot() {
         guard let start = startedAt, phase != .idle else { return }
         let snap = LiveSnapshot(
+            watchTrackingConfirmed: watchTrackingConfirmed,
+            sessionID: sessionID,
             sport: sport.rawValue, phase: phase.rawValue,
             startedAt: start, pausedAt: pausedAt, pausedSeconds: pausedSeconds,
             recordedDistanceMeters: recordedDistanceMeters, routePoints: routePoints,
@@ -1077,6 +1126,7 @@ struct LiveActivityView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(\.scenePhase) private var scenePhase
     @State private var recorder = LiveActivityRecorder.shared
+    @State private var lastWatchDistanceUpdate = Date.distantPast
     @State private var routes = LiveRoutesStore.shared
     @State private var sportPicker = false
     @State private var routePicker = false
@@ -1155,7 +1205,9 @@ struct LiveActivityView: View {
                     confirmTitle: "Descartar sin guardar",
                     onConfirm: {
                         showDiscard = false
+                        store.discardLiveActivityOnWatch()
                         recorder.discard()
+                        store.syncLiveActivityToWatch()
                         title = ""
                         notes = ""
                         showingMetrics = false
@@ -1168,6 +1220,14 @@ struct LiveActivityView: View {
         .tint(OG.accent)
         .onChange(of: scenePhase) { _, next in
             if next != .active { recorder.checkpoint() }
+        }
+        .onChange(of: recorder.routePoints.count) { _, _ in
+            // El iPhone aporta GPS al reloj; HR y kcal los calcula HealthKit
+            // de watchOS. No enviar cada punto ni un recorrido GPX entero.
+            guard recorder.phase == .recording,
+                  Date().timeIntervalSince(lastWatchDistanceUpdate) >= 12 else { return }
+            lastWatchDistanceUpdate = Date()
+            store.syncLiveActivityToWatch()
         }
         .task(id: store.workoutsEpoch) {
             routes.recoverFromSessions(store.state.workouts)
@@ -1271,11 +1331,6 @@ struct LiveActivityView: View {
         HStack(alignment: .top) {
             Spacer(minLength: 0)
             VStack(spacing: 10) {
-                if recorder.phase == .recording || recorder.phase == .paused {
-                    mapCircleButton("xmark", label: "Descartar entreno") {
-                        showDiscard = true
-                    }
-                }
                 if !mapIsCentered, recorder.currentCoordinate != nil {
                     mapCircleButton("location.north.line.fill", label: "Centrar en mi posición") {
                         if let user = recorder.currentCoordinate {
@@ -1448,19 +1503,6 @@ struct LiveActivityView: View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    Image(systemName: recorder.sport.symbol)
-                        .font(.title2.weight(.medium))
-                        .foregroundStyle(OG.accent)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(recorder.sport.title).font(.headline)
-                        if recorder.phase == .paused {
-                            Text("En pausa").font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.orange)
-                        } else {
-                            Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
-                                .font(.caption).foregroundStyle(OG.label2)
-                        }
-                    }
                     Spacer()
                     if showGuidanceToggle {
                         metricsCircleButton(
@@ -1473,11 +1515,6 @@ struct LiveActivityView: View {
                     if recorder.sport.usesGPS {
                         metricsCircleButton("map", label: "Ver mapa") {
                             showingMetrics = false
-                        }
-                    }
-                    if recorder.phase != .idle {
-                        metricsCircleButton("xmark", label: "Descartar actividad") {
-                            showDiscard = true
                         }
                     }
                 }
@@ -1559,6 +1596,7 @@ struct LiveActivityView: View {
                             onOpenWorkout()
                         } else {
                             recorder.start()
+                            store.syncLiveActivityToWatch()
                             showingMetrics = recorder.sport.usesGPS
                         }
                     } label: {
@@ -1604,6 +1642,7 @@ struct LiveActivityView: View {
             case .recording:
                 Button {
                     recorder.pause()
+                    store.syncLiveActivityToWatch()
                 } label: {
                     Label("Pausar", systemImage: "pause.fill")
                         .font(.headline)
@@ -1617,6 +1656,7 @@ struct LiveActivityView: View {
                 HStack(spacing: 10) {
                     Button {
                         recorder.resume()
+                        store.syncLiveActivityToWatch()
                     } label: {
                         Label("Reanudar", systemImage: "play.fill")
                             .font(.subheadline.weight(.bold))
@@ -1677,6 +1717,7 @@ struct LiveActivityView: View {
     private func finishAndShowSave() {
         guard recorder.phase == .recording || recorder.phase == .paused else { return }
         recorder.finish()
+        store.syncLiveActivityToWatch()
         title = recorder.sport.title
         notes = ""
     }
@@ -1901,8 +1942,10 @@ struct LiveActivityView: View {
             }
         }
         store.saveWorkout(session)
+        store.finishLiveActivityOnWatch(session)
         let day = session.startedAt ?? Date()
         recorder.discard(saved: true)
+        store.syncLiveActivityToWatch()
         title = ""
         notes = ""
         savedWorkoutID = nil

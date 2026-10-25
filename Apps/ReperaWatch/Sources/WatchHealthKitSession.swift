@@ -23,12 +23,14 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private var lastRecordedBlockID: UUID?
     private var pendingBlock: (id: UUID, isInterval: Bool)?
     private var finishHandler: ((Result) -> Void)?
+    var onRecordingReady: (() -> Void)?
     var onPauseResumeRequest: (() -> Void)?
     var onPauseStateChanged: ((Bool) -> Void)?
     private var finishing = false
     // An HKWorkoutSession can still report .paused while an asynchronous
     // resume request is in flight. Do not send the same command twice.
     private var pendingStateTransition: HKWorkoutSessionState?
+    private var pauseRequestedBeforeStart = false
     private(set) var pulseBpm: Int?
     private(set) var kcal: Double?
     private(set) var averageBpm: Double?
@@ -87,7 +89,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         )
     }
 
-    func start(id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool) {
+    func start(
+        id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool,
+        liveSportID: String? = nil, initiallyPaused: Bool = false
+    ) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
             return
@@ -97,6 +102,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pendingBlock = nil
         finishing = false
         pendingStateTransition = nil
+        pauseRequestedBeforeStart = initiallyPaused
         permissionIssue = nil
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
@@ -116,14 +122,38 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             guard self.workoutID == id, !self.finishing else { return }
 
             let config = HKWorkoutConfiguration()
-            if includesWOD && includesStrength {
-                config.activityType = .crossTraining
-            } else if includesWOD {
-                config.activityType = .highIntensityIntervalTraining
+            if let liveSportID {
+                switch liveSportID {
+                case "running", "trail": config.activityType = .running
+                case "walking": config.activityType = .walking
+                case "hiking": config.activityType = .hiking
+                case "cycling", "mountainBike", "gravel": config.activityType = .cycling
+                case "swimming": config.activityType = .swimming
+                case "skiing": config.activityType = .downhillSkiing
+                case "surfing": config.activityType = .surfingSports
+                case "golf": config.activityType = .golf
+                case "tennis", "padel": config.activityType = .tennis
+                case "hiit": config.activityType = .highIntensityIntervalTraining
+                case "crossfit", "hyrox": config.activityType = .crossTraining
+                case "strength": config.activityType = .functionalStrengthTraining
+                case "yoga", "mobility": config.activityType = .yoga
+                default: config.activityType = .other
+                }
+                let outdoor: Set<String> = [
+                    "running", "trail", "walking", "hiking", "cycling",
+                    "mountainBike", "gravel", "surfing", "golf", "skiing"
+                ]
+                config.locationType = outdoor.contains(liveSportID) ? .outdoor : .indoor
             } else {
-                config.activityType = .functionalStrengthTraining
+                if includesWOD && includesStrength {
+                    config.activityType = .crossTraining
+                } else if includesWOD {
+                    config.activityType = .highIntensityIntervalTraining
+                } else {
+                    config.activityType = .functionalStrengthTraining
+                }
+                config.locationType = .indoor
             }
-            config.locationType = .indoor
 
             do {
                 let session = try HKWorkoutSession(healthStore: self.store, configuration: config)
@@ -152,6 +182,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     try await liveBuilder.beginCollection(at: date)
                     guard self.workoutID == id, self.builder === liveBuilder else { return }
                     self.isRecording = true
+                    self.onRecordingReady?()
+                    // La app del reloj puede abrirse cuando iPhone ya estaba
+                    // en pausa. No iniciar sensores como sesión activa por error.
+                    if self.pauseRequestedBeforeStart { session.pause() }
                     if let pending = self.pendingBlock {
                         self.beginBlock(id: pending.id, isInterval: pending.isInterval)
                     }
@@ -186,6 +220,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     /// In particular, the builder is already Running after startActivity,
     /// so tapping "Iniciar bloque" must NOT resume it again.
     func pause() {
+        if !finishing, workout == nil, workoutID != nil {
+            pauseRequestedBeforeStart = true
+            return
+        }
         guard !finishing, let workout, workout.state == .running,
               pendingStateTransition != .paused else { return }
         pendingStateTransition = .paused
@@ -193,10 +231,32 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     }
 
     func resume() {
+        if !finishing, workout == nil, workoutID != nil {
+            pauseRequestedBeforeStart = false
+            return
+        }
         guard !finishing, let workout, workout.state == .paused,
               pendingStateTransition != .running else { return }
         pendingStateTransition = .running
         workout.resume()
+    }
+
+    /// Descarta una sesión Comenzar cancelada antes de guardar. No escribir
+    /// HKWorkout ni muestras estimadas, incluso si el reloj seguía en segundo plano.
+    func discardFreeWorkout() {
+        finishing = true
+        finishHandler = nil
+        workout?.end()
+        builder?.discardWorkout()
+        workout = nil
+        builder = nil
+        workoutID = nil
+        pendingBlock = nil
+        pendingStateTransition = nil
+        pauseRequestedBeforeStart = false
+        isRecording = false
+        pulseBpm = nil
+        kcal = nil
     }
 
     func finish(_ callback: @escaping (Result) -> Void) {
