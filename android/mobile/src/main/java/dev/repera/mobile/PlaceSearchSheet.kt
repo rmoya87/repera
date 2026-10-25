@@ -224,7 +224,9 @@ fun PlaceSearchSheet(
     var searchFocused by remember { mutableStateOf(false) }
 
     val isTyping = query.isNotBlank()
-    val showsConfirmMap = pending != null && !isTyping
+    // iOS: showsConfirmMap = pending != null && !isTyping && !isSearchPresented
+    // (mutuamente excluyente con el panel de búsqueda).
+    val showsConfirmMap = pending != null && !isTyping && !searchFocused
 
     // Política de dominio: mínimo de caracteres + pausa, NO por tecla.
     LaunchedEffect(query) {
@@ -350,7 +352,10 @@ fun PlaceSearchSheet(
                                         pending = r
                                         // dismissSearch iOS: el panel se cierra
                                         // al elegir y queda solo el mapa de
-                                        // confirmación.
+                                        // confirmación. La flag local se fija
+                                        // DIRECTAMENTE: el evento onFocusChanged
+                                        // no está garantizado tras clearFocus.
+                                        searchFocused = false
                                         focusManager.clearFocus()
                                     }
                                 }
@@ -393,6 +398,7 @@ fun PlaceSearchSheet(
                                             providerId = pin.mapItemIdentifier ?: "",
                                             featureName = pin.name
                                         )
+                                        searchFocused = false
                                         focusManager.clearFocus() // dismissSearch iOS
                                     }
                                 }
