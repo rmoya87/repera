@@ -72,6 +72,32 @@ class TechniquesInstrumentedTest {
             .contains("rest-pause 8+5+3"))
     }
 
+    @Test fun effortAndFailurePersistForEveryStrengthTechniqueWithoutLeakingIntoWarmup() {
+        val (repo, local) = repo()
+        val id=JSONObject(String(local.read()!!)).getJSONArray("exercises").getJSONObject(0).getString("id")
+        repo.startQuickLog(id)
+        repo.logCurrentSet(5,60.0,rir=3.0,toFailure=true)
+        assertTrue(repo.active()!!.sets.single().toFailure)
+        assertEquals(0.0,repo.active()!!.sets.single().rir!!,0.0)
+        repo.logCurrentSet(3,40.0,rir=2.0,warmup=true,toFailure=true)
+        repo.logDropSet(6,60.0,listOf(4 to 50.0),rir=2.0,toFailure=true)
+        repo.logRestPauseSet(listOf(4 to 15,2 to 15),60.0,rir=1.0,toFailure=true)
+        repo.logDropSet(5,55.0,listOf(3 to 45.0),rir=2.5)
+        repo.logRestPauseSet(listOf(3 to 15,2 to 15),55.0,rir=1.5)
+        repo.finish()
+        val sets=JSONObject(String(local.read()!!)).getJSONArray("workouts").getJSONObject(0)
+            .getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets")
+        for (i in listOf(0,2,3)) {
+            assertTrue(sets.getJSONObject(i).getBoolean("toFailure"))
+            assertEquals(0.0,sets.getJSONObject(i).getDouble("rir"),0.0)
+        }
+        assertFalse(sets.getJSONObject(1).getBoolean("toFailure"))
+        assertFalse(sets.getJSONObject(1).has("rir"))
+        assertEquals(2.5,sets.getJSONObject(4).getDouble("rir"),0.0)
+        assertEquals(1.5,sets.getJSONObject(5).getDouble("rir"),0.0)
+        assertFalse(sets.getJSONObject(4).getBoolean("toFailure"))
+    }
+
     @Test fun techniquesRejectCardioAndBadInput() {
         val (repo, local) = repo()
         val exerciseId = JSONObject(String(local.read()!!)).getJSONArray("exercises")

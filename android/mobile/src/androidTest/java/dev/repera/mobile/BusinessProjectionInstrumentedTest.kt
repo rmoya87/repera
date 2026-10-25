@@ -88,7 +88,7 @@ class BusinessProjectionInstrumentedTest {
             prescribedQuantity=5,prescribedWeightKg=80.0,allowsWeight=true,sets=emptyList())
         compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.fillMaxSize()) {
             androidx.compose.foundation.lazy.LazyColumn { item {
-                ActiveWorkoutCard(workout,false,{_,_,rir,_,_,_,_->logged=rir},{_,_,_,_,_,_->},{},{},{},effortUnit="rpe")
+                ActiveWorkoutCard(workout,false,{_,_,rir,_,_,_,_,_->logged=rir},{_,_,_,_,_,_->},{},{},{},effortUnit="rpe")
             } }
         }}}
         compose.onNodeWithText("RPE opcional (0–10)").performScrollTo().performTextInput("8")

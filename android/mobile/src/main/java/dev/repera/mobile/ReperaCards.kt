@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Switch
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
@@ -96,14 +97,14 @@ internal val brandGreenReadable = Color(0xFF0E7A38)
 internal fun ActiveWorkoutCard(
     active: ActiveWorkout,
     busy: Boolean,
-    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?, Int?) -> Unit,
+    onLogSet: (Int, Double?, Double?, Boolean, String?, Int?, Int?, Boolean) -> Unit,
     onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onDiscard: () -> Unit = {},
-    onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>) -> Unit = { _, _, _ -> },
-    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?) -> Unit = { _, _ -> },
+    onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>, Double?, Boolean) -> Unit = { _, _, _, _, _ -> },
+    onLogRestPauseSet: (List<Pair<Int, Int>>, Double?, Double?, Boolean) -> Unit = { _, _, _, _ -> },
     effortUnit:String="rir"
 ) {
     var technique by remember(active.id, active.index, active.completedSets) {
@@ -151,6 +152,7 @@ internal fun ActiveWorkoutCard(
     var warmup by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(false)
     }
+    var toFailure by remember(active.id, active.index, active.completedSets) { mutableStateOf(false) }
     var rirText by remember(active.id, active.index, active.completedSets,effortUnit) {
         mutableStateOf("")
     }
@@ -168,7 +170,7 @@ internal fun ActiveWorkoutCard(
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
         (!active.allowsDeficit || deficit.isBlank() ||
             (deficit.toIntOrNull()?.let { it in 0..100 } == true)) &&
-        (rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
+        (toFailure || warmup || rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
         validDuration && (unit in if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
     Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
@@ -188,6 +190,7 @@ internal fun ActiveWorkoutCard(
                         } +
                         (set.weightKg?.let { " · $it kg" } ?: "") +
                         (set.deficitCm?.let { " · $it cm déficit" } ?: "") +
+                        (if(set.toFailure) " · F" else "") +
                         (set.rir?.let { " · ${effortUnit.uppercase()} ${dev.repera.domain.Effort.fromRIR(it,effortUnit)}" } ?: "") +
                         (set.durationSeconds?.let { " · ${it / 60}:${(it % 60).toString().padStart(2,'0')}" } ?: ""))
                     Row {
@@ -329,7 +332,7 @@ internal fun ActiveWorkoutCard(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            if (!active.durationInput) OutlinedTextField(
+            if (!active.durationInput && !warmup && !toFailure) OutlinedTextField(
                 value = rirText,
                 onValueChange = { rirText = it },
                 label = { Text(if(effortUnit=="rpe") "RPE opcional (0–10)" else "RIR opcional (repeticiones en reserva)") },
@@ -344,6 +347,10 @@ internal fun ActiveWorkoutCard(
                 Text("Serie de calentamiento", modifier = Modifier.padding(top = 12.dp))
             }
             if (!active.durationInput && !warmup) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Switch(checked=toFailure,onCheckedChange={toFailure=it},enabled=!busy, modifier=Modifier.testTag("set_to_failure"))
+                    Text("Al fallo")
+                }
                 Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("normal" to "Normal", "dropset" to "Dropset",
@@ -388,7 +395,8 @@ internal fun ActiveWorkoutCard(
             val parsedClusters = if (technique != "restpause") emptyList() else
                 clustersText.split('+', ',', ' ').mapNotNull { it.trim().toIntOrNull() }
                     .map { it to (restSecondsValue ?: 15) }
-            val validTechnique = when (technique) {
+            val effectiveTechnique = if(warmup || active.durationInput) "normal" else technique
+            val validTechnique = when (effectiveTechnique) {
                 "dropset" -> parsedDrops.isNotEmpty() && parsedDrops.size <= 5 &&
                     parsedDrops.all { it.first in 1..10000 &&
                         (it.second == null || it.second!! >= 0) }
@@ -399,22 +407,25 @@ internal fun ActiveWorkoutCard(
             }
             Button(
                 onClick = {
-                    if (parsedQuantity != null) when (technique) {
+                    if (parsedQuantity != null) when (effectiveTechnique) {
                         "dropset" -> onLogDropSet(
                             parsedQuantity,
                             if (active.allowsWeight) parsedWeight else null,
-                            parsedDrops)
+                            parsedDrops,
+                            if(toFailure) 0.0 else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)}, toFailure)
                         "restpause" -> onLogRestPauseSet(
                             parsedClusters,
-                            if (active.allowsWeight) parsedWeight else null)
+                            if (active.allowsWeight) parsedWeight else null,
+                            if(toFailure) 0.0 else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)}, toFailure)
                         else -> onLogSet(
                             parsedQuantity,
                             if (active.allowsWeight) parsedWeight else null,
-                            if (active.durationInput || warmup) null else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)},
+                            if (active.durationInput || warmup) null else if(toFailure) 0.0 else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)},
                             if (active.durationInput) false else warmup,
                             unit,
                             parsedDuration,
-                            if (active.allowsDeficit) deficit.toIntOrNull() else null
+                            if (active.allowsDeficit) deficit.toIntOrNull() else null,
+                            toFailure && !warmup && !active.durationInput
                         )
                     }
                 },

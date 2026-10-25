@@ -725,30 +725,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction(onSuccess = { beginLocationCapture() }) { startQuickLog(id) }
                 },
                 onInitializeLocal = ::initializeLocalCatalog,
-                onLogSet = { quantity, weight, rir, warmup, unit, duration, deficit ->
+                onLogSet = { quantity, weight, rir, warmup, unit, duration, deficit, failure ->
                     val rest = currentRestInfo()?.let {(name,seconds) -> name to dev.repera.domain.StrengthRestPolicy.seconds(seconds,warmup=warmup)}
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
                             StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
                     }) { logCurrentSet(quantity, weight, rir, warmup,
-                        quantityUnit = unit, durationSeconds = duration, deficitCm = deficit) }
+                        quantityUnit = unit, durationSeconds = duration, deficitCm = deficit, toFailure = failure) }
                 },
-                onLogDropSet = { quantity, weight, drops ->
+                onLogDropSet = { quantity, weight, drops, rir, failure ->
                     val rest = currentRestInfo()?.let {(name,seconds) -> name to dev.repera.domain.StrengthRestPolicy.seconds(seconds,kind="dropset")}
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
                             StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
-                    }) { logDropSet(quantity, weight, drops) }
+                    }) { logDropSet(quantity, weight, drops, rir, failure) }
                 },
-                onLogRestPauseSet = { clusters, weight ->
+                onLogRestPauseSet = { clusters, weight, rir, failure ->
                     val rest = currentRestInfo()?.let {(name,seconds) -> name to dev.repera.domain.StrengthRestPolicy.seconds(seconds,kind="restpause")}
                     runWorkoutAction(onSuccess = {
                         rest?.let { (name, seconds) ->
                             StrengthRestService.start(this, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                         }
-                    }) { logRestPauseSet(clusters, weight) }
+                    }) { logRestPauseSet(clusters, weight, rir, failure) }
                 },
                 onReviseSet = { id, quantity, weight, unit, duration, deficit ->
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight, unit, duration, deficit) }

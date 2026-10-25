@@ -990,7 +990,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         setId: String? = null,
         quantityUnit: String? = null,
         durationSeconds: Int? = null,
-        deficitCm: Int? = null
+        deficitCm: Int? = null,
+        toFailure: Boolean = false
     ): ActiveWorkout {
         require(setId == null || setId.isNotBlank())
         require(quantity >= 0) { "Cantidad inválida" }
@@ -1012,7 +1013,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             "El déficit solo se registra en HSPU"
         }
         if (inputMode == ExerciseInputMode.MACHINE_WORK || inputMode == ExerciseInputMode.REPS_AND_TIME) {
-            check(weightKg == null && rir == null && !warmup) { "Cardio no admite lastre, RIR o calentamiento de fuerza" }
+            check(weightKg == null && rir == null && !warmup && !toFailure) { "Cardio no admite lastre, RIR o calentamiento de fuerza" }
         }
         check(inputMode.showsWeight || weightKg == null) {
             "Este ejercicio no registra peso"
@@ -1024,11 +1025,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("completedAt", nowISO8601())
             .put("phase", if (warmup) "warmup" else "work")
             .put("kind", "straight")
-            .put("toFailure", false)
+            .put("toFailure", toFailure && !warmup)
             .put("drops", JSONArray())
             .put("clusters", JSONArray())
         if (weightKg != null) set.put("weightKg", weightKg)
-        if (rir != null) set.put("rir", rir)
+        if (toFailure && !warmup) set.put("rir", 0.0)
+        else if (rir != null && !warmup) set.put("rir", rir)
         if (deficitCm != null) set.put("deficitCm", deficitCm)
         val unit = quantityUnit ?: exercise.optString("quantityUnit")
             .takeIf { it in setOf("reps", "calories", "meters") }
@@ -1063,7 +1065,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      */
     @Synchronized fun logDropSet(
         quantity: Int, weightKg: Double?,
-        drops: List<Pair<Int, Double?>>
+        drops: List<Pair<Int, Double?>>,
+        rir: Double? = null, toFailure: Boolean = false
     ): ActiveWorkout {
         require(quantity in 1..10000) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
@@ -1072,6 +1075,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             require(reps in 1..10000) { "Repeticiones de caída inválidas" }
             require(weight == null || (weight.isFinite() && weight >= 0)) { "Peso de caída inválido" }
         }
+        require(rir == null || (rir.isFinite() && rir >= 0)) { "RIR inválido" }
         val state = requireState()
         val session = requireActive(state)
         val exercise = session.getJSONArray("exercises")
@@ -1093,9 +1097,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("completedAt", nowISO8601())
             .put("phase", "work")
             .put("kind", "dropset")
-            .put("toFailure", false)
+            .put("toFailure", toFailure)
             .put("clusters", JSONArray())
             .put("quantityUnit", "reps")
+        if (toFailure) set.put("rir", 0.0) else if (rir != null) set.put("rir", rir)
         if (weightKg != null) set.put("weightKg", weightKg)
         val dropArray = JSONArray()
         drops.forEach { (reps, weight) ->
@@ -1120,7 +1125,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      */
     @Synchronized fun logRestPauseSet(
         clusters: List<Pair<Int, Int>>,
-        weightKg: Double? = null
+        weightKg: Double? = null,
+        rir: Double? = null, toFailure: Boolean = false
     ): ActiveWorkout {
         require(clusters.size in 2..8) { "El rest-pause necesita al menos 2 mini-series" }
         clusters.forEach { (reps, rest) ->
@@ -1128,6 +1134,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             require(rest in 1..600) { "Descanso de mini-serie inválido" }
         }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
+        require(rir == null || (rir.isFinite() && rir >= 0)) { "RIR inválido" }
         val state = requireState()
         val session = requireActive(state)
         val exercise = session.getJSONArray("exercises")
@@ -1149,9 +1156,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("completedAt", nowISO8601())
             .put("phase", "work")
             .put("kind", "restpause")
-            .put("toFailure", false)
+            .put("toFailure", toFailure)
             .put("drops", JSONArray())
             .put("quantityUnit", "reps")
+        if (toFailure) set.put("rir", 0.0) else if (rir != null) set.put("rir", rir)
         if (weightKg != null) set.put("weightKg", weightKg)
         val clusterArray = JSONArray()
         clusters.forEach { (reps, rest) ->
@@ -2628,6 +2636,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     deficitCm = set.optInt("deficitCm").takeIf {
                         set.has("deficitCm") && !set.isNull("deficitCm")
                     },
+                    toFailure = set.optBoolean("toFailure"),
                     rir = if (set.has("rir") && !set.isNull("rir")) set.getDouble("rir") else null
                 )
             }
@@ -2643,7 +2652,8 @@ data class WorkoutSetSummary(
     val rir: Double? = null,
     val unit: String = "reps",
     val durationSeconds: Int? = null,
-    val deficitCm: Int? = null
+    val deficitCm: Int? = null,
+    val toFailure: Boolean = false
 )
 data class ActiveWorkout(
     val id: String,

@@ -107,9 +107,9 @@ class ReperaThemeInstrumentedTest {
                         onCompleteWodBlock = {},
                         onReviseWodMovement = { _, _, _ -> },
                         onDeleteWodMovement = {},
-                        onLogSet = { _, _, _, _, _, _, _ -> },
-                        onLogDropSet = { _, _, _ -> },
-                        onLogRestPauseSet = { _, _ -> },
+                        onLogSet = { _, _, _, _, _, _, _, _ -> },
+                        onLogDropSet = { _, _, _, _, _ -> },
+                        onLogRestPauseSet = { _, _, _, _ -> },
                         onReviseSet = { _, _, _, _, _, _ -> },
                         onDeleteSet = {},
                         onReviseFinishedSet = { _, _, _, _, _, _ -> },
@@ -142,7 +142,7 @@ class ReperaThemeInstrumentedTest {
                             exerciseName="Sentadilla",completedSets=0,prescribedQuantity=5,
                             prescribedWeightKg=80.0,allowsWeight=true,sets=emptyList()),
                         false,null,{},{},{_,_,_->},{_,_,_,_->},{},{_,_,_->},{},
-                        {_,_,_,_,_,_,_->},{_,_,_->},{_,_->},{_,_,_,_,_,_->},{},{},{},{},{},{},null,account,{})
+                        {_,_,_,_,_,_,_,_->},{_,_,_,_,_->},{_,_,_,_->},{_,_,_,_,_,_->},{},{},{},{},{},{},null,account,{})
                     5 -> Column(Modifier.padding(16.dp)) {
                         FinishedWorkoutEditorSection(overview.completeHistory.first(),account,false) {}
                     }
