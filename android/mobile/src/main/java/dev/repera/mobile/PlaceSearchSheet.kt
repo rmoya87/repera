@@ -80,7 +80,9 @@ internal fun PlacePinMap(
     /** Solo verificación: avisa cuando el estilo del mapa terminó de cargar. */
     onStyleLoaded: (() -> Unit)? = null,
     /** iOS: tocar el mapa cierra la búsqueda presentada (dismissSearch). */
-    onMapClick: (() -> Unit)? = null
+    onMapClick: (() -> Unit)? = null,
+    /** Solo verificación: cámara en reposo tras cada gesto (zoom, lat, lon). */
+    onCameraIdle: ((Double, Double, Double) -> Unit)? = null
 ) {
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
@@ -134,6 +136,14 @@ internal fun PlacePinMap(
                     }
                 }
                 getMapAsync { map ->
+                    if (onCameraIdle != null) {
+                        map.addOnCameraIdleListener {
+                            val pos = map.cameraPosition
+                            onCameraIdle.invoke(pos.zoom,
+                                pos.target?.latitude ?: 0.0,
+                                pos.target?.longitude ?: 0.0)
+                        }
+                    }
                     map.uiSettings.apply {
                         isLogoEnabled = true
                         isAttributionEnabled = true
@@ -231,7 +241,9 @@ fun PlaceSearchSheet(
     onSelect: (WorkoutLocationPin?) -> Unit,
     onDismiss: () -> Unit,
     /** Solo verificación: proveedor simulado. Producción siempre usa el compuesto. */
-    providerOverride: PlaceSearchProvider? = null
+    providerOverride: PlaceSearchProvider? = null,
+    /** Solo verificación: cámara del mapa en reposo (zoom, lat, lon). */
+    onMapCameraIdle: ((Double, Double, Double) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -477,6 +489,7 @@ fun PlaceSearchSheet(
                     Box(Modifier.fillMaxSize()) {
                         PlacePinMap(p.latitude, p.longitude, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
+                            onCameraIdle = onMapCameraIdle,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)
@@ -516,6 +529,7 @@ fun PlaceSearchSheet(
                     if (center != null) {
                         PlacePinMap(center.first, center.second, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
+                            onCameraIdle = onMapCameraIdle,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)

@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import dev.repera.domain.WorkoutLocationPin
 import dev.repera.domain.WorkoutRoutePoint
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -764,6 +766,22 @@ class VisualVerificationInstrumentedTest {
         }
     }
 
+    /** Pantalla casi vacía = SurfaceView aún sin contenido compuesto. Muestreo
+     *  cada 40 px con cuantización; < 32 colores distintos cuenta como vacía. */
+    private fun isMostlyBlank(bmp: android.graphics.Bitmap): Boolean {
+        val colors = HashSet<Int>()
+        var y = 0
+        while (y < bmp.height) {
+            var x = 0
+            while (x < bmp.width) {
+                colors.add((bmp.getPixel(x, y) shr 3) and 0x1F1F1F)
+                x += 40
+            }
+            y += 40
+        }
+        return colors.size < 32
+    }
+
     /** El SurfaceView GL del mapa fuerza una re-sincronización de superficie
      *  del diálogo al entrar (API 30 con GL por software: la captura sale en
      *  blanco y el título reporta no mostrado un instante, "No local sync
@@ -781,10 +799,12 @@ class VisualVerificationInstrumentedTest {
     @Test
     fun flujoBusquedaLugarConProveedorSimulado() {
         var selected: WorkoutLocationPin? = null
+        val cameraRef = java.util.concurrent.atomic.AtomicReference<Triple<Double, Double, Double>?>(null)
         brandContent {
             PlaceSearchSheet(initialPin = null, accountId = "acc-vis",
                 onSelect = { selected = it }, onDismiss = {},
-                providerOverride = FakePlaceProvider())
+                providerOverride = FakePlaceProvider(),
+                onMapCameraIdle = { z, la, lo -> cameraRef.set(Triple(z, la, lo)) })
         }
         compose.waitForIdle()
         compose.onNodeWithTag("place_query").performTextInput("box madrid")
@@ -795,10 +815,27 @@ class VisualVerificationInstrumentedTest {
         compose.waitForIdle()
         save("lugar_hoja_resultados", compose.onRoot().captureToImage())
         compose.onNodeWithText("Box Ejemplo Norte").performClick()
-        compose.waitForIdle()
-        save("lugar_hoja_confirmar", compose.onRoot().captureToImage())
-        // Estado lógico tras elegir: modo confirmar, panel cerrado (iOS).
+        // Evidencia de RECUPERACIÓN VISIBLE en pantalla completa real
+        // (UiAutomation, no captureToImage): el SurfaceView del mapa fuerza
+        // una re-sincronización de superficie (API 30, GL por software) y la
+        // captura puede salir vacía un instante. Medir cuánto dura el estado
+        // vacío y EXIGIR que el contenido reaparezca (conteo en logcat).
+        val tChoose = android.os.SystemClock.elapsedRealtime()
         waitTitleDisplayed("Lugar")
+        val tTitle = android.os.SystemClock.elapsedRealtime() - tChoose
+        var confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        while (confirmShot != null && isMostlyBlank(confirmShot) &&
+            android.os.SystemClock.elapsedRealtime() - tChoose < 15_000) {
+            Thread.sleep(500)
+            confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        }
+        android.util.Log.i("PlaceSearchTest",
+            "titulo visible en ${tTitle}ms; pantalla con contenido en " +
+            "${android.os.SystemClock.elapsedRealtime() - tChoose}ms")
+        assertTrue("contenido visible tras elegir (recuperación del estado vacío)",
+            confirmShot != null && !isMostlyBlank(confirmShot))
+        save("lugar_hoja_confirmar", confirmShot!!.asImageBitmap())
+        // Estado lógico tras elegir: modo confirmar, panel cerrado (iOS).
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertDoesNotExist()
         // Tocar el campo PRESENTA la búsqueda de nuevo (iOS searchable):
@@ -808,10 +845,34 @@ class VisualVerificationInstrumentedTest {
         waitTitleDisplayed("Buscar lugar")
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertIsDisplayed()
+        // El detector de tap (vista) NO roba los gestos del mapa: un arrastre
+        // debe MOVER la cámara (el pan llega a MapLibre) sin cerrar la
+        // búsqueda, y un pinch debe SUBIR el zoom igualmente.
+        compose.waitUntil(timeoutMillis = 60_000) { cameraRef.get() != null }
+        val cam0 = cameraRef.get()!!
+        compose.onNodeWithTag("place_pin_map").performTouchInput {
+            swipe(center, center + androidx.compose.ui.geometry.Offset(220f, 140f),
+                durationMillis = 300)
+        }
+        compose.waitUntil(timeoutMillis = 15_000) {
+            cameraRef.get()?.let { it.second != cam0.second || it.third != cam0.third } == true
+        }
+        compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
+        val z0 = cameraRef.get()!!.first
+        compose.onNodeWithTag("place_pin_map").performTouchInput {
+            down(0, center + androidx.compose.ui.geometry.Offset(-120f, 0f))
+            down(1, center + androidx.compose.ui.geometry.Offset(120f, 0f))
+            moveTo(0, center + androidx.compose.ui.geometry.Offset(-280f, 0f))
+            moveTo(1, center + androidx.compose.ui.geometry.Offset(280f, 0f))
+            up(0)
+            up(1)
+        }
+        compose.waitUntil(timeoutMillis = 15_000) { cameraRef.get()!!.first > z0 }
+        compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
         // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
-        // vuelve el modo confirmar con el panel cerrado. El cierre es un
-        // detector de tap a nivel de vista: funciona desde el primer frame,
-        // sin esperar la entrega asíncrona del mapa GL.
+        // vuelve el modo confirmar con el panel cerrado. El detector vive en
+        // la vista desde su creación (sin esperar la entrega del mapa GL), así
+        // que un toque temprano tampoco se pierde.
         compose.onNodeWithTag("place_pin_map").performClick()
         compose.waitForIdle()
         waitTitleDisplayed("Lugar")
