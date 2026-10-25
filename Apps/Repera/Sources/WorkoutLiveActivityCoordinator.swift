@@ -36,7 +36,7 @@ final class WorkoutLiveActivityCoordinator {
         let isGPS = sport.usesGPS
         let state = TrainingActivityAttributes.ContentState(
             phase: phase, title: sport.title, symbol: sport.symbol,
-            subtitle: isGPS ? "Recorrido GPS" : "Entrenamiento libre",
+            subtitle: isGPS ? "" : "Entrenamiento libre",
             timerAnchor: Date().addingTimeInterval(-TimeInterval(elapsed)), elapsedSeconds: elapsed,
             primaryValue: isGPS ? pace : "—",
             primaryLabel: isGPS ? (sport.displaysSpeed ? "Veloc. media" : "Ritmo medio") : "FC (ppm)",
