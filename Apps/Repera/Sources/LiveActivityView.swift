@@ -453,6 +453,9 @@ final class LiveActivityRecorder: NSObject {
     private var guidanceAudioActive = false
     private(set) var spokenGuidanceEnabled = true
     private var lastPosition: CLLocation?
+    /// Evita añadir a la sesión localizaciones de una pausa previa.
+    /// No se reinicia al volver del bloqueo: permite procesar fixes encolados.
+    private var gpsTrackingBeganAt: Date?
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
     private var lastPublishedDistanceMeters: Double = 0
@@ -636,6 +639,7 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func startGPS() {
+        gpsTrackingBeganAt = Date()
         switch manager.authorizationStatus {
         case .notDetermined:
             gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
@@ -664,6 +668,7 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func stopGPS() {
+        gpsTrackingBeganAt = nil
         manager.stopUpdatingLocation()
         if manager.allowsBackgroundLocationUpdates {
             manager.allowsBackgroundLocationUpdates = false
@@ -675,6 +680,20 @@ final class LiveActivityRecorder: NSObject {
     /// Checkpoint al pasar a segundo plano y mientras la vista está activa.
     func checkpoint() {
         if isActive && Date().timeIntervalSince(lastSave) >= 10 { persistSnapshot() }
+    }
+
+    /// Reconciliar los valores al reabrir Comenzar sin reiniciar el odómetro.
+    /// La fuente es siempre el grabador GPS; HealthKit no genera datos de
+    /// localización retroactivos de un entrenamiento libre de iPhone.
+    func refreshWhenActive() {
+        guard phase != .idle else { return }
+        if phase == .recording, sport.usesGPS {
+            // Una nueva lectura rompe el posible silencio del proveedor GPS
+            // durante el bloqueo. La distancia sigue sumándose SOLO en receive.
+            manager.requestLocation()
+        }
+        updateLiveActivity()
+        checkpoint()
     }
 
     func pause() {
@@ -715,8 +734,9 @@ final class LiveActivityRecorder: NSObject {
         return speed * 3.6
     }
 
-    /// Mantiene la velocidad media también al pausar y al finalizar;
-    /// no utiliza la última velocidad instantánea como media.
+    /// Mantiene la velocidad media también al pausar y al finalizar.
+    /// Recalcular a partir de distancia verificada y tiempo ACTIVO, nunca
+    /// reutilizar una lectura de ritmo almacenada en la interfaz.
     var averageSpeedKmh: Double? {
         guard sport.usesGPS, routePoints.count >= 2, durationSeconds > 0 else { return nil }
         return max(0, recordedDistanceMeters / durationSeconds * 3.6)
@@ -815,10 +835,21 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func receive(_ fix: LiveGPSFix) {
-        guard sport.usesGPS, (phase == .idle || phase == .recording), fix.accuracy >= 0,
-              fix.accuracy < 35,
-              abs(fix.timestamp.timeIntervalSinceNow) < 20
+        let now = Date()
+        guard sport.usesGPS, (phase == .idle || phase == .recording),
+              fix.accuracy >= 0, fix.accuracy < 35,
+              fix.timestamp <= now.addingTimeInterval(10)
         else { return }
+        if phase == .idle {
+            // Las previsualizaciones del mapa sí deben ser recientes.
+            guard now.timeIntervalSince(fix.timestamp) < 20 else { return }
+        } else {
+            // Core Location agrupa posiciones al suspender la UI. No descartar
+            // una tanda únicamente porque el primer punto tenga >20 s.
+            guard let trackingBeganAt = gpsTrackingBeganAt,
+                  fix.timestamp >= trackingBeganAt.addingTimeInterval(-3)
+            else { return }
+        }
         let position = CLLocation(
             coordinate: CLLocationCoordinate2D(latitude: fix.latitude, longitude: fix.longitude),
             altitude: fix.altitude,
@@ -847,9 +878,14 @@ final class LiveActivityRecorder: NSObject {
             // inicio de tramo pero NO sumar la recta ficticia a la distancia.
             if seconds > 30 || meters / seconds > (sport.isCycling ? 22 : 12) {
                 gpsMessage = "Señal GPS recuperada."
-            } else if meters >= 3 {
+            } else if meters >= max(3, min(7, max(fix.accuracy, previous.horizontalAccuracy) * 0.4)) {
                 recordedDistanceMeters += meters
             } else {
+                // En reposo el ritmo medio sigue variando con el tiempo activo.
+                // Publicarlo sin añadir distancia inventada ni duplicar GPS.
+                if Date().timeIntervalSince(lastLiveActivityUpdate) >= 15 {
+                    updateLiveActivity()
+                }
                 return
             }
         }
@@ -873,7 +909,8 @@ final class LiveActivityRecorder: NSObject {
         routePoints.append(point)
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
         if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5,
-           abs(recordedDistanceMeters - lastPublishedDistanceMeters) >= 3 {
+           (abs(recordedDistanceMeters - lastPublishedDistanceMeters) >= 3 ||
+            Date().timeIntervalSince(lastLiveActivityUpdate) >= 15) {
             updateLiveActivity()
         }
     }
@@ -1258,10 +1295,17 @@ struct LiveActivityView: View {
         }
         .tint(OG.accent)
         .onChange(of: scenePhase) { _, next in
-            if next != .active { recorder.checkpoint() }
+            if next == .active {
+                recorder.refreshWhenActive()
+            } else {
+                recorder.checkpoint()
+            }
         }
         .task(id: store.workoutsEpoch) {
             routes.recoverFromSessions(store.state.workouts)
+        }
+        .onAppear {
+            if scenePhase == .active { recorder.refreshWhenActive() }
         }
     }
 
@@ -1572,7 +1616,7 @@ struct LiveActivityView: View {
             VStack(spacing: 10) {
                 HStack(spacing: 5) {
                     smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)), prominent: true)
-                    smallMetric(recorder.sport.displaysSpeed ? "Velocidad" : "Ritmo",
+                    smallMetric(recorder.sport.displaysSpeed ? "Veloc. media" : "Ritmo medio",
                                 value: paceOrSpeed)
                     smallMetric("Distancia (km)",
                                 value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
@@ -1677,7 +1721,7 @@ struct LiveActivityView: View {
                     .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.usesGPS ?
-                    (recorder.sport.displaysSpeed ? "Velocidad (km/h)" : "Ritmo (min/km)") :
+                    (recorder.sport.displaysSpeed ? "Veloc. media (km/h)" : "Ritmo medio (min/km)") :
                     recorder.sport.title)
                     .font(.subheadline).foregroundStyle(OG.label2)
                 Spacer(minLength: 14)
@@ -2208,12 +2252,18 @@ struct LiveActivityView: View {
         )
     }
 
+    /// La misma métrica media en pantalla, Dynamic Island y bloqueo.
+    /// Cambia con cada punto GPS y con la duración activa, sin valores en caché.
     private var paceOrSpeed: String {
-        if recorder.sport.displaysSpeed {
-            return recorder.speedKmh.map { String(format: "%.1f", $0) } ?? "—"
+        guard let average = recorder.averageSpeedKmh, average > 0.1 else {
+            return recorder.sport.displaysSpeed ? "—" : "—:—"
         }
-        guard let seconds = recorder.paceSecondsPerKm, seconds < 3600 else { return "—:—" }
-        return String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+        if recorder.sport.displaysSpeed {
+            return String(format: "%.1f", average)
+        }
+        let seconds = Int(3600 / average)
+        guard seconds < 3600 else { return "—:—" }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func formattedTime(_ seconds: TimeInterval) -> String {
