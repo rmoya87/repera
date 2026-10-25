@@ -1297,7 +1297,7 @@ final class ReperaStore: NSObject {
             if draft.healthKitWorkoutUUID == nil {
                 draft.appleActiveEnergyKcal = nil
             }
-            if let start = draft.startedAt, let end = draft.finishedAt {
+            if let start = draft.startedAt, let end = draft.finishedAt, draft.liveSportID == nil {
                 draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
             }
             // La valoración anterior ya no corresponde a series/orden/carga editados.
@@ -1326,11 +1326,14 @@ final class ReperaStore: NSObject {
               let start = session.startedAt,
               let end = session.finishedAt,
               end >= start else { return false }
+        let liveSport = session.liveSportID.flatMap { LiveSport(rawValue: $0) }
         let apple = await HealthKitStore.shared.finishWorkout(
             sessionId: session.id,
             title: session.title,
             start: start,
-            end: end
+            end: end,
+            activityType: liveSport?.healthType ?? .traditionalStrengthTraining,
+            locationType: liveSport?.usesGPS == true ? .outdoor : .indoor
         )
         guard let uuid = apple.workoutUUID,
               var current = state.workouts.first(where: { $0.id == sessionId })
