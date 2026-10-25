@@ -62,9 +62,9 @@ internal fun RouteMapView(
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
-    androidx.compose.runtime.LaunchedEffect(points, loadedMap) {
+    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
-        if (points == renderedPoints) return@LaunchedEffect
+        if (points == renderedPoints && !plannedRoute) return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
                 style.removeLayer("route-line");style.removeSource("route-src")
