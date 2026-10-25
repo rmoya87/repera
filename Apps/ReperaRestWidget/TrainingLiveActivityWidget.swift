@@ -111,15 +111,11 @@ struct TrainingLiveActivityWidget: Widget {
         .background(.black)
     }
 
-    @ViewBuilder
-    private func timer(_ state: TrainingActivityAttributes.ContentState) -> some View {
+    private func timer(_ state: TrainingActivityAttributes.ContentState) -> Text {
         if state.phase == .running {
-            Text(state.timerAnchor, style: .timer)
-                .monospacedDigit()
-        } else {
-            Text(timeString(state.elapsedSeconds))
-                .monospacedDigit()
+            return Text(state.timerAnchor, style: .timer)
         }
+        return Text(timeString(state.elapsedSeconds))
     }
 
     private func timeString(_ total: Int) -> String {
