@@ -391,6 +391,18 @@ final class WatchSessionHub: NSObject {
     /// «Comenzar» comparte el UUID, la persistencia y el transporte offline
     /// de Play, pero no inventa ejercicios/series para deportes sin prescripción.
     private func acceptFreeWorkout(_ remote: WorkoutSession) {
+        if remote.phase == .idle {
+            guard active?.id == remote.id, active?.liveSportID != nil else { return }
+            stopClock()
+            stopMotion()
+            health.discardFreeWorkout()
+            controller = nil
+            startedOnThisWatch = false
+            isPaused = false
+            lastClockTick = nil
+            save()
+            return
+        }
         if remote.phase == .finished {
             if active?.id == remote.id { finishWorkout() }
             return
