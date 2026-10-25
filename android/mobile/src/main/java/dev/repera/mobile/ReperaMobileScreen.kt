@@ -734,7 +734,7 @@ internal fun SettingsTab(
         TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
         if(overview?.trainingSettings?.scheduleMode=="rotation")
             RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
-        OutlinedButton(onClick=onHealthConnect,enabled=!busy) {Text("Conectar con Salud")}
+        PermissionSettingsSection(onHealthConnect)
         Text("Datos", style = MaterialTheme.typography.titleMedium)
         overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
         OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null) {Text("Exportar JSON")}

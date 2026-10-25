@@ -14,6 +14,18 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TrainingSettingsInstrumentedTest {
     @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    private fun capture(name:String) {
+        compose.waitForIdle();Thread.sleep(600)
+        val instrument=InstrumentationRegistry.getInstrumentation();val context=instrument.targetContext
+        val bitmap=instrument.uiAutomation.takeScreenshot()!!
+        val values=android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,name)
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/ReperaVerification")
+        }
+        val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
+        context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+    }
     @Test fun rotationAdvancesOnlyAfterFinishingNextRoutineAndNeverOnDiscard() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-rotation-${java.util.UUID.randomUUID()}"
@@ -54,8 +66,11 @@ class TrainingSettingsInstrumentedTest {
                 repo.updateTrainingSettings(next);value=next
             })
         } }
+        capture("ajustes_entrenamiento_completo.png")
         compose.onNodeWithText("Domingo").performScrollTo().performClick()
         compose.onNodeWithText("Añadir 15 s").performScrollTo().performClick()
+        compose.onNodeWithText("Abrir Ajustes del sistema").performScrollTo().assertIsDisplayed()
+        capture("ajustes_permisos_datos.png")
         compose.runOnIdle {
             val saved=JSONObject(String(store.read()!!));val settings=saved.getJSONObject("settings")
             assertEquals("sunday",settings.getString("weekStartsOn"))
