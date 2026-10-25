@@ -463,14 +463,17 @@ private enum CatalogBackgroundRefreshScheduler {
 
     /// Native iOS refresh is opportunistic: never assume this is an exact timer.
     static func schedule() {
-        let request = BGAppRefreshTaskRequest(identifier: identifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
-        // Keep a single pending native request for this identifier.
-        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            // An unavailable or disabled background refresh must never block UI.
+        // Never cancel/restart a pending request on every foreground transition:
+        // doing so could indefinitely postpone the OS-selected opportunity.
+        BGTaskScheduler.shared.getPendingTaskRequests { pending in
+            guard !pending.contains(where: { $0.identifier == identifier }) else { return }
+            let request = BGAppRefreshTaskRequest(identifier: identifier)
+            request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
+            do {
+                try BGTaskScheduler.shared.submit(request)
+            } catch {
+                // iOS may disable background tasks. Foreground sync remains automatic.
+            }
         }
     }
 
