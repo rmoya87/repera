@@ -418,6 +418,14 @@ final class WatchSessionHub: NSObject {
             return
         }
         if remote.phase == .finished {
+            // El evento puede llegar antes que el snapshot de inicio;
+            // marcarlo cerrado evita un workout tardío o duplicado.
+            var closed = discardedFreeIDs
+            closed.insert(remote.id)
+            UserDefaults.standard.set(
+                Array(closed.suffix(60)).map(\.uuidString),
+                forKey: discardedFreeKey
+            )
             if active?.id == remote.id { finishWorkout() }
             return
         }
