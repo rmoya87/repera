@@ -457,9 +457,9 @@ final class LiveActivityRecorder: NSObject {
     private var lastLiveActivityUpdate = Date.distantPast
     private var lastPublishedDistanceMeters: Double = 0
     private let manager = CLLocationManager()
-    /// La sesión de Core Location actual mantiene visibilidad y autorización
-    /// When In Use en segundo plano sin tocar allowsBackgroundLocationUpdates,
-    /// cuyo setter aborta el proceso si la app compilada no es backgroundable.
+    /// La sesión de Core Location mantiene autorización When In Use activa.
+    /// Activamos además las actualizaciones continuas solo si el bundle REAL
+    /// incluye UIBackgroundModes/location (de lo contrario iOS abortaría la app).
     private var backgroundLocationSession: CLBackgroundActivitySession?
     private let snapshotKey = "repera.live.current.v1"
 
@@ -639,16 +639,15 @@ final class LiveActivityRecorder: NSObject {
             gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
             manager.requestWhenInUseAuthorization()
         case .authorizedAlways, .authorizedWhenInUse:
-            // CLBackgroundActivitySession es la API moderna de iOS 17+.
-            // Se crea solo si el Info.plist REAL del proceso incluye location.
-            // No usar CLLocationManager.allowsBackgroundLocationUpdates = true:
-            // Core Location lanza una excepción Objective-C no recuperable si
-            // falta la capacidad, por ejemplo con un proyecto Xcode antiguo.
+            // Comprobar el Info.plist REAL, no solo project.yml: la propiedad
+            // allowsBackgroundLocationUpdates aborta si falta este modo.
             let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
             let isApp = Bundle.main.bundleURL.pathExtension == "app"
             let isTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             if modes.contains("location"), isApp, !isTest,
                UIApplication.shared.applicationState == .active {
+                manager.allowsBackgroundLocationUpdates = true
+                manager.showsBackgroundLocationIndicator = true
                 if backgroundLocationSession == nil {
                     backgroundLocationSession = CLBackgroundActivitySession()
                 }
@@ -664,6 +663,9 @@ final class LiveActivityRecorder: NSObject {
 
     private func stopGPS() {
         manager.stopUpdatingLocation()
+        if manager.allowsBackgroundLocationUpdates {
+            manager.allowsBackgroundLocationUpdates = false
+        }
         backgroundLocationSession?.invalidate()
         backgroundLocationSession = nil
     }
