@@ -761,6 +761,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 accountId = profile?.uniqueId.orEmpty(),
                 initialExternalRoute = externalRoute,
                 onExternalRouteHandled = { externalRoute = null },
+                onUpdateHealthGoals = { goals -> runWorkoutAction { updateHealthGoals(goals) } },
                 onUpdateRotation = { plan -> runWorkoutAction { updateRotation(plan) } },
                 onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
                 onLiveActivitySaved = {
@@ -1566,7 +1567,8 @@ data class StateOverview(
     val liveSportSessions: List<dev.repera.domain.LiveSportHistory.LiveSession> = emptyList(),
     val completeHistory: List<WorkoutHistoryEntry> = emptyList(),
     internal val trainingSettings:TrainingSettings = TrainingSettings(),
-    internal val rotationPlan:dev.repera.domain.RotationPlan? = null
+    internal val rotationPlan:dev.repera.domain.RotationPlan? = null,
+    val healthGoals:HealthGoals=HealthGoals()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1895,7 +1897,7 @@ data class StateOverview(
                 )
             }
             return StateOverview(
-                trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),
+                trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),healthGoals=HealthGoals.read(json),
                 liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,
                 favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,

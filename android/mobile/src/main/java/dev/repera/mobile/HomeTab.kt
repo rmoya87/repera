@@ -134,6 +134,11 @@ internal fun HomeTab(
                     Text("Energía activa: " + (todayHealth?.activeKcal?.let {
                         "${it.toInt()} kcal"
                     } ?: "—"))
+                    overview?.healthGoals?.let { goals ->
+                        goals.steps?.let { target -> Text("Objetivo pasos: ${todayHealth?.steps?.let { "$it / $target" } ?: "Sin datos / $target"}") }
+                        goals.energyKcal?.let { target -> Text("Objetivo energía: ${todayHealth?.activeKcal?.let { "${it.toInt()} / $target kcal" } ?: "Sin datos / $target kcal"}") }
+                        goals.weeklyWorkouts?.let { target -> Text("Objetivo semanal: ${overview.workoutsThisWeek} / $target entrenamientos") }
+                    }
                     TextButton(
                         enabled = !busy,
                         onClick = onHealthConnect

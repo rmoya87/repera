@@ -160,6 +160,7 @@ fun ReperaMobileScreen(
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
+    onUpdateHealthGoals:(HealthGoals)->Unit = {},
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
     onLiveActivitySaved: () -> Unit = {},
@@ -560,7 +561,7 @@ fun ReperaMobileScreen(
                         },
                         onImportJson = onImportJson,
                         onImportCsv = onImportCsv,
-                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,
+                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
                         onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
                     )
                 }
@@ -723,6 +724,7 @@ internal fun SettingsTab(
     onImportCsv: () -> Unit,
     overview:StateOverview? = null,
     onUpdateTrainingSettings:(TrainingSettings)->Unit = {},
+    onUpdateHealthGoals:(HealthGoals)->Unit = {},
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onExportJson:()->Unit = {},
     onHealthConnect:()->Unit = {},
@@ -735,6 +737,7 @@ internal fun SettingsTab(
         if(overview?.trainingSettings?.scheduleMode=="rotation")
             RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
         PermissionSettingsSection(onHealthConnect)
+        HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
         Text("Datos", style = MaterialTheme.typography.titleMedium)
         overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
         OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null) {Text("Exportar JSON")}
