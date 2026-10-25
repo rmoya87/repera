@@ -543,6 +543,11 @@ private struct LiveRouteTurn: Sendable {
         if abs(angleDegrees) > 145 { return "Cambio de sentido" }
         return angleDegrees > 0 ? "Gira a la derecha" : "Gira a la izquierda"
     }
+
+    var symbol: String {
+        if abs(angleDegrees) > 145 { return "arrow.uturn.backward" }
+        return angleDegrees > 0 ? "arrow.turn.up.right" : "arrow.turn.up.left"
+    }
 }
 
 /// Guía orientativa de GPX. No se inventan calles ni se usa como motor de
@@ -647,6 +652,11 @@ final class LiveActivityRecorder: NSObject {
     private var kilometerSplits: [LiveKmSplit] = []
     private(set) var latestKilometerReport: String?
     private(set) var upcomingTurn: String?
+    private(set) var upcomingTurnInstruction: String?
+    private(set) var upcomingTurnMeters: Int?
+    private(set) var upcomingTurnSymbol: String = "arrow.up"
+    private(set) var followingTurnMeters: Int?
+    private(set) var followingTurnSymbol: String?
     private var lastKilometerBoundarySeconds: TimeInterval = 0
     private var previousFixActiveSeconds: TimeInterval?
     private var selectedRouteDistance: [Double] = []
@@ -756,7 +766,9 @@ final class LiveActivityRecorder: NSObject {
         }
         let phrase = AVSpeechUtterance(string: message)
         phrase.voice = preferredGuidanceVoice
-        phrase.rate = 0.51
+        // Un ritmo ligeramente más pausado ayuda a la prosodia de voces premium.
+        phrase.rate = 0.48
+        phrase.pitchMultiplier = 1.02
         phrase.volume = 1
         speechSynthesizer.speak(phrase)
         return true
@@ -783,6 +795,10 @@ final class LiveActivityRecorder: NSObject {
         )
         announcedTurnIndices = []
         upcomingTurn = nil
+        upcomingTurnInstruction = nil
+        upcomingTurnMeters = nil
+        followingTurnMeters = nil
+        followingTurnSymbol = nil
     }
 
     /// Precarga el punto azul sin iniciar ni registrar todavía una sesión.
@@ -1188,6 +1204,10 @@ final class LiveActivityRecorder: NSObject {
               selectedRouteDistance.count == route.points.count
         else {
             upcomingTurn = nil
+            upcomingTurnInstruction = nil
+            upcomingTurnMeters = nil
+            followingTurnMeters = nil
+            followingTurnSymbol = nil
             return
         }
         // Un GPX puede superar 20 000 puntos. Limitar el trabajo GPS a
@@ -1207,6 +1227,10 @@ final class LiveActivityRecorder: NSObject {
         }
         guard nearestMeters < 55 else {
             upcomingTurn = "Fuera de ruta · revisa el mapa"
+            upcomingTurnInstruction = nil
+            upcomingTurnMeters = nil
+            followingTurnMeters = nil
+            followingTurnSymbol = nil
             return
         }
         let along = selectedRouteDistance[bestIndex]
@@ -1214,9 +1238,25 @@ final class LiveActivityRecorder: NSObject {
             $0.routeIndex > bestIndex && $0.metersAlongRoute > along + 8
         }) else {
             upcomingTurn = "Sigue el recorrido"
+            upcomingTurnInstruction = nil
+            upcomingTurnMeters = nil
+            followingTurnMeters = nil
+            followingTurnSymbol = nil
             return
         }
         let remaining = max(0, next.metersAlongRoute - along)
+        upcomingTurnInstruction = next.instruction
+        upcomingTurnMeters = Int((remaining / 10).rounded() * 10)
+        upcomingTurnSymbol = next.symbol
+        if let following = selectedRouteTurns.first(where: {
+            $0.routeIndex > next.routeIndex && $0.metersAlongRoute > next.metersAlongRoute
+        }) {
+            followingTurnMeters = Int(((following.metersAlongRoute - next.metersAlongRoute) / 10).rounded() * 10)
+            followingTurnSymbol = following.symbol
+        } else {
+            followingTurnMeters = nil
+            followingTurnSymbol = nil
+        }
         if remaining > 250 {
             upcomingTurn = "Sigue el recorrido"
         } else {
@@ -1565,7 +1605,15 @@ struct LiveActivityView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 12) {
-                mapHeader
+                ZStack(alignment: .topLeading) {
+                    mapHeader
+                    if recorder.phase == .recording,
+                       recorder.chosenRoute != nil,
+                       recorder.upcomingTurnMeters != nil {
+                        navigationDirectionsBanner
+                            .padding(.trailing, 76)
+                    }
+                }
 
                 if let offRoute = recorder.offRouteMeters, offRoute > 60 {
                     Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
@@ -1573,17 +1621,6 @@ struct LiveActivityView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .glassEffect(.regular, in: .capsule)
-                }
-                if recorder.phase == .recording,
-                   recorder.chosenRoute != nil,
-                   let instruction = recorder.upcomingTurn {
-                    Label(instruction, systemImage: "arrow.triangle.turn.up.right.diamond")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
-                        .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
                 }
                 if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
                     Text(gpsMessage)
@@ -1616,6 +1653,46 @@ struct LiveActivityView: View {
         .onChange(of: recorder.currentCourseDegrees) { _, _ in
             if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
         }
+    }
+
+    /// Indicaciones orientativas basadas en los giros del GPX, sin inventar nombres de calles.
+    private var navigationDirectionsBanner: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(spacing: 5) {
+                Image(systemName: recorder.upcomingTurnSymbol)
+                    .font(.system(size: 30, weight: .bold))
+                Text("\(recorder.upcomingTurnMeters ?? 0) m")
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+            }
+            .frame(width: 70)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(recorder.upcomingTurnInstruction ?? "Sigue la ruta")
+                    .font(.subheadline.weight(.bold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                if let meters = recorder.followingTurnMeters,
+                   let symbol = recorder.followingTurnSymbol {
+                    HStack(spacing: 5) {
+                        Text("Después")
+                        Image(systemName: symbol)
+                        Text("\(meters) m").monospacedDigit()
+                    }
+                    .font(.caption.weight(.medium))
+                    .opacity(0.9)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundStyle(.white)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.02, green: 0.35, blue: 0.30),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(recorder.upcomingTurn ?? "Indicaciones de la ruta")
     }
 
     /// Descartar encima, GPS y Métricas debajo. GPS solo al alejarse del centro.
@@ -1737,12 +1814,12 @@ struct LiveActivityView: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(OG.label)
                 .frame(width: 44, height: 44)
                 .glassEffect(.regular.interactive(), in: .circle)
         }
         .buttonStyle(.plain)
-        .tint(.black)
+        .tint(OG.label)
         .accessibilityLabel(label)
     }
 
@@ -2011,7 +2088,7 @@ struct LiveActivityView: View {
                             VStack(spacing: 7) {
                                 selectionCircle(
                                     "point.topleft.down.curvedto.point.bottomright.up",
-                                    foreground: OG.label
+                                    foreground: OG.accent
                                 )
                                 Text(recorder.chosenRoute == nil ? "Cargar ruta" : "Ruta elegida")
                                     .font(.caption2.weight(.medium))
@@ -2507,12 +2584,12 @@ private struct LiveRouteLibraryPickerView: View {
                         Button(action: onClose) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(OG.label)
                                 .frame(width: 42, height: 42)
                                 .glassEffect(.regular.interactive(), in: .circle)
                         }
                         .buttonStyle(.plain)
-                        .tint(.black)
+                        .tint(OG.label)
                         .accessibilityLabel("Cerrar Mis rutas")
                     }
                     .padding(.vertical, 4)
@@ -2605,7 +2682,6 @@ private struct LiveAllRoutesView: View {
 
 private struct LiveRouteLibraryRow: View {
     @State private var routes = LiveRoutesStore.shared
-    @State private var favoriteError: String?
     let routeID: UUID
     var onUseRoute: (LiveSavedRoute) -> Void
     var onDeleteRoute: (UUID) -> Void
@@ -2616,57 +2692,37 @@ private struct LiveRouteLibraryRow: View {
 
     var body: some View {
         if let route {
-            HStack(spacing: 10) {
-                NavigationLink {
-                    LiveRouteLibraryDetailView(
-                        routeID: routeID,
-                        onUseRoute: onUseRoute,
-                        onDeleteRoute: onDeleteRoute
-                    )
-                } label: {
-                    HStack(spacing: 12) {
-                        LiveRouteTrace(points: route.points)
-                            .stroke(OG.accent, style: StrokeStyle(
-                                lineWidth: 2.8, lineCap: .round, lineJoin: .round
-                            ))
-                            .frame(width: 64, height: 54)
-                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(route.title.isEmpty ? route.sportTitle : route.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                                .lineLimit(2)
-                            Text(String(format: "%.2f km · %@", route.distanceKm, route.sportTitle))
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
+            // Link directo en la List: el chevron nativo ocupa el extremo derecho.
+            // Los favoritos se gestionan desde la ficha de ruta.
+            NavigationLink {
+                LiveRouteLibraryDetailView(
+                    routeID: routeID,
+                    onUseRoute: onUseRoute,
+                    onDeleteRoute: onDeleteRoute
+                )
+            } label: {
+                HStack(spacing: 12) {
+                    LiveRouteTrace(points: route.points)
+                        .stroke(OG.accent, style: StrokeStyle(
+                            lineWidth: 2.8, lineCap: .round, lineJoin: .round
+                        ))
+                        .frame(width: 64, height: 54)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(route.title.isEmpty ? route.sportTitle : route.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                        Text(String(format: "%.2f km · %@", route.distanceKm, route.sportTitle))
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-                    .padding(.vertical, 5)
                 }
-                Button {
-                    do {
-                        try routes.setFavorite(routeID, !route.isFavorite)
-                    } catch {
-                        favoriteError = "No se pudo actualizar el favorito."
-                    }
-                } label: {
-                    Image(systemName: route.isFavorite ? "star.fill" : "star")
-                        .font(.system(size: 21))
-                        .foregroundStyle(route.isFavorite ? OG.yellow : OG.label2)
-                        .frame(width: 38, height: 44)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(route.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos")
+                .padding(.vertical, 5)
             }
-            .alert("No se pudo guardar", isPresented: Binding(
-                get: { favoriteError != nil },
-                set: { if !$0 { favoriteError = nil } }
-            )) {
-                Button("Aceptar", role: .cancel) { favoriteError = nil }
-            } message: { Text(favoriteError ?? "") }
         }
     }
 }
@@ -2914,11 +2970,7 @@ private struct LiveRouteLibraryDetailView: View {
                         stat("Distancia", value: String(format: "%.2f km", distanceMeters / 1000))
                         stat("Repeticiones", value: "\(attempts.count)")
                         stat("Mejor tiempo", value: bestTime.map(clock) ?? "—")
-                    }
-                    if let gain = elevationGainMeters, gain > 0 {
-                        Label("Desnivel positivo: \(Int(gain.rounded())) m", systemImage: "mountain.2")
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
+                        stat("Desnivel", value: elevationGainMeters.map { "\(Int($0.rounded())) m" } ?? "—")
                     }
                     if completeAttempts.count < attempts.count {
                         Text("El mejor tiempo solo cuenta recorridos completos de distancia comparable.")
@@ -3053,13 +3105,14 @@ private struct LiveRouteLibraryDetailView: View {
 
 
     private func stat(_ name: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .center, spacing: 5) {
             Text(value)
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
             Text(name).font(.caption2).foregroundStyle(OG.label2)
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func clock(_ seconds: TimeInterval) -> String {

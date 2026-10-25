@@ -96,6 +96,8 @@ struct LibraryView: View {
     /// Texto del campo de búsqueda (filtra al instante; el índice precomputado hace barato el rank).
     @State private var query = ""
     @State private var showingAdd = false
+    @State private var selectedExerciseID: UUID?
+    @State private var isExpandedLayout = false
     @State private var showFilter = false
     @State private var name = ""
     @State private var muscle = "Pecho"
@@ -130,6 +132,57 @@ struct LibraryView: View {
                     (query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         || !filteredWODTemplates.isEmpty) {
                     wodsList
+                } else if isExpandedLayout {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(spacing: 0) {
+                            HStack(spacing: 9) {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundStyle(OG.label2)
+                                TextField("Buscar ejercicios", text: $query)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                            }
+                            .padding(12)
+                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal, OG.pad)
+                            .padding(.vertical, 10)
+
+                            LibraryExerciseList(
+                                sections: cachedSections,
+                                zoomNamespace: exerciseZoomNamespace,
+                                reduceMotion: reduceMotion,
+                                onToggleFavorite: { store.toggleFavorite($0) },
+                                onDelete: { store.deleteExercise($0) },
+                                onSelect: { selectedExerciseID = $0 },
+                                selectedExerciseID: selectedExerciseID
+                            )
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(OG.bg)
+
+                        Group {
+                            if let selectedExerciseID {
+                                NavigationStack {
+                                    ExerciseDetailView(
+                                        exerciseId: selectedExerciseID,
+                                        onOpenedWorkout: onOpenedWorkout
+                                    )
+                                }
+                                .id(selectedExerciseID)
+                            } else {
+                                ContentUnavailableView {
+                                    Label("Selecciona ejercicio", systemImage: "dumbbell")
+                                } description: {
+                                    Text("Elige un ejercicio en la lista para ver sus datos, instrucciones y progreso.")
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(OG.surface, in: RoundedRectangle(cornerRadius: 20))
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.trailing, OG.pad)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     LibraryExerciseList(
                         sections: cachedSections,
@@ -139,6 +192,9 @@ struct LibraryView: View {
                         onDelete: { store.deleteExercise($0) }
                     )
                 }
+            }
+            .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
+                isExpandedLayout = expanded
             }
             .scrollDismissesKeyboard(.interactively)
             // Only mute list diff animations — do not disable keyboard / focus transitions.
@@ -194,11 +250,11 @@ struct LibraryView: View {
                 }
             }
             // Campo nativo del sistema debajo del título / filtro / +.
-            .searchable(
-                text: $query,
-                placement: .navigationBarDrawer(displayMode: .always),
+            .modifier(LibrarySearchIfCompact(
+                query: $query,
+                enabled: !isExpandedLayout || filterMode == .wods || filterMode == .sports,
                 prompt: filterMode == .wods ? "Nombre o formato" : "Nombre, músculo o equipo"
-            )
+            ))
             .navigationDestination(for: UUID.self) { id in
                 ExerciseDetailView(exerciseId: id, onOpenedWorkout: onOpenedWorkout)
                     .modifier(ExerciseZoomDestinationModifier(
@@ -636,6 +692,8 @@ private struct LibraryExerciseList: View {
     var reduceMotion: Bool
     var onToggleFavorite: (UUID) -> Void
     var onDelete: (UUID) -> Void
+    var onSelect: ((UUID) -> Void)? = nil
+    var selectedExerciseID: UUID? = nil
 
     var body: some View {
         List {
@@ -658,14 +716,29 @@ private struct LibraryExerciseList: View {
     @ViewBuilder
     private func rows(_ items: [LibraryRowModel]) -> some View {
         ForEach(items) { row in
-            NavigationLink(value: row.id) {
-                LibraryExerciseRowLabel(row: row)
+            Group {
+                if let onSelect {
+                    Button {
+                        onSelect(row.id)
+                    } label: {
+                        LibraryExerciseRowLabel(row: row)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(
+                        selectedExerciseID == row.id ? OG.surface2 : OG.surface
+                    )
+                } else {
+                    NavigationLink(value: row.id) {
+                        LibraryExerciseRowLabel(row: row)
+                    }
+                    .modifier(ExerciseZoomSourceModifier(
+                        id: row.id,
+                        namespace: zoomNamespace,
+                        enabled: !reduceMotion
+                    ))
+                }
             }
-            .modifier(ExerciseZoomSourceModifier(
-                id: row.id,
-                namespace: zoomNamespace,
-                enabled: !reduceMotion
-            ))
             .swipeActions {
                 Button {
                     onToggleFavorite(row.id)
@@ -680,6 +753,25 @@ private struct LibraryExerciseList: View {
                     }
                 }
             }
+        }
+    }
+}
+
+private struct LibrarySearchIfCompact: ViewModifier {
+    @Binding var query: String
+    var enabled: Bool
+    var prompt: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled {
+            content.searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: prompt
+            )
+        } else {
+            content
         }
     }
 }

@@ -68,6 +68,7 @@ struct HomeView: View {
     /// Un año a cada lado del presente, con desplazamiento continuo día a día.
     private static let weekCarouselRadius = 52
     @State private var calendarScrollID: String?
+    @State private var isExpandedLayout = false
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     /// Máximo ancho del calendario: 7 días completos con sus huecos.
     /// En paisaje evita cuadros desproporcionados o fragmentos laterales.
@@ -243,10 +244,20 @@ struct HomeView: View {
                     // Progreso/Actividad conservan el lienzo agrupado gris,
                     // que empieza justo donde termina la sección blanca.
                     VStack(alignment: .leading, spacing: 12) {
-                        weeklyProgressCard
+                        if isExpandedLayout {
+                            HStack(alignment: .top, spacing: 12) {
+                                weeklyProgressCard
+                                    .frame(maxWidth: .infinity, alignment: .top)
+                                activityTodayCard
+                                    .frame(maxWidth: .infinity, alignment: .top)
+                            }
                             .padding(.horizontal, OG.pad)
-                        activityTodayCard
-                            .padding(.horizontal, OG.pad)
+                        } else {
+                            weeklyProgressCard
+                                .padding(.horizontal, OG.pad)
+                            activityTodayCard
+                                .padding(.horizontal, OG.pad)
+                        }
                         if calendar.isDateInToday(selectedDay) {
                             RecoveryHomeCard()
                                 .padding(.horizontal, OG.pad)
@@ -258,7 +269,8 @@ struct HomeView: View {
                     }
                     .padding(.top, 12)
                     .padding(.bottom, 28)
-                    .ogReadableColumn()
+                    .frame(maxWidth: isExpandedLayout ? .infinity : OG.contentColumnMaxWidth)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     // En paisaje la safe area lateral pertenece al gris de
                     // Progreso/Actividad; el blanco solo es calendario + entreno.
                     .background(OG.bg.ignoresSafeArea(edges: .horizontal))
@@ -268,8 +280,11 @@ struct HomeView: View {
             // El gris agrupado debe ocupar el viewport entero y la zona
             // inferior segura, incluso si no hay tarjetas más abajo.
             .background(OG.bg.ignoresSafeArea(edges: .bottom))
+            .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
+                isExpandedLayout = expanded
+            }
             .refreshable { await businessData.refresh() }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), backgroundColor: OG.surface) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
@@ -545,13 +560,14 @@ struct HomeView: View {
                 .padding(.horizontal, OG.pad)
 
             GeometryReader { geo in
-                let spacing: CGFloat = 4
-                // Sin crecer más que la altura visible: antes en paisaje
-                // se calculaban cuadros de más de 100 pt en 72 pt de alto.
-                let side = min(
-                    max(1, weekCarouselHeight - 8),
-                    max(1, (geo.size.width - spacing * 6) / 7)
-                )
+                let preferredSide = max(1, weekCarouselHeight - 8)
+                let visibleDays = isExpandedLayout
+                    ? max(7, Int((geo.size.width + 4) / (preferredSide + 12)))
+                    : 7
+                let side = min(preferredSide, max(1, (geo.size.width - 4 * CGFloat(visibleDays - 1)) / CGFloat(visibleDays)))
+                let spacing = isExpandedLayout && visibleDays > 1
+                    ? max(4, (geo.size.width - CGFloat(visibleDays) * side) / CGFloat(visibleDays - 1))
+                    : CGFloat(4)
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: spacing) {
                         ForEach(cachedCalendarDays, id: \.iso) { day in
@@ -571,7 +587,7 @@ struct HomeView: View {
                 .scrollPosition(id: $calendarScrollID, anchor: .leading)
             }
             .frame(height: weekCarouselHeight)
-            .frame(maxWidth: calendarVisibleWidth)
+            .frame(maxWidth: isExpandedLayout ? .infinity : calendarVisibleWidth)
             // Recorta los días vecinos al viewport de siete columnas: en
             // paisaje no deben asomar dos cuadrados blancos en los extremos.
             .clipped()

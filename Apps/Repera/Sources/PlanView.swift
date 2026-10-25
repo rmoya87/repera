@@ -31,6 +31,7 @@ struct PlanView: View {
     @State private var confirmClearSchedule = false
     @State private var assigningDay: Int?
     @State private var copyWeekFlash: Int?
+    @State private var isExpandedLayout = false
 
     private struct AIProgramSummary: Decodable, Identifiable {
         let id: UUID
@@ -70,26 +71,56 @@ struct PlanView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Picker("Sección", selection: $section) {
-                        ForEach(DiarioSection.allCases) { tab in
-                            Text(tab.title).tag(tab)
+            Group {
+                if isExpandedLayout {
+                    HStack(alignment: .top, spacing: 12) {
+                        List {
+                            Section {
+                                Text("Programado")
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(OG.label)
+                            }
+                            scheduleContent
+                        }
+                        .ogListChrome()
+                        .frame(maxWidth: .infinity)
+
+                        List {
+                            Section {
+                                Text("Rutinas")
+                                    .font(.title2.weight(.bold))
+                                    .foregroundStyle(OG.label)
+                            }
+                            routinesContent
+                        }
+                        .ogListChrome()
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, OG.pad)
+                } else {
+                    List {
+                        Section {
+                            Picker("Sección", selection: $section) {
+                                ForEach(DiarioSection.allCases) { tab in
+                                    Text(tab.title).tag(tab)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .ogSegmentedListRow()
+                        }
+                        switch section {
+                        case .schedule:
+                            scheduleContent
+                        case .routines:
+                            routinesContent
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .ogSegmentedListRow()
-                }
-
-                switch section {
-                case .schedule:
-                    scheduleContent
-                case .routines:
-                    routinesContent
+                    .ogListChrome()
                 }
             }
-            .listStyle(.insetGrouped)
-            .ogListChrome()
+            .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
+                isExpandedLayout = expanded
+            }
             .refreshable {
                 await businessData.refresh()
                 await refreshAIPrograms()
@@ -99,7 +130,7 @@ struct PlanView: View {
                 Task { await refreshAIPrograms() }
             }
             .ogFixedTopBar("Diario") {
-                if section == .schedule {
+                if isExpandedLayout || section == .schedule {
                     Menu {
                         Button {
                             let n = store.copyPreviousWeekSchedule()

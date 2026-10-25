@@ -534,6 +534,7 @@ struct HealthRecoveryProgressView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
 
     private var isPro: Bool { subscriptions.isPro }
+    @State private var isExpandedLayout = false
 
     private struct TrainingRecoveryPoint: Identifiable, Sendable {
         let date: Date
@@ -661,54 +662,22 @@ struct HealthRecoveryProgressView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            trainingRecoveryCard
-            if isPro {
-                if appliedRecoveryKey == trainingRecoveryRefreshKey {
-                    if recoveryPoints.count >= 2 {
-                        trainingRecoveryTrendCard
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            OGCardSectionTitle(title: "Evolución de recuperación")
-                            OGCard {
-                                ProgressEmptyChart(
-                                    message: "Aún no hay suficientes registros para ver la recuperación.",
-                                    height: 185
-                                )
-                            }
-                        }
-                    }
+        Group {
+            if isExpandedLayout {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 16, alignment: .top),
+                    GridItem(.flexible(), spacing: 16, alignment: .top)
+                ], alignment: .leading, spacing: 16) {
+                    recoveryCards
                 }
             } else {
-                recoveryTrendPreview
-            }
-
-            if hasSleepData {
-                sleepContent
-            } else {
-                softSleepEmpty
-            }
-
-            if isPro {
-                physiologyContent
-            } else {
-                physiologyPreview
-            }
-
-            if hasCycleData {
-                cycleContent
-            }
-
-            if !isPro {
-                ProTeaserCard(
-                    title: "Recuperación completa",
-                    bodyText: "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
-                    cta: "Descubrir Repera Pro",
-                    appearance: .recovery
-                ) {
-                    subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+                VStack(alignment: .leading, spacing: 16) {
+                    recoveryCards
                 }
             }
+        }
+        .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
+            isExpandedLayout = expanded
         }
         // Las lecturas de Salud ya se han cargado: no reiniciar todas las
         // tarjetas al entrar y salir de la pestaña Recuperación.
@@ -718,6 +687,54 @@ struct HealthRecoveryProgressView: View {
         }
         .task(id: trainingRecoveryRefreshKey) {
             await prepareTrainingRecovery()
+        }
+    }
+
+    @ViewBuilder
+    private var recoveryCards: some View {
+        trainingRecoveryCard
+        if isPro {
+            if appliedRecoveryKey == trainingRecoveryRefreshKey {
+                if recoveryPoints.count >= 2 {
+                    trainingRecoveryTrendCard
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        OGCardSectionTitle(title: "Evolución de recuperación")
+                        OGCard {
+                            ProgressEmptyChart(
+                                message: "Aún no hay suficientes registros para ver la recuperación.",
+                                height: 185
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            recoveryTrendPreview
+        }
+
+        if hasSleepData {
+            sleepContent
+        } else {
+            softSleepEmpty
+        }
+        if isPro {
+            physiologyContent
+        } else {
+            physiologyPreview
+        }
+        if hasCycleData {
+            cycleContent
+        }
+        if !isPro {
+            ProTeaserCard(
+                title: "Recuperación completa",
+                bodyText: "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
+                cta: "Descubrir Repera Pro",
+                appearance: .recovery
+            ) {
+                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+            }
         }
     }
 
