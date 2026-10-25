@@ -1510,6 +1510,29 @@ struct LiveActivityView: View {
     private var routeSheet: some View {
         NavigationStack {
             List {
+                Section {
+                    HStack(alignment: .center) {
+                        Text("Mis rutas")
+                            .font(.system(size: 31, weight: .bold))
+                            .foregroundStyle(OG.label)
+                        Spacer()
+                        Button {
+                            routePicker = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black)
+                                .frame(width: 42, height: 42)
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                        .buttonStyle(.plain)
+                        .tint(.black)
+                        .accessibilityLabel("Cerrar Mis rutas")
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 if routes.routes.isEmpty {
                     Section {
                         ContentUnavailableView(
@@ -1570,21 +1593,9 @@ struct LiveActivityView: View {
                     .tint(.black)
                 }
             }
-            .navigationTitle("Mis rutas")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        routePicker = false
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.black)
-                    }
-                    .tint(.black)
-                    .accessibilityLabel("Cerrar Mis rutas")
-                }
-            }
+            // Cabecera propia: título y X comparten exactamente la misma línea.
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
     }
