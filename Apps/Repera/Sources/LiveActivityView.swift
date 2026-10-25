@@ -639,7 +639,8 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func startGPS() {
-        gpsTrackingBeganAt = Date()
+        // Una nueva autorización no debe invalidar fixes anteriores encolados.
+        if gpsTrackingBeganAt == nil { gpsTrackingBeganAt = Date() }
         switch manager.authorizationStatus {
         case .notDetermined:
             gpsMessage = "Autoriza la ubicación para registrar tu recorrido."
