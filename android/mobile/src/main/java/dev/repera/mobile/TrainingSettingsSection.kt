@@ -11,6 +11,10 @@ import dev.repera.domain.ProgressionPolicy
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Entrenamiento",style=MaterialTheme.typography.titleMedium)
+        Text("Unidad")
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            listOf("kg","lb").forEach {unit -> FilterChip(selected=value.weightUnit==unit,enabled=!busy,onClick={onChange(value.copy(weightUnit=unit))},label={Text(unit)})}
+        }
         Text("Esfuerzo")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("rir","rpe").forEach {unit -> FilterChip(selected=value.effortUnit==unit,enabled=!busy,onClick={onChange(value.copy(effortUnit=unit))},label={Text(unit.uppercase())})}
