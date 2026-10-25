@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
@@ -193,7 +194,7 @@ private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifi
 /** Evolución del ejercicio: métricas, rango y gráfica
  *  (ExerciseEvolutionPanel de iOS). */
 @Composable
-private fun ExerciseEvolutionSection(
+internal fun ExerciseEvolutionSection(
     entry: ExerciseEntry,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint>,
@@ -247,7 +248,7 @@ private fun ExerciseEvolutionSection(
                     selectedPoint=if(points.size==1) 0 else ((x/width.coerceAtLeast(1))*(points.size-1)).toInt().coerceIn(points.indices)
                 }
                 androidx.compose.foundation.Canvas(modifier = Modifier
-                    .fillMaxWidth().height(120.dp)
+                    .fillMaxWidth().height(120.dp).testTag("exercise_evolution_chart")
                     .pointerInput(points) {detectTapGestures {selectAt(it.x,size.width)}}
                     .pointerInput(points) {detectHorizontalDragGestures {change,_ -> selectAt(change.position.x,size.width)}}) {
                     val minV = minOf(points.minOf { it.value },ceiling ?: Double.MAX_VALUE)
