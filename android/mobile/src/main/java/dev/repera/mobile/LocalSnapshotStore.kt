@@ -47,6 +47,21 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) {
         }
     }
 
+    private val provenanceFile = File(folder, "mirror_recovered.json")
+
+    /** Procedencia: id -> huella de entrenos recuperados del espejo (por cuenta, junto al snapshot). */
+    @Synchronized fun readMirrorProvenance(): Map<String, String> = runCatching {
+        if (!provenanceFile.exists()) emptyMap() else JSONObject(provenanceFile.readText()).let { j ->
+            j.keys().asSequence().associateWith { j.getString(it) } }
+    }.getOrDefault(emptyMap())
+
+    @Synchronized fun addMirrorProvenance(entries: Map<String, String>) {
+        val merged = readMirrorProvenance() + entries
+        val tmp = File(folder, "mirror_recovered.json.tmp")
+        tmp.writeText(JSONObject(merged).toString())
+        check(tmp.renameTo(provenanceFile) || (provenanceFile.delete() && tmp.renameTo(provenanceFile)))
+    }
+
     fun snapshotRevision(): Int? = read()?.let { JSONObject(String(it, Charsets.UTF_8)).optInt("syncRevision", 0) }
 
     companion object {

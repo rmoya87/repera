@@ -1786,6 +1786,9 @@ class WorkoutRepository(context: Context, googleId: String) {
         return imported
     }
 
+    /** Registra la procedencia de entrenos recuperados del espejo (ver MirrorRecoveryReconciler). */
+    fun recordMirrorRecovered(entries: Map<String, String>) = local.addMirrorProvenance(entries)
+
     @Synchronized fun finishedWorkoutsSnapshot(): List<JSONObject> {
         val state = requireState()
         val archive = state.optJSONArray("workouts") ?: JSONArray()

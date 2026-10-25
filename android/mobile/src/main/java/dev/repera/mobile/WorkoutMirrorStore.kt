@@ -85,6 +85,7 @@ class WorkoutMirrorStore(
             val recoveredCount = if (recovered.isEmpty()) 0 else {
                 // Primero se funde y solo después se marcan como vistos: si el merge falla, se reintenta.
                 val merged = repository.mergeRecoveredWorkoutsFromSupabase(recovered)
+                repository.recordMirrorRecovered(recovered.associate { it.getString("id") to canonicalDigest(it) })
                 recovered.forEach { seen[it.getString("id")] = canonicalDigest(it) }
                 saveFingerprints(seen)
                 merged
