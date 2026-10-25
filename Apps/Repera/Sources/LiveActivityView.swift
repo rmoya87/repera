@@ -12,9 +12,21 @@ import UserNotifications
 
 /// El deporte determina qué se mide; no se infiere del nombre del entrenamiento.
 enum LiveSport: String, CaseIterable, Identifiable {
+    // Conservar todos los rawValue anteriores: son identificadores persistidos
+    // en WorkoutSession, favoritos GPX y las sesiones interrumpidas.
     case running, cycling, walking, hiking, trail, mountainBike, gravel
     case crossfit, strength, hiit, hyrox, tennis, padel, surfing, swimming
-    case golf, skiing, yoga, mobility, other
+    case windsurfing, kitesurfing, kayaking, rowing, canoeing, sailing
+    case golf, skiing, iceSkating, snowboarding, crossCountrySkiing
+    case soccer, basketball, volleyball
+    case climbing, dance, pilates, skateboarding
+    case yoga, mobility, other
+
+    static let groups = [
+        "A pie", "Ciclismo", "Fuerza y fitness", "Deportes de raqueta",
+        "Deportes acuáticos", "Deportes de invierno", "Deportes de equipo",
+        "Otros deportes"
+    ]
 
     var id: String { rawValue }
 
@@ -35,8 +47,24 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .padel: "Pádel"
         case .surfing: "Surf"
         case .swimming: "Natación"
+        case .windsurfing: "Windsurf"
+        case .kitesurfing: "Kitesurf"
+        case .kayaking: "Kayak"
+        case .rowing: "Remo"
+        case .canoeing: "Piragua"
+        case .sailing: "Vela"
         case .golf: "Golf"
         case .skiing: "Esquí alpino"
+        case .iceSkating: "Patinaje sobre hielo"
+        case .snowboarding: "Snowboard"
+        case .crossCountrySkiing: "Esquí de fondo"
+        case .soccer: "Fútbol"
+        case .basketball: "Baloncesto"
+        case .volleyball: "Voleibol"
+        case .climbing: "Escalada"
+        case .dance: "Baile"
+        case .pilates: "Pilates"
+        case .skateboarding: "Skateboard"
         case .yoga: "Yoga"
         case .mobility: "Movilidad"
         case .other: "Entrenamiento"
@@ -49,16 +77,29 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .cycling, .mountainBike, .gravel: "bicycle"
         case .walking: "figure.walk"
         case .hiking: "figure.hiking"
-        case .crossfit, .hyrox: "figure.cross.training"
+        case .crossfit: "figure.cross.training"
+        case .hyrox: ExerciseCategorySymbols.discipline("HYROX")
         case .strength: "dumbbell"
         case .hiit: "timer"
         case .tennis: "tennis.racket"
         case .padel: "figure.tennis"
-        case .surfing: "water.waves"
+        case .surfing: "surfboard"
         case .swimming: "figure.pool.swim"
+        case .windsurfing: "wind"
+        case .kitesurfing: "wind"
+        case .kayaking, .rowing, .canoeing: "figure.rower"
+        case .sailing: "sailboat"
         case .golf: "figure.golf"
         case .skiing: "figure.skiing.downhill"
-        case .yoga, .mobility: "figure.flexibility"
+        case .iceSkating, .skateboarding: "figure.skating"
+        case .snowboarding: "figure.snowboarding"
+        case .crossCountrySkiing: "figure.skiing.crosscountry"
+        case .soccer: "soccerball"
+        case .basketball: "basketball"
+        case .volleyball: "volleyball"
+        case .climbing: "figure.climbing"
+        case .dance: "figure.dance"
+        case .pilates, .yoga, .mobility: "figure.flexibility"
         case .other: "figure.mixed.cardio"
         }
     }
@@ -69,21 +110,72 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .cycling, .mountainBike, .gravel: "Ciclismo"
         case .crossfit, .strength, .hiit, .hyrox: "Fuerza y fitness"
         case .tennis, .padel: "Deportes de raqueta"
-        case .surfing, .swimming: "Deportes acuáticos"
+        case .surfing, .swimming, .windsurfing, .kitesurfing,
+             .kayaking, .rowing, .canoeing, .sailing: "Deportes acuáticos"
+        case .skiing, .iceSkating, .snowboarding, .crossCountrySkiing: "Deportes de invierno"
+        case .soccer, .basketball, .volleyball: "Deportes de equipo"
         default: "Otros deportes"
         }
     }
 
+    /// GPS únicamente para modalidades con recorrido exterior verificable.
+    /// Ni la piscina, las pistas ni la escalada interior fabrican distancia.
     var usesGPS: Bool {
         switch self {
-        case .running, .cycling, .walking, .hiking, .trail, .mountainBike, .gravel, .surfing, .skiing, .golf:
+        case .running, .cycling, .walking, .hiking, .trail, .mountainBike,
+             .gravel, .surfing, .windsurfing, .kitesurfing, .kayaking,
+             .rowing, .canoeing, .sailing, .golf, .skiing,
+             .snowboarding, .crossCountrySkiing, .skateboarding:
             true
         default: false
         }
     }
 
     var isCycling: Bool { self == .cycling || self == .mountainBike || self == .gravel }
-    var displaysSpeed: Bool { isCycling || self == .surfing || self == .skiing || self == .golf }
+
+    var displaysSpeed: Bool {
+        switch self {
+        case .cycling, .mountainBike, .gravel, .surfing, .windsurfing,
+             .kitesurfing, .kayaking, .rowing, .canoeing, .sailing,
+             .golf, .skiing, .snowboarding, .crossCountrySkiing, .skateboarding:
+            true
+        default: false
+        }
+    }
+
+    /// Solo calcular desnivel cuando la actividad tiene sentido en pendiente.
+    var tracksElevation: Bool {
+        switch self {
+        case .hiking, .trail, .mountainBike, .skiing,
+             .snowboarding, .crossCountrySkiing:
+            true
+        default: false
+        }
+    }
+
+    /// Evita descartar las muestras auténticas de deportes rápidos como
+    /// kitesurf y esquí, manteniendo el filtro de saltos GPS.
+    var maxGPSMetersPerSecond: Double {
+        switch self {
+        case .skiing, .snowboarding: 50
+        case .windsurfing, .kitesurfing, .sailing: 42
+        case .crossCountrySkiing, .skateboarding: 24
+        case .cycling, .mountainBike, .gravel: 22
+        default: 12
+        }
+    }
+
+    /// Las métricas de sensores se muestran únicamente cuando existen datos
+    /// reales en Apple Salud, nunca como un contador simulado.
+    var metricDescription: String {
+        if usesGPS {
+            let motion = displaysSpeed ? "velocidad" : "ritmo"
+            return tracksElevation
+                ? "Tiempo · distancia · \(motion) · desnivel GPS"
+                : "Tiempo · distancia · \(motion)"
+        }
+        return "Tiempo · pulso y calorías si están disponibles"
+    }
 
     var healthType: HKWorkoutActivityType {
         switch self {
@@ -96,9 +188,22 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .hiit: .highIntensityIntervalTraining
         case .tennis, .padel: .tennis
         case .surfing: .surfingSports
+        case .windsurfing, .kitesurfing: .waterSports
         case .swimming: .swimming
+        case .kayaking, .canoeing: .paddleSports
+        case .rowing: .rowing
+        case .sailing: .sailing
         case .golf: .golf
         case .skiing: .downhillSkiing
+        case .iceSkating, .skateboarding: .skatingSports
+        case .snowboarding: .snowboarding
+        case .crossCountrySkiing: .crossCountrySkiing
+        case .soccer: .soccer
+        case .basketball: .basketball
+        case .volleyball: .volleyball
+        case .climbing: .climbing
+        case .dance: .dance
+        case .pilates: .pilates
         case .yoga: .yoga
         case .mobility: .flexibility
         case .other: .other
@@ -964,7 +1069,7 @@ final class LiveActivityRecorder: NSObject {
             guard seconds > 0 else { return }
             // Si ha habido un salto de señal, guardar el nuevo punto como
             // inicio de tramo pero NO sumar la recta ficticia a la distancia.
-            if seconds > 30 || meters / seconds > (sport.isCycling ? 22 : 12) {
+            if seconds > 30 || meters / seconds > sport.maxGPSMetersPerSecond {
                 gpsMessage = "Señal GPS recuperada."
             } else if meters >= max(3, min(7, max(fix.accuracy, previous.horizontalAccuracy) * 0.4)) {
                 recordedDistanceMeters += meters
@@ -1247,7 +1352,7 @@ private struct LiveSportPicker: View {
     @Environment(\.dismiss) private var dismiss
     var choose: (LiveSport) -> Void
     @State private var query = ""
-    private let groups = ["A pie", "Ciclismo", "Fuerza y fitness", "Deportes de raqueta", "Deportes acuáticos", "Otros deportes"]
+    private let groups = LiveSport.groups
 
     var body: some View {
         NavigationStack {
@@ -2630,10 +2735,7 @@ private struct LiveRouteSportOptionsView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedSportID: String
     @State private var query = ""
-    private let groups = [
-        "A pie", "Ciclismo", "Fuerza y fitness",
-        "Deportes de raqueta", "Deportes acuáticos", "Otros deportes"
-    ]
+    private let groups = LiveSport.groups
 
     var body: some View {
         List {
