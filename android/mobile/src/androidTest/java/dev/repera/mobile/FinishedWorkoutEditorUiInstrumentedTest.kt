@@ -292,7 +292,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         val scrollState = androidx.compose.foundation.ScrollState(0)
         compose.setContent {
             androidx.compose.runtime.CompositionLocalProvider(
-                LocalDragAutoScroller provides { d -> scrollState.dispatchRawDelta(d) }) {
+                LocalDragAutoScroller provides DragScroller({ d -> scrollState.dispatchRawDelta(d) }, { null })) {
                 androidx.compose.foundation.layout.Column(
                     androidx.compose.ui.Modifier.fillMaxSize().verticalScroll(scrollState)) {
                     FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it }

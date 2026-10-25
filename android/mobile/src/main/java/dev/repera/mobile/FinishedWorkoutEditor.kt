@@ -513,9 +513,11 @@ internal fun DragReorderItem(
         if (!dragging || scroller == null) return@LaunchedEffect
         while (true) {
             val center = (top + bottom) / 2f + dy
-            val v = autoScrollSpeed(center, 0f, windowH, edgePx = 96f * density.density, maxPerFrame = 24f * density.density / 2f)
+            // Viewport REAL del contenedor; si aún no está medido, borde de ventana como último recurso.
+            val vp = scroller.viewport() ?: (0f to windowH)
+            val v = autoScrollSpeed(center, vp.first, vp.second, edgePx = 96f * density.density, maxPerFrame = 24f * density.density / 2f)
             if (v != 0f) {
-                val consumed = scroller(v)
+                val consumed = scroller.by(v)
                 // El contenido se mueve bajo la fila: compensar para que siga bajo el dedo.
                 dy += consumed
             }
