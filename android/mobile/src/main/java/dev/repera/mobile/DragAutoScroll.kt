@@ -30,6 +30,21 @@ internal fun ProvideLazyDragAutoScroll(state: LazyListState, content: @Composabl
     }
 }
 
+/** Igual que el proveedor Lazy pero para un `verticalScroll(ScrollState)`: el viewport REAL es el Box medido
+ *  (arriba y alto reales), no la ventana. */
+@Composable
+internal fun ProvideScrollDragAutoScroll(state: androidx.compose.foundation.ScrollState, content: @Composable () -> Unit) {
+    var box by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Pair<Float, Float>?>(null) }
+    val scroller = androidx.compose.runtime.remember(state) {
+        DragScroller(by = { d -> state.dispatchRawDelta(d) },
+            viewport = { box?.let { it.first to it.first + it.second } })
+    }
+    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()
+        .onGloballyPositioned { box = it.positionInRoot().y to it.size.height.toFloat() }) {
+        CompositionLocalProvider(LocalDragAutoScroller provides scroller, content = content)
+    }
+}
+
 private fun androidx.compose.ui.Modifier.androidxFill() = this.fillMaxSize()
 private fun androidx.compose.ui.Modifier.androidxMeasure(onTop: (Float) -> Unit) =
     this.onGloballyPositioned { onTop(it.positionInRoot().y) }

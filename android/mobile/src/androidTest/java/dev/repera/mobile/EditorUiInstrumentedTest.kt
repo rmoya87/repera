@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollAction
@@ -132,5 +134,18 @@ class EditorUiInstrumentedTest {
         compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
         val rest = delivered!![1].entries.single()
         assertTrue(org.json.JSONObject(rest.sourceJson!!).getBoolean("isRest"))
+    }
+
+    /** Soltar una entrada del plan fuera de todo bloque no cambia nada. Solo compilado (no ejecutado). */
+    @Test fun planEntryDroppedOutsideAnyBlockChangesNothing() {
+        var delivered: List<RoutineBlockDraft>? = null
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
+                onReplace = { delivered = it }, onBack = {}) } }
+        compose.onAllNodesWithTag("plan_entry_drag")[0].performTouchInput {
+            down(center); advanceEventTime(700); moveBy(androidx.compose.ui.geometry.Offset(0f, -6000f)); advanceEventTime(50); up() }
+        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        assertEquals(1, delivered!![0].entries.size)
+        assertEquals("it-1", delivered!![0].entries[0].itemId)
     }
 }

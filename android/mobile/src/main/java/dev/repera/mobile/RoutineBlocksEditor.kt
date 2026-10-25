@@ -54,7 +54,10 @@ fun RoutineBlocksEditorScreen(
     }
     var error by remember(routine.id) { mutableStateOf<String?>(null) }
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+    val scrollState = rememberScrollState()
+    val geo = remember(routine.id) { EditorGeometry() }
+    ProvideScrollDragAutoScroll(scrollState) {
+    Column(modifier = Modifier.verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack, enabled = !busy) { Text("Volver") }
@@ -80,7 +83,8 @@ fun RoutineBlocksEditorScreen(
         val blockHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         blocks.forEachIndexed { index, block ->
             DragReorderItem(index, blockHeights, blocks.size,
-                onDrop = { _, t -> if (t != index) { val moved = blocks.removeAt(index); blocks.add(t, moved) } }) { handle ->
+                onDrop = { _, t -> if (t != index) { val moved = blocks.removeAt(index); blocks.add(t, moved) } },
+                onBounds = { top, bottom -> geo.blocks[index] = top to bottom }) { handle ->
                 BlockEditorCard(
                     block = block,
                     nameById = nameById,
@@ -92,6 +96,21 @@ fun RoutineBlocksEditorScreen(
                         if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
                     onMoveEntry = { entryIndex, targetIndex ->
                         error = PlanEntryMoves.move(blocks, index, entryIndex, targetIndex, nameById, exercises)
+                    },
+                    onEntryBounds = { ei, top, bottom -> geo.items.getOrPut(index) { mutableMapOf() }[ei.toString()] = top to bottom },
+                    onEntryDrop = { ei, centerY, sameTarget ->
+                        // Soltar fuera de todo bloque = inválido: no cambia nada. Otro bloque = misma conversión que "Mover".
+                        val tb = EditorBlockOps.dropBlockIndex(centerY, geo.blockBounds(blocks.size))
+                        if (tb != null) {
+                            if (tb == index) {
+                                if (sameTarget != ei) { val moved = block.entries.removeAt(ei); block.entries.add(sameTarget, moved) }
+                            } else {
+                                val n = blocks[tb].entries.size
+                                val before = EditorBlockOps.dropBeforeId(centerY,
+                                    (geo.items[tb] ?: emptyMap<String, Pair<Float, Float>>()).filterKeys { (it.toIntOrNull() ?: Int.MAX_VALUE) < n }.toList())
+                                error = PlanEntryMoves.move(blocks, index, ei, tb, nameById, exercises, before?.toIntOrNull())
+                            }
+                        }
                     }
                 )
             }
@@ -99,6 +118,7 @@ fun RoutineBlocksEditorScreen(
         TextButton(onClick = { blocks.add(BlockDraftUi()) }, enabled = !busy) {
             Text("Añadir bloque")
         }
+    }
     }
 }
 
@@ -199,7 +219,9 @@ private fun BlockEditorCard(
     onRemove: (() -> Unit)?,
     handle: Modifier = Modifier,
     moveTargets: List<Pair<Int, String>> = emptyList(),
-    onMoveEntry: (Int, Int) -> Unit = { _, _ -> }
+    onMoveEntry: (Int, Int) -> Unit = { _, _ -> },
+    onEntryBounds: (Int, Float, Float) -> Unit = { _, _, _ -> },
+    onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> }
 ) {
     val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -260,7 +282,8 @@ private fun BlockEditorCard(
             }
             block.entries.forEachIndexed { index, entry ->
                 DragReorderItem(index, entryHeights, block.entries.size,
-                    onDrop = { _, t -> if (t != index) { val moved = block.entries.removeAt(index); block.entries.add(t, moved) } }) { entryHandle ->
+                    onDrop = { cy, t -> onEntryDrop(index, cy, t) },
+                    onBounds = { top, bottom -> onEntryBounds(index, top, bottom) }) { entryHandle ->
                     EntryEditorRow(
                         entry = entry,
                         resolvedName = entry.name.ifBlank {
@@ -575,7 +598,7 @@ private object PlanEntryMoves {
     /** Devuelve un aviso/error para mostrar (null si todo bien y sin pérdidas). El borrador no cambia si rechaza. */
     fun move(
         blocks: MutableList<BlockDraftUi>, from: Int, entryIndex: Int, to: Int,
-        nameById: Map<String, String>, exercises: List<ExerciseEntry>
+        nameById: Map<String, String>, exercises: List<ExerciseEntry>, beforeIndex: Int? = null
     ): String? {
         val src = blocks.getOrNull(from) ?: return null
         val dst = blocks.getOrNull(to) ?: return null
@@ -584,7 +607,7 @@ private object PlanEntryMoves {
         if (srcStrength == dstStrength) {
             if (dstStrength && dst.entries.any { it.exerciseId == entry.exerciseId })
                 return "«" + (nameById[entry.exerciseId] ?: "Ejercicio") + "» ya está en ese bloque de fuerza"
-            src.entries.removeAt(entryIndex); dst.entries.add(entry); return null
+            src.entries.removeAt(entryIndex); dst.entries.add((beforeIndex ?: dst.entries.size).coerceIn(0, dst.entries.size), entry); return null
         }
         if (srcStrength) {
             val sets = if (entry.setsExpanded || entry.untouchedUniform) entry.plannedSets.toList()
@@ -594,7 +617,7 @@ private object PlanEntryMoves {
             val mv = EditorBlockOps.planStrengthToMovement(entry.itemId, entry.exerciseId,
                 nameById[entry.exerciseId] ?: entry.name.ifBlank { "Ejercicio" }, sets, unit)
             src.entries.removeAt(entryIndex)
-            dst.entries.add(EntryUi(entry.exerciseId, mv.getString("name"), mv.optInt("reps", 8), 1, null, null,
+            dst.entries.add((beforeIndex ?: dst.entries.size).coerceIn(0, dst.entries.size), EntryUi(entry.exerciseId, mv.getString("name"), mv.optInt("reps", 8), 1, null, null,
                 mv.getString("id"), mv.toString()))
             return null
         }
@@ -609,7 +632,7 @@ private object PlanEntryMoves {
         val (item, lost) = EditorBlockOps.planMovementToStrength(source, catalogId)
         val planned = EditorBlockOps.jsonToDraftSets(item.getJSONArray("plannedSets"))
         src.entries.removeAt(entryIndex)
-        dst.entries.add(EntryUi(catalogId, if (catalogId.startsWith(EditorBlockOps.PENDING_PREFIX)) source.optString("name").trim() else "", planned.first().targetReps, planned.size, planned.first().targetWeightKg,
+        dst.entries.add((beforeIndex ?: dst.entries.size).coerceIn(0, dst.entries.size), EntryUi(catalogId, if (catalogId.startsWith(EditorBlockOps.PENDING_PREFIX)) source.optString("name").trim() else "", planned.first().targetReps, planned.size, planned.first().targetWeightKg,
             planned, item.getString("id"), item.toString()))
         val created = if (catalogId.startsWith(EditorBlockOps.PENDING_PREFIX))
             "«" + source.optString("name").trim() + "» se creará como ejercicio personalizado al guardar. " else ""
