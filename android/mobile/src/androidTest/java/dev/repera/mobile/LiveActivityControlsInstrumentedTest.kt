@@ -33,6 +33,7 @@ class LiveActivityControlsInstrumentedTest {
     @Test fun activeClassicWorkoutRoutesToContinueWithoutStartingLiveRecorder() {
         val account = "test-classic-guard-${UUID.randomUUID()}"
         var opened = false
+        LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {}, hasActiveWorkout = true, onOpenWorkout = { opened = true })
         } }
@@ -47,6 +48,7 @@ class LiveActivityControlsInstrumentedTest {
     }
     @Test fun sportPickerSelectsIndoorActivityAndClosesWithoutStartingSensors() {
         val account = "test-picker-${UUID.randomUUID()}"
+        LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {})
         } }
@@ -66,6 +68,7 @@ class LiveActivityControlsInstrumentedTest {
     @Test fun gpsCanvasAlternatesMetricsAndMapWithSyntheticPointsWithoutSensors() {
         val account = "test-canvas-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context,account)
+        runtime.choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {})
         } }

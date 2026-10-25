@@ -66,6 +66,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         }
     }
     init {
+        LiveSport.byId(voicePrefs.getString("lastSport", "running").orEmpty())?.let { state.choose(it) }
         try { store.read()?.let { state.restore(it);prepareRoute() } }
         catch (_: Exception) { lastError="No se pudo restaurar la actividad. El archivo original se conserva." }
     }
@@ -84,7 +85,10 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             .setAutoCancel(true).build()
         runCatching { manager.notify(4204, notification) }
     }
-    fun choose(sport: LiveSport) { state.choose(sport);publish() }
+    fun choose(sport: LiveSport) {
+        if (state.phase != LiveActivityState.Phase.IDLE) return
+        state.choose(sport);voicePrefs.edit().putString("lastSport",sport.id).apply();publish()
+    }
     fun selectRoute(id: String?) { state.selectRoute(id);prepareRoute();publish() }
     fun start() {
         if (state.phase != LiveActivityState.Phase.IDLE) return

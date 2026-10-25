@@ -167,7 +167,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     if(confirmDiscard) AlertDialog(onDismissRequest={confirmDiscard=false},
         title={Text("¿Descartar actividad?")},text={Text("No se guardará esta actividad.")},
-        confirmButton={TextButton(onClick={ if(runtime.discard()) LiveActivityService.stop(context);confirmDiscard=false }) {Text("Descartar")}},
+        confirmButton={TextButton(onClick={ if(runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false };confirmDiscard=false }) {Text("Descartar")}},
         dismissButton={TextButton(onClick={confirmDiscard=false}) {Text("Cancelar")}})
     if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics && !showRoutes) {
         val planned = routes.firstOrNull { it.id == state.selectedRouteID }
@@ -372,7 +372,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         val now=System.currentTimeMillis()
                         WorkoutRepository(context,accountId).saveLiveActivity(state.snapshot(now)!!,
                             state.finishedMillis ?: now,state.durationSeconds(now),title,notes)
-                        if (runtime.discard()) { LiveActivityService.stop(context);onSaved() }
+                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSaved() }
                         else error="La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
                     } catch (_: Exception) {error="No se pudo guardar. La actividad sigue disponible para reintentar."}
                 },modifier=Modifier.testTag("live_save")) {Text("Guardar actividad")}
