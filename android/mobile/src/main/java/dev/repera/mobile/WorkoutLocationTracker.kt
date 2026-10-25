@@ -61,23 +61,26 @@ class WorkoutLocationTracker(private val context: Context) {
         return withTimeoutOrNull(4_000) {
             suspendCancellableCoroutine { cont ->
                 var resumed = false
+                lateinit var pinListener: LocationListener
                 val finish: (WorkoutLocationPin?) -> Unit = { pin ->
                     if (!resumed) {
                         resumed = true
                         pinContinuation = null
-                        cont.resume(pin)
+                        runCatching { mgr.removeUpdates(pinListener) }
+                        if (cont.isActive) cont.resume(pin)
                     }
+                }
+                pinListener = LocationListener { location ->
+                    val age = System.currentTimeMillis() - location.time
+                    finish(if (age in 0..15_000 && location.hasAccuracy()) location.toPin() else null)
                 }
                 pinContinuation = finish
                 try {
-                    mgr.requestSingleUpdate(
-                        LocationManager.FUSED_PROVIDER,
-                        { location -> finish(location.toPin()) },
-                        null
-                    )
+                    mgr.requestSingleUpdate(LocationManager.FUSED_PROVIDER,pinListener,Looper.getMainLooper())
                 } catch (error: SecurityException) {
-                    lastErrorMessage = error.localizedMessage
-                    finish(null)
+                    lastErrorMessage = error.localizedMessage;finish(null)
+                } catch (error: IllegalArgumentException) {
+                    lastErrorMessage = "Proveedor GPS no disponible";finish(null)
                 }
                 cont.invokeOnCancellation { finish(null) }
             }
