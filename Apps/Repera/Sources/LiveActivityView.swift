@@ -1998,96 +1998,24 @@ struct LiveActivityView: View {
     }
 
     private var routeSheet: some View {
-        NavigationStack {
-            List {
-                Section {
-                    HStack(alignment: .center) {
-                        Text("Mis rutas")
-                            .font(.system(size: 31, weight: .bold))
-                            .foregroundStyle(OG.label)
-                        Spacer()
-                        Button {
-                            routePicker = false
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
-                                .frame(width: 42, height: 42)
-                                .glassEffect(.regular.interactive(), in: .circle)
-                        }
-                        .buttonStyle(.plain)
-                        .tint(.black)
-                        .accessibilityLabel("Cerrar Mis rutas")
-                    }
-                    .padding(.vertical, 4)
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                if routes.routes.isEmpty {
-                    Section {
-                        ContentUnavailableView(
-                            "Sin rutas guardadas",
-                            systemImage: "map",
-                            description: Text("Importa un GPX o guarda un recorrido después de entrenar.")
-                        )
-                    }
-                } else {
-                    Section("Rutas guardadas") {
-                        ForEach(routes.routes) { route in
-                            NavigationLink {
-                                LiveRouteLibraryDetailView(
-                                    routeID: route.id,
-                                    onUseRoute: { selected in
-                                        recorder.selectRoute(selected)
-                                        position = route3DPosition(selected.points)
-                                        mapIsCentered = false
-                                        routePicker = false
-                                    },
-                                    onDeleteRoute: { deletedID in
-                                        if recorder.chosenRoute?.id == deletedID {
-                                            recorder.selectRoute(nil)
-                                        }
-                                    }
-                                )
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
-                                        .font(.title3)
-                                        .foregroundStyle(OG.accent)
-                                        .frame(width: 30)
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(route.title)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(OG.label)
-                                        let count = store.state.workouts.filter {
-                                            $0.liveRouteID == route.id && $0.phase == .finished
-                                        }.count
-                                        Text("\(count) actividades · \(route.points.count) puntos GPS")
-                                            .font(.caption)
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                }
-                                .padding(.vertical, 3)
-                            }
-                        }
-                    }
-                }
-                Section {
-                    Button {
-                        importAfterRouteSheet = true
-                        routePicker = false
-                    } label: {
-                        Label("Importar archivo GPX", systemImage: "square.and.arrow.down")
-                            .foregroundStyle(OG.label)
-                    }
-                    .tint(.black)
+        LiveRouteLibraryPickerView(
+            onClose: { routePicker = false },
+            onImport: {
+                importAfterRouteSheet = true
+                routePicker = false
+            },
+            onUseRoute: { selected in
+                recorder.selectRoute(selected)
+                position = route3DPosition(selected.points)
+                mapIsCentered = false
+                routePicker = false
+            },
+            onDeleteRoute: { deletedID in
+                if recorder.chosenRoute?.id == deletedID {
+                    recorder.selectRoute(nil)
                 }
             }
-            // Cabecera propia: título y X comparten exactamente la misma línea.
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .tint(OG.accent)
+        )
     }
 
     private func routeRegion(_ points: [WorkoutRoutePoint]) -> MKCoordinateRegion {
@@ -2135,6 +2063,230 @@ struct LiveActivityView: View {
     }
 }
 
+
+/// La miniatura es el trazado GPS real escalado a la celda, sin mapas ni red.
+private struct LiveRouteTrace: Shape {
+    let points: [WorkoutRoutePoint]
+
+    func path(in rect: CGRect) -> Path {
+        let valid = points.filter {
+            $0.latitude.isFinite && $0.longitude.isFinite &&
+            (-90...90).contains($0.latitude) && (-180...180).contains($0.longitude)
+        }
+        guard valid.count >= 2 else { return Path() }
+        let factor = cos((valid.map(\.latitude).reduce(0, +) / Double(valid.count)) * .pi / 180)
+        let positions = valid.map { CGPoint(x: $0.longitude * factor, y: $0.latitude) }
+        let minX = positions.map(\.x).min() ?? 0
+        let maxX = positions.map(\.x).max() ?? 0
+        let minY = positions.map(\.y).min() ?? 0
+        let maxY = positions.map(\.y).max() ?? 0
+        let dx = max(maxX - minX, 0.0000001)
+        let dy = max(maxY - minY, 0.0000001)
+        let availableWidth = max(1, rect.width - 14)
+        let availableHeight = max(1, rect.height - 14)
+        let scale = min(availableWidth / dx, availableHeight / dy)
+        let offsetX = rect.midX - (minX + maxX) * scale / 2
+        let offsetY = rect.midY + (minY + maxY) * scale / 2
+        var result = Path()
+        // Se simplifica solo para dibujar: la ruta y sus coordenadas no se alteran.
+        let strideBy = max(1, positions.count / 900)
+        for index in Swift.stride(from: 0, to: positions.count, by: strideBy) {
+            let location = CGPoint(
+                x: offsetX + positions[index].x * scale,
+                y: offsetY - positions[index].y * scale
+            )
+            if index == 0 { result.move(to: location) }
+            else { result.addLine(to: location) }
+        }
+        if (positions.count - 1) % strideBy != 0, let last = positions.last {
+            result.addLine(to: CGPoint(x: offsetX + last.x * scale, y: offsetY - last.y * scale))
+        }
+        return result
+    }
+}
+
+/// Biblioteca: cinco últimas rutas, acceso al histórico completo y favoritos explícitos.
+private struct LiveRouteLibraryPickerView: View {
+    @State private var routes = LiveRoutesStore.shared
+    var onClose: () -> Void
+    var onImport: () -> Void
+    var onUseRoute: (LiveSavedRoute) -> Void
+    var onDeleteRoute: (UUID) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        Text("Mis rutas")
+                            .font(.system(size: 31, weight: .bold))
+                            .foregroundStyle(OG.label)
+                        Spacer()
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black)
+                                .frame(width: 42, height: 42)
+                                .glassEffect(.regular.interactive(), in: .circle)
+                        }
+                        .buttonStyle(.plain)
+                        .tint(.black)
+                        .accessibilityLabel("Cerrar Mis rutas")
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
+                Section("Últimas rutas") {
+                    if routes.latestRoutes.isEmpty {
+                        ContentUnavailableView(
+                            "Todavía no hay rutas",
+                            systemImage: "map",
+                            description: Text("Graba un recorrido o importa un GPX para empezar.")
+                        )
+                    } else {
+                        ForEach(Array(routes.latestRoutes.prefix(5))) { route in
+                            LiveRouteLibraryRow(
+                                routeID: route.id,
+                                onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
+                            )
+                        }
+                        if routes.latestRoutes.count > 5 {
+                            NavigationLink {
+                                LiveAllRoutesView(
+                                    onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
+                                )
+                            } label: {
+                                HStack {
+                                    Text("Ver más").fontWeight(.semibold)
+                                    Spacer()
+                                    Text("\(routes.latestRoutes.count) rutas")
+                                        .foregroundStyle(OG.label2)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Section("Favoritos") {
+                    if routes.favoriteRoutes.isEmpty {
+                        Text("Pulsa la estrella de una ruta para añadirla aquí.")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                    } else {
+                        ForEach(routes.favoriteRoutes) { route in
+                            LiveRouteLibraryRow(
+                                routeID: route.id,
+                                onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
+                            )
+                        }
+                    }
+                }
+
+                Section {
+                    Button(action: onImport) {
+                        Label("Importar archivo GPX", systemImage: "square.and.arrow.down")
+                            .foregroundStyle(OG.label)
+                    }
+                    .tint(.black)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .tint(OG.accent)
+    }
+}
+
+private struct LiveAllRoutesView: View {
+    @State private var routes = LiveRoutesStore.shared
+    var onUseRoute: (LiveSavedRoute) -> Void
+    var onDeleteRoute: (UUID) -> Void
+
+    var body: some View {
+        List {
+            ForEach(routes.latestRoutes) { route in
+                LiveRouteLibraryRow(
+                    routeID: route.id,
+                    onUseRoute: onUseRoute, onDeleteRoute: onDeleteRoute
+                )
+            }
+        }
+        .listStyle(.insetGrouped)
+        .ogListChrome()
+        .navigationTitle("Todas las rutas")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct LiveRouteLibraryRow: View {
+    @State private var routes = LiveRoutesStore.shared
+    @State private var favoriteError: String?
+    let routeID: UUID
+    var onUseRoute: (LiveSavedRoute) -> Void
+    var onDeleteRoute: (UUID) -> Void
+
+    private var route: LiveSavedRoute? {
+        routes.routes.first { $0.id == routeID }
+    }
+
+    var body: some View {
+        if let route {
+            HStack(spacing: 10) {
+                NavigationLink {
+                    LiveRouteLibraryDetailView(
+                        routeID: routeID,
+                        onUseRoute: onUseRoute,
+                        onDeleteRoute: onDeleteRoute
+                    )
+                } label: {
+                    HStack(spacing: 12) {
+                        LiveRouteTrace(points: route.points)
+                            .stroke(OG.accent, style: StrokeStyle(
+                                lineWidth: 2.8, lineCap: .round, lineJoin: .round
+                            ))
+                            .frame(width: 64, height: 54)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(route.title.isEmpty ? route.sportTitle : route.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                                .lineLimit(2)
+                            Text(String(format: "%.2f km · %@", route.distanceKm, route.sportTitle))
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                    }
+                    .padding(.vertical, 5)
+                }
+                Button {
+                    do {
+                        try routes.setFavorite(routeID, !route.isFavorite)
+                    } catch {
+                        favoriteError = "No se pudo actualizar el favorito."
+                    }
+                } label: {
+                    Image(systemName: route.isFavorite ? "star.fill" : "star")
+                        .font(.system(size: 21))
+                        .foregroundStyle(route.isFavorite ? OG.yellow : OG.label2)
+                        .frame(width: 38, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(route.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos")
+            }
+            .alert("No se pudo guardar", isPresented: Binding(
+                get: { favoriteError != nil },
+                set: { if !$0 { favoriteError = nil } }
+            )) {
+                Button("Aceptar", role: .cancel) { favoriteError = nil }
+            } message: { Text(favoriteError ?? "") }
+        }
+    }
+}
 
 /// Ficha de una ruta (GPX importado o una salida grabada) desde «Cargar ruta».
 /// Muestra el mapa, estadísticas verificables, edición y eliminación sin tocar
