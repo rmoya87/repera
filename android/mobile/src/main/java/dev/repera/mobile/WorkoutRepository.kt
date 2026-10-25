@@ -37,6 +37,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
+    @Synchronized internal fun updateHealthGoals(value:HealthGoals) {
+        val state=requireState();HealthGoals.apply(state,value);save(state)
+    }
+
     @Synchronized internal fun updateRotation(plan:dev.repera.domain.RotationPlan?) {
         val state=requireState()
         val routines=state.getJSONArray("routines")
