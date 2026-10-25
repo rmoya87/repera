@@ -32,7 +32,27 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
     var routesVersion by remember { mutableStateOf(0) }
     var showRoutes by remember { mutableStateOf(false) }
-    val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(emptyList()).orEmpty() }
+    var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
+    var routeListMode by remember { mutableStateOf("Últimas 5") }
+    LaunchedEffect(routesStore) {
+        if (routesStore != null) {
+            try {
+                val overview = StateOverview.fromBytes(LocalSnapshotStore(context, accountId).read())
+                val candidates = overview?.liveSportSessions.orEmpty().mapNotNull { session ->
+                    val routeID = session.liveRouteID ?: return@mapNotNull null
+                    val detail = overview?.completeHistory?.firstOrNull { it.id == session.id } ?: return@mapNotNull null
+                    if (detail.routePoints.size < 2) return@mapNotNull null
+                    LiveSavedRoute(id = routeID, title = detail.title, points = detail.routePoints,
+                        sportID = session.sportID, createdAtMillis = session.startedEpochMillis ?: Long.MIN_VALUE)
+                }
+                routesStore.recoverFromSessions(candidates);routesVersion++
+            } catch (_: Exception) { /* Keep prior routes; no destructive recovery. */ }
+        }
+    }
+    val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(runCatching {
+        val bytes = LocalSnapshotStore(context, accountId).read()
+        bytes?.let { LiveSportSnapshot.sessions(org.json.JSONObject(String(it))) }.orEmpty()
+    }.getOrDefault(emptyList())).orEmpty() }
     var title by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -42,6 +62,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         catch (_: Exception) { runtime.pause();error="No se pudo mantener el registro en segundo plano. La actividad queda en pausa." }
     }
     fun start() { runtime.start();startService() }
+    val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { start() }
     val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -71,6 +92,18 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     LaunchedEffect(runtime) {
         while(true) { delay(1000);runtime.publish() }
     }
+    pendingDeleteRoute?.let { route ->
+        AlertDialog(onDismissRequest = { pendingDeleteRoute = null },
+            title = { Text("¿Eliminar ruta?") }, text = { Text("Se borrará la ruta guardada. Tus actividades realizadas se conservan.") },
+            confirmButton = { TextButton(onClick = {
+                try {
+                    routesStore?.remove(route.id)
+                    if (state.selectedRouteID == route.id) runtime.selectRoute(null)
+                    routesVersion++;pendingDeleteRoute = null
+                } catch (_: Exception) { error = "No se pudo eliminar la ruta." }
+            }) { Text("Eliminar") } },
+            dismissButton = { TextButton(onClick = { pendingDeleteRoute = null }) { Text("Cancelar") } })
+    }
     if(confirmDiscard) AlertDialog(onDismissRequest={confirmDiscard=false},
         title={Text("¿Descartar actividad?")},text={Text("No se guardará esta actividad.")},
         confirmButton={TextButton(onClick={ if(runtime.discard()) LiveActivityService.stop(context);confirmDiscard=false }) {Text("Descartar")}},
@@ -91,7 +124,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 }
             }
             Text(state.sport.metricDescription)
-            TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
+            TextButton(onClick = {
+                runtime.toggleSpokenGuidance()
+                if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }) {
                 Text(if (runtime.spokenGuidanceEnabled) "Guía hablada activada" else "Guía hablada desactivada")
             }
             if (state.sport.usesGPS) {
@@ -103,7 +140,17 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 if (showRoutes) {
                     Button(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) }) { Text("Importar GPX") }
                     if (routes.isEmpty()) Text("Sin rutas guardadas")
-                    routes.forEach { route ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("Últimas 5", "Favoritas", "Todas").forEach { mode ->
+                            FilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })
+                        }
+                    }
+                    val visibleRoutes = when (routeListMode) {
+                        "Últimas 5" -> routes.take(5)
+                        "Favoritas" -> routes.filter { it.isFavorite }
+                        else -> routes
+                    }
+                    visibleRoutes.forEach { route ->
                         var edit by remember(route.id) { mutableStateOf(false) }
                         var routeTitle by remember(route.id, routesVersion) { mutableStateOf(route.title) }
                         var routeSport by remember(route.id, routesVersion) { mutableStateOf(route.sportID) }
@@ -120,6 +167,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                         catch (_: Exception) { error = "No se pudo cambiar el favorito." }
                                     }) { Text(if (route.isFavorite) "★ Favorita" else "☆ Favorita") }
                                     TextButton(onClick = { edit = !edit }) { Text("Editar") }
+                                    TextButton(onClick = { pendingDeleteRoute = route }) { Text("Eliminar") }
                                 }
                                 if (edit) {
                                     OutlinedTextField(routeTitle, { routeTitle = it }, label = { Text("Nombre de la ruta") })
@@ -151,7 +199,24 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())),style=MaterialTheme.typography.displayMedium)
             if(state.sport.usesGPS) {
                 Text("%.2f km".format(state.distanceMeters/1000),style=MaterialTheme.typography.headlineSmall)
-                state.averageSpeedKmh(System.currentTimeMillis())?.let {Text("%.1f km/h de media".format(it))}
+                val now = System.currentTimeMillis()
+                if (state.sport.displaysSpeed) {
+                    state.averageSpeedKmh(now)?.let { Text("%.1f km/h de media".format(it)) }
+                    state.currentSpeedMps?.let { Text("%.1f km/h".format(it * 3.6)) }
+                } else {
+                    val speed = state.currentSpeedMps
+                    if (speed != null && speed > 0.5) Text("${LiveSportHistory.formatDuration(1000 / speed)} min/km")
+                    else Text("Ritmo sin datos")
+                }
+                if (state.sport.tracksElevation && state.hasElevationSamples)
+                    Text("+%.0f m / -%.0f m".format(state.elevationGainMeters, state.elevationLossMeters))
+                if (state.activeKilometerMeters >= 40) {
+                    val split = state.currentSplitSeconds(now)
+                    val current = if (state.sport.displaysSpeed && split > 0)
+                        "%.1f km/h".format(state.activeKilometerMeters / split * 3.6)
+                    else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
+                    Text("Km ${state.activeKilometer} · $current")
+                }
                 if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp))
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }

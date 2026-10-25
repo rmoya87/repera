@@ -159,6 +159,7 @@ fun ReperaMobileScreen(
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
     onLiveActivitySaved: () -> Unit = {},
+    initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
     onImportJson: () -> Unit,
@@ -234,6 +235,11 @@ fun ReperaMobileScreen(
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
                 restoreState = true
+            }
+        }
+        LaunchedEffect(initialExternalRoute) {
+            initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" }?.let {
+                navigateTab(it);onExternalRouteHandled()
             }
         }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true

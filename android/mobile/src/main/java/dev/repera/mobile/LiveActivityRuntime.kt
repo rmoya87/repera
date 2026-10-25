@@ -50,13 +50,17 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                 latestKilometerReport = "Km $km · " + if (state.sport.displaysSpeed)
                     "%.1f km/h".format(3600 / seconds) else
                     dev.repera.domain.LiveSportHistory.formatDuration(seconds) + " min/km"
-                if (spokenGuidanceEnabled) voice.speak("Has completado el kilómetro $km. " +
+                val spoken = spokenGuidanceEnabled && voice.speak("Has completado el kilómetro $km. " +
                     if (state.sport.displaysSpeed) "Tu velocidad media ha sido de %.1f kilómetros por hora.".format(3600 / seconds)
                     else "Lo has hecho en ${seconds.toInt() / 60} minutos y ${seconds.toInt() % 60} segundos.")
+                if (!spoken) notifyGuidance("Kilómetro $km completado", latestKilometerReport.orEmpty())
             }
             guidance?.update(update.point)?.let { cue ->
                 upcomingTurn = cue.display
-                if (spokenGuidanceEnabled) cue.speech?.let { voice.speak(it) }
+                cue.speech?.let {
+                    val spoken = spokenGuidanceEnabled && voice.speak(it)
+                    if (!spoken) notifyGuidance("Giro orientativo del GPX", cue.display)
+                }
             }
             checkpoint();publish()
         }
@@ -64,6 +68,21 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     init {
         try { store.read()?.let { state.restore(it);prepareRoute() } }
         catch (_: Exception) { lastError="No se pudo restaurar la actividad. El archivo original se conserva." }
+    }
+    private fun notifyGuidance(title: String, text: String) {
+        // Solo alternativa en segundo plano y si se concedió notificación;
+        // con pantalla activa el texto de la UI ya es la alternativa visual.
+        val importance = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(importance)
+        if (importance.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
+        val manager = app.getSystemService(android.app.NotificationManager::class.java)
+        manager.createNotificationChannel(android.app.NotificationChannel("repera.live.guidance", "Guía deportiva", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        val notification = androidx.core.app.NotificationCompat.Builder(app, "repera.live.guidance")
+            .setSmallIcon(R.drawable.ic_timer).setContentTitle(title).setContentText(text)
+            .setAutoCancel(true).build()
+        runCatching { manager.notify(4204, notification) }
     }
     fun choose(sport: LiveSport) { state.choose(sport);publish() }
     fun selectRoute(id: String?) { state.selectRoute(id);prepareRoute();publish() }

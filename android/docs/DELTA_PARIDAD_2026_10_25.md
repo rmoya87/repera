@@ -225,3 +225,41 @@ main móvil invisible.)
   de aviso cuando voz falla/está off, voz instalada de mejor calidad y tests.
 - Pruebas instrumentadas D3/historial/evolución/guardado sintético lanzadas en
   rama debug separada sobre 6d003b02 (NO incluyen aún guía/TTS posterior).
+
+## Validación D3 20:08 CET
+- 40223448697 SUCCESS XML4/0 solo LiveSportHistoryInstrumentedTest (runner no
+  ejecutó la segunda clase de la lista). Catálogo/historial legibles en
+  capturas. Evolución: resumen/gráfica legibles, mapa no evaluable por captura
+  Compose (SurfaceView). No se da guardado por probado ni mapa por vacío real.
+- Nueva clase explícita única LiveActivitySaveInstrumentedTest ejecuta guardado
+  UUID-idempotente y captura de ventana real tras estilo +8s con ruta sintética.
+  Run nuevo debug sobre ecdd57f8, sin regresión global ni cambios beta.
+
+- D4 UI recientes5 ordenadas por última actividad real, filtro favoritas/todas
+  y borrado confirmado que conserva sesiones y retira selección actual. Compila.
+- D4 voz: preferir voz es-ES instalada offline de mayor calidad, fallback a
+  notificación con permiso en background cuando voz apagada/falla; solicitud
+  POST_NOTIFICATIONS al desactivar voz. Compila, sin validación audio/FGS aún.
+
+- D6 deeplinks repera://live→Comenzar y repera://workout→Inicio añadidos,
+  notificación abre Comenzar. workout aún NO presenta sesión activa concreta
+  (diferencia explícita). Solo compila, no validación de intents aún.
+- Biblioteca recupera rutas de sesiones completas por UUID al abrir, sin
+  favoritos inventados y respetando tombstones. Compila, store ya probado.
+
+- D4 métricas UI ritmo/velocidad por deporte, elevación medida y parcial en
+  curso añadidas. Mapa actualiza polilínea al recibir puntos (antes era solo
+  creación inicial). Compila, pendiente ejecución y perf con ruta larga.
+
+- Test instrumentado añadido de runtime interior sintético: inicio/pausa,
+  cambio de cuenta, restauración pausada con mismo UUID/reloj, revisión y
+  descarte. No usa servicio ni sensores, compila pero espera ejecución.
+
+## Validación guardado/mapa 20:22 CET
+- 40224535920 SUCCESS XML2/0 sin omitidos: guardado En vivo UUID-idempotente
+  probado en disco real aislado, duración activa y sin Salud/ejercicios falsos.
+- Captura ventana real mapa evolución inspeccionada: teselas, ruta, extremos
+  y atribución visibles. Tema del fixture era Material genérico (violeta), NO
+  evidencia de fidelidad Repera. Fixture corregido a primary=brandGreen.
+- Próxima ejecución incluye ciclo runtime interior aislado/restauración sin
+  sensores (3 pruebas en clase). FGS/permisos/background siguen sin validar.

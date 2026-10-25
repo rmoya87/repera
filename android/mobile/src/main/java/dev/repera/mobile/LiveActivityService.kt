@@ -63,7 +63,7 @@ internal class LiveActivityService : Service() {
     private fun notification(r:LiveActivityRuntime):Notification {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL,"Actividad en vivo",NotificationManager.IMPORTANCE_LOW))
-        val open=PendingIntent.getActivity(this,601,Intent(this,MainActivity::class.java)
+        val open=PendingIntent.getActivity(this,601,Intent(this,MainActivity::class.java).setData(android.net.Uri.parse("repera://live"))
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val paused=r.state.phase==LiveActivityState.Phase.PAUSED
         val text=buildList {
