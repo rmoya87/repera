@@ -249,6 +249,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var primaryRegions: [String]
     public var secondaryRegions: [String]
     public var isFavorite: Bool
+    /// Un ejercicio retirado permanece consultable para preservar sesiones y récords históricos.
+    public var isCatalogArchived: Bool
     /// Origen deportivo o disciplina (incluye Movilidad); no sustituye el grupo muscular.
     public var sportTag: String?
 
@@ -538,6 +540,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         primaryRegions: [String] = [],
         secondaryRegions: [String] = [],
         isFavorite: Bool = false,
+        isCatalogArchived: Bool = false,
         sportTag: String? = nil
     ) {
         self.id = id
@@ -554,6 +557,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         self.primaryRegions = primaryRegions
         self.secondaryRegions = secondaryRegions
         self.isFavorite = isFavorite
+        self.isCatalogArchived = isCatalogArchived
         self.sportTag = sportTag
     }
 
@@ -561,7 +565,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         case id, name, muscleGroup, equipment, isCustom
         case catalogId, targetMuscle, secondaryMuscles, bodyPart
         case detailDescription, instructions, primaryRegions, secondaryRegions, isFavorite
-        case sportTag
+        case isCatalogArchived, sportTag
     }
 
     public init(from decoder: Decoder) throws {
@@ -580,6 +584,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         primaryRegions = try c.decodeIfPresent([String].self, forKey: .primaryRegions) ?? []
         secondaryRegions = try c.decodeIfPresent([String].self, forKey: .secondaryRegions) ?? []
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        isCatalogArchived = try c.decodeIfPresent(Bool.self, forKey: .isCatalogArchived) ?? false
         sportTag = try c.decodeIfPresent(String.self, forKey: .sportTag)
         // Migración: antiguos grupos deporte → sportTag + músculo principal.
         let legacySports: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia"]

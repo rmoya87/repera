@@ -38,6 +38,7 @@ private enum ExercisePickerFilter: Hashable, Sendable {
 
 /// Lista + `.searchable` compartida: índice/ranking off-main, filas ligeras, prefetch viewport.
 struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
+    @Environment(ReperaStore.self) private var store
     let exercises: [Exercise]
     var prompt: String = "Buscar ejercicio"
     var subtitle: (ExerciseSearch.Document) -> String = { doc in
@@ -171,11 +172,11 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     }
 
     private var catalogToken: String {
-        "\(exercises.count)|\(exercises.first?.id.uuidString ?? "")|\(exercises.last?.id.uuidString ?? "")"
+        "\(store.catalogEpoch)|\(exercises.count)|\(exercises.first?.id.uuidString ?? "")|\(exercises.last?.id.uuidString ?? "")"
     }
 
     private func rebuildIndex() async {
-        let catalog = exercises
+        let catalog = exercises.filter { !$0.isCatalogArchived }
         let map = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
         let built = await Task.detached(priority: .userInitiated) { () -> (index: [ExerciseSearch.Document], alpha: [ExerciseSearch.Document]) in
             let index = ExerciseSearch.makeIndex(catalog)

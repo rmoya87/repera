@@ -491,7 +491,7 @@ struct LibraryView: View {
     }
 
     private func rebuildIndexOffMain(reason: String) async {
-        let exercises = store.state.exercises
+        let exercises = store.state.exercises.filter { !$0.isCatalogArchived }
         LibrarySearchLog.signpostBegin("IndexBuild")
         let index = await Task.detached(priority: .userInitiated) {
             ExerciseSearch.makeIndex(exercises)
@@ -514,7 +514,7 @@ struct LibraryView: View {
         let sort = sortMode
         let filter = filterMode
         let q = query
-        let byId = Dictionary(uniqueKeysWithValues: store.state.exercises.map { ($0.id, $0) })
+        let byId = Dictionary(uniqueKeysWithValues: store.state.exercises.filter { !$0.isCatalogArchived }.map { ($0.id, $0) })
         let sections = await Task.detached(priority: .userInitiated) {
             Self.makeSections(
                 index: index,

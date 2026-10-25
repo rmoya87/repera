@@ -15,6 +15,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  catalog-offline-contracts:
+    name: Catalog offline / invisible UI contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate native background sync and catalog integrity
+        run: |
+          python3 -m unittest discover -s tests -p 'test_background_exercise_catalog.py' -v
+          python3 - <<'PY'
+          from pathlib import Path
+          migrations = Path('supabase/migrations')
+          assert list(migrations.glob('*mobile_exercise_catalog_events.sql'))
+          assert list(migrations.glob('*catalog_event_commit_order.sql'))
+          assert list(migrations.glob('*mobile_exercise_equipment_override.sql'))
+          assert list(migrations.glob('*ring_dips_kipping_editorial_catalog.sql'))
+          print('PASS: migration chain and background contracts present')
+          PY
+
   domain-tests:
     name: ReperaDomain swift test
     runs-on: xcode-27

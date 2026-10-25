@@ -54,6 +54,9 @@ final class ReperaStore: NSObject {
     private var lastWatchAcknowledgedSession: UUID?
 
     func bumpCatalogEpoch() { catalogEpoch &+= 1 }
+
+    /// Reenvía al reloj el contexto de sesión tras una corrección del catálogo.
+    func notifyCatalogChangedForWatch() { pushActiveToWatch(immediate: true) }
     func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
     func bumpSessionEpoch() { sessionEpoch &+= 1 }
 
@@ -461,6 +464,7 @@ final class ReperaStore: NSObject {
 
     func completeInitialRemoteSync() async {
         await refreshFromiCloud(isInitial: true)
+        await RemoteExerciseCatalogStore.shared.restoreCached(to: self)
         didCompleteInitialRemoteSync = true
     }
 
@@ -556,7 +560,7 @@ final class ReperaStore: NSObject {
     /// Borra entrenos, rutinas y peso; mantiene el catálogo de ejercicios.
     func resetUserData() {
         state = AppState(
-            exercises: Catalog.seed(),
+            exercises: state.exercises,
             routines: [],
             workouts: [],
             bodyWeights: [],

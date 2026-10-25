@@ -102,7 +102,7 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertNotIn("Programas de entrenamiento IA",settings)
         self.assertIn("De tu entrenador IA",plan)
         self.assertIn("AITrainingProgramsView()",plan)
-        self.assertIn("if let syncFeedback",settings)
+        self.assertNotIn("syncFeedback", settings)
 
     def test_percent_load_kept_as_percent_not_fabricated_kg(self):
         models=read("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")

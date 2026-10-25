@@ -1,3 +1,4 @@
+import BackgroundTasks
 import GoogleSignIn
 import ReperaDomain
 import SwiftUI
@@ -172,12 +173,16 @@ struct ReperaApp: App {
                     }
 
                     if canEnterMainApp {
+                        if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
+                            CatalogBackgroundRefreshScheduler.schedule()
+                        }
                         Task(priority: .utility) {
                             await businessAuth.syncPublicProfile(
                                 displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
                                 avatarJPEG: store.state.settings.profileAvatarJPEG
                             )
                             await businessData.refresh()
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -195,6 +200,9 @@ struct ReperaApp: App {
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
+                        if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
+                            CatalogBackgroundRefreshScheduler.schedule()
+                        }
                         aiInbox.stopRealtime()
                         wasBackgrounded = true
                         Task {
@@ -208,12 +216,14 @@ struct ReperaApp: App {
                         Task {
                             guard store.isHydrated else { return }
                             await store.refreshFromiCloud()
+                            await RemoteExerciseCatalogStore.shared.restoreCached(to: store)
                             await refreshHealthOnForeground(forceProgressiveIfNeeded: true)
                             await subscriptions.refreshOnForeground()
                             // Pull latest published trainer blocks, reservations and passes
                             // on foreground. Supabase RLS keeps personal history private.
                             if businessAuth.isConnected {
                                 await businessData.refresh()
+                                await RemoteExerciseCatalogStore.shared.refresh(store: store)
                                 await workoutSync.sync(store: store)
                                 _ = await aiInbox.sync(store: store)
                                 _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -231,7 +241,9 @@ struct ReperaApp: App {
                 }
                 .onChange(of: businessAuth.isConnected) { _, connected in
                     if connected {
+                        CatalogBackgroundRefreshScheduler.schedule()
                         Task {
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -256,6 +268,7 @@ struct ReperaApp: App {
                 .onChange(of: store.didCompleteInitialRemoteSync) { _, finished in
                     if finished && businessAuth.isConnected {
                         Task {
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -289,6 +302,9 @@ struct ReperaApp: App {
                         customExercises: store.customExerciseCount
                     )
                 }
+        }
+        .backgroundTask(.appRefresh(CatalogBackgroundRefreshScheduler.identifier)) {
+            await CatalogBackgroundRefreshScheduler.runHeadless()
         }
     }
 
@@ -355,6 +371,7 @@ struct ReperaApp: App {
         // Apple Salud puede sincronizar el HKWorkout después de WatchConnectivity.
         await store.reconcileWatchHealthMetrics()
         await store.syncBodyWeightWithHealth()
+        AutomaticHealthWorkoutReconciler.schedule(store: store)
         LaunchWarmup.markLaunchHealthWarmFinished()
 
         let needsProgressive = health.healthNeedsRefresh || !health.hasProgressiveCache
@@ -380,6 +397,7 @@ struct ReperaApp: App {
         health.startObservingHealthChanges()
         await health.refreshToday()
         await store.syncBodyWeightWithHealth()
+        AutomaticHealthWorkoutReconciler.schedule(store: store)
         guard forceProgressiveIfNeeded else { return }
         if health.healthNeedsRefresh || !health.hasProgressiveCache {
             await health.refreshRecentExternalActivities(
@@ -415,6 +433,64 @@ private struct LaunchSplashView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
+
+/// Restores the HealthKit retry path previously available only through the
+/// manual sync button. Runs silently, only with existing write permission.
+@MainActor
+private enum AutomaticHealthWorkoutReconciler {
+    private static var isRunning = false
+    private static var lastAttempt: Date?
+
+    static func schedule(store: ReperaStore) {
+        guard HealthKitStore.shared.canWriteWorkouts, !isRunning else { return }
+        if let lastAttempt, Date().timeIntervalSince(lastAttempt) < 3600 { return }
+        guard store.state.workouts.contains(where: {
+            $0.startedAt != nil && $0.finishedAt != nil && $0.healthKitWorkoutUUID == nil
+        }) else { return }
+        isRunning = true
+        lastAttempt = Date()
+        Task(priority: .utility) {
+            _ = await store.syncMissingWorkoutsToHealth()
+            isRunning = false
+        }
+    }
+}
+
+private enum CatalogBackgroundRefreshScheduler {
+    static let identifier = "com.app.repera.catalog.refresh"
+
+    /// Native iOS refresh is opportunistic: never assume this is an exact timer.
+    static func schedule() {
+        // Never cancel/restart a pending request on every foreground transition:
+        // doing so could indefinitely postpone the OS-selected opportunity.
+        BGTaskScheduler.shared.getPendingTaskRequests { pending in
+            guard !pending.contains(where: { $0.identifier == identifier }) else { return }
+            let request = BGAppRefreshTaskRequest(identifier: identifier)
+            request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
+            do {
+                try BGTaskScheduler.shared.submit(request)
+            } catch {
+                // iOS may disable background tasks. Foreground sync remains automatic.
+            }
+        }
+    }
+
+    @MainActor
+    static func runHeadless() async {
+        guard !Task.isCancelled else { return }
+        let auth = BusinessAuthStore.shared
+        guard auth.hasCachedSupabaseSession || auth.hasPriorSupabaseBinding else { return }
+        schedule() // Re-arm only when an authenticated session may be restored.
+        if !auth.isConnected {
+            await auth.restoreSession() // Keychain; never show an interactive sign-in.
+        }
+        guard auth.isConnected, !Task.isCancelled else { return }
+        // Update ONLY the shared catalog disk cache. The personal/iCloud store
+        // is not hydrated or modified during a background-only launch.
+        await RemoteExerciseCatalogStore.shared.refresh(force: true)
+    }
 }
 
 /// First visible SwiftUI frame. A copy of the barbell PNG is packaged as a

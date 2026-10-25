@@ -26,7 +26,7 @@ class AICoachContractTests(unittest.TestCase):
         self.assertNotIn("AITrainingProfileView()", settings)
         for feature in ("AITrainingContextStore.shared.syncCalendar", "AITrainingContextStore.shared.clearSession"):
             self.assertIn(feature,app)
-        self.assertIn("AITrainingContextStore.shared.syncCalendar", settings)
+        self.assertNotIn("Sincronizar ahora", settings)
         self.assertNotIn("AITrainingProgramsView()", settings)
         self.assertIn("AITrainingProgramsView()", source("Apps/Repera/Sources/PlanView.swift"))
 

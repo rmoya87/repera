@@ -20,36 +20,6 @@ class AppleSyncAndAIChatContracts(unittest.TestCase):
         self.assertIn("try values.encodeNil(forKey: .avatarURL)",native)
         self.assertIn("jpeg.count <= 2_097_152",native)
 
-    def test_manual_sync_waits_for_existing_sync_and_explains_failure(self):
-        settings=src("Apps/Repera/Sources/SettingsView.swift")
-        self.assertIn("await store.refreshFromiCloud()",settings)
-        self.assertIn("await businessAuth.restoreSession()",settings)
-        self.assertIn("workoutSync.isSyncing",settings)
-        self.assertIn("AITrainingInboxStore.shared.isSyncing",settings)
-        self.assertIn("AITrainingContextStore.shared.isSyncing",settings)
-        self.assertIn("incomplete.joined",settings)
-        self.assertNotIn('?? "operación incompleta"',settings)
-
-    def test_last_confirmed_sync_timestamp_is_reactive_and_error_uses_full_row_width(self):
-        settings=src("Apps/Repera/Sources/SettingsView.swift")
-        self.assertIn('@AppStorage("repera.settings.lastFullSyncAt") private var lastFullSyncAt: Double = 0',settings)
-        self.assertIn('lastFullSyncAt = Date().timeIntervalSince1970',settings)
-        self.assertIn('Text("Última actualización:',settings)
-        # Fecha/hora en formato español: no asumir la sobrecarga .formatted
-        # cuando la UI usa DateFormatter con locale es_ES.
-        self.assertIn('formatter.locale = Locale(identifier: "es_ES")',settings)
-        self.assertIn('formatter.dateStyle = .medium',settings)
-        self.assertIn('formatter.timeStyle = .short',settings)
-        self.assertIn('formatter.string(from: Date(timeIntervalSince1970: lastFullSyncAt))',settings)
-        self.assertIn('.foregroundStyle(OG.label2)',settings)
-        self.assertIn('Text(syncFeedback)',settings)
-        self.assertIn('.foregroundStyle(OG.red)',settings)
-        self.assertIn('.frame(maxWidth: .infinity, alignment: .leading)',settings)
-        self.assertIn('.layoutPriority(1)',settings)
-        self.assertIn('syncFeedback = "No se ha confirmado iCloud."',settings)
-        self.assertNotIn('syncFeedback = "Sincronización completada."',settings)
-        self.assertNotIn('UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "repera.settings.lastFullSyncAt")',settings)
-
     def test_no_profile_form_and_no_gym_auth_error(self):
         settings=src("Apps/Repera/Sources/SettingsView.swift")
         self.assertNotIn("AITrainingProfileView()",settings)
