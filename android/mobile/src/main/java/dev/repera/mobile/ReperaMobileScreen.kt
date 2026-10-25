@@ -169,6 +169,8 @@ fun ReperaMobileScreen(
     onSelectActiveExercise:(Int)->Unit = {},
     onUpdateActiveNotes:(String)->Unit = {},
     onSaveActiveFavorite:()->Unit = {},
+    activeEditorDraft:()->RoutineEntry? = {null},
+    onUpdateActivePlan:(String,List<RoutineBlockDraft>,()->Unit)->Unit = {_,_,_->},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -349,6 +351,7 @@ fun ReperaMobileScreen(
                         onSelectActiveExercise = onSelectActiveExercise,
                         onUpdateActiveNotes = onUpdateActiveNotes,
                         onSaveActiveFavorite = onSaveActiveFavorite,
+                        onEditActivePlan = {navController.navigate("entreno-activo-editar")},
                         onFinish = onFinish,
                         onDiscardSession = onDiscardSession,
                         accountId = accountId,
@@ -492,6 +495,15 @@ fun ReperaMobileScreen(
                         onBack = { navController.popBackStack() }
                     )
                 }
+                composable("entreno-activo-editar") {
+                    val draft=remember(activeWorkout?.id) {activeEditorDraft()}
+                    if(draft==null || activeWorkout==null) {
+                        LaunchedEffect(Unit) {navController.popBackStack()}
+                    } else RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,
+                        onReplace={blocks ->onUpdateActivePlan(draft.id,blocks) {navController.popBackStack()}},
+                        onBack={navController.popBackStack()},loadGuideProvider=loadGuideProvider,
+                        importableRoutines=overview?.routineEntries.orEmpty())
+                }
                 composable("entreno-activo") {
                     val workout=activeWorkout
                     if(workout==null) {
@@ -501,7 +513,7 @@ fun ReperaMobileScreen(
                             onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
                             onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
                             onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
-                            overview?.activeLocationPin,accountId,onActivePinChange,overview?.trainingSettings?.effortUnit ?: "rir",onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite)
+                            overview?.activeLocationPin,accountId,onActivePinChange,overview?.trainingSettings?.effortUnit ?: "rir",onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,{navController.navigate("entreno-activo-editar")})
                     }
                 }
                 composable("en-vivo") {

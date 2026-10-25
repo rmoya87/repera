@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 
 @Composable
-internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(Int)->Unit,onNotes:(String)->Unit,onFavorite:()->Unit = {}) {
+internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(Int)->Unit,onNotes:(String)->Unit,onFavorite:()->Unit = {},onEdit:()->Unit = {}) {
     var choosing by remember {mutableStateOf(false)}
     var editingNotes by remember {mutableStateOf(false)}
     var notes by rememberSaveable(active.id,active.notes) {mutableStateOf(active.notes.orEmpty())}
@@ -24,6 +24,7 @@ internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(I
     TextButton(enabled=!busy,onClick={editingNotes=true}) {Text(if(active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")}
     TextButton(enabled=!busy && !active.isFavorite,onClick=onFavorite) {Text(if(active.isFavorite) "En favoritos" else "Favorito")}
     }
+    TextButton(enabled=!busy,onClick=onEdit) {Text("Editar entreno")}
     }
     if(choosing) AlertDialog(onDismissRequest={choosing=false},title={Text("Ejercicios y bloques")},
         text={Column(Modifier.verticalScroll(rememberScrollState())) {

@@ -784,6 +784,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onUpdateActiveNotes = { notes -> runWorkoutAction { updateActiveSessionNotes(notes) } },
                 onSaveActiveFavorite = { runWorkoutAction { saveActiveSessionAsFavorite() } },
+                activeEditorDraft = {runCatching {profile?.uniqueId?.let { WorkoutRepository(this@MainActivity,it).activeRoutineForEditing() }}.getOrNull()},
+                onUpdateActivePlan = {id,blocks,done ->runWorkoutAction(onSuccess=done) {
+                    updateActiveSessionPlan(id,blocks) {before ->
+                        subscriptions.syncCounts(snapshot?.routines ?: 0,before)
+                        subscriptions.canCreateCustomExercise(true).allowed
+                    }
+                }},
                 onNext = { runWorkoutAction { next() } },
                 onFinish = {
                     StrengthRestService.cancel(this)

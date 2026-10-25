@@ -24,13 +24,14 @@ internal fun ActiveWorkoutScreen(
     effortUnit:String="rir",
     onSelectExercise:(Int)->Unit = {},
     onUpdateNotes:(String)->Unit = {},
-    onSaveFavorite:()->Unit = {}
+    onSaveFavorite:()->Unit = {},
+    onEditPlan:()->Unit = {}
 ) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item { TextButton(onClick=onBack) { Text("Volver") } }
         item { Text("Entrenamiento activo",style=MaterialTheme.typography.headlineMedium) }
-        item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes,onSaveFavorite)}
+        item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes,onSaveFavorite,onEditPlan)}
         item {
             if(workout.wod!=null) WodScoreCard(active=workout,busy=busy,timer=timer,
                 onTimerAction=onTimerAction,onTimerTick=onTimerTick,onSave=onWodScore,

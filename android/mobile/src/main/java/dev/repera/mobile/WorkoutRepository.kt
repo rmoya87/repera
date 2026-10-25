@@ -1176,6 +1176,40 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return summarize(session)
     }
 
+    /** Read-only editor draft. Canceling never creates a routine. */
+    @Synchronized fun activeRoutineForEditing(): RoutineEntry {
+        val state=requireState();val session=requireActive(state)
+        val list=state.getJSONArray("routines")
+        val routine=(0 until list.length()).map {list.getJSONObject(it)}
+            .firstOrNull {it.optString("id")==session.optString("routineId")}
+            ?: ActiveSessionFavorite.template(session).apply {
+                put("isFavorite",false)
+                // Editor preserves current quantity units and explicit WOD prescriptions.
+                val entries=session.getJSONArray("exercises")
+                val copy=JSONObject(session.toString())
+                for(i in 0 until entries.length()) copy.getJSONArray("exercises").getJSONObject(i).put("loggedSets",JSONArray())
+                put("blocks",CompletedWorkoutEditing.blocksFrom(copy,null))
+            }
+        val view=JSONObject(state.toString()).put("routines",JSONArray().put(routine))
+        return requireNotNull(StateOverview.fromBytes(view.toString().toByteArray())).routineEntries.single()
+    }
+
+    @Synchronized fun updateActiveSessionPlan(
+        draftId:String, blocks:List<RoutineBlockDraft>, canCreateCustom:(Int)->Boolean = {true}
+    ): ActiveWorkout {
+        val state=requireState();val session=requireActive(state)
+        val routines=state.getJSONArray("routines")
+        val existing=(0 until routines.length()).map {routines.getJSONObject(it)}.firstOrNull {it.optString("id")==draftId}
+        val routine=existing ?: JSONObject().put("id",draftId).put("title",session.optString("title"))
+            .put("progression","off").put("isFavorite",false)
+        routine.put("blocks",validatedDraftBlocks(materializePendingCustoms(blocks,state,canCreateCustom),state))
+        val fresh=assembleSession(state,routine,allowAdvanced=false)
+        ActiveSessionPlan.refresh(session,fresh)
+        if(existing==null) routines.put(routine)
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun saveActiveSessionAsFavorite(): ActiveWorkout {
         val state=requireState()
         ActiveSessionFavorite.save(state)

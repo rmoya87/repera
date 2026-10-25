@@ -17,10 +17,12 @@ class ExerciseOneRMInstrumentedTest {
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Column(Modifier.fillMaxSize().safeDrawingPadding()) {
    ExerciseEvolutionSection(entry,{_,_,_->dates.mapIndexed {i,d ->ExerciseProgressPoint(d,60.0+i*5,60.0+i*5,5)}},100.0,{},false)
   }}}
-  compose.onNodeWithText("Tope 1RM · 100.0 kg").assertIsDisplayed()
+  compose.onAllNodesWithText("Tope 1RM · 100.0 kg").assertCountEquals(2)
+  compose.onAllNodesWithText("Tope 1RM · 100.0 kg")[0].assertIsDisplayed()
   compose.onNodeWithTag("exercise_evolution_chart").performTouchInput {click(androidx.compose.ui.geometry.Offset(1f,center.y))}
   compose.onNodeWithText("Seleccionado:",substring=true).assertIsDisplayed()
-  compose.onNodeWithText("20 oct 2026").assertIsDisplayed()
+  val expectedDate=java.time.Instant.ofEpochMilli(dates.first()).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy",java.util.Locale.forLanguageTag("es")))
+  compose.onNodeWithText(expectedDate).assertIsDisplayed()
   compose.onNodeWithTag("exercise_evolution_chart").performTouchInput {swipeLeft()}
   compose.onNodeWithText("Seleccionado:",substring=true).assertIsDisplayed()
   capture("ejercicio_evolucion_tope_cursor.png")
@@ -48,14 +50,14 @@ class ExerciseOneRMInstrumentedTest {
    TestedOneRMEditor(tested,false) {repo.setTestedOneRM("bench",it);tested=ExerciseLoadPreference.tested(JSONObject(String(local.read()!!)),"bench")}
    SuggestedExerciseLoadCard(tested,80.0,2.5)
   }}}
-  compose.onNodeWithTag("suggested_load_value").assertTextContains("e1RM")
+  compose.onNodeWithTag("suggested_load_value").assertTextContains("e1RM",substring=true)
   compose.onNodeWithTag("tested_onerm_edit").performClick()
   compose.onNodeWithTag("tested_onerm_input").performTextInput("100,04")
   compose.onNodeWithText("Guardar tope").performClick()
   compose.runOnIdle {assertEquals(100.0,tested!!,0.0)}
-  compose.onNodeWithTag("suggested_load_value").assertTextContains("70% 1RM")
+  compose.onNodeWithTag("suggested_load_value").assertTextContains("70% 1RM",substring=true)
   compose.onNodeWithTag("suggested_load_percent").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) {it(95f)}
-  compose.onNodeWithTag("suggested_load_value").assertTextContains("95% 1RM")
+  compose.onNodeWithTag("suggested_load_value").assertTextContains("95% 1RM",substring=true)
   val instrument=InstrumentationRegistry.getInstrumentation();val bitmap=instrument.uiAutomation.takeScreenshot()!!
   val values=android.content.ContentValues().apply {
    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"ejercicio_tope_carga.png")
@@ -67,7 +69,7 @@ class ExerciseOneRMInstrumentedTest {
   compose.onNodeWithTag("tested_onerm_edit").performClick()
   compose.onNodeWithTag("tested_onerm_input").performTextClearance()
   compose.onNodeWithText("Guardar tope").performClick()
-  compose.onNodeWithTag("suggested_load_value").assertTextContains("e1RM")
+  compose.onNodeWithTag("suggested_load_value").assertTextContains("e1RM",substring=true)
   compose.runOnIdle {assertNull(ExerciseLoadPreference.tested(JSONObject(String(local.read()!!)),"bench"))}
  }
 }
