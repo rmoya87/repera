@@ -53,14 +53,19 @@ struct TrainingLiveActivityWidget: Widget {
                 }
             } compactLeading: {
                 Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
+                    .frame(width: 19, height: 20, alignment: .leading)
             } compactTrailing: {
+                // La anchura de .timer es expansiva si se mide sin restricciones.
+                // Un ancho compacto explícito impide que el widget reclame
+                // espacio extra en la Dynamic Island para duraciones largas.
                 timer(context.state)
                     .monospacedDigit()
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .minimumScaleFactor(0.55)
+                    .frame(width: 44, alignment: .trailing)
             } minimal: {
                 Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
                     .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
