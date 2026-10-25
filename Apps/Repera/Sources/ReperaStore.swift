@@ -1301,6 +1301,17 @@ final class ReperaStore: NSObject {
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
     func saveWorkout(_ session: WorkoutSession) {
         var draft = session
+        // La transferencia HealthKit del reloj puede llegar antes del guardado
+        // manual del teléfono: conservar su identidad y datos de sensores.
+        if let previous = state.workouts.first(where: { $0.id == draft.id }),
+           previous.appleHealthProvenance == "watchHealthKit" ||
+            previous.appleHealthProvenance == "watchHealthKitPending" {
+            draft.healthKitWorkoutUUID = previous.healthKitWorkoutUUID
+            draft.appleHealthProvenance = previous.appleHealthProvenance
+            draft.appleActiveEnergyKcal = previous.appleActiveEnergyKcal
+            draft.appleAverageHeartRateBpm = previous.appleAverageHeartRateBpm
+            draft.appleDurationSeconds = previous.appleDurationSeconds
+        }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
         }
@@ -1417,6 +1428,15 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        // Una sesión deportiva iniciada en Comenzar tiene el mismo UUID
+        // en iPhone y Watch. No ponerla en activeSession (reservado a Play).
+        if session.liveSportID != nil && session.phase != .finished {
+            LiveActivityRecorder.shared.applyWatchState(session)
+            return
+        }
+        if session.liveSportID != nil {
+            LiveActivityRecorder.shared.applyWatchState(session)
+        }
         if session.phase == .finished {
             var changed = false
             if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
@@ -1714,10 +1734,17 @@ final class ReperaStore: NSObject {
             ?? professionalWorkoutForWatchToday()
     }
 
+    /// El Watch usa el mismo WCSession offline-first de los entrenos Play.
+    /// En Comenzar el iPhone conserva el GPS; el Watch registra HealthKit.
+    func syncLiveActivityToWatch() {
+        guard state.activeSession == nil else { return }
+        sendWatchContextNow()
+    }
+
     private func sendWatchContextNow() {
         let today = currentWatchWorkoutForToday()
         connectivity.send(
-            session: state.activeSession,
+            session: state.activeSession ?? LiveActivityRecorder.shared.watchSnapshot(),
             today: today,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
