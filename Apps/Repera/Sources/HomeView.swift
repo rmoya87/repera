@@ -78,6 +78,7 @@ struct HomeView: View {
     /// Keeps the activity/progress cards below steady while changing days.
     @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 100
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
+    @State private var lastAppliedFocusDay: Date?
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
     @State private var todayHealthLive = HealthKitStore.DayMetrics()
     /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
@@ -317,7 +318,10 @@ struct HomeView: View {
             }
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
-                if let focusDay { selectedDay = calendar.startOfDay(for: focusDay) }
+                if let focusDay, focusDay != lastAppliedFocusDay {
+                    lastAppliedFocusDay = focusDay
+                    selectedDay = calendar.startOfDay(for: focusDay)
+                }
                 // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
                 rebuildDayBuckets()
                 rebuildWeekChrome()
@@ -335,7 +339,10 @@ struct HomeView: View {
                 rebuildWeekChrome()
             }
             .onChange(of: focusDay) { _, day in
-                if let day { selectedDay = calendar.startOfDay(for: day) }
+                if let day {
+                    lastAppliedFocusDay = day
+                    selectedDay = calendar.startOfDay(for: day)
+                }
             }
             .onChange(of: selectedDay) { _, newDay in
                 // Al elegir un cuadrado, el progreso semanal sigue esa fecha.
@@ -838,17 +845,20 @@ struct HomeView: View {
                         store.endActiveSession(save: false)
                     }
                 }
-            } else if !workouts.isEmpty {
+            }
+            // La sesión estándar activa no debe ocultar actividades En vivo ya guardadas.
+            if !workouts.isEmpty {
                 ForEach(workouts) { session in
                     dayWorkoutCard(session)
                         .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
                 }
-            } else if let planned = plannedRoutineForSelectedDay {
-                // El plan mantiene todos los gestos existentes.
-                plannedDayCard(planned)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
-            } else if !hasCompletedActivity {
-                emptyWorkoutCard
+            } else if !hasActive {
+                if let planned = plannedRoutineForSelectedDay {
+                    plannedDayCard(planned)
+                        .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+                } else if !hasCompletedActivity {
+                    emptyWorkoutCard
+                }
             }
 
             ForEach(healthActivities) { activity in
