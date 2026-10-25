@@ -115,12 +115,26 @@ struct LiveSavedRoute: Identifiable, Codable {
 final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
-    private let key = "repera.live.routes.v1"
+    private let legacyKey = "repera.live.routes.v1"
+    /// GPX de miles de puntos no debe almacenarse en UserDefaults (plist en memoria).
+    private let storageURL: URL = {
+        let base = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("LiveRoutes.json")
+    }()
 
     private init() {
-        if let data = UserDefaults.standard.data(forKey: key),
-           let decoded = try? JSONDecoder().decode([LiveSavedRoute].self, from: data) {
-            routes = decoded
+        if let data = try? Data(contentsOf: storageURL),
+           let saved = try? JSONDecoder().decode([LiveSavedRoute].self, from: data) {
+            routes = saved
+        } else if let oldData = UserDefaults.standard.data(forKey: legacyKey),
+                  let previous = try? JSONDecoder().decode([LiveSavedRoute].self, from: oldData) {
+            // Migrar rutas anteriores una sola vez sin perder los archivos importados.
+            routes = previous
+            if (try? persist()) != nil {
+                UserDefaults.standard.removeObject(forKey: legacyKey)
+            }
         }
     }
 
@@ -128,21 +142,34 @@ final class LiveRoutesStore {
         let parser = LiveGPXParser()
         let points = try parser.parse(data)
         guard points.count >= 2 else { throw LiveRouteError.empty }
+        let previous = routes
         routes.insert(LiveSavedRoute(title: name, points: points), at: 0)
-        // Limitar los GPX locales para no crecer indefinidamente.
         if routes.count > 30 { routes = Array(routes.prefix(30)) }
-        persist()
+        do {
+            try persist()
+        } catch {
+            routes = previous
+            throw error
+        }
     }
 
     func remove(_ id: UUID) {
+        let previous = routes
         routes.removeAll { $0.id == id }
-        persist()
+        do {
+            try persist()
+        } catch {
+            routes = previous
+        }
     }
 
-    private func persist() {
-        if let data = try? JSONEncoder().encode(routes) {
-            UserDefaults.standard.set(data, forKey: key)
-        }
+    private func persist() throws {
+        let folder = storageURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: folder, withIntermediateDirectories: true
+        )
+        let data = try JSONEncoder().encode(routes)
+        try data.write(to: storageURL, options: .atomic)
     }
 }
 
@@ -1087,6 +1114,7 @@ struct LiveActivityView: View {
                     title = ""
                     notes = ""
                     savedWorkoutID = nil
+                    showingMetrics = false
                     onSaved(date)
                 } label: {
                     Text("Guardar actividad")
