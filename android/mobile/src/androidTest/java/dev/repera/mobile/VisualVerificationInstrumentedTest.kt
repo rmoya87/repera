@@ -850,11 +850,17 @@ class VisualVerificationInstrumentedTest {
         // búsqueda, y un pinch debe SUBIR el zoom igualmente.
         compose.waitUntil(timeoutMillis = 60_000) { cameraRef.get() != null }
         val cam0 = cameraRef.get()!!
-        compose.onNodeWithTag("place_pin_map").performTouchInput {
-            swipe(center - androidx.compose.ui.geometry.Offset(0f, 260f),
-                center + androidx.compose.ui.geometry.Offset(220f, -40f),
-                durationMillis = 300)
-        }
+        // UiDevice.swipe: pipeline de input real con tiempos reales. La
+        // inyeccion Compose comprime todo el gesto en ~10ms (tiempo virtual)
+        // y MapLibre no lo traduce a pan (evidencia run 40204331198: el
+        // detector de vista ve DOWN+20 MOVE+UP pero no hay cameraMoveStarted).
+        val pinMapBounds = compose.onNodeWithTag("place_pin_map")
+            .fetchSemanticsNode().boundsInWindow
+        val uiDevice = androidx.test.uiautomator.UiDevice.getInstance(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation())
+        val swipeFromX = (pinMapBounds.left + pinMapBounds.width / 2).toInt()
+        val swipeFromY = (pinMapBounds.top + pinMapBounds.height / 2 - 260).toInt()
+        uiDevice.swipe(swipeFromX, swipeFromY, swipeFromX + 220, swipeFromY + 220, 20)
         compose.waitUntil(timeoutMillis = 15_000) {
             cameraRef.get()?.let { it.second != cam0.second || it.third != cam0.third } == true
         }

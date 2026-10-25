@@ -79,6 +79,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    // UiDevice: input real para gestos sobre MapLibre (la inyeccion Compose
+    // comprime el tiempo y el SDK no traduce el gesto a pan).
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
     // Espresso 3.5.0 (transitivo de ui-test-junit4) usa reflexión sobre
     // InputManager.getInstance, API oculta eliminada en Android 17 (API 37):
