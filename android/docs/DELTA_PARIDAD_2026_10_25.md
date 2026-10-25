@@ -372,3 +372,27 @@ main móvil invisible.)
 - Cobertura tema preparada11 pantallas×2, con aserción del focusDay de Inicio.
 - Preparada prueba proveedor Android simulado: dos fixes con distancia,
   pausa sin callbacks y reanudación sin unir salto. No GPS/hardware real.
+
+## Canvas navegación, 21:16 CET local
+- Comparación directa Apple5890215d detectó además modo navegador/2D y
+  seguimiento del punto actual. Preparado toggle, cámara centrada en última
+  muestra real, rumbo desde geometría medida y lookahead35m, pitch60° máximo
+  MapLibre (Apple67°). Gesto manual suspende seguimiento hasta centrar.
+- GPX planificado sigue debajo de traza, no se sustituye por traza al iniciar.
+- Tests JVM cámara2/0. Compilación instrumentada verde. Captura navegador
+  preparada, aún NO ejecutada. No afirmar relieve3D Apple: proveedor vectorial
+  Android actual no aporta terreno/elevación3D. Es diferencia abierta.
+- Run40229854247 a debug a1e9d4f8 ejecuta bloque ANTERIOR al modo navegador;
+  no confundir con HEAD posterior local. Sin beta nueva.
+
+## Evidencia canvas confirmada21:14 CET
+- https://github.com/rmoya87/repera/actions/runs/40229021477 SUCCESS,
+  debug1c4edd6c: controles5/0 y save5/0, sin omitidos. Capturas completas
+  inspeccionadas: idle con mundo y labels, activo con calles/edificios y
+  métricas con mapa. Atribución e info ahora visibles sin panel superpuesto.
+- Diferencia respecto a captura anterior: MapView recibe onStart/onResume
+  al montarse con owner ya RESUMED y prueba espera render completo, no solo
+  estilo. Función y píxeles separados: esta evidencia es API30/sintética.
+- Siguiente enfocado40229854247 en ejecución a debug a1e9d4f8, bloque de
+  favoritos/fecha/GPX/tema/proveedor. No contiene cambios65bfedff de cámara
+  navegador/voz/descarte en mapa. Local domain282/0, mobile199/0.

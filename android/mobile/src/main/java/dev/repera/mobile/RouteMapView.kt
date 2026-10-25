@@ -58,9 +58,14 @@ internal fun RouteMapView(
     plannedRoute: Boolean = false,
     controlsOverlay: Boolean = false,
     plannedPoints: List<WorkoutRoutePoint> = emptyList(),
-    onMapRendered: (() -> Unit)? = null
+    onMapRendered: (() -> Unit)? = null,
+    navigationMode:Boolean = false,
+    cameraCenter:WorkoutRoutePoint? = null,
+    recenterToken:Int = 0,
+    onCameraGesture:(()->Unit)? = null
 ) {
     var failed by remember { mutableStateOf(false) }
+    val currentGesture by androidx.compose.runtime.rememberUpdatedState(onCameraGesture)
     val currentRendered by androidx.compose.runtime.rememberUpdatedState(onMapRendered)
     val currentPlanned by androidx.compose.runtime.rememberUpdatedState(plannedRoute)
     val currentPlan by androidx.compose.runtime.rememberUpdatedState(plannedPoints)
@@ -75,9 +80,17 @@ internal fun RouteMapView(
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
                 applyPlannedOverlay(style,plannedPoints)
-                applyRoute(map, style, points, plannedRoute)
+                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute))
             }.onFailure { failed = true }
         }
+    }
+    androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap) {
+        val map=loadedMap ?: return@LaunchedEffect
+        val center=cameraCenter ?: return@LaunchedEffect
+        val camera=LiveMapCamera.target(center,points,navigationMode)
+        map.moveCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder()
+            .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
+            .bearing(camera.bearing).tilt(camera.pitch).build()))
     }
     if (failed) {
         RouteMapFallback(points, modifier, plannedRoute,plannedPoints)
@@ -121,6 +134,9 @@ internal fun RouteMapView(
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) onStart()
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) onResume()
                 getMapAsync { map ->
+                    map.addOnCameraMoveStartedListener { reason ->
+                        if(reason==MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) currentGesture?.invoke()
+                    }
                     map.uiSettings.apply {
                         isLogoEnabled = true
                         isAttributionEnabled = true
@@ -130,8 +146,8 @@ internal fun RouteMapView(
                             val d = context.resources.displayMetrics.density
                             setLogoGravity(android.view.Gravity.TOP or android.view.Gravity.LEFT)
                             setAttributionGravity(android.view.Gravity.TOP or android.view.Gravity.LEFT)
-                            setLogoMargins((8*d).toInt(),(180*d).toInt(),0,0)
-                            setAttributionMargins((100*d).toInt(),(180*d).toInt(),0,0)
+                            setLogoMargins((8*d).toInt(),(250*d).toInt(),0,0)
+                            setAttributionMargins((100*d).toInt(),(250*d).toInt(),0,0)
                         }
                         setAllGesturesEnabled(isInteractive)
                         isCompassEnabled = isInteractive
@@ -162,7 +178,7 @@ private fun applyPlannedOverlay(style:org.maplibre.android.maps.Style,points:Lis
 }
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
-                       points: List<WorkoutRoutePoint>, plannedRoute: Boolean) {
+                       points: List<WorkoutRoutePoint>, plannedRoute: Boolean,fitCamera:Boolean = true) {
     val segments = if (plannedRoute) points.zipWithNext().map { (a,b) ->
         RouteMapModel.Segment(a,b,0xFF0A84FF)
     } else RouteMapModel.segments(points)
@@ -204,7 +220,7 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
     }
     // Cámara: bounds con margen (iOS usa span ×1.5 con mínimo 0.008°).
     val camera = RouteMapModel.camera(points)
-    if (camera != null) {
+    if (camera != null && fitCamera) {
         val bounds = LatLngBounds.from(
             (camera.centerLat + camera.spanLat / 2).coerceAtMost(85.0),
             (camera.centerLon + camera.spanLon / 2).coerceAtMost(180.0),

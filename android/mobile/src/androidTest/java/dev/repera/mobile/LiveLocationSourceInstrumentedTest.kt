@@ -16,6 +16,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Emulator-only provider. Synthetic coordinates; no account, Health or backend. */
 @RunWith(AndroidJUnit4::class)
 class LiveLocationSourceInstrumentedTest {
+    // A foreground location request must be tested while the app is visible,
+    // not from a background instrumentation process without an Activity/FGS.
+    @get:org.junit.Rule val compose=androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
     @Suppress("DEPRECATION")
     @Test fun syntheticPlatformProviderStopsOnPauseAndResumeDoesNotBridgeGap() {
         val instrument=InstrumentationRegistry.getInstrumentation()
@@ -33,9 +36,11 @@ class LiveLocationSourceInstrumentedTest {
             while(updates.size<count && SystemClock.elapsedRealtime()<end) Thread.sleep(50)
             assertEquals("Expected synthetic provider updates",count,updates.size)
         }
+        compose.setContent { androidx.compose.material3.Text("GPS sintético en primer plano") }
+        compose.waitForIdle()
         val provider="fused"
-        shell("pm grant ${context.packageName} ${Manifest.permission.ACCESS_COARSE_LOCATION}")
-        shell("pm grant ${context.packageName} ${Manifest.permission.ACCESS_FINE_LOCATION}")
+        instrument.uiAutomation.grantRuntimePermission(context.packageName,Manifest.permission.ACCESS_COARSE_LOCATION)
+        instrument.uiAutomation.grantRuntimePermission(context.packageName,Manifest.permission.ACCESS_FINE_LOCATION)
         shell("appops set ${context.packageName} android:mock_location allow")
         try {
             manager.addTestProvider(provider,false,false,false,false,true,true,true,1,1)
