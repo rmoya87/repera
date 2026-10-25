@@ -1523,13 +1523,18 @@ final class HealthKitStore {
         if gpsRouteBuilders[sessionID] == nil {
             gpsRouteBuilders[sessionID] = HKWorkoutRouteBuilder(healthStore: store, device: .local())
         }
+        if (gpsRouteQueue[sessionID]?.count ?? 0) > 0 {
+            scheduleRouteDrain(sessionID: sessionID)
+        }
     }
 
     /// Preserve original fixes, including accuracy. Insertion is batched and
     /// serialized per workout, independent of SwiftUI and foreground rendering.
     func appendRecordedRouteLocation(sessionID: UUID, location: CLLocation) {
-        guard gpsRouteBuilders[sessionID] != nil else { return }
+        // The first GPS fix may arrive before authorization/builder creation.
+        // Keep it so HealthKit receives the complete route when permitted.
         gpsRouteQueue[sessionID, default: []].append(location)
+        guard gpsRouteBuilders[sessionID] != nil else { return }
         if (gpsRouteQueue[sessionID]?.count ?? 0) >= 12 {
             scheduleRouteDrain(sessionID: sessionID)
         }
