@@ -91,6 +91,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 }
             }
             Text(state.sport.metricDescription)
+            TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
+                Text(if (runtime.spokenGuidanceEnabled) "Guía hablada activada" else "Guía hablada desactivada")
+            }
             if (state.sport.usesGPS) {
                 TextButton(onClick = { showRoutes = !showRoutes }) { Text("Biblioteca de rutas") }
                 state.selectedRouteID?.let { selected ->
@@ -151,6 +154,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 state.averageSpeedKmh(System.currentTimeMillis())?.let {Text("%.1f km/h de media".format(it))}
                 if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp))
             }
+            runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
+            runtime.latestKilometerReport?.let { Text(it) }
             when(state.phase) {
                 LiveActivityState.Phase.RECORDING -> Button(onClick={runtime.pause()},modifier=Modifier.testTag("live_pause")) {Text("Pausar")}
                 LiveActivityState.Phase.PAUSED -> {
