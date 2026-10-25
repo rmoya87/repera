@@ -1,7 +1,8 @@
 import ReperaDomain
 import SwiftUI
 
-/// Modal ligero desde la ficha: apuntar series sin abrir la sesión completa.
+/// Registro rápido sin crear una rutina. Reutiliza los steppers y el teclado
+/// numérico de Repera empleados en la edición de entrenamientos programados.
 struct QuickLogSheet: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -25,6 +26,10 @@ struct QuickLogSheet: View {
     private var loadField: ExerciseLoadField { exercise.loadField }
     private var isMobility: Bool { exercise.isMobility }
     private var isHold: Bool { exercise.isMobilityHold }
+    private var weightStep: Double { max(0.25, store.state.settings.weightIncrementKg) }
+    private var canSave: Bool {
+        rows.contains { $0.reps > 0 && (!isHold || $0.durationSeconds > 0) }
+    }
 
     init(exercise: Exercise) {
         self.exercise = exercise
@@ -33,184 +38,72 @@ struct QuickLogSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if style == .machineWork, exercise.allowsCalorieOrDistanceToggle {
-                    Section {
-                        Picker("Unidad", selection: $quantityUnit) {
-                            Text("Cal").tag(ExerciseQuantityUnit.calories)
-                            Text("Metros").tag(ExerciseQuantityUnit.meters)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if style == .machineWork && exercise.allowsCalorieOrDistanceToggle {
+                        OGCard(padding: 14, verticalPadding: 12) {
+                            Picker("Unidad", selection: $quantityUnit) {
+                                Text("Cal").tag(ExerciseQuantityUnit.calories)
+                                Text("Metros").tag(ExerciseQuantityUnit.meters)
+                            }
+                            .pickerStyle(.segmented)
                         }
-                        .pickerStyle(.segmented)
                     }
-                }
 
-                Section {
-                    ForEach($rows) { $row in
-                        HStack(spacing: 12) {
-                            switch style {
-                            case .loadAndReps:
-                                metricColumn(title: Exercise.loadStepperTitle(
-                                    name: exercise.name,
-                                    equipment: exercise.equipment
-                                )) {
-                                    if loadField == .deficitCm {
-                                        HStack(spacing: 8) {
-                                            Button {
-                                                row.deficitCm = max(0, row.deficitCm - 1)
-                                            } label: {
-                                                Image(systemName: "minus.circle.fill")
-                                            }
-                                            Text("\(row.deficitCm)")
-                                                .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                                                .frame(minWidth: 36)
-                                            Button {
-                                                row.deficitCm = min(60, row.deficitCm + 1)
-                                            } label: {
-                                                Image(systemName: "plus.circle.fill")
-                                            }
-                                        }
-                                        .foregroundStyle(OG.accent)
-                                    } else {
-                                        HStack(spacing: 8) {
-                                            Button {
-                                                row.weightKg = max(0, ((row.weightKg - step) * 100).rounded() / 100)
-                                            } label: {
-                                                Image(systemName: "minus.circle.fill")
-                                            }
-                                            Text(String(format: "%g", row.weightKg))
-                                                .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                                                .frame(minWidth: 48)
-                                            Button {
-                                                row.weightKg = ((row.weightKg + step) * 100).rounded() / 100
-                                            } label: {
-                                                Image(systemName: "plus.circle.fill")
-                                            }
-                                        }
-                                        .foregroundStyle(OG.accent)
-                                    }
-                                }
-                            case .repsAndTime:
-                                metricColumn(title: isMobility ? "Duración" : "Tiempo") {
-                                    HStack(spacing: 8) {
-                                        Button {
-                                            row.durationSeconds = max(0, row.durationSeconds - 5)
-                                        } label: {
-                                            Image(systemName: "minus.circle.fill")
-                                        }
-                                        Text(DurationText.format(row.durationSeconds))
-                                            .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                                            .frame(minWidth: 48)
-                                        Button {
-                                            row.durationSeconds += 5
-                                        } label: {
-                                            Image(systemName: "plus.circle.fill")
-                                        }
-                                    }
-                                    .foregroundStyle(OG.accent)
-                                }
-                            case .machineWork:
-                                metricColumn(title: "Tiempo") {
-                                    HStack(spacing: 8) {
-                                        Button {
-                                            row.durationSeconds = max(0, row.durationSeconds - 5)
-                                        } label: {
-                                            Image(systemName: "minus.circle.fill")
-                                        }
-                                        Text(DurationText.format(row.durationSeconds))
-                                            .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                                            .frame(minWidth: 48)
-                                        Button {
-                                            row.durationSeconds += 5
-                                        } label: {
-                                            Image(systemName: "plus.circle.fill")
-                                        }
-                                    }
-                                    .foregroundStyle(OG.accent)
-                                }
-                            case .repsOnly:
-                                EmptyView()
-                            }
+                    VStack(alignment: .leading, spacing: 8) {
+                        OGCardSectionTitle(title: exercise.name)
+                        ForEach($rows) { $row in
+                            let index = (rows.firstIndex(where: { $0.id == row.id }) ?? 0) + 1
+                            setCard($row, index: index)
+                        }
 
-                            Spacer(minLength: 0)
-
-                            if !isHold {
-                            metricColumn(title: quantityLabel, trailing: true) {
-                                HStack(spacing: 8) {
-                                    Button {
-                                        row.reps = max(1, row.reps - quantityStep)
-                                    } label: {
-                                        Image(systemName: "minus.circle.fill")
-                                    }
-                                    Text("\(row.reps)")
-                                        .font(.system(size: 17, weight: .semibold).monospacedDigit())
-                                        .frame(minWidth: 28)
-                                    Button {
-                                        row.reps = min(style.quantityCap, row.reps + quantityStep)
-                                    } label: {
-                                        Image(systemName: "plus.circle.fill")
-                                    }
-                                }
-                                .foregroundStyle(OG.accent)
-                            }
-                            }
+                        Button {
+                            let last = rows.last
+                            rows.append(DraftSet(
+                                reps: last?.reps ?? defaultReps,
+                                weightKg: last?.weightKg ?? defaultWeight,
+                                deficitCm: last?.deficitCm ?? 0,
+                                durationSeconds: last?.durationSeconds ?? defaultDurationSeconds
+                            ))
+                        } label: {
+                            Label("Añadir serie", systemImage: "plus")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
-                    }
-                    .onDelete { rows.remove(atOffsets: $0) }
-
-                    Button {
-                        let last = rows.last
-                        rows.append(DraftSet(
-                            reps: last?.reps ?? defaultReps,
-                            weightKg: last?.weightKg ?? defaultWeight,
-                            deficitCm: last?.deficitCm ?? 0,
-                            durationSeconds: last?.durationSeconds ?? (style == .repsAndTime ? 60 : 60)
-                        ))
-                    } label: {
-                        Label("Añadir serie", systemImage: "plus")
-                    }
-                } header: {
-                    Text(exercise.name)
-                } footer: {
-                    switch style {
-                    case .repsAndTime:
-                        if isMobility {
-                            Text(isHold
-                                ? "Registra los segundos reales de cada mantenimiento. No se usan kg ni RIR."
-                                : "Registra repeticiones y duración de cada secuencia; sin kg ni RIR.")
-                        } else {
-                            Text("Comba: cuántas veces (dobles/simples) en cuánto tiempo. Ej. 50 veces en 1:00.")
-                        }
-                    case .machineWork:
-                        Text("Máquina / carrera: tiempo y \(quantityLabel.lowercased()) (sin kilos).")
-                    case .repsOnly:
-                        Text("Peso corporal: solo repeticiones.")
-                    case .loadAndReps:
-                        if loadField == .deficitCm {
-                            Text("HSPU: déficit en cm (0 = sin déficit) y repeticiones. El lastre no aplica.")
-                        } else if Exercise.loadStepperTitle(name: exercise.name, equipment: exercise.equipment)
-                            .localizedCaseInsensitiveContains("lastre") {
-                            Text("Dominadas / muscle-up: lastre en kg (0 = sin lastre) y repeticiones.")
-                        } else {
-                            Text("Ajusta peso y reps por serie.")
+                        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: OG.radiusCard)
+                                .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
                         }
                     }
-                }
 
-                Section {
-                    Toggle("Añadir nota", isOn: $includeNotes)
-                    if includeNotes {
-                        TextField("Cómo te sentiste, carga…", text: $notes, axis: .vertical)
-                            .lineLimit(2...4)
+                    OGCard(padding: 14, verticalPadding: 12) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Toggle("Añadir nota", isOn: $includeNotes)
+                                .tint(OG.accent)
+                            if includeNotes {
+                                TextField("Cómo te sentiste, carga…", text: $notes, axis: .vertical)
+                                    .lineLimit(2...4)
+                                    .padding(10)
+                                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
+                            }
+                        }
                     }
+                    guidance
                 }
+                .padding(.horizontal, OG.pad)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .ogReadableColumn()
             }
-            .scrollContentBackground(.hidden)
-            .background(OG.bg.ignoresSafeArea())
-            .listRowBackground(Color.clear)
-            .tint(OG.accent)
-            .ogReadableColumn()
-            .navigationTitle("Apuntar series")
+            .scrollDismissesKeyboard(.interactively)
+            // El lienzo no es una tarjeta opaca: deja visible Liquid Glass
+            // del sheet. Solo los controles y las filas usan OG.surface.
+            .background(Color.clear)
+            .navigationTitle("Apuntar ejercicio")
             .navigationBarTitleDisplayMode(.inline)
             .ogDiaryTransparentNav()
             .toolbar {
@@ -220,19 +113,169 @@ struct QuickLogSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     OGToolbarGlassButton(
                         systemName: "checkmark",
-                        accessibilityLabel: "Guardar",
+                        accessibilityLabel: "Guardar ejercicio",
                         tint: OG.accent,
                         appliesGlass: false
                     ) {
                         save()
                     }
-                    .disabled(rows.isEmpty || rows.allSatisfy { $0.reps <= 0 })
-                    .opacity(rows.isEmpty || rows.allSatisfy { $0.reps <= 0 } ? 0.4 : 1)
+                    .disabled(!canSave)
+                    .opacity(canSave ? 1 : 0.4)
                 }
             }
             .onAppear { seedRows() }
         }
         .ogSheetChrome(detents: [.medium, .large])
+    }
+
+    private func setCard(_ row: Binding<DraftSet>, index: Int) -> some View {
+        OGCard(padding: 12, verticalPadding: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Serie \(index)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    Button(role: .destructive) {
+                        rows.removeAll { $0.id == row.wrappedValue.id }
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                            .frame(width: 36, height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Eliminar serie \(index)")
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    if style == .loadAndReps {
+                        loadMetric(row)
+                    }
+                    if style == .repsAndTime || style == .machineWork {
+                        durationMetric(row)
+                    }
+                    if !isHold {
+                        quantityMetric(row)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    /// OGRepeatStepper admite − / + y edición al pulsar el valor mediante
+    /// OGNumericTextField: mismo teclado Repera 4×4 que Entreno programado.
+    private func loadMetric(_ row: Binding<DraftSet>) -> some View {
+        metricColumn(
+            title: Exercise.loadStepperTitle(
+                name: exercise.name, equipment: exercise.equipment
+            )
+        ) {
+            if loadField == .deficitCm {
+                OGRepeatStepper(
+                    display: "\(row.wrappedValue.deficitCm)",
+                    compact: true,
+                    keyboard: .numberPad,
+                    onMinus: {
+                        row.wrappedValue.deficitCm = max(0, row.wrappedValue.deficitCm - 1)
+                    },
+                    onPlus: {
+                        row.wrappedValue.deficitCm = min(60, row.wrappedValue.deficitCm + 1)
+                    },
+                    onCommitText: {
+                        row.wrappedValue.deficitCm = parseInt($0, cap: 60)
+                    }
+                )
+            } else {
+                OGRepeatStepper(
+                    display: String(format: "%g", row.wrappedValue.weightKg),
+                    compact: true,
+                    keyboard: .decimalPad,
+                    onMinus: {
+                        row.wrappedValue.weightKg = roundWeight(row.wrappedValue.weightKg - weightStep)
+                    },
+                    onPlus: {
+                        row.wrappedValue.weightKg = roundWeight(row.wrappedValue.weightKg + weightStep)
+                    },
+                    onCommitText: {
+                        let number = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0
+                        row.wrappedValue.weightKg = min(1500, max(0, number))
+                    }
+                )
+            }
+        }
+    }
+
+    private func durationMetric(_ row: Binding<DraftSet>) -> some View {
+        metricColumn(title: isMobility ? "Duración (s)" : "Tiempo (s)") {
+            OGRepeatStepper(
+                display: "\(row.wrappedValue.durationSeconds)",
+                compact: true,
+                keyboard: .numberPad,
+                onMinus: {
+                    row.wrappedValue.durationSeconds = max(0, row.wrappedValue.durationSeconds - 5)
+                },
+                onPlus: {
+                    row.wrappedValue.durationSeconds = min(86_400, row.wrappedValue.durationSeconds + 5)
+                },
+                onCommitText: {
+                    row.wrappedValue.durationSeconds = parseInt($0, cap: 86_400)
+                }
+            )
+        }
+    }
+
+    private func quantityMetric(_ row: Binding<DraftSet>) -> some View {
+        metricColumn(title: quantityLabel) {
+            OGRepeatStepper(
+                display: "\(row.wrappedValue.reps)",
+                compact: true,
+                keyboard: .numberPad,
+                onMinus: {
+                    row.wrappedValue.reps = max(0, row.wrappedValue.reps - quantityStep)
+                },
+                onPlus: {
+                    row.wrappedValue.reps = min(style.quantityCap, row.wrappedValue.reps + quantityStep)
+                },
+                onCommitText: {
+                    row.wrappedValue.reps = parseInt($0, cap: style.quantityCap)
+                }
+            )
+        }
+    }
+
+    private func metricColumn<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(OG.label2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var guidance: some View {
+        switch style {
+        case .repsAndTime:
+            Text(isMobility
+                 ? (isHold ? "Registra la duración real de cada mantenimiento." :
+                    "Registra repeticiones y segundos de cada secuencia.")
+                 : "Comba: repeticiones y tiempo por serie.")
+        case .machineWork:
+            Text("Registra el tiempo y \(quantityLabel.lowercased()) por serie.")
+        case .repsOnly:
+            Text("Registra las repeticiones de cada serie.")
+        case .loadAndReps:
+            Text(loadField == .deficitCm
+                 ? "Registra déficit en cm y repeticiones por serie."
+                 : "Ajusta peso y repeticiones de cada serie.")
+        }
     }
 
     private var quantityLabel: String {
@@ -249,36 +292,29 @@ struct QuickLogSheet: View {
         }
     }
 
-    private func metricColumn<Content: View>(
-        title: String,
-        trailing: Bool = false,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: trailing ? .trailing : .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(OG.label3)
-            content()
-        }
-    }
-
-    private var step: Double { store.state.settings.weightIncrementKg }
-
     private var defaultWeight: Double {
         if loadField == .deficitCm { return 0 }
         return store.cachedHistory(for: exercise.id).lastWeightKg ?? 0
     }
 
     private var defaultReps: Int {
-        if style == .machineWork {
-            return quantityUnit == .meters ? 500 : 15
-        }
+        if style == .machineWork { return quantityUnit == .meters ? 500 : 15 }
         if isHold { return 1 }
         if isMobility { return store.cachedHistory(for: exercise.id).lastReps ?? 8 }
-        if style == .repsAndTime {
-            return store.cachedHistory(for: exercise.id).lastReps ?? 50
-        }
+        if style == .repsAndTime { return store.cachedHistory(for: exercise.id).lastReps ?? 50 }
         return store.cachedHistory(for: exercise.id).lastReps ?? 8
+    }
+
+    private var defaultDurationSeconds: Int {
+        store.cachedHistory(for: exercise.id).lastDurationSeconds ?? (isHold ? 30 : 60)
+    }
+
+    private func parseInt(_ text: String, cap: Int) -> Int {
+        min(cap, max(0, Int(text) ?? 0))
+    }
+
+    private func roundWeight(_ weight: Double) -> Double {
+        min(1500, max(0, (weight * 100).rounded() / 100))
     }
 
     private func seedRows() {
@@ -288,23 +324,23 @@ struct QuickLogSheet: View {
                 reps: defaultReps,
                 weightKg: style == .loadAndReps && loadField == .weightKg ? defaultWeight : 0,
                 deficitCm: 0,
-                durationSeconds: style.usesDuration
-                    ? (store.cachedHistory(for: exercise.id).lastDurationSeconds ?? (isHold ? 30 : 60))
-                    : 0
+                durationSeconds: style.usesDuration ? defaultDurationSeconds : 0
             )
         }
     }
 
     private func save() {
         let logged = rows
-            .filter { $0.reps > 0 }
+            .filter { $0.reps > 0 && (!isHold || $0.durationSeconds > 0) }
             .map { row -> LoggedSet in
                 let weight: Double? = {
-                    guard style == .loadAndReps, loadField == .weightKg, row.weightKg > 0 else { return nil }
+                    guard style == .loadAndReps, loadField == .weightKg,
+                          row.weightKg > 0 else { return nil }
                     return row.weightKg
                 }()
                 let deficit: Int? = {
-                    guard style == .loadAndReps, loadField == .deficitCm, row.deficitCm > 0 else { return nil }
+                    guard style == .loadAndReps, loadField == .deficitCm,
+                          row.deficitCm > 0 else { return nil }
                     return row.deficitCm
                 }()
                 return LoggedSet(
@@ -316,8 +352,11 @@ struct QuickLogSheet: View {
                 )
             }
         guard !logged.isEmpty else { return }
-        let note = includeNotes ? notes : nil
-        store.logQuickSets(exerciseId: exercise.id, sets: logged, notes: note)
+        store.logQuickSets(
+            exerciseId: exercise.id,
+            sets: logged,
+            notes: includeNotes ? notes : nil
+        )
         dismiss()
     }
 }
