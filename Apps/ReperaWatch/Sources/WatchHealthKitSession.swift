@@ -89,7 +89,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
 
     func start(
         id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool,
-        liveSportID: String? = nil
+        liveSportID: String? = nil, initiallyPaused: Bool = false
     ) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
@@ -179,6 +179,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     try await liveBuilder.beginCollection(at: date)
                     guard self.workoutID == id, self.builder === liveBuilder else { return }
                     self.isRecording = true
+                    // La app del reloj puede abrirse cuando iPhone ya estaba
+                    // en pausa. No iniciar sensores como sesión activa por error.
+                    if initiallyPaused { session.pause() }
                     if let pending = self.pendingBlock {
                         self.beginBlock(id: pending.id, isInterval: pending.isInterval)
                     }
