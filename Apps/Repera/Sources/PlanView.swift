@@ -90,19 +90,25 @@ struct PlanView: View {
                         .ogListChrome()
                         .frame(maxWidth: .infinity)
 
-                        List {
-                            Section {
-                                Text("Rutinas")
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(OG.label)
-                                    .listRowBackground(Color.clear)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
-                                    .listRowSeparator(.hidden)
+                        Group {
+                            if store.libraryRoutines.isEmpty {
+                                expandedEmptyRoutines
+                            } else {
+                                List {
+                                    Section {
+                                        Text("Rutinas")
+                                            .font(.title2.weight(.bold))
+                                            .foregroundStyle(OG.label)
+                                            .listRowBackground(Color.clear)
+                                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
+                                            .listRowSeparator(.hidden)
+                                    }
+                                    routinesContent
+                                }
+                                .ogListChrome()
                             }
-                            routinesContent
                         }
-                        .ogListChrome()
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .padding(.horizontal, OG.pad)
                     .background(OG.bg)
@@ -394,6 +400,48 @@ struct PlanView: View {
     }
 
     // MARK: - Rutinas
+
+    /// En DUO/iPad, el estado vacío ocupa el centro vertical de la columna
+    /// sin convertir todo el panel en una superficie blanca.
+    private var expandedEmptyRoutines: some View {
+        ZStack(alignment: .topLeading) {
+            VStack {
+                Spacer(minLength: 0)
+                VStack(spacing: 12) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 32, weight: .medium))
+                        .foregroundStyle(OG.accent)
+                    Text("Sin rutinas")
+                        .font(.headline)
+                        .foregroundStyle(OG.label)
+                    Text("Crea plantillas reutilizables (Push, Pull, Piernas…) y asígnalas en Programado.")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                        .multilineTextAlignment(.center)
+                    newRoutineGreenButton
+                        .padding(.top, 4)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(24)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                .overlay {
+                    RoundedRectangle(cornerRadius: OG.radiusCard)
+                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                }
+                .padding(.horizontal, 16)
+                Spacer(minLength: 0)
+            }
+
+            Text("Rutinas")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(OG.label)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 18)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(OG.bg)
+    }
 
     @ViewBuilder
     private var routinesContent: some View {
