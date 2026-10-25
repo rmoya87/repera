@@ -845,9 +845,17 @@ class VisualVerificationInstrumentedTest {
             Thread.sleep(500)
             confirmShot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         }
+        // Conservar evidencia incluso si falla: nunca perder el AFTER justo
+        // porque la aserción visual nueva detectó el defecto.
+        confirmShot?.let { save("lugar_hoja_confirmar", it.asImageBitmap()) }
+        listOf("place_confirm", "place_query", "place_pin_map").forEach { tag ->
+            compose.onAllNodesWithTag(tag).fetchSemanticsNodes().forEach {
+                android.util.Log.i("PlaceChrome", "$tag boundsRoot=${it.boundsInRoot} boundsWindow=${it.boundsInWindow}")
+            }
+        }
+        android.util.Log.i("PlaceChrome", "chrome=${confirmShot?.let(::hasConfirmationChrome)} blank=${confirmShot?.let(::isMostlyBlank)}")
         assertTrue("contenido visible tras elegir (recuperación del estado vacío)",
             confirmShot != null && !isMostlyBlank(confirmShot) && hasConfirmationChrome(confirmShot))
-        save("lugar_hoja_confirmar", confirmShot!!.asImageBitmap())
         // Estado lógico tras elegir: modo confirmar, panel cerrado (iOS).
         compose.onNodeWithText("Busca un gimnasio, parque o dirección")
             .assertDoesNotExist()
