@@ -476,10 +476,16 @@ fun PlaceSearchSheet(
                         }
                     }
                 } else {
-                    // Browse map: sin resultados seleccionados (browse map iOS).
-                    val center = initialPin ?: recents.firstOrNull()
+                    // Browse map (browseMap iOS): con un lugar pendiente se
+                    // centra en su pin (Marker iOS); si no, en el pin inicial o
+                    // en el lugar más reciente. Así, con la búsqueda
+                    // presentada, el mapa sigue visible y tocarlo la cierra
+                    // (dismissSearch iOS).
+                    val center = pending?.let { it.latitude to it.longitude }
+                        ?: initialPin?.let { it.latitude to it.longitude }
+                        ?: recents.firstOrNull()?.let { it.latitude to it.longitude }
                     if (center != null) {
-                        PlacePinMap(center.latitude, center.longitude, isInteractive = true,
+                        PlacePinMap(center.first, center.second, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
                             onMapClick = {
                                 searchFocused = false
