@@ -53,6 +53,13 @@ class TrainingSettingsInstrumentedTest {
         assertNull(repo.todayPlanSession())
         assertNotNull(RotationSettings.read(JSONObject(String(local.read()!!))))
     }
+    @Test fun sundayWeekCalendarShowsCorrectDateRange() {
+        compose.setContent { MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            WeekCalendarStrip(java.time.LocalDate.of(2026,10,28),false) {}
+        } }
+        compose.onNodeWithText("25/10 – 31/10").assertIsDisplayed()
+        capture("ajustes_semana_domingo.png")
+    }
     @Test fun settingsPersistPreserveUnknownFieldsAndDriveWeekAndRest() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-settings-${java.util.UUID.randomUUID()}"

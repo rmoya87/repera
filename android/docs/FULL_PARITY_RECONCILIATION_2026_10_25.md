@@ -61,7 +61,7 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   si coincide rutina próxima, descartar no avanza. Tests integrados preparados
   para otra rutina/descartar/vueltaA→B→A/volver semana fija. No ejecutados.
 -6459f4cf: flags sonido/haptic a StrengthRestService y avisos de descansoWOD
-  de teléfono/servicio. StandaloneTimer y haptics reales siguen sin validar;
+  de teléfono/servicio. StandaloneTimer usa sound/haptic=true explícitos en Apple5890215d, no debe heredar flagsglobales. Haptics reales siguen sin validar;
   no declarar preferencia global cerrada hasta cubrir todos consumidores.
 -252f17bd: estado real permisos ubicación/notificación y accesoAjustesSistema,
   actualizado onResume. Botones solicitan solo por tap. Salud reusa ruta.
