@@ -888,14 +888,12 @@ class VisualVerificationInstrumentedTest {
         // el gesto de dos punteros a ~5ms y MapLibre no lo traduce a zoom
         // (evidencia run 40209817888: stream de pinch truncado, zoom intacto
         // en las 3 patas; el pan via UiDevice si funciono).
-        val cy = (pinMapBounds.top + pinMapBounds.height / 2).toInt()
-        val pinchDxOut = minOf(280f, pinMapBounds.width / 2 - 48f).toInt()
-        uiDevice.performTwoPointerGesture(
-            android.graphics.Point(swipeFromX - 120, cy),
-            android.graphics.Point(swipeFromX + 120, cy),
-            android.graphics.Point(swipeFromX - pinchDxOut, cy),
-            android.graphics.Point(swipeFromX + pinchDxOut, cy),
-            20)
+        // uiautomator 2.3.0 no tiene UiDevice.performTwoPointerGesture;
+        // UiObject2.pinchOpen usa el mismo pipeline real de input.
+        val mapObj = uiDevice.findObject(
+            androidx.test.uiautomator.By.clazz("org.maplibre.android.maps.MapView"))
+            ?: error("MapView no encontrado por uiautomator")
+        mapObj.pinchOpen(0.4f, 200)
         compose.waitUntil(timeoutMillis = 15_000) { cameraRef.get()!!.first > z0 }
         compose.onNodeWithText("Buscar lugar").assertIsDisplayed()
         // Tocar el mapa CIERRA la búsqueda presentada (dismissSearch iOS):
