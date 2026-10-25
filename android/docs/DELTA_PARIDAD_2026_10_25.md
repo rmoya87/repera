@@ -234,3 +234,9 @@ main móvil invisible.)
 - Nueva clase explícita única LiveActivitySaveInstrumentedTest ejecuta guardado
   UUID-idempotente y captura de ventana real tras estilo +8s con ruta sintética.
   Run nuevo debug sobre ecdd57f8, sin regresión global ni cambios beta.
+
+- D4 UI recientes5 ordenadas por última actividad real, filtro favoritas/todas
+  y borrado confirmado que conserva sesiones y retira selección actual. Compila.
+- D4 voz: preferir voz es-ES instalada offline de mayor calidad, fallback a
+  notificación con permiso en background cuando voz apagada/falla; solicitud
+  POST_NOTIFICATIONS al desactivar voz. Compila, sin validación audio/FGS aún.

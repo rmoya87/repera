@@ -47,6 +47,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         catch (_: Exception) { runtime.pause();error="No se pudo mantener el registro en segundo plano. La actividad queda en pausa." }
     }
     fun start() { runtime.start();startService() }
+    val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { start() }
     val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -108,7 +109,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 }
             }
             Text(state.sport.metricDescription)
-            TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
+            TextButton(onClick = {
+                runtime.toggleSpokenGuidance()
+                if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }) {
                 Text(if (runtime.spokenGuidanceEnabled) "Guía hablada activada" else "Guía hablada desactivada")
             }
             if (state.sport.usesGPS) {
