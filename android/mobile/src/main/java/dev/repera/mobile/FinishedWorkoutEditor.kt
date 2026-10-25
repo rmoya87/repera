@@ -2,6 +2,8 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import kotlinx.coroutines.launch
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.graphicsLayer
@@ -501,12 +503,21 @@ internal fun DragReorderItem(
     content: @Composable (Modifier) -> Unit
 ) {
     var dy by remember { mutableStateOf(0f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    var sizePx by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     var top by remember { mutableStateOf(0f) }
     var bottom by remember { mutableStateOf(0f) }
     val handle = Modifier.pointerInput(index, count) {
         detectDragGesturesAfterLongPress(
             onDragStart = {},
-            onDrag = { change, amount -> change.consume(); dy += amount.y },
+            onDrag = { change, amount ->
+                change.consume(); dy += amount.y
+                // Autoscroll: pide que el ancestro desplazable muestre la fila arrastrada (rect trasladado dy).
+                scope.launch {
+                    requester.bringIntoView(androidx.compose.ui.geometry.Rect(0f, dy, sizePx.width.toFloat(), dy + sizePx.height))
+                }
+            },
             onDragEnd = {
                 val target = dragTargetIndex(index, dy, (0 until count).map { heights[it] ?: 0 })
                 val center = (top + bottom) / 2f + dy
@@ -516,9 +527,10 @@ internal fun DragReorderItem(
             onDragCancel = { dy = 0f })
     }
     Column(Modifier
+        .bringIntoViewRequester(requester)
         .zIndex(if (dy != 0f) 1f else 0f)
         .graphicsLayer { translationY = dy }
-        .onSizeChanged { heights[index] = it.height }
+        .onSizeChanged { heights[index] = it.height; sizePx = it }
         .onGloballyPositioned { c ->
             val p = c.positionInRoot().y
             top = p; bottom = p + c.size.height; onBounds(top, bottom)

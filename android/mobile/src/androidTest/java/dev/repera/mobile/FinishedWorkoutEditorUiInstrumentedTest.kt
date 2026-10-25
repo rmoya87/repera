@@ -8,11 +8,14 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.down
 import androidx.compose.ui.test.moveBy
 import androidx.compose.ui.test.up
+import androidx.compose.ui.test.cancel
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.verticalScroll
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -273,6 +276,47 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
         compose.onNodeWithTag("edit_finished_workout").performClick()
         dragExercise("ex_drag_0_0", -3000f)
+        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        assertNull(saved!!.blocksJson)
+    }
+
+    /** Host desplazable con el editor y un bloque destino muy por debajo de la pantalla.
+     *  Mueve en varios pasos (como un dedo real) para que el autoscroll event-driven acerque el destino.
+     *  NO demuestra comodidad: offsets/pasos aproximados, solo compilado. */
+    @Test fun dragToOffscreenBlockInScrollableHostKeepsIds() {
+        val many = (1..12).joinToString(",") { """{"id":"f$it","title":"F$it","kind":"strength","exercises":[
+            {"id":"fe$it","exerciseId":"x1","plannedSets":[{"id":"fp$it","targetReps":5},{"id":"fq$it","targetReps":5},{"id":"fr$it","targetReps":5}]}]}""" }
+        val big = "[$many]"
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = big)
+        compose.setContent {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it }
+            }
+        }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
+            down(center); advanceEventTime(700)
+            repeat(40) { moveBy(Offset(0f, 60f)); advanceEventTime(50) }
+            up()
+        }
+        compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
+        val arr = org.json.JSONArray(saved!!.blocksJson)
+        val ids = (0 until arr.length()).flatMap { b -> val ex = arr.getJSONObject(b).getJSONArray("exercises")
+            (0 until ex.length()).map { ex.getJSONObject(it).getString("id") } }
+        assertEquals("ningún ejercicio se pierde ni se duplica", (1..12).map { "fe$it" }.toSet(), ids.toSet())
+        assertEquals(12, ids.size)
+    }
+
+    @Test fun cancelledGestureMovesNothing() {
+        var saved: WorkoutRepository.FinishedWorkoutEdit? = null
+        val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
+        compose.setContent { FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it } }
+        compose.onNodeWithTag("edit_finished_workout").performClick()
+        compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
+            down(center); advanceEventTime(700); moveBy(Offset(0f, 900f)); advanceEventTime(50); cancel()
+        }
         compose.waitForIdle(); compose.onNodeWithTag("edit_save").performClick()
         assertNull(saved!!.blocksJson)
     }
