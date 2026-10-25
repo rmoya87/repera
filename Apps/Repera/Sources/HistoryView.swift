@@ -472,9 +472,11 @@ struct WorkoutDetailView: View {
                             CardioSplitsView(
                                 routePoints: displayedRoute(session),
                                 heartRate: extras.heartRateSeries,
-                                cycling: extras.activityType == .cycling ||
-                                    session.title.localizedCaseInsensitiveContains("bici") ||
-                                    session.title.localizedCaseInsensitiveContains("cicl")
+                                cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed ??
+                                    (extras.activityType == .cycling ||
+                                     session.title.localizedCaseInsensitiveContains("bici") ||
+                                     session.title.localizedCaseInsensitiveContains("cicl")),
+                                activeKilometerSeconds: session.liveKilometerSplitsSeconds
                             )
                             .ogCardListRow()
                         } header: {
@@ -483,6 +485,24 @@ struct WorkoutDetailView: View {
                                 .foregroundStyle(OG.accent)
                                 .textCase(nil)
                         }
+                    }
+                }
+                // Una ruta propia grabada por Comenzar también tiene parciales,
+                // aunque Salud no devuelva FC ni otras métricas externas.
+                if displayedMetrics(session) == nil, displayedRoute(session).count >= 2 {
+                    Section {
+                        CardioSplitsView(
+                            routePoints: displayedRoute(session),
+                            heartRate: [],
+                            cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed ?? false,
+                            activeKilometerSeconds: session.liveKilometerSplitsSeconds
+                        )
+                        .ogCardListRow()
+                    } header: {
+                        Text("Parciales")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(OG.accent)
+                            .textCase(nil)
                     }
                 }
 
