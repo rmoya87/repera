@@ -180,8 +180,9 @@ class WorkoutRepository(context: Context, googleId: String) {
                 val item = (entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject())
                     .put("id", entry.itemId ?: UUID.randomUUID().toString())
                     .put("exerciseId", entry.exerciseId).put("plannedSets", planned)
-                    .put("quantityUnit", ExerciseInput.defaultQuantityUnit(
-                        movement.getString("name"), movement.optString("equipment")))
+                    .put("quantityUnit", EditorBlockOps.resolveQuantityUnit(
+                        movement.getString("name"), movement.optString("equipment"),
+                        entry.quantityUnit, entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }))
                 entry.restSeconds?.let { item.put("restSeconds", it) }
                 exercises.put(item)
             }
@@ -194,14 +195,18 @@ class WorkoutRepository(context: Context, googleId: String) {
                 }
                 val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
                 require(entry.quantity in 1..10000)
-                val quantityUnit = ExerciseInput.defaultQuantityUnit(
-                    movement.getString("name"), movement.optString("equipment"))
                 val original = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
                     ?.takeIf { it.optString("exerciseId") == entry.exerciseId }
+                val quantityUnit = EditorBlockOps.resolveQuantityUnit(
+                    movement.getString("name"), movement.optString("equipment"), entry.quantityUnit, original)
+                val originalUnit = original?.let { o -> when {
+                    o.has("calories") && !o.isNull("calories") -> "calories"
+                    o.has("distanceMeters") && !o.isNull("distanceMeters") -> "meters"
+                    else -> "reps" } }
                 val item = original ?: JSONObject().put("exerciseId", entry.exerciseId)
                     .put("name", movement.getString("name")).put("isRest", false)
                 item.put("id", entry.itemId ?: original?.optString("id")?.ifBlank { null } ?: UUID.randomUUID().toString())
-                val unchanged = original != null && originalQuantity(original) == entry.quantity
+                val unchanged = original != null && originalQuantity(original) == entry.quantity && originalUnit == quantityUnit
                 if (!unchanged) {
                     // La prescripción cambió: se reescribe y se descartan series explícitas
                     // y esquema previos (el resto de campos WOD se conserva).
@@ -2486,7 +2491,9 @@ data class RoutineDraftEntry(
     val plannedSets: List<PlannedSetDraft>? = null,
     /** Identidad y JSON original del ítem/movimiento (REST, escala, peso M, notas...). */
     val itemId: String? = null,
-    val sourceJson: String? = null
+    val sourceJson: String? = null,
+    /** Unidad de cardio elegida en el editor (calories/meters); null = conservar la original. */
+    val quantityUnit: String? = null
 )
 
 /** Serie planificada (port de PlannedSet iOS). targetRir null = sin fijar;

@@ -140,6 +140,22 @@ object EditorBlockOps {
             o.optString("id").ifBlank { null })
     }.ifEmpty { listOf(PlannedSetDraft(8)) }
 
+    /**
+     * Unidad de cardio (Picker "Unidad de cardio" de Apple): Calorías/Metros solo si el ejercicio admite ambas
+     * (supportsCaloriesAndMeters); si no, la unidad por defecto. Sin elección explícita se conserva la de la
+     * prescripción original (quantityUnit o calories/distanceMeters), no se pisa con la por defecto.
+     */
+    fun resolveQuantityUnit(name: String, equipment: String?, requested: String?, original: JSONObject?): String {
+        val default = dev.repera.domain.ExerciseInput.defaultQuantityUnit(name, equipment)
+        if (!dev.repera.domain.ExerciseInput.supportsCaloriesAndMeters(name, equipment)) return default
+        if (requested == "calories" || requested == "meters") return requested
+        val fromJson = original?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" }
+        if (fromJson != null) return fromJson
+        if (original != null && opt(original, "calories") != null) return "calories"
+        if (original != null && opt(original, "distanceMeters") != null) return "meters"
+        return default
+    }
+
     const val PENDING_PREFIX = "pending:"
 
     /** Nombres de ejercicios personalizados aún no creados (WOD→fuerza sin catálogo). Solo borrador. */

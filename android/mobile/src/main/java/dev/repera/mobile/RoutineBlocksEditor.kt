@@ -138,6 +138,8 @@ private class EntryUi(val exerciseId: String, name: String, quantity: Int,
                       planned: List<PlannedSetDraft>? = null,
                       val itemId: String? = null, sourceJson: String? = null) {
     var sourceJson by mutableStateOf(sourceJson)
+    /** Unidad de cardio elegida (null = sin tocar). */
+    var unit by mutableStateOf<String?>(null)
     var name by mutableStateOf(name)
     var quantity by mutableStateOf(quantity.toString())
     var sets by mutableStateOf(sets.toString())
@@ -190,7 +192,7 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
         } else null
         val parsed = entries.map { entry ->
             val base = RoutineDraftEntry(
-                itemId = entry.itemId, sourceJson = entry.sourceJson,
+                itemId = entry.itemId, sourceJson = entry.sourceJson, quantityUnit = entry.unit,
                 exerciseId = entry.exerciseId,
                 quantity = entry.quantity.toIntOrNull() ?: return null,
                 sets = entry.sets.toIntOrNull() ?: return null,
@@ -289,6 +291,8 @@ private fun BlockEditorCard(
                         resolvedName = entry.name.ifBlank {
                             nameById[entry.exerciseId] ?: "Ejercicio" },
                         isStrength = block.format == "strength",
+                        unitChoices = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
+                            dev.repera.domain.ExerciseInput.supportsCaloriesAndMeters(ex.name, null) } == true,
                         loadGuideProvider = loadGuideProvider,
                         onRemove = { block.entries.removeAt(index) },
                         handle = entryHandle,
@@ -341,7 +345,8 @@ private fun EntryEditorRow(
     onRemove: () -> Unit,
     handle: Modifier = Modifier,
     moveTargets: List<Pair<Int, String>> = emptyList(),
-    onMove: (Int) -> Unit = {}
+    onMove: (Int) -> Unit = {},
+    unitChoices: Boolean = false
 ) {
     val isRest = entry.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -398,6 +403,18 @@ private fun EntryEditorRow(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f)
                 )
+            }
+        }
+        if (unitChoices) {
+            // Picker "Unidad de cardio" (Apple): segmentado Calorías / Metros.
+            val src = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+            val current = entry.unit ?: src?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" }
+                ?: if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters")) "meters" else "calories"
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.FilterChip(selected = current == "calories", onClick = { entry.unit = "calories" },
+                    label = { Text("Calorías") }, modifier = Modifier.testTag("plan_unit_calories"))
+                androidx.compose.material3.FilterChip(selected = current == "meters", onClick = { entry.unit = "meters" },
+                    label = { Text("Metros") }, modifier = Modifier.testTag("plan_unit_meters"))
             }
         }
         if (!isStrength) WodMovementDetails(entry)
@@ -613,7 +630,7 @@ private object PlanEntryMoves {
             val sets = if (entry.setsExpanded || entry.untouchedUniform) entry.plannedSets.toList()
             else (1..(entry.sets.toIntOrNull() ?: 1).coerceIn(1, 30)).map {
                 PlannedSetDraft(entry.quantity.toIntOrNull() ?: 8, entry.weight.replace(',', '.').toDoubleOrNull()) }
-            val unit = entry.sourceJson?.let { runCatching { JSONObject(it).optString("quantityUnit") }.getOrNull() }.orEmpty()
+            val unit = entry.unit ?: entry.sourceJson?.let { runCatching { JSONObject(it).optString("quantityUnit") }.getOrNull() }.orEmpty()
             val mv = EditorBlockOps.planStrengthToMovement(entry.itemId, entry.exerciseId,
                 nameById[entry.exerciseId] ?: entry.name.ifBlank { "Ejercicio" }, sets, unit)
             src.entries.removeAt(entryIndex)

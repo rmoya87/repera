@@ -148,4 +148,19 @@ class EditorUiInstrumentedTest {
         assertEquals(1, delivered!![0].entries.size)
         assertEquals("it-1", delivered!![0].entries[0].itemId)
     }
+
+    /** El selector de unidad de cardio (Calorías/Metros) llega al borrador. Solo compilado. */
+    @Test fun planCardioUnitPickerDeliversChoice() {
+        var delivered: List<RoutineBlockDraft>? = null
+        val bike = ExerciseEntry("ex-bike", "Air Bike", true, false)
+        val r = RoutineEntry(id = "r-3", title = "Cardio", supported = true, blocks = listOf(
+            RoutineBlockInfo(title = "Fuerza", format = "strength", id = "b1",
+                entries = listOf(RoutineBlockEntryInfo(exerciseId = "ex-bike", name = "", quantity = 10, id = "i1")))))
+        compose.setContent { MaterialThemeForTest {
+            RoutineBlocksEditorScreen(routine = r, exercises = listOf(bike), busy = false,
+                onReplace = { delivered = it }, onBack = {}) } }
+        compose.onNodeWithTag("plan_unit_meters").performClick()
+        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        assertEquals("meters", delivered!![0].entries[0].quantityUnit)
+    }
 }

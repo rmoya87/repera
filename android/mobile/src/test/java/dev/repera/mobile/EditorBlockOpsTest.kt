@@ -193,3 +193,16 @@ class PlanPendingCustomsTest {
         org.junit.Assert.assertEquals(1, st.getJSONArray("exercises").length())
     }
 }
+
+class CardioUnitTest {
+    @org.junit.Test fun keepsOriginalUnitWithoutChoiceAndHonorsChoice() {
+        val orig = org.json.JSONObject().put("distanceMeters", 500)
+        org.junit.Assert.assertEquals("meters", EditorBlockOps.resolveQuantityUnit("Air Bike", null, null, orig))
+        org.junit.Assert.assertEquals("calories", EditorBlockOps.resolveQuantityUnit("Air Bike", null, "calories", orig))
+        org.junit.Assert.assertEquals("calories", EditorBlockOps.resolveQuantityUnit("Air Bike", null, null, null))
+    }
+    @org.junit.Test fun runLikeOrStrengthIgnoreChoice() {
+        org.junit.Assert.assertEquals("meters", EditorBlockOps.resolveQuantityUnit("Carrera", null, "calories", null))
+        org.junit.Assert.assertEquals("reps", EditorBlockOps.resolveQuantityUnit("Sentadilla", null, "meters", null))
+    }
+}
