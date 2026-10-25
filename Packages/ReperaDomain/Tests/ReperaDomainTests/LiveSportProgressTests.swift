@@ -59,6 +59,32 @@ struct LiveSportProgressTests {
         }
     }
 
+    @Test func newWaterWinterTeamAndOtherSportsContributeCardioMinutes() {
+        let sports = [
+            "windsurfing", "kitesurfing", "kayaking", "rowing", "canoeing",
+            "sailing", "iceSkating", "snowboarding", "crossCountrySkiing",
+            "soccer", "basketball", "volleyball", "climbing", "dance",
+            "skateboarding"
+        ]
+        for sport in sports {
+            let item = activity(sport, duration: 1200, meters: nil)
+            #expect(StatsEngine.isCardioWorkout(item), "Falta cardio para \(sport)")
+            let summary = StatsEngine.progressHealthSummary(
+                workouts: [item], range: .today, now: now
+            )
+            #expect(summary.averageCardioMinutes == 20)
+            #expect(summary.totalKcal == 0) // Salud no aportó sensores.
+        }
+    }
+
+    @Test func pilatesDoesNotInventDistanceOrCardioLoad() {
+        let item = activity("pilates", duration: 2400, meters: nil)
+        #expect(!StatsEngine.isCardioWorkout(item))
+        #expect(item.recordedDistanceMeters == nil)
+        #expect(item.appleAverageHeartRateBpm == nil)
+        #expect(item.appleActiveEnergyKcal == nil)
+    }
+
     @Test func liveActivityUsesStartDayForProgressRange() {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(secondsFromGMT: 0)!
