@@ -1461,13 +1461,12 @@ final class HealthKitStore {
     }
 
     private func fetchRoutePoints(workoutUUID: UUID?, start: Date, end: Date) async -> [RoutePoint] {
-        var routes: [HKWorkoutRoute] = []
-        if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
-            routes = await fetchRoutes(for: workout)
+        // Never invent a workout-route relationship from matching timestamps.
+        // With no verified HKWorkout UUID the caller uses Repera's local route.
+        guard let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) else {
+            return []
         }
-        if routes.isEmpty {
-            routes = await fetchRoutes(overlappingStart: start, end: end)
-        }
+        let routes = await fetchRoutes(for: workout)
         var all: [CLLocation] = []
         for route in routes {
             let locs = await fetchLocations(in: route)
