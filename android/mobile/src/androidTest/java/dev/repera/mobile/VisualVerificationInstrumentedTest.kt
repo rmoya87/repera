@@ -333,7 +333,14 @@ class VisualVerificationInstrumentedTest {
         // imagen con selección debe DIFERIR de la imagen en reposo.
         val antes = compose.onRoot().captureToImage().asAndroidBitmap()
         compose.onAllNodesWithTag("day_point_line_chart")[0].performTouchInput {
-            down(centerLeft); moveTo(center); moveTo(centerRight); up()
+            // El nodo etiquetado incluye la columna de valores (52dp) a la
+            // izquierda: el down debe caer DENTRO del Canvas o el gesto no
+            // llega al pointerInput de la gráfica.
+            val y = height * 0.5f
+            down(Offset(width * 0.5f, y))
+            moveTo(Offset(width * 0.75f, y))
+            moveTo(Offset(width * 0.9f, y))
+            up()
         }
         compose.waitForIdle()
         val despues = compose.onRoot().captureToImage().asAndroidBitmap()
@@ -819,10 +826,11 @@ class VisualVerificationInstrumentedTest {
                         RoutineBlockEntryInfo(exerciseId = "x3", name = "Dominadas",
                             quantity = 6)))))
         brandContent {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                SessionPreviewSheet(routine = routine, busy = false,
-                    onStart = {}, onEdit = {}, onDelete = {}, onClose = {})
-            }
+            // La hoja lleva su propio verticalScroll: envolverla en otro
+            // Column con scroll la mide con altura infinita y crashea el
+            // proceso (arrastrando tests ajenos).
+            SessionPreviewSheet(routine = routine, busy = false,
+                onStart = {}, onEdit = {}, onDelete = {}, onClose = {})
         }
         compose.waitForIdle()
         save("session_preview", compose.onRoot().captureToImage())
