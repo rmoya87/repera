@@ -441,3 +441,17 @@ https://github.com/hyperknot/openfreemap . Relieve3D aún no portado.
   No cierre GPS/cámara. Nuevo40231875073 conserva captura incluso timeout y
   diagnostica número crudo de fixes/edad sin registrar coordenadas. Corrige
   fixture segundo fix con5.1s de espera para timestamp5s, hipótesis aún.
+
+## Diagnóstico21:51, sin cierre
+-40231875073 FAILURE aed53c1d7: controles6/1, proveedor1/1, sin omitidos.
+  Captura navegador por finally demuestra perspectiva real60° + edificios
+  extruidos/GPX/teselas/créditos/controles legibles; no terreno/elevaciónApple.
+- Callback map-complete no repite al mover cámara. f6df6fe4 observa FRAME
+  fully-rendered; conserva espera/aserción y exige repetir verde antes cierre.
+- Provider raw=1 (primera edad2ms), segunda no entra listener pese a5.1s de
+  espera. No es segunda muestra rechazada por odómetro. Nueva instrumentada
+  vuelca dumpsys location únicamente en emulador aislado con puntos sintéticos
+  para ver registro/proveedor. Nunca aplicar dump a cuenta real/producción.
+- Próximo debugd7f123c0 incluye6 controles,2 proveedor (permiso denegado
+  simulado sin revocar permisos globales),2 tema con etiquetaIA y controles
+  voz/cancelar descarte. Compila, mobile199/0. No audio físico probado.
