@@ -739,7 +739,14 @@ final class ReperaStore: NSObject {
                   state.activeSession?.id == sessionID else { return }
             // Start immediately; waiting up to four seconds for a location pin
             // must not discard the first metres of a planned workout.
-            if trackRoute, tracker.startRouteTracking(sessionID: sessionID, cycling: cycling) {
+            if trackRoute, tracker.startRouteTracking(
+                sessionID: sessionID, cycling: cycling,
+                onUpdate: { [weak self] _ in
+                    guard let self, let current = self.state.activeSession,
+                          current.id == sessionID else { return }
+                    self.publishPlannedGPSMetrics(for: current)
+                }
+            ) {
                 await HealthKitStore.shared.beginRecordedGPSRoute(sessionID: sessionID)
             }
             if let pin = await tracker.capturePin(),
@@ -750,6 +757,15 @@ final class ReperaStore: NSObject {
                 persist()
             }
         }
+    }
+
+    /// Planned outdoor workouts publish GPS from the same odometer as Comenzar.
+    @ObservationIgnored private var lastPlannedGPSSnapshotAt = Date.distantPast
+
+    private func publishPlannedGPSMetrics(for session: WorkoutSession) {
+        guard Date().timeIntervalSince(lastPlannedGPSSnapshotAt) >= 5 else { return }
+        lastPlannedGPSSnapshotAt = Date()
+        Task { await WorkoutLiveActivityCoordinator.shared.updatePlanned(session) }
     }
 
     /// Guarda el OCR como entreno suelto de un día concreto (no entra en el plan semanal de Diario).
