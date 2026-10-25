@@ -324,3 +324,62 @@ jobs:
           # El guardián de conteo manda también en la pata experimental:
           # con 0 tests el paso falla aunque continue-on-error absorba el job.
           if [ "$N" -lt 1 ]; then exit 1; fi
+
+  # Despliegue beta: SOLO rama beta, SOLO si TODOS los tests (JVM, telefono,
+  # wear) estan verdes, SOLO AAB de telefono a track INTERNA. No existe job
+  # de produccion: la via de publicacion queda bloqueada hasta nueva
+  # autorizacion (ver android/docs/DEPLOY_PLAY.md).
+  deploy-internal-beta:
+    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    needs: [android-native, android-instrumented, wear-instrumented]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Install API 37
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Decode upload keystore
+        run: echo "${{ secrets.REPERA_UPLOAD_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/repera-upload.keystore"
+      - name: Versioning
+        run: |
+          # versionCode = minutos desde 2026-01-01 UTC: monotonico por reloj,
+          # inmune a reejecuciones de runs antiguos (un re-run obtiene un
+          # codigo NUEVO y mayor), unico mientras los despliegues esten
+          # serializados (concurrency group del workflow). Limite Play
+          # 2100000000: holgado. No hay releases previos (verificado 25/10).
+          EPOCH_MIN=$(( $(date -u +%s) / 60 - 29453760 ))
+          TAG=$(git describe --tags --exact-match 2>/dev/null || true)
+          VNAME="${TAG:-0.1.0-beta.${{ github.run_number }}}"
+          echo "versionCode=$EPOCH_MIN versionName=$VNAME"
+          echo "REPERA_VERSION_CODE=$EPOCH_MIN" >> "$GITHUB_ENV"
+          echo "REPERA_VERSION_NAME=$VNAME" >> "$GITHUB_ENV"
+      - name: Build release AAB (telefono)
+        run: gradle -p android :mobile:bundleRelease -PREPERA_VERSION_CODE="$REPERA_VERSION_CODE" -PREPERA_VERSION_NAME="$REPERA_VERSION_NAME" --no-daemon --stacktrace
+        env:
+          REPERA_UPLOAD_KEYSTORE_FILE: ${{ runner.temp }}/repera-upload.keystore
+          REPERA_UPLOAD_STORE_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
+          REPERA_UPLOAD_KEY_ALIAS: repera-upload
+          # PKCS12: la password de clave ES la del almacen (un solo secret).
+          REPERA_UPLOAD_KEY_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
+      - name: Upload AAB to Play internal track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.REPERA_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.app.repera
+          releaseFiles: android/mobile/build/outputs/bundle/release/mobile-release.aab
+          track: internal
+          status: completed

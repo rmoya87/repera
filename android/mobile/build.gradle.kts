@@ -9,8 +9,10 @@ android {
         applicationId = "com.app.repera"
         minSdk = 30
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI pasa REPERA_VERSION_CODE (minutos desde 2026-01-01 UTC, monotonico)
+        // y REPERA_VERSION_NAME (tag exacto o 0.1.0-beta.<run>). Local: 1/0.1.0.
+        versionCode = providers.gradleProperty("REPERA_VERSION_CODE").map { it.toInt() }.orElse(1).get()
+        versionName = providers.gradleProperty("REPERA_VERSION_NAME").orElse("0.1.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val webClientId = providers.gradleProperty("REPERA_GOOGLE_WEB_CLIENT_ID").orElse("1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com").get()
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$webClientId\"")
@@ -18,6 +20,27 @@ android {
         val publicKey = providers.gradleProperty("REPERA_SUPABASE_PUBLISHABLE_KEY").orElse("sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA").get()
         buildConfigField("String", "SUPABASE_URL", "\"https://uvzgujlrqohreoucirms.supabase.co\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$publicKey\"")
+    }
+    // Firma release por clave de subida (upload key); Play vuelve a firmar con
+    // la app signing key. Las credenciales llegan por variables de entorno y
+    // NUNCA se commitean; sin ellas el build release no firma (falla claro).
+    signingConfigs {
+        create("release") {
+            val ksFile = providers.environmentVariable("REPERA_UPLOAD_KEYSTORE_FILE").orNull
+            if (ksFile != null) {
+                storeFile = file(ksFile)
+                storePassword = providers.environmentVariable("REPERA_UPLOAD_STORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("REPERA_UPLOAD_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("REPERA_UPLOAD_KEY_PASSWORD").get()
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (providers.environmentVariable("REPERA_UPLOAD_KEYSTORE_FILE").isPresent) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
