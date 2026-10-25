@@ -212,3 +212,16 @@ main móvil invisible.)
   sin IME y boundsWindow positivos. Aceptado por main. Test rojo por franja
   demasiado baja, corregida contra before/after (no se relajan umbrales).
   Cadena completa pendiente run 40222615922.
+
+## Checkpoint 19:56 CET
+- Cabecera + cadena gestos API30 run40222615922 SUCCESS 1/0. AFTER completo
+  inspeccionado: cabecera/check/buscador/mapa/panel, sin IME, bounds positivos.
+  No sustituye regresión global. Before/after preservados en artifacts debug.
+- D4 guía de ruta pura port updateUpcomingTurn (55m fuera,250m aviso,70m a
+  pie/120m bici, una locución por giro). 2 tests nuevos; domain281/0.
+- TTS Android y audio-focus transitorio exclusivo (pausa, no duck), opt-out
+  persistido, mensajes km/giro y parada al pausar/finalizar/descarte/cuenta
+  implementados y compilan. NO ejecución/audio real validados. Faltan fallback
+  de aviso cuando voz falla/está off, voz instalada de mejor calidad y tests.
+- Pruebas instrumentadas D3/historial/evolución/guardado sintético lanzadas en
+  rama debug separada sobre 6d003b02 (NO incluyen aún guía/TTS posterior).

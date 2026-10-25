@@ -19,34 +19,68 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         .digest(accountID.toByteArray()).joinToString("") { "%02x".format(it) })
     private val store = LiveActivitySnapshotStore(File(folder,"live_activity.json"))
     private var lastSaveMillis = 0L
+    private val voice = LiveSpokenGuidance(app)
+    private val voicePrefs = app.getSharedPreferences("repera.live.guidance", Context.MODE_PRIVATE)
+    var spokenGuidanceEnabled = voicePrefs.getBoolean("enabled", true); private set
+    var upcomingTurn: String? = null; private set
+    var latestKilometerReport: String? = null; private set
+    private var guidance: dev.repera.domain.LiveRouteGuidance? = null
+    fun toggleSpokenGuidance() {
+        spokenGuidanceEnabled = !spokenGuidanceEnabled
+        voicePrefs.edit().putBoolean("enabled", spokenGuidanceEnabled).apply()
+        if (!spokenGuidanceEnabled) voice.stop()
+        publish()
+    }
+    private fun prepareRoute() {
+        val route = state.selectedRouteID?.let { id ->
+            runCatching { LiveRoutesStore(app, accountID).routes.firstOrNull { it.id == id } }.getOrNull()
+        }
+        guidance = route?.let { dev.repera.domain.LiveRouteGuidance(it.points, state.sport) }
+        upcomingTurn = null
+    }
     var lastError: String? = null; private set
     private val revisions = MutableStateFlow(0L)
     val updates = revisions.asStateFlow()
     private val location = LiveLocationSource(app) { update ->
+        val splitCount = state.splitsSeconds.size
         if (state.receive(update.sessionID,update.point,update.distanceMeters)) {
+            if (state.splitsSeconds.size > splitCount) {
+                val km = state.splitsSeconds.size
+                val seconds = state.splitsSeconds.last()
+                latestKilometerReport = "Km $km · " + if (state.sport.displaysSpeed)
+                    "%.1f km/h".format(3600 / seconds) else
+                    dev.repera.domain.LiveSportHistory.formatDuration(seconds) + " min/km"
+                if (spokenGuidanceEnabled) voice.speak("Has completado el kilómetro $km. " +
+                    if (state.sport.displaysSpeed) "Tu velocidad media ha sido de %.1f kilómetros por hora.".format(3600 / seconds)
+                    else "Lo has hecho en ${seconds.toInt() / 60} minutos y ${seconds.toInt() % 60} segundos.")
+            }
+            guidance?.update(update.point)?.let { cue ->
+                upcomingTurn = cue.display
+                if (spokenGuidanceEnabled) cue.speech?.let { voice.speak(it) }
+            }
             checkpoint();publish()
         }
     }
     init {
-        try { store.read()?.let { state.restore(it) } }
+        try { store.read()?.let { state.restore(it);prepareRoute() } }
         catch (_: Exception) { lastError="No se pudo restaurar la actividad. El archivo original se conserva." }
     }
     fun choose(sport: LiveSport) { state.choose(sport);publish() }
-    fun selectRoute(id: String?) { state.selectRoute(id);publish() }
+    fun selectRoute(id: String?) { state.selectRoute(id);prepareRoute();publish() }
     fun start() {
         if (state.phase != LiveActivityState.Phase.IDLE) return
-        state.start(System.currentTimeMillis(),UUID.randomUUID().toString());startGPS();checkpoint(true);publish()
+        state.start(System.currentTimeMillis(),UUID.randomUUID().toString());prepareRoute();startGPS();checkpoint(true);publish()
     }
     fun pause() {
         if (state.phase != LiveActivityState.Phase.RECORDING) return
-        state.pause(System.currentTimeMillis());location.stop(state.gpsSessionID,false);checkpoint(true);publish()
+        state.pause(System.currentTimeMillis());voice.stop();location.stop(state.gpsSessionID,false);checkpoint(true);publish()
     }
     fun resume() {
         if (state.phase != LiveActivityState.Phase.PAUSED) return
         state.resume(System.currentTimeMillis());startGPS();checkpoint(true);publish()
     }
     fun finish() {
-        state.finish(System.currentTimeMillis());location.stop(state.gpsSessionID);checkpoint(true);publish()
+        state.finish(System.currentTimeMillis());voice.stop();location.stop(state.gpsSessionID);checkpoint(true);publish()
     }
     fun discard(): Boolean {
         // Primero retirar el checkpoint. Si falla no afirmar descarte ni
@@ -54,7 +88,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { store.clear() } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        location.stop(state.gpsSessionID);state.discard();lastError=null;publish();return true
+        voice.stop();location.stop(state.gpsSessionID);state.discard();guidance=null;upcomingTurn=null;latestKilometerReport=null;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
         val now=System.currentTimeMillis()
@@ -78,9 +112,9 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         @Synchronized fun forAccount(context: Context, accountID: String): LiveActivityRuntime {
             require(accountID.isNotBlank())
             current?.takeIf { it.accountID==accountID }?.let { return it }
-            current?.stopForAccountChange()
+            current?.stopForAccountChange();current?.voice?.close()
             return LiveActivityRuntime(context,accountID).also { current=it }
         }
-        @Synchronized fun stopAll() { current?.stopForAccountChange();current=null }
+        @Synchronized fun stopAll() { current?.stopForAccountChange();current?.voice?.close();current=null }
     }
 }
