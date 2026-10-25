@@ -256,6 +256,13 @@ struct StatsView: View {
         }
     }
 
+    /// Array tipado para que ForEach escoja la sobrecarga de colección,
+    /// no la de Binding; solo enumera deportes presentes en el periodo.
+    private var recordedSports: [LiveSport] {
+        let sportIDs = Set(liveWorkoutsInRange.compactMap(\.liveSportID))
+        return LiveSport.allCases.filter { sportIDs.contains($0.rawValue) }
+    }
+
     @ViewBuilder
     private var liveSportsProgressCard: some View {
         if !liveWorkoutsInRange.isEmpty {
@@ -275,9 +282,7 @@ struct StatsView: View {
                             liveSportStat("Tiempo", value: "\(Int((seconds / 60).rounded())) min")
                             liveSportStat("Distancia", value: String(format: "%.1f km", kilometers))
                         }
-                        ForEach(LiveSport.allCases.filter { sport in
-                            workouts.contains { $0.liveSportID == sport.rawValue }
-                        }) { sport in
+                        ForEach(recordedSports, id: \.rawValue) { (sport: LiveSport) in
                             let related = workouts.filter { $0.liveSportID == sport.rawValue }
                             NavigationLink {
                                 LiveSportHistoryView(sport: sport)
