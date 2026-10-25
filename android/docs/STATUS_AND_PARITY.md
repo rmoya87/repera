@@ -687,9 +687,11 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
 - #3 Salud: el escritor YA EXISTE (HealthConnectWriter.syncFinishedSession
   con clientRecordId estable, adopción de vínculo y sin escritura de kcal/FC),
   llamado desde MainActivity al terminar; contrato de degradación probado en
-  CI SIN escribir registros reales (HealthConnectInstrumentedTest). Resta: la
-  verificación de comportamiento completo requiere la app Health Connect real
-  (entorno, no código).
+  CI SIN escribir registros reales (HealthConnectInstrumentedTest). La
+  degradación y el wiring probados NO demuestran fidelidad completa de
+  lecturas/escrituras con Health Connect: el E2E real queda PENDIENTE,
+  requiere la app Health Connect real (entorno, no código) y no se ejecuta
+  con datos reales sin autoridad.
 - #2 RouteMap: verificación de píxeles PREPARADA (25/10): seam
   `onStyleLoaded` en RouteMapView + test capturaRutaCardioMapa (ruta
   sintética del Retiro, latch de estilo 60 s, captura con

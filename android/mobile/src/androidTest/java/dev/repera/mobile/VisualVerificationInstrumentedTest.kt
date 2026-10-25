@@ -809,8 +809,9 @@ class VisualVerificationInstrumentedTest {
         compose.waitForIdle()
         val loaded = styleLoaded.await(60, java.util.concurrent.TimeUnit.SECONDS)
         if (!loaded) {
-            // Sin red/teselas el componente degrada a Canvas: captura lo que haya.
-            save("ruta_cardio_mapa", compose.onRoot().captureToImage())
+            // Sin red/teselas el componente degrada a Canvas. Nombre distinto:
+            // los píxeles del fallback NUNCA deben confundirse con MapLibre real.
+            save("ruta_cardio_mapa_fallback_canvas", compose.onRoot().captureToImage())
             return
         }
         Thread.sleep(8_000) // teselas asíncronas tras el estilo
