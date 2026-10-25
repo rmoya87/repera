@@ -405,6 +405,7 @@ private enum LiveGPXTurnDetection {
 }
 
 private struct LiveSnapshot: Codable {
+    var sessionID: UUID?
     var sport: String
     var phase: String
     var startedAt: Date
@@ -426,6 +427,7 @@ final class LiveActivityRecorder: NSObject {
 
     enum Phase: String { case idle, recording, paused, review }
     private(set) var phase: Phase = .idle
+    private(set) var sessionID: UUID?
     private(set) var sport: LiveSport = .running
     private(set) var startedAt: Date?
     private(set) var finishedAt: Date?
@@ -476,6 +478,7 @@ final class LiveActivityRecorder: NSObject {
            let restoredSport = LiveSport(rawValue: snapshot.sport),
            snapshot.phase != Phase.idle.rawValue {
             sport = restoredSport
+            sessionID = snapshot.sessionID ?? UUID()
             startedAt = snapshot.startedAt
             pausedAt = snapshot.pausedAt ?? snapshot.savedAt
             pausedSeconds = snapshot.pausedSeconds
@@ -564,6 +567,7 @@ final class LiveActivityRecorder: NSObject {
 
     func start() {
         guard phase == .idle else { return }
+        sessionID = UUID()
         startedAt = Date()
         finishedAt = nil
         pausedAt = nil
@@ -709,6 +713,7 @@ final class LiveActivityRecorder: NSObject {
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return WorkoutSession(
+            id: sessionID ?? UUID(),
             title: cleaned.isEmpty ? sport.title : cleaned,
             exercises: [],
             phase: .finished,
@@ -724,6 +729,38 @@ final class LiveActivityRecorder: NSObject {
         )
     }
 
+    /// La misma WorkoutSession que enviamos al Watch es la que termina en
+    /// Inicio/Progreso. Nunca usar un UUID nuevo al pulsar Guardar.
+    /// Solo los datos pequeños viajan por WCSession; el GPS queda en iPhone.
+    func watchSnapshot() -> WorkoutSession? {
+        guard let id = sessionID, let startedAt, phase != .idle else { return nil }
+        let state: SessionPhase = switch phase {
+        case .recording: .counting
+        case .paused: .ready
+        case .review: .finished
+        case .idle: .idle
+        }
+        return WorkoutSession(
+            id: id, title: sport.title, exercises: [], phase: state,
+            startedAt: startedAt, finishedAt: phase == .review ? finishedAt : nil,
+            liveSportID: sport.rawValue, liveRouteID: chosenRoute?.id,
+            recordedDistanceMeters: sport.usesGPS ? recordedDistanceMeters : nil,
+            activeDurationSeconds: durationSeconds
+        )
+    }
+
+    /// Watch ofrece la pausa, pero el iPhone sigue siendo propietario del GPS.
+    /// La actualización no genera un nuevo entreno ni otra escritura a Salud.
+    func applyWatchState(_ session: WorkoutSession) {
+        guard let id = sessionID, session.id == id, phase != .idle else { return }
+        switch session.phase {
+        case .ready where phase == .recording: pause()
+        case .counting where phase == .paused: resume()
+        case .finished where phase == .recording || phase == .paused: finish()
+        default: break
+        }
+    }
+
     func discard(saved: Bool = false) {
         if let startedAt {
             Task {
@@ -734,6 +771,7 @@ final class LiveActivityRecorder: NSObject {
         }
         stopGPS()
         phase = .idle
+        sessionID = nil
         startedAt = nil
         finishedAt = nil
         pausedAt = nil
@@ -754,6 +792,7 @@ final class LiveActivityRecorder: NSObject {
     private func persistSnapshot() {
         guard let start = startedAt, phase != .idle else { return }
         let snap = LiveSnapshot(
+            sessionID: sessionID,
             sport: sport.rawValue, phase: phase.rawValue,
             startedAt: start, pausedAt: pausedAt, pausedSeconds: pausedSeconds,
             recordedDistanceMeters: recordedDistanceMeters, routePoints: routePoints,
