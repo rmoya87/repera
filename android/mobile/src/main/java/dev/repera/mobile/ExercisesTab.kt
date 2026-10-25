@@ -87,6 +87,10 @@ internal fun ExercisesTab(
     onNavigateHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedLiveSessionID by rememberSaveable { mutableStateOf<String?>(null) }
+    var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
+    var selectedSportID by rememberSaveable { mutableStateOf<String?>(null) }
+    var sportSearch by rememberSaveable { mutableStateOf("") }
     var exerciseSearch by rememberSaveable { mutableStateOf("") }
     var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
     // Ordenación de biblioteca por grupo (paridad ExerciseSortMode iOS):
@@ -122,12 +126,53 @@ internal fun ExercisesTab(
             }.toList()
             .sortedWith { a, b -> LibraryCollator.compare(a.first, b.first) }
     }
+    if (libraryMode == "Deportes") {
+        val selected = selectedSportID?.let { dev.repera.domain.LiveSport.byId(it) }
+        Column(modifier.fillMaxSize()) {
+            val detail = overview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
+            if (detail != null) {
+                LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item { TextButton(onClick = { selectedLiveSessionID = null }) { Text("Volver al deporte") } }
+                    item {
+                        Text(detail.title, style = MaterialTheme.typography.headlineMedium)
+                        Text(detail.startedAt, style = MaterialTheme.typography.bodySmall)
+                        overview?.liveSportSessions?.firstOrNull { it.id == detail.id }?.let { session ->
+                            Text(dev.repera.domain.LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
+                            session.recordedDistanceMeters?.takeIf { it > 0 }?.let { Text("%.2f km".format(it / 1000)) }
+                        }
+                    }
+                    item { detail.review?.let { SessionReviewCard(it) } }
+                    if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty()) }
+                    item { LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds) }
+                    detail.notes?.let { note -> item { Text(note) } }
+                }
+            } else if (selected != null) {
+                LiveSportHistoryScreen(selected, overview?.liveSportSessions.orEmpty(),
+                    onBack = { selectedSportID = null },
+                    onOpenSession = { selectedLiveSessionID = it })
+            } else {
+                TextButton(onClick = { libraryMode = "Ejercicios" }) { Text("Volver a Ejercicios") }
+                OutlinedTextField(value = sportSearch, onValueChange = { sportSearch = it },
+                    label = { Text("Buscar deporte") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                LiveSportsCatalogScreen(overview?.liveSportSessions.orEmpty(), sportSearch,
+                    onOpenSport = { selectedSportID = it.id })
+            }
+        }
+        return
+    }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Ejercicios", style = MaterialTheme.typography.headlineMedium) }
+        item { Text("Biblioteca", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
+                FilterChip(selected = false, onClick = { libraryMode = "Deportes" }, label = { Text("Deportes") })
+            }
+        }
         item { CountCard("Catálogo local", overview?.exercises, overview != null) }
         item {
             OutlinedTextField(

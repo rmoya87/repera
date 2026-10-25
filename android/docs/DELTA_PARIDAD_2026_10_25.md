@@ -17,13 +17,13 @@ main móvil invisible.)
 
 ## Alcance del delta (evidencia: `git diff e579bbc..5890215d`, +5683/-390 en 27 archivos)
 
-### D1 — Dominio: modelos en vivo + StatsEngine (EN CURSO)
+### D1 — Dominio: modelos en vivo + StatsEngine (IMPLEMENTADO; regresión 40218496197 en curso)
 - Exercise `isCatalogArchived` (retirado consultable), accuracy horizontal/
   vertical en WorkoutRoutePoint, campos de sesión `liveSportID`,
   `liveRouteID`, `recordedDistanceMeters`, `activeDurationSeconds`,
   `liveKilometerSplitsSeconds`; `durationMinutes`/`displayDurationMinutes`
   priorizan `activeDurationSeconds` cuando hay `liveSportID`.
-- Catálogo LiveSport: 34 deportes (id persistido, título ES, símbolo, grupo;
+- Catálogo LiveSport: 36 deportes (id persistido, título ES, símbolo, grupo;
   8 grupos). IDs son datos persistidos: port literal.
 - StatsEngine: set `cardioLiveSports` (29 ids), `isCardioWorkout`, día de
   inicio (no fin) para sesiones en vivo en rangos/series.
@@ -100,3 +100,19 @@ main móvil invisible.)
 ## Fuera de alcance
 - Producción, tracks cerrados/abiertos, productos/precios (plan beta en
   segundo plano, sin ampliar distribución). Apple intocable. Sin merge a main.
+
+## Avance verificado 25/10, 19:06 CET
+- D1: implementación + tests locales cerrados. D2: se reutiliza el worker
+  existente (cursor incremental, tombstones, caché atómica, gate de sesión);
+  cerrada derivación de muscleGroup con taxonomía de Apple. Regresión en
+  https://github.com/rmoya87/repera/actions/runs/40218496197 (SHA 212dcbe3).
+- D3: capa de datos + catálogo Deportes + historial + detalle de sesión y
+  parciales activos implementados LOCALMENTE; no se declara cierre visual.
+  Adaptador usa archivo completo, no las últimas 20 tarjetas. Pendientes:
+  favoritos/rutas y evolución (almacén compartido D4), UI tests ejecutados y
+  capturas inspeccionadas. El valor de gráfica duración es en minutos, como
+  chartAttempts de Apple; métricas solo con fecha y duración/distancia válidas.
+- LiveSport propiedades: GPS 19, velocidad 15, desnivel 6.
+- Local: domain 264/0, mobile JVM 185/0; UI tests compilan pero aún no se
+  ejecutaron. No confundir con SHA CI ni con paridad D3 completa.
+- Beta sigue en draft 51500. No desplegar automáticamente un delta parcial.

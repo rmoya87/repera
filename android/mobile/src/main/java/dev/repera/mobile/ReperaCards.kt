@@ -1445,8 +1445,9 @@ internal fun WorkoutHistoryCard(
                 // Ruta GPS: distancia/desnivel/splits y perfil de altitud
                 // (CardioRouteComponents iOS; el análisis es 1:1 en dominio).
                 if (workout.routePoints.size >= 2) {
-                    CardioRouteSection(workout.routePoints)
+                    CardioRouteSection(workout.routePoints, showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty())
                 }
+                LiveKilometerSplitsSection(workout.liveKilometerSplitsSeconds)
                 FinishedWorkoutEditorSection(
                     workout = workout,
                     accountId = accountId,
@@ -1598,7 +1599,7 @@ internal fun BenchmarkWodPicker(
  *  Distancia/desnivel/splits del dominio; perfil dibujado en Canvas. El mapa
  *  nativo de la ruta es un sub-gap pendiente de componente. */
 @Composable
-internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>) {
+internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>, showComputedSplits: Boolean = true) {
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
             dev.repera.domain.CardioRouteAnalysis.Sample(
@@ -1710,7 +1711,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (analysis.splits.isNotEmpty()) {
+        if (showComputedSplits && analysis.splits.isNotEmpty()) {
             analysis.splits.forEach { split ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),

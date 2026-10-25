@@ -96,15 +96,17 @@ object LiveSportHistory {
         }
     }
 
-    /** Valor de la gráfica de evolución: duración (s), ritmo (min/km) o
+    /** Valor de la gráfica de evolución: duración (min), ritmo (min/km) o
      *  velocidad (km/h) según la métrica elegida y el deporte. */
     fun evolutionValue(
         session: LiveSession, metric: EvolutionMetric, sport: LiveSport
     ): Double? {
-        val duration = maxOf(0.0, session.activeDurationSeconds ?: return null)
+        if (session.startedEpochMillis == null) return null
+        val duration = session.activeDurationSeconds?.takeIf { it.isFinite() && it > 0 } ?: return null
         val km = maxOf(0.0, session.recordedDistanceMeters ?: 0.0) / 1000.0
+        if (!km.isFinite() || km <= 0) return null
         return when (metric) {
-            EvolutionMetric.DURATION -> duration
+            EvolutionMetric.DURATION -> duration / 60.0
             EvolutionMetric.PACE ->
                 if (duration <= 0 || km <= 0) null
                 else if (sport.displaysSpeed) km / (duration / 3600.0)

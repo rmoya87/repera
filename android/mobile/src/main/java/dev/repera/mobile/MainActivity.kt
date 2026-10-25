@@ -1539,7 +1539,10 @@ data class StateOverview(
     val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap(),
     val recovery: RecoveryState? = null,
     val favoriteTimerCount: Int = 0,
-    val chartsByRange: Map<String, dev.repera.domain.ProgressPreparedCharts> = emptyMap()
+    val chartsByRange: Map<String, dev.repera.domain.ProgressPreparedCharts> = emptyMap(),
+    /** Archivo completo, no la ventana de 20 registros recientes. */
+    val liveSportSessions: List<dev.repera.domain.LiveSportHistory.LiveSession> = emptyList(),
+    val completeHistory: List<WorkoutHistoryEntry> = emptyList()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1606,7 +1609,7 @@ data class StateOverview(
                 total
             }
             val history = json.getJSONArray("workouts").let { archive ->
-                (archive.length() - 1 downTo 0).take(20).map { index ->
+                (archive.length() - 1 downTo 0).map { index ->
                     val session = archive.getJSONObject(index)
                     val saved = session.optJSONArray("exercises") ?: org.json.JSONArray()
                     val movements = (0 until saved.length()).map { i ->
@@ -1659,6 +1662,9 @@ data class StateOverview(
                         startedAtIso = session.optString("startedAt").takeIf { it.isNotBlank() },
                         finishedAtIso = session.optString("finishedAt").takeIf { it.isNotBlank() },
                         notes = session.optString("notes").takeIf { it.isNotBlank() },
+                        liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
+                            (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
+                        }.orEmpty(),
                         editableBlocksJson = runCatching {
                             CompletedWorkoutEditing.blocksFrom(session, null).toString()
                         }.getOrNull(),
@@ -1859,6 +1865,7 @@ data class StateOverview(
                 )
             }
             return StateOverview(
+                liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,
                 favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,
                 workouts = workoutTitles.size,
@@ -1880,7 +1887,8 @@ data class StateOverview(
                     }.getOrNull()
                 },
                 recentWorkoutTitles = workoutTitles.asReversed().take(20),
-                history = history,
+                history = history.take(20),
+                completeHistory = history,
                 routineEntries = routineEntries,
                 exerciseEntries = exerciseEntries,
                 exerciseProgress = ExerciseProgressMetrics.fromWorkouts(json.getJSONArray("workouts")),
@@ -2006,7 +2014,8 @@ data class WorkoutHistoryEntry(
     val finishedAtIso: String? = null,
     val notes: String? = null,
     /** Bloques editables (con ids) para el editor de contenido; null si no se pudieron derivar. */
-    val editableBlocksJson: String? = null
+    val editableBlocksJson: String? = null,
+    val liveKilometerSplitsSeconds: List<Double> = emptyList()
 )
 data class WorkoutHistoryMovement(
     val name: String,

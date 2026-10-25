@@ -82,7 +82,7 @@ class LiveSportHistoryTest {
 
     @Test fun evolutionValueUsesPaceOrSpeedBySport() {
         val run = session("running", 1800.0, 5000.0)
-        assertEquals(1800.0,
+        assertEquals(30.0,
             LiveSportHistory.evolutionValue(run,
                 LiveSportHistory.EvolutionMetric.DURATION, LiveSport.RUNNING)!!, 0.001)
         assertEquals(6.0, // 30 min / 5 km = 6 min/km
@@ -105,4 +105,21 @@ class LiveSportHistoryTest {
         assertEquals(111.19, km, 0.5)
         assertEquals(0.0, CardioRouteAnalysis.routeDistanceMeters(points.take(1)), 0.001)
     }
+    @Test fun chartRejectsMissingDateDistanceOrNonPositiveDurationForEveryMetric() {
+        val base = session("running", 1800.0, 5000.0)
+        val invalid = listOf(base.copy(startedEpochMillis = null),
+            base.copy(activeDurationSeconds = 0.0), base.copy(recordedDistanceMeters = null),
+            base.copy(activeDurationSeconds = Double.NaN))
+        for (metric in LiveSportHistory.EvolutionMetric.entries)
+            for (attempt in invalid)
+                assertNull(LiveSportHistory.evolutionValue(attempt, metric, LiveSport.RUNNING))
+    }
+
+    @Test fun catalogPropertyCountsMatchFixedAppleReference() {
+        assertEquals(36, LiveSport.entries.size)
+        assertEquals(19, LiveSport.entries.count { it.usesGPS })
+        assertEquals(15, LiveSport.entries.count { it.displaysSpeed })
+        assertEquals(6, LiveSport.entries.count { it.tracksElevation })
+    }
+
 }
