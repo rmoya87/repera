@@ -41,6 +41,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     if(accountId.isBlank()) { Text("Inicia sesión para guardar actividades.");return }
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
     val revision by runtime.updates.collectAsState()
+    // Leer antes de cualquier retorno (también canvas GPS): los campos de
+    // recorder son puros, la señal Flow invalida todas las ramas de UI.
+    @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
     val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
     var routesVersion by remember { mutableStateOf(0) }
@@ -231,8 +234,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("live_activity_screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        // Lectura de revision asegura recomposición del estado puro compartido.
-        @Suppress("UNUSED_VARIABLE") val version=revision
         Text("Comenzar",style=MaterialTheme.typography.headlineMedium)
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
         if(state.sport.usesGPS && state.phase!=LiveActivityState.Phase.REVIEW)
