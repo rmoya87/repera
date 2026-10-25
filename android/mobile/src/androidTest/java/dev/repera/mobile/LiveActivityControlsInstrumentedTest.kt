@@ -175,6 +175,10 @@ class LiveActivityControlsInstrumentedTest {
         val account = "test-fgs-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context, account)
         val manager = context.getSystemService(NotificationManager::class.java)
+        if(android.os.Build.VERSION.SDK_INT>=33) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(context.packageName,android.Manifest.permission.POST_NOTIFICATIONS)
+            assertTrue("Notification fixture permission required",manager.areNotificationsEnabled())
+        }
         try {
             store.save(SessionStore.StoredSession(account,"synthetic@example.invalid","Test",account,
                 "synthetic-not-valid","synthetic-not-valid",System.currentTimeMillis()/1000+600))

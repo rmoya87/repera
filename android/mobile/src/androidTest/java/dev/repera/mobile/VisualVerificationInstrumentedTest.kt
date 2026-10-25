@@ -782,7 +782,17 @@ class VisualVerificationInstrumentedTest {
      * en la franja que contiene título y acciones, debajo de status bar. */
     private fun hasConfirmationChrome(bmp: android.graphics.Bitmap): Boolean {
         var light = 0; var dark = 0; var n = 0
-        for (y in (bmp.height * 0.03).toInt() until (bmp.height * 0.09).toInt() step 2) {
+        // Dialog may be inset below the status bar on API35. Use the actual
+        // placed title/action row, not percentages calibrated for API30.
+        val bounds=compose.onNodeWithTag("place_confirm").fetchSemanticsNode().boundsInWindow
+        // Accessibility reports the active Dialog content origin in screen pixels.
+        // Require it, rather than guessing an SDK-specific status-bar height.
+        val activeRoot=InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow ?: return false
+        val screenBounds=android.graphics.Rect().also {activeRoot.getBoundsInScreen(it)}
+        val rowTop=screenBounds.top
+        val top=(bounds.top+rowTop).toInt().coerceIn(0,bmp.height-1)
+        val bottom=(bounds.bottom+rowTop).toInt().coerceIn(top+1,bmp.height)
+        for (y in top until bottom step 2) {
             for (x in (bmp.width * 0.03).toInt() until (bmp.width * 0.97).toInt() step 2) {
                 val c = bmp.getPixel(x, y)
                 val r = android.graphics.Color.red(c); val g = android.graphics.Color.green(c); val b = android.graphics.Color.blue(c)
