@@ -86,7 +86,7 @@ struct LiveSportHistoryView: View {
 
     private var relatedRoutes: [LiveSavedRoute] {
         let ids = Set(sessions.compactMap(\.liveRouteID))
-        return savedRoutes.routes.filter {
+        return savedRoutes.favoriteRoutes.filter {
             $0.sportID == sport.rawValue || ids.contains($0.id)
         }
     }
@@ -154,7 +154,7 @@ struct LiveSportHistoryView: View {
                                     if let distance = session.recordedDistanceMeters, distance > 0 {
                                         Text(String(format: "%.2f km", distance / 1000))
                                     }
-                                    if session.liveRouteID != nil {
+                                    if isFavorite(session) {
                                         Image(systemName: "star.fill").foregroundStyle(OG.yellow)
                                     }
                                 }
@@ -167,7 +167,7 @@ struct LiveSportHistoryView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         if sport.usesGPS && session.routePoints.count >= 2 &&
-                            session.liveRouteID == nil {
+                            !isFavorite(session) {
                             Button {
                                 saveAsFavorite(session)
                             } label: {
@@ -190,12 +190,22 @@ struct LiveSportHistoryView: View {
         } message: { Text(favoriteError ?? "") }
     }
 
+    private func isFavorite(_ session: WorkoutSession) -> Bool {
+        guard let id = session.liveRouteID else { return false }
+        return savedRoutes.routes.contains { $0.id == id && $0.isFavorite }
+    }
+
     private func saveAsFavorite(_ session: WorkoutSession) {
         do {
-            let routeID = try savedRoutes.addRecordedRoute(from: session)
-            var updated = session
-            updated.liveRouteID = routeID
-            store.saveWorkout(updated)
+            if let routeID = session.liveRouteID,
+               savedRoutes.routes.contains(where: { $0.id == routeID }) {
+                try savedRoutes.setFavorite(routeID, true)
+            } else {
+                let routeID = try savedRoutes.addRecordedRoute(from: session, favorite: true)
+                var updated = session
+                updated.liveRouteID = routeID
+                store.saveWorkout(updated)
+            }
         } catch {
             favoriteError = "Comprueba el almacenamiento disponible e inténtalo de nuevo."
         }
