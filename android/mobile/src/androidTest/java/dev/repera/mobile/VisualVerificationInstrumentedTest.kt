@@ -144,10 +144,14 @@ class VisualVerificationInstrumentedTest {
         // Host de prueba edge-to-edge como producción (targetSdk 37): contenido
         // fuera de la barra de estado e iconos oscuros sobre fondo claro, para
         // que las capturas de pantalla completa muestren barras legibles.
-        compose.activity.window.let { w ->
-            androidx.core.view.WindowInsetsControllerCompat(w, w.decorView).apply {
-                isAppearanceLightStatusBars = true
-                isAppearanceLightNavigationBars = true
+        // En el hilo de UI: la ruta Impl30 toca View.setSystemUiVisibility y
+        // falla desde el hilo de instrumentación (API 30).
+        compose.runOnUiThread {
+            compose.activity.window.let { w ->
+                androidx.core.view.WindowInsetsControllerCompat(w, w.decorView).apply {
+                    isAppearanceLightStatusBars = true
+                    isAppearanceLightNavigationBars = true
+                }
             }
         }
         compose.setContent {

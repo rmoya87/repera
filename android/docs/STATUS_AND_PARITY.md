@@ -752,6 +752,58 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
   aparece una señal actual de assets nuevos.
 - Distribución (firma, Play Console, P2 #12): no autorizada.
 
+### Verificación visual cerrada en píxeles (25/10 tarde, run 40190145252)
+- lugar_selector_pin_mapa: barras del sistema legibles (iconos oscuros sobre
+  banda clara) y contenido fuera de ellas. El defecto tenía DOBLE origen:
+  flujo real (PlaceSearchSheet, Dialog de pantalla completa sin insets con
+  edge-to-edge forzado en targetSdk 37: header bajo la barra e iconos claros
+  del tema del dialog) y host de prueba (brandContent sin insets, actividad
+  de test con iconos claros). Corregidos ambos (51365a0a): statusBarsPadding
+  + navigationBarsPadding + apariencia clara en la ventana del dialog; el
+  host aplica insets e iconos oscuros. El flujo principal (Scaffold M3) ya
+  gestionaba insets. MapLibre real (teselas + pin) se mantiene como cierre
+  separado del renderizado.
+- session_preview: contraste ACEPTADO sin cambios (surfaceVariant con texto
+  oscuro legible; botón primary #0E7A38/blanco). No hubo ajuste especulativo.
+- progreso_cardio_scrub: selección visible tras el drag (etiqueta
+  "23 oct 2026: 30", línea vertical y punto seleccionado). Fix previo: el
+  down caía en la columna de ejes; ahora dentro del Canvas.
+- lugar_hoja_confirmar: panel de recientes/hint CERRADO en modo confirmar.
+  Máquina de estados iOS-exacta (5020cd87): showsConfirmMap = pending !=
+  null && !isTyping && !searchFocused; la flag se fija en el handler porque
+  clearFocus() no garantiza onFocusChanged en el emulador. Matiz residual
+  documentado: el campo puede conservar el estilo visual de foco aunque el
+  estado de búsqueda ya está cerrado (cosmético, sin efecto en el flujo).
+- Fallo API 30 del mismo run: 18 tests visuales rompieron por MI fix del
+  host (WindowInsetsControllerCompat en el hilo de instrumentación; la ruta
+  Impl30 toca View.setSystemUiVisibility -> CalledFromWrongThreadException;
+  en API 35/37 no toca la vista y por eso pasó). Corregido con
+  compose.runOnUiThread. Sin rerun idéntico: la causa es de test, no de app.
+
+### Reconciliación final de sync (25/10, fuente/cuenta/alcance)
+- Fuentes y cuentas: espejo de entrenos Supabase (WorkoutMirrorStore, por
+  session.userId), snapshot Drive (LocalSnapshotStore, carpeta por
+  sha256(uniqueGoogleId)), conciliación espejo->Drive con procedencia POR
+  CUENTA (mirror_recovered.json junto al snapshot). Espejos IA (contexto,
+  bandeja, planes realtime) son contexto de solo-lectura, fuera del
+  historial de entrenos.
+- Verificado con el backend EXISTENTE y proveedores/almacenamiento
+  simulados (sin tocar cuentas reales): convergencia de dos dispositivos
+  (subconjunto -> descarga sin subir; recuperado ausente en Drive ->
+  Conflict sin subir, 0 subidas automáticas; datos independientes ->
+  Conflict; misma id con contenido distinto -> camino normal por versión),
+  selección de recuperación pura (tombstones respetados), procedencia por
+  cuenta acumulativa, conflictos por versión (CloudHistoryConflictTest 6/6),
+  y el almacenamiento REAL AtomicFile ejercitado en dispositivo
+  (LocalSnapshotStoreInstrumentedTest: roundtrip, backup en sobrescritura,
+  copia remota antes de subir, rechazo de documento corrupto, revisión).
+- ABIERTO (no verificable en este alcance): escritura concurrente
+  lectura<->subida sin ETag; E2E con Drive/Supabase REALES (requiere
+  cuentas reales, no autorizado); equivalente al iCloud best-effort de iOS
+  (backend NUEVO, no autorizado); fidelidad con la app Health Connect real
+  (entorno). Alcance: ninguna escritura en cuentas reales, ninguna subida
+  automática (retirada en 5i), ningún cambio de backend.
+
 ### Conflicto resuelto (25/10)
 PARITY_BACKLOG_2026_10_23.md pedía "#30D158 con contenido negro" en ambos temas.
 Corrección de LEGIBILIDAD dentro del encargo de paridad (fuente: revisión de
