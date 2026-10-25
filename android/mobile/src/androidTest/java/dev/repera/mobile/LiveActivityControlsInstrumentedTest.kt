@@ -106,6 +106,15 @@ class LiveActivityControlsInstrumentedTest {
         compose.onNodeWithText("Ver métricas").assertIsDisplayed()
         awaitMapAfter(beforeMap)
         capture("comenzar_gps_mapa_activo.png")
+        val voiceWasEnabled=runtime.spokenGuidanceEnabled
+        compose.onNodeWithText(if(voiceWasEnabled) "Voz activada" else "Voz desactivada").performClick()
+        compose.onNodeWithText(if(voiceWasEnabled) "Voz desactivada" else "Voz activada").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(!voiceWasEnabled,runtime.spokenGuidanceEnabled) }
+        compose.onNodeWithText(if(voiceWasEnabled) "Voz desactivada" else "Voz activada").performClick()
+        compose.onNodeWithText("Descartar").performClick()
+        compose.onNodeWithText("¿Descartar actividad?").assertIsDisplayed()
+        compose.onNodeWithText("Cancelar").performClick()
+        compose.runOnIdle { assertEquals(LiveActivityState.Phase.RECORDING,runtime.state.phase) }
         val beforeNavigation=rendered.get()
         compose.onNodeWithText("Modo navegador").performClick()
         compose.onNodeWithText("Vista 2D").assertIsDisplayed()

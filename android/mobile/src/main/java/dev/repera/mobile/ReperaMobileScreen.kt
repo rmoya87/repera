@@ -725,7 +725,7 @@ internal fun SettingsTab(
             .clickable(onClick = onOpenAIAccess)
             .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text("Acceso IA", style = MaterialTheme.typography.bodyLarge,
+            Text("Conecta tu IA", style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f))
             Icon(imageVector = Icons.Outlined.KeyboardArrowRight,
                 contentDescription = null)
