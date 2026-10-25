@@ -1996,6 +1996,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var routePoints: [WorkoutRoutePoint]
     /// Deportes registrados directamente desde la pestaña En vivo.
     public var liveSportID: String?
+    /// Identificador estable de la ruta favorita elegida al iniciar esta salida.
+    /// Permite comparar intentos de la misma ruta, sin agrupar por su título.
+    public var liveRouteID: UUID?
     /// Distancia acumulada con el GPS en movimiento (no la longitud de un GPX planificado).
     public var recordedDistanceMeters: Double?
     /// Duración activa, sin pausas; es una medición de Repera, no de Apple Salud.
@@ -2022,6 +2025,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         locationPin: WorkoutLocationPin? = nil,
         routePoints: [WorkoutRoutePoint] = [],
         liveSportID: String? = nil,
+        liveRouteID: UUID? = nil,
         recordedDistanceMeters: Double? = nil,
         activeDurationSeconds: TimeInterval? = nil
     ) {
@@ -2045,6 +2049,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.locationPin = locationPin
         self.routePoints = routePoints
         self.liveSportID = liveSportID
+        self.liveRouteID = liveRouteID
         self.recordedDistanceMeters = recordedDistanceMeters
         self.activeDurationSeconds = activeDurationSeconds
     }
@@ -2054,7 +2059,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         case startedAt, finishedAt, notes
         case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
-        case locationPin, routePoints, liveSportID, recordedDistanceMeters, activeDurationSeconds
+        case locationPin, routePoints, liveSportID, liveRouteID, recordedDistanceMeters, activeDurationSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -2079,6 +2084,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         locationPin = try c.decodeIfPresent(WorkoutLocationPin.self, forKey: .locationPin)
         routePoints = try c.decodeIfPresent([WorkoutRoutePoint].self, forKey: .routePoints) ?? []
         liveSportID = try c.decodeIfPresent(String.self, forKey: .liveSportID)
+        liveRouteID = try c.decodeIfPresent(UUID.self, forKey: .liveRouteID)
         recordedDistanceMeters = try c.decodeIfPresent(Double.self, forKey: .recordedDistanceMeters)
         activeDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .activeDurationSeconds)
     }
@@ -2105,6 +2111,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(locationPin, forKey: .locationPin)
         try c.encode(routePoints, forKey: .routePoints)
         try c.encodeIfPresent(liveSportID, forKey: .liveSportID)
+        try c.encodeIfPresent(liveRouteID, forKey: .liveRouteID)
         try c.encodeIfPresent(recordedDistanceMeters, forKey: .recordedDistanceMeters)
         try c.encodeIfPresent(activeDurationSeconds, forKey: .activeDurationSeconds)
     }
