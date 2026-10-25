@@ -16,13 +16,13 @@ import androidx.compose.ui.unit.dp
     var error by remember {mutableStateOf<String?>(null)}
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {uri ->
         if(uri!=null) runCatching {
-            val bounds=android.graphics.BitmapFactory.Options().apply {inJustDecodeBounds=true}
-            context.contentResolver.openInputStream(uri)!!.use {android.graphics.BitmapFactory.decodeStream(it,null,bounds)}
-            require(bounds.outWidth>0 && bounds.outHeight>0)
-            val options=android.graphics.BitmapFactory.Options().apply {var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>1024) sample*=2;inSampleSize=sample}
-            val original=context.contentResolver.openInputStream(uri)!!.use {android.graphics.BitmapFactory.decodeStream(it,null,options)} ?: error("Imagen no válida")
-            val scale=minOf(1.0,256.0/maxOf(original.width,original.height))
-            val bitmap=android.graphics.Bitmap.createScaledBitmap(original,maxOf(1,(original.width*scale).toInt()),maxOf(1,(original.height*scale).toInt()),true)
+            // ImageDecoder honors camera EXIF orientation and downsamples before allocation.
+            val source=android.graphics.ImageDecoder.createSource(context.contentResolver,uri)
+            val bitmap=android.graphics.ImageDecoder.decodeBitmap(source) {decoder,info,_ ->
+                val scale=minOf(1.0,256.0/maxOf(info.size.width,info.size.height))
+                decoder.setTargetSize(maxOf(1,(info.size.width*scale).toInt()),maxOf(1,(info.size.height*scale).toInt()))
+                decoder.allocator=android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+            }
             val bytes=java.io.ByteArrayOutputStream().also {bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG,82,it)}.toByteArray()
             require(bytes.size<=200_000)
             onChange(value.copy(avatarJPEG=android.util.Base64.encodeToString(bytes,android.util.Base64.NO_WRAP)))

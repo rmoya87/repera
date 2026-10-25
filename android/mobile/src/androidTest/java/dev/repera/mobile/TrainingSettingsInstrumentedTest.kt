@@ -78,6 +78,8 @@ class TrainingSettingsInstrumentedTest {
         compose.onNodeWithText("Añadir 15 s").performScrollTo().performClick()
         compose.onNodeWithText("Abrir Ajustes del sistema").performScrollTo().assertIsDisplayed()
         capture("ajustes_permisos_datos.png")
+        compose.onNodeWithText("Importar CSV Strong/Hevy").performScrollTo().assertIsDisplayed()
+        capture("ajustes_datos_final.png")
         compose.runOnIdle {
             val saved=JSONObject(String(store.read()!!));val settings=saved.getJSONObject("settings")
             assertEquals("sunday",settings.getString("weekStartsOn"))

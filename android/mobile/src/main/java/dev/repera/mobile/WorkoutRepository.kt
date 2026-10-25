@@ -1439,10 +1439,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val choices=(0 until routines.length()).map { routines.getJSONObject(it) }
         val rotationID=RotationSettings.nextRoutineId(state)
         val routine = if(TrainingSettings.read(state).scheduleMode=="rotation") choices.firstOrNull {it.optString("id")==rotationID}
-        else choices.firstOrNull { routine ->
-            val scheduled=routine.optString("scheduledDate").takeIf {it.isNotBlank() && it!="null"}?.take(10)
-            scheduled==today.toString() || (scheduled==null && routine.optInt("weekday",-1)==today.dayOfWeek.value)
-        }
+        else choices.firstOrNull {it.optString("scheduledDate").take(10)==today.toString()} ?:
+            choices.firstOrNull { routine ->
+                val scheduled=routine.optString("scheduledDate").takeIf {it.isNotBlank() && it!="null"}
+                scheduled==null && routine.optInt("weekday",-1)==today.dayOfWeek.value
+            }
         val personal=routine?.let {runCatching {assembleSession(state,it)}.getOrNull()}
         if(personal?.optJSONArray("exercises")?.length()?.let {it>0}==true) return personal
         val assigned=professional.firstOrNull {it.scheduledDate==today.toString() && it.status=="scheduled" &&

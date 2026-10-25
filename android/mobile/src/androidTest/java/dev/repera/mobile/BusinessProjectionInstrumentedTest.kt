@@ -92,6 +92,8 @@ class BusinessProjectionInstrumentedTest {
             } }
         }}}
         compose.onNodeWithText("RPE opcional (0–10)").performScrollTo().performTextInput("8")
+        compose.onNodeWithText("Fuerza").performClick() // dismiss keyboard before capture
+        compose.onNodeWithText("RPE opcional (0–10)").performScrollTo()
         capture("registro_esfuerzo_rpe")
         compose.onNodeWithText("Registrar serie").performScrollTo().performClick()
         assertEquals(2.0,logged!!,0.00001)
