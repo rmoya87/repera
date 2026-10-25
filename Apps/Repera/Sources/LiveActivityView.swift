@@ -241,6 +241,7 @@ final class LiveActivityRecorder: NSObject {
     private(set) var chosenRoute: LiveSavedRoute?
     private var lastPosition: CLLocation?
     private var lastSave = Date.distantPast
+    private var lastLiveActivityUpdate = Date.distantPast
     private let manager = CLLocationManager()
     private let snapshotKey = "repera.live.current.v1"
 
@@ -273,6 +274,9 @@ final class LiveActivityRecorder: NSObject {
                   let restored = LiveSport(rawValue: savedSport) {
             sport = restored
         }
+        if phase != .idle {
+            Task { @MainActor [weak self] in self?.updateLiveActivity() }
+        }
     }
 
     var isActive: Bool { phase != .idle }
@@ -303,6 +307,7 @@ final class LiveActivityRecorder: NSObject {
         phase = .recording
         if sport.usesGPS { startGPS() }
         persistSnapshot()
+        updateLiveActivity()
     }
 
     private func startGPS() {
@@ -330,6 +335,7 @@ final class LiveActivityRecorder: NSObject {
         phase = .paused
         currentSpeedMps = nil
         persistSnapshot()
+        updateLiveActivity()
     }
 
     func resume() {
@@ -340,6 +346,7 @@ final class LiveActivityRecorder: NSObject {
         phase = .recording
         if sport.usesGPS { startGPS() }
         persistSnapshot()
+        updateLiveActivity()
     }
 
     var durationSeconds: TimeInterval { duration(at: Date()) }
@@ -379,6 +386,7 @@ final class LiveActivityRecorder: NSObject {
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
         persistSnapshot()
+        updateLiveActivity()
     }
 
     func makeSession(title: String, notes: String) -> WorkoutSession? {
@@ -399,7 +407,14 @@ final class LiveActivityRecorder: NSObject {
         )
     }
 
-    func discard() {
+    func discard(saved: Bool = false) {
+        if let startedAt {
+            Task {
+                await WorkoutLiveActivityCoordinator.shared.dismissFree(
+                    startedAt: startedAt, saved: saved
+                )
+            }
+        }
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
         phase = .idle
@@ -462,6 +477,32 @@ final class LiveActivityRecorder: NSObject {
         )
         routePoints.append(point)
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
+        if Date().timeIntervalSince(lastLiveActivityUpdate) >= 15 {
+            updateLiveActivity()
+        }
+    }
+
+    /// Estado compacto: la pantalla bloqueada anima el contador por sí sola.
+    private func updateLiveActivity() {
+        guard let startedAt, phase != .idle else { return }
+        lastLiveActivityUpdate = Date()
+        let status: TrainingActivityAttributes.ContentState.Phase
+        switch phase {
+        case .recording: status = .running
+        case .paused: status = .paused
+        case .review: status = .completed
+        case .idle: return
+        }
+        let sport = sport
+        let elapsed = durationSeconds
+        let distance = recordedDistanceMeters
+        let kmh = speedKmh
+        Task {
+            await WorkoutLiveActivityCoordinator.shared.updateFree(
+                startedAt: startedAt, sport: sport, phase: status,
+                elapsedSeconds: elapsed, distanceMeters: distance, speedKmh: kmh
+            )
+        }
     }
 }
 
@@ -829,7 +870,7 @@ struct LiveActivityView: View {
                     savedWorkoutID = session.id
                     store.saveWorkout(session)
                     let date = session.startedAt ?? Date()
-                    recorder.discard()
+                    recorder.discard(saved: true)
                     title = ""
                     notes = ""
                     savedWorkoutID = nil
