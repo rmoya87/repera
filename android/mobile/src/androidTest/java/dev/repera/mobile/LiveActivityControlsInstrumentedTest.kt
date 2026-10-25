@@ -63,6 +63,31 @@ class LiveActivityControlsInstrumentedTest {
             LiveActivityRuntime.stopAll()
         }
     }
+    @Test fun gpsCanvasAlternatesMetricsAndMapWithSyntheticPointsWithoutSensors() {
+        val account = "test-canvas-${UUID.randomUUID()}"
+        val runtime = LiveActivityRuntime.forAccount(context,account)
+        compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
+            LiveActivityScreen(account, {}, {})
+        } }
+        compose.onNodeWithText("Sin ubicación. Pulsa Centrar para situarte.").assertIsDisplayed()
+        Thread.sleep(8_000)
+        capture("comenzar_gps_idle_mapa.png")
+        compose.runOnIdle {
+            // Direct recorder fixture: do not start any provider/service.
+            val now = System.currentTimeMillis()
+            runtime.state.start(now-30_000,"synthetic-canvas")
+            runtime.state.receive("synthetic-canvas",dev.repera.domain.WorkoutRoutePoint(0,40.438,-3.703,now-30_000),0.0)
+            runtime.state.receive("synthetic-canvas",dev.repera.domain.WorkoutRoutePoint(1,40.4381,-3.703,now-15_000),12.0)
+            runtime.publish()
+        }
+        compose.onNodeWithText("Ver métricas").performClick()
+        compose.onNodeWithTag("live_pause").assertIsDisplayed()
+        capture("comenzar_gps_metricas.png")
+        compose.onNodeWithText("Ver mapa").performClick()
+        compose.onNodeWithText("Ver métricas").assertIsDisplayed()
+        capture("comenzar_gps_mapa_activo.png")
+        compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }
+    }
     @Test fun activeLiveActivityBlocksAllClassicSessionEntrypointsBeforeAnyWrite() {
         val account = "test-inverse-guard-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context,account)
