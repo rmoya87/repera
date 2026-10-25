@@ -75,6 +75,7 @@ class ReperaThemeInstrumentedTest {
             .put("bodyWeights", weights)
             .put("favoriteTimers", JSONArray())
             .put("exerciseLoadPrefs", JSONObject())
+            .put("settings",JSONObject().put("dailyStepsGoal",10000).put("dailyActiveEnergyGoalKcal",500).put("dailyWorkoutMinutesGoal",45).put("weeklyWorkoutGoal",4).put("bodyWeightGoalKg",80.0))
             .put("syncRevision", 1)
             .put("lastWriterDeviceId", "visual-test")
         return StateOverview.fromBytes(
@@ -166,6 +167,18 @@ class ReperaThemeInstrumentedTest {
         compose.runOnIdle { screen=0;focusedDay=java.time.LocalDate.of(2026,10,7) }
         compose.onNodeWithText("Entrenamientos · " + focusedDay!!.format(reperaDayFormatter))
             .performScrollTo().assertIsDisplayed()
+        compose.runOnIdle {screen=1}
+        compose.onNodeWithText("Peso corporal").performScrollTo().assertIsDisplayed()
+        Thread.sleep(500)
+        val finalBitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
+        val finalContext=InstrumentationRegistry.getInstrumentation().targetContext
+        val finalValues=android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"objetivo_peso_${if(dark) "oscuro" else "claro"}.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/ReperaVerification")
+        }
+        val finalUri=finalContext.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,finalValues)!!
+        finalContext.contentResolver.openOutputStream(finalUri)!!.use {finalBitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         compose.runOnIdle { LiveActivityRuntime.stopAll() }
     }
 }
