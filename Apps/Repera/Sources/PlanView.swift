@@ -103,6 +103,9 @@ struct PlanView: View {
                                 routinesContent
                             }
                             .ogListChrome()
+                            // El stack derecho no debe reservar una barra blanca sin título.
+                            // El editor restablece su propia toolbar al navegar.
+                            .toolbar(.hidden, for: .navigationBar)
                             .navigationDestination(item: $rightEditing) { routine in
                                 DayEditorView(
                                     routine: routine,
