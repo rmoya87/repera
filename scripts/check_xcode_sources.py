@@ -25,6 +25,7 @@ REQUIRED = (
     "RemoteExerciseCatalogStore.swift",
     "LiveActivityView.swift",
     "WorkoutLiveActivityCoordinator.swift",
+    "LiveSportHistoryView.swift",
 )
 WATCH_REQUIRED = (
     "ReperaWatchApp.swift",
@@ -84,7 +85,7 @@ def validate(root: Path) -> None:
     if "- path: Apps/Repera/Sources" not in spec:
         raise ValueError("project.yml ya no incluye el directorio del target Repera.")
     for name in ("RemoteExerciseCatalogStore.swift", "LiveActivityView.swift",
-                 "WorkoutLiveActivityCoordinator.swift"):
+                 "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift"):
         if f"- path: Apps/Repera/Sources/{name}" not in spec:
             raise ValueError(
                 f"project.yml no incluye expresamente {name}. "
