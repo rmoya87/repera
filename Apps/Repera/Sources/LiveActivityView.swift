@@ -171,7 +171,7 @@ final class LiveRoutesStore {
             lhs.element.createdAt == rhs.element.createdAt
                 ? lhs.offset < rhs.offset
                 : lhs.element.createdAt > rhs.element.createdAt
-        }.map(\.element)
+        }.map { $0.element }
     }
 
     var favoriteRoutes: [LiveSavedRoute] {
