@@ -159,3 +159,8 @@ main móvil invisible.)
   desde -3s, jitter 3..7m según precisión, huecos >30s/saltos sin sumar,
   límite de velocidad del deporte, reinicio de segmento tras pausa y
   precisión vertical original. 4 tests nuevos verdes, dominio 279/0.
+
+- D4 snapshot privado en archivo atómico: round-trip reloj/pausa/ruta/
+  precisiones/splits/UUID, conserva checkpoint ante fallo de escritura y
+  conserva archivo corrupto sin borrado silencioso. 3 tests JVM nuevos
+  verdes. Local domain 279/0, mobile 192/0. No wiring FGS todavía.
