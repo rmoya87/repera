@@ -31,7 +31,7 @@ if [[ ! -f "Apps/ReperaWatch/Sources/WatchHealthKitSession.swift" ]]; then
   echo "Comprueba git status; actualiza con git pull --ff-only origin main sin perder cambios."
   exit 1
 fi
-for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift AITrainingContextStore.swift AITrainingProgramsView.swift AIChangeRequestStore.swift; do
+for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift AITrainingContextStore.swift AITrainingProgramsView.swift AIChangeRequestStore.swift RemoteExerciseCatalogStore.swift; do
   if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
     echo "ERROR: Falta $source en esta copia local de Repera."
     echo "Actualiza los archivos con: git pull origin main"
