@@ -73,11 +73,16 @@ class LiveActivityControlsInstrumentedTest {
         val account = "test-canvas-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context,account)
         runtime.choose(LiveSport.RUNNING)
+        val rendered=java.util.concurrent.atomic.AtomicInteger(0)
+        fun awaitMapAfter(previous:Int) {
+            compose.waitUntil(60_000) { rendered.get()>previous }
+            Thread.sleep(1_000)
+        }
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
-            LiveActivityScreen(account, {}, {})
+            LiveActivityScreen(account, {}, {}, onMapRendered={rendered.incrementAndGet()})
         } }
         compose.onNodeWithText("Sin ubicación. Pulsa Centrar para situarte.").assertIsDisplayed()
-        Thread.sleep(8_000)
+        awaitMapAfter(0)
         capture("comenzar_gps_idle_mapa.png")
         compose.runOnIdle {
             // Direct recorder fixture: do not start any provider/service.
@@ -87,11 +92,15 @@ class LiveActivityControlsInstrumentedTest {
             runtime.state.receive("synthetic-canvas",dev.repera.domain.WorkoutRoutePoint(1,40.4381,-3.703,now-15_000),12.0)
             runtime.publish()
         }
+        val beforeMetrics=rendered.get()
         compose.onNodeWithText("Ver métricas").performClick()
         compose.onNodeWithTag("live_pause").assertIsDisplayed()
+        awaitMapAfter(beforeMetrics)
         capture("comenzar_gps_metricas.png")
+        val beforeMap=rendered.get()
         compose.onNodeWithText("Ver mapa").performClick()
         compose.onNodeWithText("Ver métricas").assertIsDisplayed()
+        awaitMapAfter(beforeMap)
         capture("comenzar_gps_mapa_activo.png")
         compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }
     }
