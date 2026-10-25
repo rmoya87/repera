@@ -1196,30 +1196,6 @@ struct LiveActivityView: View {
                         .glassEffect(.regular, in: .rect(cornerRadius: 18))
                         .accessibilityLabel("Próxima indicación orientativa: \(instruction)")
                 }
-                if recorder.sport.usesGPS,
-                   recorder.phase == .recording || recorder.phase == .paused {
-                    HStack(spacing: 8) {
-                        Text("Km \(recorder.activeKilometer)")
-                            .font(.subheadline.weight(.bold))
-                        Text("\(Int(recorder.activeKilometerMeters)) m")
-                            .font(.caption.monospacedDigit())
-                        Spacer(minLength: 4)
-                        Text(recorder.currentKilometerMetric)
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                    }
-                    .foregroundStyle(OG.label)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 16))
-                }
-                if let result = recorder.latestKilometerReport {
-                    Label(result, systemImage: "flag.checkered")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .glassEffect(.regular, in: .capsule)
-                }
                 if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
                     Text(gpsMessage)
                         .font(.caption.weight(.medium))
@@ -1354,19 +1330,54 @@ struct LiveActivityView: View {
         .accessibilityLabel(label)
     }
 
+    /// Panel único: tres métricas arriba, parcial actual integrado debajo.
     private var mapMetricStrip: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            HStack(spacing: 5) {
-                smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)), prominent: true)
-                smallMetric(recorder.sport.displaysSpeed ? "Velocidad" : "Ritmo",
-                            value: paceOrSpeed)
-                smallMetric("Distancia (km)",
-                            value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
+            VStack(spacing: 10) {
+                HStack(spacing: 5) {
+                    smallMetric("Duración", value: formattedTime(recorder.duration(at: timeline.date)), prominent: true)
+                    smallMetric(recorder.sport.displaysSpeed ? "Velocidad" : "Ritmo",
+                                value: paceOrSpeed)
+                    smallMetric("Distancia (km)",
+                                value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
+                }
+                if recorder.sport.usesGPS, recorder.phase == .recording || recorder.phase == .paused {
+                    Divider().overlay(OG.label2.opacity(0.18))
+                    kilometerSplitSummary
+                        .padding(.horizontal, 8)
+                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
         }
+    }
+
+    /// Misma fila de parcial en Mapa y Métricas, sin Glass adicional.
+    private var kilometerSplitSummary: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("Km \(recorder.activeKilometer)")
+                    .font(.subheadline.weight(.semibold))
+                Text("\(Int(recorder.activeKilometerMeters)) m")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(OG.label2)
+                Spacer(minLength: 4)
+                Text(recorder.currentKilometerMetric)
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            ProgressView(value: min(1000, recorder.activeKilometerMeters), total: 1000)
+                .tint(OG.accent)
+            if let last = recorder.latestKilometerReport {
+                Text("Último parcial: \(last)")
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .foregroundStyle(OG.label)
     }
 
     private var metricsView: some View {
@@ -1409,24 +1420,10 @@ struct LiveActivityView: View {
                 Text("Duración")
                     .font(.subheadline).foregroundStyle(OG.label2)
                 if recorder.sport.usesGPS, recorder.phase != .idle {
-                    VStack(spacing: 6) {
-                        HStack {
-                            Text("Km \(recorder.activeKilometer) en curso")
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Text("\(Int(recorder.activeKilometerMeters)) m · \(recorder.currentKilometerMetric)")
-                                .font(.caption.monospacedDigit())
-                        }
-                        ProgressView(value: recorder.activeKilometerMeters, total: 1000)
-                            .tint(OG.accent)
-                        if let last = recorder.latestKilometerReport {
-                            Text("Último parcial: \(last)")
-                                .font(.caption).foregroundStyle(OG.label2)
-                        }
-                    }
-                    .padding(15)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 17))
-                    .padding(.horizontal, 16)
+                    // Sin caja propia, manteniendo los márgenes de la vista.
+                    kilometerSplitSummary
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                 }
                 Spacer(minLength: 14)
                 Text(recorder.sport.usesGPS ? paceOrSpeed :
