@@ -625,6 +625,10 @@ final class LiveActivityRecorder: NSObject {
     private(set) var pausedSeconds: TimeInterval = 0
     private(set) var recordedDistanceMeters: Double = 0
     private(set) var routePoints: [WorkoutRoutePoint] = []
+    private(set) var elevationGainMeters: Double = 0
+    private(set) var elevationLossMeters: Double = 0
+    private var elevationReferenceMeters: Double?
+    var hasElevationSamples: Bool { elevationReferenceMeters != nil }
     private(set) var currentCoordinate: CLLocationCoordinate2D?
     private(set) var currentSpeedMps: Double?
     private(set) var currentCourseDegrees: Double?
@@ -679,6 +683,7 @@ final class LiveActivityRecorder: NSObject {
             pausedSeconds = snapshot.pausedSeconds
             recordedDistanceMeters = snapshot.recordedDistanceMeters
             routePoints = snapshot.routePoints
+            rebuildElevationFromRoute()
             kilometerSplits = snapshot.kilometerSplits ?? []
             lastKilometerBoundarySeconds = snapshot.lastKilometerBoundarySeconds ?? 0
             latestKilometerReport = kilometerSplits.last.map {
@@ -803,6 +808,9 @@ final class LiveActivityRecorder: NSObject {
         pausedSeconds = 0
         recordedDistanceMeters = 0
         routePoints = []
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        elevationReferenceMeters = nil
         kilometerSplits = []
         latestKilometerReport = nil
         lastKilometerBoundarySeconds = 0
@@ -1100,11 +1108,39 @@ final class LiveActivityRecorder: NSObject {
             altitudeMeters: fix.verticalAccuracy >= 0 ? fix.altitude : nil
         )
         routePoints.append(point)
+        if sport.tracksElevation, fix.verticalAccuracy >= 0, fix.verticalAccuracy <= 15 {
+            integrateElevation(fix.altitude)
+        }
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
         if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5,
            (abs(recordedDistanceMeters - lastPublishedDistanceMeters) >= 3 ||
             Date().timeIntervalSince(lastLiveActivityUpdate) >= 15) {
             updateLiveActivity()
+        }
+    }
+
+    /// GPS vertical orientativo: umbral de 3 m para amortiguar ruido.
+    /// Los resultados se reconstruyen a partir del recorrido al reabrir la app.
+    private func integrateElevation(_ altitude: Double) {
+        guard altitude.isFinite, (-500...9000).contains(altitude) else { return }
+        if let previous = elevationReferenceMeters {
+            let delta = altitude - previous
+            guard abs(delta) >= 3, abs(delta) <= 120 else { return }
+            if delta > 0 { elevationGainMeters += delta }
+            else { elevationLossMeters -= delta }
+        }
+        elevationReferenceMeters = altitude
+    }
+
+    private func rebuildElevationFromRoute() {
+        elevationGainMeters = 0
+        elevationLossMeters = 0
+        elevationReferenceMeters = nil
+        guard sport.tracksElevation else { return }
+        for point in routePoints {
+            if let altitude = point.altitudeMeters {
+                integrateElevation(altitude)
+            }
         }
     }
 
