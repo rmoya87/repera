@@ -33,7 +33,7 @@ class LiveActivityControlsInstrumentedTest {
     @Test fun activeClassicWorkoutRoutesToContinueWithoutStartingLiveRecorder() {
         val account = "test-classic-guard-${UUID.randomUUID()}"
         var opened = false
-        compose.setContent { MaterialTheme(colorScheme = lightColorScheme(primary = brandGreen)) {
+        compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {}, hasActiveWorkout = true, onOpenWorkout = { opened = true })
         } }
         compose.onNodeWithText("Continuar entrenamiento").assertIsDisplayed()
@@ -47,7 +47,7 @@ class LiveActivityControlsInstrumentedTest {
     }
     @Test fun sportPickerSelectsIndoorActivityAndClosesWithoutStartingSensors() {
         val account = "test-picker-${UUID.randomUUID()}"
-        compose.setContent { MaterialTheme(colorScheme = lightColorScheme(primary = brandGreen)) {
+        compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {})
         } }
         compose.onNodeWithTag("live_sport_picker").performClick()

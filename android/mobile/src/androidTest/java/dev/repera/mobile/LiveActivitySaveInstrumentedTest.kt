@@ -22,7 +22,7 @@ class LiveActivitySaveInstrumentedTest {
             dev.repera.domain.WorkoutRoutePoint(1,40.441,-3.700,300_000),
             dev.repera.domain.WorkoutRoutePoint(2,40.439,-3.697,600_000)))
         compose.setContent {
-            androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(primary = brandGreen)) {
+            androidx.compose.material3.MaterialTheme(colorScheme = reperaColorScheme(false)) {
                 LiveRouteEvolutionScreen(route, LiveSport.RUNNING, emptyList(), {}, {}, { loaded.countDown() })
             }
         }
