@@ -56,7 +56,7 @@ class EditorUiInstrumentedTest {
             }
         }
         clickText("Añadir bloque")
-        compose.onNodeWithText("Guardar").performClick()
+        clickText("Guardar")
         compose.waitForIdle()
         assertEquals("Guardar entrega el bloque original + el añadido",
             2, delivered?.size)
@@ -73,7 +73,7 @@ class EditorUiInstrumentedTest {
             }
         }
         clickText("Añadir bloque")
-        compose.onNodeWithText("Volver").performClick()
+        clickText("Volver")
         compose.waitForIdle()
         assertTrue("Volver navega atrás", backed)
         assertNull("Volver NO guarda: la mutación se descarta", delivered)
@@ -132,7 +132,7 @@ class EditorUiInstrumentedTest {
                 onReplace = { delivered = it }, onBack = {}) } }
         clickTag("plan_entry_move")
         clickTag("plan_entry_move_to_1")
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         val wod = delivered!![1].entries.single()
         assertEquals("it-1", wod.itemId)
         val src = org.json.JSONObject(wod.sourceJson!!)
@@ -145,7 +145,7 @@ class EditorUiInstrumentedTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
         clickTag("plan_add_rest")
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         val rest = delivered!![1].entries.single()
         assertTrue(org.json.JSONObject(rest.sourceJson!!).getBoolean("isRest"))
     }
@@ -158,7 +158,7 @@ class EditorUiInstrumentedTest {
                 onReplace = { delivered = it }, onBack = {}) } }
         compose.onAllNodesWithTag("plan_entry_drag")[0].performScrollTo().performTouchInput {
             down(center); advanceEventTime(700); moveBy(androidx.compose.ui.geometry.Offset(0f, -6000f)); advanceEventTime(50); up() }
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         assertEquals(1, delivered!![0].entries.size)
         assertEquals("it-1", delivered!![0].entries[0].itemId)
     }
@@ -174,7 +174,7 @@ class EditorUiInstrumentedTest {
             RoutineBlocksEditorScreen(routine = r, exercises = listOf(bike), busy = false,
                 onReplace = { delivered = it }, onBack = {}) } }
         clickTag("plan_unit_meters")
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         assertEquals("meters", delivered!![0].entries[0].quantityUnit)
     }
 
@@ -190,7 +190,7 @@ class EditorUiInstrumentedTest {
                 onReplace = { delivered = it }, onBack = {}, importableRoutines = listOf(src)) } }
         clickTag("plan_add_routine")
         clickTag("plan_import_r-src")
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
         assertTrue(delivered!![1].blockId != "b-s" && delivered!![1].blockId != null)
     }
@@ -204,7 +204,7 @@ class EditorUiInstrumentedTest {
         clickTag("plan_pick_wod")
         compose.onNodeWithTag("plan_wod_search").performTextInput(t.name)
         clickTag("plan_wod_pick_" + t.id)
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
         assertEquals(t.movements.size, delivered!![2].entries.size)
     }
@@ -220,7 +220,7 @@ class EditorUiInstrumentedTest {
         clickTag("plan_pick_wod")
         compose.onNodeWithTag("plan_wod_search").performTextInput("21-15-9")
         clickTag("plan_wod_pick_21-15-9-thruster-bjo")
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         assertEquals("21-15-9 Thruster + BJO", title)
         val b = delivered!!.last()
         assertEquals("ladder", b.format); assertEquals(6, b.entries.size)
@@ -233,7 +233,7 @@ class EditorUiInstrumentedTest {
                 onReplace = { delivered = it }, onBack = {}) } }
         compose.onAllNodesWithTag("plan_block_down")[0].performScrollTo().performClick()
         compose.onAllNodesWithTag("plan_entry_swipe")[0].performScrollTo().performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Guardar").performClick(); compose.waitForIdle()
+        clickText("Guardar"); compose.waitForIdle()
         assertEquals("b-w", delivered!![0].blockId)
         assertEquals(0, delivered!![1].entries.size)
     }
@@ -245,7 +245,7 @@ class EditorUiInstrumentedTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
                 onReplace = { delivered = it }, onBack = {}, sessionMode = true, onFavoriteChosen = { fav = it }) } }
         clickTag("session_favorite_switch")
-        compose.onNodeWithText("Empezar").performClick(); compose.waitForIdle()
+        clickText("Empezar"); compose.waitForIdle()
         assertEquals(true, fav); assertEquals(2, delivered!!.size)
     }
 }

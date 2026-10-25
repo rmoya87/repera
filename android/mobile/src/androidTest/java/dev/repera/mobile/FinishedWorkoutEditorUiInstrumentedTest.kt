@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -35,7 +36,11 @@ class FinishedWorkoutEditorUiInstrumentedTest {
 
     private fun show(onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit) {
         compose.setContent {
-            FinishedWorkoutEditorSection(workout, accountId = "acc", busy = false, onSave = onSave)
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.fillMaxSize()
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                FinishedWorkoutEditorSection(workout, accountId = "acc", busy = false, onSave = onSave)
+            }
         }
     }
 
@@ -143,7 +148,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         showEditor(w, catalog) { saved = it }
         clickTag("edit_finished_workout")
         clickTag("ex_add_0")
-        compose.onNodeWithTag("ex_search").performScrollTo().performTextInput("triceps")
+        compose.onNodeWithTag("ex_search").performTextInput("triceps")
         clickTag("ex_pick_tri")
         clickTag("edit_save")
         val items = org.json.JSONArray(saved!!.blocksJson).getJSONObject(0).getJSONArray("exercises")
@@ -262,8 +267,16 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         val w = workout.copy(editableBlocksJson = twoStrengthPlusEmpty)
         showEditor(w, cat) { saved = it }
         clickTag("edit_finished_workout")
-        dragExercise("ex_drag_0_0", 900f)
+        // Destino por bounds reales del bloque vacío (un offset fijo puede caer fuera de toda zona de drop).
+        val startY = compose.onNodeWithTag("ex_drag_0_0").fetchSemanticsNode().boundsInRoot.center.y
+        val targetY = compose.onNodeWithTag("block_title_1").fetchSemanticsNode().boundsInRoot.center.y
+        compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
+            down(center); advanceEventTime(700)
+            repeat(12) { moveBy(Offset(0f, (targetY - startY) / 12f)); advanceEventTime(50) }
+            advanceEventTime(50); up()
+        }
         compose.waitForIdle(); clickTag("edit_save")
+        assertNotNull("el drop en el bloque vacío debe registrar el cambio", saved!!.blocksJson)
         val arr = org.json.JSONArray(saved!!.blocksJson)
         assertEquals(0, arr.getJSONObject(0).getJSONArray("exercises").length())
         assertEquals("e1", arr.getJSONObject(1).getJSONArray("exercises").getJSONObject(0).getString("id"))
@@ -312,13 +325,17 @@ class FinishedWorkoutEditorUiInstrumentedTest {
             }
         }
         clickTag("edit_finished_workout")
+        val windowBottom = compose.onRoot().fetchSemanticsNode().boundsInRoot.height
         compose.onNodeWithTag("ex_drag_0_0").performTouchInput {
             down(center); advanceEventTime(700)
-            repeat(40) { moveBy(Offset(0f, 60f)); advanceEventTime(50) }
+            val edge = windowBottom - 24f // un dedo real no sale de la pantalla: se queda en el borde
+            var y = center.y
+            while (y < edge) { moveBy(Offset(0f, minOf(60f, edge - y))); y += 60f; advanceEventTime(50) }
             advanceEventTime(1500) // dedo quieto en el borde: el autoscroll continuo debe seguir
             up()
         }
         compose.waitForIdle(); clickTag("edit_save")
+        assertNotNull("el arrastre con autoscroll debe soltar dentro de un bloque visible", saved!!.blocksJson)
         val arr = org.json.JSONArray(saved!!.blocksJson)
         val ids = (0 until arr.length()).flatMap { b -> val ex = arr.getJSONObject(b).getJSONArray("exercises")
             (0 until ex.length()).map { ex.getJSONObject(it).getString("id") } }

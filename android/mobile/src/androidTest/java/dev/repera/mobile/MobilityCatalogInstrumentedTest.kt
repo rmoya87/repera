@@ -87,7 +87,7 @@ class MobilityCatalogInstrumentedTest {
             .filter { it.optString("name") == "Burpee Broad Jump" }
         assertEquals("la estación importada no debe duplicarse", 1, broad.size)
         assertEquals(importedId, broad[0].getString("id"))
-        assertEquals(196 + 82 + 1, exercises.length())
+        assertEquals(204 + 83 + 1, exercises.length()) // seed 288: base 204 + 1 importada + 83 migradas (la importada deduplica)
         val sandbag = (0 until exercises.length()).map { exercises.getJSONObject(it) }
             .first { it.optString("name") == "Sandbag Lunges" }
         assertEquals(UUID.nameUUIDFromBytes(
@@ -112,7 +112,7 @@ class MobilityCatalogInstrumentedTest {
             if (cid.startsWith("mobility-") || cid.startsWith("hyrox-") ||
                 item.optString("name") in newHaltero) catalog.remove(i)
         }
-        assertEquals(204, catalog.length()) // seed actual: 288 - 84 mobility/hyrox
+        assertEquals(196, catalog.length()) // 288 del seed - 84 mobility/hyrox - 8 haltero nuevas
         existing.getJSONArray("exercises").put(JSONObject()
             .put("id", UUID.randomUUID().toString()).put("name", "Mi ejercicio")
             .put("isCustom", true).put("muscleGroup", "Core"))
