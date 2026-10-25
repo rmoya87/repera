@@ -148,3 +148,14 @@ main móvil invisible.)
   umbral 3m y precisión ≤15m, limpieza al descartar. 6 tests nuevos verdes;
   dominio 275/0. Falta integración proveedor GPS/FGS/persistencia/audio/UI;
   estos tests NO prueban segundo plano ni hardware.
+
+## Checkpoint 19:24 CET
+- Enfocado 40220246818 FALLA la nueva aserción de chrome (1/1 fallido):
+  no confirma arreglo. No se guardó AFTER porque la aserción iba antes del
+  save. Run diagnóstico 40221024872 conserva AFTER aun con fallo y registra
+  bounds root/window; misma hipótesis, evidencia adicional, no suite global.
+- D4 validador GPS puro LiveGPSOdometer portado de accept de Apple: dueño
+  exclusivo por sesión, precisión ≤35m, futuro ≤10s, muestras de segmento
+  desde -3s, jitter 3..7m según precisión, huecos >30s/saltos sin sumar,
+  límite de velocidad del deporte, reinicio de segmento tras pausa y
+  precisión vertical original. 4 tests nuevos verdes, dominio 279/0.
