@@ -156,4 +156,17 @@ class EditorBlockOpsTest {
         assertEquals(-20f, autoScrollSpeed(-300f, 0f, 1000f, 100f, 20f), 1e-4f)
         assertEquals(0f, autoScrollSpeed(10f, 0f, 1000f, 0f, 20f), 0f)
     }
+
+    @Test fun planConversionKeepsSetIdsAndReportsLostFields() {
+        val sets = listOf(PlannedSetDraft(5, 100.0, 2.0, "s1"), PlannedSetDraft(3, 110.0, null, "s2"))
+        val mv = EditorBlockOps.planStrengthToMovement("it1", "sq", "Sentadilla", sets, "")
+        assertEquals("it1", mv.getString("id")); assertEquals(5, mv.getInt("reps")); assertEquals(100.0, mv.getDouble("weightMaleKg"), 0.0)
+        assertEquals("s2", mv.getJSONArray("explicitPlannedSets").getJSONObject(1).getString("id"))
+        mv.put("weightFemaleKg", 60.0).put("scaleAlternative", "banda").put("notes", "n")
+        val (item, lost) = EditorBlockOps.planMovementToStrength(mv, "sq")
+        assertEquals(setOf("weightFemaleKg", "scaleAlternative", "notes"), lost.toSet())
+        val back = EditorBlockOps.jsonToDraftSets(item.getJSONArray("plannedSets"))
+        assertEquals(sets, back)
+        assertTrue(EditorBlockOps.planMovementToStrength(JSONObject().put("id", "m").put("name", "x").put("reps", 7), "sq").second.isEmpty())
+    }
 }

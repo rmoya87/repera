@@ -109,6 +109,37 @@ object EditorBlockOps {
         return true
     }
 
+    /** Plan: entrada de fuerza → movimiento WOD (explicitPlannedSets = series, como Apple). */
+    fun planStrengthToMovement(itemId: String?, exerciseId: String, name: String,
+                               sets: List<PlannedSetDraft>, unit: String): JSONObject {
+        val item = JSONObject().put("id", itemId ?: UUID.randomUUID().toString()).put("exerciseId", exerciseId)
+            .put("plannedSets", draftSetsToJson(sets))
+        if (unit.isNotBlank()) item.put("quantityUnit", unit)
+        return exerciseToMovement(item, name)
+    }
+
+    /** Plan: movimiento WOD → entrada de fuerza. Devuelve el ítem y los campos que Apple descarta y que tenían valor. */
+    fun planMovementToStrength(move: JSONObject, exerciseId: String): Pair<JSONObject, List<String>> {
+        val item = movementToExercise(move, exerciseId) ?: error("REST no se convierte")
+        val lost = lostFieldsOnToStrength.filter { move.has(it) && !move.isNull(it) }
+        return item to lost
+    }
+
+    fun draftSetsToJson(sets: List<PlannedSetDraft>): JSONArray = JSONArray().apply {
+        sets.forEach { s ->
+            put(JSONObject().put("id", s.id ?: UUID.randomUUID().toString()).put("targetReps", s.targetReps)
+                .apply { s.targetWeightKg?.let { put("targetWeightKg", it) }; s.targetRir?.let { put("targetRir", it) } })
+        }
+    }
+
+    fun jsonToDraftSets(a: JSONArray): List<PlannedSetDraft> = (0 until a.length()).map {
+        val o = a.getJSONObject(it)
+        PlannedSetDraft(o.optInt("targetReps", 8),
+            if (o.has("targetWeightKg") && !o.isNull("targetWeightKg")) o.getDouble("targetWeightKg") else null,
+            if (o.has("targetRir") && !o.isNull("targetRir")) o.getDouble("targetRir") else null,
+            o.optString("id").ifBlank { null })
+    }.ifEmpty { listOf(PlannedSetDraft(8)) }
+
     const val PENDING_PREFIX = "pending:"
 
     /** Nombres de ejercicios personalizados aún no creados (WOD→fuerza sin catálogo). Solo borrador. */

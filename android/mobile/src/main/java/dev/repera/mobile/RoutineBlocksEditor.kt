@@ -1,6 +1,10 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.platform.testTag
+import org.json.JSONObject
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,14 +77,24 @@ fun RoutineBlocksEditorScreen(
             style = MaterialTheme.typography.titleLarge)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
+        val blockHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         blocks.forEachIndexed { index, block ->
-            BlockEditorCard(
-                block = block,
-                nameById = nameById,
-                exercises = exercises,
-                loadGuideProvider = loadGuideProvider,
-                onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null
-            )
+            DragReorderItem(index, blockHeights, blocks.size,
+                onDrop = { _, t -> if (t != index) { val moved = blocks.removeAt(index); blocks.add(t, moved) } }) { handle ->
+                BlockEditorCard(
+                    block = block,
+                    nameById = nameById,
+                    exercises = exercises,
+                    loadGuideProvider = loadGuideProvider,
+                    onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
+                    handle = handle,
+                    moveTargets = blocks.mapIndexedNotNull { ti, tb ->
+                        if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
+                    onMoveEntry = { entryIndex, targetIndex ->
+                        error = PlanEntryMoves.move(blocks, index, entryIndex, targetIndex, nameById, exercises)
+                    }
+                )
+            }
         }
         TextButton(onClick = { blocks.add(BlockDraftUi()) }, enabled = !busy) {
             Text("Añadir bloque")
@@ -102,7 +116,8 @@ private fun formatLabel(wire: String): String = when (wire) {
 private class EntryUi(val exerciseId: String, name: String, quantity: Int,
                       sets: Int, weightKg: Double?,
                       planned: List<PlannedSetDraft>? = null,
-                      val itemId: String? = null, val sourceJson: String? = null) {
+                      val itemId: String? = null, sourceJson: String? = null) {
+    var sourceJson by mutableStateOf(sourceJson)
     var name by mutableStateOf(name)
     var quantity by mutableStateOf(quantity.toString())
     var sets by mutableStateOf(sets.toString())
@@ -159,8 +174,8 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 exerciseId = entry.exerciseId,
                 quantity = entry.quantity.toIntOrNull() ?: return null,
                 sets = entry.sets.toIntOrNull() ?: return null,
-                weightKg = entry.weight.takeIf { it.isNotBlank() }
-                    ?.replace(',', '.')?.toDoubleOrNull() ?: return null
+                weightKg = if (entry.weight.isBlank()) null
+                    else entry.weight.replace(',', '.').toDoubleOrNull() ?: return null
             )
             if (format == "strength" && (entry.setsExpanded || entry.untouchedUniform))
                 base.copy(plannedSets = entry.plannedSets.toList())
@@ -181,12 +196,17 @@ private fun BlockEditorCard(
     nameById: Map<String, String>,
     exercises: List<ExerciseEntry>,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
-    onRemove: (() -> Unit)?
+    onRemove: (() -> Unit)?,
+    handle: Modifier = Modifier,
+    moveTargets: List<Pair<Int, String>> = emptyList(),
+    onMoveEntry: (Int, Int) -> Unit = { _, _ -> }
 ) {
+    val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⠿", modifier = handle.testTag("plan_block_drag").padding(8.dp))
                 OutlinedTextField(
                     value = block.title,
                     onValueChange = { block.title = it },
@@ -239,14 +259,26 @@ private fun BlockEditorCard(
                 }
             }
             block.entries.forEachIndexed { index, entry ->
-                EntryEditorRow(
-                    entry = entry,
-                    resolvedName = entry.name.ifBlank {
-                        nameById[entry.exerciseId] ?: "Ejercicio" },
-                    isStrength = block.format == "strength",
-                    loadGuideProvider = loadGuideProvider,
-                    onRemove = { block.entries.removeAt(index) }
-                )
+                DragReorderItem(index, entryHeights, block.entries.size,
+                    onDrop = { _, t -> if (t != index) { val moved = block.entries.removeAt(index); block.entries.add(t, moved) } }) { entryHandle ->
+                    EntryEditorRow(
+                        entry = entry,
+                        resolvedName = entry.name.ifBlank {
+                            nameById[entry.exerciseId] ?: "Ejercicio" },
+                        isStrength = block.format == "strength",
+                        loadGuideProvider = loadGuideProvider,
+                        onRemove = { block.entries.removeAt(index) },
+                        handle = entryHandle,
+                        moveTargets = moveTargets,
+                        onMove = { target -> onMoveEntry(index, target) }
+                    )
+                }
+            }
+            if (block.format != "strength") {
+                TextButton(modifier = Modifier.testTag("plan_add_rest"), onClick = {
+                    val rest = EditorBlockOps.restMovement()
+                    block.entries.add(EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString()))
+                }) { Text("Añadir REST") }
             }
             AddExerciseRow(exercises = exercises,
                 excluded = block.entries.map { it.exerciseId }.toSet()) { chosen ->
@@ -283,13 +315,41 @@ private fun EntryEditorRow(
     resolvedName: String,
     isStrength: Boolean,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    handle: Modifier = Modifier,
+    moveTargets: List<Pair<Int, String>> = emptyList(),
+    onMove: (Int) -> Unit = {}
 ) {
+    val isRest = entry.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("⠿", modifier = handle.testTag("plan_entry_drag").padding(8.dp))
             Text(resolvedName, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f))
+            var moving by remember { mutableStateOf(false) }
+            if (moveTargets.isNotEmpty() && !(isRest && moveTargets.all { false })) {
+                TextButton(modifier = Modifier.testTag("plan_entry_move"), onClick = { moving = true }) { Text("Mover") }
+                DropdownMenu(expanded = moving, onDismissRequest = { moving = false }) {
+                    moveTargets.forEach { (ti, title) ->
+                        DropdownMenuItem(text = { Text(title) }, modifier = Modifier.testTag("plan_entry_move_to_$ti"),
+                            onClick = { moving = false; onMove(ti) })
+                    }
+                }
+            }
             TextButton(onClick = onRemove) { Text("Quitar") }
+        }
+        if (isRest) {
+            var secs by remember(entry.itemId) { mutableStateOf(
+                runCatching { JSONObject(entry.sourceJson!!).optInt("restSeconds", 60).toString() }.getOrDefault("60")) }
+            OutlinedTextField(value = secs, singleLine = true, label = { Text("Segundos de descanso") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth().testTag("plan_rest_seconds"),
+                onValueChange = { v ->
+                    secs = v.filter { it.isDigit() }.take(3)
+                    entry.sourceJson = JSONObject(entry.sourceJson!!)
+                        .put("restSeconds", (secs.toIntOrNull() ?: 60).coerceIn(15, 300)).toString()
+                })
+            return@Column
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -317,6 +377,7 @@ private fun EntryEditorRow(
                 )
             }
         }
+        if (!isStrength) WodMovementDetails(entry)
         if (isStrength) {
             TextButton(onClick = { entry.setsExpanded = !entry.setsExpanded }) {
                 Text(if (entry.setsExpanded) "Cerrar series"
@@ -394,7 +455,7 @@ private fun EntryEditorRow(
                             ?.replace(',', '.')?.toDoubleOrNull()
                         val rir = rirText.takeIf { it.isNotBlank() }
                             ?.replace(',', '.')?.toDoubleOrNull()
-                        entry.plannedSets[index] = PlannedSetDraft(reps, kg, rir)
+                        entry.plannedSets[index] = PlannedSetDraft(reps, kg, rir, ps.id)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -464,5 +525,92 @@ private fun AddExerciseRow(
             }
         }
         Spacer(Modifier.height(2.dp))
+    }
+}
+
+
+/** Campos WOD del movimiento que el borrador simple no modelaba (Apple WODMovementEditor): Peso H/M,
+ *  escala alternativa y notas. Editan el JSON original del movimiento (ids y demás campos intactos). */
+@Composable
+private fun WodMovementDetails(entry: EntryUi) {
+    var open by remember(entry.itemId) { mutableStateOf(false) }
+    TextButton(modifier = Modifier.testTag("plan_wod_details"), onClick = { open = !open }) {
+        Text(if (open) "Cerrar detalles" else "Detalles del movimiento")
+    }
+    if (!open) return
+    fun json(): JSONObject = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+        ?: JSONObject().put("id", entry.itemId ?: java.util.UUID.randomUUID().toString())
+            .put("exerciseId", entry.exerciseId).put("name", entry.name).put("isRest", false)
+    fun num(key: String): String = json().let { if (it.has(key) && !it.isNull(key)) it.getDouble(key).toString() else "" }
+    var male by remember(entry.itemId) { mutableStateOf(num("weightMaleKg")) }
+    var female by remember(entry.itemId) { mutableStateOf(num("weightFemaleKg")) }
+    var scale by remember(entry.itemId) { mutableStateOf(json().optString("scaleAlternative")) }
+    var notes by remember(entry.itemId) { mutableStateOf(json().optString("notes")) }
+    fun write(key: String, text: String, numeric: Boolean) {
+        val o = json()
+        val v = if (numeric) text.replace(',', '.').toDoubleOrNull() else text.ifEmpty { null }
+        if (v == null) o.remove(key) else o.put(key, v)
+        entry.sourceJson = o.toString()
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(value = male, singleLine = true, label = { Text("Peso H (kg)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.weight(1f).testTag("plan_wod_male"),
+            onValueChange = { male = it; write("weightMaleKg", it, true) })
+        OutlinedTextField(value = female, singleLine = true, label = { Text("Peso M (kg)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.weight(1f).testTag("plan_wod_female"),
+            onValueChange = { female = it; write("weightFemaleKg", it, true) })
+    }
+    OutlinedTextField(value = scale, singleLine = true, label = { Text("Escala alternativa") },
+        modifier = Modifier.fillMaxWidth().testTag("plan_wod_scale"),
+        onValueChange = { scale = it; write("scaleAlternative", it, false) })
+    OutlinedTextField(value = notes, singleLine = true, label = { Text("Notas") },
+        modifier = Modifier.fillMaxWidth().testTag("plan_wod_notes"),
+        onValueChange = { notes = it; write("notes", it, false) })
+}
+
+/** Mover una entrada a otro bloque (Apple applyReorder): misma clase o conversión fuerza↔WOD con la regla de Apple. */
+private object PlanEntryMoves {
+    /** Devuelve un aviso/error para mostrar (null si todo bien y sin pérdidas). El borrador no cambia si rechaza. */
+    fun move(
+        blocks: MutableList<BlockDraftUi>, from: Int, entryIndex: Int, to: Int,
+        nameById: Map<String, String>, exercises: List<ExerciseEntry>
+    ): String? {
+        val src = blocks.getOrNull(from) ?: return null
+        val dst = blocks.getOrNull(to) ?: return null
+        val entry = src.entries.getOrNull(entryIndex) ?: return null
+        val srcStrength = src.format == "strength"; val dstStrength = dst.format == "strength"
+        if (srcStrength == dstStrength) {
+            if (dstStrength && dst.entries.any { it.exerciseId == entry.exerciseId })
+                return "«" + (nameById[entry.exerciseId] ?: "Ejercicio") + "» ya está en ese bloque de fuerza"
+            src.entries.removeAt(entryIndex); dst.entries.add(entry); return null
+        }
+        if (srcStrength) {
+            val sets = if (entry.setsExpanded || entry.untouchedUniform) entry.plannedSets.toList()
+            else (1..(entry.sets.toIntOrNull() ?: 1).coerceIn(1, 30)).map {
+                PlannedSetDraft(entry.quantity.toIntOrNull() ?: 8, entry.weight.replace(',', '.').toDoubleOrNull()) }
+            val unit = entry.sourceJson?.let { runCatching { JSONObject(it).optString("quantityUnit") }.getOrNull() }.orEmpty()
+            val mv = EditorBlockOps.planStrengthToMovement(entry.itemId, entry.exerciseId,
+                nameById[entry.exerciseId] ?: entry.name.ifBlank { "Ejercicio" }, sets, unit)
+            src.entries.removeAt(entryIndex)
+            dst.entries.add(EntryUi(entry.exerciseId, mv.getString("name"), mv.optInt("reps", 8), 1, null, null,
+                mv.getString("id"), mv.toString()))
+            return null
+        }
+        val source = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+            ?: JSONObject().put("id", entry.itemId ?: java.util.UUID.randomUUID().toString()).put("name", entry.name)
+                .put("reps", entry.quantity.toIntOrNull() ?: 10)
+        if (source.optBoolean("isRest")) return "El descanso (REST) no se puede pasar a un bloque de fuerza"
+        val catalogId = entry.exerciseId.takeIf { id -> id.isNotBlank() && exercises.any { it.id == id } }
+            ?: exercises.firstOrNull { it.name.equals(source.optString("name"), true) }?.id
+            ?: return "«" + source.optString("name") + "» no está en el catálogo: añádelo como ejercicio personalizado antes de pasarlo a fuerza"
+        val (item, lost) = EditorBlockOps.planMovementToStrength(source, catalogId)
+        val planned = EditorBlockOps.jsonToDraftSets(item.getJSONArray("plannedSets"))
+        src.entries.removeAt(entryIndex)
+        dst.entries.add(EntryUi(catalogId, "", planned.first().targetReps, planned.size, planned.first().targetWeightKg,
+            planned, item.getString("id"), item.toString()))
+        return if (lost.isEmpty()) null
+        else "Al pasar a fuerza se descartan: " + lost.joinToString(", ") + " (como en Apple)"
     }
 }
