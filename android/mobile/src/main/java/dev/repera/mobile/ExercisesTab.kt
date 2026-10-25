@@ -154,7 +154,7 @@ internal fun ExercisesTab(
                     }
                     item { detail.review?.let { SessionReviewCard(it) } }
                     if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty()) }
-                    item { LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds) }
+                    item { LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds, detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true) }
                     item {
                         FinishedWorkoutEditorSection(detail, accountId, busy, overview?.exerciseEntries.orEmpty()) { edit ->
                             onUpdateFinishedWorkout(detail.id, edit)

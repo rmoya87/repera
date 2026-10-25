@@ -73,6 +73,9 @@ class VisualVerificationInstrumentedTest {
     val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
     /** Distancia de color simple (RGB) para gates de píxeles. */
+    private val verificationDark: Boolean get() = androidx.test.platform.app.InstrumentationRegistry
+        .getArguments().getString("reperaDark") == "true"
+
     private fun colorDist(a: Int, b: Int): Int {
         val dr = android.graphics.Color.red(a) - android.graphics.Color.red(b)
         val dg = android.graphics.Color.green(a) - android.graphics.Color.green(b)
@@ -140,9 +143,8 @@ class VisualVerificationInstrumentedTest {
         android.util.Log.i("VisualVerification", "guardada en MediaStore: $uri")
     }
 
-    // Tema real de la app (ReperaMobileScreen): solo se sobreescribe primary.
-    // Capturar con MaterialTheme a pelo dibuja la paleta Material por defecto
-    // (lavanda) y NO representa la app.
+    // Esquema compartido de producción: tokens claros/oscuros adaptativos.
+    // MaterialTheme sin esquema no representa la app.
     private fun brandContent(content: @Composable () -> Unit) {
         // Host de prueba edge-to-edge como producción (targetSdk 37): contenido
         // fuera de la barra de estado e iconos oscuros sobre fondo claro, para
@@ -152,15 +154,14 @@ class VisualVerificationInstrumentedTest {
         compose.runOnUiThread {
             compose.activity.window.let { w ->
                 androidx.core.view.WindowInsetsControllerCompat(w, w.decorView).apply {
-                    isAppearanceLightStatusBars = true
-                    isAppearanceLightNavigationBars = true
+                    isAppearanceLightStatusBars = !verificationDark
+                    isAppearanceLightNavigationBars = !verificationDark
                 }
             }
         }
         compose.setContent {
             // Mismo esquema claro que producción (ReperaMobileScreen): verde legible.
-            MaterialTheme(colorScheme = lightColorScheme(
-                primary = brandGreenReadable, onPrimary = Color.White)) {
+            MaterialTheme(colorScheme = reperaColorScheme(verificationDark)) {
                 Surface(modifier = Modifier.fillMaxSize().statusBarsPadding()) { content() }
             }
         }
@@ -615,9 +616,7 @@ class VisualVerificationInstrumentedTest {
                     .put("reps", 8).put("weightKg", 102.5))),
             createdAt = "2026-10-24T09:00:00Z")
         compose.setContent {
-            MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
-                primary = brandGreenReadable,
-                onPrimary = androidx.compose.ui.graphics.Color.White)) {
+            MaterialTheme(colorScheme = reperaColorScheme(verificationDark)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AIAccessScreen(
                         connected = true, busy = false, tokens = tokens,
@@ -644,9 +643,7 @@ class VisualVerificationInstrumentedTest {
         // por el pipeline StateOverview.fromBytes, no composables aislados.
         val overview = estadoSinteticoOverview()
         compose.setContent {
-            MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
-                primary = brandGreenReadable,
-                onPrimary = androidx.compose.ui.graphics.Color.White)) {
+            MaterialTheme(colorScheme = reperaColorScheme(verificationDark)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ProgressTab(
                         busy = false, syncing = false, status = null,
@@ -668,9 +665,7 @@ class VisualVerificationInstrumentedTest {
         // Pantalla de inicio real con tema de marca y datos del pipeline real.
         val overview = estadoSinteticoOverview()
         compose.setContent {
-            MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(
-                primary = brandGreenReadable,
-                onPrimary = androidx.compose.ui.graphics.Color.White)) {
+            MaterialTheme(colorScheme = reperaColorScheme(verificationDark)) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     HomeTab(
                         displayName = "Ramón", busy = false, syncing = false,

@@ -34,7 +34,10 @@ internal fun LiveSportsCatalogScreen(
             items(sports, key = { it.id }) { sport ->
                 Card(Modifier.fillMaxWidth().testTag("sport_${sport.id}").clickable { onOpenSport(sport) }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(sport.title, style = MaterialTheme.typography.titleMedium)
+                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            Icon(sport.materialIcon,contentDescription=null,tint=MaterialTheme.colorScheme.primary)
+                            Text(sport.title, style = MaterialTheme.typography.titleMedium)
+                        }
                         Text(LiveSportHistory.activitySummaryLine(sport, sessions),
                             style = MaterialTheme.typography.bodySmall)
                     }
@@ -123,14 +126,15 @@ private fun SportSummaryTile(title: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-internal fun LiveKilometerSplitsSection(seconds: List<Double>) {
+internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Boolean = false) {
     if (seconds.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("live_kilometer_splits"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Parciales por kilómetro", style = MaterialTheme.typography.titleMedium)
         seconds.forEachIndexed { index, duration ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Km ${index + 1}")
-                Text("${LiveSportHistory.formatDuration(duration)} min/km")
+                Text(if (displaysSpeed) "%.1f km/h".format(3600 / duration)
+                    else "${LiveSportHistory.formatDuration(duration)} min/km")
             }
         }
     }

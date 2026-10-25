@@ -21,6 +21,8 @@ class LiveActivityControlsInstrumentedTest {
     @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private fun capture(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(600) // Wait for frame commit, not only semantic tree.
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!!
         val values = android.content.ContentValues().apply {
             put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name)
@@ -33,6 +35,7 @@ class LiveActivityControlsInstrumentedTest {
     @Test fun activeClassicWorkoutRoutesToContinueWithoutStartingLiveRecorder() {
         val account = "test-classic-guard-${UUID.randomUUID()}"
         var opened = false
+        LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {}, hasActiveWorkout = true, onOpenWorkout = { opened = true })
         } }
@@ -47,10 +50,13 @@ class LiveActivityControlsInstrumentedTest {
     }
     @Test fun sportPickerSelectsIndoorActivityAndClosesWithoutStartingSensors() {
         val account = "test-picker-${UUID.randomUUID()}"
+        LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
             LiveActivityScreen(account, {}, {})
         } }
         compose.onNodeWithTag("live_sport_picker").performClick()
+        compose.onNodeWithTag("choose_sport_running").assertIsDisplayed()
+        compose.waitForIdle();Thread.sleep(500)
         capture("comenzar_selector_deporte.png")
         compose.onNodeWithTag("choose_sport_padel").performScrollTo().performClick()
         compose.onNodeWithTag("live_sport_picker").assertTextContains("Elegir actividad: Pádel")
@@ -62,6 +68,32 @@ class LiveActivityControlsInstrumentedTest {
             assertEquals(LiveActivityState.Phase.IDLE, runtime.state.phase)
             LiveActivityRuntime.stopAll()
         }
+    }
+    @Test fun gpsCanvasAlternatesMetricsAndMapWithSyntheticPointsWithoutSensors() {
+        val account = "test-canvas-${UUID.randomUUID()}"
+        val runtime = LiveActivityRuntime.forAccount(context,account)
+        runtime.choose(LiveSport.RUNNING)
+        compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
+            LiveActivityScreen(account, {}, {})
+        } }
+        compose.onNodeWithText("Sin ubicación. Pulsa Centrar para situarte.").assertIsDisplayed()
+        Thread.sleep(8_000)
+        capture("comenzar_gps_idle_mapa.png")
+        compose.runOnIdle {
+            // Direct recorder fixture: do not start any provider/service.
+            val now = System.currentTimeMillis()
+            runtime.state.start(now-30_000,"synthetic-canvas")
+            runtime.state.receive("synthetic-canvas",dev.repera.domain.WorkoutRoutePoint(0,40.438,-3.703,now-30_000),0.0)
+            runtime.state.receive("synthetic-canvas",dev.repera.domain.WorkoutRoutePoint(1,40.4381,-3.703,now-15_000),12.0)
+            runtime.publish()
+        }
+        compose.onNodeWithText("Ver métricas").performClick()
+        compose.onNodeWithTag("live_pause").assertIsDisplayed()
+        capture("comenzar_gps_metricas.png")
+        compose.onNodeWithText("Ver mapa").performClick()
+        compose.onNodeWithText("Ver métricas").assertIsDisplayed()
+        capture("comenzar_gps_mapa_activo.png")
+        compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }
     }
     @Test fun activeLiveActivityBlocksAllClassicSessionEntrypointsBeforeAnyWrite() {
         val account = "test-inverse-guard-${UUID.randomUUID()}"

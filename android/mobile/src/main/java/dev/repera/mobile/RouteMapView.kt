@@ -54,27 +54,29 @@ internal fun RouteMapView(
     isInteractive: Boolean,
     modifier: Modifier = Modifier,
     /** Solo verificación: avisa cuando el estilo cargó y la ruta se pintó. */
-    onStyleLoaded: (() -> Unit)? = null
+    onStyleLoaded: (() -> Unit)? = null,
+    plannedRoute: Boolean = false
 ) {
     var failed by remember { mutableStateOf(false) }
+    val currentPlanned by androidx.compose.runtime.rememberUpdatedState(plannedRoute)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
     var renderedPoints by remember { mutableStateOf<List<WorkoutRoutePoint>>(emptyList()) }
-    androidx.compose.runtime.LaunchedEffect(points, loadedMap) {
+    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
-        if (points == renderedPoints) return@LaunchedEffect
+        if (points == renderedPoints && !plannedRoute) return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
                 style.removeLayer("route-line");style.removeSource("route-src")
                 for (i in 0..1) {
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
-                applyRoute(map, style, points);renderedPoints = points.toList()
+                applyRoute(map, style, points, plannedRoute);renderedPoints = points.toList()
             }.onFailure { failed = true }
         }
     }
     if (failed) {
-        RouteMapFallback(points, modifier)
+        RouteMapFallback(points, modifier, plannedRoute)
         return
     }
     // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
@@ -103,7 +105,8 @@ internal fun RouteMapView(
         modifier = modifier.testTag("route_map"),
         factory = { context ->
             MapLibre.getInstance(context)
-            MapView(context).also { mapView = it }.apply {
+            MapView(context, org.maplibre.android.maps.MapLibreMapOptions.createFromAttributes(context)
+                .textureMode(true)).also { mapView = it }.apply {
                 // El listener de fallo de carga vive en MapView (widget), no en
                 // MapLibreMap (comprobado contra el AAR de MapLibre 13.7.1).
                 addOnDidFailLoadingMapListener { failed = true }
@@ -116,7 +119,7 @@ internal fun RouteMapView(
                         isCompassEnabled = isInteractive
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
-                        runCatching { applyRoute(map, style, currentPoints) }
+                        runCatching { applyRoute(map, style, currentPoints, currentPlanned) }
                             .onFailure { failed = true }
                             .onSuccess { renderedPoints = currentPoints.toList();loadedMap = map;onStyleLoaded?.invoke() }
                     }
@@ -127,8 +130,10 @@ internal fun RouteMapView(
 }
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
-                       points: List<WorkoutRoutePoint>) {
-    val segments = RouteMapModel.segments(points)
+                       points: List<WorkoutRoutePoint>, plannedRoute: Boolean) {
+    val segments = if (plannedRoute) points.zipWithNext().map { (a,b) ->
+        RouteMapModel.Segment(a,b,0xFF0A84FF)
+    } else RouteMapModel.segments(points)
     // Una colección y una capa: no crear miles de capas por cada muestra
     // ni reconstruir un árbol de estilos entero al llegar un punto GPS.
     val features = segments.map { seg ->
@@ -180,8 +185,11 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
 
 /** Degradado sin teselas: polilínea normalizada con los mismos colores. */
 @Composable
-private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier) {
-    val segments = remember(points) { RouteMapModel.segments(points) }
+private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean) {
+    val segments = remember(points, plannedRoute) {
+        if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
+        else RouteMapModel.segments(points)
+    }
     Box(modifier = modifier.testTag("route_map_fallback")) {
         Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
             if (points.size >= 2) {

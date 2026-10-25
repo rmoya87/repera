@@ -43,7 +43,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
             Text(route.title,style=MaterialTheme.typography.headlineMedium)
         }
         if(route.points.size>=2) item {
-            RouteMapView(route.points,isInteractive=true,modifier=Modifier.fillMaxWidth().height(220.dp), onStyleLoaded=onMapStyleLoaded)
+            RouteMapView(route.points,isInteractive=true,plannedRoute=true,modifier=Modifier.fillMaxWidth().height(220.dp), onStyleLoaded=onMapStyleLoaded)
         }
         item {
             Card(Modifier.fillMaxWidth()) {

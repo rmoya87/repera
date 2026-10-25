@@ -17,10 +17,13 @@ class LiveActivitySaveInstrumentedTest {
     @get:org.junit.Rule val compose = androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
     @Test fun evolutionMapCapturesRealWindowAfterStyleLoaded() {
         val loaded = java.util.concurrent.CountDownLatch(1)
-        val route = LiveSavedRoute(title = "Ruta sintética Madrid", sportID = "running", points = listOf(
-            dev.repera.domain.WorkoutRoutePoint(0,40.438,-3.703,0),
-            dev.repera.domain.WorkoutRoutePoint(1,40.441,-3.700,300_000),
-            dev.repera.domain.WorkoutRoutePoint(2,40.439,-3.697,600_000)))
+        val route = LiveSavedRoute(title = "Ruta sintética Madrid", sportID = "running", points = (0..20).map { i ->
+            val t = if (i <= 10) i/10.0 else (i-10)/10.0
+            dev.repera.domain.WorkoutRoutePoint(i,
+                if (i <= 10) 40.438+0.003*t else 40.441-0.002*t,
+                if (i <= 10) -3.703+0.003*t else -3.700+0.003*t,
+                i*15_000L)
+        })
         compose.setContent {
             androidx.compose.material3.MaterialTheme(colorScheme = reperaColorScheme(false)) {
                 LiveRouteEvolutionScreen(route, LiveSport.RUNNING, emptyList(), {}, {}, { loaded.countDown() })

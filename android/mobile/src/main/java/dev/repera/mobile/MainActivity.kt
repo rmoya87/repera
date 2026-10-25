@@ -1682,6 +1682,9 @@ data class StateOverview(
                         startedAtIso = session.optString("startedAt").takeIf { it.isNotBlank() },
                         finishedAtIso = session.optString("finishedAt").takeIf { it.isNotBlank() },
                         notes = session.optString("notes").takeIf { it.isNotBlank() },
+                        liveSportID = session.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" },
+                        activeDurationSeconds = session.optDouble("activeDurationSeconds",Double.NaN).takeIf { it.isFinite() && it >= 0 },
+                        recordedDistanceMeters = session.optDouble("recordedDistanceMeters",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
                         }.orEmpty(),
@@ -2037,7 +2040,10 @@ data class WorkoutHistoryEntry(
     val notes: String? = null,
     /** Bloques editables (con ids) para el editor de contenido; null si no se pudieron derivar. */
     val editableBlocksJson: String? = null,
-    val liveKilometerSplitsSeconds: List<Double> = emptyList()
+    val liveKilometerSplitsSeconds: List<Double> = emptyList(),
+    val liveSportID: String? = null,
+    val activeDurationSeconds: Double? = null,
+    val recordedDistanceMeters: Double? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,
