@@ -319,6 +319,11 @@ final class LiveActivityRecorder: NSObject {
         }
     }
 
+    /// Checkpoint al pasar a segundo plano y mientras la vista está activa.
+    func checkpoint() {
+        if isActive && Date().timeIntervalSince(lastSave) >= 10 { persistSnapshot() }
+    }
+
     func pause() {
         guard phase == .recording else { return }
         pausedAt = Date()
@@ -530,6 +535,7 @@ private struct LiveSportPicker: View {
 
 struct LiveActivityView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     @State private var recorder = LiveActivityRecorder.shared
     @State private var routes = LiveRoutesStore.shared
     @State private var sportPicker = false
@@ -640,6 +646,9 @@ struct LiveActivityView: View {
             }
         }
         .tint(OG.accent)
+        .onChange(of: scenePhase) { _, next in
+            if next != .active { recorder.checkpoint() }
+        }
     }
 
     private var mapView: some View {
@@ -734,6 +743,9 @@ struct LiveActivityView: View {
                 Spacer(minLength: 16)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
+                recorder.checkpoint()
+            }
         }
     }
 
