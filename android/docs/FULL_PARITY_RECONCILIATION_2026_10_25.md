@@ -91,3 +91,8 @@ Esta pasada NO afirma equivalencia de todas las funciones ni un plazo global.
   y orientaciónEXIF/visual aún sin validar. No cierre de perfil.
 -Accesos Ajustes aCenter y paywallPro existente, sin conceder entitlement ni
   modificar precios/compra/backend. No probado visualmente aún.
+-22:13 correccióninventario: weightUnit enApple5890215d solo aparece enmodelo y
+  selectorAjustes, sinconsumidor kg/lb. No prometer conversión inexistente allí.
+  RIR/RPE sí tiene consumidorAppleWorkoutView; portlocal añadepreferencia a
+  formulario/series de sesiónactiva y convierteentrada aRIR wire, sin cambiar
+  pesokg. TestcallbackRPE8→RIR2 preparado, noejecutado.

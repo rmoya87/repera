@@ -11,6 +11,10 @@ import dev.repera.domain.ProgressionPolicy
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Entrenamiento",style=MaterialTheme.typography.titleMedium)
+        Text("Esfuerzo")
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            listOf("rir","rpe").forEach {unit -> FilterChip(selected=value.effortUnit==unit,enabled=!busy,onClick={onChange(value.copy(effortUnit=unit))},label={Text(unit.uppercase())})}
+        }
         Text("Modo de plan")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             FilterChip(selected=value.scheduleMode=="fixedWeek",enabled=!busy,onClick={onChange(value.copy(scheduleMode="fixedWeek"))},label={Text("Semana fija")})
