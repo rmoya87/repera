@@ -250,3 +250,7 @@ main móvil invisible.)
 - D4 métricas UI ritmo/velocidad por deporte, elevación medida y parcial en
   curso añadidas. Mapa actualiza polilínea al recibir puntos (antes era solo
   creación inicial). Compila, pendiente ejecución y perf con ruta larga.
+
+- Test instrumentado añadido de runtime interior sintético: inicio/pausa,
+  cambio de cuenta, restauración pausada con mismo UUID/reloj, revisión y
+  descarte. No usa servicio ni sensores, compila pero espera ejecución.

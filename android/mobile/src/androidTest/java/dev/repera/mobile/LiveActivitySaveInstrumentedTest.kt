@@ -64,4 +64,29 @@ class LiveActivitySaveInstrumentedTest {
         assertEquals(1,overview.liveSportSessions.size)
         assertEquals("synthetic-live",overview.completeHistory.single().id)
     }
+    @Test fun runtimeRestoresCheckpointPausedAcrossAccountIsolationAndDiscardsLocally() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val account = "test-runtime-${UUID.randomUUID()}"
+        val runtime = LiveActivityRuntime.forAccount(context, account)
+        runtime.choose(LiveSport.PADEL)
+        runtime.start()
+        assertEquals(LiveActivityState.Phase.RECORDING, runtime.state.phase)
+        val session = runtime.state.gpsSessionID
+        runtime.pause()
+        val elapsed = runtime.state.durationSeconds(System.currentTimeMillis())
+        assertTrue(elapsed >= 0)
+        // Cambio de cuenta: sin sensor GPS en deporte interior;
+        // checkpoint aislado y restauración en pausa.
+        LiveActivityRuntime.forAccount(context, "test-other-${UUID.randomUUID()}")
+        val restored = LiveActivityRuntime.forAccount(context, account)
+        assertEquals(LiveActivityState.Phase.PAUSED, restored.state.phase)
+        assertEquals(session, restored.state.gpsSessionID)
+        assertEquals(elapsed, restored.state.durationSeconds(System.currentTimeMillis()), 0.1)
+        restored.resume();restored.finish()
+        assertEquals(LiveActivityState.Phase.REVIEW, restored.state.phase)
+        assertTrue(restored.discard())
+        assertEquals(LiveActivityState.Phase.IDLE, restored.state.phase)
+        LiveActivityRuntime.stopAll()
+    }
+
 }
