@@ -9,7 +9,7 @@ class HealthExclusionSnapshotTest {
             .put("healthConnectRecordId","health")))
         val bytes=state.toString().toByteArray();val windows=HealthExclusionSnapshot.windows(bytes)
         assertEquals(1,windows.size);assertEquals("health",windows.single().linkedHealthId)
-        assertEquals(3600_000,windows.single().endMillis-windows.single().startMillis)
+        assertEquals(3600_000L,windows.single().endMillis-windows.single().startMillis)
         assertEquals(state.toString(),String(bytes))
         assertTrue(HealthExclusionSnapshot.windows(null).isEmpty())
     }
