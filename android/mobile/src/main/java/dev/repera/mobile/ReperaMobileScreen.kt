@@ -31,6 +31,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -170,20 +172,56 @@ fun ReperaMobileScreen(
     } else lightColorScheme(primary = brandGreenReadable, onPrimary = Color.White)
     MaterialTheme(colorScheme = scheme) {
         if (!isAuthenticated) {
+            // OnboardingFlowView iOS: título centrado + subtítulo, botón Google
+            // NEUTRO (surface con borde surface3 y texto label, no verde marca),
+            // busy sustituye al icono DENTRO del botón (busy por proveedor).
             Column(
                 modifier = Modifier.fillMaxSize().padding(28.dp),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically)
             ) {
                 Text("repera", style = MaterialTheme.typography.displayLarge)
-                Text("Tu entrenamiento, ahora en Android", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.padding(12.dp))
-                Button(
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Bienvenido a Repera",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Accede con Google. Tu historial permanece protegido y la misma cuenta verificada conserva su identidad en Supabase.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+                // Botón Google: surface + borde + texto label (OG.surface /
+                // OG.surface3 / OG.label de iOS), icono "G" o spinner si busy.
+                OutlinedButton(
                     onClick = onGoogleSignIn, enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = brandGreen, contentColor = Color.Black)
-                ) { Text("Iniciar sesión con Google") }
-                if (busy) CircularProgressIndicator(modifier = Modifier.padding(12.dp))
-                if (status != null) Text(status, modifier = Modifier.padding(top = 12.dp))
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp,
+                        MaterialTheme.colorScheme.outlineVariant),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        vertical = 14.dp, horizontal = 16.dp)
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurface)
+                    } else {
+                        Text("G", fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.size(10.dp))
+                    Text("Continuar con Google",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold)
+                }
+                if (status != null) Text(status,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
             return@MaterialTheme
         }

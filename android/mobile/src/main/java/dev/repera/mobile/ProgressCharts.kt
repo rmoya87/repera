@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
@@ -365,6 +366,7 @@ internal fun DayPointLineChart(
         "valores entre ${valueFormat(minV)} y ${valueFormat(maxV)}; " +
         "último punto ${valueFormat(points.last().value)}"
     Column(modifier = modifier.fillMaxWidth()
+        .testTag("day_point_line_chart")
         .semantics(mergeDescendants = true) {
             contentDescription = description
         }) {

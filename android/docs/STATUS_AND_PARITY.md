@@ -700,9 +700,17 @@ Reconciliado contra el CÓDIGO 25/10 (el backlog estaba viejo en varias piezas):
 - Ubicación (pin + ruta) y descartar sesión: pruebas integradas en CI con
   ubicación simulada.
 - Fidelidad: ~~ActivityHeatmapView~~ PORTADA (25/10, ver entrada del heatmap);
-  SessionPreviewView (contraste visual); OnboardingFlowView
-  (colores de marca del botón Google, busy por proveedor, layout); verificación
-  táctil del swipe-to-reveal y de los scrubs cardio en integración.
+  ~~OnboardingFlowView~~ PORTADA (25/10: botón Google neutro surface+borde+
+  label, busy sustituye al icono dentro del botón, título/subtítulo
+  centrados; icono = letra "G", aproximación documentada, mascota sigue
+  pendiente de arte); SessionPreviewView (contraste visual): captura
+  session_preview añadida, corrección de contraste PENDIENTE de inspección
+  de píxeles (tarjetas surfaceVariant del esquema M3 por defecto).
+  Verificación táctil: swipe-to-reveal YA probado con aserciones en
+  EditorUiInstrumentedTest (plan) y FinishedWorkoutEditorUiInstrumentedTest
+  (terminado); scrub cardio ahora con verificación real: arrastre
+  horizontal sobre DayPointLineChart debe cambiar los píxeles (selección),
+  captura progreso_cardio_scrub.
 
 ### Bloqueado de verdad (y causa)
 - Decisión WOD ladder (Ramón, preguntada 09:30, sin respuesta): SOLO bloquea

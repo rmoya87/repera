@@ -328,6 +328,19 @@ class VisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         save("progreso_peso_cardio", compose.onRoot().captureToImage())
+
+        // Scrub táctil (iOS: arrastre horizontal selecciona el punto): la
+        // imagen con selección debe DIFERIR de la imagen en reposo.
+        val antes = compose.onRoot().captureToImage().asAndroidBitmap()
+        compose.onAllNodesWithTag("day_point_line_chart")[0].performTouchInput {
+            down(centerLeft); moveTo(center); moveTo(centerRight); up()
+        }
+        compose.waitForIdle()
+        val despues = compose.onRoot().captureToImage().asAndroidBitmap()
+        save("progreso_cardio_scrub", despues.asImageBitmap())
+        if (antes.sameAs(despues)) {
+            throw AssertionError("El scrub no cambió la gráfica de cardio")
+        }
     }
 
     @Test
@@ -776,6 +789,33 @@ class VisualVerificationInstrumentedTest {
         compose.onAllNodesWithText("Menos volumen").fetchSemanticsNodes().isNotEmpty().let { hay ->
             if (!hay) throw AssertionError("La leyenda de volumen no aparece tras cambiar de métrica")
         }
+    }
+
+    /** SessionPreviewSheet (SessionPreviewView iOS): contraste de las tarjetas
+     *  de bloque y de los textos secundarios sobre el fondo de la hoja. */
+    @Test
+    fun capturaVistaPreviaSesion() {
+        val routine = RoutineEntry(
+            id = "r1", title = "Torso pesado", supported = true,
+            weekday = 1, timeMinutes = 8 * 60 + 30,
+            blocks = listOf(
+                RoutineBlockInfo(title = "A", format = "strength", entries = listOf(
+                    RoutineBlockEntryInfo(exerciseId = "x1", name = "Press banca",
+                        quantity = 5, sets = 4, weightKg = 80.0),
+                    RoutineBlockEntryInfo(exerciseId = "x2", name = "Remo con barra",
+                        quantity = 8, sets = 3, weightKg = 60.0))),
+                RoutineBlockInfo(title = "B", format = "emom",
+                    timeCapMinutes = 10, emomIntervalSeconds = 90, entries = listOf(
+                        RoutineBlockEntryInfo(exerciseId = "x3", name = "Dominadas",
+                            quantity = 6)))))
+        brandContent {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                SessionPreviewSheet(routine = routine, busy = false,
+                    onStart = {}, onEdit = {}, onDelete = {}, onClose = {})
+            }
+        }
+        compose.waitForIdle()
+        save("session_preview", compose.onRoot().captureToImage())
     }
 
     private fun rutaCardioSintetica(): List<WorkoutRoutePoint> {
