@@ -178,10 +178,23 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             }
             for ((source, target) in listOf(
                 "description" to "detailDescription",
-                "body_part" to "bodyPart",
-                "muscle_group" to "muscleGroup"
+                "body_part" to "bodyPart"
             )) if (!remote.isNull(source) && remote.has(source))
                 exercise.put(target, remote.get(source))
+            // Grupo muscular como Apple (RemoteExerciseCatalogStore.merge):
+            // muscle_group remoto; si falta y hay primarios, se deriva con
+            // MuscleTaxonomy; si no hay ni grupo ni primarios, el anterior
+            // o "Custom".
+            if (!remote.isNull("muscle_group") && remote.has("muscle_group")) {
+                exercise.put("muscleGroup", remote.getString("muscle_group"))
+            } else if (primary.length() > 0) {
+                exercise.put("muscleGroup",
+                    dev.repera.domain.MuscleTaxonomy.libraryMuscleGroup(
+                        (0 until primary.length()).map { primary.getString(it) },
+                        primary.getString(0)))
+            } else if (exercise.optString("muscleGroup").isBlank()) {
+                exercise.put("muscleGroup", "Custom")
+            }
             val steps = remote.optJSONArray("instructions")
             if (steps != null && steps.length() > 0)
                 exercise.put("instructions", JSONArray(steps.toString()))

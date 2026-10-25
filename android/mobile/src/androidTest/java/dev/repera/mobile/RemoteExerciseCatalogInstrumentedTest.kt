@@ -49,6 +49,54 @@ class RemoteExerciseCatalogInstrumentedTest {
     }
 
     @Test
+    fun muscleGroupDerivesFromPrimariesWhenRemoteOmitsIt() {
+        // Apple RemoteExerciseCatalogStore.merge: sin muscle_group remoto y
+        // CON primarios, el grupo se deriva con MuscleTaxonomy; sin primarios
+        // ni grupo anterior, "Custom".
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val previous = if (file.exists()) file.readBytes() else null
+        val account = "remote-musclegroup-${UUID.randomUUID()}"
+        val local = LocalSnapshotStore(context, account)
+        local.write(JSONObject()
+            .put("exercises", JSONArray()).put("workouts", JSONArray())
+            .put("routines", JSONArray()).put("syncRevision", 1)
+            .toString().toByteArray())
+        try {
+            val cache = JSONObject()
+                .put("revision", 1)
+                .put("entries", JSONObject()
+                    .put("catalog:Dominada estricta", JSONObject()
+                        .put("name", "Dominada estricta")
+                        .put("category", "Fuerza")
+                        .put("primary_muscles", JSONArray().put("Espalda"))
+                        .put("is_active", true))
+                    .put("catalog:Movimiento raro", JSONObject()
+                        .put("name", "Movimiento raro")
+                        .put("category", "Fuerza")
+                        .put("is_active", true)))
+                .put("localIDs", JSONObject())
+            file.writeText(cache.toString())
+            assertTrue(RemoteExerciseCatalog(context).applyToAccount(account))
+            val entries = JSONObject(String(local.read()!!, Charsets.UTF_8))
+                .getJSONArray("exercises")
+            var derived: String? = null
+            var fallback: String? = null
+            for (i in 0 until entries.length()) {
+                val ex = entries.getJSONObject(i)
+                when (ex.getString("name")) {
+                    "Dominada estricta" -> derived = ex.getString("muscleGroup")
+                    "Movimiento raro" -> fallback = ex.getString("muscleGroup")
+                }
+            }
+            assertEquals("Espalda", derived)
+            assertEquals("Custom", fallback)
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
+    @Test
     fun remoteUpdateKeepsFavoriteIdentityAndArchivesWithoutDeletingHistory() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
