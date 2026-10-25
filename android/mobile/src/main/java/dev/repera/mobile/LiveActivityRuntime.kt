@@ -38,6 +38,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         guidance = route?.let { dev.repera.domain.LiveRouteGuidance(it.points, state.sport) }
         upcomingTurn = null
     }
+    var recoveryBlocked: Boolean = false; private set
     var lastError: String? = null; private set
     private val revisions = MutableStateFlow(0L)
     val updates = revisions.asStateFlow()
@@ -68,7 +69,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     init {
         LiveSport.byId(voicePrefs.getString("lastSport", "running").orEmpty())?.let { state.choose(it) }
         try { store.read()?.let { state.restore(it);prepareRoute() } }
-        catch (_: Exception) { lastError="No se pudo restaurar la actividad. El archivo original se conserva." }
+        catch (_: Exception) { recoveryBlocked=true;lastError="No se pudo restaurar la actividad. El archivo original se conserva. Descártalo explícitamente antes de iniciar otro." }
     }
     private fun notifyGuidance(title: String, text: String) {
         // Solo alternativa en segundo plano y si se concedió notificación;
@@ -91,7 +92,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     }
     fun selectRoute(id: String?) { state.selectRoute(id);prepareRoute();publish() }
     fun start() {
-        if (state.phase != LiveActivityState.Phase.IDLE) return
+        if (recoveryBlocked || state.phase != LiveActivityState.Phase.IDLE) return
         state.start(System.currentTimeMillis(),UUID.randomUUID().toString());prepareRoute();startGPS();checkpoint(true);publish()
     }
     fun pause() {
@@ -111,7 +112,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { store.clear() } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        voice.stop();location.stop(state.gpsSessionID);state.discard();guidance=null;upcomingTurn=null;latestKilometerReport=null;lastError=null;publish();return true
+        voice.stop();location.stop(state.gpsSessionID);state.discard();recoveryBlocked=false;guidance=null;upcomingTurn=null;latestKilometerReport=null;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
         val now=System.currentTimeMillis()
@@ -139,7 +140,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             return LiveActivityRuntime(context,accountID).also { current=it }
         }
         @Synchronized fun hasPendingActivity(context: Context, accountID: String): Boolean {
-            current?.takeIf { it.accountID == accountID }?.let { return it.state.phase != LiveActivityState.Phase.IDLE }
+            current?.takeIf { it.accountID == accountID }?.let { return it.recoveryBlocked || it.state.phase != LiveActivityState.Phase.IDLE }
             val folder = File(context.filesDir,"users/" + MessageDigest.getInstance("SHA-256")
                 .digest(accountID.toByteArray()).joinToString("") { "%02x".format(it) })
             // Sin crear TTS/proveedor ni cambiar la cuenta activa desde IO.

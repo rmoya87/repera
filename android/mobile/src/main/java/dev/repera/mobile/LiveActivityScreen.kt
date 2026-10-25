@@ -100,6 +100,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         // También comprobar tras volver del diálogo de permiso, no solo
         // antes: puede haberse reactivado un entreno clásico mientras tanto.
         if (currentActiveWorkout) { currentOpenWorkout();return }
+        if (runtime.recoveryBlocked) { error=runtime.lastError;return }
         runtime.start();showingMetrics = state.sport.usesGPS;startService()
     }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -196,6 +197,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     }
                     runtime.upcomingTurn?.let { Text(it) }
                     (error ?: runtime.lastError)?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+                    if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
                 }
             }
             Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
@@ -384,5 +386,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
+        if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
     }
 }
