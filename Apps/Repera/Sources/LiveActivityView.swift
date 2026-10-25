@@ -107,6 +107,8 @@ struct LiveSavedRoute: Identifiable, Codable {
     var id: UUID = UUID()
     var title: String
     var points: [WorkoutRoutePoint]
+    /// Nil para GPX importados sin deporte asignado.
+    var sportID: String? = nil
 }
 
 /// Biblioteca offline pequeña de GPX; los recorridos completados se conservan en cada WorkoutSession.
@@ -147,6 +149,24 @@ final class LiveRoutesStore {
         if routes.count > 30 { routes = Array(routes.prefix(30)) }
         do {
             try persist()
+        } catch {
+            routes = previous
+            throw error
+        }
+    }
+
+    /// Crea una ruta favorita estable a partir de una sesión real con GPS.
+    func addRecordedRoute(from session: WorkoutSession) throws -> UUID {
+        guard session.routePoints.count >= 2,
+              let sportID = session.liveSportID else { throw LiveRouteError.empty }
+        let previous = routes
+        let favorite = LiveSavedRoute(
+            title: session.title, points: session.routePoints, sportID: sportID
+        )
+        routes.insert(favorite, at: 0)
+        do {
+            try persist()
+            return favorite.id
         } catch {
             routes = previous
             throw error
@@ -456,6 +476,7 @@ final class LiveActivityRecorder: NSObject {
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             routePoints: routePoints,
             liveSportID: sport.rawValue,
+            liveRouteID: chosenRoute?.id,
             recordedDistanceMeters: sport.usesGPS ? recordedDistanceMeters : nil,
             activeDurationSeconds: durationSeconds
         )
@@ -664,6 +685,7 @@ struct LiveActivityView: View {
     @State private var routeError: String?
     @State private var title = ""
     @State private var notes = ""
+    @State private var saveRouteAsFavorite = false
     @State private var savedWorkoutID: UUID?
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
 
@@ -733,6 +755,7 @@ struct LiveActivityView: View {
                 Button("Terminar y revisar") {
                     recorder.finish()
                     title = recorder.sport.title
+                    saveRouteAsFavorite = false
                 }
                 Button("Seguir entrenando", role: .cancel) {}
             }
@@ -1126,18 +1149,37 @@ struct LiveActivityView: View {
                 TextField("Título", text: $title)
                 TextField("Notas (opcional)", text: $notes, axis: .vertical)
                     .lineLimit(2...5)
+                if recorder.sport.usesGPS, recorder.routePoints.count >= 2,
+                   recorder.chosenRoute == nil {
+                    Toggle("Guardar recorrido en Mis rutas", isOn: $saveRouteAsFavorite)
+                        .tint(OG.accent)
+                }
+                if let route = recorder.chosenRoute {
+                    Label("Ruta guardada: \(route.title)", systemImage: "star.fill")
+                        .font(.footnote).foregroundStyle(OG.label2)
+                }
             }
             Section {
                 Button {
-                    guard let session = recorder.makeSession(title: title, notes: notes) else { return }
+                    guard var session = recorder.makeSession(title: title, notes: notes) else { return }
                     guard savedWorkoutID != session.id else { return }
                     savedWorkoutID = session.id
+                    if saveRouteAsFavorite {
+                        do {
+                            session.liveRouteID = try routes.addRecordedRoute(from: session)
+                        } catch {
+                            savedWorkoutID = nil
+                            routeError = "No se pudo guardar esta ruta en favoritos. Comprueba el almacenamiento disponible."
+                            return
+                        }
+                    }
                     store.saveWorkout(session)
                     let date = session.startedAt ?? Date()
                     recorder.discard(saved: true)
                     title = ""
                     notes = ""
                     savedWorkoutID = nil
+                    saveRouteAsFavorite = false
                     showingMetrics = false
                     onSaved(date)
                 } label: {
@@ -1195,7 +1237,13 @@ struct LiveActivityView: View {
             .navigationTitle("Mis rutas")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cerrar") { routePicker = false }
+                    Button {
+                        routePicker = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .accessibilityLabel("Cerrar Mis rutas")
                 }
             }
         }
