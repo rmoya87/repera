@@ -39,6 +39,7 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
     case mobility
     case favorites
     case wods
+    case sports
 
     var id: String { rawValue }
     var title: String {
@@ -52,6 +53,7 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .mobility: return "Movilidad"
         case .favorites: return "Favoritos"
         case .wods: return "WODs"
+        case .sports: return "Deportes"
         }
     }
     var icon: String {
@@ -65,6 +67,7 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .mobility: return ExerciseCategorySymbols.discipline("Movilidad")
         case .favorites: return "star"
         case .wods: return "stopwatch"
+        case .sports: return "figure.run"
         }
     }
     // Las variantes «.fill» no existen para todos los SF Symbols deportivos.
@@ -75,6 +78,7 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .cardio: return "heart.fill"
         case .favorites: return "star.fill"
         case .wods: return "stopwatch.fill"
+        case .sports: return "figure.run"
         case .weightlifting, .crossfit, .gymnastics, .hyrox, .mobility: return icon
         }
     }
@@ -120,7 +124,9 @@ struct LibraryView: View {
             Group {
                 // En WODs, si la búsqueda no pega con ningún WOD (p. ej. «back squat»),
                 // mostrar ejercicios: si no, parece que «no hay ejercicio».
-                if filterMode == .wods &&
+                if filterMode == .sports {
+                    LiveSportsCatalogView(query: query)
+                } else if filterMode == .wods &&
                     (query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         || !filteredWODTemplates.isEmpty) {
                     wodsList
@@ -144,19 +150,19 @@ struct LibraryView: View {
                 await applySectionsCancelable(reason: query.isEmpty ? "browse" : "query")
             }
             .onChange(of: filterMode) { _, _ in
-                if filterMode != .wods {
+                if filterMode != .wods && filterMode != .sports {
                     prefetchVisibleThumbs()
                 }
             }
             .onAppear {
-                if filterMode != .wods {
+                if filterMode != .wods && filterMode != .sports {
                     prefetchVisibleThumbs()
                 }
             }
             .onDisappear {
                 ExerciseArt.cancelThumbPrefetch()
             }
-            .navigationTitle(filterMode == .wods ? "WODs" : "Ejercicios")
+            .navigationTitle(filterMode == .wods ? "WODs" : filterMode == .sports ? "Deportes" : "Ejercicios")
             .navigationBarTitleDisplayMode(.inline)
             .ogDiaryTransparentNav()
             .toolbar {
@@ -168,7 +174,7 @@ struct LibraryView: View {
                         showFilter = true
                     }
                 }
-                if filterMode != .wods {
+                if filterMode != .wods && filterMode != .sports {
                     ToolbarItem(placement: .topBarTrailing) {
                         OGToolbarGlassButton(
                             systemName: "plus",
@@ -551,7 +557,7 @@ struct LibraryView: View {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let docs = index.filter { doc in
             switch filterMode {
-            case .all, .wods: return true
+            case .all, .wods, .sports: return true
             case .weightlifting: return doc.disciplineTags.contains("Halterofilia")
             case .crossfit: return doc.disciplineTags.contains("CrossFit")
             case .gymnastics: return doc.disciplineTags.contains("Gimnasia")
