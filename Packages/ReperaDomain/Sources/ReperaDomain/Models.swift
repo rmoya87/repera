@@ -2003,6 +2003,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var recordedDistanceMeters: Double?
     /// Duración activa, sin pausas; es una medición de Repera, no de Apple Salud.
     public var activeDurationSeconds: TimeInterval?
+    /// Parciales de 1 km medidos con el cronómetro activo, excluyendo las pausas.
+    /// Nil en registros anteriores o recorridos sin hitos GPS verificados.
+    public var liveKilometerSplitsSeconds: [Double]?
 
     public init(
         id: UUID = UUID(),
@@ -2027,7 +2030,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         liveSportID: String? = nil,
         liveRouteID: UUID? = nil,
         recordedDistanceMeters: Double? = nil,
-        activeDurationSeconds: TimeInterval? = nil
+        activeDurationSeconds: TimeInterval? = nil,
+        liveKilometerSplitsSeconds: [Double]? = nil
     ) {
         self.id = id
         self.title = title
@@ -2052,6 +2056,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.liveRouteID = liveRouteID
         self.recordedDistanceMeters = recordedDistanceMeters
         self.activeDurationSeconds = activeDurationSeconds
+        self.liveKilometerSplitsSeconds = liveKilometerSplitsSeconds
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2060,6 +2065,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints, liveSportID, liveRouteID, recordedDistanceMeters, activeDurationSeconds
+        case liveKilometerSplitsSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -2087,6 +2093,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         liveRouteID = try c.decodeIfPresent(UUID.self, forKey: .liveRouteID)
         recordedDistanceMeters = try c.decodeIfPresent(Double.self, forKey: .recordedDistanceMeters)
         activeDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .activeDurationSeconds)
+        liveKilometerSplitsSeconds = try c.decodeIfPresent([Double].self, forKey: .liveKilometerSplitsSeconds)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2114,6 +2121,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(liveRouteID, forKey: .liveRouteID)
         try c.encodeIfPresent(recordedDistanceMeters, forKey: .recordedDistanceMeters)
         try c.encodeIfPresent(activeDurationSeconds, forKey: .activeDurationSeconds)
+        try c.encodeIfPresent(liveKilometerSplitsSeconds, forKey: .liveKilometerSplitsSeconds)
     }
 
     public var currentExercise: SessionExercise? {

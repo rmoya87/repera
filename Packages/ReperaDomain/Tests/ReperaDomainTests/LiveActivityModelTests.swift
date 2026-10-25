@@ -21,11 +21,13 @@ struct LiveActivityModelTests {
             liveSportID: "running",
             liveRouteID: UUID(uuidString: "4CE5FB11-0D78-4C90-8AD0-773448F6D5ED"),
             recordedDistanceMeters: 4_700,
-            activeDurationSeconds: 1_620
+            activeDurationSeconds: 1_620,
+            liveKilometerSplitsSeconds: [338, 350, 345, 337]
         )
         let restored = try JSONDecoder().decode(WorkoutSession.self, from: JSONEncoder().encode(session))
         #expect(restored == session)
         #expect(restored.liveRouteID == session.liveRouteID)
+        #expect(restored.liveKilometerSplitsSeconds == [338, 350, 345, 337])
         #expect(restored.routePoints.count == 2)
         #expect(restored.recordedDistanceMeters == 4_700)
         #expect(restored.durationMinutes == 27)
@@ -57,6 +59,7 @@ struct LiveActivityModelTests {
         data.removeValue(forKey: "liveRouteID")
         data.removeValue(forKey: "recordedDistanceMeters")
         data.removeValue(forKey: "activeDurationSeconds")
+        data.removeValue(forKey: "liveKilometerSplitsSeconds")
         let restored = try JSONDecoder().decode(
             WorkoutSession.self, from: JSONSerialization.data(withJSONObject: data)
         )
@@ -64,5 +67,6 @@ struct LiveActivityModelTests {
         #expect(restored.liveRouteID == nil)
         #expect(restored.activeDurationSeconds == nil)
         #expect(restored.recordedDistanceMeters == nil)
+        #expect(restored.liveKilometerSplitsSeconds == nil)
     }
 }
