@@ -84,6 +84,7 @@ internal fun ProgressTab(
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onLogBodyWeight: (Double) -> Unit = {},
+    onOpenBodyWeights:()->Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Deliberately limited to the recent archive loaded by StateOverview.
@@ -124,6 +125,7 @@ internal fun ProgressTab(
                 }
             }
         }
+        item { TextButton(onClick=onOpenBodyWeights,enabled=overview!=null) {Text("Peso corporal · registrar e historial")} }
         item {
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),

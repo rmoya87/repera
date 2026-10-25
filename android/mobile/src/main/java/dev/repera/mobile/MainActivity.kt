@@ -755,6 +755,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDeleteWorkout = { workoutId ->
                     runWorkoutAction { deleteWorkout(workoutId) }
                 },
+                onDeleteBodyWeight = { id -> runWorkoutAction { deleteBodyWeight(id) } },
                 onLogBodyWeight = { kg ->
                     runWorkoutAction { logBodyWeight(kg) }
                 },
@@ -1608,7 +1609,8 @@ data class StateOverview(
     val profileSettings:ProfileSettings=ProfileSettings(),
     val dayWorkoutMinutes:Map<java.time.LocalDate,Double> = emptyMap(),
     val dayWorkoutCounts:Map<java.time.LocalDate,Int> = emptyMap(),
-    val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap()
+    val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap(),
+    val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
@@ -1966,6 +1968,7 @@ data class StateOverview(
                 routines = routineEntries.size,
                 exercises = exerciseEntries.size,
                 bodyWeights = json.optJSONArray("bodyWeights")?.length() ?: 0,
+                bodyWeightHistory = BodyWeightHistory.entries(json),
                 activeSessionTitle = json.optJSONObject("activeSession")?.optString("title"),
                 activeSessionId = json.optJSONObject("activeSession")?.optString("id")?.takeIf { it.isNotEmpty() },
                 activeLocationPin = json.optJSONObject("activeSession")?.optJSONObject("locationPin")?.let { o ->

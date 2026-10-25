@@ -548,7 +548,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         // Un registro por día: se sustituye el existente.
         for (i in weights.length() - 1 downTo 0) {
             val entry = weights.optJSONObject(i) ?: continue
-            if (entry.optString("date").take(10) == day.toString()) weights.remove(i)
+            if (BodyWeightHistory.day(entry.optString("date")) == day) weights.remove(i)
         }
         weights.put(JSONObject()
             .put("id", UUID.randomUUID().toString())
