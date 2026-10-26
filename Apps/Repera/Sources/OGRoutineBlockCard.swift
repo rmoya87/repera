@@ -107,16 +107,10 @@ struct OGRoutineBlockCard: View {
     }
 
     private func resolvedWODExercise(_ move: WODMovement) -> Exercise {
-        if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
-            return ex
-        }
-        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
-        if let match = store.state.exercises.first(where: {
-            $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
-                || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
-        }) {
+        if let match = CrossFitGlossary.catalogExercise(for: move, in: store.state.exercises) {
             return match
         }
+        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
         // Nombre limpio → miniatura correcta en preview / revisión / día.
         return Exercise(name: canonical.isEmpty ? move.name : canonical, muscleGroup: "WOD", isCustom: true)
     }
