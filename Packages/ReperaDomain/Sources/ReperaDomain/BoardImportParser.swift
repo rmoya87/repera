@@ -1471,6 +1471,28 @@ public enum CrossFitGlossary {
         preferEquipmentVariant(name: canonicalName(for: rawName), equipment: notes)
     }
 
+    /// Recupera WODs anteriores que guardaron un identificador provisional.
+    /// BTT/T2B se reconcilian con la ficha real del catálogo sin cambiar
+    /// intencionadamente otros ejercicios seleccionados por el usuario.
+    public static func catalogExercise(for move: WODMovement, in catalog: [Exercise]) -> Exercise? {
+        guard !move.isRest else { return nil }
+        let canonical = resolveCatalogName(move.name, notes: move.notes)
+        let assigned = move.exerciseId.flatMap { id in catalog.first(where: { $0.id == id }) }
+        let isKnownAbbreviation = ["burpee to target", "toes to bar"].contains(normalize(canonical))
+        if let assigned, !assigned.isCustom,
+           (!isKnownAbbreviation || ExerciseEquivalence.sameName(assigned.name, canonical)) {
+            return assigned
+        }
+        if let match = catalog.first(where: {
+            !$0.isCustom && normalize($0.name) == normalize(canonical)
+        }) { return match }
+        if let assigned { return assigned }
+        return catalog.first(where: {
+            ExerciseEquivalence.sameName($0.name, canonical)
+                || ExerciseEquivalence.sameName($0.name, move.name)
+        })
+    }
+
     /// Redirige al ejercicio de catálogo según equipo (1/2 mancuernas, KB, barra…).
     /// La nota de equipo (`Mancuerna` vs `Doble mancuerna`) se conserva aparte en `notes`.
     public static func preferEquipmentVariant(name: String, equipment: String?) -> String {
