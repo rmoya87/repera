@@ -124,8 +124,13 @@ struct SessionPreviewView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         guard let routine = liveRoutine else { return }
+                        if store.hasActiveSession {
+                            // Continuar la sesión activa sin sustituirla por otra.
+                            onStart()
+                            return
+                        }
                         store.startSession(from: routine)
-                        onStart()
+                        if store.hasActiveSession { onStart() }
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.system(size: 15, weight: .semibold))
