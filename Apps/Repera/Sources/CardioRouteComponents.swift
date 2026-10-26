@@ -137,7 +137,7 @@ struct CardioAltitudeChart: View {
         } else {
             ContentUnavailableView("Sin curva de pulso", systemImage: "heart",
                                    description: Text("No hay suficientes muestras de frecuencia cardíaca."))
-                .frame(height: 145)
+                .frame(height: 170)
         }
     }
 
@@ -203,54 +203,36 @@ struct CardioAltitudeChart: View {
             .frame(height: 170)
             .frame(maxWidth: .infinity)
             .clipped()
-            HStack(spacing: 16) {
-                Label("+\(Int(result.ascentMeters.rounded())) m", systemImage: "arrow.up.right")
-                Label("−\(Int(result.descentMeters.rounded())) m", systemImage: "arrow.down.right")
-            }
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(OG.label2)
         } else {
             ContentUnavailableView("Altitud no disponible", systemImage: "mountain.2",
                                    description: Text("La ruta no incluye altitudes GPS válidas."))
-                .frame(height: 145)
+                .frame(height: 170)
         }
     }
 
     @ViewBuilder
     private var cardioStatTiles: some View {
-        if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
-            extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
-            HStack(spacing: 7) {
-                if extras.minHeartRateBpm != nil {
-                    miniStat("Mín", value: extras.minHeartRateBpm.map { "\(Int($0.rounded()))" },
-                             unit: "lpm", tint: OG.label2)
-                }
-                if extras.maxHeartRateBpm != nil {
-                    miniStat("Máx", value: extras.maxHeartRateBpm.map { "\(Int($0.rounded()))" },
-                             unit: "lpm", tint: OG.red)
-                }
-                if extras.averageSpeedKmh != nil {
-                    miniStat("Vel. media",
-                             value: extras.averageSpeedKmh.map { String(format: "%.1f", $0) },
-                             unit: "km/h", tint: OG.blue)
-                }
-                if extras.maxSpeedKmh != nil {
-                    miniStat("Vel. máx",
-                             value: extras.maxSpeedKmh.map { String(format: "%.1f", $0) },
-                             unit: "km/h", tint: OG.accent)
-                }
-            }
+        // Misma retícula/alto que Altitud: solo FC, nunca repetir
+        // velocidad media o máxima que ya están en Entreno.
+        HStack(spacing: 7) {
+            miniStat("Mín", value: extras.minHeartRateBpm.map { "\(Int($0.rounded()))" },
+                     unit: "lpm", tint: OG.label2)
+            miniStat("Media", value: extras.averageHeartRateBpm.map { "\(Int($0.rounded()))" },
+                     unit: "lpm", tint: OG.red)
+            miniStat("Máx", value: extras.maxHeartRateBpm.map { "\(Int($0.rounded()))" },
+                     unit: "lpm", tint: OG.red)
         }
     }
 
     @ViewBuilder
     private var altitudeStatTiles: some View {
-        if let stats = altitudeStats {
-            HStack(spacing: 7) {
-                miniStat("Máx", value: "\(Int(stats.max.rounded()))", unit: "m", tint: OG.accent)
-                miniStat("Mín", value: "\(Int(stats.min.rounded()))", unit: "m", tint: OG.label2)
-                miniStat("Media", value: "\(Int(stats.avg.rounded()))", unit: "m", tint: OG.blue)
-            }
+        HStack(spacing: 7) {
+            miniStat("Mín", value: altitudeStats.map { "\(Int($0.min.rounded()))" },
+                     unit: "m", tint: OG.label2)
+            miniStat("Media", value: altitudeStats.map { "\(Int($0.avg.rounded()))" },
+                     unit: "m", tint: OG.blue)
+            miniStat("Máx", value: altitudeStats.map { "\(Int($0.max.rounded()))" },
+                     unit: "m", tint: OG.accent)
         }
     }
 
@@ -269,7 +251,37 @@ struct CardioAltitudeChart: View {
             Text(unit).font(.system(size: 10)).foregroundStyle(OG.label3)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .frame(height: 72)
+        .background(OG.surface2.opacity(0.85),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+/// Una sola plantilla de tile para métricas de cada deporte.
+struct SessionSportMetricTile: View {
+    var title: String
+    var value: String
+    var unit: String
+    var tint: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(OG.label3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(value)
+                .font(.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+            Text(unit)
+                .font(.system(size: 10))
+                .foregroundStyle(OG.label3)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 72)
         .background(OG.surface2.opacity(0.85),
                     in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -286,6 +298,27 @@ struct CardioSplitsView: View {
     /// Totales de la actividad completa, no solo los kilómetros cerrados.
     var totalActiveSeconds: Double? = nil
     var totalDistanceMeters: Double? = nil
+    var maxSpeedKmh: Double? = nil
+    var healthStats: HealthKitStore.SessionHealthExtras? = nil
+    var sport: LiveSport? = nil
+    /// Dentro de una única card que también contiene las gráficas de Salud.
+    var embedded: Bool = false
+
+    private var recordedMaxSpeedKmh: Double? {
+        if let maxSpeedKmh, maxSpeedKmh > 0 { return maxSpeedKmh }
+        return routePoints.compactMap(\.speedMps)
+            .filter { $0.isFinite && $0 > 0 && $0 <= 50 }
+            .max().map { $0 * 3.6 }
+    }
+
+    private func decimal(_ number: Double) -> String {
+        String(format: "%.1f", number).replacingOccurrences(of: ".", with: ",")
+    }
+
+    private var hasGPSMetrics: Bool {
+        (sport?.usesGPS ?? true) &&
+            ((totalDistanceMeters ?? 0) > 0 || routePoints.count >= 2 || !displayedSplits.isEmpty)
+    }
 
     private var averageSpeedKmh: Double? {
         guard let seconds = totalActiveSeconds, seconds > 0,
@@ -335,73 +368,86 @@ struct CardioSplitsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let speed = averageSpeedKmh {
-                HStack(spacing: 8) {
-                    averageStat("Ritmo medio", value: averagePace ?? "—", icon: "timer")
-                    averageStat("Velocidad media", value: String(format: "%.1f km/h", speed), icon: "speedometer")
+        VStack(alignment: .leading, spacing: 12) {
+            if hasGPSMetrics {
+                HStack(spacing: 7) {
+                    SessionSportMetricTile(
+                        title: "Vel. media",
+                        value: averageSpeedKmh.map(decimal) ?? "—",
+                        unit: "km/h", tint: OG.blue
+                    )
+                    SessionSportMetricTile(
+                        title: "Vel. máx",
+                        value: recordedMaxSpeedKmh.map(decimal) ?? "—",
+                        unit: "km/h", tint: OG.accent
+                    )
+                    SessionSportMetricTile(
+                        title: "Ritmo medio",
+                        value: averagePace.map { $0.replacingOccurrences(of: " min/km", with: "") } ?? "—",
+                        unit: "min/km", tint: OG.label
+                    )
                 }
-                .padding(.bottom, 12)
-            }
-            HStack(spacing: 6) {
-                Text("KM").frame(width: 38, alignment: .leading)
-                Text("Tiempo").frame(maxWidth: .infinity, alignment: .leading)
-                Text(cycling ? "km/h" : "Ritmo").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Frec. cardiaca").frame(width: 88, alignment: .trailing)
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(OG.label3)
-            .padding(.vertical, 8)
 
-            if displayedSplits.isEmpty {
-                Text("No hay kilómetros completos con GPS válido.")
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .padding(.vertical, 16)
-            } else {
-                ForEach(displayedSplits) { split in
-                    Divider().opacity(0.30)
+                if !displayedSplits.isEmpty {
                     HStack(spacing: 6) {
-                        Text("\(split.kilometer)")
-                            .fontWeight(.semibold)
-                            .frame(width: 38, alignment: .leading)
-                        Text(Self.clock(split.seconds))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(cycling
-                             ? String(format: "%.1f", 3600 / max(1, split.seconds))
-                             : "\(Self.clock(split.seconds))/km")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(split.averageBpm.map { "\(Int($0.rounded())) LPM" } ?? "—")
-                            .frame(width: 88, alignment: .trailing)
+                        Text("KM").frame(width: 38, alignment: .leading)
+                        Text("Tiempo").frame(maxWidth: .infinity, alignment: .leading)
+                        Text(cycling ? "km/h" : "Ritmo").frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Frec. cardiaca").frame(width: 88, alignment: .trailing)
                     }
-                    .font(.system(size: 14, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                    .padding(.vertical, 12)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(OG.label3)
+                    .padding(.vertical, 8)
+
+                    ForEach(displayedSplits) { split in
+                        Divider().opacity(0.30)
+                        HStack(spacing: 6) {
+                            Text("\(split.kilometer)")
+                                .fontWeight(.semibold)
+                                .frame(width: 38, alignment: .leading)
+                            Text(Self.clock(split.seconds))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(cycling
+                                 ? String(format: "%.1f", 3600 / max(1, split.seconds))
+                                 : "\(Self.clock(split.seconds))/km")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(split.averageBpm.map { "\(Int($0.rounded())) LPM" } ?? "—")
+                                .frame(width: 88, alignment: .trailing)
+                        }
+                        .font(.system(size: 14, weight: .medium, design: .rounded).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                        .padding(.vertical, 12)
+                    }
+                }
+            } else if let healthStats {
+                // Pádel/tenis y otros deportes sin GPS: FC auténtica en lugar
+                // de fabricar velocidad, ritmo o kilómetros.
+                HStack(spacing: 7) {
+                    SessionSportMetricTile(
+                        title: "Pulso medio",
+                        value: healthStats.averageHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
+                        unit: "lpm", tint: OG.red
+                    )
+                    SessionSportMetricTile(
+                        title: "Pulso mín.",
+                        value: healthStats.minHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
+                        unit: "lpm", tint: OG.label2
+                    )
+                    SessionSportMetricTile(
+                        title: "Pulso máx.",
+                        value: healthStats.maxHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
+                        unit: "lpm", tint: OG.red
+                    )
                 }
             }
         }
-        .padding(OG.pad)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
-    }
-
-    private func averageStat(_ title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .center, spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.accent)
-                    .frame(width: 18, alignment: .leading)
-                Text(value)
-                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.68)
+        .padding(embedded ? 0 : OG.pad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            if !embedded {
+                RoundedRectangle(cornerRadius: OG.radiusCard).fill(OG.surface)
             }
-            Text(title).font(.caption).foregroundStyle(OG.label2)
         }
-        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
-        .padding(12)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14))
     }
 
     static func clock(_ seconds: Double) -> String {
