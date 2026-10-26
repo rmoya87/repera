@@ -120,14 +120,7 @@ public enum BoardScanLiteParser {
 
         // Match catálogo por nombre canónico.
         if !catalog.isEmpty {
-            let index = Dictionary(
-                catalog.map { (norm($0.name), $0) },
-                uniquingKeysWith: { previous, next in
-                    // Un escaneo antiguo puede haber creado una ficha custom
-                    // homónima: preferir siempre el ejercicio oficial.
-                    previous.isCustom && !next.isCustom ? next : previous
-                }
-            )
+            let index = catalogIndex(catalog)
             blocks = blocks.map { block in
                 var b = block
                 b.movements = block.movements.map { move in
@@ -359,10 +352,7 @@ public enum BoardScanLiteParser {
               let rounds, (2...30).contains(rounds),
               lines.count >= 2 else { return nil }
 
-        let index = Dictionary(
-            catalog.map { (norm($0.name), $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let index = catalogIndex(catalog)
         let rir = rpeMidpointRIR(from: header)
         var items: [RoutineExercise] = []
         for line in lines {
@@ -517,6 +507,29 @@ public enum BoardScanLiteParser {
             }
         }
         return Int(digits)
+    }
+
+    /// Nombres oficiales primero, después alias publicados por Supabase.
+    /// Un alias nunca pisa un nombre canónico ya registrado en el catálogo.
+    private static func catalogIndex(_ catalog: [Exercise]) -> [String: Exercise] {
+        var index: [String: Exercise] = [:]
+        for exercise in catalog where !exercise.isCustom && !exercise.isCatalogArchived {
+            index[norm(exercise.name)] = exercise
+        }
+        for exercise in catalog where exercise.isCustom {
+            let key = norm(exercise.name)
+            if index[key] == nil { index[key] = exercise }
+        }
+        for exercise in catalog where !exercise.isCustom && !exercise.isCatalogArchived {
+            for alias in exercise.searchAliases {
+                let key = norm(alias)
+                guard !key.isEmpty else { continue }
+                if index[key] == nil || index[key]?.isCustom == true {
+                    index[key] = exercise
+                }
+            }
+        }
+        return index
     }
 
     private static func norm(_ s: String) -> String {
