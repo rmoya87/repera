@@ -475,4 +475,125 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertTrue(saved.exercises.allSatisfy { $0.loggedSets.isEmpty })
     }
 
+    func testPlayExtraPendingSetsSurviveFinishCompletedEditorAndReload() throws {
+        let squat = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        let base = Routine(title: "Escáner / plan", blocks: [
+            .strength(exercises: [RoutineExercise(exerciseId: squat.id, plannedSets: [
+                PlannedSet(targetReps: 8, targetWeightKg: 40),
+                PlannedSet(targetReps: 8, targetWeightKg: 45)
+            ])])
+        ])
+        var controller = SessionController(session: SessionController.from(
+            routine: base, exercises: [squat]
+        ))
+        controller.startOnPhone()
+        let exerciseID = try XCTUnwrap(controller.session.exercises.first?.id)
+        var editedInPlay = controller.session.exercises[0].plannedSets
+        editedInPlay[1].targetWeightKg = 47.5
+        editedInPlay.append(PlannedSet(targetReps: 6, targetWeightKg: 50, targetRir: 2))
+        XCTAssertTrue(controller.updateExerciseDraft(
+            id: exerciseID, plannedSets: editedInPlay, quantityUnit: nil
+        ))
+        controller.confirmCurrentExercise()
+        controller.logSet(reps: 8, weightKg: 42, rir: 1)
+        controller.finishWorkout()
+
+        let finished = controller.session
+        let editor = CompletedWorkoutEditing.routine(from: finished)
+        let rows = try XCTUnwrap(editor.blocks.first?.exercises.first?.plannedSets)
+        XCTAssertEqual(rows.count, 3)
+        XCTAssertEqual(rows.map(\.targetWeightKg), [42, 47.5, 50])
+        XCTAssertEqual(rows.map(\.targetReps), [8, 8, 6])
+        XCTAssertEqual(rows[2].targetRir, 2)
+
+        let saved = CompletedWorkoutEditing.applying(editor, to: finished, catalog: [squat])
+        let reopened = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(saved)
+        )
+        XCTAssertEqual(reopened.exercises[0].plannedSets.count, 3)
+        XCTAssertEqual(reopened.exercises[0].loggedSets.count, 1)
+        XCTAssertEqual(reopened.exercises[0].loggedSets[0].weightKg, 42)
+        XCTAssertEqual(reopened.exercises[0].plannedSets[2].targetWeightKg, 50)
+        XCTAssertEqual(reopened.routineBlocks?[0].exercises[0].plannedSets.count, 3)
+
+        var reopenedEditor = CompletedWorkoutEditing.routine(from: reopened)
+        reopenedEditor.blocks[0].exercises[0].plannedSets[1].targetWeightKg = 52
+        reopenedEditor.blocks[0].exercises[0].plannedSets.removeLast()
+        let savedAgain = CompletedWorkoutEditing.applying(
+            reopenedEditor, to: reopened, catalog: [squat]
+        )
+        XCTAssertEqual(savedAgain.exercises[0].plannedSets.count, 2)
+        XCTAssertEqual(savedAgain.exercises[0].plannedSets[1].targetWeightKg, 52)
+        XCTAssertEqual(savedAgain.exercises[0].loggedSets.count, 1)
+        XCTAssertEqual(savedAgain.exercises[0].loggedSets[0].weightKg, 42)
+    }
+
+    func testCompletedSetEditAndNewPendingSetDoNotFabricateResult() throws {
+        let rope = Exercise(name: "Comba", muscleGroup: "Cardio")
+        let wod = RoutineBlock(
+            title: "Every X", kind: .wod,
+            movements: [WODMovement(
+                exerciseId: rope.id, name: rope.name, reps: 25,
+                explicitPlannedSets: [
+                    PlannedSet(targetReps: 25, targetDurationSeconds: 40),
+                    PlannedSet(targetReps: 25, targetDurationSeconds: 45)
+                ]
+            )],
+            wodFormat: .emom, rounds: 2
+        )
+        var finished = SessionController.from(
+            routine: Routine(title: "Pizarra", blocks: [wod]), exercises: [rope]
+        )
+        finished.phase = .finished
+        let done = LoggedSet(
+            reps: 20, durationSeconds: 33,
+            completedAt: Date(timeIntervalSince1970: 1_700_000_000), rir: 2
+        )
+        finished.exercises[0].loggedSets = [done]
+
+        var draft = CompletedWorkoutEditing.routine(from: finished)
+        var rows = try XCTUnwrap(draft.blocks[0].movements[0].explicitPlannedSets)
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows.map(\.targetDurationSeconds), [33, 45])
+        rows[0].targetReps = 22
+        rows[0].targetDurationSeconds = 37
+        rows.append(PlannedSet(targetReps: 18, targetDurationSeconds: 50))
+        draft.blocks[0].movements[0].explicitPlannedSets = rows
+
+        let saved = CompletedWorkoutEditing.applying(draft, to: finished, catalog: [rope])
+        XCTAssertEqual(saved.exercises[0].loggedSets.count, 1)
+        XCTAssertEqual(saved.exercises[0].loggedSets[0].id, done.id)
+        XCTAssertEqual(saved.exercises[0].loggedSets[0].completedAt, done.completedAt)
+        XCTAssertEqual(saved.exercises[0].loggedSets[0].reps, 22)
+        XCTAssertEqual(saved.exercises[0].loggedSets[0].durationSeconds, 37)
+        XCTAssertEqual(saved.exercises[0].plannedSets.count, 3)
+        XCTAssertEqual(saved.exercises[0].plannedSets[2].targetDurationSeconds, 50)
+        XCTAssertTrue(saved.wodResults.isEmpty)
+
+        let restored = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(saved)
+        )
+        let reopened = CompletedWorkoutEditing.routine(from: restored)
+        XCTAssertEqual(reopened.blocks[0].movements[0].explicitPlannedSets?.count, 3)
+        XCTAssertEqual(reopened.blocks[0].movements[0].explicitPlannedSets?[0].targetDurationSeconds, 37)
+    }
+
+    func testRemovingRecordedSetFromCompletedEditorDoesNotTurnPendingIntoPerformed() {
+        let press = Exercise(name: "Press", muscleGroup: "Hombros")
+        let routine = Routine(title: "Series", blocks: [
+            .strength(exercises: [RoutineExercise(exerciseId: press.id, plannedSets: [
+                PlannedSet(targetReps: 5), PlannedSet(targetReps: 5)
+            ])])
+        ])
+        var finished = SessionController.from(routine: routine, exercises: [press])
+        finished.phase = .finished
+        finished.exercises[0].loggedSets = [LoggedSet(reps: 5, weightKg: 30)]
+        var draft = CompletedWorkoutEditing.routine(from: finished)
+        draft.blocks[0].exercises[0].plannedSets.removeFirst()
+        let saved = CompletedWorkoutEditing.applying(draft, to: finished, catalog: [press])
+        XCTAssertTrue(saved.exercises[0].loggedSets.isEmpty)
+        XCTAssertEqual(saved.exercises[0].plannedSets.count, 1)
+        XCTAssertEqual(saved.exercises[0].plannedSets[0].targetReps, 5)
+    }
+
 }
