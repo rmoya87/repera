@@ -1,5 +1,7 @@
 # Funcionalidades Repera
 
+Última actualización: 2026-10-26
+
 ## Formato numérico español (26/10/2026)
 
 - Las cifras visibles en iPhone y Apple Watch utilizan coma decimal y punto de millares desde 1.000; se muestran solo los decimales necesarios, con máximo dos. Se aplica a los pesos, marcas, distancias, ritmos, velocidades, progreso, actividad, recuperación, prescripciones y métricas deportivas. Los relojes (mm:ss), las fechas, los identificadores y las cifras en mensajes de protocolo no se convierten a valores decimales.
@@ -272,7 +274,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Temporizador
 
-- `StandaloneTimerView`: up/down y modos WOD-like; favoritos de timer.
+- `StandaloneTimerView`: cronómetro ascendente (**Arriba**), cuenta atrás (**Abajo**) e **Intervalos**, con favoritos de temporizador. El selector de modalidad omite el encabezado «Tipo de temporizador» y presenta las tres pestañas con el mismo control segmentado nativo grande y cápsula Liquid Glass que **Progreso → Entreno / Actividad / Recuperación**.
 
 ## Fuera de producto
 
