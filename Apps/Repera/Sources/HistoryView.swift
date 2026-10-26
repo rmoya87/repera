@@ -786,7 +786,7 @@ struct WorkoutDetailView: View {
             if let distanceMeters {
                 summaryTile(
                     title: "Distancia",
-                    value: String(format: "%.2f km", distanceMeters / 1000),
+                    value: "\(ReperaNumberFormat.decimal(distanceMeters / 1000)) km",
                     icon: "point.bottomleft.forward.to.point.topright.scurvepath",
                     tint: OG.accent
                 )
@@ -1167,7 +1167,7 @@ struct WorkoutDetailView: View {
             return "\(planned.targetReps) \(unit.shortLabel)"
         }
         if let kg = planned.targetWeightKg, kg > 0 {
-            return "\(planned.targetReps) @ \(String(format: "%g", kg)) kg"
+            return "\(planned.targetReps) @ \(ReperaNumberFormat.decimal(kg)) kg"
         }
         return "\(planned.targetReps) reps"
     }
@@ -1294,7 +1294,7 @@ struct WorkoutDetailView: View {
                     .frame(maxWidth: .infinity)
                 } else {
                     OGRepeatStepper(
-                        display: set.weightKg.map { String(format: "%g", $0) } ?? "—",
+                        display: set.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—",
                         keyboard: .decimalPad,
                         onMinus: {
                             mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
@@ -1311,10 +1311,10 @@ struct WorkoutDetailView: View {
                         },
                         onCommitText: { text in
                             mutateSet(exIndex: exIndex, setIndex: setIndex) { row in
-                                let normalized = text.replacingOccurrences(of: ",", with: ".")
+                                let normalized = text
                                 if normalized.isEmpty {
                                     row.weightKg = nil
-                                } else if let parsed = Double(normalized) {
+                                } else if let parsed = ReperaNumberFormat.parse(normalized) {
                                     row.weightKg = parsed > 0 ? ((parsed * 10).rounded() / 10) : nil
                                 }
                             }
@@ -2050,14 +2050,14 @@ struct HealthActivityDetailView: View {
 
     private func distanceLabel(_ meters: Double) -> String {
         if meters >= 1000 {
-            return String(format: "%.1f km", meters / 1000)
+            return "\(ReperaNumberFormat.decimal(meters / 1000)) km"
         }
         return "\(Int(meters.rounded())) m"
     }
 
     private func distanceFullLabel(_ meters: Double) -> String {
         if meters >= 1000 {
-            return String(format: "%.2f km", meters / 1000)
+            return "\(ReperaNumberFormat.decimal(meters / 1000)) km"
         }
         return "\(Int(meters.rounded())) m"
     }
