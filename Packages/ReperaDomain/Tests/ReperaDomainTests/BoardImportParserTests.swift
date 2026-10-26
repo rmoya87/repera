@@ -338,6 +338,19 @@ struct BoardImportParserTests {
         #expect(rows[0].matchedExerciseId != rows[1].matchedExerciseId)
     }
 
+    @Test func photographedMixedCaseAliasesPreferRealCatalogOverSavedCustoms() {
+        let catalog = Catalog.seed()
+        let customBTT = Exercise(name: "Burpee to target", muscleGroup: "Custom", isCustom: true)
+        let customToes = Exercise(name: "Toes to bar", muscleGroup: "Custom", isCustom: true)
+        let rows = BoardImportParser.parse(
+            ocrText: "6 BTt\n8 T2B",
+            catalog: [customBTT, customToes] + catalog
+        )
+        #expect(rows.count == 2)
+        #expect(rows[0].matchedExerciseId == catalog.first(where: { $0.name == "Burpee to target" })?.id)
+        #expect(rows[1].matchedExerciseId == catalog.first(where: { $0.name == "Toes to bar" })?.id)
+    }
+
     @Test func derivesEmomRoundsFromStations() {
         let catalog = Catalog.seed()
         let text = """
