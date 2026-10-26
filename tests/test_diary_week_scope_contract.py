@@ -21,7 +21,7 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertIn('accessibilityLabel("Semana anterior")', diary)
         self.assertIn('accessibilityLabel("Semana siguiente")', diary)
         self.assertIn("let date = dateForWeekday(day)", diary)
-        self.assertIn("store.scheduledRoutine(on: date)", diary)
+        self.assertIn("store.scheduledRoutines(on: date)", diary)
         self.assertNotIn("let routine = store.routine(forWeekday: day)", diary)
 
     def test_week_selector_is_in_compact_topbar_and_duo_column_heading(self):
@@ -85,11 +85,11 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertIn("store.clearWeeklySchedule(for: selectedWeekStart)", diary)
         self.assertIn("func copyPreviousWeekSchedule(to weekReference: Date = Date())", store)
         self.assertIn("scheduledRoutines(inWeekContaining: previous)", store)
-        self.assertIn("scheduledRoutine(on: copyDate) == nil", store)
+        self.assertIn("let originallyOccupied = scheduledRoutines(inWeekContaining: targetStart)", store)
         self.assertIn("blocks: source.blocks.map { $0.duplicatingContent() }", store)
         self.assertIn("func clearWeeklySchedule(for weekReference: Date = Date())", store)
         self.assertIn("scheduledRoutines(inWeekContaining: weekReference)", store)
-        self.assertIn("func removeScheduledRoutine(on date: Date)", store)
+        self.assertIn("func removeScheduledRoutine(id: UUID)", store)
         self.assertIn("state.routines[index].scheduledDate = nil", store)
         self.assertIn("ids.contains($0.id) && !$0.isFavorite", store)
 
