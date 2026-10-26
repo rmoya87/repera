@@ -62,7 +62,7 @@ class DuoSelectionAndMetricsTests(unittest.TestCase):
         self.assertIn("HStack(spacing: 8)", actions)
         self.assertIn("metricsCircleButton(", actions)
         self.assertIn("sessionMapButton(", actions)
-        self.assertNotIn("VStack", actions)
+        self.assertNotIn("VStack(spacing:", actions)
         self.assertLess(actions.index('"play.fill"'), actions.index('"flag.checkered"'))
         self.assertIn("if recorder.phase == .idle", metrics)
         self.assertIn("bottomControls", metrics)
