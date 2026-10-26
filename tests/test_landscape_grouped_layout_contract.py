@@ -76,28 +76,31 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         theme = read("Theme.swift")
         self.assertIn("func ogListChrome() -> some View {\n        modifier(OGListChromeModifier())", theme)
 
-    def test_home_calendar_is_centered_and_all_seven_days_fit_vertically(self):
+    def test_home_days_are_edge_to_edge_without_changing_other_sections(self):
         home = read("HomeView.swift")
         calendar = home.split("private var weekSelectorCard: some View {", 1)[1].split(
             "private func calendarDayColumn(", 1
         )[0]
         self.assertIn("let side = min(", calendar)
         self.assertIn("weekCarouselHeight - 8", calendar)
-        self.assertIn("(geo.size.width - spacing * 6) / 7", calendar)
-        self.assertIn(".frame(maxWidth: calendarVisibleWidth)", calendar)
-        self.assertIn(".clipped()", calendar)
-        self.assertLess(calendar.index(".frame(maxWidth: calendarVisibleWidth)"), calendar.index(".clipped()"))
-        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", calendar)
-        self.assertIn(".padding(.horizontal, OG.pad)", calendar)
-        self.assertIn("7 * max(1, weekCarouselHeight - 8) + 6 * 4", home)
-        self.assertIn("frame(height: weekCarouselHeight)", calendar)
-        # El fondo inferior gris no permite que asome el fondo blanco
-        # en los laterales seguros del iPhone colocado en horizontal.
+        self.assertIn("(geo.size.width - 4 * CGFloat(visibleDays - 1)) / CGFloat(visibleDays)", calendar)
+        self.assertIn("let visibleDays = isExpandedLayout", calendar)
+        self.assertIn(".scrollPosition(id: $calendarScrollID, anchor: .leading)", calendar)
+        self.assertIn(".frame(height: weekCarouselHeight)", calendar)
+        self.assertIn(".ignoresSafeArea(edges: .horizontal)", calendar)
+        self.assertNotIn("calendarVisibleWidth", home)
+        self.assertNotIn(".clipped()", calendar)
+        # Solo el rótulo del mes conserva padding; la geometría de días no.
+        month = calendar.split("GeometryReader { geo in", 1)[0]
+        carousel = calendar.split("GeometryReader { geo in", 1)[1]
+        self.assertIn(".padding(.horizontal, OG.pad)", month)
+        self.assertNotIn(".padding(.horizontal, OG.pad)", carousel)
+        self.assertIn("dayWorkoutSection\n                            .padding(.horizontal, OG.pad)", home)
+        # El fondo inferior gris no permite que asome blanco en paisaje.
         self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .horizontal))", home)
         self.assertIn(".background(OG.bg.ignoresSafeArea(edges: .bottom))", home)
         self.assertIn(".background(OG.surface.ignoresSafeArea(edges: [.top, .horizontal]))", home)
         self.assertIn("OG.bg.ignoresSafeArea()", home)
-        self.assertNotIn("OG.surface.ignoresSafeArea()\n            }\n            .onAppear", home)
 
     def test_only_first_home_section_is_edge_to_edge(self):
         home = read("HomeView.swift")
