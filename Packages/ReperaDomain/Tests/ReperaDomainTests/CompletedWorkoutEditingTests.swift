@@ -454,7 +454,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(saved.wodResults[0].summaryLabel, "4 rondas + 16 reps")
     }
 
-    func testChangingWODFormatDropsIncompatibleStoredScore() {
+    func testChangingWODFormatRetainsPreviousRecordedScore() {
         let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(
             title: "AMRAP", kind: .wod,
