@@ -24,6 +24,20 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertIn("store.scheduledRoutine(on: date)", diary)
         self.assertNotIn("let routine = store.routine(forWeekday: day)", diary)
 
+    def test_week_selector_is_in_compact_topbar_and_duo_column_heading(self):
+        diary = swift("PlanView.swift")
+        expanded = diary.split("if isExpandedLayout {", 1)[1].split("} else {", 1)[0]
+        self.assertIn('Text("Programado")', expanded)
+        self.assertIn("weekSelector(narrow: true)", expanded)
+        header = diary.split("private var diaryTopBar:", 1)[1].split("private struct DiaryDateBox", 1)[0]
+        self.assertIn("weekSelector(narrow: false)", header)
+        self.assertIn("OGFixedTopBar(title: \"Diario\")", header)
+        self.assertIn(".glassEffect(.regular.interactive(), in: .capsule)", diary)
+        days = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
+        self.assertNotIn('Text("Tu programación")', days)
+        self.assertNotIn("weekOffset -= 1", days)
+        self.assertNotIn("weekOffset += 1", days)
+
     def test_copy_and_clear_act_only_on_selected_week(self):
         diary = swift("PlanView.swift")
         store = swift("ReperaStore.swift")
