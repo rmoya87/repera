@@ -23,14 +23,18 @@ private struct ReperaNowPlayingSnapshot {
         let state = player.playbackState
         let musicIsActive = state == .playing || state == .paused
         let permission = MPMediaLibrary.authorizationStatus()
-        let item = permission == .authorized ? player.nowPlayingItem : nil
+        let otherAudio = AVAudioSession.sharedInstance().isOtherAudioPlaying
+        // Si Spotify empieza a sonar mientras Música queda pausada,
+        // no mostrar por error la canción anterior de Apple Music.
+        let item = permission == .authorized && (state == .playing || !otherAudio)
+            ? player.nowPlayingItem : nil
         return Self(
             title: item?.title,
             artist: item?.artist,
             artwork: item?.artwork?.image(at: CGSize(width: 100, height: 100)),
             appleMusicAvailable: item != nil,
             appleMusicPlaying: state == .playing,
-            externalAudioPlaying: AVAudioSession.sharedInstance().isOtherAudioPlaying,
+            externalAudioPlaying: otherAudio,
             musicPermissionNeeded: permission == .notDetermined && musicIsActive
         )
     }
