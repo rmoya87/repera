@@ -103,7 +103,7 @@ final class ReperaStore: NSObject {
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
         isHydrated = true
-        if changed {
+        if changed || migratedWeekly {
             catalogEpoch &+= 1
             workoutsEpoch &+= 1
             sessionEpoch &+= 1
@@ -1915,7 +1915,7 @@ final class ReperaStore: NSObject {
     @discardableResult
     func saveRoutine(_ routine: Routine) -> Bool {
         let isNew = !state.routines.contains { $0.id == routine.id }
-        let isLibraryTemplate = routine.scheduledDate == nil
+        let isLibraryTemplate = routine.scheduledDate == nil && routine.weekday == nil
         if isNew && isLibraryTemplate {
             let decision = featureAccess?().canCreateLibraryRoutine(isNew: true)
                 ?? FeatureAccessDecision.allow()
