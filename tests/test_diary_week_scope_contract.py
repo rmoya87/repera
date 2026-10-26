@@ -40,6 +40,13 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertNotIn("weekSelector(narrow: false)", compact)
         self.assertIn(".frame(minHeight: OG.toolbarGlassSize)", compact)
         self.assertIn(".glassEffect(.regular.interactive(), in: .capsule)", diary)
+        actions = diary.split("private var weekActionsMenu: some View {", 1)[1].split(
+            "private var diaryTopBar:", 1
+        )[0]
+        self.assertIn('Image(systemName: "doc.on.doc")', actions)
+        self.assertNotIn('Image(systemName: "ellipsis")', actions)
+        self.assertIn("store.copyPreviousWeekSchedule(to: selectedWeekStart)", actions)
+        self.assertIn("confirmClearSchedule = true", actions)
         days = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
         self.assertNotIn('Text("Tu programación")', days)
         self.assertNotIn("weekOffset -= 1", days)
@@ -59,7 +66,7 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
             self.assertIn(".controlSize(.large)", control)
             self.assertIn(".glassEffect(.regular, in: .capsule)", control)
         self.assertIn(".padding(.top, 4)", tabs)
-        self.assertIn(".padding(.bottom, 4)", tabs)
+        self.assertIn(".padding(.bottom, 12)", tabs)
         body = diary.split("var body: some View {", 1)[1].split(
             ".navigationDestination(item: $editing)", 1
         )[0]
