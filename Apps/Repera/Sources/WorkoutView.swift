@@ -849,7 +849,7 @@ struct WorkoutView: View {
             return PlannedSet(
                 // La identidad de una serie pendiente sobrevive incluso
                 // cuando se elimina la anterior o se reordena el ejercicio.
-                id: row.completed ? (previous?.id ?? row.id) : row.id,
+                id: row.id,
                 targetReps: max(1, row.reps),
                 targetWeightKg: kg,
                 targetDurationSeconds: row.durationSeconds,
@@ -908,6 +908,11 @@ struct WorkoutView: View {
         var rows: [LiveSetRow] = []
         let planned = current.plannedSets
         let logged = current.loggedSets
+        // Los resultados nuevos se enlazan por UUID de serie, no por
+        // posición: editar S3 no puede desplazarla a S1.
+        let hasStableIDs = logged.contains { set in
+            planned.contains(where: { $0.id == set.id })
+        }
         let total = max(max(planned.count, logged.count), max(retained.count, 1))
         let style = current.exercise.loggingStyle
         let defaultQty: Int = {
@@ -920,8 +925,11 @@ struct WorkoutView: View {
 
         let loadField = current.exercise.loadField
         for i in 0..<total {
-            if i < logged.count {
-                let set = logged[i]
+            let recorded = planned.indices.contains(i)
+                ? logged.first(where: { $0.id == planned[i].id })
+                : nil
+            let legacyRecorded = !hasStableIDs && logged.indices.contains(i) ? logged[i] : nil
+            if let set = recorded ?? legacyRecorded {
                 rows.append(LiveSetRow(
                     id: set.id,
                     weightKg: set.weightKg,
@@ -929,7 +937,7 @@ struct WorkoutView: View {
                     durationSeconds: set.durationSeconds,
                     reps: set.reps,
                     rir: set.rir,
-                    completed: true
+                    completed: false
                 ))
             } else if i < retained.count {
                 // Incluye la serie recién desmarcada: conserva sus valores
@@ -1014,7 +1022,7 @@ struct WorkoutView: View {
     }
 
     private func bumpLiveWeight(at index: Int, delta: Double) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         let current = liveSets[index].weightKg ?? 0
         let next = max(0, ((current + delta) * 10).rounded() / 10)
         liveSets[index].weightKg = next > 0 ? next : nil
@@ -1022,20 +1030,20 @@ struct WorkoutView: View {
     }
 
     private func bumpLiveDeficit(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         let current = liveSets[index].deficitCm ?? 0
         liveSets[index].deficitCm = min(60, max(0, current + delta))
         noteLiveDraftEdited(rowIndex: index)
     }
 
     private func setLiveDeficit(at index: Int, cm: Int) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         liveSets[index].deficitCm = cm
         noteLiveDraftEdited(rowIndex: index)
     }
 
     private func commitLiveWeightText(at index: Int, text: String) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         let normalized = text.replacingOccurrences(of: ",", with: ".")
         if normalized.isEmpty || normalized == "—" {
             liveSets[index].weightKg = nil
@@ -1048,34 +1056,34 @@ struct WorkoutView: View {
     }
 
     private func bumpLiveDuration(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         let current = liveSets[index].durationSeconds ?? 0
         liveSets[index].durationSeconds = max(0, current + delta)
         noteLiveDraftEdited(rowIndex: index)
     }
 
     private func commitLiveDurationText(at index: Int, text: String) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         liveSets[index].durationSeconds = DurationText.parse(text)
         noteLiveDraftEdited(rowIndex: index)
     }
 
     private func bumpLiveReps(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
         liveSets[index].reps = min(cap, max(1, liveSets[index].reps + delta))
         noteLiveDraftEdited(rowIndex: index)
     }
 
     private func setLiveReps(at index: Int, reps: Int) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
         liveSets[index].reps = min(cap, max(1, reps))
         noteLiveDraftEdited(rowIndex: index)
     }
 
     private func setLiveRir(at index: Int, rir: Double?) {
-        guard liveSets.indices.contains(index), true else { return }
+        guard liveSets.indices.contains(index) else { return }
         liveSets[index].rir = rir
         noteLiveDraftEdited(rowIndex: index)
     }
@@ -2287,5 +2295,51 @@ struct WODResultInlineEditor: View {
         case .perMovementSets:
             return false
         }
+    }
+}
+
+/// Borrado por swipe: la papelera solo se revela al deslizar hacia la
+/// izquierda, no ocupa una columna ni interfiere con la edición numérica.
+private struct WorkoutSetSwipeRow<Content: View>: View {
+    let canDelete: Bool
+    let deleteLabel: String
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var reveal: CGFloat = 0
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if canDelete {
+                Button(role: .destructive) {
+                    reveal = 0
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 54, height: 54)
+                        .background(OG.red, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(deleteLabel)
+                .frame(width: 70, alignment: .center)
+            }
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(OG.bg)
+                .offset(x: reveal)
+        }
+        .clipped()
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 22)
+                .onEnded { value in
+                    guard canDelete,
+                          abs(value.translation.width) > abs(value.translation.height)
+                    else { return }
+                    withAnimation(.smooth(duration: 0.24)) {
+                        reveal = value.translation.width < -36 ? -72 : 0
+                    }
+                }
+        )
     }
 }
