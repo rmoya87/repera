@@ -969,14 +969,14 @@ struct HealthRecoveryProgressView: View {
                         AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                     }
                 }
-                .frame(height: 128)
+                .frame(height: physiologyChartHeight)
                 .accessibilityLabel("Tendencia: \(title)")
             } else {
                 ProgressEmptyChart(
                     message: values.isEmpty
                         ? "Sin mediciones en este periodo."
                         : "Una medición; aún no hay tendencia.",
-                    height: 128,
+                    height: physiologyChartHeight,
                     yRange: 0.0...100.0
                 )
             }
