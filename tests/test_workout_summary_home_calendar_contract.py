@@ -34,7 +34,7 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
     def test_pin_label_is_not_repeated_below_map(self):
         history = swift("HistoryView.swift")
         section = history.split("SessionMapWeatherCard(", 1)[1].split(
-            "// Ritmo, velocidad y kilómetros guardados", 1
+            "// Plantilla única: métricas deportivas", 1
         )[0]
         self.assertIn("sessionMapView(session)", section)
         self.assertNotIn('Text("Ubicación")', section)
@@ -65,6 +65,61 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn('title: "Vel. media"', splits)
         self.assertIn('title: "Vel. máx"', splits)
         self.assertIn("if let recorded = activeKilometerSeconds", splits)
+
+    def test_same_workout_template_for_repera_health_and_comenzar(self):
+        history = swift("HistoryView.swift")
+        live = swift("LiveActivityView.swift")
+        # Mismo elemento visual de mapa y mismo destino interactivo.
+        for code in (history, live):
+            self.assertIn("SessionMapWeatherCard(", code)
+            self.assertIn("HealthWorkoutRouteMap(", code)
+            self.assertIn("WorkoutMapZoomDestination(", code)
+            self.assertIn('Text("Entreno")', code)
+            self.assertIn("CardioSplitsView(", code)
+            self.assertIn("HealthSessionMetricsCard(", code)
+            self.assertNotIn('Text("Parciales")', code)
+            self.assertNotIn('Text("Colores = velocidad', code)
+        self.assertIn("struct WorkoutMapZoomDestination: View", history)
+        self.assertIn("matchedTransitionSource(id: sessionId, in: routeZoomNamespace)", history)
+        self.assertIn("matchedTransitionSource(id: activityId, in: routeZoomNamespace)", history)
+
+    def test_cardio_elevation_equal_heights_no_duplicate_speed_tiles(self):
+        route = swift("CardioRouteComponents.swift")
+        history = swift("HistoryView.swift")
+        charts = route.split("struct CardioAltitudeChart: View {", 1)[1].split(
+            "struct SessionSportMetricTile: View", 1
+        )[0]
+        cardio = charts.split("private var cardio: some View", 1)[1].split(
+            "private var elevation: some View", 1
+        )[0]
+        elevation = charts.split("private var elevation: some View", 1)[1].split(
+            "private var cardioStatTiles: some View", 1
+        )[0]
+        self.assertIn(".frame(height: 170)", cardio)
+        self.assertIn(".frame(height: 170)", elevation)
+        self.assertNotIn(".frame(height: 145)", charts)
+        self.assertIn('miniStat("Media"', charts)
+        self.assertNotIn('miniStat("Vel. media"', charts)
+        self.assertNotIn('miniStat("Vel. máx"', charts)
+        heart = history.split("private struct HealthHeartRateStatRow: View", 1)[1].split(
+            "private struct HealthSpeedStatRow: View", 1
+        )[0]
+        self.assertNotIn('stat("Vel. media"', heart)
+        self.assertNotIn('stat("Vel. máx"', heart)
+
+    def test_sport_metrics_do_not_invent_gps_for_padel_or_tennis(self):
+        splits = swift("CardioRouteComponents.swift")
+        self.assertIn("sport?.usesGPS ?? true", splits)
+        self.assertIn('title: "Pulso medio"', splits)
+        self.assertIn('title: "Pulso mín."', splits)
+        self.assertIn('title: "Pulso máx."', splits)
+        self.assertIn('title: "Vel. media"', splits)
+        self.assertIn('title: "Vel. máx"', splits)
+        self.assertIn('title: "Ritmo medio"', splits)
+        self.assertIn('title: "Distancia"', splits)
+        self.assertIn("recordedMaxSpeedKmh", splits)
+        self.assertIn('value: recordedMaxSpeedKmh.map(decimal) ?? "—"', splits)
+        self.assertNotIn("17,2", splits)
 
     def test_finished_home_workout_uses_green_strength_icon_and_tighter_chips(self):
         home = swift("HomeView.swift")
