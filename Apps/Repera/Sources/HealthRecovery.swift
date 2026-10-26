@@ -1220,7 +1220,7 @@ struct HealthRecoveryProgressView: View {
                             )
                         }
                     }
-                    .frame(height: readinessChartHeight, alignment: .top)
+                    .frame(minHeight: readinessChartHeight, alignment: .top)
                 } else {
                     ProgressEmptyChart(
                         message: "Necesitamos datos de sueño y entrenamientos recientes",
