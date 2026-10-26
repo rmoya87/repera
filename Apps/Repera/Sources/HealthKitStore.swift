@@ -135,6 +135,8 @@ final class HealthKitStore {
         var speedMps: Double?
         /// Altitud original de CLLocation, cuando su precisión vertical es válida.
         var altitudeMeters: Double? = nil
+        /// Posiciones interpoladas de Repera, no una medición de Apple Salud.
+        var isEstimated: Bool = false
     }
 
     /// Detalle ampliado (FC, ruta, etc.) al abrir un entreno de Salud.
@@ -1812,7 +1814,9 @@ final class HealthKitStore {
         guard (await fetchRoutes(for: workout)).isEmpty else { return }
 
         let locations = points.compactMap { point -> CLLocation? in
-            guard (-90...90).contains(point.latitude),
+            // La ruta en Apple Salud debe contener exclusivamente GPS real.
+            guard point.isEstimated != true,
+                  (-90...90).contains(point.latitude),
                   (-180...180).contains(point.longitude),
                   point.recordedAt >= workout.startDate.addingTimeInterval(-60),
                   point.recordedAt <= workout.endDate.addingTimeInterval(60)
