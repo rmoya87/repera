@@ -209,6 +209,13 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertLess(header.index("Image(systemName: icon)"), header.index("Text(title)"))
         self.assertLess(summary.index("Text(title)"), summary.index("Text(value)"))
         self.assertNotIn("Text(title)", summary.split("Text(value)", 1)[1])
+        # La altura se ajusta al contenido: sin altura mínima que cree
+        # un hueco excesivo debajo del valor.
+        self.assertIn("VStack(alignment: .leading, spacing: 7)", summary)
+        self.assertIn(".padding(.vertical, 10)", summary)
+        self.assertIn(".padding(.horizontal, 12)", summary)
+        self.assertNotIn("minHeight: 64", summary)
+
 
         # También en los tres indicadores del pie del mapa meteorológico.
         cardio = swift("CardioRouteComponents.swift")

@@ -10,7 +10,7 @@ struct WorkoutSummaryTile: View {
     var tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
@@ -29,8 +29,11 @@ struct WorkoutSummaryTile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
-        .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
-        .padding(12)
+        // Altura intrínseca: evita el hueco vacío que dejaba el mínimo fijo.
+        // Las tres fichas conservan la misma altura por compartir esta plantilla.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(OG.surface, in: RoundedRectangle(
             cornerRadius: OG.radiusCard, style: .continuous
         ))
