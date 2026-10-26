@@ -101,7 +101,7 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         store = read(IOS, "ReperaStore.swift")
         live = read(IOS, "LiveActivityView.swift")
         quick = read(IOS, "QuickLogSheet.swift")
-        scanner = read(IOS, "StartHubSheet.swift")
+        scanner = read(IOS, "DayPlusSheet.swift")
         workout = read(IOS, "WorkoutView.swift")
         self.assertIn("func endActiveSession(save: Bool = true)", store)
         self.assertIn("upsertWorkout(session)", store)
