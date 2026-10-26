@@ -33,6 +33,7 @@ final class BusinessAuthStore {
     )
 
     private func clearExplicitSignOutAfterVerifiedLogin() {
+        requiresReauthentication = false
         didExplicitlySignOut = false
         UserDefaults.standard.set(false, forKey: explicitSignOutKey)
     }
@@ -60,6 +61,9 @@ final class BusinessAuthStore {
     private let continueLocalOnlyKey = "repera.business.continueLocalOnly.v1"
     private(set) var lastErrorMessage: String?
     private(set) var isConnecting = false
+    /// Solo true si no queda una sesión recuperable, nunca por falta de red.
+    /// El vínculo histórico de Apple no equivale a un token de Supabase válido.
+    private(set) var requiresReauthentication = false
 
     /// Preferencia persistente: seguir solo con Apple/iCloud (sin forzar SIWA por Business).
     var prefersLocalOnly: Bool {
@@ -306,18 +310,69 @@ final class BusinessAuthStore {
         // Snapshot: si el SDK borra tras error de cleanup, al menos ya tenemos binding.
         let binding = UserDefaults.standard.string(forKey: appleIdentityBindingKey)
         do {
-            _ = try await client.auth.refreshSession()
+            let refreshed = try await client.auth.refreshSession()
+            guard !refreshed.isExpired, isSameLocalOwner(refreshed.user.id) else { return }
+            requiresReauthentication = false
+            isConnected = true
+            lastErrorMessage = nil
             AuthSessionTrace.event("refresh OK cacheNow=\(client.auth.currentSession != nil)")
         } catch {
             AuthSessionTrace.event(
                 "refresh FAIL cacheNow=\(client.auth.currentSession != nil) binding=\(binding != nil): \(error.localizedDescription)"
             )
-            // Mantener isConnected si aún hay cache; si el SDK limpió, soft reconnect.
-            if client.auth.currentSession == nil {
+            // Pérdida temporal de red NO implica logout; token revocado sí.
+            if Self.isUnrecoverableAuthError(error) {
+                requiresReauthentication = true
                 isConnected = false
-                isMigrationRequired = true
-                BusinessDataStore.shared.clear()
+                lastErrorMessage = "Tu sesión ha caducado. Inicia sesión de nuevo."
             }
+        }
+    }
+
+    /// Comprueba el acceso real antes de sincronizar; el SDK renueva JWT con
+    /// refresh token de Keychain. La app no puede garantizar sesiones eternas:
+    /// una revocación o un refresh token invalidado exige volver al login.
+    @discardableResult
+    func ensureUsableSession() async -> Bool {
+        guard !didExplicitlySignOut, !requiresReauthentication, let client else { return false }
+        do {
+            let session = try await client.auth.session
+            guard isSameLocalOwner(session.user.id) else {
+                requiresReauthentication = true
+                isConnected = false
+                lastErrorMessage = "La identidad ha cambiado. Inicia sesión de nuevo para proteger tu historial."
+                return false
+            }
+            guard !session.isExpired else {
+                // No declarar sincronización si el SDK no renovó el JWT.
+                lastErrorMessage = "Renovación del acceso pendiente."
+                return false
+            }
+            isConnected = true
+            requiresReauthentication = false
+            lastErrorMessage = nil
+            return true
+        } catch {
+            if Self.isUnrecoverableAuthError(error) {
+                requiresReauthentication = true
+                isConnected = false
+                lastErrorMessage = "Tu sesión ha caducado y no puede renovarse. Accede de nuevo."
+            } else {
+                // Sin internet o error temporal: mantener el historial y la
+                // pantalla actual, y reintentar al recuperar la conexión.
+                lastErrorMessage = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
+            }
+            return false
+        }
+    }
+
+    private static func isUnrecoverableAuthError(_ error: Error) -> Bool {
+        guard let authError = error as? AuthError else { return false }
+        switch authError.errorCode {
+        case .sessionNotFound, .refreshTokenNotFound, .userBanned:
+            return true
+        default:
+            return authError.kind == .sessionMissing
         }
     }
 
@@ -734,6 +789,7 @@ final class BusinessAuthStore {
         UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
         if let client { try? await client.auth.signOut() }
         isConnected = false
+        requiresReauthentication = false
         lastErrorMessage = nil
     }
 }
