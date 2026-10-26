@@ -29,7 +29,6 @@ struct DayOverrideSheet: View {
                         }
                     }
                 }
-                .padding(.top, 4)
 
                 if routines.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
