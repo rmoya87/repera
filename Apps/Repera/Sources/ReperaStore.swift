@@ -295,7 +295,12 @@ final class ReperaStore: NSObject {
             )
             changed = true
         }
-        let existing = Set(exercises.map { SportExerciseNames.canonicalName($0.name) })
+        // Los movimientos provisionales creados al escanear ("BTT", "T2B",
+        // "Burpee to target"...) NO son fichas oficiales: nunca deben impedir
+        // que entren las entradas reales del seed tras actualizar TestFlight.
+        // Antes los ejercicios custom ocultaban el alta oficial por nombre.
+        let existing = Set(exercises.filter { !$0.isCustom }
+            .map { SportExerciseNames.canonicalName($0.name) })
         let missing = seed.filter { !existing.contains($0.name) }
         if !missing.isEmpty {
             exercises.append(contentsOf: missing)
