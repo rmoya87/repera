@@ -1,11 +1,11 @@
 import ReperaDomain
 import SwiftUI
 
-/// Asigna o quita la rutina de un día de la semana (elige entre plantillas de Diario → Rutinas).
+/// Asigna una copia independiente de una plantilla a una fecha concreta del Diario.
 struct DayOverrideSheet: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    var isoWeekday: Int
+    var scheduledDate: Date
     var dayLabel: String
     /// Crear plantilla nueva ya asignada a este día.
     var onCreateNew: (() -> Void)?
@@ -54,7 +54,7 @@ struct DayOverrideSheet: View {
                                 Divider().opacity(0.35).padding(.leading, 14)
                             }
                             Button {
-                                store.assignRoutine(routine.id, toWeekday: isoWeekday)
+                                store.assignRoutine(routine.id, toDate: scheduledDate)
                                 dismiss()
                             } label: {
                                 HStack {
@@ -66,13 +66,8 @@ struct DayOverrideSheet: View {
                                             .foregroundStyle(OG.label2)
                                     }
                                     Spacer()
-                                    if routine.weekday == isoWeekday {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundStyle(.white)
-                                            .frame(width: 28, height: 28)
-                                            .background(OG.accent, in: Circle())
-                                    }
+                                    Image(systemName: "plus.circle")
+                                        .foregroundStyle(OG.accent)
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 12)
@@ -83,22 +78,10 @@ struct DayOverrideSheet: View {
                     .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                 }
 
-                VStack(spacing: 0) {
-                    Button {
-                        if let current = store.routine(forWeekday: isoWeekday) {
-                            store.assignRoutine(current.id, toWeekday: nil)
-                        }
-                        dismiss()
-                    } label: {
-                        Label("Día libre (sin rutina)", systemImage: "moon.fill")
-                            .foregroundStyle(OG.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .contentShape(Rectangle())
-                    }
-                }
-                .background(OG.surface.opacity(0.4), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                Text("La rutina se copiará solo a esta fecha. No se repetirá la próxima semana.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 4)
             }
             .padding(.horizontal, OG.pad)
             .padding(.bottom, 8)
