@@ -150,7 +150,6 @@ struct DayPlusSheet: View {
             OGPageHeader(title: "Añadir entreno", subtitle: dayName) {
                 CloseToolbarButton(action: { dismiss() }, large: true)
             }
-            .padding(.top, 4)
 
             Text("Entreno")
                 .font(.footnote.weight(.semibold))
