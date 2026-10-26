@@ -680,6 +680,28 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(reopened.wodResults.first?.elapsedSeconds, 628)
     }
 
+    func testUntypedLegacyRepsSurviveChangingToElapsedTime() {
+        let burpee = Exercise(name: "Burpee", muscleGroup: "Otros")
+        let block = RoutineBlock(title: "AMRAP", kind: .wod,
+            movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 10)],
+            wodFormat: .amrap)
+        var session = SessionController.from(
+            routine: Routine(title: "Legacy", blocks: [block]), exercises: [burpee]
+        )
+        session.phase = .finished
+        session.wodResults = [WODBlockResult(id: block.id, format: nil,
+                                            totalReps: 8, roundsCompleted: 4)]
+        var changedBlock = block
+        changedBlock.wodFormat = .forTime
+        XCTAssertNil(CompletedWorkoutEditing.editableScore(for: changedBlock, in: session))
+        let saved = CompletedWorkoutEditing.changingScore(
+            in: session, for: changedBlock, field: .minutes, value: 6
+        )
+        XCTAssertEqual(saved.wodResults.count, 2)
+        XCTAssertEqual(saved.wodResults.first(where: { $0.format == nil })?.totalReps, 8)
+        XCTAssertEqual(saved.wodResults.first(where: { $0.format == .forTime })?.elapsedSeconds, 360)
+    }
+
     func testFormatChangesDoNotErasePreviousRecordedScoresAndCanAddNewScore() throws {
         let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(
