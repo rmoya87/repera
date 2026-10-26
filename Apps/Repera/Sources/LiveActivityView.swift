@@ -2023,45 +2023,6 @@ struct LiveActivityView: View {
                         .padding(.horizontal, 14)
                         .padding(.top, 10)
                 }
-                // En Métricas, Audio, Mapa, Pausa/Play y Finalizar se alinean
-                // todos hacia la izquierda en una sola fila de botones.
-                // La pila vertical Play/Finalizar se reserva solo para Mapa.
-                if recorder.phase == .recording || recorder.phase == .paused {
-                    HStack(spacing: 12) {
-                        if showGuidanceToggle {
-                            metricsCircleButton(
-                                guidanceSymbol,
-                                label: guidanceAccessibilityLabel
-                            ) {
-                                recorder.toggleSpokenGuidance()
-                            }
-                        }
-                        if recorder.sport.usesGPS {
-                            metricsCircleButton("map", label: "Ver mapa") {
-                                showingMetrics = false
-                            }
-                        }
-                        if recorder.phase == .recording {
-                            sessionMapButton(
-                                "pause.fill", label: "Pausar grabación",
-                                background: OG.yellow, foreground: .black
-                            ) { recorder.pause() }
-                        } else {
-                            sessionMapButton(
-                                "play.fill", label: "Reanudar grabación",
-                                background: OG.accent, foreground: .black
-                            ) { recorder.resume() }
-                            sessionMapButton(
-                                "flag.checkered", label: "Finalizar y guardar",
-                                background: .black, foreground: .white
-                            ) { finishAndShowSave() }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 14)
-                }
-
                 HStack(spacing: 12) {
                     Image(systemName: recorder.sport.symbol)
                         .font(.title2.weight(.medium))
@@ -2076,16 +2037,20 @@ struct LiveActivityView: View {
                                 .font(.caption).foregroundStyle(OG.label2)
                         }
                     }
-                    Spacer(minLength: 0)
-                    // Antes de iniciar sigue existiendo acceso a Mapa.
-                    if recorder.phase == .idle && recorder.sport.usesGPS {
+                    Spacer(minLength: 4)
+                    // Los controles permanecen a la DERECHA del encabezado.
+                    // Al pausar, Play y Finalizar se sitúan uno junto al otro:
+                    // el grupo crece hacia la izquierda, no hacia abajo.
+                    if recorder.phase == .recording || recorder.phase == .paused {
+                        metricsTrailingActions
+                    } else if recorder.sport.usesGPS {
                         metricsCircleButton("map", label: "Ver mapa") {
                             showingMetrics = false
                         }
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, recorder.phase == .idle ? 14 : 10)
+                .padding(.top, 14)
 
                 Spacer(minLength: 16)
                 Text(formattedTime(recorder.duration(at: timeline.date)))
@@ -2148,6 +2113,40 @@ struct LiveActivityView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
                 recorder.checkpoint()
+            }
+        }
+    }
+
+    /// Acciones en la esquina superior derecha de Métricas.
+    /// El orden horizontal es Audio, Mapa, Reanudar y Finalizar. Nunca VStack.
+    private var metricsTrailingActions: some View {
+        HStack(spacing: 8) {
+            if showGuidanceToggle {
+                metricsCircleButton(
+                    guidanceSymbol, label: guidanceAccessibilityLabel
+                ) {
+                    recorder.toggleSpokenGuidance()
+                }
+            }
+            if recorder.sport.usesGPS {
+                metricsCircleButton("map", label: "Ver mapa") {
+                    showingMetrics = false
+                }
+            }
+            if recorder.phase == .recording {
+                sessionMapButton(
+                    "pause.fill", label: "Pausar grabación",
+                    background: OG.yellow, foreground: .black
+                ) { recorder.pause() }
+            } else if recorder.phase == .paused {
+                sessionMapButton(
+                    "play.fill", label: "Reanudar grabación",
+                    background: OG.accent, foreground: .black
+                ) { recorder.resume() }
+                sessionMapButton(
+                    "flag.checkered", label: "Finalizar y guardar",
+                    background: .black, foreground: .white
+                ) { finishAndShowSave() }
             }
         }
     }
