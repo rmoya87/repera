@@ -113,7 +113,8 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
 
     def test_sport_metrics_do_not_invent_gps_for_padel_or_tennis(self):
         splits = swift("CardioRouteComponents.swift")
-        self.assertIn("sport?.usesGPS ?? true", splits)
+        self.assertIn("sport?.usesGPS", splits)
+        self.assertIn("healthStats?.isOutdoorRouteActivity == true", splits)
         self.assertIn('title: "Pulso medio"', splits)
         self.assertIn('title: "Pulso mín."', splits)
         self.assertIn('title: "Pulso máx."', splits)
@@ -124,6 +125,29 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn("recordedMaxSpeedKmh", splits)
         self.assertIn('value: recordedMaxSpeedKmh.map(decimal) ?? "—"', splits)
         self.assertNotIn("17,2", splits)
+
+    def test_measured_steps_and_distance_for_all_workouts(self):
+        health = swift("HealthKitStore.swift")
+        splits = swift("CardioRouteComponents.swift")
+        detail = swift("HistoryView.swift")
+
+        for kind in (".stepCount", ".distanceWalkingRunning", ".distanceCycling",
+                     ".distanceDownhillSnowSports", ".distanceSwimming"):
+            self.assertIn(kind, health)
+        self.assertIn("HKQuery.predicateForObjects(from: workout)", health)
+        self.assertIn("withStart: workout.startDate, end: workout.endDate", health)
+        self.assertIn("workout.statistics(for: $0)", health)
+        self.assertIn("workout.totalDistance?", health)
+        self.assertIn("movementUsesTimeWindow", health)
+        self.assertIn('case .surfingSports, .paddleSports, .rowing, .sailing: return nil', health)
+        self.assertIn('"Pasos en horario"', splits)
+        self.assertIn('"Dist. en horario"', splits)
+        self.assertIn('"Distancia a pie"', splits)
+        self.assertIn('title: "Ritmo medio"', splits)
+        self.assertIn("hasMovement", detail)
+        self.assertIn("stepsCount: stepsCount", detail)
+        self.assertIn("movementDistanceMeters: movementDistanceMeters", detail)
+        self.assertIn("movementUsesTimeWindow: movementUsesTimeWindow", detail)
 
     def test_finished_home_workout_uses_green_strength_icon_and_tighter_chips(self):
         home = swift("HomeView.swift")
