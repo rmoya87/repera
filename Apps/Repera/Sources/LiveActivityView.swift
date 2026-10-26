@@ -747,6 +747,14 @@ final class LiveActivityRecorder: NSObject {
             routePoints = snapshot.routePoints
             rebuildElevationFromRoute()
             gpsSessionID = snapshot.gpsSessionID ?? UUID()
+            // The independent GPS checkpoint may include later fixes than the
+            // UI snapshot, especially after a sudden process termination.
+            if let gps = WorkoutLocationTracker.shared.restoreForResume(sessionID: gpsSessionID),
+               gps.points.count > routePoints.count {
+                routePoints = gps.points
+                recordedDistanceMeters = max(recordedDistanceMeters, gps.meters)
+                rebuildElevationFromRoute()
+            }
             kilometerSplits = snapshot.kilometerSplits ?? []
             lastKilometerBoundarySeconds = snapshot.lastKilometerBoundarySeconds ?? 0
             latestKilometerReport = kilometerSplits.last.map {
@@ -953,8 +961,10 @@ final class LiveActivityRecorder: NSObject {
     }
 
     /// Checkpoint al pasar a segundo plano y mientras la vista está activa.
-    func checkpoint() {
-        if isActive && Date().timeIntervalSince(lastSave) >= 10 { persistSnapshot() }
+    func checkpoint(force: Bool = false) {
+        if isActive && (force || Date().timeIntervalSince(lastSave) >= 10) {
+            persistSnapshot()
+        }
     }
 
     /// Reconciliar los valores al reabrir Comenzar sin reiniciar el odómetro.

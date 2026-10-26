@@ -342,7 +342,9 @@ actor AppStatePersistence {
                 && picked.lastWriterDeviceId == cloud.lastWriterDeviceId)
                 || SyncConflictResolver.winner(local: local, remote: cloud) == .remote
             if adoptedRemote {
-                try? writeLocalNow(picked)
+                // Cloud recovery is asynchronous. A workout may start while
+                // downloading: the caller must recheck before replacing local data.
+                // Never overwrite the last durable workout from this cloud actor.
                 return .adoptedRemote(picked)
             }
             return .keptLocal(shouldUpload: true)

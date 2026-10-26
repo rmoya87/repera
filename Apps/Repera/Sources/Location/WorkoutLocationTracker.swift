@@ -239,6 +239,13 @@ final class WorkoutLocationTracker: NSObject {
         return result
     }
 
+    /// Force a durable route checkpoint when iOS is about to suspend us.
+    /// Never terminate the location sensor just because the user opens a map.
+    func checkpoint() {
+        guard trackingSessionID != nil else { return }
+        saveSnapshot()
+    }
+
     func restoreForResume(sessionID: UUID) -> (points: [WorkoutRoutePoint], meters: Double)? {
         guard let snapshot = readSnapshot(for: sessionID) else { return nil }
         return (snapshot.points, snapshot.meters)

@@ -238,14 +238,28 @@ struct ReperaApp: App {
                         }
                         aiInbox.stopRealtime()
                         wasBackgrounded = true
-                        Task {
+                        // Recording takes precedence over network/background work.
+                        // Checkpoint both workout types and GPS immediately.
+                        LiveActivityRecorder.shared.checkpoint(force: true)
+                        locationTracker.checkpoint()
+                        let backgroundID = UIApplication.shared.beginBackgroundTask(
+                            withName: "Repera workout checkpoint"
+                        )
+                        Task { @MainActor in
+                            defer { UIApplication.shared.endBackgroundTask(backgroundID) }
                             guard store.isHydrated else { return }
-                            await LocalStore.shared.persistAndFlush(store.state)
+                            try? await LocalStore.shared.persistAndFlush(store.state)
                         }
                     } else if phase == .inactive {
                         aiInbox.stopRealtime()
+                        LiveActivityRecorder.shared.checkpoint(force: true)
+                        locationTracker.checkpoint()
                     } else if phase == .active, wasBackgrounded {
                         store.resumePlannedGPSTrackingIfNeeded()
+                        LiveActivityRecorder.shared.refreshWhenActive()
+                        // No cloud state replacement, Health history or business
+                        // refresh while a workout is actively being recorded.
+                        guard !store.hasWorkoutInProgress else { return }
                         // Real return from background — not the initial launch `.active`.
                         Task {
                             guard store.isHydrated else { return }
@@ -272,7 +286,8 @@ struct ReperaApp: App {
                             }
                             wireSubscriptionGates()
                         }
-                    } else if phase == .active, businessAuth.isConnected {
+                    } else if phase == .active, businessAuth.isConnected,
+                              !store.hasWorkoutInProgress {
                         aiInbox.startRealtime(store: store)
                     }
                 }
@@ -352,7 +367,8 @@ struct ReperaApp: App {
     private var appWindowContent: some View {
         appCatalogSyncContent
                 .onChange(of: store.state.syncRevision) { _, _ in
-                    if businessAuth.isConnected, scenePhase == .active {
+                    if businessAuth.isConnected, scenePhase == .active,
+                       !store.hasWorkoutInProgress {
                         Task { _ = await AITrainingContextStore.shared.syncCalendar(store: store)
                             _ = await AIChangeRequestStore.shared.syncCustomExercises(store: store)
                             await AIChangeRequestStore.shared.refresh(store: store) }
@@ -419,6 +435,11 @@ struct ReperaApp: App {
     private func warmHealthAfterHydrate() async {
         // Resume Core Location independently of HealthKit permissions.
         store.resumePlannedGPSTrackingIfNeeded()
+        // Cold launch after an interrupted session: GPS + disk recovery first.
+        guard !store.hasWorkoutInProgress else {
+            LaunchWarmup.markLaunchHealthWarmFinished()
+            return
+        }
         let health = HealthKitStore.shared
         health.refreshAuthorizationStatus()
         guard health.isAvailable else {
@@ -450,6 +471,7 @@ struct ReperaApp: App {
     }
 
     private func refreshHealthOnForeground(forceProgressiveIfNeeded: Bool) async {
+        guard !store.hasWorkoutInProgress else { return }
         let health = HealthKitStore.shared
         health.refreshAuthorizationStatus()
         guard health.isAvailable else { return }

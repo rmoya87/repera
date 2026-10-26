@@ -61,6 +61,12 @@ final class ReperaStore: NSObject {
     func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
     func bumpSessionEpoch() { sessionEpoch &+= 1 }
 
+    /// Protect Play and Comenzar, including a paused or unsaved review.
+    /// Remote restoration must never replace a session in progress.
+    var hasWorkoutInProgress: Bool {
+        state.activeSession != nil || LiveActivityRecorder.shared.isActive
+    }
+
     var controller: SessionController? {
         guard let active = state.activeSession else { return nil }
         return SessionController(session: active)
@@ -504,6 +510,10 @@ final class ReperaStore: NSObject {
     }
 
     func refreshFromiCloud(isInitial: Bool = false) async {
+        guard !hasWorkoutInProgress else {
+            lastiCloudSyncMessage = "Sincronización aplazada hasta finalizar el entrenamiento"
+            return
+        }
         isSyncingiCloud = true
         defer { isSyncingiCloud = false }
         await store.refreshICloudStatusAsync()
@@ -524,6 +534,12 @@ final class ReperaStore: NSObject {
         }
 
         let outcome = await store.recoverFromiCloud(local: state)
+        // A workout can begin while awaiting iCloud. Never apply an older
+        // remote copy over its local recording or change its session identity.
+        guard !hasWorkoutInProgress else {
+            lastiCloudSyncMessage = "Entrenamiento protegido; sincronización aplazada"
+            return
+        }
         syncPhase = store.syncPhase
         iCloudStatus = store.iCloudStatus
 

@@ -2145,6 +2145,13 @@ struct HealthWorkoutRouteMap: View {
     var isInteractive: Bool = true
     var isWaterSport: Bool = false
 
+    // MapKit overlays are expensive: cache the route geometry between SwiftUI
+    // updates (including continuous GPS changes from another active session).
+    @State private var cachedRuns: [SpeedRun] = []
+    private var routeCacheKey: String {
+        "\(points.count)-\(points.first?.date.timeIntervalSince1970 ?? 0)-\(points.last?.date.timeIntervalSince1970 ?? 0)-\(isWaterSport)"
+    }
+
     /// Un recorrido válido se representa como una sola polilínea con colores
     /// interpolados a lo largo de su distancia, no como una línea por muestra GPS.
     /// Las pausas y los saltos se conservan como cortes (no se inventan tramos).
@@ -2274,8 +2281,22 @@ struct HealthWorkoutRouteMap: View {
             index = min(index + step, coordinates.count - 1)
         }
 
+        // Cap vertices sent to MapKit, not the recorded GPS data.
+        // Three stacked native overlays per full-resolution point may cause a
+        // memory-pressure termination when a past map opens mid-workout.
+        let maxVertices = 450
+        let renderStride = max(1, Int(ceil(Double(coordinates.count - 1) / Double(maxVertices - 1))))
+        var renderedCoordinates: [CLLocationCoordinate2D] = []
+        renderedCoordinates.reserveCapacity(min(maxVertices, coordinates.count))
+        var renderIndex = 0
+        while renderIndex < coordinates.count {
+            renderedCoordinates.append(coordinates[renderIndex])
+            if renderIndex == coordinates.count - 1 { break }
+            renderIndex = min(renderIndex + renderStride, coordinates.count - 1)
+        }
+
         return SpeedRun(
-            id: legs[0].index, coordinates: coordinates,
+            id: legs[0].index, coordinates: renderedCoordinates,
             halo: Gradient(stops: haloStops),
             edge: Gradient(stops: edgeStops),
             core: Gradient(stops: coreStops)
@@ -2372,7 +2393,7 @@ struct HealthWorkoutRouteMap: View {
                     .foregroundStyle(Color.black.opacity(0.33))
                     .mapOverlayLevel(level: .aboveRoads)
             }
-            ForEach(routeRuns) { run in
+            ForEach(cachedRuns) { run in
                 // Una única geometría por tramo: esquinas redondas y degradado
                 // continuo. Resplandor detrás, colores eléctricos encima.
                 MapPolyline(coordinates: run.coordinates)
@@ -2422,6 +2443,11 @@ struct HealthWorkoutRouteMap: View {
             }
         }
         .allowsHitTesting(isInteractive)
+        .task(id: routeCacheKey) {
+            // Rebuild only for a different route; never on unrelated tab/store
+            // invalidations while a workout is recording in the background.
+            cachedRuns = routeRuns
+        }
     }
 
     private static func speedColor(
