@@ -99,7 +99,11 @@ final class ReperaStore: NSObject {
         // Tras actualizar desde el antiguo plan recurrente, fijar las
         // asignaciones a fechas de ESTA semana (sin repetir indefinidamente).
         let migratedWeekly = migrateLegacyWeeklyPlans()
-        if migratedWeekly { persistLocalOnly(immediate: true) }
+        if migratedWeekly {
+            // No adelantar la revisión local antes de comparar iCloud:
+            // una migración visual no debe eclipsar datos remotos más nuevos.
+            store.persistLocal(state, immediate: true)
+        }
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
         isHydrated = true
