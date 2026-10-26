@@ -1579,6 +1579,8 @@ struct LiveActivityView: View {
                 WorkoutMapZoomDestination(
                     points: fullScreenRoutePoints,
                     isWaterSport: recorder.sport.isWaterSport,
+                    referenceRoutePoints: recorder.routePoints.count >= 2
+                        ? (recorder.chosenRoute?.points ?? []) : [],
                     onClose: { showFullScreenRoute = false }
                 )
                 .navigationTransition(.zoom(
