@@ -115,7 +115,7 @@ struct SettingsView: View {
                             localSyncError = nil
                             await LocalStore.shared.persistAndFlush(store.state)
                             if let error = LocalStore.shared.lastPersistenceError {
-                                localSyncError = error
+                                localSyncError = error.localizedDescription
                                 return
                             }
                             _ = await workoutSync.sync(store: store)
