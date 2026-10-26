@@ -42,6 +42,7 @@ private struct ReperaNowPlayingSnapshot {
 struct ReperaNowPlayingBar: View {
     var darkAppearance = false
     var horizontalPadding: CGFloat = 0
+    var showsSeparator = false
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var snapshot = ReperaNowPlayingSnapshot()
@@ -52,7 +53,12 @@ struct ReperaNowPlayingBar: View {
     var body: some View {
         Group {
             if snapshot.isVisible {
-                HStack(spacing: 10) {
+                VStack(spacing: 8) {
+                    if showsSeparator {
+                        Divider()
+                            .overlay(darkAppearance ? Color.white.opacity(0.2) : OG.surface3)
+                    }
+                    HStack(spacing: 10) {
                     Group {
                         if let artwork = snapshot.artwork {
                             Image(uiImage: artwork)
@@ -124,8 +130,9 @@ struct ReperaNowPlayingBar: View {
                 }
                 .padding(.horizontal, horizontalPadding)
                 .padding(.vertical, 5)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Reproducción de música")
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Reproducción de música")
+                }
             }
         }
         .task {
