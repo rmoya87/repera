@@ -223,16 +223,14 @@ struct StandaloneTimerView: View {
                 .ogReadableColumn()
 
                 VStack(alignment: .leading, spacing: 0) {
-                    OGCardSectionTitle(title: "Configuración")
-                        .padding(.bottom, 10)
-
                     switch config.mode {
                     case .up, .down:
                         compactTimeRow(
                             title: "Duración",
                             minutes: $config.durationMinutes,
                             seconds: $config.durationSeconds,
-                            maxMinutes: 180
+                            maxMinutes: 180,
+                            topPadding: 0
                         )
                     case .intervals:
                         compactIntRow(title: "Rondas", value: $config.rounds, range: 1...99)
@@ -321,14 +319,17 @@ struct StandaloneTimerView: View {
             TimerNumericInput(label: "RONDAS", value: value, range: range)
                 .frame(width: 110)
         }
-        .padding(.vertical, 9)
+        // La primera fila comienza a 14 pt del borde superior de la tarjeta,
+        // sin el espacio reservado para el antiguo encabezado.
+        .padding(.bottom, 9)
     }
 
     private func compactTimeRow(
         title: String,
         minutes: Binding<Int>,
         seconds: Binding<Int>,
-        maxMinutes: Int
+        maxMinutes: Int,
+        topPadding: CGFloat = 9
     ) -> some View {
         HStack(spacing: 12) {
             Text(title)
@@ -340,7 +341,8 @@ struct StandaloneTimerView: View {
             }
             .frame(maxWidth: 210)
         }
-        .padding(.vertical, 9)
+        .padding(.top, topPadding)
+        .padding(.bottom, 9)
     }
 
     private func persistFavorite() {
