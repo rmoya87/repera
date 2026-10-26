@@ -1257,12 +1257,8 @@ final class LiveActivityRecorder: NSObject {
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-        notifyDuringBackground(
-            identifier: "repera.km.\(startedAt?.timeIntervalSince1970 ?? 0).\(split.kilometer)",
-            title: "Kilómetro \(split.kilometer) completado",
-            body: result,
-            fallbackWhenSpeechFailed: !didSpeak
-        )
+        // El aviso del kilómetro es exclusivamente de voz.
+        // Sin notificaciones: el resultado se conserva en Parciales.
         persistSnapshot()
     }
 
@@ -1401,7 +1397,10 @@ final class LiveActivityRecorder: NSObject {
 
 extension LiveActivityRecorder: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.deactivateGuidanceAudio() }
+        Task { @MainActor [weak self] in
+            guard let self, !self.speechSynthesizer.isSpeaking else { return }
+            self.deactivateGuidanceAudio()
+        }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
