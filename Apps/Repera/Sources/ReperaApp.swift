@@ -253,9 +253,12 @@ struct ReperaApp: App {
                             await RemoteExerciseCatalogStore.shared.restoreCached(to: store)
                             await refreshHealthOnForeground(forceProgressiveIfNeeded: true)
                             await subscriptions.refreshOnForeground()
+                            // Validar / renovar JWT al volver; si el refresh token
+                            // fue revocado, la raíz cambiará a la página de login.
+                            if businessAuth.isConnected { _ = await businessAuth.ensureUsableSession() }
                             // Pull latest published trainer blocks, reservations and passes
                             // on foreground. Supabase RLS keeps personal history private.
-                            if businessAuth.isConnected {
+                            if businessAuth.isConnected && !businessAuth.requiresReauthentication {
                                 await businessData.refresh()
                                 await RemoteExerciseCatalogStore.shared.refresh(store: store)
                                 await workoutSync.sync(store: store)
@@ -389,7 +392,7 @@ struct ReperaApp: App {
 
     /// Apple o Google verificado + Supabase + onboarding hecho.
     private var canEnterMainApp: Bool {
-        guard !businessAuth.didExplicitlySignOut else { return false }
+        guard !businessAuth.didExplicitlySignOut, !businessAuth.requiresReauthentication else { return false }
         return AuthSessionLaunchPolicy.decide(
             .init(
                 appleSignedIn: appleAuth.isSignedIn,
