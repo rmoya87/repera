@@ -522,7 +522,9 @@ struct WorkoutDetailView: View {
                                     (extras.activityType == .cycling ||
                                      session.title.localizedCaseInsensitiveContains("bici") ||
                                      session.title.localizedCaseInsensitiveContains("cicl")),
-                                activeKilometerSeconds: session.liveKilometerSplitsSeconds
+                                activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
+                                totalDistanceMeters: session.recordedDistanceMeters
                             )
                             .ogCardListRow()
                         } header: {
@@ -541,7 +543,9 @@ struct WorkoutDetailView: View {
                             routePoints: displayedRoute(session),
                             heartRate: [],
                             cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed ?? false,
-                            activeKilometerSeconds: session.liveKilometerSplitsSeconds
+                            activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
+                                totalDistanceMeters: session.recordedDistanceMeters
                         )
                         .ogCardListRow()
                     } header: {
