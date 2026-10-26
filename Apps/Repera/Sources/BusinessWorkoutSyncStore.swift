@@ -145,16 +145,8 @@ final class BusinessWorkoutSyncStore {
     /// Silent early exits must never appear as a successful manual synchronization.
     @discardableResult
     func sync(store: ReperaStore) async -> Bool {
-        // Renovar JWT antes de publicar, sin requerir logout manual.
-        guard await BusinessAuthStore.shared.ensureUsableSession(),
-              let client = BusinessAuthStore.shared.apiClient else {
-            lastError = "No hay una sesión activa de Supabase. Reconecta tu cuenta en Ajustes."
-            return false
-        }
-        guard store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud else {
-            lastError = "Esperando a que termine la recuperación local/iCloud. Reintenta la sincronización."
-            return false
-        }
+        // Serializar también la renovación del JWT. Dos guardados simultáneos
+        // no deben competir por el mismo refresh token rotatorio de Supabase.
         if isSyncing {
             retryRequested = true
             return false
@@ -168,6 +160,16 @@ final class BusinessWorkoutSyncStore {
                 retryRequested = false
                 Task { @MainActor in await self.sync(store: store) }
             }
+        }
+        guard await BusinessAuthStore.shared.ensureUsableSession(),
+              let client = BusinessAuthStore.shared.apiClient else {
+            lastError = BusinessAuthStore.shared.lastErrorMessage
+                ?? "La sesión de Supabase no está disponible. Inicia sesión si es necesario."
+            return false
+        }
+        guard store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud else {
+            lastError = "Esperando a que termine la recuperación local/iCloud. Reintenta la sincronización."
+            return false
         }
 
         do {
