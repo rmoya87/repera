@@ -2,6 +2,29 @@ import XCTest
 @testable import ReperaDomain
 
 final class SessionControllerTests: XCTestCase {
+    func testScheduledBTTAndT2BRelinkOldIdsToCatalog() {
+        let catalog = Catalog.seed()
+        guard let target = catalog.first(where: { $0.name == "Burpee to target" }),
+              let toes = catalog.first(where: { $0.name == "Toes to bar" }) else {
+            XCTFail("El catálogo debe incluir BTT y T2B")
+            return
+        }
+        let provisional = Exercise(name: "BTT", muscleGroup: "Custom", isCustom: true)
+        var wod = RoutineBlock.wod(format: .emom, title: "EMOM 16'")
+        wod.movements = [
+            WODMovement(exerciseId: provisional.id, name: "BTT", reps: 8),
+            WODMovement(name: "T2B", reps: 10)
+        ]
+        let session = SessionController.from(
+            routine: Routine(title: "Mañana", blocks: [wod]),
+            exercises: catalog + [provisional]
+        )
+        XCTAssertEqual(session.exercises.count, 2)
+        XCTAssertEqual(session.exercises[0].exercise.id, target.id)
+        XCTAssertEqual(session.exercises[1].exercise.id, toes.id)
+        XCTAssertFalse(session.exercises[0].exercise.isCustom)
+        XCTAssertFalse(session.exercises[1].exercise.isCustom)
+    }
     func testEditedPlaySetsPersistAfterFinishAndCodableRoundTrip() throws {
         let lift = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
         let entry = RoutineExercise(
