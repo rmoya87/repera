@@ -149,6 +149,7 @@ final class HealthKitStore {
         var maxSpeedKmh: Double?
         var stepsCount: Int? = nil
         var movementDistanceMeters: Double? = nil
+        var movementDistanceLabel: String? = nil
         var movementUsesTimeWindow: Bool = false
     }
 
@@ -163,6 +164,7 @@ final class HealthKitStore {
         var maxSpeedKmh: Double?
         var stepsCount: Int? = nil
         var movementDistanceMeters: Double? = nil
+        var movementDistanceLabel: String? = nil
         /// Muestras horarias (no ligadas formalmente al HKWorkout): indicar
         /// procedencia en la UI y evitar atribuirlas a una serie concreta.
         var movementUsesTimeWindow: Bool = false
@@ -1201,6 +1203,7 @@ final class HealthKitStore {
             maxSpeedKmh: extras.maxSpeedKmh,
             stepsCount: extras.stepsCount,
             movementDistanceMeters: extras.movementDistanceMeters,
+            movementDistanceLabel: extras.movementDistanceLabel,
             movementUsesTimeWindow: extras.movementUsesTimeWindow
         )
     }
@@ -1398,6 +1401,7 @@ final class HealthKitStore {
         var typeRaw: UInt?
         var steps: Int?
         var movingMeters: Double?
+        var distanceLabel: String?
         var timedMovement = false
         if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
             source = workout.sourceRevision.source.name
@@ -1410,6 +1414,7 @@ final class HealthKitStore {
             let movement = await workoutMovementMetrics(workout)
             steps = movement.steps
             movingMeters = movement.distanceMeters
+            distanceLabel = movement.distanceLabel
             timedMovement = movement.fromTimeWindow
         }
 
@@ -1425,6 +1430,7 @@ final class HealthKitStore {
             maxSpeedKmh: maxSpeedKmh,
             stepsCount: steps,
             movementDistanceMeters: movingMeters,
+            movementDistanceLabel: distanceLabel,
             movementUsesTimeWindow: timedMovement,
             activeEnergyKcal: kcal,
             sourceName: source,
@@ -1438,51 +1444,90 @@ final class HealthKitStore {
     /// a partir de calorías, ritmo cardíaco ni longitud de zancada.
     private func workoutMovementMetrics(
         _ workout: HKWorkout
-    ) async -> (steps: Int?, distanceMeters: Double?, fromTimeWindow: Bool) {
+    ) async -> (steps: Int?, distanceMeters: Double?,
+                 distanceLabel: String?, fromTimeWindow: Bool) {
         let walking = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)
         let snow = HKQuantityType.quantityType(forIdentifier: .distanceDownhillSnowSports)
         let bike = HKQuantityType.quantityType(forIdentifier: .distanceCycling)
         let swimming = HKQuantityType.quantityType(forIdentifier: .distanceSwimming)
-        let preferred: HKQuantityType? = {
-            switch workout.workoutActivityType {
-            case .downhillSkiing, .snowboarding: return snow
-            case .cycling: return bike
-            case .swimming: return swimming
-            // Tenis, pádel y entrenamiento general: solo pasos/distancia a pie.
-            // Para surf/kitesurf nunca convertir pasos en distancia navegada.
-            case .surfingSports, .paddleSports, .rowing, .sailing: return nil
-            default: return walking
-            }
-        }()
+
+        // Una sesión mixta puede incluir carrera, esquí y bici, aunque su
+        // HKWorkout se guarde como crossTraining/functionalStrengthTraining.
+        // Consultar cada tipo sin sumarlos ni atribuir bici a caminar.
+        var types: [(type: HKQuantityType, label: String)] = []
+        func append(_ type: HKQuantityType?, _ label: String) {
+            if let type { types.append((type, label)) }
+        }
+        switch workout.workoutActivityType {
+        case .downhillSkiing, .snowboarding:
+            append(snow, "Distancia nieve")
+        case .cycling:
+            append(bike, "Distancia bici")
+        case .swimming:
+            append(swimming, "Distancia nado")
+        case .crossTraining, .functionalStrengthTraining, .traditionalStrengthTraining,
+             .highIntensityIntervalTraining:
+            append(walking, "Distancia a pie")
+            append(bike, "Distancia bici")
+            append(snow, "Distancia nieve")
+        // Las actividades acuáticas tienen su propia distancia del HKWorkout
+        // o GPX, nunca reutilizar distanciaWalkingRunning para el agua.
+        case .surfingSports, .paddleSports, .rowing, .sailing:
+            break
+        default:
+            append(walking, "Distancia a pie")
+        }
 
         let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)
-        let stepsAssociated: Double? = if let stepsType {
+        let associatedSteps: Double? = if let stepsType {
             await summedHealthQuantity(stepsType, workout: workout, inTimeWindow: false)
         } else { nil }
-        let distanceAssociated: Double? = if let preferred {
-            await summedHealthQuantity(preferred, workout: workout, inTimeWindow: false)
-        } else { nil }
-
-        let stepFallback: Double? = if stepsAssociated == nil, let stepsType {
+        let timedSteps: Double? = if associatedSteps == nil, let stepsType {
             await summedHealthQuantity(stepsType, workout: workout, inTimeWindow: true)
         } else { nil }
-        let distanceFallback: Double? = if distanceAssociated == nil, let preferred {
-            await summedHealthQuantity(preferred, workout: workout, inTimeWindow: true)
-        } else { nil }
 
-        // Prioridad: distancia propia del HKWorkout. Si Salud no la guarda,
-        // muestras asociadas. Solo después se considera la ventana horaria.
-        let distance = preferred.flatMap { workout.statistics(for: $0)?
-            .sumQuantity()?.doubleValue(for: .meter()) }
-            ?? workout.totalDistance?.doubleValue(for: .meter())
-            ?? distanceAssociated
-            ?? distanceFallback
-        let stepValue = stepsAssociated ?? stepFallback
+        var distances: [(meters: Double, label: String, timed: Bool)] = []
+        for candidate in types {
+            let summary = workout.statistics(for: candidate.type)?
+                .sumQuantity()?.doubleValue(for: .meter())
+            let associated = summary == nil
+                ? await summedHealthQuantity(
+                    candidate.type, workout: workout, inTimeWindow: false
+                  )
+                : nil
+            let timed = summary == nil && associated == nil
+                ? await summedHealthQuantity(
+                    candidate.type, workout: workout, inTimeWindow: true
+                  )
+                : nil
+            if let meters = summary ?? associated ?? timed,
+               meters.isFinite, meters > 0 {
+                distances.append((meters, candidate.label, timed != nil))
+            }
+        }
+        // En mixtos se presenta la modalidad medida con mayor recorrido,
+        // no una suma de magnitudes que pueden solaparse entre fuentes.
+        let measured = distances.max { $0.meters < $1.meters }
+        let workoutDistance = workout.totalDistance?.doubleValue(for: .meter())
+        let pickedMeters: Double?
+        let pickedLabel: String?
+        let distanceTimed: Bool
+        if let workoutDistance, workoutDistance.isFinite, workoutDistance > 0,
+           (measured == nil || workoutDistance >= measured!.meters) {
+            pickedMeters = workoutDistance
+            pickedLabel = types.count == 1 ? types[0].label : "Distancia recorrida"
+            distanceTimed = false
+        } else {
+            pickedMeters = measured?.meters
+            pickedLabel = measured?.label
+            distanceTimed = measured?.timed ?? false
+        }
+        let countedSteps = associatedSteps ?? timedSteps
         return (
-            steps: stepValue.flatMap { $0.isFinite && $0 > 0 ? Int($0.rounded()) : nil },
-            distanceMeters: distance.flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
-            fromTimeWindow: (stepsAssociated == nil && stepFallback != nil)
-                || (distanceAssociated == nil && distanceFallback != nil)
+            steps: countedSteps.flatMap { $0.isFinite && $0 > 0 ? Int($0.rounded()) : nil },
+            distanceMeters: pickedMeters,
+            distanceLabel: pickedLabel,
+            fromTimeWindow: (associatedSteps == nil && timedSteps != nil) || distanceTimed
         )
     }
 
