@@ -78,7 +78,7 @@ struct HomeView: View {
     }
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
-    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 100
+    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 116
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     @State private var lastAppliedFocusDay: Date?
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
@@ -925,7 +925,7 @@ struct HomeView: View {
             // Cuando hay varias sesiones, el listado sí crece verticalmente.
             if !hasActive {
                 addAnotherWorkoutButton
-                    .padding(.top, 8)
+                    .padding(.top, 12)
             }
         }
         .swipeActionsContainer()
@@ -961,6 +961,7 @@ struct HomeView: View {
             .foregroundStyle(OG.label2)
             .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
             .padding(.leading, Self.chipsTitleLeading)
+            .padding(.top, 4)
         }
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .center)
@@ -1148,12 +1149,11 @@ struct HomeView: View {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
                     chips()
                 }
-                // La banda inferior ocupa lo mismo con o sin chips:
-                // un registro y la tarjeta de día vacío miden igual.
+                // Mantener el título y sus chips separados, sin solaparlos.
+                // Con la altura mínima común, el primer subtítulo y el último
+                // chip respetan márgenes verticales simétricos.
                 .frame(minHeight: 30, alignment: .top)
-                // La altura de 44 pt del icono separaba visualmente el chip del título.
-                // Acercar la banda sin cambiar el alto mínimo del registro.
-                .padding(.top, -12)
+                .padding(.top, 8)
             }
         )
         .accessibilityHint(accessibilityHint)
