@@ -283,6 +283,22 @@ struct CardioSplitsView: View {
     /// Si Repera midió los parciales con su reloj activo, preferirlos sobre
     /// los timestamps GPS que incluyen intervalos en pausa.
     var activeKilometerSeconds: [Double]? = nil
+    /// Totales de la actividad completa, no solo los kilómetros cerrados.
+    var totalActiveSeconds: Double? = nil
+    var totalDistanceMeters: Double? = nil
+
+    private var averageSpeedKmh: Double? {
+        guard let seconds = totalActiveSeconds, seconds > 0,
+              let meters = totalDistanceMeters, meters > 0 else { return nil }
+        return meters / seconds * 3.6
+    }
+
+    private var averagePace: String? {
+        guard let seconds = totalActiveSeconds, seconds > 0,
+              let meters = totalDistanceMeters, meters > 0 else { return nil }
+        let secondsPerKm = Int((seconds / (meters / 1000)).rounded())
+        return String(format: "%d:%02d min/km", secondsPerKm / 60, secondsPerKm % 60)
+    }
 
     private struct DisplaySplit: Identifiable {
         var id: Int { kilometer }
@@ -320,6 +336,13 @@ struct CardioSplitsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let speed = averageSpeedKmh {
+                HStack(spacing: 8) {
+                    averageStat("Ritmo medio", value: averagePace ?? "—", icon: "timer")
+                    averageStat("Velocidad media", value: String(format: "%.1f km/h", speed), icon: "speedometer")
+                }
+                .padding(.bottom, 12)
+            }
             HStack(spacing: 6) {
                 Text("KM").frame(width: 38, alignment: .leading)
                 Text("Tiempo").frame(maxWidth: .infinity, alignment: .leading)
@@ -359,6 +382,18 @@ struct CardioSplitsView: View {
         }
         .padding(OG.pad)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+    }
+
+    private func averageStat(_ title: String, value: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(OG.accent)
+            Text(value).font(.system(size: 16, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label).lineLimit(1).minimumScaleFactor(0.75)
+            Text(title).font(.caption).foregroundStyle(OG.label2)
+        }
+        .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
+        .padding(12)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14))
     }
 
     static func clock(_ seconds: Double) -> String {
