@@ -261,6 +261,6 @@ struct FreeExerciseSummaryCard: View {
     }
 
     private func formatKg(_ kg: Double) -> String {
-        kg.formatted(.number.precision(.fractionLength(0...1)))
+        ReperaNumberFormat.decimal(kg)
     }
 }
