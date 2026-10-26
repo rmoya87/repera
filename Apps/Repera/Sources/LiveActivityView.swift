@@ -1651,6 +1651,7 @@ struct LiveActivityView: View {
         var id: Int
         var coordinates: [CLLocationCoordinate2D]
         var color: Color
+        var isEstimated: Bool
     }
 
     /// Ruta detallada por velocidad, manteniendo tramos discontinuos cuando
@@ -1661,7 +1662,8 @@ struct LiveActivityView: View {
         guard points.count >= 2 else { return [] }
         let limit = recorder.sport.isCycling ? 22.0 : 12.0
         var measurements: [(index: Int, start: CLLocationCoordinate2D,
-                            end: CLLocationCoordinate2D, speed: Double)] = []
+                            end: CLLocationCoordinate2D, speed: Double,
+                            isEstimated: Bool)] = []
         for index in 1..<points.count {
             let a = points[index - 1]
             let b = points[index]
@@ -1674,7 +1676,10 @@ struct LiveActivityView: View {
             let derived = meters / seconds
             guard derived.isFinite, derived <= limit else { continue }
             let speed = b.speedMps.flatMap { $0 > 0 && $0 <= limit ? $0 : nil } ?? derived
-            measurements.append((index, start, end, speed))
+            measurements.append((
+                index, start, end, speed,
+                a.isEstimated == true || b.isEstimated == true
+            ))
         }
         guard !measurements.isEmpty else { return [] }
         let slowest = measurements.map { $0.speed }.min() ?? 0
@@ -1686,12 +1691,14 @@ struct LiveActivityView: View {
             let fraction = min(1, max(0, (sample.speed - slowest) / (fastest - slowest)))
             let bucket = min(5, Int((fraction * 5).rounded()))
             if sample.index == previousIndex + 1, bucket == previousBucket,
-               !output.isEmpty {
+               !output.isEmpty,
+               output[output.count - 1].isEstimated == sample.isEstimated {
                 output[output.count - 1].coordinates.append(sample.end)
             } else {
                 output.append(LiveColoredMapSegment(
                     id: sample.index, coordinates: [sample.start, sample.end],
-                    color: Self.traceColor(Double(bucket) / 5, water: recorder.sport.isWaterSport)
+                    color: Self.traceColor(Double(bucket) / 5, water: recorder.sport.isWaterSport),
+                    isEstimated: sample.isEstimated
                 ))
             }
             previousIndex = sample.index
@@ -1732,7 +1739,10 @@ struct LiveActivityView: View {
                 }
                 ForEach(coloredLiveSegments) { segment in
                     MapPolyline(coordinates: segment.coordinates)
-                        .stroke(segment.color, lineWidth: 5)
+                        .stroke(segment.color, style: StrokeStyle(
+                            lineWidth: 5, lineCap: .round, lineJoin: .round,
+                            dash: segment.isEstimated ? [7, 6] : []
+                        ))
                 }
                 if let current = recorder.currentCoordinate {
                     Annotation("Tú", coordinate: current) {
@@ -1847,6 +1857,17 @@ struct LiveActivityView: View {
 
     @ViewBuilder
     private var mapStatusMessages: some View {
+        if recorder.estimatedRecoveryMeters > 0 {
+            Label(
+                "Recorrido recuperado: tramo discontinuo estimado, no GPS real",
+                systemImage: "location.north.line"
+            )
+            .font(.caption.weight(.medium))
+            .foregroundStyle(OG.label)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .glassEffect(.regular, in: .capsule)
+        }
         if let offRoute = recorder.offRouteMeters, offRoute > 60 {
             Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption.weight(.semibold))
