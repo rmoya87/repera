@@ -9,15 +9,20 @@ final class SessionControllerTests: XCTestCase {
             XCTFail("El catálogo debe incluir BTT y T2B")
             return
         }
-        let provisional = Exercise(name: "BTT", muscleGroup: "Custom", isCustom: true)
+        // Reproducción del estado local real: fichas provisionales que
+        // comparten nombre con la oficial y fueron guardadas antes del seed.
+        let provisional = Exercise(name: "Burpee to target", muscleGroup: "Custom", isCustom: true)
+        let oldToes = Exercise(name: "Toes to bar", muscleGroup: "Custom", isCustom: true)
+        XCTAssertEqual(CrossFitGlossary.resolveCatalogName("BTt"), "Burpee to target")
+        XCTAssertEqual(CrossFitGlossary.resolveCatalogName("T2B"), "Toes to bar")
         var wod = RoutineBlock.wod(format: .emom, title: "EMOM 16'")
         wod.movements = [
-            WODMovement(exerciseId: provisional.id, name: "BTT", reps: 8),
-            WODMovement(name: "T2B", reps: 10)
+            WODMovement(exerciseId: provisional.id, name: "BTt", reps: 8),
+            WODMovement(exerciseId: oldToes.id, name: "T2B", reps: 10)
         ]
         let session = SessionController.from(
             routine: Routine(title: "Mañana", blocks: [wod]),
-            exercises: catalog + [provisional]
+            exercises: [provisional, oldToes] + catalog
         )
         XCTAssertEqual(session.exercises.count, 2)
         XCTAssertEqual(session.exercises[0].exercise.id, target.id)
