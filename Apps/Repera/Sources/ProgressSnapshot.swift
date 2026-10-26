@@ -309,6 +309,11 @@ enum ProgressDataEngine {
         for workout in filteredWorkouts {
             let date = workout.finishedAt ?? workout.startedAt ?? .distantPast
             for entry in workout.exercises {
+                // Las gráficas deben mostrar ejercicios practicados, no todos
+                // los que figuraban en el plan de una sesión.
+                let performed = !StatsEngine.confirmedWorkSets(entry, in: workout).isEmpty
+                    || entry.exercise.isMobility && entry.loggedSets.contains { $0.reps > 0 }
+                guard performed else { continue }
                 lastExerciseDate[entry.exercise.id] = max(
                     lastExerciseDate[entry.exercise.id] ?? .distantPast, date
                 )
