@@ -1228,6 +1228,44 @@ final class ReperaStore: NSObject {
         pushActiveToWatch()
     }
 
+    /// Guardado automático de los valores que el atleta ha MODIFICADO en Play.
+    /// Las series sugeridas pero nunca tocadas siguen siendo prescripción,
+    /// no un resultado inventado; no hace falta pulsar ningún check.
+    func upsertActivePerformedSets(exerciseID: UUID, sets: [LoggedSet]) {
+        guard !sets.isEmpty, var session = state.activeSession,
+              let index = session.exercises.firstIndex(where: { $0.id == exerciseID })
+        else { return }
+        var existing = session.exercises[index].loggedSets
+        for set in sets {
+            if let i = existing.firstIndex(where: { $0.id == set.id }) {
+                existing[i] = set
+            } else {
+                existing.append(set)
+            }
+        }
+        session.exercises[index].loggedSets = existing
+        session.exercises[index].completedReps = existing
+            .filter { !$0.isWarmup }.reduce(0) { $0 + $1.reps }
+        session.exercises[index].isCompleted = !existing.isEmpty
+        state.activeSession = session
+        persist()
+        pushActiveToWatch()
+    }
+
+    func removeActivePerformedSet(exerciseID: UUID, setID: UUID) {
+        guard var session = state.activeSession,
+              let index = session.exercises.firstIndex(where: { $0.id == exerciseID })
+        else { return }
+        session.exercises[index].loggedSets.removeAll { $0.id == setID }
+        let remaining = session.exercises[index].loggedSets
+        session.exercises[index].completedReps = remaining
+            .filter { !$0.isWarmup }.reduce(0) { $0 + $1.reps }
+        session.exercises[index].isCompleted = !remaining.isEmpty
+        state.activeSession = session
+        persist()
+        pushActiveToWatch()
+    }
+
     /// Reaplica una rutina editada durante Play sin perder series ni duración.
     /// Conservar estado por ID de bloque y ejercicio, no por índice (pueden reordenarse).
     func refreshActiveSessionPlan(from routine: Routine) {
