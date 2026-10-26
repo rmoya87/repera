@@ -1,3 +1,14 @@
+## Persistencia de ediciones en Play y OCR (2026-10-26)
+
+- [ ] Escanear una pizarra con fuerza + WOD, guardar/programar el entrenamiento, pulsar Play, modificar los kg, reps y RIR, añadir dos series, eliminar una serie pendiente, terminar y consultar Historial: la sesión conserva **todas las series editadas y su orden** en `plannedSets` y la copia de bloques `routineBlocks`. Las series con check se guardan además como `loggedSets`; las no confirmadas NO se hacen pasar por realizadas.
+- [ ] Editar una serie con el teclado nativo y pulsar directamente el check de finalizar (sin salir previamente del campo): la última cantidad/peso introducidos se conservan. Al pasar a otro ejercicio y volver, el borrador se recupera de la sesión persistida.
+- [ ] Abrir «Editar entreno» desde Play, añadir/quitar ejercicio o bloque, reordenar, añadir/quitar series o cambiar pesos, pulsar Guardar y terminar: al reabrir Historial aparecen exactamente esos cambios; no reaparece el plan anterior. Con rutina programada existente, la plantilla también se actualiza; con escaneo efímero solo se actualiza la sesión.
+- [ ] Repetir dos veces el mismo ejercicio en un bloque, registrar un peso en cada aparición, reordenar uno y añadir una tercera aparición: cada resultado queda con el elemento de origen por su ID; la nueva aparición no hereda datos registrados ajenos.
+- [ ] Con WOD EMOM/Tabata/RFT, cambiar repeticiones/cargas o añadir series: se preservan `explicitPlannedSets`, el tiempo y el resultado global del bloque; no se convierten series pendientes en resultados ni se pierden pausas/rest.
+- [ ] Cerrar Play, volver a abrir con sesión activa y reiniciar la app: las modificaciones persisten en almacenamiento local/iCloud y la estructura se reproduce de forma consistente en Apple Watch. Tras finalizar, probar la relectura por JSON.
+- [ ] Verificar que precargar pesos sugeridos de una sesión anterior sin tocarlos NO altera el plan; solo las ediciones reales del usuario se guardan.
+- [ ] Dynamic Type y VoiceOver: botón «Quitar serie» de contorno en filas no confirmadas; nunca permite borrar sin desmarcar una serie ya registrada.
+
 # Guía de pruebas — Repera
 
 Última actualización: 2026-10-25 (catálogo remoto incremental + pruebas anteriores)
