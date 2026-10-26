@@ -200,8 +200,8 @@ struct AIAccessView: View {
                                 ForEach(request.payload.setChanges ?? [],id:\.loggedSetId) { change in
                                     let parts = [
                                         change.reps.map { "\($0) reps" },
-                                        change.weightKg.map { "\(String(format:"%g",$0)) kg" },
-                                        change.rir.map { "RIR \(String(format:"%g",$0))" },
+                                        change.weightKg.map { "\(ReperaNumberFormat.decimal($0)) kg" },
+                                        change.rir.map { "RIR \(ReperaNumberFormat.decimal($0))" },
                                         change.clearWeight == true ? "sin peso" : nil,
                                         change.clearRir == true ? "sin RIR" : nil,
                                     ].compactMap { $0 }
