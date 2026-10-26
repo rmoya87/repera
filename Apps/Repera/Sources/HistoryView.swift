@@ -448,30 +448,25 @@ struct WorkoutDetailView: View {
     private var detailList: some View {
         List {
             if let session = draft {
-                // Fecha + Tiempo/Kcal/Volumen + nota: un bloque continuo (sin título «Resultado»).
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if !subtitle.isEmpty {
-                            // Conservar exactamente la posición visible previa
-                            // (8 pt − 6 pt = 2 pt), sin .offset negativo: ese
-                            // desplazamiento recortaba la primera letra de
-                            // «Lunes»/«Miércoles» en ciertos tamaños de List.
-                            Text(subtitle)
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundStyle(OG.label2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.leading, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        summaryCard(session)
-                        if let review = session.sessionReview {
-                            SessionReviewCard(review: review)
-                        }
+                // Fecha y tiles sin la caja de Section/insetGrouped: fondo
+                // continuo OG.bg; solo las tres tiles conservan sus tarjetas.
+                VStack(alignment: .leading, spacing: 10) {
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(OG.label2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.leading, 2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .ogCardListRow(top: 4, bottom: 4)
+                    summaryCard(session)
+                    if let review = session.sessionReview {
+                        SessionReviewCard(review: review)
+                    }
                 }
+                .ogCardListRow(top: 0, bottom: 2)
 
-                // En edición el picker de lugar lleva su propio preview; no duplicar el mapa.
+                // El mapa va directamente debajo de la fecha y las tiles.
                 if !isEditing, sessionMapContent(session) != .none {
                     Section {
                         let coordinate = mapCoordinates(session)
@@ -484,72 +479,78 @@ struct WorkoutDetailView: View {
                         }
                         .ogCardListRow()
                     } header: {
-                        Text(sessionMapContent(session) == .pin ? "Ubicación" : "Recorrido")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(OG.accent)
-                            .textCase(nil)
+                        if sessionMapContent(session) == .pin {
+                            Text("Ubicación")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(OG.accent)
+                                .textCase(nil)
+                        }
                     } footer: {
-                        // El nombre del lugar ya está dentro del mapa (Marker).
-                        // Pie exclusivo para rutas, sin repetir «Box A6» debajo.
                         if sessionMapContent(session) != .pin {
                             Text("Colores = velocidad (verde más lento → rojo más rápido).")
                         }
                     }
+                } else if !isEditing,
+                          session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
+                          (session.recordedDistanceMeters ?? 0) > 0 {
+                    // En otro iPhone/simulador el espejo privado de Supabase
+                    // recupera distancia y parciales, pero no puntos GPS.
+                    // Explicar la ausencia en vez de dibujar una ruta ficticia.
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Recorrido no disponible en este dispositivo", systemImage: "map")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                            Text("Se ha recuperado la distancia, pero los puntos GPS no viajan por Supabase. El recorrido original puede seguir en el iPhone donde se grabó o en su copia de iCloud.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(OG.label2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
+                        .padding(OG.pad)
+                        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                        .ogCardListRow()
+                    }
                 }
 
-                // Solo métricas reales de Apple Salud (FC, ruta, ritmo). No mostrar
-                // kcal/dispositivo si solo vienen del propio Repera.
+                // Ritmo, velocidad y kilómetros guardados son independientes
+                // del GPS y Apple Salud; se muestran incluso en el simulador.
+                if displayedRoute(session).count >= 2
+                    || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
+                    || (session.liveSportID != nil
+                        && (session.recordedDistanceMeters ?? 0) > 0
+                        && (session.activeDurationSeconds ?? 0) > 0) {
+                    Section {
+                        CardioSplitsView(
+                            routePoints: displayedRoute(session),
+                            heartRate: healthExtras?.heartRateSeries ?? [],
+                            cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed
+                                ?? (healthExtras?.activityType == .cycling
+                                    || session.title.localizedCaseInsensitiveContains("bici")
+                                    || session.title.localizedCaseInsensitiveContains("cicl")),
+                            activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                            totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
+                            totalDistanceMeters: session.recordedDistanceMeters
+                        )
+                        .ogCardListRow()
+                    } header: {
+                        Text("Parciales")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(OG.accent)
+                            .textCase(nil)
+                    }
+                }
+
+                // Solo sensores auténticos de Salud/Watch; no inventar kcal ni FC.
                 if let extras = displayedMetrics(session) {
                     Section {
                         HealthSessionMetricsCard(
                             extras: extras,
                             includeSourceRows: extras.hasExternalSaludSource
                         )
-                            .ogCardListRow()
-                    } header: {
-                        Text("Entreno")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(OG.accent)
-                            .textCase(nil)
-                    }
-
-                    if displayedRoute(session).count >= 2 {
-                        Section {
-                            CardioSplitsView(
-                                routePoints: displayedRoute(session),
-                                heartRate: extras.heartRateSeries,
-                                cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed ??
-                                    (extras.activityType == .cycling ||
-                                     session.title.localizedCaseInsensitiveContains("bici") ||
-                                     session.title.localizedCaseInsensitiveContains("cicl")),
-                                activeKilometerSeconds: session.liveKilometerSplitsSeconds,
-                                totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
-                                totalDistanceMeters: session.recordedDistanceMeters
-                            )
-                            .ogCardListRow()
-                        } header: {
-                            Text("Parciales")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(OG.accent)
-                                .textCase(nil)
-                        }
-                    }
-                }
-                // Una ruta propia grabada por Comenzar también tiene parciales,
-                // aunque Salud no devuelva FC ni otras métricas externas.
-                if displayedMetrics(session) == nil, displayedRoute(session).count >= 2 {
-                    Section {
-                        CardioSplitsView(
-                            routePoints: displayedRoute(session),
-                            heartRate: [],
-                            cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed ?? false,
-                            activeKilometerSeconds: session.liveKilometerSplitsSeconds,
-                                totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
-                                totalDistanceMeters: session.recordedDistanceMeters
-                        )
                         .ogCardListRow()
                     } header: {
-                        Text("Parciales")
+                        Text("Entreno")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(OG.accent)
                             .textCase(nil)
