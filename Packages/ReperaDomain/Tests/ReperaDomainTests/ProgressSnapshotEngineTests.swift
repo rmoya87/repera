@@ -74,6 +74,25 @@ final class ProgressSnapshotEngineTests: XCTestCase {
         XCTAssertFalse(ProgressTimeRange.week.containsInPreviousPeriod(day(2026, 10, 21), now: tuesday))
     }
 
+    func testWeekWithSundayStartComparesSundayAndMondayOnly() {
+        let monday = day(2026, 10, 26)
+        let bounds = ProgressTimeRange.week.previousPeriodBounds(
+            now: monday, weekStartsOnMonday: false
+        )!
+        let cal = Calendar.current
+        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 10, 18)))
+        XCTAssertTrue(cal.isDate(bounds.end, inSameDayAs: day(2026, 10, 20)))
+        XCTAssertFalse(ProgressTimeRange.week.containsInPreviousPeriod(
+            day(2026, 10, 20), now: monday, weekStartsOnMonday: false
+        ))
+    }
+
+    func testFullWeekIncludesEntirePreviousWeek() {
+        let sunday = day(2026, 11, 1)
+        let bounds = ProgressTimeRange.week.previousPeriodBounds(now: sunday)!
+        XCTAssertEqual(Calendar.current.dateComponents([.day], from: bounds.start, to: bounds.end).day, 7)
+    }
+
     func testMonthComparisonOnlyUsesSameElapsedMonthDays() {
         let tuesday = day(2026, 10, 27)
         let bounds = ProgressTimeRange.month.previousPeriodBounds(now: tuesday)!

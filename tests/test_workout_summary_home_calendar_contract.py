@@ -202,7 +202,7 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
             "struct OGRegisterLeadingIcon:", 1
         )[0]
         header = summary.split("HStack(spacing: 6) {", 1)[1].split(
-            ".frame(maxWidth: .infinity, alignment: .leading)", 1
+            ".frame(maxWidth: .infinity, alignment: .center)", 1
         )[0]
         self.assertIn("Image(systemName: icon)", header)
         self.assertIn("Text(title)", header)
@@ -237,6 +237,50 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
                             component.index("Text(title)" if component is home else "Text(label)"))
             self.assertLess(component.index("Text(title)" if component is home else "Text(label)"),
                             component.index("Text(value)"))
+
+    def test_all_key_metric_tiles_are_centered(self):
+        summary = swift("RegisterSessionChrome.swift").split(
+            "struct WorkoutSummaryTile: View {", 1
+        )[1].split("struct OGRegisterLeadingIcon:", 1)[0]
+        self.assertIn("VStack(alignment: .center, spacing: 7)", summary)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", summary)
+
+        home = swift("HomeView.swift")
+        activity = home.split("private func homeActivityMetric(", 1)[1].split(
+            "/// Entreno del día:", 1
+        )[0]
+        metric = home.split("private func metricTile(", 1)[1].split(
+            "private func setLine(", 1
+        )[0]
+        self.assertIn("VStack(alignment: .center, spacing: 8)", activity)
+        self.assertIn("VStack(alignment: .center, spacing: 12)", metric)
+
+        stats = swift("StatsView.swift")
+        tile = stats.split("private func tile(", 1)[1].split(
+            "// MARK: - Activity", 1
+        )[0]
+        self.assertIn("VStack(alignment: .center, spacing: 4)", tile)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .center)", tile)
+        self.assertIn("if let delta {", tile)
+        self.assertNotIn(".opacity(0)", tile)
+
+    def test_progress_compares_actual_total_minutes_in_all_tiers(self):
+        stats = swift("StatsView.swift")
+        free = stats.split("private var freeTilesGrid:", 1)[1].split(
+            "@ViewBuilder", 1
+        )[0]
+        pro = stats.split("private var tilesGrid:", 1)[1].split(
+            "private func tile(", 1
+        )[0]
+        for section in (free, pro):
+            self.assertIn("summary.totalMinutes", section)
+            self.assertIn('label: "Tiempo"', section)
+            self.assertIn("delta: previous.map", section)
+            self.assertNotIn('delta: nil', section)
+        snapshot = swift("ProgressSnapshot.swift")
+        self.assertIn("totalMinutes: baseSummary.totalMinutes", snapshot)
+        self.assertIn("totalMinutes: basePrevious.totalMinutes", snapshot)
+        self.assertIn("referenceDay: Date", snapshot)
 
     def test_home_initial_scroll_shows_yesterday_first_today_second(self):
         home = swift("HomeView.swift")

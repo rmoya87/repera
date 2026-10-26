@@ -28,7 +28,7 @@ struct ProgressSnapshot: Equatable, Sendable {
     var summary: ProgressHealthSummary
     var previousSummary: ProgressHealthSummary?
     var streak: Int
-    /// Racha calculada al cierre de la semana anterior (para delta del tile).
+    /// Racha tomada al mismo corte del periodo anterior (para delta del tile).
     var previousStreak: Int
     var averageHeartRate: Double?
     var previousAverageHeartRate: Double?
