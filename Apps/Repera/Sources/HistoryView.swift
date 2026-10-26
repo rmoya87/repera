@@ -1806,45 +1806,6 @@ private struct HealthHeartRateStatRow: View {
     }
 }
 
-private struct HealthSpeedStatRow: View {
-    var avg: Double
-    var max: Double?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            VStack(spacing: 4) {
-                Text("Vel. media")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                Text(String(format: "%.1f", avg))
-                    .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(OG.blue)
-                Text("km/h")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(OG.label3)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(OG.surface2.opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-            VStack(spacing: 4) {
-                Text("Vel. máx")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                Text(max.map { String(format: "%.1f", $0) } ?? "—")
-                    .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(OG.accent)
-                Text("km/h")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(OG.label3)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(OG.surface2.opacity(0.85), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-    }
-}
-
 /// Único destino de mapa para entrenamiento, Comenzar y actividades de Salud.
 /// Comparte los controles y la apariencia; recibe ruta real o ubicación.
 struct WorkoutMapZoomDestination: View {
