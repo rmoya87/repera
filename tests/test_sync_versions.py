@@ -48,6 +48,20 @@ class VersionSyncTests(unittest.TestCase):
         self.assertEqual(sync.prefer_newer_config(('1.0.0','6')),('1.0.0','6'))
         self.assertEqual(sync.prefer_newer_config(('1.1.0','1')),('1.1.0','1'))
 
+    def test_archive_preaction_rejects_stale_local_xcode_build(self):
+        sync.write_config('1.0', '39')
+        with patch.dict('os.environ', {'MARKETING_VERSION': '1.0', 'CURRENT_PROJECT_VERSION': '38'}):
+            with patch('sys.argv', ['sync_versions.py', '--from-env']):
+                self.assertEqual(sync.main(), 1)
+        self.assertEqual(sync.read_config(), ('1.0', '39'))
+
+    def test_archive_preaction_keeps_newer_xcode_build(self):
+        sync.write_config('1.0', '39')
+        with patch.dict('os.environ', {'MARKETING_VERSION': '1.0', 'CURRENT_PROJECT_VERSION': '40'}):
+            with patch('sys.argv', ['sync_versions.py', '--from-env']):
+                self.assertEqual(sync.main(), 0)
+        self.assertEqual(sync.read_config(), ('1.0', '40'))
+
     def test_skip_missing_generated_project(self):
         original_project = sync.PROJECT
         sync.PROJECT = Path(self.temp.name) / 'absent.xcodeproj'
