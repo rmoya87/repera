@@ -2270,9 +2270,29 @@ struct HealthWorkoutRouteMap: View {
             guard let leg, !leg.isEstimated else { return nil }
             return leg.speed
         }
-        let speeds = realSpeeds.isEmpty ? legs.compactMap { $0?.speed } : realSpeeds
-        guard let slowest = speeds.min(), let fastestValue = speeds.max() else { return [] }
-        let fastest = max(fastestValue, slowest + 0.1)
+        // Escala relativa a ESTE entrenamiento (no una escala global fija).
+        // Eliminar extremos aislados GPS evita que un salto espurio haga que
+        // todos los kilómetros se pinten prácticamente del mismo verde.
+        let speeds = (realSpeeds.isEmpty ? legs.compactMap { $0?.speed } : realSpeeds)
+            .filter { $0.isFinite && $0 >= 0 }
+            .sorted()
+        guard let absoluteMin = speeds.first, let absoluteMax = speeds.last else { return [] }
+        let slowest: Double
+        let fastest: Double
+        if speeds.count >= 20 {
+            let lower = speeds[Int(Double(speeds.count - 1) * 0.05)]
+            let upper = speeds[Int(Double(speeds.count - 1) * 0.95)]
+            if upper - lower >= 0.12 {
+                slowest = lower
+                fastest = upper
+            } else {
+                slowest = absoluteMin
+                fastest = max(absoluteMax, absoluteMin + 0.1)
+            }
+        } else {
+            slowest = absoluteMin
+            fastest = max(absoluteMax, absoluteMin + 0.1)
+        }
         var groups: [[SpeedLeg]] = []
         var current: [SpeedLeg] = []
         for leg in legs {
@@ -2396,15 +2416,15 @@ struct HealthWorkoutRouteMap: View {
         let originals = [legs[0].start] + legs.map(\.end)
         let coordinates = softenCorners(originals, legs: legs)
 
-        // Media ponderada local: las variaciones de velocidad no producen
-        // parches verde/rojo abruptos entre dos lecturas consecutivas.
+        // Suavizado mínimo: conservar los cambios reales de intensidad.
+        // Un promedio de 5 muestras borraba los contrastes en recorridos cortos.
         let velocities: [Double] = legs.indices.map { index in
-            let lower = max(0, index - 2)
-            let upper = min(legs.count - 1, index + 2)
+            let lower = max(0, index - 1)
+            let upper = min(legs.count - 1, index + 1)
             var total = 0.0
             var weightSum = 0.0
             for neighbor in lower...upper {
-                let weight = Double(3 - abs(index - neighbor))
+                let weight = neighbor == index ? 2.0 : 1.0
                 total += legs[neighbor].speed * weight
                 weightSum += weight
             }
@@ -2626,7 +2646,11 @@ struct HealthWorkoutRouteMap: View {
     private static func speedColor(
         _ speed: Double, minSpeed: Double, maxSpeed: Double, water: Bool
     ) -> Color {
-        let t = Swift.min(1, Swift.max(0, (speed - minSpeed) / Swift.max(0.1, maxSpeed - minSpeed)))
+        let normalized = Swift.min(1, Swift.max(0,
+            (speed - minSpeed) / Swift.max(0.1, maxSpeed - minSpeed)))
+        // Dar presencia a amarillo/naranja incluso en rutas cuyos ritmos
+        // se concentran cerca del mínimo, sin cambiar los datos registrados.
+        let t = pow(normalized, 0.72)
         let stops: [(r: Double, g: Double, b: Double)] = [
             water ? (0.00, 1.00, 0.45) : (0.00, 1.00, 0.25),
             (1.00, 0.98, 0.00), (1.00, 0.43, 0.00), (1.00, 0.07, 0.15)
