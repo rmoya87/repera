@@ -1449,9 +1449,13 @@ struct LiveActivityView: View {
                 } else {
                     VStack(spacing: 0) {
                         metricsView
-                        bottomControls
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 12)
+                        // Pausar, reanudar y finalizar viven en la cabecera
+                        // durante la sesión; no repetir botones grandes abajo.
+                        if recorder.phase == .idle {
+                            bottomControls
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 12)
+                        }
                     }
                 }
             }
@@ -1622,39 +1626,69 @@ struct LiveActivityView: View {
             }
             .ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                ZStack(alignment: .topLeading) {
-                    mapHeader
-                    if recorder.phase == .recording,
-                       recorder.chosenRoute != nil,
-                       recorder.upcomingTurnMeters != nil {
-                        navigationDirectionsBanner
-                            .padding(.trailing, 76)
+            // Adaptación real al tamaño de la ventana, también para DUO y
+            // pantallas plegables: no depender solo de la orientación física.
+            GeometryReader { geometry in
+                let landscape = geometry.size.width > geometry.size.height
+                    && geometry.size.width >= 620
+                if landscape {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if recorder.phase == .recording,
+                               recorder.chosenRoute != nil,
+                               recorder.upcomingTurnMeters != nil {
+                                navigationDirectionsBanner
+                            }
+                            mapStatusMessages
+                            // Indicaciones y métricas comparten una única
+                            // columna izquierda; el centro del mapa queda libre.
+                            if recorder.phase == .recording || recorder.phase == .paused {
+                                mapMetricStrip
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .frame(width: min(390, max(260, geometry.size.width * 0.42)))
+                        Spacer(minLength: 0)
+                        mapHeader
+                            .frame(width: 44, alignment: .trailing)
                     }
-                }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
 
-                if let offRoute = recorder.offRouteMeters, offRoute > 60 {
-                    Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .glassEffect(.regular, in: .capsule)
+                    if recorder.phase == .idle {
+                        VStack {
+                            Spacer(minLength: 0)
+                            bottomControls
+                                .frame(maxWidth: 570)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 10)
+                        }
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        ZStack(alignment: .topLeading) {
+                            mapHeader
+                            if recorder.phase == .recording,
+                               recorder.chosenRoute != nil,
+                               recorder.upcomingTurnMeters != nil {
+                                navigationDirectionsBanner
+                                    .padding(.trailing, 64)
+                            }
+                        }
+                        mapStatusMessages
+                        Spacer(minLength: 0)
+                        mapMetricStrip
+                        if recorder.phase == .idle {
+                            bottomControls
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
                 }
-                if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
-                    Text(gpsMessage)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(OG.label)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .glassEffect(.regular, in: .capsule)
-                }
-                Spacer(minLength: 0)
-                mapMetricStrip
-                bottomControls
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
         }
         .task {
             recorder.prepareMapLocation()
@@ -1673,42 +1707,60 @@ struct LiveActivityView: View {
         }
     }
 
+    @ViewBuilder
+    private var mapStatusMessages: some View {
+        if let offRoute = recorder.offRouteMeters, offRoute > 60 {
+            Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .glassEffect(.regular, in: .capsule)
+        }
+        if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
+            Text(gpsMessage)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(OG.label)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .glassEffect(.regular, in: .capsule)
+        }
+    }
+
     /// Indicaciones orientativas basadas en los giros del GPX, sin inventar nombres de calles.
     private var navigationDirectionsBanner: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(spacing: 5) {
+            VStack(spacing: 7) {
                 Image(systemName: recorder.upcomingTurnSymbol)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.system(size: 45, weight: .bold))
                 Text("\(recorder.upcomingTurnMeters ?? 0) m")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 18, weight: .bold))
                     .monospacedDigit()
             }
-            .frame(width: 70)
+            .frame(width: 88)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 7) {
                 Text(recorder.upcomingTurnInstruction ?? "Sigue la ruta")
-                    .font(.subheadline.weight(.bold))
-                    .lineLimit(2)
+                    .font(.system(size: 22, weight: .bold))
+                    .lineLimit(3)
                     .minimumScaleFactor(0.8)
                 if let meters = recorder.followingTurnMeters,
                    let symbol = recorder.followingTurnSymbol {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         Text("Después")
                         Image(systemName: symbol)
                         Text("\(meters) m").monospacedDigit()
                     }
-                    .font(.caption.weight(.medium))
-                    .opacity(0.9)
+                    .font(.system(size: 16, weight: .semibold))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .foregroundStyle(.white)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 9)
+        .foregroundStyle(.black)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(red: 0.02, green: 0.35, blue: 0.30),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(OG.accent,
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(recorder.upcomingTurn ?? "Indicaciones de la ruta")
     }
