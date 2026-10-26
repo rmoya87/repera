@@ -518,6 +518,9 @@ struct HealthRecoverySettingsView: View {
 struct HealthRecoveryProgressView: View {
     var range: ProgressTimeRange = .week
     var weekStartsOnMonday: Bool = true
+    /// El contenedor Progreso conoce el ancho de pantalla. No recalcularlo
+    /// al entrar en Recuperación: ese segundo cambio hacía parpadear la cuadrícula.
+    var usesExpandedLayout = false
 
     @State private var recovery = HealthRecoveryStore.shared
     @State private var physiology = HealthPhysiologyStore.shared
@@ -534,7 +537,8 @@ struct HealthRecoveryProgressView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
 
     private var isPro: Bool { subscriptions.isPro }
-    @State private var isExpandedLayout = false
+    /// Todas las gráficas principales comparten el mismo alto, en ambas columnas.
+    private let primaryChartHeight: CGFloat = 220
 
     private struct TrainingRecoveryPoint: Identifiable, Sendable {
         let date: Date
@@ -663,7 +667,7 @@ struct HealthRecoveryProgressView: View {
 
     var body: some View {
         Group {
-            if isExpandedLayout {
+            if usesExpandedLayout {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 16, alignment: .top),
                     GridItem(.flexible(), spacing: 16, alignment: .top)
@@ -675,9 +679,6 @@ struct HealthRecoveryProgressView: View {
                     recoveryCards
                 }
             }
-        }
-        .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
-            isExpandedLayout = expanded
         }
         // Las lecturas de Salud ya se han cargado: no reiniciar todas las
         // tarjetas al entrar y salir de la pestaña Recuperación.
@@ -694,18 +695,18 @@ struct HealthRecoveryProgressView: View {
     private var recoveryCards: some View {
         trainingRecoveryCard
         if isPro {
-            if appliedRecoveryKey == trainingRecoveryRefreshKey {
-                if recoveryPoints.count >= 2 {
-                    trainingRecoveryTrendCard
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        OGCardSectionTitle(title: "Evolución de recuperación")
-                        OGCard {
-                            ProgressEmptyChart(
-                                message: "Aún no hay suficientes registros para ver la recuperación.",
-                                height: 185
-                            )
-                        }
+            // Reservar siempre la misma celda. Al actualizar Apple Salud no
+            // desaparece la gráfica ni se recolocan las tarjetas de sueño.
+            if recoveryPoints.count >= 2 {
+                trainingRecoveryTrendCard
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    OGCardSectionTitle(title: "Evolución de recuperación")
+                    OGCard {
+                        ProgressEmptyChart(
+                            message: "Aún no hay suficientes registros para ver la recuperación.",
+                            height: primaryChartHeight
+                        )
                     }
                 }
             }
@@ -767,7 +768,7 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                 }
-                .frame(height: 220)
+                .frame(height: primaryChartHeight)
                 .allowsHitTesting(false)
             }
         }
@@ -864,19 +865,23 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    @ViewBuilder
+    /// Título y gráfica son UNA sola celda del grid, no dos celdas contiguas.
+    /// De otro modo «Sueño» se dibuja a la izquierda y la gráfica a la derecha,
+    /// desplazando el resto de secciones a la siguiente fila.
     private var sleepContent: some View {
-        OGCardSectionTitle(title: "Sueño")
         let phases = phaseAverages
         let nights = displayNights
-        sleepNightCard(
-            hours: headlineHours,
-            hoursCaption: hoursLabel,
-            deep: phases.deep,
-            rem: phases.rem,
-            light: phases.light,
-            nights: nights
-        )
+        return VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Sueño")
+            sleepNightCard(
+                hours: headlineHours,
+                hoursCaption: hoursLabel,
+                deep: phases.deep,
+                rem: phases.rem,
+                light: phases.light,
+                nights: nights
+            )
+        }
     }
 
     private struct VitalPlot: Identifiable {
@@ -1100,7 +1105,7 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Preparación para entrenar")
             OGCard {
-                if appliedRecoveryKey != trainingRecoveryRefreshKey {
+                if appliedRecoveryKey != trainingRecoveryRefreshKey && currentReadiness == nil {
                     HStack(spacing: 10) {
                         ProgressView().tint(OG.accent)
                         Text("Calculando recuperación…")
@@ -1247,7 +1252,7 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: 220)
+                .frame(height: primaryChartHeight)
                 .accessibilityLabel("Evolución de preparación para entrenar")
             }
         }
@@ -1341,7 +1346,7 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis(.hidden)
                 .chartLegend(.hidden)
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: 150)
+                .frame(height: primaryChartHeight)
                 .frame(maxWidth: .infinity)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipped()
