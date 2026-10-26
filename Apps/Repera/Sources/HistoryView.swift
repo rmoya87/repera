@@ -383,12 +383,17 @@ struct WorkoutDetailView: View {
         switch sessionMapContent(session) {
         case .healthRoute:
             if let extras = healthExtras {
-                HealthWorkoutRouteMap(points: extras.routePoints, isInteractive: interactive)
+                HealthWorkoutRouteMap(
+                    points: extras.routePoints,
+                    isInteractive: interactive,
+                    isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
+                )
             }
         case .ownRoute:
             HealthWorkoutRouteMap(
                 points: session.routePoints.map(\.asHealthRoutePoint),
-                isInteractive: interactive
+                isInteractive: interactive,
+                isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
             )
         case .pin:
             if let pin = session.locationPin {
@@ -2064,6 +2069,7 @@ private extension WorkoutRoutePoint {
 struct HealthWorkoutRouteMap: View {
     var points: [HealthKitStore.RoutePoint]
     var isInteractive: Bool = true
+    var isWaterSport: Bool = false
 
     private var segments: [SpeedSegment] {
         guard points.count >= 2 else { return [] }
@@ -2100,7 +2106,7 @@ struct HealthWorkoutRouteMap: View {
                 id: i,
                 start: CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude),
                 end: CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude),
-                color: Self.speedColor(speed, minSpeed: minS, maxSpeed: maxS)
+                color: Self.speedColor(speed, minSpeed: minS, maxSpeed: maxS, water: isWaterSport)
             )
         }
     }
@@ -2169,25 +2175,23 @@ struct HealthWorkoutRouteMap: View {
         .allowsHitTesting(isInteractive)
     }
 
-    private static func speedColor(_ speed: Double, minSpeed: Double, maxSpeed: Double) -> Color {
-        let span = Swift.max(maxSpeed - minSpeed, 0.1)
-        let t = Swift.min(1, Swift.max(0, (speed - minSpeed) / span))
-        // Verde (lento) → amarillo → rojo (rápido)
-        if t < 0.5 {
-            let u = t * 2
-            return Color(
-                red: 0.2 + 0.8 * u,
-                green: 0.82,
-                blue: 0.2 * (1 - u)
-            )
-        } else {
-            let u = (t - 0.5) * 2
-            return Color(
-                red: 1.0,
-                green: 0.82 * (1 - u) + 0.27 * u,
-                blue: 0.23 * u
-            )
-        }
+    private static func speedColor(
+        _ speed: Double, minSpeed: Double, maxSpeed: Double, water: Bool
+    ) -> Color {
+        let t = Swift.min(1, Swift.max(0, (speed - minSpeed) / Swift.max(0.1, maxSpeed - minSpeed)))
+        let stops: [(r: Double, g: Double, b: Double)] = [
+            water ? (0.08, 0.72, 0.31) : (0.06, 0.39, 0.98),
+            (0.98, 0.82, 0.12), (1, 0.49, 0.07), (0.92, 0.14, 0.12)
+        ]
+        let scaled = t * 3
+        let index = Swift.min(2, Int(scaled))
+        let amount = scaled - Double(index)
+        let first = stops[index], second = stops[index + 1]
+        return Color(
+            red: first.r + (second.r - first.r) * amount,
+            green: first.g + (second.g - first.g) * amount,
+            blue: first.b + (second.b - first.b) * amount
+        )
     }
 
     private struct SpeedSegment: Identifiable {
