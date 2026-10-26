@@ -2,6 +2,130 @@ import XCTest
 @testable import ReperaDomain
 
 final class SessionControllerTests: XCTestCase {
+    func testEditedPlaySetsPersistAfterFinishAndCodableRoundTrip() throws {
+        let lift = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        let entry = RoutineExercise(
+            exerciseId: lift.id,
+            plannedSets: [PlannedSet(targetReps: 5, targetWeightKg: 60)]
+        )
+        let block = RoutineBlock.strength(title: "Fuerza", exercises: [entry])
+        var controller = SessionController(
+            session: SessionController.from(
+                routine: Routine(title: "Escáner", blocks: [block]), exercises: [lift]
+            )
+        )
+        controller.startOnPhone()
+        XCTAssertEqual(controller.session.currentExercise?.id, entry.id)
+        let edited = [
+            PlannedSet(targetReps: 5, targetWeightKg: 72.5, targetRir: 2),
+            PlannedSet(targetReps: 4, targetWeightKg: 80, targetRir: 1),
+            PlannedSet(targetReps: 3, targetWeightKg: 85, targetRir: 0),
+        ]
+        XCTAssertTrue(controller.updateExerciseDraft(
+            id: entry.id, plannedSets: edited, quantityUnit: nil
+        ))
+        controller.logSet(reps: 5, weightKg: 72.5)
+        controller.finishWorkout()
+
+        let saved = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(controller.session)
+        )
+        XCTAssertEqual(saved.exercises[0].plannedSets, edited)
+        XCTAssertEqual(saved.routineBlocks?.first?.exercises.first?.plannedSets, edited)
+        XCTAssertEqual(saved.exercises[0].loggedSets.count, 1)
+        XCTAssertEqual(saved.exercises[0].loggedSets.first?.weightKg, 72.5)
+        XCTAssertEqual(saved.exercises[0].isCompleted, true)
+    }
+
+    func testRepeatedExerciseEditsRemainAttachedToCorrectOccurrence() throws {
+        let lift = Exercise(name: "Peso muerto", muscleGroup: "Piernas")
+        let first = RoutineExercise(
+            exerciseId: lift.id, plannedSets: [PlannedSet(targetReps: 5, targetWeightKg: 50)]
+        )
+        let second = RoutineExercise(
+            exerciseId: lift.id, plannedSets: [PlannedSet(targetReps: 3, targetWeightKg: 100)]
+        )
+        let block = RoutineBlock.strength(title: "Dos tandas", exercises: [first, second])
+        let routine = Routine(title: "Dos tandas", blocks: [block])
+        var controller = SessionController(
+            session: SessionController.from(routine: routine, exercises: [lift])
+        )
+        let modified = [PlannedSet(targetReps: 2, targetWeightKg: 120)]
+        XCTAssertTrue(controller.updateExerciseDraft(
+            id: second.id, plannedSets: modified, quantityUnit: nil
+        ))
+        XCTAssertEqual(controller.session.exercises[0].plannedSets.first?.targetWeightKg, 50)
+        XCTAssertEqual(controller.session.exercises[1].plannedSets, modified)
+        XCTAssertEqual(controller.session.routineBlocks?[0].exercises[0].plannedSets.first?.targetWeightKg, 50)
+        XCTAssertEqual(controller.session.routineBlocks?[0].exercises[1].plannedSets, modified)
+        // El orden del editor puede cambiar; los IDs estables mantienen la identidad.
+        var reordered = routine
+        reordered.blocks[0].exercises.swapAt(0, 1)
+        let fresh = SessionController.from(routine: reordered, exercises: [lift])
+        XCTAssertEqual(fresh.exercises.map(\.id), [second.id, first.id])
+    }
+
+    func testEditedWODMovementSnapshotPreservesBlockScore() throws {
+        let movement = WODMovement(name: "Burpee", reps: 10)
+        var block = RoutineBlock.wod(format: .forTime, title: "3 RFT")
+        block.rounds = 3
+        block.movements = [movement]
+        var controller = SessionController(
+            session: SessionController.from(
+                routine: Routine(title: "Pizarra", blocks: [block]), exercises: []
+            )
+        )
+        let adjusted = [
+            PlannedSet(targetReps: 12),
+            PlannedSet(targetReps: 12),
+            PlannedSet(targetReps: 8),
+            PlannedSet(targetReps: 8),
+        ]
+        XCTAssertTrue(controller.updateExerciseDraft(
+            id: movement.id, plannedSets: adjusted, quantityUnit: nil
+        ))
+        XCTAssertEqual(controller.session.exercises[0].loggedSets.count, 0)
+        XCTAssertEqual(
+            controller.session.routineBlocks?[0].movements[0].explicitPlannedSets, adjusted
+        )
+        controller.startOnPhone()
+        controller.finishWorkout()
+        let restored = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(controller.session)
+        )
+        XCTAssertEqual(restored.exercises[0].plannedSets.count, 4)
+        XCTAssertEqual(restored.routineBlocks?[0].movements[0].explicitPlannedSets?.count, 4)
+        XCTAssertTrue(restored.wodResults.isEmpty)
+    }
+
+    func testDraftNeverReplacesConfirmedLoggedSets() {
+        let lift = Exercise(name: "Press", muscleGroup: "Pecho")
+        let entry = RoutineExercise(
+            exerciseId: lift.id, plannedSets: [
+                PlannedSet(targetReps: 8, targetWeightKg: 40),
+                PlannedSet(targetReps: 8, targetWeightKg: 40),
+            ]
+        )
+        let routine = Routine(title: "Press", blocks: [
+            .strength(title: "Fuerza", exercises: [entry])
+        ])
+        var controller = SessionController(
+            session: SessionController.from(routine: routine, exercises: [lift])
+        )
+        controller.startOnPhone()
+        controller.logSet(reps: 7, weightKg: 45)
+        let recorded = controller.session.exercises[0].loggedSets
+        XCTAssertTrue(controller.updateExerciseDraft(
+            id: entry.id, plannedSets: [
+                PlannedSet(targetReps: 7, targetWeightKg: 45),
+                PlannedSet(targetReps: 10, targetWeightKg: 50),
+                PlannedSet(targetReps: 6, targetWeightKg: 55),
+            ], quantityUnit: nil
+        ))
+        XCTAssertEqual(controller.session.exercises[0].loggedSets, recorded)
+        XCTAssertEqual(controller.session.exercises[0].plannedSets.count, 3)
+    }
+
     func testCardioUnitsPersistFromRoutineIntoWorkoutAndThroughJSON() throws {
         let bike = Exercise(name: "Air Bike", muscleGroup: "Cardio")
         let block = RoutineBlock.strength(
