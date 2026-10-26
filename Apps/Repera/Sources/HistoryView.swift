@@ -1584,6 +1584,7 @@ extension HealthKitStore.ExternalActivityDetail {
             maxSpeedKmh: maxSpeedKmh,
             stepsCount: stepsCount,
             movementDistanceMeters: movementDistanceMeters,
+            movementDistanceLabel: movementDistanceLabel,
             movementUsesTimeWindow: movementUsesTimeWindow,
             activeEnergyKcal: activity.activeEnergyKcal,
             sourceName: activity.sourceName,
