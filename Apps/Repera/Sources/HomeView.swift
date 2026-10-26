@@ -1398,9 +1398,11 @@ struct HomeView: View {
             let day = w.liveSportID == nil ? finishedAt : (w.startedAt ?? finishedAt)
             workouts[dayKey(day), default: []].append(w)
         }
+        // En Inicio, los entrenamientos del mismo día se leen en orden
+        // cronológico: el más antiguo arriba y el más reciente abajo.
         for key in workouts.keys {
             workouts[key]?.sort {
-                ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)
+                ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
             }
         }
 
@@ -1412,7 +1414,7 @@ struct HomeView: View {
             minutes[key, default: 0] += max(0, activity.durationMinutes)
         }
         for key in healthMap.keys {
-            healthMap[key]?.sort { $0.start > $1.start }
+            healthMap[key]?.sort { $0.start < $1.start }
         }
 
         var kcals: [String: Double] = [:]

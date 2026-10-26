@@ -179,6 +179,23 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn("VStack(alignment: .leading, spacing: 0)", swipe)
         self.assertIn(".padding(.top, 0)", home)
 
+    def test_home_day_workouts_are_oldest_first(self):
+        home = swift("HomeView.swift")
+        rebuild = home.split("private func rebuildDayBuckets() {", 1)[1].split(
+            "var kcals:", 1
+        )[0]
+        # Chronological order both for Repera sessions and Health activities.
+        self.assertIn(
+            "($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)",
+            rebuild,
+        )
+        self.assertIn("healthMap[key]?.sort { $0.start < $1.start }", rebuild)
+        self.assertNotIn(
+            "($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast)",
+            rebuild,
+        )
+        self.assertNotIn("healthMap[key]?.sort { $0.start > $1.start }", rebuild)
+
     def test_home_initial_scroll_shows_yesterday_first_today_second(self):
         home = swift("HomeView.swift")
         rebuild = home.split("private func rebuildWeekChrome() {", 1)[1].split(
