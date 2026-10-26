@@ -61,7 +61,7 @@ public struct PlateSolution: Sendable, Equatable {
     }
 
     private func format(_ value: Double) -> String {
-        String(format: "%g", value)
+        ReperaNumberFormat.decimal(value)
     }
 }
 
