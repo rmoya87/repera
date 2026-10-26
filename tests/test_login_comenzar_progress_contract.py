@@ -55,6 +55,11 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("Abrir recorrido a pantalla completa", live)
         self.assertIn('Image(systemName: "xmark")', live)
         self.assertIn("isWaterSport: recorder.sport.isWaterSport", live)
+        self.assertIn("extras.hasExternalSaludSource", live)
+        self.assertIn("let matchedUUID = extras.resolvedWorkoutUUID", live)
+        self.assertIn("session.healthKitWorkoutUUID = matchedUUID", live)
+        self.assertIn("session.appleAverageHeartRateBpm = extras.averageHeartRateBpm", live)
+        self.assertIn("isSavingRecordedActivity", live)
         review = live.split("private var review: some View", 1)[1].split(
             "private func reviewTile(", 1
         )[0]
