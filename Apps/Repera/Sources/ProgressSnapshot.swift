@@ -119,8 +119,15 @@ enum ProgressDataEngine {
         var cal = Calendar.current
         cal.firstWeekday = monday ? 2 : 1
 
-        let externalSamples = HealthMuscleMapper.daySamples(from: input.externalActivities)
-        let stimuli = HealthMuscleMapper.stimuli(from: input.externalActivities)
+        // Una sesión de Comenzar/Watch sincronizada en Salud se cuenta solo
+        // una vez. La carga muscular del propio Comenzar se obtiene del
+        // deporte y su duración activa, aunque no tenga series/checks.
+        let externalActivities = HealthMuscleMapper.uniqueExternalActivities(
+            input.externalActivities, workouts: input.workouts
+        )
+        let externalSamples = HealthMuscleMapper.daySamples(from: externalActivities)
+        let stimuli = HealthMuscleMapper.stimuli(from: externalActivities)
+            + HealthMuscleMapper.nativeSportStimuli(from: input.workouts)
         if Task.isCancelled { return nil }
 
         let filteredWorkouts = StatsEngine.filterWorkouts(
@@ -222,7 +229,7 @@ enum ProgressDataEngine {
                 ? (workout.finishedAt ?? workout.startedAt)
                 : (workout.startedAt ?? workout.finishedAt)
         }
-        let externalDates = input.externalActivities.map(\.start)
+        let externalDates = externalActivities.map(\.start)
         let streak = StatsEngine.consecutiveWeekStreak(
             workoutDates: workoutDates,
             externalDates: externalDates,
