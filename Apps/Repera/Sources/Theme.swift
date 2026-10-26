@@ -31,6 +31,11 @@ enum OG {
         light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
         dark: UIColor(red: 44 / 255, green: 44 / 255, blue: 46 / 255, alpha: 1)
     )
+    /// Campos de series: negro suave en modo noche, sin alterar el tema claro.
+    static let inputSurface = adaptive(
+        light: UIColor(red: 242 / 255, green: 245 / 255, blue: 243 / 255, alpha: 1),
+        dark: UIColor(red: 10 / 255, green: 10 / 255, blue: 12 / 255, alpha: 1)
+    )
     static let surface3 = adaptive(
         light: UIColor(red: 220 / 255, green: 228 / 255, blue: 223 / 255, alpha: 1),
         dark: UIColor(red: 58 / 255, green: 58 / 255, blue: 60 / 255, alpha: 1)
@@ -1660,7 +1665,7 @@ struct OGSetEntryRow: View {
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(rir == nil ? OG.label3 : OG.label)
                         .frame(width: 43, height: 44)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(OG.inputSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .disabled(!enabled || completed)
                 .accessibilityLabel("RIR serie \(index)")
@@ -1738,7 +1743,7 @@ private struct OGSetNumericCell: View {
         )
         .frame(height: 44)
         .frame(maxWidth: .infinity)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .background(OG.inputSurface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         .opacity(enabled ? 1 : 0.55)
         .disabled(!enabled)
         .onAppear { draft = normalized(display) }
