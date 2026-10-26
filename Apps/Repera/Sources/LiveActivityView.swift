@@ -1770,10 +1770,20 @@ struct LiveActivityView: View {
         HStack(alignment: .top) {
             Spacer(minLength: 0)
             VStack(spacing: 10) {
-                if recorder.phase == .recording || recorder.phase == .paused {
-                    mapCircleButton("xmark", label: "Descartar entreno") {
-                        showDiscard = true
-                    }
+                if recorder.phase == .recording {
+                    sessionMapButton(
+                        "pause.fill", label: "Pausar grabación",
+                        background: OG.yellow, foreground: .black
+                    ) { recorder.pause() }
+                } else if recorder.phase == .paused {
+                    sessionMapButton(
+                        "play.fill", label: "Reanudar grabación",
+                        background: OG.accent, foreground: .black
+                    ) { recorder.resume() }
+                    sessionMapButton(
+                        "flag.checkered", label: "Finalizar y guardar",
+                        background: .black, foreground: .white
+                    ) { finishAndShowSave() }
                 }
                 mapCircleButton(
                     navigationMapEnabled ? "map" : "cube.transparent",
@@ -1872,6 +1882,26 @@ struct LiveActivityView: View {
                 .foregroundStyle(OG.label)
                 .frame(width: 44, height: 44)
                 .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    /// Acción principal durante una sesión: botón sólido y visible sobre el mapa.
+    /// Amarillo = pausa, verde = continuar, negro = finalizar.
+    private func sessionMapButton(
+        _ symbol: String,
+        label: String,
+        background: Color,
+        foreground: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(foreground)
+                .frame(width: 44, height: 44)
+                .background(background, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -2015,9 +2045,21 @@ struct LiveActivityView: View {
                             showingMetrics = false
                         }
                     }
-                    if recorder.phase != .idle {
-                        metricsCircleButton("xmark", label: "Descartar actividad") {
-                            showDiscard = true
+                    if recorder.phase == .recording {
+                        sessionMapButton(
+                            "pause.fill", label: "Pausar grabación",
+                            background: OG.yellow, foreground: .black
+                        ) { recorder.pause() }
+                    } else if recorder.phase == .paused {
+                        VStack(spacing: 8) {
+                            sessionMapButton(
+                                "play.fill", label: "Reanudar grabación",
+                                background: OG.accent, foreground: .black
+                            ) { recorder.resume() }
+                            sessionMapButton(
+                                "flag.checkered", label: "Finalizar y guardar",
+                                background: .black, foreground: .white
+                            ) { finishAndShowSave() }
                         }
                     }
                 }
