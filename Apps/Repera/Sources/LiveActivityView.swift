@@ -793,6 +793,11 @@ final class LiveActivityRecorder: NSObject {
             if needsInterruptedGPSRecovery {
                 phase = .recording
                 pausedAt = nil
+                // Reconstruct the missing time of each estimated kilometre
+                // between the last authentic fix and the next GPS contact.
+                previousFixActiveSeconds = routePoints.last.map {
+                    max(0, $0.recordedAt.timeIntervalSince(snapshot.startedAt) - pausedSeconds)
+                }
             } else {
                 phase = .paused
             }
@@ -2467,7 +2472,7 @@ struct LiveActivityView: View {
                     }
                     if recorder.estimatedRecoveryMeters > 0 {
                         Label(
-                            "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. No es una ruta GPS medida.",
+                            "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. El tiempo de ese intervalo también es aproximado; no son medidas GPS.",
                             systemImage: "location.north.line"
                         )
                         .font(.caption)
