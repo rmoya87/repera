@@ -1829,14 +1829,14 @@ struct DayEditorView: View {
             if let item = block.exercises.first(where: { $0.id == movementID }) {
                 let first = item.plannedSets.first
                 if weight {
-                    return first?.targetWeightKg.map { String(format: "%g", $0) } ?? ""
+                    return first?.targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? ""
                 }
                 return first.map { String($0.targetReps) } ?? ""
             }
             if let move = block.movements.first(where: { $0.id == movementID }) {
                 let first = block.plannedSets(for: move).first
                 if weight {
-                    return (move.weightMaleKg ?? first?.targetWeightKg).map { String(format: "%g", $0) } ?? ""
+                    return (move.weightMaleKg ?? first?.targetWeightKg).map { ReperaNumberFormat.decimal($0) } ?? ""
                 }
                 return (first?.targetReps ?? move.reps).map(String.init) ?? ""
             }
@@ -1856,7 +1856,7 @@ struct DayEditorView: View {
                     return prescribed
                 }
                 if weight {
-                    return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? prescribed
+                    return entry.adaptedWeightKg.map { ReperaNumberFormat.decimal($0) } ?? prescribed
                 }
                 return entry.adaptedReps.map(String.init) ?? prescribed
             },
@@ -1870,9 +1870,9 @@ struct DayEditorView: View {
                 if weight {
                     if cleaned.isEmpty {
                         completedDetails?.exercises[index].adaptedWeightKg = nil
-                    } else if let kg = Double(cleaned.replacingOccurrences(of: ",", with: ".")),
+                    } else if let kg = ReperaNumberFormat.parse(cleaned),
                               kg.isFinite, (0...1000).contains(kg) {
-                        let rx = Double(prescribed.replacingOccurrences(of: ",", with: "."))
+                        let rx = ReperaNumberFormat.parse(prescribed)
                         completedDetails?.exercises[index].adaptedWeightKg =
                             rx.map { abs(kg - $0) < 0.05 } == true ? nil : kg
                     }
@@ -2503,7 +2503,7 @@ private struct InlineWODMovementSets: View {
                 index: index + 1,
                 previous: OGSetEntryRow.previousText(oldSet),
                 firstValue: style == .loadAndReps
-                    ? (draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "0")
+                    ? (draftSets[index].targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "0")
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
@@ -2516,8 +2516,8 @@ private struct InlineWODMovementSets: View {
                 focus: $focusedSetField,
                 onFirstCommit: { text in
                     if style == .loadAndReps {
-                        let normalized = text.replacingOccurrences(of: ",", with: ".")
-                        if let parsed = Double(normalized) {
+                        let normalized = text
+                        if let parsed = ReperaNumberFormat.parse(normalized) {
                             let value = resolvedLoadField == .deficitCm
                                 ? min(60, max(0, parsed))
                                 : max(0, parsed)
@@ -2742,8 +2742,8 @@ struct WODMovementEditor: View {
         .ogPinnedTransparentNav("Movimiento WOD")
         .onAppear {
             seedSetsIfNeeded()
-            maleWeightDraft = movement.weightMaleKg.map { String(format: "%g", $0) } ?? ""
-            femaleWeightDraft = movement.weightFemaleKg.map { String(format: "%g", $0) } ?? ""
+            maleWeightDraft = movement.weightMaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
+            femaleWeightDraft = movement.weightFemaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
         }
     }
 
@@ -2778,10 +2778,10 @@ struct WODMovementEditor: View {
 
     private func commitWeightDraft(column: Int) {
         if column == 0 {
-            movement.weightMaleKg = Double(maleWeightDraft.replacingOccurrences(of: ",", with: "."))
+            movement.weightMaleKg = ReperaNumberFormat.parse(maleWeightDraft)
             applyMovementWeightToEmptySets()
         } else {
-            movement.weightFemaleKg = Double(femaleWeightDraft.replacingOccurrences(of: ",", with: "."))
+            movement.weightFemaleKg = ReperaNumberFormat.parse(femaleWeightDraft)
         }
     }
 
@@ -2812,7 +2812,7 @@ struct WODMovementEditor: View {
                 index: index + 1,
                 previous: OGSetEntryRow.previousText(oldSet),
                 firstValue: style == .loadAndReps
-                    ? (draftSets[index].targetWeightKg.map { String(format: "%g", $0) } ?? "0")
+                    ? (draftSets[index].targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "0")
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
@@ -2825,8 +2825,8 @@ struct WODMovementEditor: View {
                 focus: $focusedSetField,
                 onFirstCommit: { text in
                     if style == .loadAndReps {
-                        let normalized = text.replacingOccurrences(of: ",", with: ".")
-                        if let parsed = Double(normalized) {
+                        let normalized = text
+                        if let parsed = ReperaNumberFormat.parse(normalized) {
                             let value = resolvedLoadField == .deficitCm
                                 ? min(60, max(0, parsed))
                                 : max(0, parsed)
@@ -3152,7 +3152,7 @@ private struct PlannedSetConfigRow: View {
             previous: OGSetEntryRow.previousText(previous),
             firstValue: isMobility ? "\(set.targetDurationSeconds ?? (isMobilityHold ? 30 : 60))"
                 : (exerciseStyle == .loadAndReps
-                ? (set.targetWeightKg.map { String(format: "%g", $0) } ?? "0")
+                ? (set.targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "0")
                 : "\(set.targetReps)"),
             secondValue: isMobility
                 ? (isMobilityHold ? nil : "\(set.targetReps)")
@@ -3166,10 +3166,10 @@ private struct PlannedSetConfigRow: View {
                 if isMobility {
                     if let seconds = Int(text), seconds > 0 { set.targetDurationSeconds = min(3600, seconds) }
                 } else if exerciseStyle == .loadAndReps {
-                    let normalized = text.replacingOccurrences(of: ",", with: ".")
+                    let normalized = text
                     if normalized.isEmpty {
                         set.targetWeightKg = nil
-                    } else if let value = Double(normalized) {
+                    } else if let value = ReperaNumberFormat.parse(normalized) {
                         set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
                     }
                 } else if let value = Int(text), value > 0 {
@@ -3264,8 +3264,8 @@ private struct FreeWODMovementCreatePage: View {
                     let movement = WODMovement(
                         name: trimmedName,
                         reps: reps,
-                        weightMaleKg: Double(maleWeightText.replacingOccurrences(of: ",", with: ".")),
-                        weightFemaleKg: Double(femaleWeightText.replacingOccurrences(of: ",", with: "."))
+                        weightMaleKg: ReperaNumberFormat.parse(maleWeightText),
+                        weightFemaleKg: ReperaNumberFormat.parse(femaleWeightText)
                     )
                     onCreate(movement)
                     dismiss()
