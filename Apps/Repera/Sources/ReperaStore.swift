@@ -1691,7 +1691,7 @@ final class ReperaStore: NSObject {
         var imported = 0
         for session in recovered where session.finishedAt != nil {
             guard known.insert(session.id).inserted else { continue }
-            state.workouts.append(session)
+            state.workouts.append(normalizedFinishedWorkout(session))
             imported += 1
         }
         if imported > 0 {
@@ -1704,11 +1704,24 @@ final class ReperaStore: NSObject {
         return imported
     }
 
+    /// Finalizar y guardar ya equivale a aceptar los ejercicios de la
+    /// sesión, sin exigir un check por fila. No altera cargas ni inventa series.
+    /// Sirve para iPhone, Watch, importación y edición de sesiones antiguas.
+    private func normalizedFinishedWorkout(_ session: WorkoutSession) -> WorkoutSession {
+        guard session.phase == .finished || session.finishedAt != nil else { return session }
+        var saved = session
+        for i in saved.exercises.indices {
+            saved.exercises[i].isCompleted = true
+        }
+        return saved
+    }
+
     private func upsertWorkout(_ session: WorkoutSession) {
-        if let idx = state.workouts.firstIndex(where: { $0.id == session.id }) {
-            state.workouts[idx] = session
+        let saved = normalizedFinishedWorkout(session)
+        if let idx = state.workouts.firstIndex(where: { $0.id == saved.id }) {
+            state.workouts[idx] = saved
         } else {
-            state.workouts.insert(session, at: 0)
+            state.workouts.insert(saved, at: 0)
         }
         state.workouts.sort {
             ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
