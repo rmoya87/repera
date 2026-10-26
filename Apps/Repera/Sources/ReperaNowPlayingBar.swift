@@ -115,9 +115,9 @@ struct ReperaNowPlayingBar: View {
                         }
                     } else if snapshot.musicPermissionNeeded {
                         Button("Permitir") {
-                            MPMediaLibrary.requestAuthorization { _ in
-                                Task { @MainActor in refresh() }
-                            }
+                            // El bucle de observación refresca la vista al
+                            // volver del diálogo; no capturar SwiftUI en este callback.
+                            MPMediaLibrary.requestAuthorization { _ in }
                         }
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(OG.accent)
