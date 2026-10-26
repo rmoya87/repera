@@ -1202,6 +1202,22 @@ final class ReperaStore: NSObject {
         mutateActive { $0.selectExercise(at: index) }
     }
 
+    /// Guarda cada edición en la sesión persistida (local/iCloud/Watch)
+    /// antes de pasar a otro ejercicio o finalizar. No convierte borradores
+    /// en `loggedSets` ni reescribe otras sesiones o plantillas.
+    func updateActiveExerciseDraft(
+        id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?
+    ) {
+        guard let active = state.activeSession else { return }
+        var controller = SessionController(session: active)
+        guard controller.updateExerciseDraft(
+            id: id, plannedSets: plannedSets, quantityUnit: quantityUnit
+        ) else { return }
+        state.activeSession = controller.session
+        persist()
+        pushActiveToWatch()
+    }
+
     /// Reaplica una rutina editada durante Play sin perder series ni duración.
     /// Conservar estado por ID de bloque y ejercicio, no por índice (pueden reordenarse).
     func refreshActiveSessionPlan(from routine: Routine) {
@@ -1214,7 +1230,8 @@ final class ReperaStore: NSObject {
         session.routineBlocks = routine.blocks
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
-            let oldIndex = remaining.firstIndex(where: { old in
+            let oldIndex = remaining.firstIndex(where: { $0.id == planned.id })
+                ?? remaining.firstIndex(where: { old in
                 old.blockId == planned.blockId
                     && (old.exercise.id == planned.exercise.id
                         || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame)
@@ -1227,11 +1244,14 @@ final class ReperaStore: NSObject {
                 updated.loggedSets = old.loggedSets
                 updated.completedReps = old.completedReps
                 updated.isCompleted = old.isCompleted
+                updated.adaptedReps = old.adaptedReps
+                updated.adaptedWeightKg = old.adaptedWeightKg
             }
             return updated
         }
         if let current,
-           let index = session.exercises.firstIndex(where: {
+           let index = session.exercises.firstIndex(where: { $0.id == current.id })
+                ?? session.exercises.firstIndex(where: {
                $0.blockId == current.blockId
                    && ($0.exercise.id == current.exercise.id
                        || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame)
