@@ -186,6 +186,13 @@ struct StatsView: View {
             .onChange(of: model.range) { _, _ in
                 schedulePrepare(reason: "range")
             }
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+                // A medianoche cambia el tramo comparable sin cambiar syncRevision.
+                schedulePrepare(reason: "day-changed")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                schedulePrepare(reason: "foreground")
+            }
             .onChange(of: health.healthDataRevision) { _, _ in
                 model.invalidateCache(reason: "health-rev")
                 schedulePrepare(reason: "health-rev")
@@ -409,13 +416,9 @@ struct StatsView: View {
 
     private var freeTilesGrid: some View {
         let summary = snap.summary
+        let previous = snap.previousSummary
         let streak = snap.streak
-        let totalMinutes: String = {
-            if let avg = summary.averageMinutes, summary.sessionCount > 0 {
-                return "\(Int((avg * Double(summary.sessionCount)).rounded()))′"
-            }
-            return "—"
-        }()
+        let totalMinutes = Int(summary.totalMinutes.rounded())
         // Sin FC: 3 tiles en una sola fila.
         return OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 8) {
             tile(
@@ -423,14 +426,14 @@ struct StatsView: View {
                 label: "Entrenos",
                 value: "\(summary.sessionCount)",
                 iconColor: OG.accent,
-                delta: nil
+                delta: previous.map { summary.sessionCount - $0.sessionCount }
             )
             tile(
                 icon: "clock.fill",
                 label: "Tiempo",
-                value: totalMinutes,
+                value: "\(ReperaNumberFormat.integer(totalMinutes))′",
                 iconColor: OG.blue,
-                delta: nil
+                delta: previous.map { totalMinutes - Int($0.totalMinutes.rounded()) }
             )
             tile(
                 icon: "flame.fill",
@@ -670,15 +673,12 @@ struct StatsView: View {
             )
             tile(
                 icon: "clock.fill",
-                label: "Tiempo medio",
-                value: summary.averageMinutes.map { "\(Int($0.rounded()))′" } ?? "—",
+                label: "Tiempo",
+                value: "\(ReperaNumberFormat.integer(Int(summary.totalMinutes.rounded())))′",
                 iconColor: OG.blue,
-                delta: {
-                    guard let prev = previous,
-                          let cur = summary.averageMinutes,
-                          let old = prev.averageMinutes else { return nil }
-                    return Int((cur - old).rounded())
-                }()
+                delta: previous.map {
+                    Int(summary.totalMinutes.rounded()) - Int($0.totalMinutes.rounded())
+                }
             )
             tile(
                 icon: "flame.fill",
@@ -699,7 +699,7 @@ struct StatsView: View {
         valueColor: Color = OG.label,
         delta: Int? = nil
     ) -> some View {
-        VStack(spacing: 4) {
+        VStack(alignment: .center, spacing: 4) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
@@ -710,24 +710,25 @@ struct StatsView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
             Text(value)
                 .font(.system(size: 28, weight: .bold).monospacedDigit())
                 .foregroundStyle(valueColor)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity)
-            // Reserva siempre la misma altura (aunque el delta sea 0 o nil).
+                .frame(maxWidth: .infinity, alignment: .center)
+            // Mostrar también +0: la comparación está disponible aunque no varíe.
             Group {
-                if let delta, delta != 0 {
+                if let delta {
                     Text(delta > 0 ? "+\(delta)" : "\(delta)")
-                        .foregroundStyle(delta > 0 ? OG.accent : OG.yellow)
+                        .foregroundStyle(delta > 0 ? OG.accent : delta < 0 ? OG.yellow : OG.label3)
                 } else {
-                    Text("+0")
+                    Text("—")
                         .foregroundStyle(OG.label3)
-                        .opacity(0)
                 }
             }
             .font(.system(size: 11, weight: .semibold).monospacedDigit())
+            .frame(maxWidth: .infinity, alignment: .center)
             .frame(height: 14)
         }
         .multilineTextAlignment(.center)

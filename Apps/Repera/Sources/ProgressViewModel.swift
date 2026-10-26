@@ -35,7 +35,8 @@ final class ProgressViewModel {
             weekStartsOnMonday: weekStartsOnMonday,
             syncRevision: syncRevision,
             healthDataRevision: healthDataRevision,
-            bodyWeightRevision: bodyWeightRevision(bodyWeights)
+            bodyWeightRevision: bodyWeightRevision(bodyWeights),
+            referenceDay: Calendar.current.startOfDay(for: Date())
         )
         if let hit = cache[key] {
             snapshot = hit
@@ -56,7 +57,8 @@ final class ProgressViewModel {
             weekStartsOnMonday: monday,
             syncRevision: store.state.syncRevision,
             healthDataRevision: health.healthDataRevision,
-            bodyWeightRevision: bodyWeightRevision(store.state.bodyWeights)
+            bodyWeightRevision: bodyWeightRevision(store.state.bodyWeights),
+            referenceDay: Calendar.current.startOfDay(for: Date())
         )
 
         if let cached = cache[key] {

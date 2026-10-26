@@ -8,6 +8,8 @@ struct ProgressDataKey: Hashable, Sendable {
     var syncRevision: Int
     var healthDataRevision: Int
     var bodyWeightRevision: Int
+    /// Cambia a medianoche aunque los datos no se hayan sincronizado aún.
+    var referenceDay: Date = .distantPast
 }
 
 /// Stable weight plot point (id = bucket date, never random UUID).
@@ -184,7 +186,8 @@ enum ProgressDataEngine {
             totalKcal: charts.caloriesTotal,
             averageCardioMinutes: baseSummary.averageCardioMinutes,
             volumeKg: baseSummary.volumeKg,
-            sessionCount: baseSummary.sessionCount
+            sessionCount: baseSummary.sessionCount,
+            totalMinutes: baseSummary.totalMinutes
         )
         let prevWorkouts = StatsEngine.filterWorkoutsInPreviousPeriod(
             input.workouts,
@@ -225,7 +228,8 @@ enum ProgressDataEngine {
                 totalKcal: prevKcal,
                 averageCardioMinutes: basePrevious.averageCardioMinutes,
                 volumeKg: basePrevious.volumeKg,
-                sessionCount: basePrevious.sessionCount
+                sessionCount: basePrevious.sessionCount,
+                totalMinutes: basePrevious.totalMinutes
             )
         }()
         if Task.isCancelled { return nil }
@@ -245,12 +249,16 @@ enum ProgressDataEngine {
             now: now
         )
         let previousStreak: Int = {
-            guard let priorWeek = cal.date(byAdding: .day, value: -7, to: now) else { return 0 }
+            guard let bounds = range.previousPeriodBounds(
+                now: now, weekStartsOnMonday: monday
+            ) else { return 0 }
+            // Mismo día relativo del periodo anterior, no necesariamente
+            // el último día de la semana o del mes anterior.
             return StatsEngine.consecutiveWeekStreak(
                 workoutDates: workoutDates,
                 externalDates: externalDates,
                 weekStartsOnMonday: monday,
-                now: priorWeek
+                now: bounds.end.addingTimeInterval(-1)
             )
         }()
 
