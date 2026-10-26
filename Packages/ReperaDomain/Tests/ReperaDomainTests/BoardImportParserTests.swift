@@ -351,6 +351,19 @@ struct BoardImportParserTests {
         #expect(rows[1].matchedExerciseId == catalog.first(where: { $0.name == "Toes to bar" })?.id)
     }
 
+    @Test func dynamicServerAliasResolvesFullBoardScanner() {
+        let official = Exercise(
+            name: "Burpee to target", muscleGroup: "Cardio",
+            searchAliases: ["BXT-PRO"]
+        )
+        let rows = BoardImportParser.parse(
+            ocrText: "6 BXT-PRO",
+            catalog: [official]
+        )
+        #expect(rows.count == 1)
+        #expect(rows.first?.matchedExerciseId == official.id)
+    }
+
     @Test func derivesEmomRoundsFromStations() {
         let catalog = Catalog.seed()
         let text = """
