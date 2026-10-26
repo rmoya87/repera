@@ -209,15 +209,18 @@ struct StandaloneTimerView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 10) {
-                    OGCardSectionTitle(title: "Tipo de temporizador")
-                    Picker("Tipo", selection: $config.mode) {
-                        ForEach(StandaloneTimerMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
-                        }
+                // Mismo selector Liquid Glass nativo que Entreno / Actividad / Recuperación.
+                Picker("Tipo de temporizador", selection: $config.mode) {
+                    ForEach(StandaloneTimerMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
                     }
-                    .pickerStyle(.segmented)
                 }
+                .pickerStyle(.segmented)
+                .controlSize(.large)
+                .glassEffect(.regular, in: .capsule)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
+                .ogReadableColumn()
 
                 VStack(alignment: .leading, spacing: 0) {
                     OGCardSectionTitle(title: "Configuración")
