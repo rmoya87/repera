@@ -24,7 +24,9 @@ class FinishedWorkoutMetricsContractTests(unittest.TestCase):
         self.assertNotIn("guard exercise.isCompleted", method)
         self.assertIn("exercise.loggedSets.filter", method)
         self.assertIn("return effectiveWorkSets(exercise, in: workout)", method)
-        self.assertIn("set.rir = nil", method)
+        # Los inputs aceptados al finalizar incluyen el RIR, si se introdujo.
+        self.assertNotIn("set.rir = nil", method)
+        self.assertIn("return effectiveWorkSets(exercise, in: workout)", method)
         self.assertIn("if !exercise.loggedSets.isEmpty { return [] }", method)
 
     def test_all_major_progress_pipelines_use_same_work_sets(self):
