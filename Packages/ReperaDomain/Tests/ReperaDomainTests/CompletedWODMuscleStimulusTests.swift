@@ -207,4 +207,34 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         XCTAssertEqual(top.first?.value, 60)
         XCTAssertEqual(StatsEngine.personalRecords(from: [workout]).count, 1)
     }
+
+    func testFinishedInputsPreserveEnteredRIRWithoutChecks() {
+        let exercise = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        let entry = SessionExercise(
+            exercise: exercise,
+            plannedSets: [PlannedSet(targetReps: 3, targetWeightKg: 115, targetRir: 2)],
+            isCompleted: false,
+            blockKind: .strength
+        )
+        let workout = WorkoutSession(
+            title: "Fuerza guardada",
+            exercises: [entry],
+            phase: .finished,
+            startedAt: now.addingTimeInterval(-3600),
+            finishedAt: now.addingTimeInterval(-60)
+        )
+        let accepted = StatsEngine.confirmedWorkSets(entry, in: workout)
+        XCTAssertEqual(accepted.count, 1)
+        XCTAssertEqual(accepted[0].reps, 3)
+        XCTAssertEqual(accepted[0].weightKg, 115)
+        XCTAssertEqual(accepted[0].rir, 2)
+        XCTAssertTrue(Effort.isHard(rir: accepted[0].rir))
+
+        let unfinished = WorkoutSession(
+            title: "Pendiente",
+            exercises: [entry],
+            phase: .ready
+        )
+        XCTAssertTrue(StatsEngine.confirmedWorkSets(entry, in: unfinished).isEmpty)
+    }
 }
