@@ -2489,14 +2489,14 @@ struct LiveActivityView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             if hasSportValues || !recorder.sport.usesGPS {
                                 CardioSplitsView(
-                                routePoints: isRecordedRoute ? route : [],
-                                heartRate: previewHealthExtras?.heartRateSeries ?? [],
-                                cycling: recorder.sport.displaysSpeed,
-                                activeKilometerSeconds: session.liveKilometerSplitsSeconds,
-                                totalActiveSeconds: session.activeDurationSeconds,
-                                totalDistanceMeters: session.recordedDistanceMeters,
-                                maxSpeedKmh: previewHealthExtras?.maxSpeedKmh,
-                                healthStats: previewHealthExtras,
+                                    routePoints: isRecordedRoute ? route : [],
+                                    heartRate: previewHealthExtras?.heartRateSeries ?? [],
+                                    cycling: recorder.sport.displaysSpeed,
+                                    activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                    totalActiveSeconds: session.activeDurationSeconds,
+                                    totalDistanceMeters: session.recordedDistanceMeters,
+                                    maxSpeedKmh: previewHealthExtras?.maxSpeedKmh,
+                                    healthStats: previewHealthExtras,
                                     sport: recorder.sport,
                                     embedded: true
                                 )
@@ -2580,20 +2580,7 @@ struct LiveActivityView: View {
     private func reviewTile(
         _ label: String, value: String, icon: String, tint: Color
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-            Text(value)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundStyle(OG.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            Text(label).font(.caption2).foregroundStyle(OG.label3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+        WorkoutSummaryTile(title: label, value: value, icon: icon, tint: tint)
     }
 
     private func saveRecordedActivity() {
