@@ -789,23 +789,13 @@ private struct LibraryExerciseList: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground {
-                        if selectedExerciseID == row.id {
-                            // La selección respeta las esquinas agrupadas de List:
-                            // superior para primera fila, inferior para última;
-                            // si es la única, se redondean las cuatro.
-                            UnevenRoundedRectangle(
-                                topLeadingRadius: items.first?.id == row.id ? OG.radiusCard : 0,
-                                bottomLeadingRadius: items.last?.id == row.id ? OG.radiusCard : 0,
-                                bottomTrailingRadius: items.last?.id == row.id ? OG.radiusCard : 0,
-                                topTrailingRadius: items.first?.id == row.id ? OG.radiusCard : 0,
-                                style: .continuous
-                            )
-                            .fill(OG.accent)
-                        } else {
-                            OG.surface
-                        }
-                    }
+                    .listRowBackground(
+                        LibrarySelectedExerciseBackground(
+                            isSelected: selectedExerciseID == row.id,
+                            isFirst: items.first?.id == row.id,
+                            isLast: items.last?.id == row.id
+                        )
+                    )
                 } else {
                     NavigationLink(value: row.id) {
                         LibraryExerciseRowLabel(row: row)
@@ -833,6 +823,29 @@ private struct LibraryExerciseList: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Fondo de selección aislado del ForEach para evitar que el compilador
+/// tenga que inferir el árbol completo de List + Shape + swipeActions.
+private struct LibrarySelectedExerciseBackground: View {
+    let isSelected: Bool
+    let isFirst: Bool
+    let isLast: Bool
+
+    var body: some View {
+        if isSelected {
+            UnevenRoundedRectangle(
+                topLeadingRadius: isFirst ? OG.radiusCard : 0,
+                bottomLeadingRadius: isLast ? OG.radiusCard : 0,
+                bottomTrailingRadius: isLast ? OG.radiusCard : 0,
+                topTrailingRadius: isFirst ? OG.radiusCard : 0,
+                style: .continuous
+            )
+            .fill(OG.accent)
+        } else {
+            OG.surface
         }
     }
 }
