@@ -31,12 +31,42 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertLess(diary.index('Text("Programado")'), diary.index("weekSelector(narrow: true)"))
         header = diary.split("private var diaryTopBar:", 1)[1].split("private struct DiaryDateBox", 1)[0]
         self.assertIn("weekSelector(narrow: false)", header)
-        self.assertIn("OGFixedTopBar(title: \"Diario\")", header)
+        self.assertIn('OGFixedTopBar(title: "Diario")', header)
+        # Compacto: menú a la derecha de Diario, semana debajo, no encima.
+        self.assertLess(header.index('Text("Diario")'), header.index("weekActionsMenu", header.index("} else {")))
+        self.assertLess(header.index("weekActionsMenu", header.index("} else {")),
+                        header.index("weekSelector(narrow: false)"))
+        self.assertIn("HStack(alignment: .top, spacing: 12)", header)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", header)
         self.assertIn(".glassEffect(.regular.interactive(), in: .capsule)", diary)
         days = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
         self.assertNotIn('Text("Tu programación")', days)
         self.assertNotIn("weekOffset -= 1", days)
         self.assertNotIn("weekOffset += 1", days)
+
+    def test_compact_diary_uses_progress_glass_tabs_without_list_gap(self):
+        diary = swift("PlanView.swift")
+        progress = swift("StatsView.swift")
+        tabs = diary.split("private var compactDiaryTabs: some View {", 1)[1].split(
+            "private struct DiaryDateBox", 1
+        )[0]
+        progress_tabs = progress.split('Picker("Categoría", selection: $topic)', 1)[1].split(
+            ".ogReadableColumn()", 1
+        )[0]
+        for control in (tabs, progress_tabs):
+            self.assertIn(".pickerStyle(.segmented)", control)
+            self.assertIn(".controlSize(.large)", control)
+            self.assertIn(".glassEffect(.regular, in: .capsule)", control)
+        self.assertIn(".padding(.top, 4)", tabs)
+        self.assertIn(".padding(.bottom, 10)", tabs)
+        body = diary.split("var body: some View {", 1)[1].split(
+            ".navigationDestination(item: $editing)", 1
+        )[0]
+        self.assertIn(".safeAreaInset(edge: .top, spacing: 0)", body)
+        self.assertIn("compactDiaryTabs", body)
+        self.assertNotIn(".ogSegmentedListRow()", body)
+        self.assertEqual(diary.count('Picker("Sección", selection: $section)'), 1)
+        self.assertIn("weekSelector(narrow: true)", body)
 
     def test_copy_and_clear_act_only_on_selected_week(self):
         diary = swift("PlanView.swift")
