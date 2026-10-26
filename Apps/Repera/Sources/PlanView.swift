@@ -456,7 +456,8 @@ struct PlanView: View {
         Section {
             ForEach(1...7, id: \.self) { day in
                 let date = dateForWeekday(day)
-                let routine = store.scheduledRoutine(on: date)
+                let routines = store.scheduledRoutines(on: date)
+                let routine = routines.first
                 Button {
                     if let routine {
                         onOpenRoutine(routine)
@@ -509,9 +510,42 @@ struct PlanView: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if routine != nil {
                         OGSwipeDeleteButton(systemImage: "trash", accessibilityLabel: "Quitar del día", tint: OG.red) {
-                            store.removeScheduledRoutine(on: date)
+                            if let routine {
+                                store.removeScheduledRoutine(id: routine.id)
+                            }
                         }
                     }
+                }
+                // Un día admite cualquier número de entrenos independientes.
+                ForEach(routines.dropFirst()) { extra in
+                    Button { onOpenRoutine(extra) } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .foregroundStyle(OG.accent)
+                            Text(extra.title)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(OG.label)
+                            Spacer()
+                            scheduleChips(for: extra)
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(OG.label3)
+                        }
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        OGSwipeDeleteButton(systemImage: "trash", accessibilityLabel: "Quitar entreno", tint: OG.red) {
+                            store.removeScheduledRoutine(id: extra.id)
+                        }
+                    }
+                }
+                if !routines.isEmpty {
+                    Button { assigningDay = date } label: {
+                        Label("Añadir otro entreno", systemImage: "plus.circle")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
             }
         }
