@@ -694,9 +694,9 @@ struct PlanView: View {
     }
 
     private func librarySubtitle(_ routine: Routine) -> String {
-        var parts = [routineSubtitle(routine)]
-        parts.append("Sin fecha · reutilizable")
-        return parts.joined(separator: " · ")
+        // Todas las rutinas en esta lista son reutilizables; no repetir
+        // «Sin fecha» ni dar a entender que les falta una configuración.
+        routineSubtitle(routine)
     }
 
     private func routineSubtitle(_ routine: Routine) -> String {
