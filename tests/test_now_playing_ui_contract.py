@@ -16,7 +16,7 @@ def source(name):
 
 class NowPlayingUIContract(unittest.TestCase):
     def test_shared_player_uses_only_public_music_apis(self):
-        player = source("ReperaNowPlayingBar.swift")
+        player = source("DigitalClockDisplay.swift")
         self.assertIn("import MediaPlayer", player)
         self.assertIn("import AVFoundation", player)
         self.assertIn("MPMusicPlayerController.systemMusicPlayer", player)
@@ -32,13 +32,24 @@ class NowPlayingUIContract(unittest.TestCase):
         self.assertNotIn("MPNowPlayingInfoCenter", player)
 
     def test_unavailable_player_hides_all_chrome(self):
-        player = source("ReperaNowPlayingBar.swift")
+        player = source("DigitalClockDisplay.swift")
         self.assertIn("if snapshot.isVisible", player)
         self.assertIn("if showsSeparator", player)
         self.assertIn("if cardStyle", player)
         self.assertIn("Controles en el Centro de Control", player)
         self.assertIn("Audio en reproducción", player)
         self.assertIn("!otherAudio", player)
+
+    def test_now_playing_scope_survives_stale_xcode_project(self):
+        # DigitalClockDisplay.swift ya se compilaba antes de añadir la UI de música.
+        # En el archivo antiguo solo hay un comentario de compatibilidad.
+        screen = source("DigitalClockDisplay.swift")
+        legacy = source("ReperaNowPlayingBar.swift")
+        self.assertEqual(screen.count("struct ReperaNowPlayingBar: View"), 1)
+        self.assertEqual(screen.count("struct ReperaNowPlayingSnapshot"), 1)
+        self.assertNotIn("struct ReperaNowPlayingBar: View", legacy)
+        self.assertIn("import MediaPlayer", screen)
+        self.assertIn("import AVFoundation", screen)
 
     def test_both_timer_modes_use_same_miniplayer(self):
         screen = source("DigitalClockDisplay.swift")
