@@ -520,7 +520,7 @@ struct RouteWeatherStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
                 weatherStat(
                     symbol: symbol,
                     title: "Tiempo",
@@ -541,34 +541,20 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            if let attributionURL, let attributionMarkURL, hasWeather {
-                Link(destination: attributionURL) {
-                    HStack(spacing: 6) {
-                        AsyncImage(url: attributionMarkURL) { image in
-                            image.resizable().scaledToFit().frame(height: 12)
-                        } placeholder: {
-                            Text("Apple Weather")
-                                .font(.caption2)
-                                .foregroundStyle(OG.label3)
-                        }
-                        Text("· Histórico por hora")
-                            .font(.caption2)
-                            .foregroundStyle(OG.label3)
-                    }
+            if !hasWeather {
+                if let failureHint {
+                    Text(failureHint)
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
+                } else if isLoading {
+                    Text("Consultando tiempo histórico…")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
+                } else {
+                    Text("Datos meteorológicos no disponibles.")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
                 }
-                .buttonStyle(.plain)
-            } else if let failureHint {
-                Text(failureHint)
-                    .font(.caption2)
-                    .foregroundStyle(OG.label3)
-            } else if isLoading {
-                Text("Consultando tiempo histórico…")
-                    .font(.caption2)
-                    .foregroundStyle(OG.label3)
-            } else {
-                Text("Datos meteorológicos no disponibles.")
-                    .font(.caption2)
-                    .foregroundStyle(OG.label3)
             }
         }
         .padding(.horizontal, 12)
@@ -610,6 +596,20 @@ struct RouteWeatherStrip: View {
                     .foregroundStyle(OG.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
+            }
+            // WeatherKit exige la marca + enlace legal. Integrarla en el
+            // tile Tiempo evita una fila de atribución independiente.
+            if title == "Tiempo", hasWeather,
+               let attributionURL, let attributionMarkURL {
+                Link(destination: attributionURL) {
+                    AsyncImage(url: attributionMarkURL) { image in
+                        image.resizable().scaledToFit().frame(height: 12)
+                    } placeholder: {
+                        Text("Apple Weather").font(.system(size: 10))
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Apple Weather · atribución legal")
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)

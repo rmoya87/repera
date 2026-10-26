@@ -2547,7 +2547,9 @@ struct LiveActivityView: View {
                             } map: {
                                 HealthWorkoutRouteMap(
                                     points: route, isInteractive: false,
-                                    isWaterSport: recorder.sport.isWaterSport
+                                    isWaterSport: recorder.sport.isWaterSport,
+                                    referenceRoutePoints: isRecordedRoute
+                                        ? (recorder.chosenRoute?.points ?? []) : []
                                 )
                                 .matchedTransitionSource(
                                     id: "live-review-route", in: routeZoomNamespace

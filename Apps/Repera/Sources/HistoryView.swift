@@ -365,6 +365,7 @@ struct WorkoutDetailView: View {
             isWaterSport: draft?.liveSportID.flatMap {
                 LiveSport(rawValue: $0)?.isWaterSport
             } ?? false,
+            referenceRoutePoints: draft.map { referenceRoutePoints($0) } ?? [],
             onClose: { showFullScreenRoute = false }
         )
     }
@@ -383,23 +384,38 @@ struct WorkoutDetailView: View {
     }
 
     private func sessionMapContent(_ session: WorkoutSession) -> SessionMapKind {
-        // La reconstrucción pertenece al mapa local de Repera, no al de Salud.
-        if session.routePoints.count >= 2,
-           session.routePoints.contains(where: { $0.isEstimated == true }) {
+        let local = session.routePoints
+        let healthRoute = healthExtras?.routePoints ?? []
+        // Tras un cierre inesperado, Salud puede no tener todavía todos los
+        // puntos que sí sobrevivieron en el checkpoint GPS de Repera.
+        if local.count >= 2,
+           (local.contains(where: { $0.isEstimated == true })
+            || local.count >= healthRoute.count) {
             return .ownRoute
         }
-        if let extras = healthExtras, extras.showRouteMap { return .healthRoute }
-        if session.routePoints.count >= 2 { return .ownRoute }
+        if healthRoute.count >= 2 { return .healthRoute }
+        if local.count >= 2 { return .ownRoute }
         if session.locationPin != nil { return .pin }
         return .none
     }
 
     private func displayedRoute(_ session: WorkoutSession) -> [HealthKitStore.RoutePoint] {
-        if session.routePoints.contains(where: { $0.isEstimated == true }) {
-            return session.routePoints.map(\.asHealthRoutePoint)
+        let local = session.routePoints
+        let healthRoute = healthExtras?.routePoints ?? []
+        if local.count >= 2,
+           (local.contains(where: { $0.isEstimated == true })
+            || local.count >= healthRoute.count) {
+            return local.map(\.asHealthRoutePoint)
         }
-        if let route = healthExtras?.routePoints, route.count >= 2 { return route }
-        return session.routePoints.map(\.asHealthRoutePoint)
+        if healthRoute.count >= 2 { return healthRoute }
+        return local.map(\.asHealthRoutePoint)
+    }
+
+    /// La ruta importada es una referencia visual: jamás se añade a los
+    /// puntos medidos, a la distancia ni a los parciales del entrenamiento.
+    private func referenceRoutePoints(_ session: WorkoutSession) -> [WorkoutRoutePoint] {
+        guard let routeID = session.liveRouteID else { return [] }
+        return LiveRoutesStore.shared.routes.first(where: { $0.id == routeID })?.points ?? []
     }
 
     private func displayedMetrics(_ session: WorkoutSession) -> HealthKitStore.SessionHealthExtras? {
@@ -429,17 +445,19 @@ struct WorkoutDetailView: View {
         // independiente CAPTURA toda la tarjeta del mapa de forma fiable.
         switch sessionMapContent(session) {
         case .healthRoute:
-            if let extras = healthExtras {
+            if healthExtras != nil {
+                let route = displayedRoute(session)
                 WorkoutMapTapTarget(accessibilityLabel: "Ampliar recorrido") {
                     fullScreenPin = nil
-                    fullScreenRoutePoints = extras.routePoints
+                    fullScreenRoutePoints = route
                     showFullScreenRoute = true
                 } map: {
                     HealthWorkoutRouteMap(
-                        points: extras.routePoints, isInteractive: false,
+                        points: route, isInteractive: false,
                         isWaterSport: session.liveSportID.flatMap {
                             LiveSport(rawValue: $0)?.isWaterSport
-                        } ?? false
+                        } ?? false,
+                        referenceRoutePoints: referenceRoutePoints(session)
                     )
                     .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
                 }
@@ -455,7 +473,8 @@ struct WorkoutDetailView: View {
                     isInteractive: false,
                     isWaterSport: session.liveSportID.flatMap {
                         LiveSport(rawValue: $0)?.isWaterSport
-                    } ?? false
+                    } ?? false,
+                    referenceRoutePoints: referenceRoutePoints(session)
                 )
                 .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
             }
@@ -1852,6 +1871,7 @@ struct WorkoutMapZoomDestination: View {
     var points: [HealthKitStore.RoutePoint]
     var pin: WorkoutLocationPin? = nil
     var isWaterSport: Bool = false
+    var referenceRoutePoints: [WorkoutRoutePoint] = []
     var onClose: () -> Void
 
     var body: some View {
@@ -1862,7 +1882,8 @@ struct WorkoutMapZoomDestination: View {
                 } else {
                     HealthWorkoutRouteMap(
                         points: points, isInteractive: true,
-                        isWaterSport: isWaterSport
+                        isWaterSport: isWaterSport,
+                        referenceRoutePoints: referenceRoutePoints
                     )
                 }
             }
@@ -2176,66 +2197,74 @@ struct HealthWorkoutRouteMap: View {
     var points: [HealthKitStore.RoutePoint]
     var isInteractive: Bool = true
     var isWaterSport: Bool = false
+    /// Trazado GPX cargado por el usuario, solo para reparar huecos de pantalla.
+    var referenceRoutePoints: [WorkoutRoutePoint] = []
 
     // MapKit overlays are expensive: cache the route geometry between SwiftUI
     // updates (including continuous GPS changes from another active session).
     @State private var cachedRuns: [SpeedRun] = []
     private var routeCacheKey: String {
-        "\(points.count)-\(points.first?.date.timeIntervalSince1970 ?? 0)-\(points.last?.date.timeIntervalSince1970 ?? 0)-\(isWaterSport)"
+        "\(points.count)-\(points.first?.date.timeIntervalSince1970 ?? 0)-\(points.last?.date.timeIntervalSince1970 ?? 0)-\(points.isEmpty ? 0 : points[points.count / 2].date.timeIntervalSince1970)-\(referenceRoutePoints.count)-\(referenceRoutePoints.first?.latitude ?? 0)-\(referenceRoutePoints.last?.longitude ?? 0)-\(isWaterSport)"
     }
 
-    /// Un recorrido válido se representa como una sola polilínea con colores
-    /// interpolados a lo largo de su distancia, no como una línea por muestra GPS.
-    /// Las pausas y los saltos se conservan como cortes (no se inventan tramos).
+    /// Mantiene el trazado GPS original; los enlaces de una interrupción
+    /// solo existen en la capa de presentación, nunca en Salud o en los datos.
     private var routeRuns: [SpeedRun] {
         guard points.count >= 2 else { return [] }
-
         var legs: [SpeedLeg?] = []
         legs.reserveCapacity(points.count - 1)
-        for index in 0..<(points.count - 1) {
-            let first = points[index]
-            let last = points[index + 1]
-            guard Self.valid(first.latitude, first.longitude),
-                  Self.valid(last.latitude, last.longitude)
-            else {
-                legs.append(nil)
-                continue
-            }
 
-            let seconds = last.date.timeIntervalSince(first.date)
-            guard seconds > 0, seconds <= 30 else {
+        for index in 0..<(points.count - 1) {
+            let first = points[index], last = points[index + 1]
+            guard Self.valid(first.latitude, first.longitude),
+                  Self.valid(last.latitude, last.longitude) else {
                 legs.append(nil)
                 continue
             }
             let start = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
             let end = CLLocationCoordinate2D(latitude: last.latitude, longitude: last.longitude)
-            let meters = CLLocation(latitude: first.latitude, longitude: first.longitude)
-                .distance(from: CLLocation(latitude: last.latitude, longitude: last.longitude))
-            let derivedSpeed = meters / seconds
-            guard meters.isFinite, meters >= 0.5,
-                  derivedSpeed.isFinite, derivedSpeed <= 25 else {
+            let meters = CLLocation(latitude: start.latitude, longitude: start.longitude)
+                .distance(from: CLLocation(latitude: end.latitude, longitude: end.longitude))
+            let seconds = last.date.timeIntervalSince(first.date)
+            guard meters.isFinite, seconds.isFinite, seconds > 0 else {
                 legs.append(nil)
                 continue
             }
-            let measured = last.speedMps ?? first.speedMps
-            let speed: Double
-            if let measured, measured.isFinite, (0.2...25).contains(measured) {
-                speed = measured
-            } else if derivedSpeed >= 0.2 {
-                speed = derivedSpeed
+            // Puntos casi inmóviles no cortan la ruta ni crean falsos segmentos.
+            if meters < 0.5 { continue }
+            let speedFromGPS = meters / seconds
+            if seconds <= 30, speedFromGPS.isFinite, speedFromGPS <= 25 {
+                let measured = last.speedMps ?? first.speedMps
+                let speed = (measured?.isFinite == true
+                             && (0.2...25).contains(measured ?? 0))
+                    ? (measured ?? speedFromGPS) : speedFromGPS
+                if speed >= 0.2 {
+                    legs.append(SpeedLeg(
+                        index: index, start: start, end: end,
+                        distance: meters, speed: speed,
+                        isEstimated: first.isEstimated || last.isEstimated
+                    ))
+                    continue
+                }
+            }
+            // Un salto temporal no es una segunda actividad. Si es compatible
+            // con el tiempo y las posiciones, usar el GPX cargado como guía.
+            // Si no hay GPX, solo enlazar huecos cortos y plausibles.
+            if let bridge = visualBridge(
+                from: first, to: last, index: index, seconds: seconds, directMeters: meters
+            ) {
+                legs.append(contentsOf: bridge.map { Optional($0) })
             } else {
                 legs.append(nil)
-                continue
             }
-            legs.append(SpeedLeg(
-                index: index, start: start, end: end,
-                distance: meters, speed: speed,
-                isEstimated: first.isEstimated || last.isEstimated
-            ))
         }
 
-        let values = legs.compactMap { $0?.speed }
-        guard let slowest = values.min(), let fastestValue = values.max() else { return [] }
+        let realSpeeds = legs.compactMap { leg -> Double? in
+            guard let leg, !leg.isEstimated else { return nil }
+            return leg.speed
+        }
+        let speeds = realSpeeds.isEmpty ? legs.compactMap { $0?.speed } : realSpeeds
+        guard let slowest = speeds.min(), let fastestValue = speeds.max() else { return [] }
         let fastest = max(fastestValue, slowest + 0.1)
         var groups: [[SpeedLeg]] = []
         var current: [SpeedLeg] = []
@@ -2253,10 +2282,100 @@ struct HealthWorkoutRouteMap: View {
             }
         }
         if !current.isEmpty { groups.append(current) }
-
         return groups.map {
             Self.makeRun($0, minSpeed: slowest, maxSpeed: fastest, water: isWaterSport)
         }
+    }
+
+    /// Enlaza un corte de GPS sin inventar distancia registrada. Cuando se
+    /// había importado una ruta se usa su geometría, no una cuerda recta.
+    private func visualBridge(
+        from first: HealthKitStore.RoutePoint,
+        to last: HealthKitStore.RoutePoint,
+        index: Int,
+        seconds: TimeInterval,
+        directMeters: CLLocationDistance
+    ) -> [SpeedLeg]? {
+        guard seconds > 30, seconds <= 30 * 60,
+              directMeters >= 0.5, directMeters.isFinite else { return nil }
+
+        let start = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+        let end = CLLocationCoordinate2D(latitude: last.latitude, longitude: last.longitude)
+        let route = referenceBridge(from: start, to: end, seconds: seconds)
+        // Sin trayecto de referencia no trazar un salto largo ni un teletransporte.
+        guard route != nil || (directMeters <= 350 && directMeters / seconds <= 6)
+        else { return nil }
+        let coordinates = route ?? [start, end]
+        let portions = zip(coordinates, coordinates.dropFirst()).compactMap { pair
+            -> (CLLocationCoordinate2D, CLLocationCoordinate2D, Double)? in
+            let distance = CLLocation(latitude: pair.0.latitude, longitude: pair.0.longitude)
+                .distance(from: CLLocation(latitude: pair.1.latitude, longitude: pair.1.longitude))
+            guard distance.isFinite, distance >= 0.1 else { return nil }
+            return (pair.0, pair.1, distance)
+        }
+        let total = portions.reduce(0.0) { $0 + $1.2 }
+        guard total > 0, total / seconds <= 25 else { return nil }
+        let measured = [first.speedMps, last.speedMps].compactMap { value -> Double? in
+            guard let value, value.isFinite, (0.2...25).contains(value) else { return nil }
+            return value
+        }
+        let speed = measured.isEmpty
+            ? max(0.2, min(25, total / seconds))
+            : measured.reduce(0, +) / Double(measured.count)
+        return portions.map {
+            SpeedLeg(index: index, start: $0.0, end: $0.1,
+                     distance: $0.2, speed: speed, isEstimated: true)
+        }
+    }
+
+    /// Ajuste prudente al GPX previamente seleccionado para este mismo entreno.
+    /// Nunca se incorporan puntos de la ruta prevista al historial medido.
+    private func referenceBridge(
+        from start: CLLocationCoordinate2D,
+        to end: CLLocationCoordinate2D,
+        seconds: TimeInterval
+    ) -> [CLLocationCoordinate2D]? {
+        let route = referenceRoutePoints
+        guard route.count >= 3 else { return nil }
+        let fromLocation = CLLocation(latitude: start.latitude, longitude: start.longitude)
+        let toLocation = CLLocation(latitude: end.latitude, longitude: end.longitude)
+        var fromIndex = -1, toIndex = -1
+        var fromDistance = Double.greatestFiniteMagnitude
+        var toDistance = Double.greatestFiniteMagnitude
+        // GPX grandes: buscar sobre una muestra acotada, incluyendo el final.
+        let strideSize = max(1, route.count / 1_400)
+        var candidateIndices = Array(Swift.stride(from: 0, to: route.count, by: strideSize))
+        if candidateIndices.last != route.count - 1 { candidateIndices.append(route.count - 1) }
+        for index in candidateIndices {
+            let point = route[index]
+            guard Self.valid(point.latitude, point.longitude) else { continue }
+            let location = CLLocation(latitude: point.latitude, longitude: point.longitude)
+            let a = fromLocation.distance(from: location)
+            let b = toLocation.distance(from: location)
+            if a < fromDistance { fromDistance = a; fromIndex = index }
+            if b < toDistance { toDistance = b; toIndex = index }
+        }
+        guard fromDistance <= 50, toDistance <= 50,
+              fromIndex >= 0, toIndex >= 0, abs(toIndex - fromIndex) >= 2
+        else { return nil }
+        let direction = fromIndex < toIndex ? 1 : -1
+        let count = abs(toIndex - fromIndex)
+        let sampleStep = max(1, Int(ceil(Double(count) / 100)))
+        var coordinates = [start]
+        var offset = sampleStep
+        while offset < count {
+            let point = route[fromIndex + direction * offset]
+            coordinates.append(.init(latitude: point.latitude, longitude: point.longitude))
+            offset += sampleStep
+        }
+        coordinates.append(end)
+        let distance = zip(coordinates, coordinates.dropFirst()).reduce(0.0) { sum, pair in
+            sum + CLLocation(latitude: pair.0.latitude, longitude: pair.0.longitude)
+                .distance(from: CLLocation(latitude: pair.1.latitude, longitude: pair.1.longitude))
+        }
+        guard distance.isFinite, distance > 0, distance <= 6_000,
+              distance / seconds <= 25 else { return nil }
+        return coordinates
     }
 
     private static func valid(_ latitude: Double, _ longitude: Double) -> Bool {
@@ -2437,22 +2556,25 @@ struct HealthWorkoutRouteMap: View {
                     .mapOverlayLevel(level: .aboveRoads)
             }
             ForEach(cachedRuns) { run in
-                // Una única geometría por tramo: esquinas redondas y degradado
-                // continuo. Resplandor detrás, colores eléctricos encima.
+                // El mapa pequeño no puede tener el mismo grosor que el zoom.
+                // Los enlaces inferidos se dibujan discontinuos en las 3 capas.
+                let dash: [CGFloat] = run.isEstimated ? (isInteractive ? [7, 6] : [4, 4]) : []
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.halo, style: StrokeStyle(
-                        lineWidth: 18, lineCap: .round, lineJoin: .round
+                        lineWidth: isInteractive ? 18 : 8,
+                        lineCap: .round, lineJoin: .round, dash: dash
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.edge, style: StrokeStyle(
-                        lineWidth: 10, lineCap: .round, lineJoin: .round
+                        lineWidth: isInteractive ? 10 : 4.5,
+                        lineCap: .round, lineJoin: .round, dash: dash
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.core, style: StrokeStyle(
-                        lineWidth: 6, lineCap: .round, lineJoin: .round,
-                        dash: run.isEstimated ? [7, 6] : []
+                        lineWidth: isInteractive ? 6 : 2.8,
+                        lineCap: .round, lineJoin: .round, dash: dash
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
             }
