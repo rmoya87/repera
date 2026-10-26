@@ -1271,8 +1271,19 @@ final class HealthKitStore {
         let workout: HKWorkout?
         if let linked, linked.zoneGroup(for: heartType) != nil {
             workout = linked
-        } else {
+        } else if let verified = await verifiedWatchWorkout(forReperaSession: session.id),
+                  let uuid = verified.workoutUUID,
+                  let watch = await fetchWorkout(uuid: uuid),
+                  watch.zoneGroup(for: heartType) != nil {
+            // El iPhone pudo escribir un HKWorkout sin zonas; preferir el
+            // registro REAL del mismo entrenamiento en Watch, por ID.
+            workout = watch
+        } else if session.healthKitWorkoutUUID == nil {
+            // Solo sesiones sin identidad persistida usan búsqueda temporal.
             workout = await overlappingWorkoutWithZones(from: start, to: finished)
+        } else {
+            // Hora editada: no asociar zonas de otro entreno por solape.
+            workout = nil
         }
         guard let workout, let group = workout.zoneGroup(for: heartType) else { return nil }
         let bpmUnit = HKUnit.count().unitDivided(by: .minute())
