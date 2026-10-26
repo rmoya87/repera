@@ -808,7 +808,7 @@ struct WorkoutDetailView: View {
                 summaryTile(
                     title: "Volumen",
                     value: session.totalVolumeKg > 0
-                        ? "\(Int(session.totalVolumeKg.rounded()))"
+                        ? ReperaNumberFormat.integer(Int(session.totalVolumeKg.rounded()))
                         : "—",
                     icon: "scalemass.fill",
                     tint: OG.accent
