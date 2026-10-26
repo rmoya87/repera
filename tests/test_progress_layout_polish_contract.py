@@ -14,6 +14,18 @@ def read(name: str) -> str:
 
 
 class ProgressLayoutPolishContractTests(unittest.TestCase):
+    def test_shared_chart_and_card_section_headings_have_settings_spacing(self):
+        theme = read("Theme.swift")
+        heading = theme.split("struct OGCardSectionTitle: View {", 1)[1].split(
+            "struct OGCard<Content: View>", 1
+        )[0]
+        self.assertIn(".padding(.top, 12)", heading)
+        self.assertIn(".padding(.horizontal, 4)", heading)
+        # Mismo componente para cabeceras de Progreso, Actividad y Salud.
+        for name in ("StatsView.swift", "ProgressTrendCards.swift",
+                     "HealthRecovery.swift"):
+            self.assertIn("OGCardSectionTitle(", read(name), name)
+
     def test_technique_editor_uses_sibling_list_rows_without_nested_disclosure(self):
         play = read("WorkoutView.swift")
         body = play.split("private func content(_ session: WorkoutSession)", 1)[1]
