@@ -88,6 +88,8 @@ final class ReperaStore: NSObject {
             LaunchTiming.mark("ReperaStore.init(shell)")
         }
         super.init()
+        // The workout session is durable; restore its wall-clock block timer.
+        workoutClock.restoreIfNeeded(for: state.activeSession)
         publishSessionChrome()
     }
 
@@ -102,6 +104,7 @@ final class ReperaStore: NSObject {
             || loaded.workouts.count != state.workouts.count
             || loaded.exercises.count != state.exercises.count
         state = loaded
+        workoutClock.restoreIfNeeded(for: state.activeSession)
         // Tras actualizar desde el antiguo plan recurrente, fijar las
         // asignaciones a fechas de ESTA semana (sin repetir indefinidamente).
         let migratedWeekly = migrateLegacyWeeklyPlans()
@@ -933,6 +936,7 @@ final class ReperaStore: NSObject {
         let start = session.startedAt ?? Date()
         let end = session.finishedAt ?? Date()
         restCoordinator.endForSessionClose()
+        workoutClock.stop()
         state.activeSession = nil
         persist()
         // El widget de entrenamiento tiene su propio ciclo de vida, no se

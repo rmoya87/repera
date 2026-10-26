@@ -244,6 +244,7 @@ struct ReperaApp: App {
                         // Checkpoint both workout types and GPS immediately.
                         LiveActivityRecorder.shared.checkpoint(force: true)
                         locationTracker.checkpoint()
+                        store.workoutClock.checkpoint()
                         let backgroundID = UIApplication.shared.beginBackgroundTask(
                             withName: "Repera workout checkpoint"
                         )
@@ -256,8 +257,10 @@ struct ReperaApp: App {
                         aiInbox.stopRealtime()
                         LiveActivityRecorder.shared.checkpoint(force: true)
                         locationTracker.checkpoint()
+                        store.workoutClock.checkpoint()
                     } else if phase == .active, wasBackgrounded {
                         store.resumePlannedGPSTrackingIfNeeded()
+                        store.workoutClock.syncFromWallClock()
                         LiveActivityRecorder.shared.refreshWhenActive()
                         // No cloud state replacement, Health history or business
                         // refresh while a workout is actively being recorded.

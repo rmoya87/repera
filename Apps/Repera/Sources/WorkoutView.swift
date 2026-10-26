@@ -225,11 +225,19 @@ struct WorkoutView: View {
             )
         }
         .onAppear {
+            // Restore the last recorded exercise and its live countdown after
+            // iOS unexpectedly killed the process. No timer reset on reopen.
+            if store.workoutClock.hasStarted {
+                runningTimerBlockID = store.workoutClock.restoredBlockID
+            }
             notesDraft = store.state.activeSession?.notes ?? ""
             prefill()
             bootstrapQuickLogIfNeeded()
             if store.state.activeSession?.phase == .ready {
                 store.confirmCurrentOnWatchStyle()
+            }
+            if store.workoutClock.pendingEndReason != nil {
+                presentWODConfirmIfNeeded()
             }
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
@@ -1526,6 +1534,10 @@ struct WorkoutView: View {
                     haptic: haptic
                 )
             }
+        }
+        if let sessionID = store.state.activeSession?.id,
+           let blockID = runningTimerBlockID {
+            store.workoutClock.bindSession(sessionID: sessionID, blockID: blockID)
         }
         store.workoutClock.handlePrimary()
     }
