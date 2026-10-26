@@ -1,5 +1,15 @@
 # Funcionalidades Repera
 
+## Comenzar, sesión y Progreso (26/10/2026)
+
+- Supabase Auth mantiene tokens en Keychain con renovación automática del JWT antes de sincronizar y al volver a primer plano. Si el servidor invalida irreversiblemente la sesión, Repera muestra login; ante ausencia temporal de red permite ver lo guardado localmente y reintenta después. No existe promesa de sesión perpetua.
+- Comenzar anuncia cada kilómetro con AVSpeechSynthesizer sobre una sesión AVAudioSession de reproducción hablada (modo background audio habilitado). Los kilómetros no envían push/notificaciones visuales; los resultados siguen en Parciales. La voz está gobernada por el interruptor de guía del usuario.
+- Resumen de Comenzar: tiempo/distancia/energía medidas arriba; mapa inmediatamente debajo, sin encabezado redundante. Ritmo y velocidad medios son tiles dentro de Parciales, antes del desglose de kilómetros. Tocar el mapa abre un visor a pantalla completa con paneo, zoom y X para cerrar; también se aplica al detalle del registro terminado.
+- Escala por velocidad: en tierra azul → amarillo → naranja → rojo, en agua verde → amarillo → naranja → rojo, para mantener contraste con los parques y el mar.
+- Progreso combina las sesiones guardadas desde Inicio/Comenzar y Salud sin duplicar una actividad del Watch; fatiga general por tipo y duración estimadas, y capa de esfuerzo alto separada para no etiquetar caminatas como entrenamiento intenso. Los récords deportivos (distancia, mejor km, duración) se consultan desde Progreso → Deportes; e1RM se reserva a ejercicios con resultados de fuerza.
+
+
+
 ## Sesiones independientes, deportes y copia remota (2026-10-26)
 
 - **Múltiples rutinas en el mismo día:** cada entrenamiento programado tiene UUID propio y no sustituye a otros con la misma fecha. Diario permite añadir sesiones incluso en días ocupados y deslizar para eliminar solo una. Inicio muestra a la vez las completadas y las pendientes, evitando repetir la que ya se terminó.
