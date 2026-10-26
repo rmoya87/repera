@@ -108,6 +108,15 @@ struct RootTabView: View {
         }
         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
         .tint(OG.accent)
+        .task {
+            // Nuevo proceso: volver a la pantalla real de grabación.
+            // No reabrir Inicio ni iniciar un entrenamiento distinto.
+            if store.state.activeSession != nil {
+                flowPath = [.workout]
+            } else if LiveActivityRecorder.shared.isActive {
+                tab = .center
+            }
+        }
         .onOpenURL { url in
             guard url.scheme == "repera" else { return }
             switch url.host {

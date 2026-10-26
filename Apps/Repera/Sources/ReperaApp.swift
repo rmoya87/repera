@@ -146,6 +146,8 @@ struct ReperaApp: App {
                     }
 
                     await store.hydrateFromDisk()
+                    // Restablecer Comenzar y sus muestras antes del trabajo de red.
+                    LiveActivityRecorder.shared.resumeInterruptedRecordingIfNeeded()
                     LaunchTiming.mark("hydrate.done→bootstrap")
                     store.bootstrap()
                     wireSubscriptionGates()

@@ -201,6 +201,18 @@ enum LiveSport: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Un salto medio tras un cierre debe ser razonable para el deporte.
+    /// No usar el límite más permisivo de picos GPS reales.
+    var recoveryMaximumSpeedMps: Double {
+        switch self {
+        case .walking, .hiking, .golf: 2.8
+        case .running, .trail: 7.5
+        case .cycling, .mountainBike, .gravel: 20
+        case .skiing, .snowboarding, .windsurfing, .kitesurfing: 35
+        default: min(12, maxGPSMetersPerSecond)
+        }
+    }
+
     /// Solo calcular desnivel cuando la actividad tiene sentido en pendiente.
     var tracksElevation: Bool {
         switch self {
@@ -678,6 +690,8 @@ private struct LiveSnapshot: Codable {
     var kilometerSplits: [LiveKmSplit]?
     var lastKilometerBoundarySeconds: TimeInterval?
     var gpsSessionID: UUID?
+    /// Total distance extrapolated over unrecorded gaps, explicitly distinct.
+    var estimatedRecoveryMeters: Double?
 }
 
 /// La grabación no depende de que SwiftUI mantenga abierta la pestaña.
@@ -724,6 +738,9 @@ final class LiveActivityRecorder: NSObject {
     private var guidanceAudioActive = false
     private(set) var spokenGuidanceEnabled = true
     private var gpsSessionID = UUID()
+    /// Recuperación exclusiva de una grabación interrumpida, no una pausa.
+    private var needsInterruptedGPSRecovery = false
+    private(set) var estimatedRecoveryMeters: Double = 0
     private var lastSave = Date.distantPast
     private var lastLiveActivityUpdate = Date.distantPast
     private var lastPublishedDistanceMeters: Double = 0
@@ -745,6 +762,7 @@ final class LiveActivityRecorder: NSObject {
             pausedSeconds = snapshot.pausedSeconds
             recordedDistanceMeters = snapshot.recordedDistanceMeters
             routePoints = snapshot.routePoints
+            estimatedRecoveryMeters = snapshot.estimatedRecoveryMeters ?? 0
             rebuildElevationFromRoute()
             gpsSessionID = snapshot.gpsSessionID ?? UUID()
             // The independent GPS checkpoint may include later fixes than the
@@ -767,8 +785,17 @@ final class LiveActivityRecorder: NSObject {
                 LiveRoutesStore.shared.routes.first { $0.id == id }
             }
             prepareRouteNavigation()
-            // Restauración segura: una interrupción no debe inventar tiempo ni distancia.
-            phase = .paused
+            // Si iOS terminó el proceso durante una grabación reciente,
+            // recuperar tiempo y GPS; las pausas manuales se mantienen pausadas.
+            let age = Date().timeIntervalSince(snapshot.savedAt)
+            needsInterruptedGPSRecovery = snapshot.phase == Phase.recording.rawValue
+                && age >= 0 && age <= 2 * 60 * 60
+            if needsInterruptedGPSRecovery {
+                phase = .recording
+                pausedAt = nil
+            } else {
+                phase = .paused
+            }
         } else if let savedSport = UserDefaults.standard.string(forKey: "repera.live.lastSport"),
                   let restored = LiveSport(rawValue: savedSport) {
             sport = restored
@@ -779,6 +806,15 @@ final class LiveActivityRecorder: NSObject {
     }
 
     var isActive: Bool { phase != .idle }
+
+    /// Tras relanzar el proceso, restaurar el sensor sin pulsar Iniciar.
+    func resumeInterruptedRecordingIfNeeded() {
+        guard needsInterruptedGPSRecovery, phase == .recording else { return }
+        needsInterruptedGPSRecovery = false
+        if sport.usesGPS { startGPS(bridgingInterruption: true) }
+        persistSnapshot()
+        updateLiveActivity()
+    }
 
     func toggleSpokenGuidance() {
         spokenGuidanceEnabled.toggle()
@@ -896,6 +932,8 @@ final class LiveActivityRecorder: NSObject {
         pausedSeconds = 0
         recordedDistanceMeters = 0
         routePoints = []
+        estimatedRecoveryMeters = 0
+        needsInterruptedGPSRecovery = false
         elevationGainMeters = 0
         elevationLossMeters = 0
         elevationReferenceMeters = nil
@@ -933,7 +971,7 @@ final class LiveActivityRecorder: NSObject {
         updateLiveActivity()
     }
 
-    private func startGPS() {
+    private func startGPS(bridgingInterruption: Bool = false) {
         let expected = gpsSessionID
         Task { @MainActor [weak self] in
             let tracker = WorkoutLocationTracker.shared
@@ -947,6 +985,8 @@ final class LiveActivityRecorder: NSObject {
                 maxSpeedMetersPerSecond: self.sport.maxGPSMetersPerSecond,
                 existingPoints: self.routePoints,
                 existingDistanceMeters: self.recordedDistanceMeters,
+                bridgeInterruptedGap: bridgingInterruption,
+                recoveryMaximumSpeedMps: self.sport.recoveryMaximumSpeedMps,
                 onUpdate: { [weak self] update in self?.receive(update) }
             )
             self.gpsMessage = started ? nil : "Otro entrenamiento ya está utilizando el GPS."
@@ -1093,6 +1133,8 @@ final class LiveActivityRecorder: NSObject {
         speechSynthesizer.stopSpeaking(at: .immediate)
         deactivateGuidanceAudio()
         phase = .idle
+        needsInterruptedGPSRecovery = false
+        estimatedRecoveryMeters = 0
         startedAt = nil
         finishedAt = nil
         pausedAt = nil
@@ -1121,7 +1163,8 @@ final class LiveActivityRecorder: NSObject {
             savedAt: Date(), selectedRouteID: chosenRoute?.id,
             kilometerSplits: kilometerSplits,
             lastKilometerBoundarySeconds: lastKilometerBoundarySeconds,
-            gpsSessionID: gpsSessionID
+            gpsSessionID: gpsSessionID,
+            estimatedRecoveryMeters: estimatedRecoveryMeters
         )
         if let data = try? JSONEncoder().encode(snap) {
             UserDefaults.standard.set(data, forKey: snapshotKey)
@@ -1148,6 +1191,10 @@ final class LiveActivityRecorder: NSObject {
             )
         }
         previousFixActiveSeconds = activeSeconds
+        if !update.bridgedPoints.isEmpty {
+            routePoints.append(contentsOf: update.bridgedPoints)
+            estimatedRecoveryMeters += update.bridgedDistanceMeters
+        }
         routePoints.append(update.point)
         if sport.tracksElevation, let altitude = update.point.altitudeMeters,
            let accuracy = update.point.verticalAccuracyMeters, accuracy <= 15 {
@@ -2418,6 +2465,14 @@ struct LiveActivityView: View {
                             systemImage: "heart"
                         )
                         .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                    }
+                    if recorder.estimatedRecoveryMeters > 0 {
+                        Label(
+                            "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. No es una ruta GPS medida.",
+                            systemImage: "location.north.line"
+                        )
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
                     }
                     if recorder.sport.tracksElevation && recorder.hasElevationSamples {
