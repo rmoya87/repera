@@ -596,4 +596,62 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(saved.exercises[0].plannedSets[0].targetReps, 5)
     }
 
+    func testMixedScannedBlocksKeepRFTAMRAPScoresAndEMOMDraftSeriesAfterEditing() throws {
+        let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let rft = RoutineBlock(
+            title: "3 RFT", kind: .wod,
+            movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 10)],
+            wodFormat: .forTime, rounds: 3
+        )
+        let amrap = RoutineBlock(
+            title: "AMRAP 10", kind: .wod,
+            movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 8)],
+            wodFormat: .amrap, timeCapMinutes: 10
+        )
+        let emom = RoutineBlock(
+            title: "Every 2'", kind: .wod,
+            movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 6)],
+            wodFormat: .emom, rounds: 4, emomIntervalSeconds: 120
+        )
+        var controller = SessionController(session: SessionController.from(
+            routine: Routine(title: "Pizarra", blocks: [rft, amrap, emom]),
+            exercises: [burpee]
+        ))
+        controller.startOnPhone()
+        let emomID = controller.session.exercises[2].id
+        var newSets = controller.session.exercises[2].plannedSets
+        newSets.append(PlannedSet(targetReps: 9, targetWeightKg: 12))
+        XCTAssertTrue(controller.updateExerciseDraft(
+            id: emomID, plannedSets: newSets, quantityUnit: nil
+        ))
+        controller.recordWODResult(WODBlockResult(
+            id: rft.id, format: .forTime, elapsedSeconds: 533
+        ))
+        controller.recordWODResult(WODBlockResult(
+            id: amrap.id, format: .amrap, totalReps: 4, roundsCompleted: 6
+        ))
+        controller.finishWorkout()
+        var finished = controller.session
+
+        // Corregir el resultado desde Historial sin tocar ni el cap ni el otro bloque.
+        finished = CompletedWorkoutEditing.changingScore(
+            in: finished, for: rft, field: .seconds, value: 21
+        )
+        let editor = CompletedWorkoutEditing.routine(from: finished)
+        let stored = CompletedWorkoutEditing.applying(
+            editor, to: finished, catalog: [burpee]
+        )
+        let reopened = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(stored)
+        )
+        XCTAssertEqual(reopened.wodResults.first(where: { $0.id == rft.id })?.elapsedSeconds, 561)
+        XCTAssertEqual(reopened.wodResults.first(where: { $0.id == amrap.id })?.roundsCompleted, 6)
+        XCTAssertEqual(reopened.wodResults.first(where: { $0.id == amrap.id })?.totalReps, 4)
+        XCTAssertEqual(reopened.exercises[2].plannedSets.count, newSets.count)
+        XCTAssertEqual(reopened.routineBlocks?[2].movements[0].explicitPlannedSets?.count, newSets.count)
+        XCTAssertTrue(reopened.exercises[2].loggedSets.isEmpty)
+        XCTAssertEqual(reopened.routineBlocks?[0].rounds, 3)
+        XCTAssertEqual(reopened.routineBlocks?[1].timeCapMinutes, 10)
+    }
+
 }
