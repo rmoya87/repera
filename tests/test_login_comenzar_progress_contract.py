@@ -29,6 +29,11 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("await businessAuth.ensureUsableSession()", app)
         self.assertIn("await BusinessAuthStore.shared.ensureUsableSession()", sync)
         self.assertNotIn("Nunca caduque", auth)
+        # El SDK fijado puede no disponer de AuthError.kind.
+        auth_classifier = auth.split("private static func isUnrecoverableAuthError(", 1)[1].split("private func ", 1)[0]
+        self.assertIn("switch authError.errorCode", auth_classifier)
+        self.assertNotIn("authError.kind", auth_classifier)
+        self.assertIn("return false", auth_classifier)
 
     def test_comenzar_kilometer_uses_voice_instead_of_push(self):
         source = text(IOS / "LiveActivityView.swift")
