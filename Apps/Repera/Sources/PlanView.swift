@@ -631,9 +631,9 @@ struct PlanView: View {
                         else { editing = routine }
                     } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: routine.isFavorite ? "star.fill" : "figure.strengthtraining.traditional")
+                            Image(systemName: "figure.strengthtraining.traditional")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(routine.isFavorite ? OG.yellow : OG.accent)
+                                .foregroundStyle(OG.accent)
                                 .frame(width: 40, height: 40)
                                 .background(OG.surface2, in: Circle())
                             VStack(alignment: .leading, spacing: 3) {
@@ -656,15 +656,6 @@ struct PlanView: View {
                             store.deleteRoutine(routine.id)
                         }
                         // Las plantillas ya no se vinculan a días recurrentes.
-                    }
-                    .swipeActions(edge: .leading) {
-                        Button {
-                            store.setRoutineFavorite(routine.id, isFavorite: !routine.isFavorite)
-                        } label: {
-                            Image(systemName: routine.isFavorite ? "star.slash" : "star")
-                        }
-                        .tint(OG.yellow)
-                        .accessibilityLabel(routine.isFavorite ? "Quitar favorito" : "Favorito")
                     }
                 }
             }
@@ -868,20 +859,27 @@ struct DayEditorView: View {
                 TextField(nameFieldPlaceholder, text: $routine.title)
                 switch mode {
                 case .plan:
+                    // Todas las rutinas guardadas en Diario permanecen en la
+                    // biblioteca. Esta fecha opcional crea una COPIA programada.
+                    Toggle("Programar también en una fecha", isOn: Binding(
+                        get: { routine.scheduledDate != nil },
+                        set: { enabled in
+                            routine.scheduledDate = enabled
+                                ? (routine.scheduledDate ?? Calendar.current.startOfDay(for: Date()))
+                                : nil
+                        }
+                    ))
+                    .tint(OG.accent)
                     if routine.scheduledDate != nil {
                         DatePicker("Fecha programada", selection: Binding(
                             get: { routine.scheduledDate ?? Date() },
                             set: { routine.scheduledDate = Calendar.current.startOfDay(for: $0) }
                         ), displayedComponents: .date)
-                    } else {
-                        Text("Plantilla reutilizable · sin fecha")
-                            .foregroundStyle(OG.label2)
                     }
                     scheduledTimeControls
                     Picker("Progresión (fuerza)", selection: $routine.progression) {
                         ForEach(ProgressionPolicy.allCases, id: \.self) { Text($0.displayName).tag($0) }
                     }
-                    Toggle("Favorito", isOn: $routine.isFavorite)
                 case .oneOff:
                     if let date = routine.scheduledDate {
                         Text(SpanishDate.long(date))
@@ -914,9 +912,7 @@ struct DayEditorView: View {
                 case .oneOff:
                     EmptyView()
                 case .plan:
-                    Text(routine.scheduledDate == nil
-                         ? "Esta plantilla se conserva para reutilizarla en Diario."
-                         : "Este entrenamiento pertenece solo a la fecha indicada; no se repite en otras semanas.")
+                    Text("La rutina se guarda en Rutinas. Si seleccionas una fecha, también se programará una copia en Diario.")
                 }
             }
 
@@ -1564,13 +1560,20 @@ struct DayEditorView: View {
         switch mode {
         case .plan:
             var draft = routine
+            let dateToSchedule = draft.scheduledDate
+            // Guardar la fuente SIN fecha para que siempre permanezca en
+            // Diario → Rutinas. La programación crea otro ID y otros bloques.
             draft.weekday = nil
+            draft.scheduledDate = nil
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 draft.title = "Rutina"
             }
             guard store.saveRoutine(draft) else {
                 presentRoutineLimitPaywall()
                 return
+            }
+            if let dateToSchedule {
+                store.assignRoutine(draft.id, toDate: dateToSchedule)
             }
             closeEditor()
         case .oneOff:
