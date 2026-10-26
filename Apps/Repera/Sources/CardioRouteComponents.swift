@@ -216,9 +216,9 @@ struct CardioAltitudeChart: View {
         // velocidad media o máxima que ya están en Entreno.
         HStack(spacing: 7) {
             miniStat("Mín", value: extras.minHeartRateBpm.map { "\(Int($0.rounded()))" },
-                     unit: "lpm", tint: OG.label2)
+                     unit: "lpm", tint: OG.accent)
             miniStat("Media", value: extras.averageHeartRateBpm.map { "\(Int($0.rounded()))" },
-                     unit: "lpm", tint: OG.red)
+                     unit: "lpm", tint: OG.blue)
             miniStat("Máx", value: extras.maxHeartRateBpm.map { "\(Int($0.rounded()))" },
                      unit: "lpm", tint: OG.red)
         }
