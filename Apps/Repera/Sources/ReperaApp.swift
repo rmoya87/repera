@@ -255,7 +255,7 @@ struct ReperaApp: App {
                         Task { @MainActor in
                             defer { UIApplication.shared.endBackgroundTask(backgroundID) }
                             guard store.isHydrated else { return }
-                            try? await LocalStore.shared.persistAndFlush(store.state)
+                            await LocalStore.shared.persistAndFlush(store.state)
                         }
                     } else if phase == .inactive {
                         aiInbox.stopRealtime()
