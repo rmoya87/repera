@@ -30,6 +30,21 @@ public struct MuscleStatus: Identifiable, Sendable, Equatable {
     }
 }
 
+/// Aproximación de estímulo en un WOD completado sin registro de series.
+/// Es únicamente un equivalente de carga para gráficas: NO genera LoggedSet,
+/// ni altera los resultados guardados ni puede inferir RIR o repeticiones exactas.
+public enum MuscleCompletedWODStimulus {
+    public static func estimatedSetEquivalent(for entry: SessionExercise, hardOnly: Bool) -> Double {
+        guard !hardOnly,
+              entry.blockKind == .wod,
+              entry.isCompleted,
+              !entry.exercise.isMobility,
+              !entry.loggedSets.contains(where: { !$0.isWarmup && $0.reps > 0 })
+        else { return 0 }
+        return 1
+    }
+}
+
 /// Fatiga / recuperación por músculo (BodyMap slugs): el estímulo decae con vida media.
 public enum MuscleMapEngine {
     /// Half-life hours by BodyMap slug (larger groups recover slower).
@@ -81,8 +96,15 @@ public enum MuscleMapEngine {
                     }
                     return partial + set.fatigueSetEquivalent
                 }
-                guard hardSets > 0 else { continue }
-                let capped = min(hardSets, 12)
+                // Algunos EMOM/AMRAP guardan resultado y check del movimiento
+                // sin series individuales. Reconocer la finalización confirmada
+                // con un equivalente conservador, jamás como «serie dura».
+                let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
+                    for: entry, hardOnly: hardOnly
+                )
+                let recordedOrEstimated = hardSets > 0 ? hardSets : completedWOD * 0.7
+                guard recordedOrEstimated > 0 else { continue }
+                let capped = min(recordedOrEstimated, 12)
                 let weights = MuscleTaxonomy.muscleWeights(for: entry.exercise)
                 for (slug, w) in weights {
                     let hl = halfLifeHours[slug] ?? 30
@@ -158,9 +180,13 @@ public enum MuscleMapEngine {
             for entry in workout.exercises {
                 guard entry.exercise.sportTag != "Movilidad" else { continue }
                 let sets = entry.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }.count
-                guard sets > 0 else { continue }
+                let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
+                    for: entry, hardOnly: hardOnly
+                )
+                let countedSets = sets > 0 ? Double(sets) : completedWOD
+                guard countedSets > 0 else { continue }
                 for (slug, w) in MuscleTaxonomy.muscleWeights(for: entry.exercise) {
-                    weekly[slug, default: 0] += w * Double(sets)
+                    weekly[slug, default: 0] += w * countedSets
                 }
             }
         }
