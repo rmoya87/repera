@@ -313,6 +313,147 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(saved.exercises[0].loggedSets.first?.weightKg, 30)
     }
 
+    func testAllGlobalWODFormatsAllowEditingAndPersistingResultWithNoPriorScore() throws {
+        let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let formats: [WODFormat] = [
+            .amrap, .deathBy, .maxEffort,
+            .forTime, .chipper, .afap, .ladder, .buyInCashOut
+        ]
+        for format in formats {
+            let block = RoutineBlock(
+                title: "WOD", kind: .wod,
+                movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 12)],
+                wodFormat: format, timeCapMinutes: 22
+            )
+            var original = SessionController.from(
+                routine: Routine(title: "Registrado", blocks: [block]), exercises: [burpee]
+            )
+            original.phase = .finished
+            original.startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+            original.finishedAt = original.startedAt?.addingTimeInterval(1_200)
+            XCTAssertTrue(original.wodResults.isEmpty, "\(format)")
+            let edited: WorkoutSession
+            if format.resultCapture == .totalReps {
+                var partial = CompletedWorkoutEditing.changingScore(
+                    in: original, for: block, field: .reps, value: 11
+                )
+                XCTAssertEqual(CompletedWorkoutEditing.scoreValue(
+                    for: block, in: partial, field: .reps
+                ), 11, "\(format)")
+                if format == .amrap || format == .deathBy {
+                    partial = CompletedWorkoutEditing.changingScore(
+                        in: partial, for: block, field: .rounds, value: 5
+                    )
+                }
+                edited = partial
+            } else {
+                let minutes = CompletedWorkoutEditing.changingScore(
+                    in: original, for: block, field: .minutes, value: 12
+                )
+                edited = CompletedWorkoutEditing.changingScore(
+                    in: minutes, for: block, field: .seconds, value: 37
+                )
+                XCTAssertEqual(CompletedWorkoutEditing.scoreValue(
+                    for: block, in: edited, field: .minutes
+                ), 12, "\(format)")
+                XCTAssertEqual(CompletedWorkoutEditing.scoreValue(
+                    for: block, in: edited, field: .seconds
+                ), 37, "\(format)")
+            }
+            let draft = CompletedWorkoutEditing.routine(from: edited)
+            let saved = CompletedWorkoutEditing.applying(
+                draft, to: edited, catalog: [burpee]
+            )
+            let restored = try JSONDecoder().decode(
+                WorkoutSession.self, from: JSONEncoder().encode(saved)
+            )
+            XCTAssertEqual(restored.wodResults.count, 1, "\(format)")
+            XCTAssertEqual(restored.wodResults[0].format, format)
+            XCTAssertEqual(restored.wodResults[0].totalReps,
+                           format.resultCapture == .totalReps ? 11 : nil, "\(format)")
+            XCTAssertEqual(restored.wodResults[0].roundsCompleted,
+                           (format == .amrap || format == .deathBy) ? 5 : nil, "\(format)")
+            XCTAssertEqual(restored.wodResults[0].elapsedSeconds,
+                           format.resultCapture == .elapsedTime ? 757 : nil, "\(format)")
+            XCTAssertTrue(restored.exercises.allSatisfy { $0.loggedSets.isEmpty })
+            XCTAssertEqual(restored.id, original.id)
+            XCTAssertEqual(restored.finishedAt, original.finishedAt)
+        }
+    }
+
+    func testEditingRFTTimePreservesOtherBlockResultsAndHealthData() throws {
+        let exercise = Exercise(name: "Thruster", muscleGroup: "Hombros")
+        let rft = RoutineBlock(
+            title: "RFT", kind: .wod,
+            movements: [WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 10)],
+            wodFormat: .forTime, rounds: 4
+        )
+        let amrap = RoutineBlock(
+            title: "AMRAP", kind: .wod,
+            movements: [WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 8)],
+            wodFormat: .amrap, timeCapMinutes: 8
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "Dos WOD", blocks: [rft, amrap]), exercises: [exercise]
+        )
+        session.phase = .finished
+        let healthUUID = UUID()
+        session.healthKitWorkoutUUID = healthUUID
+        session.appleActiveEnergyKcal = 212
+        session.wodResults = [
+            WODBlockResult(id: rft.id, format: .forTime, elapsedSeconds: 800),
+            WODBlockResult(id: amrap.id, format: .amrap, totalReps: 3, roundsCompleted: 6)
+        ]
+        let minutes = CompletedWorkoutEditing.changingScore(
+            in: session, for: rft, field: .minutes, value: 10
+        )
+        let seconds = CompletedWorkoutEditing.changingScore(
+            in: minutes, for: rft, field: .seconds, value: 25
+        )
+        let saved = CompletedWorkoutEditing.applying(
+            CompletedWorkoutEditing.routine(from: seconds),
+            to: seconds, catalog: [exercise]
+        )
+        let result = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(saved)
+        )
+        XCTAssertEqual(result.wodResults.count, 2)
+        XCTAssertEqual(result.wodResults.first(where: { $0.id == rft.id })?.elapsedSeconds, 625)
+        XCTAssertEqual(result.wodResults.first(where: { $0.id == amrap.id })?.roundsCompleted, 6)
+        XCTAssertEqual(result.healthKitWorkoutUUID, healthUUID)
+        XCTAssertEqual(result.appleActiveEnergyKcal, 212)
+    }
+
+    func testLegacyAMRAPSingleSetBecomesEditableScoreWithoutInventingSets() {
+        let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let block = RoutineBlock(
+            title: "AMRAP antiguo", kind: .wod,
+            movements: [WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 9)],
+            wodFormat: .amrap, timeCapMinutes: 10
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "Histórico", blocks: [block]), exercises: [exercise]
+        )
+        session.phase = .finished
+        session.exercises[0].loggedSets = [LoggedSet(reps: 16)]
+        XCTAssertEqual(CompletedWorkoutEditing.scoreValue(
+            for: block, in: session, field: .reps
+        ), 16)
+        let corrected = CompletedWorkoutEditing.changingScore(
+            in: session, for: block, field: .rounds, value: 4
+        )
+        XCTAssertEqual(corrected.wodResults.count, 1)
+        XCTAssertEqual(corrected.wodResults[0].totalReps, 16)
+        XCTAssertEqual(corrected.wodResults[0].roundsCompleted, 4)
+        XCTAssertEqual(corrected.exercises[0].loggedSets[0].reps, 16)
+        let saved = CompletedWorkoutEditing.applying(
+            CompletedWorkoutEditing.routine(from: corrected),
+            to: corrected, catalog: [exercise]
+        )
+        XCTAssertEqual(saved.wodResults.count, 1)
+        XCTAssertEqual(saved.wodResults[0].summaryLabel, "4 rondas + 16 reps")
+    }
+
     func testChangingWODFormatDropsIncompatibleStoredScore() {
         let exercise = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(
