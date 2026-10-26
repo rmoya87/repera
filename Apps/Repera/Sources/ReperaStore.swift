@@ -339,7 +339,9 @@ final class ReperaStore: NSObject {
             scheduleHealthActivitiesResync()
         }
         sessionEpoch &+= 1
-        if allowRemoteUpload {
+        if allowRemoteUpload && !hasWorkoutInProgress {
+            // GPS/clock/local checkpoints win over asynchronous iCloud uploads.
+            // The finished workout flush or app transition will catch up.
             let snapshot = state
             Task { await store.pushToiCloudIfSafe(snapshot) }
         }

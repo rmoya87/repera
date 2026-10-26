@@ -351,12 +351,12 @@ struct ReperaApp: App {
     private var appCatalogSyncContent: some View {
         appCenterSyncContent
                 .onChange(of: store.catalogEpoch) { _, _ in
-                    if businessAuth.isConnected {
+                    if businessAuth.isConnected, !store.hasWorkoutInProgress {
                         Task { _ = await AIChangeRequestStore.shared.syncCustomExercises(store:store) }
                     }
                 }
                 .onChange(of: store.workoutsEpoch) { _, _ in
-                    if businessAuth.isConnected {
+                    if businessAuth.isConnected, !store.hasWorkoutInProgress {
                         Task { await workoutSync.sync(store: store) }
                     }
                 }
@@ -366,6 +366,20 @@ struct ReperaApp: App {
     /// all environment, overlay, lifecycle and synchronization modifiers at once.
     private var appWindowContent: some View {
         appCatalogSyncContent
+                .onChange(of: store.hasWorkoutInProgress) { wasRecording, isRecording in
+                    guard wasRecording, !isRecording, scenePhase == .active else { return }
+                    // Resume deferred sync once both Play/Comenzar have committed
+                    // the workout; never block the recording UI.
+                    Task(priority: .utility) {
+                        await store.refreshFromiCloud()
+                        if businessAuth.isConnected {
+                            await workoutSync.sync(store: store)
+                            await RemoteExerciseCatalogStore.shared.refresh(store: store)
+                            _ = await aiInbox.sync(store: store)
+                        }
+                        await refreshHealthOnForeground(forceProgressiveIfNeeded: false)
+                    }
+                }
                 .onChange(of: store.state.syncRevision) { _, _ in
                     if businessAuth.isConnected, scenePhase == .active,
                        !store.hasWorkoutInProgress {
