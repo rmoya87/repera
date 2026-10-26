@@ -74,6 +74,11 @@ enum OG {
     static let sheetCornerRadius: CGFloat = 44
     /// Diámetro liquid glass de botones en cabecera de contenido (= topbar del sistema).
     static let toolbarGlassSize: CGFloat = 44
+    /// Separación unificada del borde de safe area a los controles propios.
+    /// Las barras nativas .toolbar usan las métricas de UIKit/iOS 27.
+    static let topBarHorizontalInset: CGFloat = 16
+    static let topBarTopInset: CGFloat = 4
+    static let topBarBottomInset: CGFloat = 8
     /// Glifo en esos botones glass.
     static let toolbarGlassIcon: CGFloat = 18
     static let pad: CGFloat = 16
@@ -222,7 +227,9 @@ struct OGFixedTopBar<Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        HStack(alignment: subtitle == nil ? .center : .center, spacing: 12) {
+        // Alinear por ARRIBA es importante: si existe un subtítulo, centrar
+        // el HStack baja el botón ~5 pt respecto a las vistas sin subtítulo.
+        HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     // Mismo cuerpo que el large title del sistema (p. ej. Ejercicios).
@@ -240,11 +247,14 @@ struct OGFixedTopBar<Trailing: View>: View {
             }
             .layoutPriority(1)
             Spacer(minLength: 8)
-            trailing()
+            HStack(alignment: .top, spacing: 8) {
+                trailing()
+            }
+            .frame(minHeight: OG.toolbarGlassSize, alignment: .top)
         }
-        .padding(.horizontal, OG.pad)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
+        .padding(.horizontal, OG.topBarHorizontalInset)
+        .padding(.top, OG.topBarTopInset)
+        .padding(.bottom, OG.topBarBottomInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             // Ausencia de fondo = transparencia real, como la barra de Ejercicios.
@@ -292,8 +302,8 @@ struct OGPageHeader<Leading: View, Trailing: View>: View {
             Spacer(minLength: 8)
             trailing()
         }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, OG.topBarTopInset)
+        .padding(.bottom, OG.topBarBottomInset)
     }
 }
 
@@ -816,8 +826,8 @@ struct OGBackPageHeader<Trailing: View>: View {
                 }
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, OG.topBarTopInset)
+        .padding(.bottom, OG.topBarBottomInset)
     }
 }
 
