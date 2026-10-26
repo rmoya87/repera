@@ -499,17 +499,6 @@ struct WorkoutDetailView: View {
                             sessionMapView(session)
                         }
                         .ogCardListRow()
-                    } header: {
-                        if sessionMapContent(session) == .pin {
-                            Text("Ubicación")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(OG.accent)
-                                .textCase(nil)
-                        }
-                    } footer: {
-                        if sessionMapContent(session) != .pin {
-                            Text("Colores = velocidad (verde más lento → rojo más rápido).")
-                        }
                     }
                 } else if !isEditing,
                           session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
@@ -534,41 +523,46 @@ struct WorkoutDetailView: View {
                     }
                 }
 
-                // Ritmo, velocidad y kilómetros guardados son independientes
-                // del GPS y Apple Salud; se muestran incluso en el simulador.
-                if displayedRoute(session).count >= 2
+                // Plantilla única: métricas deportivas + parciales y a
+                // continuación gráfica/Salud bajo UN solo título Entreno.
+                let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+                let extras = displayedMetrics(session)
+                let hasTrackedMetrics = displayedRoute(session).count >= 2
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
-                    || (session.liveSportID != nil
-                        && (session.recordedDistanceMeters ?? 0) > 0
-                        && (session.activeDurationSeconds ?? 0) > 0) {
+                    || (session.liveSportID != nil && (session.recordedDistanceMeters ?? 0) > 0
+                        && (session.activeDurationSeconds ?? 0) > 0)
+                if hasTrackedMetrics || extras != nil {
                     Section {
-                        CardioSplitsView(
-                            routePoints: displayedRoute(session),
-                            heartRate: healthExtras?.heartRateSeries ?? [],
-                            cycling: session.liveSportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed
-                                ?? (healthExtras?.activityType == .cycling
-                                    || session.title.localizedCaseInsensitiveContains("bici")
-                                    || session.title.localizedCaseInsensitiveContains("cicl")),
-                            activeKilometerSeconds: session.liveKilometerSplitsSeconds,
-                            totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
-                            totalDistanceMeters: session.recordedDistanceMeters
-                        )
-                        .ogCardListRow()
-                    } header: {
-                        Text("Parciales")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(OG.accent)
-                            .textCase(nil)
-                    }
-                }
-
-                // Solo sensores auténticos de Salud/Watch; no inventar kcal ni FC.
-                if let extras = displayedMetrics(session) {
-                    Section {
-                        HealthSessionMetricsCard(
-                            extras: extras,
-                            includeSourceRows: extras.hasExternalSaludSource
-                        )
+                        VStack(alignment: .leading, spacing: 14) {
+                            if hasTrackedMetrics || sport != nil {
+                                CardioSplitsView(
+                                    routePoints: displayedRoute(session),
+                                    heartRate: extras?.heartRateSeries ?? [],
+                                    cycling: sport?.displaysSpeed ?? (extras?.activityType == .cycling),
+                                    activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                    totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
+                                    totalDistanceMeters: session.recordedDistanceMeters,
+                                    maxSpeedKmh: extras?.maxSpeedKmh,
+                                    healthStats: extras,
+                                    sport: sport,
+                                    embedded: true
+                                )
+                            }
+                            if let extras {
+                                if hasTrackedMetrics || sport != nil {
+                                    Divider().opacity(0.35)
+                                }
+                                HealthSessionMetricsCard(
+                                    extras: extras,
+                                    includeSourceRows: extras.hasExternalSaludSource,
+                                    embedded: true
+                                )
+                            }
+                        }
+                        .padding(OG.pad)
+                        .background(OG.surface, in: RoundedRectangle(
+                            cornerRadius: OG.radiusCard, style: .continuous
+                        ))
                         .ogCardListRow()
                     } header: {
                         Text("Entreno")
@@ -1624,6 +1618,7 @@ struct HealthSessionMetricsCard: View {
     var headlineSubtitle: String? = nil
     /// Si false, dispositivo/kcal van en otro bloque (ficha Salud).
     var includeSourceRows: Bool = true
+    var embedded: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1655,20 +1650,17 @@ struct HealthSessionMetricsCard: View {
                 CardioAltitudeChart(extras: extras)
             } else if !extras.heartRateSeries.isEmpty {
                 HealthHeartRateChart(series: extras.heartRateSeries, stats: extras)
-                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
-                    extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
+                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil {
                     HealthHeartRateStatRow(stats: extras)
                 }
             } else if let average = extras.averageHeartRateBpm {
                 Label("Ritmo cardíaco · media \(Int(average.rounded())) lpm", systemImage: "heart.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(OG.red)
-                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
-                    extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
+                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil {
                     HealthHeartRateStatRow(stats: extras)
                 }
-            } else if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil ||
-                extras.averageSpeedKmh != nil || extras.maxSpeedKmh != nil {
+            } else if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil {
                 HealthHeartRateStatRow(stats: extras)
             }
 
@@ -1676,9 +1668,14 @@ struct HealthSessionMetricsCard: View {
                 originRows
             }
         }
-        .padding(OG.pad)
+        .padding(embedded ? 0 : OG.pad)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .background {
+            if !embedded {
+                RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous)
+                    .fill(OG.surface)
+            }
+        }
     }
 
     private var originRows: some View {
@@ -1774,7 +1771,7 @@ private struct HealthHeartRateChart: View {
                     }
                 }
             }
-            .frame(height: 140)
+            .frame(height: 170)
 
         }
     }
@@ -1790,12 +1787,6 @@ private struct HealthHeartRateStatRow: View {
             }
             if stats.maxHeartRateBpm != nil {
                 stat("Máx", value: stats.maxHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.red)
-            }
-            if stats.averageSpeedKmh != nil {
-                stat("Vel. media", value: stats.averageSpeedKmh.map { String(format: "%.1f", $0) }, unit: "km/h", tint: OG.blue)
-            }
-            if stats.maxSpeedKmh != nil {
-                stat("Vel. máx", value: stats.maxSpeedKmh.map { String(format: "%.1f", $0) }, unit: "km/h", tint: OG.accent)
             }
         }
     }
