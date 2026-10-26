@@ -799,7 +799,7 @@ struct StatsView: View {
                                         .foregroundStyle(OG.label)
                                     Spacer()
                                     if let maxW = tops[ex.id] {
-                                        Text("\(maxW.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                                        Text("\(ReperaNumberFormat.decimal(maxW)) kg")
                                             .font(.system(size: 13).monospacedDigit())
                                             .foregroundStyle(OG.label2)
                                     }
@@ -862,10 +862,10 @@ struct StatsView: View {
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing) {
-                                    Text("\(pr.weightKg.formatted(.number.precision(.fractionLength(1))))×\(pr.reps)")
+                                    Text("\(ReperaNumberFormat.decimal(pr.weightKg))×\(pr.reps)")
                                         .monospacedDigit()
                                         .foregroundStyle(OG.label)
-                                    Text("~\(pr.estimatedOneRM.formatted(.number.precision(.fractionLength(0)))) kg")
+                                    Text("~\(ReperaNumberFormat.decimal(pr.estimatedOneRM, maximumFractionDigits: 0)) kg")
                                         .font(.system(size: 12))
                                         .foregroundStyle(OG.label2)
                                 }
@@ -914,7 +914,7 @@ private struct ProgressAllExercisesView: View {
                             .foregroundStyle(OG.label)
                         Spacer(minLength: 6)
                         if let maxW = tops[ex.id] {
-                            Text("\(maxW.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                            Text("\(ReperaNumberFormat.decimal(maxW)) kg")
                                 .font(.system(size: 13).monospacedDigit())
                                 .foregroundStyle(OG.label2)
                         }
@@ -948,10 +948,10 @@ private struct ProgressAllRecordsView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(pr.weightKg.formatted(.number.precision(.fractionLength(1))))×\(pr.reps)")
+                        Text("\(ReperaNumberFormat.decimal(pr.weightKg))×\(pr.reps)")
                             .monospacedDigit()
                             .foregroundStyle(OG.label)
-                        Text("~\(pr.estimatedOneRM.formatted(.number.precision(.fractionLength(0)))) kg")
+                        Text("~\(ReperaNumberFormat.decimal(pr.estimatedOneRM, maximumFractionDigits: 0)) kg")
                             .font(.system(size: 12))
                             .foregroundStyle(OG.label2)
                     }
