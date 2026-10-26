@@ -2,7 +2,7 @@ import ReperaDomain
 import SwiftUI
 
 /// Resumen del plan antes de empezar, o gestión de sesión en curso.
-/// Top bar: X · Entreno · día debajo · ⋯ (editar) · ▶ Play.
+/// Topbar: X · ⋯ (editar) · ▶ Play. Título y día, debajo de la barra.
 struct SessionPreviewView: View {
     @Environment(ReperaStore.self) private var store
 
@@ -80,31 +80,37 @@ struct SessionPreviewView: View {
             }
         }
         .ogListChrome()
-        // Evitar el título grande detrás del topbar: la etiqueta comparte
-        // la misma fila nativa que la X, sin una segunda capa al hacer scroll.
+        // Barra nativa solo para acciones: no fusionar "Entreno" con la X.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .ogTransparentNav()
+        // Cabecera explícita bajo la barra (y sobre la lista), nunca detrás
+        // del glass o dentro de la cápsula que contiene el botón Cerrar.
         .safeAreaInset(edge: .top, spacing: 0) {
-            if active == nil, !dayLabel.isEmpty {
-                Text("Entreno · \(dayLabel)")
-                    .font(.system(size: 15))
-                    .foregroundStyle(OG.label2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, OG.pad)
-                    .padding(.bottom, 8)
-                    .background(OG.bg)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(active != nil ? "Sesión" : "Entreno")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .accessibilityAddTraits(.isHeader)
+                if active == nil, !dayLabel.isEmpty {
+                    Text("Entreno · \(dayLabel)")
+                        .font(.system(size: 15))
+                        .foregroundStyle(OG.label2)
+                }
             }
+            .frame(maxWidth: OG.contentColumnMaxWidth, alignment: .leading)
+            .padding(.horizontal, OG.pad)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .background(OG.bg)
         }
         .toolbar {
-            ToolbarItemGroup(placement: .topBarLeading) {
+            ToolbarItem(placement: .topBarLeading) {
                 CloseToolbarButton(action: onClose, large: false)
-                Text(active != nil ? "Sesión" : "Entreno")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                    .lineLimit(1)
-                    .accessibilityAddTraits(.isHeader)
             }
             if active == nil, liveRoutine != nil {
                 ToolbarItem(placement: .topBarTrailing) {
