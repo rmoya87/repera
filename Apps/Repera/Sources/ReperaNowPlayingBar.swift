@@ -43,6 +43,8 @@ struct ReperaNowPlayingBar: View {
     var darkAppearance = false
     var horizontalPadding: CGFloat = 0
     var showsSeparator = false
+    var cardStyle = false
+    var bottomPadding: CGFloat = 0
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var snapshot = ReperaNowPlayingSnapshot()
@@ -132,6 +134,14 @@ struct ReperaNowPlayingBar: View {
                 .padding(.vertical, 5)
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel("Reproducción de música")
+                    .padding(.vertical, cardStyle ? 8 : 0)
+                    .background {
+                        if cardStyle {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(OG.surface)
+                        }
+                    }
+                    .padding(.bottom, bottomPadding)
                 }
             }
         }
