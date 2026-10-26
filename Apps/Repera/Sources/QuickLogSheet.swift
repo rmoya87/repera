@@ -166,10 +166,10 @@ struct QuickLogSheet: View {
         } else {
             metricRow(
                 Exercise.loadStepperTitle(name: exercise.name, equipment: exercise.equipment),
-                value: String(format: "%g", row.wrappedValue.weightKg),
+                value: ReperaNumberFormat.decimal(row.wrappedValue.weightKg),
                 allowsDecimal: true
             ) {
-                let value = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0
+                let value = ReperaNumberFormat.parse($0) ?? 0
                 row.wrappedValue.weightKg = roundWeight(value)
             }
         }
