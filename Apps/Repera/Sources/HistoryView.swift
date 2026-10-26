@@ -400,55 +400,50 @@ struct WorkoutDetailView: View {
 
     @ViewBuilder
     private func sessionMapView(_ session: WorkoutSession) -> some View {
-        // En detalle (sin editar) el mapa es solo lectura.
-        let interactive = isEditing
+        // El mapa de vista previa no recibe gestos; una superficie táctil
+        // independiente CAPTURA toda la tarjeta del mapa de forma fiable.
         switch sessionMapContent(session) {
         case .healthRoute:
             if let extras = healthExtras {
-                Button {
+                WorkoutMapTapTarget(accessibilityLabel: "Ampliar recorrido") {
                     fullScreenPin = nil
                     fullScreenRoutePoints = extras.routePoints
                     showFullScreenRoute = true
-                } label: {
+                } map: {
                     HealthWorkoutRouteMap(
                         points: extras.routePoints, isInteractive: false,
-                        isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
+                        isWaterSport: session.liveSportID.flatMap {
+                            LiveSport(rawValue: $0)?.isWaterSport
+                        } ?? false
                     )
                     .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
                 }
-                .buttonStyle(.plain)
-                .disabled(interactive)
-                .accessibilityLabel("Ampliar recorrido")
             }
         case .ownRoute:
-            Button {
+            WorkoutMapTapTarget(accessibilityLabel: "Ampliar recorrido") {
                 fullScreenPin = nil
                 fullScreenRoutePoints = session.routePoints.map(\.asHealthRoutePoint)
                 showFullScreenRoute = true
-            } label: {
+            } map: {
                 HealthWorkoutRouteMap(
                     points: session.routePoints.map(\.asHealthRoutePoint),
                     isInteractive: false,
-                    isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
+                    isWaterSport: session.liveSportID.flatMap {
+                        LiveSport(rawValue: $0)?.isWaterSport
+                    } ?? false
                 )
                 .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
             }
-            .buttonStyle(.plain)
-            .disabled(interactive)
-            .accessibilityLabel("Ampliar recorrido")
         case .pin:
             if let pin = session.locationPin {
-                Button {
+                WorkoutMapTapTarget(accessibilityLabel: "Ampliar ubicación") {
                     fullScreenRoutePoints = []
                     fullScreenPin = pin
                     showFullScreenRoute = true
-                } label: {
+                } map: {
                     WorkoutLocationPinMap(pin: pin, isInteractive: false)
                         .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
                 }
-                .buttonStyle(.plain)
-                .disabled(interactive)
-                .accessibilityLabel("Ampliar ubicación")
             }
         case .none:
             EmptyView()
@@ -1796,6 +1791,29 @@ private struct HealthHeartRateStatRow: View {
     }
 }
 
+/// Superficie de toque independiente de MapKit. El mapa de vista previa
+/// permanece inmóvil, pero el botón transparente ocupa TODO su rectángulo.
+struct WorkoutMapTapTarget<MapPreview: View>: View {
+    var accessibilityLabel: String
+    var action: () -> Void
+    @ViewBuilder var map: () -> MapPreview
+
+    var body: some View {
+        map()
+            .allowsHitTesting(false)
+            .overlay {
+                Button(action: action) {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(accessibilityLabel)
+                .accessibilityAddTraits(.isButton)
+            }
+    }
+}
+
 /// Único destino de mapa para entrenamiento, Comenzar y actividades de Salud.
 /// Comparte los controles y la apariencia; recibe ruta real o ubicación.
 struct WorkoutMapZoomDestination: View {
@@ -1901,17 +1919,15 @@ struct HealthActivityDetailView: View {
                         longitude: first?.longitude,
                         workoutDate: activity.start
                     ) {
-                        Button {
+                        WorkoutMapTapTarget(accessibilityLabel: "Ampliar recorrido") {
                             showFullScreenRoute = true
-                        } label: {
+                        } map: {
                             HealthWorkoutRouteMap(
                                 points: detail.routePoints,
                                 isInteractive: false
                             )
                             .matchedTransitionSource(id: activityId, in: routeZoomNamespace)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Ampliar recorrido")
                     }
                     .ogCardListRow()
                 }
@@ -2215,28 +2231,32 @@ struct HealthWorkoutRouteMap: View {
         Map(initialPosition: cameraPosition, interactionModes: modes) {
             if !routeBackdrop.isEmpty {
                 MapPolygon(coordinates: routeBackdrop)
-                    .foregroundStyle(Color.black.opacity(0.26))
+                    .foregroundStyle(Color.black.opacity(0.33))
+                    .mapOverlayLevel(level: .aboveRoads)
             }
             ForEach(segments) { segment in
                 // Tres capas, sobre el mapa oscuro: resplandor exterior suave,
                 // borde degradado luminoso y recorrido a todo color.
                 MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(segment.color.opacity(0.20), lineWidth: 17)
+                    .stroke(segment.color.opacity(0.35), lineWidth: 19)
+                    .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: [segment.start, segment.end])
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.90),
-                                segment.color.opacity(0.70),
-                                Color.white.opacity(0.90)
+                                segment.color.opacity(0.95),
+                                Color.white.opacity(0.95),
+                                segment.color.opacity(0.95)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 10
+                        lineWidth: 11
                     )
+                    .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(segment.color, lineWidth: 5)
+                    .stroke(segment.color, lineWidth: 6)
+                    .mapOverlayLevel(level: .aboveLabels)
             }
             if let start = points.first {
                 Annotation("Inicio", coordinate: CLLocationCoordinate2D(
@@ -2276,8 +2296,8 @@ struct HealthWorkoutRouteMap: View {
     ) -> Color {
         let t = Swift.min(1, Swift.max(0, (speed - minSpeed) / Swift.max(0.1, maxSpeed - minSpeed)))
         let stops: [(r: Double, g: Double, b: Double)] = [
-            water ? (0.10, 0.84, 0.42) : (0.15, 0.88, 0.30),
-            (1.00, 0.87, 0.10), (1.00, 0.48, 0.06), (0.96, 0.18, 0.13)
+            water ? (0.00, 1.00, 0.45) : (0.00, 1.00, 0.25),
+            (1.00, 0.98, 0.00), (1.00, 0.43, 0.00), (1.00, 0.07, 0.15)
         ]
         let scaled = t * 3
         let index = Swift.min(2, Int(scaled))
