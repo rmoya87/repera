@@ -387,11 +387,11 @@ struct SettingsView: View {
                             .foregroundStyle(OG.label)
                         Spacer()
                         if let latest = store.state.bodyWeights.first {
-                            Text("\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
+                            Text("\(ReperaNumberFormat.decimal(latest.weightKg)) kg")
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         } else if let kg = health.latestWeightKg {
-                            Text("\(kg.formatted(.number.precision(.fractionLength(1)))) kg")
+                            Text("\(ReperaNumberFormat.decimal(kg)) kg")
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
@@ -506,7 +506,7 @@ struct SettingsView: View {
                     }
                 }
                 Stepper(
-                    "Incremento: \(store.state.settings.weightIncrementKg.formatted(.number.precision(.fractionLength(1)))) kg",
+                    "Incremento: \(ReperaNumberFormat.decimal(store.state.settings.weightIncrementKg)) kg",
                     value: Binding(
                         get: { store.state.settings.weightIncrementKg },
                         set: {
@@ -822,7 +822,7 @@ struct HealthGoalsView: View {
             Section {
                 goalRow("Peso objetivo", icon: "scalemass", field: .weight, text: $weight, unit: "kg", decimal: true)
                 if let current = store.state.bodyWeights.first?.weightKg {
-                    LabeledContent("Peso registrado", value: "\(current.formatted(.number.precision(.fractionLength(1)))) kg")
+                    LabeledContent("Peso registrado", value: "\(ReperaNumberFormat.decimal(current)) kg")
                         .foregroundStyle(OG.label2)
                 }
             } header: {
@@ -884,7 +884,7 @@ struct HealthGoalsView: View {
         energy = s.dailyActiveEnergyGoalKcal.map { String($0) } ?? ""
         minutes = s.dailyWorkoutMinutesGoal.map { String($0) } ?? ""
         weekly = s.weeklyWorkoutGoal.map { String($0) } ?? ""
-        weight = s.bodyWeightGoalKg.map { String(format: "%g", $0) } ?? ""
+        weight = s.bodyWeightGoalKg.map { ReperaNumberFormat.decimal($0) } ?? ""
     }
 
     /// Persiste solo el campo editado; permite borrar su meta dejándolo vacío.
@@ -909,7 +909,7 @@ struct HealthGoalsView: View {
         let next: Double?
         if input.isEmpty { next = nil }
         else {
-            guard let number = Double(input.replacingOccurrences(of: ",", with: ".")),
+            guard let number = ReperaNumberFormat.parse(input),
                   number.isFinite, (20...350).contains(number) else { return }
             next = number
         }
