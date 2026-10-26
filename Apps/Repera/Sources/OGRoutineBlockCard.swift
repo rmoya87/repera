@@ -9,6 +9,8 @@ struct OGRoutineBlockCard: View {
     /// Si true, muestra chevron (navegación / edición).
     var showsChevron: Bool = false
     var opensExerciseDetail: Bool = false
+    /// Destino único administrado por el NavigationStack padre.
+    var onOpenExercise: ((UUID) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -71,13 +73,26 @@ struct OGRoutineBlockCard: View {
     private func linkedExerciseRow(_ exercise: Exercise, detail: String) -> some View {
         if opensExerciseDetail,
            let catalog = store.resolvedCatalogExercise(id: exercise.id) {
-            NavigationLink {
-                ExerciseDetailView(exerciseId: catalog.id)
-            } label: {
-                exerciseRow(exercise, detail: detail)
+            if let onOpenExercise {
+                // En una card con varias filas, varios NavigationLink podían
+                // activarse de golpe. El padre abre SOLO el ejercicio pulsado.
+                Button {
+                    onOpenExercise(catalog.id)
+                } label: {
+                    exerciseRow(exercise, detail: detail)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Abrir ficha del ejercicio")
+            } else {
+                NavigationLink {
+                    ExerciseDetailView(exerciseId: catalog.id)
+                } label: {
+                    exerciseRow(exercise, detail: detail)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Abrir ficha del ejercicio")
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Abrir ficha del ejercicio")
         } else {
             exerciseRow(exercise, detail: detail)
         }
@@ -161,6 +176,7 @@ struct OGRoutineBlocksList: View {
     var showsChevron: Bool = false
     var onSelectBlock: ((RoutineBlock) -> Void)? = nil
     var opensExerciseDetail: Bool = false
+    var onOpenExercise: ((UUID) -> Void)? = nil
 
     var body: some View {
         ForEach(blocks) { block in
@@ -169,11 +185,15 @@ struct OGRoutineBlocksList: View {
                     Button {
                         onSelectBlock(block)
                     } label: {
-                        OGRoutineBlockCard(block: block, showsChevron: showsChevron, opensExerciseDetail: opensExerciseDetail)
+                        OGRoutineBlockCard(block: block, showsChevron: showsChevron,
+                                           opensExerciseDetail: opensExerciseDetail,
+                                           onOpenExercise: onOpenExercise)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    OGRoutineBlockCard(block: block, showsChevron: showsChevron, opensExerciseDetail: opensExerciseDetail)
+                    OGRoutineBlockCard(block: block, showsChevron: showsChevron,
+                                       opensExerciseDetail: opensExerciseDetail,
+                                       onOpenExercise: onOpenExercise)
                 }
             }
             .ogCardListRow(top: 0, bottom: 8)
