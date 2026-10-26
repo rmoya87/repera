@@ -264,6 +264,8 @@ struct WorkoutDetailView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @Namespace private var routeZoomNamespace
 
     var sessionId: UUID
 
@@ -316,29 +318,10 @@ struct WorkoutDetailView: View {
             await store.refineSessionReviewWithHealth(sessionId: sessionId)
             draft = store.state.workouts.first(where: { $0.id == sessionId })
         }
-        .fullScreenCover(isPresented: $showFullScreenRoute) {
-            NavigationStack {
-                HealthWorkoutRouteMap(
-                    points: fullScreenRoutePoints,
-                    isInteractive: true,
-                    isWaterSport: draft?.liveSportID.flatMap {
-                        LiveSport(rawValue: $0)?.isWaterSport
-                    } ?? false
-                )
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Recorrido")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showFullScreenRoute = false
-                        } label: {
-                            Image(systemName: "xmark")
-                        }
-                        .accessibilityLabel("Cerrar mapa")
-                    }
-                }
-            }
+        // Push con zoom animado desde la vista previa y retorno a su origen.
+        .navigationDestination(isPresented: $showFullScreenRoute) {
+            fullScreenRouteDestination
+                .navigationTransition(.zoom(sourceID: sessionId, in: routeZoomNamespace))
         }
         .sheet(isPresented: $showDeleteConfirm) {
             if let title = draft?.title {
@@ -354,6 +337,37 @@ struct WorkoutDetailView: View {
                 )
             }
         }
+    }
+
+    /// Mapa completo con pan/zoom; la X cambia contraste con el sistema.
+    private var fullScreenRouteDestination: some View {
+        ZStack(alignment: .topTrailing) {
+            HealthWorkoutRouteMap(
+                points: fullScreenRoutePoints,
+                isInteractive: true,
+                isWaterSport: draft?.liveSportID.flatMap {
+                    LiveSport(rawValue: $0)?.isWaterSport
+                } ?? false
+            )
+            .ignoresSafeArea()
+
+            Button {
+                showFullScreenRoute = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .glassEffect(.regular, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cerrar mapa")
+            .padding(.top, 10)
+            .padding(.trailing, 16)
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .background(OG.bg)
     }
 
     private func loadDraft() {
@@ -417,6 +431,7 @@ struct WorkoutDetailView: View {
                         points: extras.routePoints, isInteractive: false,
                         isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
                     )
+                    .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
                 }
                 .buttonStyle(.plain)
                 .disabled(interactive)
@@ -432,6 +447,7 @@ struct WorkoutDetailView: View {
                     isInteractive: false,
                     isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
                 )
+                .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
             }
             .buttonStyle(.plain)
             .disabled(interactive)
@@ -2193,14 +2209,38 @@ struct HealthWorkoutRouteMap: View {
     }
 
     private var modes: MapInteractionModes {
-        isInteractive ? [.pan, .zoom] : []
+        isInteractive ? [.pan, .zoom, .rotate] : []
+    }
+
+    /// Capa semitransparente entre teselas y ruta: colores más luminosos.
+    private var routeBackdrop: [CLLocationCoordinate2D] {
+        guard let minLat = points.map(\.latitude).min(),
+              let maxLat = points.map(\.latitude).max(),
+              let minLon = points.map(\.longitude).min(),
+              let maxLon = points.map(\.longitude).max()
+        else { return [] }
+        let latPad = max(0.06, (maxLat - minLat) * 4)
+        let lonPad = max(0.06, (maxLon - minLon) * 4)
+        return [
+            .init(latitude: minLat - latPad, longitude: minLon - lonPad),
+            .init(latitude: minLat - latPad, longitude: maxLon + lonPad),
+            .init(latitude: maxLat + latPad, longitude: maxLon + lonPad),
+            .init(latitude: maxLat + latPad, longitude: minLon - lonPad)
+        ]
     }
 
     var body: some View {
         Map(initialPosition: cameraPosition, interactionModes: modes) {
+            if !routeBackdrop.isEmpty {
+                MapPolygon(coordinates: routeBackdrop)
+                    .foregroundStyle(Color.white.opacity(0.24))
+            }
             ForEach(segments) { segment in
+                // Contorno blanco debajo, recorrido vivo arriba.
                 MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(segment.color, lineWidth: 4)
+                    .stroke(Color.white.opacity(0.95), lineWidth: 9)
+                MapPolyline(coordinates: [segment.start, segment.end])
+                    .stroke(segment.color, lineWidth: 5)
             }
             if let start = points.first {
                 Annotation("Inicio", coordinate: CLLocationCoordinate2D(
@@ -2228,7 +2268,7 @@ struct HealthWorkoutRouteMap: View {
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll, showsTraffic: false))
         .mapControls {
             if isInteractive {
-                MapCompass()
+                // La X ocupa arriba a la derecha.
                 MapScaleView()
             }
         }
@@ -2240,8 +2280,8 @@ struct HealthWorkoutRouteMap: View {
     ) -> Color {
         let t = Swift.min(1, Swift.max(0, (speed - minSpeed) / Swift.max(0.1, maxSpeed - minSpeed)))
         let stops: [(r: Double, g: Double, b: Double)] = [
-            water ? (0.08, 0.72, 0.31) : (0.06, 0.39, 0.98),
-            (0.98, 0.82, 0.12), (1, 0.49, 0.07), (0.92, 0.14, 0.12)
+            water ? (0.10, 0.84, 0.42) : (0.15, 0.88, 0.30),
+            (1.00, 0.87, 0.10), (1.00, 0.48, 0.06), (0.96, 0.18, 0.13)
         ]
         let scaled = t * 3
         let index = Swift.min(2, Int(scaled))
