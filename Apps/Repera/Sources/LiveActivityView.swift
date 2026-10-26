@@ -1769,7 +1769,8 @@ struct LiveActivityView: View {
     private var mapHeader: some View {
         HStack(alignment: .top) {
             Spacer(minLength: 0)
-            VStack(spacing: 10) {
+            // Separación táctil de 60 pt entre centros de botones de 44 pt.
+            VStack(spacing: 16) {
                 if recorder.phase == .recording {
                     sessionMapButton(
                         "pause.fill", label: "Pausar grabación",
