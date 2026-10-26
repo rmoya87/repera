@@ -1465,7 +1465,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
     public func plannedSets(for movement: WODMovement) -> [PlannedSet] {
         guard !movement.isRest else { return [] }
         // Series editadas (peso/RIR) mandan sobre ola/rondas.
-        if let explicit = movement.explicitPlannedSets, !explicit.isEmpty {
+        if let explicit = movement.explicitPlannedSets {
+            // nil: derivar del formato; []: el usuario borró todas las series.
+            // Son estados distintos y no deben fusionarse al reabrir el WOD.
             return explicit
         }
         let base = movement.plannedSetsFromReps
