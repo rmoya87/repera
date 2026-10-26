@@ -406,16 +406,16 @@ struct WorkoutDetailView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
                         if !subtitle.isEmpty {
-                            // Gutter interno para que la «M» de Miércoles nunca
-                            // se recorte. El offset mantiene idéntica su posición visible:
-                            // 8 pt de padding - 6 pt de offset = 2 pt originales.
+                            // Conservar exactamente la posición visible previa
+                            // (8 pt − 6 pt = 2 pt), sin .offset negativo: ese
+                            // desplazamiento recortaba la primera letra de
+                            // «Lunes»/«Miércoles» en ciertos tamaños de List.
                             Text(subtitle)
                                 .font(.system(size: 15, weight: .regular))
                                 .foregroundStyle(OG.label2)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .padding(.leading, 8)
+                                .padding(.leading, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .offset(x: -6)
                         }
                         summaryCard(session)
                         if let review = session.sessionReview {
@@ -443,9 +443,9 @@ struct WorkoutDetailView: View {
                             .foregroundStyle(OG.accent)
                             .textCase(nil)
                     } footer: {
-                        if sessionMapContent(session) == .pin, let name = session.locationPin?.name, !name.isEmpty {
-                            Text(name)
-                        } else if sessionMapContent(session) != .pin {
+                        // El nombre del lugar ya está dentro del mapa (Marker).
+                        // Pie exclusivo para rutas, sin repetir «Box A6» debajo.
+                        if sessionMapContent(session) != .pin {
                             Text("Colores = velocidad (verde más lento → rojo más rápido).")
                         }
                     }
