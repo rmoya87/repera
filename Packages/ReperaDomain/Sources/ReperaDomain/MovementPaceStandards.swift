@@ -484,6 +484,6 @@ public enum WODPaceEstimator {
         if abs(value - value.rounded()) < 0.05 {
             return "\(Int(value.rounded()))"
         }
-        return String(format: "%.1f", value)
+        return ReperaNumberFormat.decimal(value)
     }
 }
