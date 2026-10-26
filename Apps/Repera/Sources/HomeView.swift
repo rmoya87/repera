@@ -71,11 +71,6 @@ struct HomeView: View {
     @State private var isExpandedLayout = false
     @State private var showSettingsPanel = false
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
-    /// Máximo ancho del calendario: 7 días completos con sus huecos.
-    /// En paisaje evita cuadros desproporcionados o fragmentos laterales.
-    private var calendarVisibleWidth: CGFloat {
-        7 * max(1, weekCarouselHeight - 8) + 6 * 4
-    }
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
     @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 108
@@ -625,12 +620,12 @@ struct HomeView: View {
                 .scrollPosition(id: $calendarScrollID, anchor: .leading)
             }
             .frame(height: weekCarouselHeight)
-            .frame(maxWidth: isExpandedLayout ? .infinity : calendarVisibleWidth)
-            // Recorta los días vecinos al viewport de siete columnas: en
-            // paisaje no deben asomar dos cuadrados blancos en los extremos.
-            .clipped()
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, OG.pad)
+            // SOLO los días son edge-to-edge. Se elimina el antiguo ancho
+            // fijo de 7 días, el centrado y los 16 pt de padding exterior.
+            // La geometría calcula las celdas con TODO el ancho real,
+            // incluso dentro de las safe areas horizontales del DUO/iPad.
+            // El rótulo de mes y las tarjetas restantes conservan sus márgenes.
+            .ignoresSafeArea(edges: .horizontal)
         }
     }
 
