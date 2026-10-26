@@ -1,5 +1,14 @@
 # Arquitectura Repera
 
+## Token renovable, rutas GPS y récords deportivos (26/10/2026)
+
+- `BusinessAuthStore.ensureUsableSession()` pide una sesión vigente a `supabase-swift`, que renueva la credencial si es necesario. El inicio de la app y `BusinessWorkoutSyncStore.sync` lo utilizan. `requiresReauthentication` cambia el `ReperaApp.launchRootView` al login solo ante revocación/ausencia definitiva de credenciales; un error de transporte no borra el historial local ni provoca salida forzada. `autoRefreshToken` ya está activado.
+- `LiveActivityRecorder` registra una locución por km usando `AVAudioSession.playback` y `AVSpeechSynthesizer`, con encolado de frases. Ninguna notificación substituye las locuciones de kilometraje. iOS controla el icono que aparece en otras notificaciones: se deriva del AppIcon instalado en esa compilación.
+- `HealthWorkoutRouteMap` y `LiveActivityView` comparten la paleta de cuatro paradas según tierra/agua. El visor ampliado conserva los puntos GPS, habilita gesto de zoom/pan y tiene cierre X. `CardioSplitsView` recibe segundos activos y metros totales reales para promedios, evitando extrapolar del primer km.
+- `ProgressSnapshot` mantiene estímulos deportivos estimados de todas las sesiones completadas; `filteredHighEffortStimuli` limita la capa de intensidad alta a formatos potencialmente intensos, sin confundir un paseo con RIR registrado. `LiveSportHistoryView` muestra récords deportivos por sesiones reales, distintos de e1RM.
+
+
+
 ## Sesiones del mismo día y sincronización remota (2026-10-26)
 
 - ReperaStore.saveRoutine identifica cada rutina por UUID, no por fecha; scheduledRoutines(on:) recupera todas las sesiones de un día. removeScheduledRoutine(id:) quita solo la seleccionada. copyPreviousWeekSchedule copia todas las sesiones de la fecha origen si el destino estaba libre antes de copiar.
