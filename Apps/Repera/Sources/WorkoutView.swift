@@ -719,21 +719,10 @@ struct WorkoutView: View {
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
-                HStack(spacing: 6) {
+                WorkoutSetSwipeDeleteRow(
+                    onDelete: { removeLiveSet(at: index, current: current) }
+                ) {
                     liveSetRow(index: index, row: row, current: current)
-                    if liveSets.count > 1 {
-                        Button(role: .destructive) {
-                            removeLiveSet(at: index, current: current)
-                        } label: {
-                            Image(systemName: "minus.circle")
-                                .font(.system(size: 18))
-                                .foregroundStyle(OG.red)
-                                .frame(width: 35, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Quitar serie \(index + 1)")
-                    }
                 }
             }
 
@@ -841,8 +830,7 @@ struct WorkoutView: View {
     private func persistActiveLiveDraft() {
         guard let id = liveExerciseID, editedLiveExerciseIDs.contains(id),
               liveSessionID == store.state.activeSession?.id,
-              let entry = store.state.activeSession?.exercises.first(where: { $0.id == id }),
-              !liveSets.isEmpty else { return }
+              let entry = store.state.activeSession?.exercises.first(where: { $0.id == id }) else { return }
         let existing = entry.plannedSets
         let revised: [PlannedSet] = liveSets.enumerated().map { index, row in
             let previous = existing.indices.contains(index) ? existing[index] : nil
@@ -896,7 +884,7 @@ struct WorkoutView: View {
     private func removeLiveSet(at index: Int, current: SessionExercise) {
         // El usuario corrige o elimina la serie sin un check previo.
         // Al persistir se sustituyen también los resultados reales por ID.
-        guard liveSets.count > 1, liveSets.indices.contains(index) else { return }
+        guard liveSets.indices.contains(index) else { return }
         liveSets.remove(at: index)
         liveDraftsByExercise[current.id] = liveSets
         noteLiveDraftEdited()
@@ -920,7 +908,7 @@ struct WorkoutView: View {
         var rows: [LiveSetRow] = []
         let planned = current.plannedSets
         let logged = current.loggedSets
-        let total = max(max(planned.count, logged.count), max(retained.count, 1))
+        let total = max(planned.count, max(logged.count, retained.count))
         let style = current.exercise.loggingStyle
         let defaultQty: Int = {
             switch style {
@@ -2255,5 +2243,54 @@ struct WODResultInlineEditor: View {
         case .perMovementSets:
             return false
         }
+    }
+}
+
+
+// Swipe de serie en ScrollView: .swipeActions solo funciona en filas List.
+// Mantenemos los TextField interactivos y revelamos borrar al deslizar a la izquierda.
+private struct WorkoutSetSwipeDeleteRow<Content: View>: View {
+    var onDelete: () -> Void
+    @ViewBuilder var content: () -> Content
+    @State private var deleteRevealed = false
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button(role: .destructive) {
+                deleteRevealed = false
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 58, height: 44)
+                    .background(OG.red, in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Eliminar serie")
+            .opacity(deleteRevealed ? 1 : 0)
+            .allowsHitTesting(deleteRevealed)
+
+            content()
+                .frame(maxWidth: .infinity)
+                .background(OG.bg)
+                .offset(x: deleteRevealed ? -66 : 0)
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 18)
+                        .onEnded { value in
+                            guard abs(value.translation.width) > abs(value.translation.height) * 1.2 else { return }
+                            withAnimation(.smooth(duration: 0.22)) {
+                                if value.translation.width < -35 {
+                                    deleteRevealed = true
+                                } else if value.translation.width > 30 {
+                                    deleteRevealed = false
+                                }
+                            }
+                        }
+                )
+                .accessibilityAction(named: "Eliminar serie") { onDelete() }
+        }
+        .clipped()
     }
 }
