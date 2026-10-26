@@ -1447,16 +1447,7 @@ struct LiveActivityView: View {
                 } else if recorder.sport.usesGPS && !showingMetrics {
                     mapView
                 } else {
-                    VStack(spacing: 0) {
-                        metricsView
-                        // Pausar, reanudar y finalizar viven en la cabecera
-                        // durante la sesión; no repetir botones grandes abajo.
-                        if recorder.phase == .idle {
-                            bottomControls
-                                .padding(.horizontal, 14)
-                                .padding(.bottom, 12)
-                        }
-                    }
+                    metricsView
                 }
             }
             .background(OG.bg)
@@ -1965,7 +1956,6 @@ struct LiveActivityView: View {
                     kilometerSplitSummary
                         .padding(.horizontal, 8)
                 }
-                ReperaNowPlayingBar(horizontalPadding: 8, showsSeparator: true)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
@@ -2024,6 +2014,15 @@ struct LiveActivityView: View {
     private var metricsView: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             VStack(spacing: 0) {
+                if recorder.phase == .idle {
+                    // En vista Métricas los controles de Comenzar se colocan
+                    // arriba y alineados a la izquierda, no a pie de pantalla.
+                    bottomControls
+                        .frame(maxWidth: 360, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 10)
+                }
                 HStack(spacing: 12) {
                     Image(systemName: recorder.sport.symbol)
                         .font(.title2.weight(.medium))
@@ -2130,13 +2129,6 @@ struct LiveActivityView: View {
                     .padding(.horizontal, 28)
                 }
                 Spacer(minLength: 12)
-                // En sesión activa, música dentro del panel de métricas,
-                // no flotando encima de los botones de grabación.
-                ReperaNowPlayingBar(
-                    horizontalPadding: 12, showsSeparator: true,
-                    cardStyle: true, bottomPadding: 12
-                )
-                .padding(.horizontal, 18)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
@@ -2171,8 +2163,7 @@ struct LiveActivityView: View {
         Group {
             switch recorder.phase {
             case .idle:
-                VStack(spacing: 0) {
-                    HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .center, spacing: 12) {
                     Button {
                         sportPicker = true
                     } label: {
@@ -2229,14 +2220,8 @@ struct LiveActivityView: View {
                             .accessibilityHidden(true)
                     }
                 }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 12)
-                    // El reproductor comparte caja con Carrera/Iniciar/Cargar ruta.
-                    // Su separador solo aparece cuando hay audio.
-                    ReperaNowPlayingBar(
-                        horizontalPadding: 12, showsSeparator: true, bottomPadding: 8
-                    )
-                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 12)
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
 
             case .recording, .paused, .review:
