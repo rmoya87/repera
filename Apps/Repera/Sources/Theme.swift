@@ -250,7 +250,9 @@ struct OGFixedTopBar<Trailing: View>: View {
             }
             .layoutPriority(1)
             Spacer(minLength: 8)
-            HStack(alignment: .top, spacing: 8) {
+            // 44 pt de control + 16 pt entre controles = 60 pt entre
+            // centros, distancia aconsejada por las guías de Apple.
+            HStack(alignment: .top, spacing: 16) {
                 trailing()
             }
             .frame(minHeight: OG.toolbarGlassSize, alignment: .top)
