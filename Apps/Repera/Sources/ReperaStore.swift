@@ -342,6 +342,17 @@ final class ReperaStore: NSObject {
     /// Persist + notify Home/Historial/Salud that the finished-workout list changed.
     private func persistWorkouts(immediate: Bool = true) {
         persist(immediate: immediate, touchWorkouts: true)
+        // La publicación de workoutsEpoch dispara la sincronización desde App,
+        // pero puede no observarse si se guarda justo antes de ir a background.
+        // Confirmar primero escritura local y lanzar también un push independiente.
+        // sync(store:) serializa peticiones concurrentes y reintenta cambios nuevos.
+        let snapshot = state
+        Task { @MainActor in
+            await LocalStore.shared.persistAndFlush(snapshot)
+            guard LocalStore.shared.lastPersistenceError == nil,
+                  BusinessAuthStore.shared.isConnected else { return }
+            _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
+        }
     }
 
     /// After Repera workout list changes, refresh Salud activities with the new exclusion set.
