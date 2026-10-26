@@ -50,7 +50,7 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn("completedStrengthPrescription(index: index)", editor)
         self.assertIn("if isEditingCompletedWorkout,", editor)
         self.assertIn("format.resultCapture != .perMovementSets", editor)
-        self.assertIn('let block = routine.blocks.first(where: { $0.id == result.id })', bridge)
+        self.assertIn('let block = routine.blocks.first(where: { $0.id == saved.id })', bridge)
         self.assertNotIn('$0.id == result.id && $0.kind == .wod', bridge)
 
     def test_amrap_and_death_by_cannot_be_confused_with_elapsed_time(self):
@@ -72,6 +72,17 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn("InlineWODMovementSets(", editor)
         self.assertIn("format.resultCapture != .perMovementSets", editor)
 
+    def test_previous_wod_scores_are_preserved_when_format_changes(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        history = source("Apps/Repera/Sources/HistoryView.swift")
+        bridge = source("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
+        self.assertIn("updated.wodResults.removeAll {", bridge)
+        self.assertIn("$0.id == block.id && ($0.format == nil || $0.format == format)", bridge)
+        self.assertIn("return result", bridge)
+        self.assertIn("historicalResults: historical", history)
+        self.assertIn("Resultado de formato anterior", history)
+        self.assertIn("Se conserva el resultado anterior", editor)
+
     def test_store_saves_edited_session_instead_of_creating_a_new_one(self):
         history = source("Apps/Repera/Sources/HistoryView.swift")
         editor = source("Apps/Repera/Sources/PlanView.swift")
@@ -80,7 +91,7 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn("store.saveWorkout(updated)", history)
         self.assertIn("onApplyCompleted(edited, completedDetails)", editor)
         self.assertIn("updated.wodResults = updated.wodResults.compactMap", domain)
-        self.assertIn("result.format == nil || result.format == format", domain)
+        self.assertIn("if let recordedFormat = result.format, recordedFormat != currentFormat", domain)
         self.assertIn("entry.blockRestBetweenRoundsSeconds = block.restBetweenRoundsSeconds", domain)
         self.assertIn("var updated = original", domain)
         self.assertIn("updated.exercises = output", domain)
