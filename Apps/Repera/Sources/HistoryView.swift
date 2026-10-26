@@ -690,6 +690,15 @@ struct WorkoutDetailView: View {
                         if let draft {
                             store.saveWorkout(draft)
                             isEditing = false
+                            // Fecha y hora pueden cambiar la ventana de Salud;
+                            // resolver de nuevo por UUID estable sin reciclar
+                            // FC/recorrido de la vista anterior.
+                            Task {
+                                guard let saved = store.state.workouts.first(where: { $0.id == sessionId })
+                                else { return }
+                                healthExtras = await health.sessionHealthExtras(for: saved)
+                                self.draft = store.state.workouts.first(where: { $0.id == sessionId })
+                            }
                         }
                     }
                 }
