@@ -576,21 +576,28 @@ struct PlanView: View {
             Section {
                 VStack(spacing: 12) {
                     Image(systemName: "list.bullet.rectangle")
-                        .font(.system(size: 36, weight: .light))
+                        .font(.system(size: 32, weight: .medium))
                         .foregroundStyle(OG.accent)
                     Text("Sin rutinas")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.headline)
                         .foregroundStyle(OG.label)
                     Text("Crea plantillas reutilizables (Push, Pull, Piernas…) y asígnalas en Programado.")
-                        .font(.system(size: 14))
+                        .font(.subheadline)
                         .foregroundStyle(OG.label2)
                         .multilineTextAlignment(.center)
                     newRoutineGreenButton
                         .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(24)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                .overlay {
+                    RoundedRectangle(cornerRadius: OG.radiusCard)
+                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                }
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 24, leading: OG.pad, bottom: 16, trailing: OG.pad))
             }
         } else {
             Section {
