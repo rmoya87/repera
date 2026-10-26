@@ -548,11 +548,11 @@ struct ProgressCaloriesChartCard: View {
                     HStack(spacing: 8) {
                         calorieStat(
                             title: "Media/día",
-                            value: dailyAverage.map { "\(Int($0.rounded()).formatted()) kcal" } ?? "—"
+                            value: dailyAverage.map { "\(ReperaNumberFormat.integer(Int($0.rounded()))) kcal" } ?? "—"
                         )
                         calorieStat(
                             title: "Periodo ant.",
-                            value: previousAverage.map { "\(Int($0.rounded()).formatted()) kcal" } ?? "—"
+                            value: previousAverage.map { "\(ReperaNumberFormat.integer(Int($0.rounded()))) kcal" } ?? "—"
                         )
                         calorieStat(
                             title: "Variación",
@@ -637,13 +637,13 @@ struct ProgressWeightChartCard: View {
     private var statusLine: String {
         if let delta = deltaVsGoal, let goal = goalKg {
             if abs(delta) < 0.3 {
-                return "En objetivo (\(goal.formatted(.number.precision(.fractionLength(1)))) kg)"
+                return "En objetivo (\(ReperaNumberFormat.decimal(goal)) kg)"
             }
             let sign = delta > 0 ? "+" : ""
-            return "\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg vs \(goal.formatted(.number.precision(.fractionLength(1))))"
+            return "\(sign)\(ReperaNumberFormat.decimal(delta)) kg vs \(ReperaNumberFormat.decimal(goal))"
         }
         if let latest {
-            return "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg"
+            return "\(ReperaNumberFormat.decimal(latest.weightKg)) kg"
         }
         return ""
     }
@@ -724,7 +724,7 @@ struct ProgressWeightChartCard: View {
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                                     .annotation(position: .top, alignment: .center) {
-                                        Text("\(selectedPoint.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
+                                        Text("\(ReperaNumberFormat.decimal(selectedPoint.weightKg)) kg")
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(OG.label)
                                             .padding(5)
@@ -760,7 +760,7 @@ struct ProgressWeightChartCard: View {
                                     .foregroundStyle(OG.surface3)
                                 AxisValueLabel {
                                     if let v = value.as(Double.self) {
-                                        Text(v.formatted(.number.precision(.fractionLength(0...1))))
+                                        Text(ReperaNumberFormat.decimal(v))
                                             .font(.system(size: 10).monospacedDigit())
                                             .foregroundStyle(OG.label3)
                                     }
@@ -776,19 +776,19 @@ struct ProgressWeightChartCard: View {
                         weightStat(
                             label: "Actual",
                             value: latest.map {
-                                "\($0.weightKg.formatted(.number.precision(.fractionLength(1)))) kg"
+                                "\(ReperaNumberFormat.decimal($0.weightKg)) kg"
                             } ?? "—"
                         )
                         weightStat(
                             label: "Objetivo",
                             value: goalKg.map {
-                                "\($0.formatted(.number.precision(.fractionLength(1)))) kg"
+                                "\(ReperaNumberFormat.decimal($0)) kg"
                             } ?? "—"
                         )
                         weightStat(
                             label: "Δ",
                             value: deltaVsGoal.map {
-                                "\($0 > 0 ? "+" : "")\($0.formatted(.number.precision(.fractionLength(1)))) kg"
+                                "\($0 > 0 ? "+" : "")\(ReperaNumberFormat.decimal($0)) kg"
                             } ?? "—",
                             valueColor: deltaColor
                         )
