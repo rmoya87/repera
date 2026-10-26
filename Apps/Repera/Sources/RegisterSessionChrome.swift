@@ -1,6 +1,36 @@
 import ReperaDomain
 import SwiftUI
 
+/// Tile de cabecera idéntico en entrenamientos, Comenzar y Salud.
+/// Los campos concretos dependen de la disciplina, no cambia el diseño.
+struct WorkoutSummaryTile: View {
+    var title: String
+    var value: String
+    var icon: String
+    var tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(value)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(OG.label3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(OG.surface, in: RoundedRectangle(
+            cornerRadius: OG.radiusCard, style: .continuous
+        ))
+    }
+}
+
 /// Icono circular de fila de entreno / actividad (Inicio + Historial).
 struct OGRegisterLeadingIcon: View {
     var systemName: String
