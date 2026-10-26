@@ -2,6 +2,9 @@
 
 ## Validación integral de registros y sincronización (26/10/2026)
 
+- [ ] Progreso: CrossFit, boxeo, elíptica, raqueta y equipo cuentan minutos de cardio registrados; yoga, movilidad, Pilates y core no se convierten falsamente en cardio.
+
+
 - [ ] Crear dos sesiones A y B para la misma fecha desde Inicio, Diario y OCR: aparecen separadas. Borrado por swipe de B no afecta A.
 - [ ] Realizar y finalizar A y luego B; ambas aparecen en Inicio/Historial y alimentan correctamente volumen, fuerza, cardio y Equilibrio de Progreso.
 - [ ] Copiar semana con dos sesiones en la misma fecha: copiar ambas si día destino estaba libre antes de empezar la operación.
