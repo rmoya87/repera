@@ -525,10 +525,11 @@ struct WorkoutDetailView: View {
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
                     || (session.liveSportID != nil && (session.recordedDistanceMeters ?? 0) > 0
                         && (session.activeDurationSeconds ?? 0) > 0)
+                let hasMovement = extras?.stepsCount != nil || extras?.movementDistanceMeters != nil
                 if hasTrackedMetrics || extras != nil {
                     Section {
                         VStack(alignment: .leading, spacing: 14) {
-                            if hasTrackedMetrics || sport != nil {
+                            if hasTrackedMetrics || sport != nil || hasMovement {
                                 CardioSplitsView(
                                     routePoints: displayedRoute(session),
                                     heartRate: extras?.heartRateSeries ?? [],
@@ -543,7 +544,7 @@ struct WorkoutDetailView: View {
                                 )
                             }
                             if let extras {
-                                if hasTrackedMetrics || sport != nil {
+                                if hasTrackedMetrics || sport != nil || hasMovement {
                                     Divider().opacity(0.35)
                                 }
                                 HealthSessionMetricsCard(
@@ -1581,6 +1582,9 @@ extension HealthKitStore.ExternalActivityDetail {
             routePoints: routePoints,
             averageSpeedKmh: averageSpeedKmh,
             maxSpeedKmh: maxSpeedKmh,
+            stepsCount: stepsCount,
+            movementDistanceMeters: movementDistanceMeters,
+            movementUsesTimeWindow: movementUsesTimeWindow,
             activeEnergyKcal: activity.activeEnergyKcal,
             sourceName: activity.sourceName,
             activityTypeRaw: activity.activityTypeRaw,
