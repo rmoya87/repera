@@ -1453,7 +1453,7 @@ struct HomeView: View {
             if activity.start >= weekAgo { count += 1 }
         }
         cachedStreakWeekDone = StatsEngine.workoutCount(from: store.state.workouts, days: 7) + healthWeek
-        cachedStreakPlanned = store.state.routines.reduce(into: 0) { $0 += $1.weekday != nil ? 1 : 0 }
+        cachedStreakPlanned = store.scheduledRoutines(inWeekContaining: Date()).count
         cachedStreakTotal = store.state.workouts.count + health.recentExternalActivities.count
         cachedStreakWeeks = consecutiveWeekStreak()
     }
@@ -1613,17 +1613,10 @@ struct HomeView: View {
         // Un solo pase de rutinas → keys de plan de la semana visible.
         var planKeys = Set<String>()
         let weekDates: [Date] = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        let weekISO = Set(weekDates.map { CalendarHelpers.isoWeekday(for: $0, calendar: calendar) })
         for routine in store.state.routines {
-            if let scheduled = routine.scheduledDate {
-                let key = dayKey(scheduled)
-                if weekDates.contains(where: { calendar.isDate($0, inSameDayAs: scheduled) }) {
-                    planKeys.insert(key)
-                }
-            } else if let wd = routine.weekday, weekISO.contains(wd) {
-                for d in weekDates where CalendarHelpers.isoWeekday(for: d, calendar: calendar) == wd {
-                    planKeys.insert(dayKey(d))
-                }
+            guard let scheduled = routine.scheduledDate else { continue }
+            if weekDates.contains(where: { calendar.isDate($0, inSameDayAs: scheduled) }) {
+                planKeys.insert(dayKey(scheduled))
             }
         }
 
