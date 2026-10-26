@@ -203,7 +203,10 @@ public struct SessionController: Sendable {
         session.exercises[index].loggedSets = sets
         session.exercises[index].completedReps = sets
             .filter { $0.phase == .work }
-            .reduce(0) { $0 + $1.reps }
+            .reduce(0) { count, set in
+                count + set.reps + (set.kind == .dropset
+                    ? set.drops.reduce(0) { $0 + $1.reps } : 0)
+            }
         return true
     }
 
