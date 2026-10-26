@@ -633,6 +633,9 @@ enum ExerciseArt {
         "Cluster": "art_cf_cluster",
         "Sumo high pull": "art_cf_sumo_hp",
         "Burpee": "art_cf_burpee",
+        // Aprovechar la ilustración verificada hasta disponer de un BTT propio.
+        "Burpee to target": "art_cf_burpee",
+        "BTT": "art_cf_burpee",
         "Burpee al cajón": "art_cf_burpee_box",
         "Burpee box jump over": "art_cf_burpee_box",
         "Burpee box jump overs": "art_cf_burpee_box",
@@ -643,6 +646,8 @@ enum ExerciseArt {
         "Muscle-up barra": "art_cf_mu_bar",
         "Muscle-up anillas": "art_cf_mu_rings",
         "Toes to bar": "art_cf_ttb",
+        "T2B": "art_cf_ttb",
+        "TTB": "art_cf_ttb",
         "Knees to elbows": "art_cf_kte",
         "Chest to bar": "art_cf_ctb",
         "HSPU": "art_cf_hspu",
