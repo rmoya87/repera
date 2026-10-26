@@ -75,6 +75,16 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         ).isEmpty)
     }
 
+    func testWarmupOnlyNeverInventsPlannedWorkingSets() {
+        let warmup = LoggedSet(reps: 5, weightKg: 20, phase: .warmup)
+        let workout = session(isCompleted: true, kind: .strength, recorded: [warmup])
+        XCTAssertTrue(StatsEngine.confirmedWorkSets(workout.exercises[0], in: workout).isEmpty)
+        XCTAssertTrue(MuscleLoadEngine.load(
+            workouts: [workout], window: .week, now: now
+        ).isEmpty)
+        XCTAssertEqual(workout.totalVolumeKg, 0, accuracy: 0.001)
+    }
+
     func testEditedRecordedSetsBeatPrescriptionAndCalculateVolume() {
         var workout = session(isCompleted: false, kind: .strength, recorded: [
             LoggedSet(reps: 7, weightKg: 55, rir: 2),
