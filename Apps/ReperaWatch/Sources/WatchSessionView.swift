@@ -469,7 +469,7 @@ struct WatchSessionView: View {
                     up: { hub.adjustDeficit(1) })
             } else {
                 metricStepper(label: "Peso kg",
-                    value: hub.workingWeightKg.map { $0.formatted() } ?? "—",
+                    value: hub.workingWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "—",
                     down: { hub.adjustWeight(-0.5) },
                     up: { hub.adjustWeight(0.5) })
             }
@@ -503,7 +503,7 @@ struct WatchSessionView: View {
     private var rirControls: some View {
         metricStepper(
             label: "RIR",
-            value: hub.setDraft.rir.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—",
+            value: hub.setDraft.rir.map { ReperaNumberFormat.decimal($0) } ?? "—",
             down: { hub.setRIR(max(0, (hub.setDraft.rir ?? 3) - 1)) },
             up: { hub.setRIR(min(5, (hub.setDraft.rir ?? 1) + 1)) }
         )
@@ -571,7 +571,7 @@ struct WatchSessionView: View {
                 if hub.current?.exercise.loadField == .weightKg {
                     metricStepper(
                         label: "Ajuste fino kg",
-                        value: hub.workingWeightKg.map { $0.formatted() } ?? "—",
+                        value: hub.workingWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "—",
                         down: { hub.adjustWeight(-0.1) },
                         up: { hub.adjustWeight(0.1) }
                     )
@@ -598,7 +598,7 @@ struct WatchSessionView: View {
                                 down: { hub.adjustDrop(id: drop.id, reps: -1) },
                                 up: { hub.adjustDrop(id: drop.id, reps: 1) })
                             metricStepper(label: "Drop kg",
-                                value: drop.weightKg.map { $0.formatted() } ?? "0",
+                                value: drop.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "0",
                                 down: { hub.adjustDrop(id: drop.id, weightKg: -0.5) },
                                 up: { hub.adjustDrop(id: drop.id, weightKg: 0.5) })
                             Button("Eliminar drop") {
