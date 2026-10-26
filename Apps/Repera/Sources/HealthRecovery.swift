@@ -537,8 +537,11 @@ struct HealthRecoveryProgressView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
 
     private var isPro: Bool { subscriptions.isPro }
-    /// Todas las gráficas principales comparten el mismo alto, en ambas columnas.
+    /// Alturas mínimas compartidas por parejas únicamente en DUO horizontal.
+    /// El contenido puede crecer si Dynamic Type necesita más espacio.
     private let primaryChartHeight: CGFloat = 220
+    private var readinessRowMinHeight: CGFloat? { usesExpandedLayout ? 310 : nil }
+    private var sleepRowMinHeight: CGFloat? { usesExpandedLayout ? 480 : nil }
 
     private struct TrainingRecoveryPoint: Identifiable, Sendable {
         let date: Date
@@ -712,6 +715,7 @@ struct HealthRecoveryProgressView: View {
                             message: "Aún no hay suficientes registros para ver la recuperación.",
                             height: primaryChartHeight
                         )
+                        .frame(minHeight: readinessRowMinHeight, alignment: .top)
                     }
                 }
             }
@@ -776,6 +780,7 @@ struct HealthRecoveryProgressView: View {
                     AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                 }
                 .frame(height: primaryChartHeight)
+                .frame(minHeight: readinessRowMinHeight, alignment: .top)
                 .allowsHitTesting(false)
             }
         }
@@ -822,6 +827,7 @@ struct HealthRecoveryProgressView: View {
                         physiologyPreviewBars("Respiración", unit: "rpm", values: [16, 15, 15, 14, 16, 14, 13])
                     }
                 }
+                .frame(minHeight: sleepRowMinHeight, alignment: .top)
                 .allowsHitTesting(false)
             }
         }
@@ -868,6 +874,7 @@ struct HealthRecoveryProgressView: View {
                     height: 150,
                     yRange: 0.0...10.0
                 )
+                .frame(minHeight: sleepRowMinHeight, alignment: .top)
             }
         }
     }
@@ -1054,6 +1061,7 @@ struct HealthRecoveryProgressView: View {
                         }
                     }
                 }
+                .frame(minHeight: sleepRowMinHeight, alignment: .top)
             }
         }
     }
@@ -1112,6 +1120,7 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Preparación para entrenar")
             OGCard {
+                Group {
                 if appliedRecoveryKey != trainingRecoveryRefreshKey && currentReadiness == nil {
                     HStack(spacing: 10) {
                         ProgressView().tint(OG.accent)
@@ -1195,6 +1204,8 @@ struct HealthRecoveryProgressView: View {
                         height: 150
                     )
                 }
+                }
+                .frame(minHeight: readinessRowMinHeight, alignment: .top)
             }
         }
     }
@@ -1260,6 +1271,7 @@ struct HealthRecoveryProgressView: View {
                 }
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: primaryChartHeight)
+                .frame(minHeight: readinessRowMinHeight, alignment: .top)
                 .accessibilityLabel("Evolución de preparación para entrenar")
             }
         }
@@ -1369,6 +1381,7 @@ struct HealthRecoveryProgressView: View {
                 }
 
             }
+            .frame(minHeight: sleepRowMinHeight, alignment: .top)
         }
     }
 
