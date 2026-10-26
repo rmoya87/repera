@@ -78,7 +78,9 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         )[0]
         self.assertIn('systemName: "figure.strengthtraining.traditional"', planned)
         self.assertIn("tint: OG.label2", planned)
-        self.assertIn(".frame(height: 27, alignment: .center)", home)
+        self.assertIn(".frame(height: 24, alignment: .center)", home)
+        swipe = swift("RegisterSwipeRevealCard.swift")
+        self.assertIn("VStack(alignment: .leading, spacing: 0)", swipe)
         self.assertIn(".padding(.top, 0)", home)
 
     def test_home_initial_scroll_shows_yesterday_first_today_second(self):
