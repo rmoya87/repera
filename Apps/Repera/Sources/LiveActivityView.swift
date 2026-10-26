@@ -2449,10 +2449,12 @@ struct LiveActivityView: View {
                             longitude: route.first?.longitude,
                             workoutDate: session.startedAt ?? .now
                         ) {
-                            Button {
+                            WorkoutMapTapTarget(
+                                accessibilityLabel: "Abrir recorrido a pantalla completa"
+                            ) {
                                 fullScreenRoutePoints = route
                                 showFullScreenRoute = true
-                            } label: {
+                            } map: {
                                 HealthWorkoutRouteMap(
                                     points: route, isInteractive: false,
                                     isWaterSport: recorder.sport.isWaterSport
@@ -2461,8 +2463,6 @@ struct LiveActivityView: View {
                                     id: "live-review-route", in: routeZoomNamespace
                                 )
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Abrir recorrido a pantalla completa")
                         }
                         .ogCardListRow()
                     }
