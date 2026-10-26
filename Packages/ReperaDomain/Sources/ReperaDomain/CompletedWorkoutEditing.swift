@@ -209,7 +209,7 @@ public enum CompletedWorkoutEditing {
                 let exercise = exerciseID.flatMap { id in catalog.first(where: { $0.id == id }) }
                     ?? old?.exercise
                     ?? Exercise(name: name ?? "Ejercicio", muscleGroup: "Otros", isCustom: true)
-                var entry = old ?? SessionExercise(exercise: exercise, plannedSets: sets)
+                var entry = old ?? SessionExercise(id: itemID, exercise: exercise, plannedSets: sets)
                 entry.exercise = exercise
                 entry.plannedSets = sets
                 entry.quantityUnit = unit
