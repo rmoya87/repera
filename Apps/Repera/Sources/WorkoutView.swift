@@ -31,6 +31,8 @@ struct WorkoutView: View {
     @State private var liveDraftsByExercise: [UUID: [LiveSetRow]] = [:]
     /// No convertir las sugerencias precargadas en modificaciones del usuario.
     @State private var editedLiveExerciseIDs: Set<UUID> = []
+    /// Por ejercicio y serie: solo los campos tocados se consideran realizados.
+    @State private var editedLiveSetIDs: [UUID: Set<UUID>] = [:]
     /// Unidad Cal/m para erg/bike del ejercicio actual.
     @State private var liveQuantityUnit: ExerciseQuantityUnit = .reps
     @State private var setCompletionPulse = 0
@@ -215,6 +217,7 @@ struct WorkoutView: View {
                     }
                     liveDraftsByExercise = [:]
                     editedLiveExerciseIDs = []
+                    editedLiveSetIDs = [:]
                     liveExerciseID = nil
                     liveSets = []
                     store.refreshActiveSessionPlan(from: edited)
@@ -714,27 +717,17 @@ struct WorkoutView: View {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
                 secondTitle: style == .repsOnly || current.exercise.isMobilityHold ? nil : qtyLabel,
-                showsConfirmation: store.state.activeSession?.phase != .ready,
+                showsConfirmation: false,
                 showsRIR: style.usesRIR
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
-                HStack(spacing: 6) {
+                WorkoutSetSwipeRow(
+                    canDelete: liveSets.count > 1,
+                    deleteLabel: "Eliminar serie \(index + 1)",
+                    onDelete: { removeLiveSet(at: index, current: current) }
+                ) {
                     liveSetRow(index: index, row: row, current: current)
-                    if !row.completed, index >= current.loggedSets.count,
-                       liveSets.count > max(1, current.loggedSets.count) {
-                        Button(role: .destructive) {
-                            removeLiveSet(at: index, current: current)
-                        } label: {
-                            Image(systemName: "minus.circle")
-                                .font(.system(size: 18))
-                                .foregroundStyle(OG.red)
-                                .frame(width: 35, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Quitar serie \(index + 1)")
-                    }
                 }
             }
 
@@ -791,10 +784,10 @@ struct WorkoutView: View {
                 previous: OGSetEntryRow.previousText(previousSet),
                 firstValue: firstValue,
                 secondValue: style == .repsOnly || current.exercise.isMobilityHold ? nil : "\(row.reps)",
-                nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
+                nextEditableRowID: liveSets.dropFirst(index + 1).first?.id,
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
-                showsConfirmation: store.state.activeSession?.phase != .ready,
-                completed: row.completed,
+                showsConfirmation: false,
+                completed: false,
                 rir: row.rir,
                 showsRIR: style.usesRIR,
                 onRIRChange: { setLiveRir(at: index, rir: $0) },
@@ -816,17 +809,7 @@ struct WorkoutView: View {
                 onSecondCommit: { text in
                     if let value = Int(text), value > 0 { setLiveReps(at: index, reps: value) }
                 },
-                onConfirm: {
-                    guard store.state.activeSession?.phase != .ready else { return }
-                    if row.completed {
-                        if index == liveSets.count - 1 || index == current.loggedSets.count - 1 {
-                            store.removeLastSet()
-                            rebuildLiveSets(from: store.state.activeSession?.currentExercise ?? current)
-                        }
-                    } else {
-                        completeLiveSet(at: index, current: current)
-                    }
-                }
+                onConfirm: {}
             )
             .accessibilityLabel("Serie \(index + 1), \(qtyLabel)")
 
@@ -840,11 +823,13 @@ struct WorkoutView: View {
         liveDraftsByExercise[liveExerciseID] = liveSets
     }
 
-    /// La tabla visible es un borrador de PRESCRIPCIÓN hasta que se marca
-    /// cada serie. Guardar los cambios enseguida evita que desaparezcan
-    /// al cerrar Play, navegar o finalizar. No generar `LoggedSet` falsos.
-    private func noteLiveDraftEdited() {
+    /// Solo una serie que el usuario ha editado se guarda como realizada.
+    /// El antiguo check no es necesario, ni se fabrican series no tocadas.
+    private func noteLiveDraftEdited(rowIndex: Int? = nil) {
         guard let id = liveExerciseID else { return }
+        if let rowIndex, liveSets.indices.contains(rowIndex) {
+            editedLiveSetIDs[id, default: []].insert(liveSets[rowIndex].id)
+        }
         editedLiveExerciseIDs.insert(id)
         persistActiveLiveDraft()
     }
@@ -879,15 +864,28 @@ struct WorkoutView: View {
             id: id, plannedSets: revised,
             quantityUnit: entry.exercise.loggingStyle == .machineWork ? liveQuantityUnit : entry.quantityUnit
         )
+        let editedIDs = editedLiveSetIDs[id] ?? []
+        let style = entry.exercise.loggingStyle
+        let performed: [LoggedSet] = liveSets.compactMap { row in
+            guard editedIDs.contains(row.id), row.reps > 0 else { return nil }
+            return LoggedSet(
+                id: row.id, reps: row.reps,
+                weightKg: entry.exercise.loadField == .weightKg ? row.weightKg : nil,
+                deficitCm: entry.exercise.loadField == .deficitCm ? row.deficitCm : nil,
+                durationSeconds: style.usesDuration ? row.durationSeconds : nil,
+                quantityUnit: style == .machineWork ? liveQuantityUnit : nil,
+                rir: style.usesRIR ? row.rir : nil
+            )
+        }
+        store.upsertActivePerformedSets(exerciseID: id, sets: performed)
     }
 
     private func removeLiveSet(at index: Int, current: SessionExercise) {
-        // Los resultados ya confirmados no se eliminan con una edición de
-        // prescripción: desmarcar primero con el flujo existente.
-        guard liveSets.count > max(1, current.loggedSets.count),
-              liveSets.indices.contains(index), !liveSets[index].completed,
-              index >= current.loggedSets.count else { return }
+        guard liveSets.count > 1, liveSets.indices.contains(index) else { return }
+        let id = liveSets[index].id
+        editedLiveSetIDs[current.id]?.remove(id)
         liveSets.remove(at: index)
+        store.removeActivePerformedSet(exerciseID: current.id, setID: id)
         liveDraftsByExercise[current.id] = liveSets
         noteLiveDraftEdited()
     }
@@ -1012,74 +1010,74 @@ struct WorkoutView: View {
                 completed: false
             )
         )
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: liveSets.count - 1)
     }
 
     private func bumpLiveWeight(at index: Int, delta: Double) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         let current = liveSets[index].weightKg ?? 0
         let next = max(0, ((current + delta) * 10).rounded() / 10)
         liveSets[index].weightKg = next > 0 ? next : nil
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func bumpLiveDeficit(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         let current = liveSets[index].deficitCm ?? 0
         liveSets[index].deficitCm = min(60, max(0, current + delta))
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func setLiveDeficit(at index: Int, cm: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         liveSets[index].deficitCm = cm
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func commitLiveWeightText(at index: Int, text: String) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         let normalized = text.replacingOccurrences(of: ",", with: ".")
         if normalized.isEmpty || normalized == "—" {
             liveSets[index].weightKg = nil
-            noteLiveDraftEdited()
+            noteLiveDraftEdited(rowIndex: index)
             return
         }
         guard let value = Double(normalized) else { return }
         liveSets[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func bumpLiveDuration(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         let current = liveSets[index].durationSeconds ?? 0
         liveSets[index].durationSeconds = max(0, current + delta)
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func commitLiveDurationText(at index: Int, text: String) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         liveSets[index].durationSeconds = DurationText.parse(text)
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func bumpLiveReps(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
         liveSets[index].reps = min(cap, max(1, liveSets[index].reps + delta))
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func setLiveReps(at index: Int, reps: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
         liveSets[index].reps = min(cap, max(1, reps))
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func setLiveRir(at index: Int, rir: Double?) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
+        guard liveSets.indices.contains(index), true else { return }
         liveSets[index].rir = rir
-        noteLiveDraftEdited()
+        noteLiveDraftEdited(rowIndex: index)
     }
 
     private func completeLiveSet(at index: Int, current: SessionExercise) {
