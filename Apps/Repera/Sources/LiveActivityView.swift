@@ -34,10 +34,10 @@ enum LiveSport: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Gravel y la actividad genérica siguen existiendo solo para decodificar
-    /// entrenamientos y rutas guardados por versiones anteriores de Repera.
-    /// No se ofrecen como nuevas actividades ni al editar una ruta.
-    var isSelectable: Bool { self != .gravel && self != .other }
+    /// Mantener también Bicicleta gravel y Otra actividad como opción de
+    /// respaldo: ninguna disciplina queda bloqueada por falta de un nombre
+    /// específico. Los datos reales siguen procediendo de HealthKit.
+    var isSelectable: Bool { true }
 
     /// Única fuente de verdad para Elegir actividad y Elegir deporte:
     /// orden alfabético localizado dentro de cada sección.
