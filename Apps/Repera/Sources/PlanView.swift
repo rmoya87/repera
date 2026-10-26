@@ -931,7 +931,6 @@ struct DayEditorView: View {
                             .foregroundStyle(OG.label2)
                     }
                     scheduledTimeControls
-                    Toggle("Favorito", isOn: $routine.isFavorite)
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
                         .disabled(true)
