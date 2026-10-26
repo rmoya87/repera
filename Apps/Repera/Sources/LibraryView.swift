@@ -109,6 +109,63 @@ struct LibraryView: View {
         }
         return true
     }
+    /// En iPhone Ejercicios usa título + acciones en la MISMA línea.
+    /// WODs/Deportes conservan su búsqueda y navegación nativas.
+    private var usesCompactExerciseHeader: Bool {
+        !isExpandedLayout && filterMode != .wods && filterMode != .sports
+    }
+
+    private var hasCustomExerciseHeader: Bool {
+        usesSplitExerciseLayout || usesCompactExerciseHeader
+    }
+
+    /// Compartida entre la cabecera compacta y la primera columna DUO.
+    private var exerciseActionHeader: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text("Ejercicios")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+            OGToolbarGlassButton(
+                systemName: "line.3.horizontal.decrease",
+                accessibilityLabel: "Filtrar y ordenar",
+                appliesGlass: true
+            ) {
+                showFilter = true
+            }
+            OGToolbarGlassButton(
+                systemName: "plus",
+                accessibilityLabel: "Nuevo ejercicio",
+                appliesGlass: true
+            ) {
+                createExerciseIfAllowed()
+            }
+        }
+        .padding(.horizontal, OG.topBarHorizontalInset)
+        .padding(.top, OG.topBarTopInset)
+        .padding(.bottom, OG.topBarBottomInset)
+    }
+
+    private var exerciseSearchField: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(OG.label2)
+            TextField("Nombre, músculo o equipo", text: $query)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .foregroundStyle(OG.label)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .background(Color.clear)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        .padding(.horizontal, OG.pad)
+        .padding(.vertical, 10)
+    }
+
     @State private var showFilter = false
     @State private var name = ""
     @State private var muscle = "Pecho"
@@ -146,47 +203,8 @@ struct LibraryView: View {
                 } else if usesSplitExerciseLayout {
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 16) {
-                                Text("Ejercicios")
-                                    .font(.largeTitle.weight(.bold))
-                                    .foregroundStyle(OG.label)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                OGToolbarGlassButton(
-                                    systemName: "line.3.horizontal.decrease",
-                                    accessibilityLabel: "Filtrar y ordenar",
-                                    appliesGlass: true
-                                ) {
-                                    showFilter = true
-                                }
-                                OGToolbarGlassButton(
-                                    systemName: "plus",
-                                    accessibilityLabel: "Nuevo ejercicio",
-                                    appliesGlass: true
-                                ) {
-                                    createExerciseIfAllowed()
-                                }
-                            }
-                            .padding(.horizontal, OG.topBarHorizontalInset)
-                            .padding(.top, OG.topBarTopInset)
-                            .padding(.bottom, OG.topBarBottomInset)
-                            .background(Color.clear) // misma geometría de cabecera que Inicio y Diario
-
-                            HStack(spacing: 9) {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundStyle(OG.label2)
-                                TextField("Nombre, músculo o equipo", text: $query)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .foregroundStyle(OG.label)
-                            }
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 44)
-                            .background(Color.clear)
-                            .glassEffect(.regular, in: .rect(cornerRadius: 14))
-                            .padding(.horizontal, OG.pad)
-                            .padding(.vertical, 10)
+                            exerciseActionHeader
+                            exerciseSearchField
 
                             LibraryExerciseList(
                                 sections: cachedSections,
@@ -277,14 +295,22 @@ struct LibraryView: View {
                 ExerciseArt.cancelThumbPrefetch()
             }
             .navigationTitle(filterMode == .wods ? "WODs" : filterMode == .sports ? "Deportes" : "Ejercicios")
-            // iPhone: título grande y acciones a la DERECHA mediante la
-            // toolbar nativa. SwiftUI gestiona distancias, safe area y glass.
-            // DUO: cabecera propia con los mismos insets semánticos.
+            // Ejercicios: título y acciones en una fila (iPhone y DUO).
+            // Solo WODs/Deportes conservan la toolbar/búsqueda nativas.
             .navigationBarTitleDisplayMode(.large)
             .ogDiaryTransparentNav()
-            .toolbar(usesSplitExerciseLayout ? .hidden : .visible, for: .navigationBar)
+            .toolbar(hasCustomExerciseHeader ? .hidden : .visible, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if usesCompactExerciseHeader {
+                    VStack(spacing: 0) {
+                        exerciseActionHeader
+                        exerciseSearchField
+                    }
+                    .background(OG.bg)
+                }
+            }
             .toolbar {
-                if !usesSplitExerciseLayout {
+                if !hasCustomExerciseHeader {
                 ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
                         systemName: "line.3.horizontal.decrease",
@@ -308,7 +334,7 @@ struct LibraryView: View {
             // Campo nativo del sistema debajo del título / filtro / +.
             .modifier(LibrarySearchIfCompact(
                 query: $query,
-                enabled: !usesSplitExerciseLayout,
+                enabled: !hasCustomExerciseHeader,
                 prompt: filterMode == .wods ? "Nombre o formato" : "Nombre, músculo o equipo"
             ))
             .navigationDestination(for: UUID.self) { id in
