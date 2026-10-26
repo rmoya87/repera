@@ -1461,7 +1461,10 @@ final class ReperaStore: NSObject {
             if draft.healthKitWorkoutUUID == nil {
                 draft.appleActiveEnergyKcal = nil
             }
-            if let start = draft.startedAt, let end = draft.finishedAt, draft.liveSportID == nil {
+            if let start = draft.startedAt, let end = draft.finishedAt,
+               draft.liveSportID == nil, draft.healthKitWorkoutUUID == nil {
+                // Sin vínculo HK, la duración se deriva del horario corregido.
+                // Con vínculo, preservar la medición de Salud/Watch original.
                 draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
             }
             // La valoración anterior ya no corresponde a series/orden/carga editados.
@@ -1515,8 +1518,9 @@ final class ReperaStore: NSObject {
         }
         guard current.healthKitWorkoutUUID == nil else { return true }
         current.healthKitWorkoutUUID = uuid
-        current.startedAt = apple.startedAt
-        current.finishedAt = apple.finishedAt
+        // No deshacer una corrección manual del horario cuando Salud enlaza
+        // después su HKWorkout. Los tiempos reales de sensores se obtienen
+        // desde el UUID de Salud, no sobrescribiendo los editados en Repera.
         current.appleDurationSeconds = apple.durationSeconds
         current.appleActiveEnergyKcal = apple.kcal > 0 ? apple.kcal : nil
         upsertWorkout(current)
