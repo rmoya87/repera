@@ -395,6 +395,6 @@ public enum ProgressionEngine {
     }
 
     private static func format(_ value: Double) -> String {
-        String(format: "%g", value)
+        ReperaNumberFormat.decimal(value)
     }
 }
