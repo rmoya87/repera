@@ -13,6 +13,52 @@ enum HealthMuscleMapper {
         }
     }
 
+    /// Evita que un mismo entrenamiento guardado por Repera y enlazado a
+    /// HealthKit figure dos veces en minutos, récords, racha y músculo.
+    /// Además del UUID verificado, empareja el comienzo/tipo de sesiones
+    /// Comenzar cuando Watch ha aportado otra copia del mismo registro.
+    static func uniqueExternalActivities(
+        _ activities: [HealthKitStore.ExternalActivity],
+        workouts: [WorkoutSession]
+    ) -> [HealthKitStore.ExternalActivity] {
+        let finished = workouts.filter { $0.phase == .finished || $0.finishedAt != nil }
+        let linkedHealthIDs = Set(finished.compactMap(\.healthKitWorkoutUUID))
+        return activities.filter { activity in
+            guard !linkedHealthIDs.contains(activity.id) else { return false }
+            let overlapsNative = finished.contains { workout in
+                guard let key = workout.liveSportID,
+                      let sport = LiveSport(rawValue: key),
+                      let start = workout.startedAt,
+                      sport.healthType == activity.activityType
+                else { return false }
+                let duration = workout.activeDurationSeconds.map { $0 / 60 }
+                    ?? workout.durationMinutes
+                return abs(start.timeIntervalSince(activity.start)) < 90
+                    && abs(duration - activity.durationMinutes) < 3
+            }
+            return !overlapsNative
+        }
+    }
+
+    /// Las actividades de «Comenzar» no guardan ejercicios individuales.
+    /// Aportan una carga muscular ESTIMADA por deporte y minutos activos;
+    /// el tiempo, las kcal y la ruta siguen siendo datos medidos aparte.
+    static func nativeSportStimuli(from workouts: [WorkoutSession]) -> [ExternalMuscleStimulus] {
+        workouts.compactMap { workout in
+            guard workout.phase == .finished || workout.finishedAt != nil,
+                  let raw = workout.liveSportID,
+                  let sport = LiveSport(rawValue: raw),
+                  let started = workout.startedAt ?? workout.finishedAt
+            else { return nil }
+            let duration = workout.activeDurationSeconds.map { $0 / 60 }
+                ?? workout.durationMinutes
+            guard duration > 0 else { return nil }
+            let load = muscleLoad(for: sport.healthType, durationMinutes: duration)
+            guard !load.isEmpty else { return nil }
+            return ExternalMuscleStimulus(date: started, load: load)
+        }
+    }
+
     static func daySamples(from activities: [HealthKitStore.ExternalActivity]) -> [ExternalDaySample] {
         activities.map { activity in
             let mins = max(0, activity.durationMinutes)
