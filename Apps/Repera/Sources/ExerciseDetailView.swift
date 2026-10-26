@@ -471,7 +471,7 @@ struct ExerciseDetailView: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(OG.label2)
                     Spacer()
-                    Text("\(kg.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                    Text("\(ReperaNumberFormat.decimal(kg)) kg")
                         .font(.system(size: 28, weight: .bold).monospacedDigit())
                         .foregroundStyle(OG.label)
                 }
@@ -479,7 +479,7 @@ struct ExerciseDetailView: View {
                 Slider(value: $suggestPercent, in: 50...95, step: 5)
                     .tint(OG.accent)
 
-                Text("Pasos de 5% · sobre \(source ?? "1RM") \(oneRM.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                Text("Pasos de 5% · sobre \(source ?? "1RM") \(ReperaNumberFormat.decimal(oneRM)) kg")
                     .font(.caption)
                     .foregroundStyle(OG.label3)
             } else {
