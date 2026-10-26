@@ -158,7 +158,7 @@ struct DayEditorView: View {
                 TextField(nameFieldPlaceholder, text: $routine.title)
                 switch mode {
                 case .plan:
-                    // Todas las rutinas guardadas en Diario permanecen en la
+                    // Las rutinas reutilizables permanecen en la
                     // biblioteca. Esta fecha opcional crea una COPIA programada.
                     Toggle("Programar también en una fecha", isOn: planScheduleEnabled)
                         .tint(OG.accent)
@@ -180,7 +180,7 @@ struct DayEditorView: View {
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
                         .disabled(true)
-                    Text("Para programarla, selecciónala en la fecha deseada desde Diario.")
+                    Text("Puedes volver a utilizar este entreno desde Añadir entreno → Favoritos.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                     scheduledTimeControls
@@ -195,14 +195,14 @@ struct DayEditorView: View {
                     Text(onApplyCompleted != nil
                          ? "Edita los datos registrados sin modificar la rutina programada."
                          : onApplyDraft == nil
-                            ? "Solo empieza la sesión. El plan semanal se gestiona en Diario."
+                            ? "Empieza la sesión ahora. Puedes añadir entrenos para otros días desde Inicio."
                             : "Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
                 case .favorite:
-                    Text("Los favoritos se reutilizan desde Crear y pueden asignarse a cualquier fecha desde Diario.")
+                    Text("Los favoritos se reutilizan desde Añadir entreno → Favoritos.")
                 case .oneOff:
                     EmptyView()
                 case .plan:
-                    Text("La rutina se guarda en Rutinas. Si seleccionas una fecha, también se programará una copia en Diario.")
+                    Text("La rutina se guarda para reutilizarla. Si seleccionas una fecha, también se programará una copia en el calendario.")
                 }
             }
 
@@ -852,7 +852,7 @@ struct DayEditorView: View {
             var draft = routine
             let dateToSchedule = draft.scheduledDate
             // Guardar la fuente SIN fecha para que siempre permanezca en
-            // Diario → Rutinas. La programación crea otro ID y otros bloques.
+            // La plantilla se mantiene sin fecha; programar crea una copia independiente.
             draft.weekday = nil
             draft.scheduledDate = nil
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
