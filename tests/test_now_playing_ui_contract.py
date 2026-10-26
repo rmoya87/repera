@@ -54,6 +54,23 @@ class NowPlayingUIContract(unittest.TestCase):
         self.assertIn("private var mapMetricStrip: some View", live)
         self.assertIn("private var metricsView: some View", live)
 
+    def test_empty_routines_uses_white_card_on_iphone_and_duo(self):
+        plan = source("PlanView.swift")
+        phone = plan.split("private var routinesContent", 1)[1].split("} else {", 1)[0]
+        duo = plan.split("private var expandedEmptyRoutines", 1)[1].split("private var routinesContent", 1)[0]
+        for body in (phone, duo):
+            self.assertIn(".background(OG.surface, in: RoundedRectangle(", body)
+            self.assertIn('Text("Sin rutinas")', body)
+            self.assertIn("newRoutineGreenButton", body)
+
+    def test_recovery_cards_shrink_graph_and_readiness_together(self):
+        recovery = source("HealthRecovery.swift")
+        self.assertIn("(width - OG.pad * 2) * (2.0 / 3.0)", recovery)
+        self.assertIn(".frame(height: readinessChartHeight)", recovery)
+        self.assertIn(".frame(minHeight: readinessChartHeight", recovery)
+        self.assertIn("usesExpandedLayout ? 76 : 95", recovery)
+        self.assertNotIn("readinessRowMinHeight", recovery)
+
     def test_music_privacy_info_exists_in_both_manifest_sources(self):
         plist = (ROOT / "Apps" / "Repera" / "Resources" / "Info.plist").read_text(encoding="utf-8")
         project = (ROOT / "project.yml").read_text(encoding="utf-8")
