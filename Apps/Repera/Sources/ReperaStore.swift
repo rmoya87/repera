@@ -1235,6 +1235,7 @@ final class ReperaStore: NSObject {
         })
         let legacyIdentity = !remaining.contains(where: { sourceIDs.contains($0.id) })
 
+        session.title = fresh.title
         session.routineBlocks = routine.blocks
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
