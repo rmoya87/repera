@@ -1,6 +1,14 @@
 # Arquitectura Repera
 
-Última actualización: 2026-10-25 (catálogo remoto, sincronización invisible y documentación del GPS unificado)
+## Sesiones del mismo día y sincronización remota (2026-10-26)
+
+- ReperaStore.saveRoutine identifica cada rutina por UUID, no por fecha; scheduledRoutines(on:) recupera todas las sesiones de un día. removeScheduledRoutine(id:) quita solo la seleccionada. copyPreviousWeekSchedule copia todas las sesiones de la fecha origen si el destino estaba libre antes de copiar.
+- HomeView combina fichas completadas y pendientes y filtra únicamente la misma rutina finalizada o en curso; PlanView ofrece cabecera Añadir por día y filas con swipe individual. Cada escaneo guardado crea una rutina autónoma.
+- WorkoutView guarda series editadas sin check y las elimina por swipe dentro del ScrollView. Eliminar la última deja ninguna serie hasta usar Añadir serie; nunca sustituir una eliminación por un resultado prescrito automático en borradores.
+- La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
+- LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
+
+Última actualización: 2026-10-26 (sesiones múltiples, deportes nativos y mirror Supabase)
 
 ## Series de movilidad (iOS)
 
