@@ -191,6 +191,59 @@ public struct SessionController: Sendable {
         session.finishedAt = Date()
     }
 
+    /// Play conserva también las series editadas que todavía no se han
+    /// marcado como hechas. Los resultados `loggedSets` siguen siendo la
+    /// verdad de las series completadas y no se generan registros ficticios.
+    @discardableResult
+    public mutating func updateExerciseDraft(
+        id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?
+    ) -> Bool {
+        guard !plannedSets.isEmpty,
+              let index = session.exercises.firstIndex(where: { $0.id == id })
+        else { return false }
+        let current = session.exercises[index]
+        guard current.plannedSets != plannedSets || current.quantityUnit != quantityUnit else { return false }
+        session.exercises[index].plannedSets = plannedSets
+        session.exercises[index].quantityUnit = quantityUnit
+
+        if var blocks = session.routineBlocks, let blockID = current.blockId,
+           let blockIndex = blocks.firstIndex(where: { $0.id == blockID }) {
+            if blocks[blockIndex].kind == .strength {
+                // Nuevas sesiones: ID de sesión = ID del ítem de la rutina.
+                // Sesiones antiguas: utilizar la posición de la ocurrencia para
+                // no sobrescribir otro ejercicio repetido en el mismo bloque.
+                let matches = blocks[blockIndex].exercises.indices.filter {
+                    blocks[blockIndex].exercises[$0].exerciseId == current.exercise.id
+                }
+                let occurrence = session.exercises.prefix(index).filter {
+                    $0.blockId == blockID && $0.exercise.id == current.exercise.id
+                }.count
+                if let itemIndex = blocks[blockIndex].exercises.firstIndex(where: { $0.id == id })
+                    ?? (matches.indices.contains(occurrence) ? matches[occurrence] : nil) {
+                    blocks[blockIndex].exercises[itemIndex].plannedSets = plannedSets
+                    blocks[blockIndex].exercises[itemIndex].quantityUnit = quantityUnit
+                }
+            } else {
+                let matches = blocks[blockIndex].movements.indices.filter {
+                    let item = blocks[blockIndex].movements[$0]
+                    return item.exerciseId == current.exercise.id
+                        || item.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame
+                }
+                let occurrence = session.exercises.prefix(index).filter {
+                    $0.blockId == blockID && $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame
+                }.count
+                if let itemIndex = blocks[blockIndex].movements.firstIndex(where: { $0.id == id })
+                    ?? (matches.indices.contains(occurrence) ? matches[occurrence] : nil) {
+                    // Los valores editados pasan a tener prioridad frente a
+                    // rondas/repScheme sin cambiar los resultados del WOD.
+                    blocks[blockIndex].movements[itemIndex].explicitPlannedSets = plannedSets
+                }
+            }
+            session.routineBlocks = blocks
+        }
+        return true
+    }
+
     public static func from(routine: Routine, exercises: [Exercise]) -> WorkoutSession {
         let byId = Dictionary(uniqueKeysWithValues: exercises.map { ($0.id, $0) })
         var sessionExercises: [SessionExercise] = []
@@ -204,6 +257,7 @@ public struct SessionController: Sendable {
                         guard let exercise = byId[item.exerciseId] else { continue }
                         sessionExercises.append(
                             SessionExercise(
+                                id: item.id,
                                 exercise: exercise,
                                 plannedSets: item.plannedSets,
                                 quantityUnit: item.quantityUnit,
@@ -241,6 +295,7 @@ public struct SessionController: Sendable {
                         }
                         sessionExercises.append(
                             SessionExercise(
+                                id: move.id,
                                 exercise: exercise,
                                 plannedSets: resolved.plannedSets(for: move),
                                 quantityUnit: exercise.loggingStyle == .machineWork ? move.prescribedQuantityUnit : nil,
@@ -263,6 +318,7 @@ public struct SessionController: Sendable {
             sessionExercises = routine.exercises.compactMap { item in
                 guard let exercise = byId[item.exerciseId] else { return nil }
                 return SessionExercise(
+                    id: item.id,
                     exercise: exercise,
                     plannedSets: item.plannedSets,
                     restSeconds: item.restSeconds,
