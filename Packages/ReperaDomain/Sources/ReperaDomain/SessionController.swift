@@ -217,8 +217,10 @@ public struct SessionController: Sendable {
     public mutating func updateExerciseDraft(
         id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?
     ) -> Bool {
-        guard !plannedSets.isEmpty,
-              let index = session.exercises.firstIndex(where: { $0.id == id })
+        // Un borrado por swipe también puede eliminar la última serie.
+        // Persistir [] en la sesión y su bloque evita reponer una prescripción
+        // que el atleta ha eliminado expresamente.
+        guard let index = session.exercises.firstIndex(where: { $0.id == id })
         else { return false }
         let current = session.exercises[index]
         guard current.plannedSets != plannedSets || current.quantityUnit != quantityUnit else { return false }
