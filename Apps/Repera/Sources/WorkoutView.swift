@@ -121,6 +121,7 @@ struct WorkoutView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
+                        persistActiveLiveDraft()
                         editingRoutine = routineForEditing()
                     } label: {
                         Label("Editar entreno", systemImage: "pencil")
@@ -181,6 +182,8 @@ struct WorkoutView: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        persistActiveLiveDraft()
+                        store.updateActiveSessionNotes(notesDraft)
                         store.workoutClock.stop()
                         store.endActiveSession(save: true)
                         closeFlow()
@@ -200,11 +203,19 @@ struct WorkoutView: View {
             DayEditorView(
                 routine: draft,
                 mode: draft.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
-                onClose: {
-                    if let saved = store.state.routines.first(where: { $0.id == draft.id }) {
-                        store.refreshActiveSessionPlan(from: saved)
+                onClose: { editingRoutine = nil },
+                onApplyDraft: { edited in
+                    // Guardar la plantilla original solo si ya existe.
+                    // Un escaneo no guardado también puede editarse sin
+                    // gastar una plantilla gratuita de la biblioteca.
+                    if store.state.routines.contains(where: { $0.id == edited.id }) {
+                        _ = store.saveRoutine(edited)
                     }
-                    editingRoutine = nil
+                    liveDraftsByExercise = [:]
+                    liveExerciseID = nil
+                    liveSets = []
+                    store.refreshActiveSessionPlan(from: edited)
+                    prefill()
                 },
                 embedsNavigationStack: false,
                 usesPageCloseHeader: true
@@ -219,6 +230,7 @@ struct WorkoutView: View {
             }
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
+            persistActiveLiveDraft()
             cacheLiveSets()
             prefill()
             let destinationBlock = store.state.activeSession?.currentExercise.flatMap { $0.blockId ?? $0.id }
@@ -240,6 +252,12 @@ struct WorkoutView: View {
                     startBlockClock(for: current)
                 }
             }
+        }
+        .onChange(of: liveSets) { _, _ in
+            persistActiveLiveDraft()
+        }
+        .onChange(of: liveQuantityUnit) { _, _ in
+            persistActiveLiveDraft()
         }
         .onChange(of: store.state.activeSession?.currentExercise?.plannedSets) { _, _ in
             if let current = store.state.activeSession?.currentExercise {
@@ -306,8 +324,14 @@ struct WorkoutView: View {
     private func routineForEditing() -> Routine? {
         guard let session = store.state.activeSession else { return nil }
         if let id = session.routineId,
-           let routine = store.state.routines.first(where: { $0.id == id }) {
+           var routine = store.state.routines.first(where: { $0.id == id }) {
+            // Play puede haber cambiado número, pesos o reps; el borrador
+            // de la sesión es más reciente que la plantilla reutilizable.
+            routine.blocks = session.routineBlocks ?? routine.blocks
             return routine
+        }
+        if let blocks = session.routineBlocks, !blocks.isEmpty {
+            return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks)
         }
         var blocks: [RoutineBlock] = []
         for exercise in session.exercises {
@@ -698,7 +722,23 @@ struct WorkoutView: View {
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
-                liveSetRow(index: index, row: row, current: current)
+                HStack(spacing: 6) {
+                    liveSetRow(index: index, row: row, current: current)
+                    if !row.completed, index >= current.loggedSets.count,
+                       liveSets.count > max(1, current.loggedSets.count) {
+                        Button(role: .destructive) {
+                            removeLiveSet(at: index, current: current)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.system(size: 18))
+                                .foregroundStyle(OG.red)
+                                .frame(width: 35, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Quitar serie \(index + 1)")
+                    }
+                }
             }
 
             Button {
@@ -795,6 +835,44 @@ struct WorkoutView: View {
     private func cacheLiveSets() {
         guard let liveExerciseID else { return }
         liveDraftsByExercise[liveExerciseID] = liveSets
+    }
+
+    /// La tabla visible es un borrador de PRESCRIPCIÓN hasta que se marca
+    /// cada serie. Guardar los cambios enseguida evita que desaparezcan
+    /// al cerrar Play, navegar o finalizar. No generar `LoggedSet` falsos.
+    private func persistActiveLiveDraft() {
+        guard let id = liveExerciseID, liveSessionID == store.state.activeSession?.id,
+              let entry = store.state.activeSession?.exercises.first(where: { $0.id == id }),
+              !liveSets.isEmpty else { return }
+        let existing = entry.plannedSets
+        let revised: [PlannedSet] = liveSets.enumerated().map { index, row in
+            let previous = existing.indices.contains(index) ? existing[index] : nil
+            return PlannedSet(
+                id: previous?.id ?? row.id,
+                targetReps: max(1, row.reps),
+                targetWeightKg: entry.exercise.loadField == .deficitCm
+                    ? row.deficitCm.map(Double.init) : row.weightKg,
+                targetDurationSeconds: row.durationSeconds,
+                targetRir: row.rir,
+                targetPercent1RM: previous?.targetPercent1RM,
+                targetPercent1RMIsMinimum: previous?.targetPercent1RMIsMinimum ?? false
+            )
+        }
+        store.updateActiveExerciseDraft(
+            id: id, plannedSets: revised,
+            quantityUnit: entry.exercise.loggingStyle == .machineWork ? liveQuantityUnit : entry.quantityUnit
+        )
+    }
+
+    private func removeLiveSet(at index: Int, current: SessionExercise) {
+        // Los resultados ya confirmados no se eliminan con una edición de
+        // prescripción: desmarcar primero con el flujo existente.
+        guard liveSets.count > max(1, current.loggedSets.count),
+              liveSets.indices.contains(index), !liveSets[index].completed,
+              index >= current.loggedSets.count else { return }
+        liveSets.remove(at: index)
+        liveDraftsByExercise[current.id] = liveSets
+        persistActiveLiveDraft()
     }
 
     private func rebuildLiveSets(from current: SessionExercise) {
