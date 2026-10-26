@@ -547,8 +547,9 @@ struct HealthRecoveryProgressView: View {
     }
     private var readinessChartHeight: CGFloat {
         guard let width = duoColumnWidth else { return primaryChartHeight }
-        // Encajar el chart dentro de una tarjeta aproximadamente cuadrada.
-        return max(240, width - OG.pad * 2)
+        // Un tercio menos alto que la antigua tarjeta casi cuadrada.
+        // Se reduce de verdad también la gráfica; no se deja relleno vacío.
+        return max(205, min(270, (width - OG.pad * 2) * (2.0 / 3.0)))
     }
     private var sleepChartHeight: CGFloat {
         guard let width = duoColumnWidth else { return primaryChartHeight }
@@ -1150,7 +1151,7 @@ struct HealthRecoveryProgressView: View {
                     .frame(height: readinessChartHeight, alignment: .center)
                 } else if let readiness = currentReadiness {
                     let tint = readinessColor(readiness.score)
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: usesExpandedLayout ? 9 : 16) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Label(
@@ -1181,14 +1182,15 @@ struct HealthRecoveryProgressView: View {
                                         .foregroundStyle(OG.label2)
                                 }
                             }
-                            .frame(width: 95, height: 95)
+                            .frame(
+                                width: usesExpandedLayout ? 76 : 95,
+                                height: usesExpandedLayout ? 76 : 95
+                            )
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                         }
 
-                        Spacer(minLength: 8)
                         Divider().opacity(0.25)
-                        Spacer(minLength: 8)
 
                         LazyVGrid(
                             columns: [
@@ -1196,7 +1198,7 @@ struct HealthRecoveryProgressView: View {
                                 GridItem(.flexible(), alignment: .leading)
                             ],
                             alignment: .leading,
-                            spacing: 16
+                            spacing: usesExpandedLayout ? 8 : 16
                         ) {
                             readinessFactor(
                                 "Sueño", icon: "moon",
@@ -1220,7 +1222,7 @@ struct HealthRecoveryProgressView: View {
                             )
                         }
                     }
-                    .frame(minHeight: readinessChartHeight, alignment: .top)
+                    .frame(minHeight: readinessChartHeight, alignment: .center)
                 } else {
                     ProgressEmptyChart(
                         message: "Necesitamos datos de sueño y entrenamientos recientes",
