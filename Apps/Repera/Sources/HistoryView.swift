@@ -272,6 +272,8 @@ struct WorkoutDetailView: View {
     @State private var showCompletedEditor = false
     @State private var showDeleteConfirm = false
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
+    @State private var showFullScreenRoute = false
+    @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     /// Un solo destino: evita apilar fichas si hay varios links en la misma card.
     @State private var exerciseRoute: DetailExerciseRoute?
 
@@ -313,6 +315,30 @@ struct WorkoutDetailView: View {
             // Afina la nota con FC/kcal de Salud si hay.
             await store.refineSessionReviewWithHealth(sessionId: sessionId)
             draft = store.state.workouts.first(where: { $0.id == sessionId })
+        }
+        .fullScreenCover(isPresented: $showFullScreenRoute) {
+            NavigationStack {
+                HealthWorkoutRouteMap(
+                    points: fullScreenRoutePoints,
+                    isInteractive: true,
+                    isWaterSport: draft?.liveSportID.flatMap {
+                        LiveSport(rawValue: $0)?.isWaterSport
+                    } ?? false
+                )
+                .ignoresSafeArea(edges: .bottom)
+                .navigationTitle("Recorrido")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showFullScreenRoute = false
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("Cerrar mapa")
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showDeleteConfirm) {
             if let title = draft?.title {
@@ -383,18 +409,33 @@ struct WorkoutDetailView: View {
         switch sessionMapContent(session) {
         case .healthRoute:
             if let extras = healthExtras {
+                Button {
+                    fullScreenRoutePoints = extras.routePoints
+                    showFullScreenRoute = true
+                } label: {
+                    HealthWorkoutRouteMap(
+                        points: extras.routePoints, isInteractive: false,
+                        isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(interactive)
+                .accessibilityLabel("Ampliar recorrido")
+            }
+        case .ownRoute:
+            Button {
+                fullScreenRoutePoints = session.routePoints.map(\.asHealthRoutePoint)
+                showFullScreenRoute = true
+            } label: {
                 HealthWorkoutRouteMap(
-                    points: extras.routePoints,
-                    isInteractive: interactive,
+                    points: session.routePoints.map(\.asHealthRoutePoint),
+                    isInteractive: false,
                     isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
                 )
             }
-        case .ownRoute:
-            HealthWorkoutRouteMap(
-                points: session.routePoints.map(\.asHealthRoutePoint),
-                isInteractive: interactive,
-                isWaterSport: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.isWaterSport } ?? false
-            )
+            .buttonStyle(.plain)
+            .disabled(interactive)
+            .accessibilityLabel("Ampliar recorrido")
         case .pin:
             if let pin = session.locationPin {
                 WorkoutLocationPinMap(pin: pin, isInteractive: interactive)
