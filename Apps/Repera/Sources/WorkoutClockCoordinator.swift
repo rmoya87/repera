@@ -75,6 +75,128 @@ final class WorkoutClockCoordinator {
     private var hapticEnabled = true
     private var lastTickAnnounced: Int = -1
     private var feedbackTask: Task<Void, Never>?
+    private var boundSessionID: UUID?
+    private(set) var restoredBlockID: UUID?
+    private let checkpointKey = "repera.play.clock.v1"
+
+    private struct SavedClock: Codable {
+        var sessionID: UUID
+        var blockID: UUID
+        var isRunning: Bool
+        var isCountingUp: Bool
+        var isIntervalMode: Bool
+        var hasStarted: Bool
+        var title: String
+        var subtitle: String
+        var configuredCapSeconds: Int
+        var countUpCapSeconds: Int?
+        var didNotifyCountUpCap: Bool
+        var intervalIndex: Int
+        var totalIntervals: Int
+        var intervalLength: Int
+        var tabataWork: Int
+        var tabataRest: Int
+        var isTabata: Bool
+        var phaseDurations: [Int]
+        var phaseSubtitles: [String]
+        var phaseRoundNumbers: [Int]
+        var explicitRoundsTotal: Int?
+        var allowsEarlyIntervalFinish: Bool
+        var preCountdownEnd: Date?
+        var pausedPreCountdownRemaining: TimeInterval?
+        var phaseEndDate: Date?
+        var countUpAnchor: Date?
+        var pausedRemaining: TimeInterval
+        var pausedCountUpElapsed: TimeInterval
+        var soundEnabled: Bool
+        var hapticEnabled: Bool
+    }
+
+    /// Enlazar tras configure, ANTES del preinicio: el reloj ya es recuperable.
+    func bindSession(sessionID: UUID, blockID: UUID) {
+        boundSessionID = sessionID
+        restoredBlockID = blockID
+        checkpoint()
+    }
+
+    /// El reloj se recupera solo para la sesión y bloque original.
+    func restoreIfNeeded(for session: WorkoutSession?) {
+        guard !hasStarted,
+              let session, session.finishedAt == nil, session.phase != .finished,
+              let data = UserDefaults.standard.data(forKey: checkpointKey),
+              let saved = try? JSONDecoder().decode(SavedClock.self, from: data),
+              saved.sessionID == session.id,
+              let match = session.exercises.first(where: {
+                  ($0.blockId ?? $0.id) == saved.blockID
+              }) else { return }
+        boundSessionID = saved.sessionID
+        restoredBlockID = saved.blockID
+        exercise = match.exercise
+        title = saved.title
+        subtitle = saved.subtitle
+        isRunning = saved.isRunning
+        isCountingUp = saved.isCountingUp
+        isIntervalMode = saved.isIntervalMode
+        hasStarted = saved.hasStarted
+        configuredCapSeconds = saved.configuredCapSeconds
+        countUpCapSeconds = saved.countUpCapSeconds
+        didNotifyCountUpCap = saved.didNotifyCountUpCap
+        intervalIndex = saved.intervalIndex
+        totalIntervals = saved.totalIntervals
+        intervalLength = saved.intervalLength
+        tabataWork = saved.tabataWork
+        tabataRest = saved.tabataRest
+        isTabata = saved.isTabata
+        phaseDurations = saved.phaseDurations
+        phaseSubtitles = saved.phaseSubtitles
+        phaseRoundNumbers = saved.phaseRoundNumbers
+        explicitRoundsTotal = saved.explicitRoundsTotal
+        allowsEarlyIntervalFinish = saved.allowsEarlyIntervalFinish
+        preCountdownEnd = saved.preCountdownEnd
+        pausedPreCountdownRemaining = saved.pausedPreCountdownRemaining
+        phaseEndDate = saved.phaseEndDate
+        countUpAnchor = saved.countUpAnchor
+        pausedRemaining = saved.pausedRemaining
+        pausedCountUpElapsed = saved.pausedCountUpElapsed
+        soundEnabled = saved.soundEnabled
+        hapticEnabled = saved.hapticEnabled
+        // La pantalla del ejercicio y sus series, no el overlay fullscreen.
+        isVisible = false
+        if isRunning {
+            syncFromWallClock()
+            if isRunning { scheduleFeedback() }
+        }
+    }
+
+    /// Guardado local de fechas absolutas; no reinicia a cero tras el cierre.
+    func checkpoint() {
+        guard let sessionID = boundSessionID, let blockID = restoredBlockID else { return }
+        let snap = SavedClock(
+            sessionID: sessionID, blockID: blockID,
+            isRunning: isRunning, isCountingUp: isCountingUp,
+            isIntervalMode: isIntervalMode, hasStarted: hasStarted,
+            title: title, subtitle: subtitle,
+            configuredCapSeconds: configuredCapSeconds,
+            countUpCapSeconds: countUpCapSeconds,
+            didNotifyCountUpCap: didNotifyCountUpCap,
+            intervalIndex: intervalIndex, totalIntervals: totalIntervals,
+            intervalLength: intervalLength,
+            tabataWork: tabataWork, tabataRest: tabataRest, isTabata: isTabata,
+            phaseDurations: phaseDurations, phaseSubtitles: phaseSubtitles,
+            phaseRoundNumbers: phaseRoundNumbers,
+            explicitRoundsTotal: explicitRoundsTotal,
+            allowsEarlyIntervalFinish: allowsEarlyIntervalFinish,
+            preCountdownEnd: preCountdownEnd,
+            pausedPreCountdownRemaining: pausedPreCountdownRemaining,
+            phaseEndDate: phaseEndDate, countUpAnchor: countUpAnchor,
+            pausedRemaining: pausedRemaining,
+            pausedCountUpElapsed: pausedCountUpElapsed,
+            soundEnabled: soundEnabled, hapticEnabled: hapticEnabled
+        )
+        if let data = try? JSONEncoder().encode(snap) {
+            UserDefaults.standard.set(data, forKey: checkpointKey)
+        }
+    }
 
     var isPreCountdown: Bool {
         guard let preCountdownEnd else { return false }
