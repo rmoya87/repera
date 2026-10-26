@@ -1236,16 +1236,16 @@ struct OGNumericTextField: UIViewRepresentable {
                     let seconds = DurationText.parse(field.text ?? "") ?? 0
                     field.text = DurationText.format(max(0, seconds + delta))
                 } else {
-                    let value = Double((field.text ?? "").replacingOccurrences(of: ",", with: ".")) ?? 0
+                    let value = ReperaNumberFormat.parse(field.text ?? "") ?? 0
                     let updated = max(0, value + Double(delta))
-                    field.text = allowsDecimal ? String(format: "%g", updated) : String(Int(updated))
+                    field.text = allowsDecimal ? ReperaNumberFormat.decimal(updated) : ReperaNumberFormat.integer(Int(updated))
                 }
                 text.wrappedValue = field.text ?? ""
             case "point":
                 if allowsTimeSeparator {
                     field.insertText(":")
                 } else if allowsDecimal {
-                    field.insertText(".")
+                    field.insertText(",")
                 }
             default:
                 field.insertText(key)
@@ -1372,7 +1372,7 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
                 button.setImage(UIImage(systemName: "delete.left"), for: .normal)
                 button.accessibilityLabel = "Borrar"
             case "point":
-                button.setTitle(allowsTime ? ":" : ".", for: .normal)
+                button.setTitle(allowsTime ? ":" : ",", for: .normal)
                 button.isEnabled = allowsDecimal || allowsTime
                 button.alpha = button.isEnabled ? 1 : 0.42
             case "submit":
@@ -1666,7 +1666,7 @@ struct OGSetEntryRow: View {
     static func previousText(_ set: ExerciseLastSession.WorkSet?) -> String? {
         guard let set else { return nil }
         if let weight = set.weightKg, weight > 0 {
-            return "\(String(format: "%g", weight)) kg"
+            return "\(ReperaNumberFormat.decimal(weight)) kg"
         }
         if let duration = set.durationSeconds, duration > 0 {
             return DurationText.format(duration)
