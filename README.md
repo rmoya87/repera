@@ -2,7 +2,7 @@
 
 App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (SDK oficial iOS + sesión Supabase), UI **SwiftUI Liquid Glass** (iOS 27+).
 
-Última actualización: 2026-10-25 (catálogo editorial Supabase de 288 ejercicios y sincronización invisible iOS 27/watchOS 27 integrados en `main`; Android/Wear continúa en la rama `feat/android-wear-native-parity`).
+Última actualización: 2026-10-26 (sesiones múltiples por día, Comenzar con más deportes HealthKit, eliminación de series por swipe y estado de copia Supabase; Android/Wear sigue en su rama).
 
 El acceso Google usa el SDK oficial `GoogleSignIn` 10.1.0. Su botón tiene presentación SwiftUI adaptada al de Apple: contenido centrado, sin sombra y esquinas redondeadas; la autenticación sigue siendo del SDK. Los identificadores públicos del cliente OAuth **iOS** de `com.app.repera`, su esquema de retorno y el cliente Web del backend están configurados en `Configs/GoogleSignIn.xcconfig`. Regenerar XcodeGen antes de compilar. Configuración y validación pendiente en [docs/GOOGLE_AUTH_IOS.md](docs/GOOGLE_AUTH_IOS.md).
 
@@ -35,16 +35,16 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 
 | Área | Incluye |
 |------|---------|
-| **Inicio** | Semana/día, métricas Salud, entrenos + externos, avatar→Ajustes, planificar / pizarra |
-| **Diario** | Sesiones profesionales fechadas consultadas desde Supabase + planificación personal/rutinas conservadas; ejecución estructurada pendiente |
+| **Inicio** | Semana/día, métricas Salud, varias sesiones terminadas y programadas independientes por fecha, avatar→Ajustes, planificar / pizarra |
+| **Diario** | Planificación personal de varias rutinas por fecha (cada una editable/borrable por separado) y sesiones profesionales de Supabase; ejecución profesional estructurada pendiente |
 | **Center** | Selector Clases/Citas con lectura de horarios reales, reservas y cancelaciones mediante Supabase cuando haya sesión y bono disponible; E2E pendiente |
 | **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia) |
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha, filtro Movilidad con 82 movimientos bilingües ES/EN; evolución completa = Pro (Gratis: última sesión + PR) |
-| **Sesión** | Series, WU/drop/rest-pause, RIR/RPE, discos, menú ⋯, Live Activity descanso |
+| **Sesión** | Series editables sin check por serie, borrado por swipe, WOD/temporizadores, RIR/RPE, menú ⋯ y Live Activity |
 | **Pizarra** | OCR lite; Gratis 4 escaneos/mes; Pro ilimitados |
 | **Onboarding** | Apple o Google con identidad Supabase verificada → permisos → Gratis/Pro |
-| **Ajustes** | Cuenta Apple/Google vinculada, Pro / restaurar, iCloud, permisos/Salud, historial, peso, export/import |
+| **Ajustes** | Cuenta Apple/Google, estado/reintento manual de la copia de entrenos en Supabase, Pro/iCloud, Salud, peso, export/import |
 | **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy (sin entitlement en el JSON) |
 | **Watch** | Confirmar → conteo → **+1 serie** / log rápido (sin límites Pro en v1) |
 | **Monetización** | StoreKit + RevenueCat; ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |
