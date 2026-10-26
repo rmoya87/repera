@@ -122,7 +122,11 @@ public enum BoardScanLiteParser {
         if !catalog.isEmpty {
             let index = Dictionary(
                 catalog.map { (norm($0.name), $0) },
-                uniquingKeysWith: { a, _ in a }
+                uniquingKeysWith: { previous, next in
+                    // Un escaneo antiguo puede haber creado una ficha custom
+                    // homónima: preferir siempre el ejercicio oficial.
+                    previous.isCustom && !next.isCustom ? next : previous
+                }
             )
             blocks = blocks.map { block in
                 var b = block
