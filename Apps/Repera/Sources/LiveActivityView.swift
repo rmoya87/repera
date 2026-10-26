@@ -766,9 +766,12 @@ final class LiveActivityRecorder: NSObject {
         }
         let phrase = AVSpeechUtterance(string: message)
         phrase.voice = preferredGuidanceVoice
-        // Un ritmo ligeramente más pausado ayuda a la prosodia de voces premium.
-        phrase.rate = 0.48
-        phrase.pitchMultiplier = 1.02
+        // Velocidad próxima a la locución natural: la voz premium o mejorada
+        // instalada en el dispositivo aporta la mayor parte de la calidad.
+        // Evitamos elevar el tono, que artificializaba la pronunciación.
+        phrase.rate = 0.52
+        phrase.pitchMultiplier = 1.0
+        phrase.preUtteranceDelay = 0.04
         phrase.volume = 1
         speechSynthesizer.speak(phrase)
         return true
@@ -1179,12 +1182,19 @@ final class LiveActivityRecorder: NSObject {
             let seconds = max(1, Int(split.seconds.rounded()))
             let minutes = seconds / 60
             let remaining = seconds % 60
-            let spokenTime = minutes > 0
-                ? "\(minutes) minutos y \(remaining) segundos"
-                : "\(remaining) segundos"
+            let spokenTime: String
+            if minutes == 0 {
+                spokenTime = "\(remaining) segundo\(remaining == 1 ? "" : "s")"
+            } else if remaining == 0 {
+                spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s")"
+            } else {
+                spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s") y \(remaining) segundos"
+            }
+            let spokenSpeed = String(format: "%.1f", 3600 / split.seconds)
+                .replacingOccurrences(of: ".", with: ",")
             let message = sport.displaysSpeed
-                ? "Has completado el kilómetro \(split.kilometer). Tu velocidad media ha sido de \(String(format: "%.1f", 3600 / split.seconds)) kilómetros por hora."
-                : "Has completado el kilómetro \(split.kilometer). Lo has hecho en \(spokenTime)."
+                ? "Kilómetro \(split.kilometer) completado. Has ido a \(spokenSpeed) kilómetros por hora, de media."
+                : "Kilómetro \(split.kilometer) completado. Tu tiempo ha sido de \(spokenTime)."
             didSpeak = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
@@ -1267,9 +1277,17 @@ final class LiveActivityRecorder: NSObject {
                 announcedTurnIndices.insert(next.routeIndex)
                 // La guía procede solo de la geometría GPX: no sustituye
                 // señalización ni navegación vial oficial.
-                let didSpeak = speakNavigation(
-                    "Dentro de \(meters) metros, \(next.instruction.lowercased())."
-                )
+                let naturalDirection: String
+                if abs(next.angleDegrees) > 145 {
+                    naturalDirection = "cambia de sentido"
+                } else {
+                    naturalDirection = next.angleDegrees > 0
+                        ? "gira a la derecha" : "gira a la izquierda"
+                }
+                let spokenTurn = meters <= 20
+                    ? "Ahora, \(naturalDirection)."
+                    : "En unos \(meters) metros, \(naturalDirection)."
+                let didSpeak = speakNavigation(spokenTurn)
                 notifyDuringBackground(
                     identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
                     title: "Giro orientativo del GPX",
