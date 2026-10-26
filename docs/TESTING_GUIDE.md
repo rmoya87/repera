@@ -8,6 +8,7 @@
 - [ ] Escuchar Spotify/Apple Music con el iPhone bloqueado, iniciar Caminata en Comenzar y superar 1 km: pausar/interrumpir el audio de la otra aplicación, locutar «Kilómetro 1 completado» y tiempo/velocidad, reanudar el audio externo al terminar; no debe mostrarse aviso push de km.
 - [ ] Probar Comenzar con ruta terrestre y acuática: los colores comienzan en azul y verde respectivamente, pasan por amarillo, naranja y rojo. Tocar el mapa en resumen y detalle: abrir pantalla completa, desplazar y pellizcar para zoom, cerrar por X.
 - [ ] En resumen de caminata con 1,11 km/15:35 comprobar los tiles iniciales, mapa inmediato sin título Recorrido registrado y Parciales con ritmo/velocidad medios antes de lista. Valores siempre calculados con la distancia y tiempo real (no desde un parcial incompleto).
+- [ ] Guardar Comenzar inmediatamente al abrir el resumen, antes de que acabe de cargar Apple Salud: detectar un HKWorkout externo ya existente y persistir el UUID y FC/kcal medidas; no escribir un duplicado en Salud.
 - [ ] Guardar dos sesiones para el 26 de octubre desde Comenzar e Inicio. Ver en Inicio/Historial/Progreso dos UUID distintos, carga muscular, minutos cardio y progreso del deporte; no confundir marcas de ruta con récords e1RM.
 - [ ] Revisar el icono nativo de Repera que muestra iOS en avisos generales tras actualizar la aplicación desde TestFlight; no existe un icono configurable por cada UNNotification.
 
