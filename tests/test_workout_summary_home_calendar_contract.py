@@ -37,8 +37,9 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
             "// Ritmo, velocidad y kilómetros guardados", 1
         )[0]
         self.assertIn("sessionMapView(session)", section)
-        self.assertIn("if sessionMapContent(session) != .pin", section)
-        self.assertIn('Text("Colores = velocidad', section)
+        self.assertNotIn('Text("Ubicación")', section)
+        self.assertNotIn('Text("Colores = velocidad', section)
+        self.assertIn('WorkoutLocationPinMap(pin: pin, isInteractive: false)', history)
         self.assertNotIn("Text(name)", section)
         self.assertNotIn("session.locationPin?.name", section)
 
@@ -53,12 +54,16 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn("session.recordedDistanceMeters", detail)
         self.assertIn("session.activeDurationSeconds", detail)
         self.assertEqual(detail.count("CardioSplitsView("), 1)
-        self.assertLess(detail.index("CardioSplitsView("), detail.index("if let extras = displayedMetrics(session)"))
+        self.assertLess(detail.index("CardioSplitsView("), detail.index("HealthSessionMetricsCard("))
+        self.assertIn('Text("Entreno")', detail)
+        self.assertNotIn('Text("Parciales")', detail)
+        self.assertIn("embedded: true", detail)
         self.assertIn("totalActiveSeconds: session.activeDurationSeconds", detail)
         self.assertIn("totalDistanceMeters: session.recordedDistanceMeters", detail)
         splits = swift("CardioRouteComponents.swift")
-        self.assertIn('averageStat("Ritmo medio"', splits)
-        self.assertIn('averageStat("Velocidad media"', splits)
+        self.assertIn('title: "Ritmo medio"', splits)
+        self.assertIn('title: "Vel. media"', splits)
+        self.assertIn('title: "Vel. máx"', splits)
         self.assertIn("if let recorded = activeKilometerSeconds", splits)
 
     def test_finished_home_workout_uses_green_strength_icon_and_tighter_chips(self):
