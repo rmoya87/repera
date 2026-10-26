@@ -36,6 +36,8 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertIn("func clearWeeklySchedule(for weekReference: Date = Date())", store)
         self.assertIn("scheduledRoutines(inWeekContaining: weekReference)", store)
         self.assertIn("func removeScheduledRoutine(on date: Date)", store)
+        self.assertIn("state.routines[index].scheduledDate = nil", store)
+        self.assertIn("ids.contains($0.id) && !$0.isFavorite", store)
 
     def test_templates_do_not_become_recurring_when_assigned(self):
         sheet = swift("DayOverrideSheet.swift")
