@@ -463,7 +463,9 @@ public enum ExerciseSearch {
                 ?? ExerciseSearch.englishAliasesByCatalogName[spanishAlias]
                 ?? []
             )
-            let aliases = (legacyAliases + SportExerciseNames.searchAliases(for: exercise.name))
+            let aliases = (legacyAliases
+                + SportExerciseNames.searchAliases(for: exercise.name)
+                + exercise.searchAliases)
                 .map(ExerciseSearch.normalize)
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
