@@ -110,6 +110,8 @@ final class WorkoutClockCoordinator {
         var pausedCountUpElapsed: TimeInterval
         var soundEnabled: Bool
         var hapticEnabled: Bool
+        var pendingEndReason: String?
+        var pendingElapsedSeconds: Int?
     }
 
     /// Enlazar tras configure, ANTES del preinicio: el reloj ya es recuperable.
@@ -160,6 +162,10 @@ final class WorkoutClockCoordinator {
         pausedCountUpElapsed = saved.pausedCountUpElapsed
         soundEnabled = saved.soundEnabled
         hapticEnabled = saved.hapticEnabled
+        pendingEndReason = saved.pendingEndReason == "countdownFinished"
+            ? .countdownFinished
+            : saved.pendingEndReason == "userFinished" ? .userFinished : nil
+        pendingElapsedSeconds = saved.pendingElapsedSeconds ?? 0
         // La pantalla del ejercicio y sus series, no el overlay fullscreen.
         isVisible = false
         if isRunning {
@@ -191,7 +197,11 @@ final class WorkoutClockCoordinator {
             phaseEndDate: phaseEndDate, countUpAnchor: countUpAnchor,
             pausedRemaining: pausedRemaining,
             pausedCountUpElapsed: pausedCountUpElapsed,
-            soundEnabled: soundEnabled, hapticEnabled: hapticEnabled
+            soundEnabled: soundEnabled, hapticEnabled: hapticEnabled,
+            pendingEndReason: pendingEndReason == .countdownFinished
+                ? "countdownFinished" : pendingEndReason == .userFinished
+                    ? "userFinished" : nil,
+            pendingElapsedSeconds: pendingElapsedSeconds
         )
         if let data = try? JSONEncoder().encode(snap) {
             UserDefaults.standard.set(data, forKey: checkpointKey)
@@ -348,6 +358,7 @@ final class WorkoutClockCoordinator {
     func clearPendingEnd() {
         pendingEndReason = nil
         pendingElapsedSeconds = 0
+        checkpoint()
     }
 
     func handlePrimary() {
