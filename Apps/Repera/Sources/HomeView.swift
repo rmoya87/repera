@@ -78,7 +78,7 @@ struct HomeView: View {
     }
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
-    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 116
+    @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 108
     @State private var selectedDay: Date = Calendar.current.startOfDay(for: Date())
     @State private var lastAppliedFocusDay: Date?
     /// Live refine for **today** only (HK query). Past days use bucket metrics — never wait on HealthKit to paint.
@@ -934,7 +934,7 @@ struct HomeView: View {
     /// Usa la misma retícula del registro real (44 pt de icono, título y banda
     /// inferior) en lugar de una sola línea que hacía saltar la Home.
     private var emptyWorkoutCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .top, spacing: 12) {
                 OGRegisterLeadingIcon(systemName: "calendar.badge.minus", tint: OG.label3)
                 VStack(alignment: .leading, spacing: 3) {
@@ -959,9 +959,10 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(OG.label2)
-            .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 30, alignment: .center)
             .padding(.leading, Self.chipsTitleLeading)
-            .padding(.top, 4)
+            .padding(.top, 2)
         }
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .center)
@@ -1149,11 +1150,12 @@ struct HomeView: View {
                 OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
                     chips()
                 }
-                // Mantener el título y sus chips separados, sin solaparlos.
-                // Con la altura mínima común, el primer subtítulo y el último
-                // chip respetan márgenes verticales simétricos.
-                .frame(minHeight: 30, alignment: .top)
-                .padding(.top, 8)
+                // La ScrollView horizontal no tiene altura intrínseca fija:
+                // .frame(minHeight:) permitía crecer toda la banda y creaba
+                // un hueco grande entre titular, chip y borde inferior.
+                // Altura acotada idéntica al estado sin entrenamiento.
+                .frame(height: 30, alignment: .center)
+                .padding(.top, 2)
             }
         )
         .accessibilityHint(accessibilityHint)

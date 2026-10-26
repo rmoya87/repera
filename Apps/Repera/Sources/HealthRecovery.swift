@@ -666,7 +666,7 @@ struct HealthRecoveryProgressView: View {
     }
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 16) {
             if usesExpandedLayout {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 16, alignment: .top),
@@ -678,6 +678,11 @@ struct HealthRecoveryProgressView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     recoveryCards
                 }
+            }
+            // Fuera de LazyVGrid para ocupar TODAS las columnas. Un único
+            // banner común en versión gratuita, sin medias tarjetas.
+            if !isPro {
+                recoveryUpsellBanner
             }
         }
         // Las lecturas de Salud ya se han cargado: no reiniciar todas las
@@ -727,16 +732,18 @@ struct HealthRecoveryProgressView: View {
         if hasCycleData {
             cycleContent
         }
-        if !isPro {
-            ProTeaserCard(
-                title: "Recuperación completa",
-                bodyText: "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
-                cta: "Descubrir Repera Pro",
-                appearance: .recovery
-            ) {
-                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
-            }
+    }
+
+    private var recoveryUpsellBanner: some View {
+        ProTeaserCard(
+            title: "Recuperación completa",
+            bodyText: "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
+            cta: "Descubrir Repera Pro",
+            appearance: .recovery
+        ) {
+            subscriptions.presentPaywall(.progress, feature: .advancedProgress)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Muestras Pro independientes de Apple Salud, siempre rotuladas como ficticias.
