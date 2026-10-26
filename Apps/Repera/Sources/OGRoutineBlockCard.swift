@@ -79,8 +79,13 @@ struct OGRoutineBlockCard: View {
                 Button {
                     onOpenExercise(catalog.id)
                 } label: {
-                    exerciseRow(exercise, detail: detail)
-                        .contentShape(Rectangle())
+                    HStack(spacing: 8) {
+                        exerciseRow(exercise, detail: detail)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(OG.label3)
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Abrir ficha del ejercicio")
