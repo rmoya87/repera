@@ -149,4 +149,62 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         )
         XCTAssertEqual(load["quadriceps"], 0.8, accuracy: 0.00001)
     }
+
+    func testFinishedInputValuesCountAcrossEveryOccurrenceOfSameExercise() {
+        // Mismo Power Snatch en EMOM y RFT: inputs aceptados al finalizar,
+        // sin checks ni LoggedSet, deben contar ambas apariciones.
+        let exercise = Exercise(name: "Power Snatch", muscleGroup: "Piernas")
+        let first = SessionExercise(
+            exercise: exercise,
+            plannedSets: [
+                PlannedSet(targetReps: 1, targetWeightKg: 30),
+                PlannedSet(targetReps: 1, targetWeightKg: 60)
+            ],
+            isCompleted: false,
+            blockKind: .wod,
+            wodFormat: .emom
+        )
+        let second = SessionExercise(
+            exercise: exercise,
+            plannedSets: [
+                PlannedSet(targetReps: 5, targetWeightKg: 50),
+                PlannedSet(targetReps: 5, targetWeightKg: 50)
+            ],
+            isCompleted: false,
+            blockKind: .wod,
+            wodFormat: .forTime
+        )
+        let workout = WorkoutSession(
+            title: "Snatch en dos bloques",
+            exercises: [first, second],
+            phase: .finished,
+            startedAt: now.addingTimeInterval(-3600),
+            finishedAt: now.addingTimeInterval(-60)
+        )
+        let history = StatsEngine.history(for: exercise.id, workouts: [workout])
+        XCTAssertEqual(history.timesPerformed, 1)
+        XCTAssertEqual(history.maxWeightKg ?? 0, 60)
+        XCTAssertEqual(history.lastWeightKg ?? 0, 50)
+        XCTAssertEqual(history.bestReps, 5)
+
+        let sessions = StatsEngine.exerciseSessionSnapshots(
+            exerciseId: exercise.id, workouts: [workout]
+        )
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.setLines.count, 4)
+
+        let quantity = StatsEngine.exerciseProgressSeries(
+            exerciseId: exercise.id, metric: .totalQuantity,
+            range: .all, workouts: [workout]
+        )
+        XCTAssertEqual(quantity.count, 1)
+        XCTAssertEqual(quantity.first?.value, 12)
+
+        let top = StatsEngine.exerciseProgressSeries(
+            exerciseId: exercise.id, metric: .topSet,
+            range: .all, workouts: [workout]
+        )
+        XCTAssertEqual(top.first?.value, 60)
+        XCTAssertEqual(StatsEngine.personalRecords(from: [workout]).count, 1)
+    }
 }
