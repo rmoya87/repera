@@ -3,6 +3,22 @@ import XCTest
 @testable import ReperaDomain
 
 final class RemoteExerciseCatalogTests: XCTestCase {
+    func testRemoteAliasesPersistAndOldExercisePayloadStillDecodes() throws {
+        let entry = Exercise(
+            name: "Burpee to target",
+            muscleGroup: "Cardio",
+            searchAliases: ["BTT", "Burpee a diana"]
+        )
+        let encoded = try JSONEncoder().encode(entry)
+        let restored = try JSONDecoder().decode(Exercise.self, from: encoded)
+        XCTAssertEqual(restored.searchAliases, ["BTT", "Burpee a diana"])
+        var old = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        old.removeValue(forKey: "searchAliases")
+        let oldData = try JSONSerialization.data(withJSONObject: old)
+        let oldExercise = try JSONDecoder().decode(Exercise.self, from: oldData)
+        XCTAssertEqual(oldExercise.searchAliases, [])
+    }
+
     func testArchivedExerciseRoundTripsWithoutChangingIdentity() throws {
         let stableID = UUID()
         let archived = Exercise(
