@@ -339,7 +339,7 @@ enum ProgressDataEngine {
         var tops: [UUID: Double] = [:]
         for workout in filteredWorkouts {
             for entry in workout.exercises {
-                for set in entry.loggedSets where !set.isWarmup && set.reps > 0 {
+                for set in StatsEngine.confirmedWorkSets(entry, in: workout) {
                     guard let w = set.weightKg, w > 0 else { continue }
                     tops[entry.exercise.id] = max(tops[entry.exercise.id] ?? 0, w)
                 }
