@@ -191,6 +191,22 @@ public struct SessionController: Sendable {
         session.finishedAt = Date()
     }
 
+    /// Una serie anotada se guarda en cuanto cambia su valor: no requiere
+    /// pulsar un check para contarse en el entrenamiento. Los IDs y fechas
+    /// permiten modificarla sin duplicar el registro.
+    @discardableResult
+    public mutating func replaceRecordedSets(
+        exerciseID: UUID, sets: [LoggedSet]
+    ) -> Bool {
+        guard let index = session.exercises.firstIndex(where: { $0.id == exerciseID }),
+              session.exercises[index].loggedSets != sets else { return false }
+        session.exercises[index].loggedSets = sets
+        session.exercises[index].completedReps = sets
+            .filter { $0.phase == .work }
+            .reduce(0) { $0 + $1.reps }
+        return true
+    }
+
     /// Play conserva también las series editadas que todavía no se han
     /// marcado como hechas. Los resultados `loggedSets` siguen siendo la
     /// verdad de las series completadas y no se generan registros ficticios.
