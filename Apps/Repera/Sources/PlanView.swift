@@ -451,65 +451,67 @@ struct PlanView: View {
             }
         }
 
-        // Los siete días siguen ligados a la semana visible. El selector
-        // vive en la topbar (iPhone) o en el encabezado de columna (DUO).
+        // El encabezado de cada fecha siempre permite añadir una sesión,
+        // incluso cuando ya tiene otras programadas.
         Section {
             ForEach(1...7, id: \.self) { day in
                 let date = dateForWeekday(day)
-                let routine = store.scheduledRoutine(on: date)
+                let routines = store.scheduledRoutines(on: date)
                 Button {
-                    if let routine {
-                        onOpenRoutine(routine)
-                    } else {
-                        assigningDay = date
-                    }
+                    assigningDay = date
                 } label: {
-                    HStack(alignment: .top, spacing: 14) {
+                    HStack(spacing: 14) {
                         Text(String(CalendarHelpers.weekdayName(day).prefix(2)).uppercased())
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(routine == nil ? OG.label3 : OG.onAccent)
+                            .foregroundStyle(routines.isEmpty ? OG.label3 : OG.onAccent)
                             .frame(width: 44, height: 44)
-                            .background(
-                                routine == nil ? OG.surface3 : OG.accent,
-                                in: Circle()
-                            )
-                            .overlay {
-                                if routine != nil {
-                                    Circle()
-                                        .strokeBorder(OG.accent.opacity(0.35), lineWidth: 3)
-                                        .padding(-3)
-                                }
-                            }
-
-                        VStack(alignment: .leading, spacing: 6) {
+                            .background(routines.isEmpty ? OG.surface3 : OG.accent, in: Circle())
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(CalendarHelpers.weekdayName(day))
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
-
-                            if let routine {
-                                Text(routine.title)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(OG.label2)
-                                    .lineLimit(1)
-                                scheduleChips(for: routine)
-                            } else {
-                                Text("Día libre · toca para asignar")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(OG.label3)
-                            }
+                            Text(routines.isEmpty
+                                ? "Día libre · añadir entreno"
+                                : "\(routines.count) sesión\(routines.count == 1 ? "" : "es") · añadir otra")
+                                .font(.system(size: 13))
+                                .foregroundStyle(OG.label2)
                         }
                         Spacer(minLength: 8)
-                        Image(systemName: routine == nil ? "moon.fill" : "chevron.right")
-                            .font(.system(size: routine == nil ? 14 : 13, weight: .semibold))
-                            .foregroundStyle(routine == nil ? OG.label3.opacity(0.7) : OG.label3)
-                            .padding(.top, 12)
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(OG.accent)
                     }
                     .padding(.vertical, 6)
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    if routine != nil {
-                        OGSwipeDeleteButton(systemImage: "trash", accessibilityLabel: "Quitar del día", tint: OG.red) {
-                            store.removeScheduledRoutine(on: date)
+                .accessibilityLabel("Añadir entrenamiento el \(CalendarHelpers.weekdayName(day))")
+
+                ForEach(routines) { routine in
+                    Button {
+                        onOpenRoutine(routine)
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .font(.system(size: 16))
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 44)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(routine.title)
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(OG.label)
+                                scheduleChips(for: routine)
+                            }
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(OG.label3)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        OGSwipeDeleteButton(
+                            systemImage: "trash",
+                            accessibilityLabel: "Quitar \(routine.title) del día",
+                            tint: OG.red
+                        ) {
+                            store.removeScheduledRoutine(id: routine.id)
                         }
                     }
                 }
