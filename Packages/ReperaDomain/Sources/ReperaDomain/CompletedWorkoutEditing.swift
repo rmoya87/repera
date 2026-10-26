@@ -8,6 +8,17 @@ public enum CompletedWorkoutEditing {
         case reps, rounds, minutes, seconds
     }
 
+    /// Los históricos sin formato solo coinciden con un editor que registre
+    /// la misma unidad; nunca usar reps como si fueran segundos o viceversa.
+    private static func scoreMatches(_ result: WODBlockResult, format: WODFormat) -> Bool {
+        if let recordedFormat = result.format { return recordedFormat == format }
+        switch format.resultCapture {
+        case .totalReps: return result.totalReps != nil || result.roundsCompleted != nil
+        case .elapsedTime: return result.elapsedSeconds != nil
+        case .perMovementSets: return false
+        }
+    }
+
     /// El editor necesita mostrar también los resultados WOD antiguos que
     /// se representaban como una única serie en el primer movimiento.
     /// Inferir el valor para editar NO escribe ni duplica series.
@@ -17,7 +28,7 @@ public enum CompletedWorkoutEditing {
         guard let format = block.wodFormat,
               format.resultCapture != .perMovementSets else { return nil }
         if let saved = session.wodResults.last(where: {
-            $0.id == block.id && ($0.format == nil || $0.format == format)
+            $0.id == block.id && scoreMatches($0, format: format)
         }) {
             return saved
         }
@@ -86,7 +97,7 @@ public enum CompletedWorkoutEditing {
         // Un score de otro formato es un dato histórico, no se elimina
         // automáticamente al escribir la nueva marca del mismo bloque.
         updated.wodResults.removeAll {
-            $0.id == block.id && ($0.format == nil || $0.format == format)
+            $0.id == block.id && scoreMatches($0, format: format)
         }
         updated.wodResults.append(result)
         return updated
