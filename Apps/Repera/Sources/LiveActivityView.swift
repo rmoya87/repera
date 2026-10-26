@@ -2479,10 +2479,16 @@ struct LiveActivityView: View {
 
                 // Un solo Entreno: primero tiles y parciales específicos
                 // del deporte y, inmediatamente después, Salud/altitud.
-                if recorder.sport.usesGPS || previewHealthExtras != nil {
+                let hasSportValues = ((session.recordedDistanceMeters ?? 0) > 0
+                    && (session.activeDurationSeconds ?? 0) > 0)
+                    || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
+                let hasHealthValues = previewHealthExtras?.hasAuthenticSaludMetrics == true
+                    || previewHealthExtras?.hasExternalSaludSource == true
+                if hasSportValues || hasHealthValues {
                     Section {
                         VStack(alignment: .leading, spacing: 14) {
-                            CardioSplitsView(
+                            if hasSportValues || !recorder.sport.usesGPS {
+                                CardioSplitsView(
                                 routePoints: isRecordedRoute ? route : [],
                                 heartRate: previewHealthExtras?.heartRateSeries ?? [],
                                 cycling: recorder.sport.displaysSpeed,
@@ -2491,12 +2497,15 @@ struct LiveActivityView: View {
                                 totalDistanceMeters: session.recordedDistanceMeters,
                                 maxSpeedKmh: previewHealthExtras?.maxSpeedKmh,
                                 healthStats: previewHealthExtras,
-                                sport: recorder.sport,
-                                embedded: true
-                            )
+                                    sport: recorder.sport,
+                                    embedded: true
+                                )
+                            }
                             if let extras = previewHealthExtras,
                                extras.hasAuthenticSaludMetrics || extras.hasExternalSaludSource {
-                                Divider().opacity(0.35)
+                                if hasSportValues || !recorder.sport.usesGPS {
+                                    Divider().opacity(0.35)
+                                }
                                 HealthSessionMetricsCard(
                                     extras: extras,
                                     includeSourceRows: extras.hasExternalSaludSource,
