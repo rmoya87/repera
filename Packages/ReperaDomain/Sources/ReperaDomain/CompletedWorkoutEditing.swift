@@ -16,7 +16,7 @@ public enum CompletedWorkoutEditing {
     ) -> WODBlockResult? {
         guard let format = block.wodFormat,
               format.resultCapture != .perMovementSets else { return nil }
-        if let saved = session.wodResults.first(where: {
+        if let saved = session.wodResults.last(where: {
             $0.id == block.id && ($0.format == nil || $0.format == format)
         }) {
             return saved
@@ -83,7 +83,11 @@ public enum CompletedWorkoutEditing {
             let seconds = max(0, result.elapsedSeconds ?? 0)
             result.elapsedSeconds = seconds / 60 * 60 + min(59, max(0, value))
         }
-        updated.wodResults.removeAll { $0.id == block.id }
+        // Un score de otro formato es un dato histórico, no se elimina
+        // automáticamente al escribir la nueva marca del mismo bloque.
+        updated.wodResults.removeAll {
+            $0.id == block.id && ($0.format == nil || $0.format == format)
+        }
         updated.wodResults.append(result)
         return updated
     }
@@ -269,31 +273,36 @@ public enum CompletedWorkoutEditing {
         }
         updated.exercises = output
         updated.currentIndex = output.isEmpty ? 0 : min(original.currentIndex, output.count - 1)
-        updated.wodResults = updated.wodResults.compactMap { result in
-            // Cualquier bloque puede tener formato WOD, incluso uno de fuerza
-            // convertido a AMRAP/For Time. La captura depende del formato,
-            // no de su clase visual original.
-            guard let block = routine.blocks.first(where: { $0.id == result.id }),
-                  let format = block.wodFormat,
-                  format.resultCapture != .perMovementSets,
-                  result.format == nil || result.format == format
-            else { return nil }
-            // Un cambio de formato invalida el score anterior. Los campos de
-            // tiempo y de rondas nunca se transforman unos en otros.
-            var result = result
-            result.format = format
-            switch format.resultCapture {
-            case .totalReps:
-                guard result.totalReps != nil || result.roundsCompleted != nil else { return nil }
-                result.elapsedSeconds = nil
-                if format != .amrap && format != .deathBy { result.roundsCompleted = nil }
-            case .elapsedTime:
-                guard result.elapsedSeconds != nil else { return nil }
-                result.roundsCompleted = nil
-                result.totalReps = nil
-            case .perMovementSets:
+        updated.wodResults = updated.wodResults.compactMap { saved in
+            // Cambiar el formato de un bloque NO debe borrar un resultado real.
+            // Puede convivir una marca AMRAP antigua con otra RFT posterior;
+            // cada una mantiene su formato original y sus unidades.
+            guard let block = routine.blocks.first(where: { $0.id == saved.id }) else {
+                // Borrar el bloque es una acción explícita: se borra su resultado.
                 return nil
             }
+            guard let currentFormat = block.wodFormat else { return saved }
+            var result = saved
+            if result.format == nil {
+                // Históricos sin formato: recuperar el formato de la sesión.
+                result.format = original.routineBlocks?
+                    .first(where: { $0.id == saved.id })?.wodFormat
+                    ?? original.exercises.first(where: { $0.blockId == saved.id })?.wodFormat
+            }
+            if let recordedFormat = result.format, recordedFormat != currentFormat {
+                return result
+            }
+            // Sin formato fiable, conservar el valor aunque su tipo de score
+            // ya no corresponda al nuevo formato. Jamás convertir segundos a reps.
+            if currentFormat.resultCapture == .elapsedTime && result.elapsedSeconds == nil {
+                return result
+            }
+            if currentFormat.resultCapture == .totalReps &&
+                result.totalReps == nil && result.roundsCompleted == nil {
+                return result
+            }
+            if currentFormat.resultCapture == .perMovementSets { return result }
+            result.format = currentFormat
             return result
         }
         // La sesión sigue finalizada; no modifica la plantilla de programación.
