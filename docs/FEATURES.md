@@ -388,3 +388,10 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 
 - **Ejercicios en dos columnas (DUO/iPad):** al seleccionar una fila de la columna izquierda para abrir el detalle de la derecha, toda la fila utiliza verde Repera y títulos negros de contraste. El fondo seleccionado se recorta a la geometría de la sección agrupada: esquinas superiores redondeadas si es la primera fila, inferiores si es la última y las cuatro cuando es la única. Las filas no seleccionadas mantienen el fondo blanco anterior.
 - **Comenzar → Métricas:** durante la grabación, Audio/Mapa y Pausa/Play/Finalizar se mantienen en la **esquina superior derecha del encabezado**, como antes; Play y Finalizar se colocan **en horizontal, uno junto al otro, creciendo hacia la izquierda** en vez de apilarse hacia abajo. La columna vertical del modo **Mapa** permanece intacta. Antes de iniciar, los controles de inicio siguen arriba a la izquierda.
+
+### Espaciado de topbars (26/10/2026)
+
+- **Cabeceras propias (Inicio, Progreso, Diario, Ejercicios DUO y modales):** mismo inicio de contenido dentro de la safe area, márgenes horizontales **16 pt**, superior **4 pt** e inferior **8 pt**. Todos los controles propios utilizan la misma base circular de **44 × 44 pt**.
+- Las acciones de `OGFixedTopBar` quedan **alineadas arriba**, independientemente de que exista un subtítulo (fecha/período); antes quedaban unos puntos más bajas al centrarse dentro de una cabecera más alta.
+- `OGPageHeader` y `OGBackPageHeader` comparten la métrica de altura. Se han eliminado los `padding(.top, 4)` duplicados en las modales de añadir entreno, elegir plantilla, importar rutina y ordenar/filtrar.
+- **Toolbars nativas de pantallas secundarias:** se mantienen las distancias y el Liquid Glass que gestiona iOS 27 automáticamente, sin añadir un segundo cristal o padding manual. Los márgenes reales dependen de la safe area, Dynamic Island, orientación y dispositivo.
