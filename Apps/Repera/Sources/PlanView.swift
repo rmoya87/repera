@@ -143,9 +143,8 @@ struct PlanView: View {
         .accessibilityLabel("Más opciones")
     }
 
-    /// iPhone: título y menú ⋯ en la misma fila; semana debajo del título.
-    /// DUO/iPad: «Diario» permanece en su cabecera y el selector semanal
-    /// sigue junto a «Programado» en la primera columna.
+    /// iPhone: título, semana compacta y menú ⋯ comparten una sola fila.
+    /// DUO/iPad: el selector semanal sigue junto a «Programado» en la primera columna.
     @ViewBuilder
     private var diaryTopBar: some View {
         if isExpandedLayout {
@@ -153,25 +152,22 @@ struct PlanView: View {
                 weekActionsMenu
             }
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 12) {
-                    Text("Diario")
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(OG.label)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Spacer(minLength: 8)
-                    if section == .schedule {
-                        weekActionsMenu
-                    }
-                }
-                .frame(minHeight: OG.toolbarGlassSize, alignment: .top)
-
+            HStack(alignment: .center, spacing: 8) {
+                Text("Diario")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .layoutPriority(1)
+                Spacer(minLength: 0)
                 if section == .schedule {
-                    weekSelector(narrow: false)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // La cápsula compacta sí cabe entre el título grande y ⋯
+                    // incluso en un iPhone estrecho: no desplazarla debajo.
+                    weekSelector(narrow: true)
+                    weekActionsMenu
                 }
             }
+            .frame(minHeight: OG.toolbarGlassSize)
             .padding(.horizontal, OG.topBarHorizontalInset)
             .padding(.top, OG.topBarTopInset)
             .padding(.bottom, OG.topBarBottomInset)
