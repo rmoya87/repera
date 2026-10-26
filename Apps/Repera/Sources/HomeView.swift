@@ -1436,9 +1436,15 @@ struct HomeView: View {
         cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
             makeWeekDays(offset: offset)
         }
-        // La primera vez se ve la semana actual; no saltar al reconstruir datos.
+        // En la primera apertura mostrar AYER a la izquierda y HOY
+        // como segundo día, manteniendo hoy seleccionado. No volver a
+        // reposicionar al regenerar métricas o deslizar el carrusel.
         if calendarScrollID == nil {
-            calendarScrollID = makeWeekDays(offset: 0).first?.iso
+            let firstVisibleDate = calendar.date(byAdding: .day, value: -1, to: selectedDay)
+                ?? selectedDay
+            calendarScrollID = cachedCalendarDays.first(where: {
+                calendar.isDate($0.date, inSameDayAs: firstVisibleDate)
+            })?.iso ?? makeWeekDays(offset: 0).first?.iso
         }
     }
 
