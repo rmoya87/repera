@@ -1051,7 +1051,12 @@ extension StatsEngine {
         "windsurfing", "kitesurfing", "kayaking", "rowing", "canoeing",
         "sailing", "iceSkating", "snowboarding", "crossCountrySkiing",
         "soccer", "basketball", "volleyball", "climbing", "dance",
-        "skateboarding", "hiit", "hyrox"
+        "skateboarding", "hiit", "hyrox", "crossfit",
+        "boxing", "kickboxing", "martialArts", "wrestling",
+        "badminton", "pickleball", "squash",
+        "elliptical", "stairClimbing",
+        "americanFootball", "baseball", "softball",
+        "hockey", "lacrosse", "rugby"
     ]
 
     public static func isCardioWorkout(_ workout: WorkoutSession) -> Bool {
