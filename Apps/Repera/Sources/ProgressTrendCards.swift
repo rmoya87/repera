@@ -794,7 +794,6 @@ struct ProgressWeightChartCard: View {
                         )
                     }
                     .padding(.top, 2)
-                    }
                 }
             }
         }
