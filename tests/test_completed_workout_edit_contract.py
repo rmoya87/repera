@@ -83,6 +83,44 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn("Resultado de formato anterior", history)
         self.assertIn("Se conserva el resultado anterior", editor)
 
+    def test_changing_workout_clock_keeps_healthkit_identity(self):
+        health = source("Apps/Repera/Sources/HealthKitStore.swift")
+        store = source("Apps/Repera/Sources/ReperaStore.swift")
+        detail = source("Apps/Repera/Sources/HistoryView.swift")
+
+        # No buscar el entrenamiento original por la hora corregida.
+        lookup = health.split("private func existingReperaWorkout(sessionId: UUID)", 1)[1].split(
+            "func beginWorkout(", 1
+        )[0]
+        self.assertIn('withMetadataKey: "ReperaSessionID"', lookup)
+        self.assertNotIn("withStart:", lookup)
+        self.assertIn("let previous = await existingReperaWorkout(sessionId: sessionId)", health)
+        self.assertIn("verifiedWatchWorkout(forReperaSession: sessionId)", health)
+
+        # Un UUID conocido nunca debe emparejarse con otro HKWorkout por solape.
+        extras = health.split("func sessionHealthExtras(for session:", 1)[1].split(
+            "func heartZones(", 1
+        )[0]
+        self.assertIn("guard workout != nil else { return nil }", extras)
+        self.assertIn("let rangeStart = workout?.startDate ?? start", extras)
+        self.assertIn("let rangeEnd = workout?.endDate ?? end", extras)
+        self.assertIn("session.healthKitWorkoutUUID == nil", health)
+
+        # La corrección de fecha se guarda para Progreso; los sensores
+        # mantienen su duración verificada y las fechas originales de Salud.
+        save = store.split("func saveWorkout(_ session:", 1)[1].split(
+            "private func syncWorkoutToHealth(", 1
+        )[0]
+        self.assertIn("draft.healthKitWorkoutUUID == nil", save)
+        link = store.split("private func syncWorkoutToHealth(", 1)[1].split(
+            "func syncMissingWorkoutsToHealth(", 1
+        )[0]
+        self.assertIn("current.healthKitWorkoutUUID = uuid", link)
+        self.assertNotIn("current.startedAt = apple.startedAt", link)
+        self.assertNotIn("current.finishedAt = apple.finishedAt", link)
+        self.assertIn("healthExtras = await health.sessionHealthExtras(for: saved)", detail)
+
+
     def test_store_saves_edited_session_instead_of_creating_a_new_one(self):
         history = source("Apps/Repera/Sources/HistoryView.swift")
         editor = source("Apps/Repera/Sources/PlanView.swift")
