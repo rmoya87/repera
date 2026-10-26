@@ -35,6 +35,9 @@ public enum StatsEngine {
     public static func confirmedWorkSets(
         _ exercise: SessionExercise, in workout: WorkoutSession
     ) -> [LoggedSet] {
+        // Un check aislado ni unas series introducidas en un borrador
+        // convierten un entrenamiento no terminado en actividad histórica.
+        guard workout.phase == .finished || workout.finishedAt != nil else { return [] }
         let actual = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
         if !actual.isEmpty { return actual }
         // Un calentamiento registrado sin series de trabajo NO confirma
