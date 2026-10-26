@@ -1629,6 +1629,9 @@ struct DayEditorView: View {
                 }
             }
             store.startSession(from: draft)
+            // No cerrar ni navegar si había otra sesión activa o HealthKit
+            // impidió comenzar. El ID de origen debe ser el de esta rutina.
+            guard store.state.activeSession?.routineId == draft.id else { return }
             closeEditor()
             onSessionStarted?()
         }
