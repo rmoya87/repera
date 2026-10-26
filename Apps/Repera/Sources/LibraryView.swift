@@ -146,10 +146,12 @@ struct LibraryView: View {
                 } else if usesSplitExerciseLayout {
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 16) {
                                 Text("Ejercicios")
                                     .font(.largeTitle.weight(.bold))
                                     .foregroundStyle(OG.label)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 OGToolbarGlassButton(
                                     systemName: "line.3.horizontal.decrease",
