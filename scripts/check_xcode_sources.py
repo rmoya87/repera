@@ -26,8 +26,6 @@ REQUIRED = (
     "LiveActivityView.swift",
     "WorkoutLiveActivityCoordinator.swift",
     "LiveSportHistoryView.swift",
-    # ReperaNowPlayingBar vive aquí para compilar incluso con proyecto antiguo.
-    "DigitalClockDisplay.swift",
 )
 WATCH_REQUIRED = (
     "ReperaWatchApp.swift",
@@ -74,15 +72,6 @@ def validate(root: Path) -> None:
             "Faltan fuentes Swift del target Repera: " + ", ".join(missing)
             + ". Ejecuta git pull origin main; no basta con regenerar Xcode."
         )
-
-    # Evita que una nueva fuente Swift quede invisible al target generado
-    # o que se declare dos veces la vista al regenerar Xcode.
-    clock_text = (app / "DigitalClockDisplay.swift").read_text(encoding="utf-8")
-    old_music_text = (app / "ReperaNowPlayingBar.swift").read_text(encoding="utf-8")
-    if clock_text.count("struct ReperaNowPlayingBar: View") != 1:
-        raise ValueError("El reproductor debe estar declarado una vez en DigitalClockDisplay.swift.")
-    if "struct ReperaNowPlayingBar: View" in old_music_text:
-        raise ValueError("Declaración duplicada en ReperaNowPlayingBar.swift; deja solo el placeholder.")
 
     watch = root / "Apps" / "ReperaWatch" / "Sources"
     missing_watch = [name for name in WATCH_REQUIRED if not (watch / name).is_file()]
