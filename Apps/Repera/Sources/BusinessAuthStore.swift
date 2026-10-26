@@ -379,7 +379,10 @@ final class BusinessAuthStore {
         case .sessionNotFound, .refreshTokenNotFound, .userBanned:
             return true
         default:
-            return authError.kind == .sessionMissing
+            // Algunas versiones fijadas de supabase-swift no exponen AuthError.kind.
+            // Los códigos anteriores indican revocación confirmada; cualquier
+            // otro fallo (incluida la red) debe permitir reintentar sin logout.
+            return false
         }
     }
 
