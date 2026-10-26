@@ -156,7 +156,7 @@ struct LiveSportHistoryView: View {
             }
 
             if !sessions.isEmpty {
-                Section("Mejores marcas · \(sport.title)") {
+                Section("Mejores marcas") {
                     HStack(spacing: 8) {
                         if let distance = longestDistanceMeters, sport.usesGPS {
                             tile("Mayor distancia", value: "\(ReperaNumberFormat.decimal(distance / 1000)) km")
@@ -169,9 +169,6 @@ struct LiveSportHistoryView: View {
                         }
                     }
                     .padding(.vertical, 8)
-                    Text("Marcas basadas en actividades guardadas de este deporte. No representan récords de fuerza.")
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
                 }
             }
 

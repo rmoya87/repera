@@ -35,6 +35,7 @@ struct HistoryView: View {
     }
 
     @State private var prCountBySessionId: [UUID: Int] = [:]
+    @State private var didRequestHealthRefresh = false
 
     /// Solo sesiones terminadas (no planes guardados ni borradores).
     private var finishedWorkouts: [WorkoutSession] {
@@ -60,8 +61,9 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        Group {
-            if daySections.isEmpty {
+        let sections = daySections
+        return Group {
+            if sections.isEmpty {
                 ContentUnavailableView(
                     "Sin entrenos",
                     systemImage: "tray",
@@ -70,7 +72,15 @@ struct HistoryView: View {
                 .foregroundStyle(OG.label2)
             } else {
                 List {
-                    ForEach(daySections) { section in
+                    Section {
+                        NavigationLink {
+                            LiveSportsCatalogView()
+                        } label: {
+                            Label("Deportes · evolución y récords", systemImage: "figure.run")
+                                .foregroundStyle(OG.label)
+                        }
+                    }
+                    ForEach(sections) { section in
                         Section {
                             ForEach(section.entries) { entry in
                                 switch entry {
@@ -119,14 +129,15 @@ struct HistoryView: View {
         .background(OG.bg)
         .ogPinnedTransparentNav("Historial")
         .task(id: store.workoutsEpoch) {
-            // Misma nota/PR que Inicio: asegurar review y caché de PRs.
-            for session in finishedWorkouts where session.sessionReview == nil {
-                _ = store.ensureSessionReview(for: session.id)
-            }
+            // No persistir reviews masivamente al abrir: causaba invalidaciones
+            // del store y un refresco costoso al regresar de un detalle.
             prCountBySessionId = store.cachedPersonalRecordCountsBySession()
         }
         .task {
+            guard !didRequestHealthRefresh else { return }
+            didRequestHealthRefresh = true
             await refreshHealthEntries()
+            guard !Task.isCancelled else { return }
             await health.refreshVerifiedWorkoutEnergy(for: finishedWorkouts)
         }
     }
@@ -165,8 +176,8 @@ struct HistoryView: View {
     }
 
     private func reperaHistoryRow(_ session: WorkoutSession) -> some View {
-        // Preferir sesión viva del store (nota/PR recién asegurados).
-        let live = store.state.workouts.first(where: { $0.id == session.id }) ?? session
+        // La lista ya observa el store; evitar una búsqueda O(n) por fila.
+        let live = session
         let prs = prCountBySessionId[live.id] ?? 0
         let start = live.startedAt ?? live.finishedAt
         let day = start.map { Calendar.current.startOfDay(for: $0) } ?? Date()
@@ -270,6 +281,7 @@ struct WorkoutDetailView: View {
     var sessionId: UUID
 
     @State private var draft: WorkoutSession?
+    @State private var didHydrateDetail = false
     @State private var isEditing = false
     @State private var showCompletedEditor = false
     @State private var showDeleteConfirm = false
@@ -310,14 +322,19 @@ struct WorkoutDetailView: View {
         }
         .onAppear { loadDraft() }
         .task(id: sessionId) {
+            guard !didHydrateDetail else { return }
             loadDraft()
             _ = store.ensureSessionReview(for: sessionId)
             draft = store.state.workouts.first(where: { $0.id == sessionId })
             guard let session = draft else { return }
-            healthExtras = await health.sessionHealthExtras(for: session)
-            // Afina la nota con FC/kcal de Salud si hay.
+            let extras = await health.sessionHealthExtras(for: session)
+            guard !Task.isCancelled else { return }
+            healthExtras = extras
+            // Refinar una sola vez por apertura, no en cada vuelta de navegación.
             await store.refineSessionReviewWithHealth(sessionId: sessionId)
+            guard !Task.isCancelled else { return }
             draft = store.state.workouts.first(where: { $0.id == sessionId })
+            didHydrateDetail = true
         }
         // Push con zoom animado desde la vista previa y retorno a su origen.
         .navigationDestination(isPresented: $showFullScreenRoute) {

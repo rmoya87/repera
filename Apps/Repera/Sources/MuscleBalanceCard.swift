@@ -49,18 +49,6 @@ struct MuscleBalanceCard: View {
         )
     }
 
-    /// Algunos WODs terminados confirman movimientos sin series desglosadas.
-    /// Se marcan como estímulo estimado, nunca como series reales o RIR medido.
-    private var includesEstimatedWODMuscles: Bool {
-        workouts.contains { workout in
-            workout.exercises.contains { entry in
-                MuscleCompletedWODStimulus.estimatedSetEquivalent(
-                    for: entry, in: workout, hardOnly: false
-                ) > 0
-            }
-        }
-    }
-
     private var hasHardSets: Bool {
         if let preparedHasHardSets { return preparedHasHardSets }
         return workouts.contains { session in
@@ -96,12 +84,6 @@ struct MuscleBalanceCard: View {
                     BodyMapLegend()
 
                     barsSection(load: load, fatigue: fatigue, ranked: ranked)
-
-                    if !hardOnly && includesEstimatedWODMuscles {
-                        Text("Los movimientos WOD confirmados sin series registradas aportan una estimación mínima de estímulo muscular.")
-                            .font(.footnote)
-                            .foregroundStyle(OG.label3)
-                    }
 
                     if hardOnly && !hasHardSets {
                         Text("Registra el RIR de las series para identificar el esfuerzo alto.")
