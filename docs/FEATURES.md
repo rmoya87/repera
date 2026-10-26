@@ -4,6 +4,8 @@
 
 - **Múltiples rutinas en el mismo día:** cada entrenamiento programado tiene UUID propio y no sustituye a otros con la misma fecha. Diario permite añadir sesiones incluso en días ocupados y deslizar para eliminar solo una. Inicio muestra a la vez las completadas y las pendientes, evitando repetir la que ya se terminó.
 - **Comenzar:** los deportes seleccionables usan tipos HealthKit; la duración del esfuerzo se transforma en estímulo muscular estimado por zonas (incluido cardio). Las mediciones reales de Apple Watch/Salud, cuando están disponibles, alimentan duración, frecuencia cardíaca y calorías sin duplicar su sesión frente a la copia Repera.
+- **Clasificación cardio afinada:** CrossFit, combate, raqueta, elíptica, escaleras y deportes de equipo seleccionables entran en minutos de cardio cuando se registran. Yoga, Pilates, movilidad, fuerza y Core aportan carga muscular estimada cuando procede, pero no minutos de cardio automáticos.
+
 - **Supabase:** las sesiones terminadas se escriben primero en local/iCloud y se envían a athlete_workout_mirror por usuario con reintentos. Ajustes → Cuenta ofrece Sincronizar ahora y fecha/error del último intento remoto. La sincronización editorial de ejercicios sigue siendo automática e invisible.
 
 Última actualización: 2026-10-26 (sesiones independientes, Comenzar/HealthKit, swipe y sincronización verificable)
