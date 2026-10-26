@@ -18,7 +18,7 @@ class TopBarAlignmentContractTests(unittest.TestCase):
     def test_shared_measurements_are_explicit_and_consistent(self):
         theme = read("Theme.swift")
         self.assertIn("static let topBarHorizontalInset: CGFloat = 16", theme)
-        self.assertIn("static let topBarTopInset: CGFloat = 4", theme)
+        self.assertIn("static let topBarTopInset: CGFloat = 12", theme)
         self.assertIn("static let topBarBottomInset: CGFloat = 8", theme)
         self.assertIn("static let toolbarGlassSize: CGFloat = 44", theme)
 
@@ -74,6 +74,29 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         for source, anchor in sections:
             snippet = source.split(anchor, 1)[1].split("}", 2)[-1][:120]
             self.assertNotIn(".padding(.top, 4)", snippet, anchor)
+
+    def test_map_keeps_canvas_fullscreen_and_buttons_in_safe_area(self):
+        live = read("LiveActivityView.swift")
+        map_view = live.split("private var mapView: some View {", 1)[1].split(
+            "private var mapHeader: some View {", 1
+        )[0]
+        self.assertIn(".ignoresSafeArea()", map_view)
+        self.assertIn(".safeAreaPadding(.top, OG.topBarTopInset)", map_view)
+        self.assertEqual(map_view.count(".padding(.horizontal, OG.topBarHorizontalInset)"), 2)
+        # Nunca volver a colocar el overlay 8 pt desde el origen físico.
+        self.assertNotIn(".padding(.top, 8)", map_view)
+        self.assertIn(".frame(width: 44, alignment: .trailing)", map_view)
+
+    def test_exercises_in_compact_mode_use_native_ios_toolbar(self):
+        library = read("LibraryView.swift")
+        self.assertIn("ToolbarItem(placement: .topBarLeading)", library)
+        self.assertIn("ToolbarItem(placement: .topBarTrailing)", library)
+        self.assertIn(".toolbar(usesSplitExerciseLayout ? .hidden : .visible", library)
+        duo = library.split('Text("Ejercicios")', 1)[1].split(
+            "HStack(spacing: 9)", 1
+        )[0]
+        self.assertIn(".padding(.top, OG.topBarTopInset)", duo)
+        self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", duo)
 
     def test_native_toolbar_is_not_forced_into_manual_custom_geometry(self):
         theme = read("Theme.swift")
