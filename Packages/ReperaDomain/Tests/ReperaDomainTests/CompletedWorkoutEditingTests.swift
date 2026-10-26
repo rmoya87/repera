@@ -654,4 +654,28 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertEqual(reopened.routineBlocks?[1].timeCapMinutes, 10)
     }
 
+    func testLegacyScannedScoreRecoversMissingBlockFormatAndSurvivesEdit() throws {
+        let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let block = RoutineBlock(
+            title: "3 RFT sin formato", kind: .wod,
+            movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 12)],
+            wodFormat: nil, rounds: 3
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "Pizarra antigua", blocks: [block]), exercises: [burpee]
+        )
+        session.phase = .finished
+        session.wodResults = [WODBlockResult(
+            id: block.id, format: .forTime, elapsedSeconds: 628
+        )]
+        let editor = CompletedWorkoutEditing.routine(from: session)
+        XCTAssertEqual(editor.blocks[0].wodFormat, .forTime)
+        let saved = CompletedWorkoutEditing.applying(editor, to: session, catalog: [burpee])
+        let reopened = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(saved)
+        )
+        XCTAssertEqual(reopened.routineBlocks?[0].wodFormat, .forTime)
+        XCTAssertEqual(reopened.wodResults.first?.elapsedSeconds, 628)
+    }
+
 }
