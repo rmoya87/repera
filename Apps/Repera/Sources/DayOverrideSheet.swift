@@ -31,7 +31,8 @@ struct DayOverrideSheet: View {
                 }
                 // El título y el botón + necesitan aire bajo el tirador
                 // superior del sheet; no moverlos horizontalmente.
-                .padding(.top, 14)
+                .padding(.top, 24)
+                .padding(.bottom, 6)
 
                 if routines.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
