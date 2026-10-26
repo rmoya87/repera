@@ -1260,7 +1260,7 @@ final class LiveActivityRecorder: NSObject {
         let meters = activeKilometerMeters
         let seconds = currentSplitSeconds(at: Date())
         guard meters >= 40, seconds > 0 else { return "— km/h" }
-        return String(format: "%.1f km/h", meters / seconds * 3.6)
+        return "\(ReperaNumberFormat.decimal(meters / seconds * 3.6)) km/h"
     }
 
     private func updateKilometerSplits(
@@ -1286,7 +1286,7 @@ final class LiveActivityRecorder: NSObject {
     private func reportKilometer(_ split: LiveKmSplit) {
         let result: String
         if sport.displaysSpeed, split.seconds > 0 {
-            result = String(format: "%.1f km/h", 3600 / split.seconds)
+            result = "\(ReperaNumberFormat.decimal(3600 / split.seconds)) km/h"
         } else {
             result = "\(split.clock) min/km"
         }
@@ -1303,8 +1303,7 @@ final class LiveActivityRecorder: NSObject {
             } else {
                 spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s") y \(remaining) segundos"
             }
-            let spokenSpeed = String(format: "%.1f", 3600 / split.seconds)
-                .replacingOccurrences(of: ".", with: ",")
+            let spokenSpeed = ReperaNumberFormat.decimal(3600 / split.seconds)
             let message = sport.displaysSpeed
                 ? "Kilómetro \(split.kilometer) completado. Has ido a \(spokenSpeed) kilómetros por hora, de media."
                 : "Kilómetro \(split.kilometer) completado. Tu tiempo ha sido de \(spokenTime)."
@@ -2085,7 +2084,7 @@ struct LiveActivityView: View {
                     smallMetric(recorder.sport.displaysSpeed ? "Veloc. media" : "Ritmo medio",
                                 value: paceOrSpeed)
                     smallMetric("Distancia (km)",
-                                value: String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
+                                value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
                 }
                 elevationMetricStrip
                 if recorder.sport.usesGPS &&
@@ -2214,7 +2213,7 @@ struct LiveActivityView: View {
                     .font(.subheadline).foregroundStyle(OG.label2)
                 Spacer(minLength: 14)
                 if recorder.sport.usesGPS {
-                    Text(String(format: "%.2f", recorder.recordedDistanceMeters / 1000))
+                    Text(ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
@@ -2442,8 +2441,7 @@ struct LiveActivityView: View {
                         if recorder.sport.usesGPS {
                             reviewTile(
                                 "Distancia",
-                                value: String(format: "%.2f km",
-                                    (session.recordedDistanceMeters ?? 0) / 1000),
+                                value: "\(ReperaNumberFormat.decimal((session.recordedDistanceMeters ?? 0) / 1000)) km",
                                 icon: "point.bottomleft.forward.to.point.topright.scurvepath",
                                 tint: OG.accent
                             )
@@ -2739,7 +2737,7 @@ struct LiveActivityView: View {
             return recorder.sport.displaysSpeed ? "—" : "—:—"
         }
         if recorder.sport.displaysSpeed {
-            return String(format: "%.1f", average)
+            return ReperaNumberFormat.decimal(average)
         }
         let seconds = Int(3600 / average)
         guard seconds < 3600 else { return "—:—" }
@@ -2970,7 +2968,7 @@ private struct LiveRouteLibraryRow: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
-                        Text(String(format: "%.2f km · %@", route.distanceKm, route.sportTitle))
+                        Text("\(ReperaNumberFormat.decimal(route.distanceKm)) km · \(route.sportTitle)")
                             .font(.caption)
                             .foregroundStyle(OG.label2)
                             .lineLimit(1)
@@ -3223,7 +3221,7 @@ private struct LiveRouteLibraryDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Recorrido").font(.headline)
                     HStack(spacing: 8) {
-                        stat("Distancia", value: String(format: "%.2f km", distanceMeters / 1000))
+                        stat("Distancia", value: "\(ReperaNumberFormat.decimal(distanceMeters / 1000)) km")
                         stat("Repeticiones", value: "\(attempts.count)")
                         stat("Mejor tiempo", value: bestTime.map(clock) ?? "—")
                         stat("Desnivel", value: elevationGainMeters.map { "\(Int($0.rounded())) m" } ?? "—")
@@ -3295,7 +3293,7 @@ private struct LiveRouteLibraryDetailView: View {
                                         Text((session.startedAt ?? .now)
                                             .formatted(date: .abbreviated, time: .shortened))
                                             .foregroundStyle(OG.label)
-                                        Text(String(format: "%.2f km", max(0, session.recordedDistanceMeters ?? 0) / 1000))
+                                        Text("\(ReperaNumberFormat.decimal(max(0, session.recordedDistanceMeters ?? 0) / 1000)) km")
                                             .font(.caption).foregroundStyle(OG.label2)
                                     }
                                     Spacer()
