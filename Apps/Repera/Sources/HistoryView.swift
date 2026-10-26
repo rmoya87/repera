@@ -564,6 +564,15 @@ struct WorkoutDetailView: View {
                             )
                             .ogCardListRow()
                         }
+                        ForEach(Array(group.historicalResults.enumerated()), id: \.offset) { _, previous in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Resultado de formato anterior")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label2)
+                                wodResultCard(previous)
+                            }
+                            .ogCardListRow()
+                        }
                     } header: {
                         blockSectionHeader(group.header)
                     }
@@ -773,6 +782,7 @@ struct WorkoutDetailView: View {
         var header: String
         var indices: [Int]
         var wodResult: WODBlockResult?
+        var historicalResults: [WODBlockResult]
         /// AMRAP / For Time: lista de movimientos + score, no series inventadas.
         var showsMovementsAsPrescription: Bool
     }
@@ -792,7 +802,14 @@ struct WorkoutDetailView: View {
             guard let value = map[key] else { return nil }
             let sample = value.sample
             let blockId = sample.blockId
-            let result = blockId.flatMap { id in session.wodResults.first(where: { $0.id == id }) }
+            let savedResults = session.wodResults.filter { $0.id == blockId }
+            // El score del formato vigente tiene prioridad. Otras marcas
+            // del mismo bloque conservan su formato y se muestran aparte.
+            let result = savedResults.last(where: { $0.format == sample.wodFormat })
+                ?? savedResults.last
+            let historical = savedResults.filter {
+                $0.format != result?.format
+            }
             let scoreCapture = sample.usesBlockScoreResult
             let header = sample.displayBlockHeader
             return ExerciseGroup(
@@ -800,6 +817,7 @@ struct WorkoutDetailView: View {
                 header: header,
                 indices: value.indices,
                 wodResult: result ?? inferredResult(for: sample, indices: value.indices, session: session),
+                historicalResults: historical,
                 showsMovementsAsPrescription: scoreCapture && !isEditing
             )
         }
