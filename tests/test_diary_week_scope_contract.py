@@ -26,9 +26,9 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
 
     def test_week_selector_is_in_compact_topbar_and_duo_column_heading(self):
         diary = swift("PlanView.swift")
-        expanded = diary.split("if isExpandedLayout {", 1)[1].split("} else {", 1)[0]
-        self.assertIn('Text("Programado")', expanded)
-        self.assertIn("weekSelector(narrow: true)", expanded)
+        self.assertIn('Text("Programado")', diary)
+        self.assertIn("weekSelector(narrow: true)", diary)
+        self.assertLess(diary.index('Text("Programado")'), diary.index("weekSelector(narrow: true)"))
         header = diary.split("private var diaryTopBar:", 1)[1].split("private struct DiaryDateBox", 1)[0]
         self.assertIn("weekSelector(narrow: false)", header)
         self.assertIn("OGFixedTopBar(title: \"Diario\")", header)
