@@ -79,6 +79,12 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         self.assertIn("muscleLoad(for: sport.healthType", muscles)
         self.assertIn("HealthMuscleMapper.uniqueExternalActivities(", progress)
         self.assertIn("HealthMuscleMapper.nativeSportStimuli(", progress)
+        stats = read(DOMAIN, "StatsEngine.swift")
+        for sport in ('"crossfit"', '"boxing"', '"kickboxing"', '"badminton"',
+                      '"pickleball"', '"squash"', '"elliptical"', '"stairClimbing"',
+                      '"americanFootball"', '"hockey"', '"rugby"'):
+            self.assertIn(sport, stats)
+        self.assertIn(".coreTraining, .yoga, .pilates, .flexibility, .cooldown:", muscles)
 
     def test_finished_saves_trigger_supabase_after_local_flush(self):
         store = read(IOS, "ReperaStore.swift")
