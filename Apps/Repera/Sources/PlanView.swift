@@ -208,11 +208,11 @@ struct PlanView: View {
             )) { box in
                 DayOverrideSheet(
                     scheduledDate: box.date,
-                    dayLabel: "\(CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: box.date))) · \(box.date.formatted(.dateTime.day().month(.abbreviated)))",
+                    dayLabel: "\(CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: box.date, calendar: Calendar.current))) · \(box.date.formatted(.dateTime.day().month(.abbreviated)))",
                     onCreateNew: {
                         isCreating = true
                         let newRoutine = Routine(
-                            title: CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: box.date)),
+                            title: CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: box.date, calendar: Calendar.current)),
                             weekday: nil,
                             scheduledDate: box.date,
                             blocks: [.strength()]
