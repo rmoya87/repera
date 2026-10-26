@@ -37,6 +37,49 @@ final class SessionControllerTests: XCTestCase {
         XCTAssertEqual(saved.exercises[0].isCompleted, true)
     }
 
+    func testAutosaveRecordedSetEditsWithoutChecksAndKeepIDs() throws {
+        let squat = Exercise(name: "Back Squat", muscleGroup: "Piernas")
+        let item = RoutineExercise(exerciseId: squat.id, plannedSets: [
+            PlannedSet(targetReps: 5, targetWeightKg: 50),
+            PlannedSet(targetReps: 5, targetWeightKg: 50)
+        ])
+        var controller = SessionController(session: SessionController.from(
+            routine: Routine(title: "Fuerza", blocks: [
+                .strength(title: "Sentadilla", exercises: [item])
+            ]), exercises: [squat]
+        ))
+        controller.startOnPhone()
+        let firstID = UUID()
+        let secondID = UUID()
+        let first = LoggedSet(id: firstID, reps: 5, weightKg: 65, rir: 2)
+        let second = LoggedSet(id: secondID, reps: 4, weightKg: 67.5, rir: 1)
+        XCTAssertTrue(controller.replaceRecordedSets(
+            exerciseID: item.id, sets: [first, second]
+        ))
+        XCTAssertEqual(controller.session.currentExercise?.loggedSets.map(\.id), [firstID, secondID])
+        XCTAssertFalse(controller.replaceRecordedSets(
+            exerciseID: item.id, sets: [first, second]
+        ))
+
+        var revised = first
+        revised.weightKg = 70
+        revised.reps = 6
+        XCTAssertTrue(controller.replaceRecordedSets(
+            exerciseID: item.id, sets: [revised, second]
+        ))
+        XCTAssertEqual(controller.session.currentExercise?.loggedSets.count, 2)
+        XCTAssertEqual(controller.session.currentExercise?.completedReps, 10)
+        XCTAssertEqual(controller.session.totalVolumeKg, 690, accuracy: 0.001)
+        controller.finishWorkout()
+        let restored = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(controller.session)
+        )
+        XCTAssertEqual(restored.exercises[0].loggedSets.map(\.id), [firstID, secondID])
+        XCTAssertEqual(restored.exercises[0].loggedSets.first?.weightKg, 70)
+        XCTAssertEqual(restored.totalVolumeKg, 690, accuracy: 0.001)
+        XCTAssertTrue(restored.exercises[0].isCompleted)
+    }
+
     func testRepeatedExerciseEditsRemainAttachedToCorrectOccurrence() throws {
         let lift = Exercise(name: "Peso muerto", muscleGroup: "Piernas")
         let first = RoutineExercise(
