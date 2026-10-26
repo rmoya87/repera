@@ -2145,44 +2145,182 @@ struct HealthWorkoutRouteMap: View {
     var isInteractive: Bool = true
     var isWaterSport: Bool = false
 
-    private var segments: [SpeedSegment] {
+    /// Un recorrido válido se representa como una sola polilínea con colores
+    /// interpolados a lo largo de su distancia, no como una línea por muestra GPS.
+    /// Las pausas y los saltos se conservan como cortes (no se inventan tramos).
+    private var routeRuns: [SpeedRun] {
         guard points.count >= 2 else { return [] }
-        // Si el dispositivo no guarda la velocidad instantánea, calcular el
-        // ritmo de cada segmento a partir de los puntos GPS reales y sus fechas.
-        // Nunca atribuir un color de rendimiento a tramos sin señal fiable.
-        let speeds: [Double?] = (0..<(points.count - 1)).map { i in
-            let first = points[i]
-            let second = points[i + 1]
-            let seconds = second.date.timeIntervalSince(first.date)
-            // Una pérdida de señal o una pausa no puede convertirse en una recta
-            // sobre el mapa, aunque alguno de los puntos guarde una velocidad.
-            guard seconds > 0, seconds <= 30 else { return nil }
-            let start = CLLocation(latitude: first.latitude, longitude: first.longitude)
-            let end = CLLocation(latitude: second.latitude, longitude: second.longitude)
-            let speed = start.distance(from: end) / seconds
-            guard speed.isFinite, speed <= 25 else { return nil }
-            if let measured = second.speedMps ?? first.speedMps,
-               measured >= 0.2, measured <= 25, measured.isFinite {
-                return measured
-            }
-            return speed >= 0.2 ? speed : nil
-        }
-        let valid = speeds.compactMap { $0 }.sorted()
-        let minS = valid.first ?? 0
-        let maxS = max(valid.last ?? 1, minS + 0.1)
 
-        return (0..<(points.count - 1)).compactMap { i -> SpeedSegment? in
-            // No dibujar tramos inventados cuando falta una medida fiable.
-            guard let speed = speeds[i] else { return nil }
-            let a = points[i]
-            let b = points[i + 1]
-            return SpeedSegment(
-                id: i,
-                start: CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude),
-                end: CLLocationCoordinate2D(latitude: b.latitude, longitude: b.longitude),
-                color: Self.speedColor(speed, minSpeed: minS, maxSpeed: maxS, water: isWaterSport)
+        var legs: [SpeedLeg?] = []
+        legs.reserveCapacity(points.count - 1)
+        for index in 0..<(points.count - 1) {
+            let first = points[index]
+            let last = points[index + 1]
+            guard Self.valid(first.latitude, first.longitude),
+                  Self.valid(last.latitude, last.longitude)
+            else {
+                legs.append(nil)
+                continue
+            }
+
+            let seconds = last.date.timeIntervalSince(first.date)
+            guard seconds > 0, seconds <= 30 else {
+                legs.append(nil)
+                continue
+            }
+            let start = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+            let end = CLLocationCoordinate2D(latitude: last.latitude, longitude: last.longitude)
+            let meters = CLLocation(latitude: first.latitude, longitude: first.longitude)
+                .distance(from: CLLocation(latitude: last.latitude, longitude: last.longitude))
+            let derivedSpeed = meters / seconds
+            guard meters.isFinite, meters >= 0.5,
+                  derivedSpeed.isFinite, derivedSpeed <= 25 else {
+                legs.append(nil)
+                continue
+            }
+            let measured = last.speedMps ?? first.speedMps
+            let speed: Double
+            if let measured, measured.isFinite, (0.2...25).contains(measured) {
+                speed = measured
+            } else if derivedSpeed >= 0.2 {
+                speed = derivedSpeed
+            } else {
+                legs.append(nil)
+                continue
+            }
+            legs.append(SpeedLeg(index: index, start: start, end: end,
+                                 distance: meters, speed: speed))
+        }
+
+        let values = legs.compactMap { $0?.speed }
+        guard let slowest = values.min(), let fastestValue = values.max() else { return [] }
+        let fastest = max(fastestValue, slowest + 0.1)
+        var groups: [[SpeedLeg]] = []
+        var current: [SpeedLeg] = []
+        for leg in legs {
+            if let leg {
+                current.append(leg)
+            } else if !current.isEmpty {
+                groups.append(current)
+                current.removeAll(keepingCapacity: true)
+            }
+        }
+        if !current.isEmpty { groups.append(current) }
+
+        return groups.map {
+            Self.makeRun($0, minSpeed: slowest, maxSpeed: fastest, water: isWaterSport)
+        }
+    }
+
+    private static func valid(_ latitude: Double, _ longitude: Double) -> Bool {
+        latitude.isFinite && longitude.isFinite
+            && (-90...90).contains(latitude) && (-180...180).contains(longitude)
+    }
+
+    private static func makeRun(
+        _ legs: [SpeedLeg], minSpeed: Double, maxSpeed: Double, water: Bool
+    ) -> SpeedRun {
+        let originals = [legs[0].start] + legs.map(\.end)
+        let coordinates = softenCorners(originals, legs: legs)
+
+        // Media ponderada local: las variaciones de velocidad no producen
+        // parches verde/rojo abruptos entre dos lecturas consecutivas.
+        let velocities: [Double] = legs.indices.map { index in
+            let lower = max(0, index - 2)
+            let upper = min(legs.count - 1, index + 2)
+            var total = 0.0
+            var weightSum = 0.0
+            for neighbor in lower...upper {
+                let weight = Double(3 - abs(index - neighbor))
+                total += legs[neighbor].speed * weight
+                weightSum += weight
+            }
+            return total / weightSum
+        }
+
+        var lengths = [Double](repeating: 0, count: coordinates.count)
+        for index in legs.indices {
+            let a = coordinates[index], b = coordinates[index + 1]
+            lengths[index + 1] = lengths[index] + CLLocation(
+                latitude: a.latitude, longitude: a.longitude
+            ).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+        }
+        let totalLength = max(0.001, lengths[lengths.count - 1])
+
+        // Puntos de parada equidistantes sobre el camino real, con límite de
+        // complejidad para rutas largas. MapPolyline interpola entre ellos.
+        let step = max(1, Int(ceil(Double(coordinates.count - 1) / 256)))
+        var coreStops: [Gradient.Stop] = []
+        var edgeStops: [Gradient.Stop] = []
+        var haloStops: [Gradient.Stop] = []
+        var index = 0
+        while index < coordinates.count {
+            let speed: Double
+            if index == 0 {
+                speed = velocities[0]
+            } else if index == coordinates.count - 1 {
+                speed = velocities[velocities.count - 1]
+            } else {
+                speed = (velocities[index - 1] + velocities[index]) / 2
+            }
+            let color = speedColor(speed, minSpeed: minSpeed, maxSpeed: maxSpeed, water: water)
+            let offset = lengths[index] / totalLength
+            if coreStops.isEmpty || offset > coreStops[coreStops.count - 1].location {
+                coreStops.append(.init(color: color, location: offset))
+                edgeStops.append(.init(color: color.opacity(0.75), location: offset))
+                haloStops.append(.init(color: color.opacity(0.23), location: offset))
+            }
+            if index == coordinates.count - 1 { break }
+            index = min(index + step, coordinates.count - 1)
+        }
+
+        return SpeedRun(
+            id: legs[0].index, coordinates: coordinates,
+            halo: Gradient(stops: haloStops),
+            edge: Gradient(stops: edgeStops),
+            core: Gradient(stops: coreStops)
+        )
+    }
+
+    /// Atenúa el ruido de pequeños giros sin modificar los GPS originales,
+    /// los parciales, las distancias ni los extremos de cada tramo válido.
+    private static func softenCorners(
+        _ points: [CLLocationCoordinate2D], legs: [SpeedLeg]
+    ) -> [CLLocationCoordinate2D] {
+        guard points.count > 2 else { return points }
+        var result = points
+        for index in 1..<(points.count - 1) {
+            guard legs[index - 1].distance < 30, legs[index].distance < 30 else { continue }
+            let before = points[index - 1], middle = points[index], after = points[index + 1]
+            let candidate = CLLocationCoordinate2D(
+                latitude: before.latitude * 0.15 + middle.latitude * 0.70 + after.latitude * 0.15,
+                longitude: before.longitude * 0.15 + middle.longitude * 0.70 + after.longitude * 0.15
+            )
+            let shift = CLLocation(latitude: middle.latitude, longitude: middle.longitude)
+                .distance(from: CLLocation(latitude: candidate.latitude, longitude: candidate.longitude))
+            let fraction = min(1, 3 / max(0.001, shift))
+            result[index] = CLLocationCoordinate2D(
+                latitude: middle.latitude + (candidate.latitude - middle.latitude) * fraction,
+                longitude: middle.longitude + (candidate.longitude - middle.longitude) * fraction
             )
         }
+        return result
+    }
+
+    private struct SpeedLeg {
+        var index: Int
+        var start: CLLocationCoordinate2D
+        var end: CLLocationCoordinate2D
+        var distance: Double
+        var speed: Double
+    }
+
+    private struct SpeedRun: Identifiable {
+        var id: Int
+        var coordinates: [CLLocationCoordinate2D]
+        var halo: Gradient
+        var edge: Gradient
+        var core: Gradient
     }
 
     private var cameraPosition: MapCameraPosition {
@@ -2234,28 +2372,23 @@ struct HealthWorkoutRouteMap: View {
                     .foregroundStyle(Color.black.opacity(0.33))
                     .mapOverlayLevel(level: .aboveRoads)
             }
-            ForEach(segments) { segment in
-                // Tres capas, sobre el mapa oscuro: resplandor exterior suave,
-                // borde degradado luminoso y recorrido a todo color.
-                MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(segment.color.opacity(0.35), lineWidth: 19)
+            ForEach(routeRuns) { run in
+                // Una única geometría por tramo: esquinas redondas y degradado
+                // continuo. Resplandor detrás, colores eléctricos encima.
+                MapPolyline(coordinates: run.coordinates)
+                    .stroke(run.halo, style: StrokeStyle(
+                        lineWidth: 18, lineCap: .round, lineJoin: .round
+                    ))
                     .mapOverlayLevel(level: .aboveLabels)
-                MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                segment.color.opacity(0.95),
-                                Color.white.opacity(0.95),
-                                segment.color.opacity(0.95)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 11
-                    )
+                MapPolyline(coordinates: run.coordinates)
+                    .stroke(run.edge, style: StrokeStyle(
+                        lineWidth: 10, lineCap: .round, lineJoin: .round
+                    ))
                     .mapOverlayLevel(level: .aboveLabels)
-                MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(segment.color, lineWidth: 6)
+                MapPolyline(coordinates: run.coordinates)
+                    .stroke(run.core, style: StrokeStyle(
+                        lineWidth: 6, lineCap: .round, lineJoin: .round
+                    ))
                     .mapOverlayLevel(level: .aboveLabels)
             }
             if let start = points.first {
@@ -2310,10 +2443,4 @@ struct HealthWorkoutRouteMap: View {
         )
     }
 
-    private struct SpeedSegment: Identifiable {
-        var id: Int
-        var start: CLLocationCoordinate2D
-        var end: CLLocationCoordinate2D
-        var color: Color
-    }
 }
