@@ -557,27 +557,22 @@ private enum CatalogBackgroundRefreshScheduler {
 private struct LaunchBarbellSplashView: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let canvas = UIView()
-        canvas.backgroundColor = UIColor(
-            red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1
-        )
+        canvas.backgroundColor = UIColor(red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1)
         canvas.isUserInteractionEnabled = false
 
-        let bundleImage = Bundle.main.url(
-            forResource: "ReperaStartupBarbell", withExtension: "png"
-        ).flatMap { UIImage(contentsOfFile: $0.path) }
-        let mascot = UIImageView(
-            image: bundleImage ?? UIImage(named: "ReperaBarbellLaunch")
-        )
+        // Use exactly the same full-screen artwork and content mode as
+        // LaunchScreen.storyboard: avoids mascot size/position jumps between
+        // the native launch screen and the first SwiftUI frame.
+        let mascot = UIImageView(image: UIImage(named: "ReperaNativeOpaqueHero"))
         mascot.contentMode = .scaleAspectFit
         mascot.clipsToBounds = true
         mascot.translatesAutoresizingMaskIntoConstraints = false
         canvas.addSubview(mascot)
         NSLayoutConstraint.activate([
-            mascot.centerXAnchor.constraint(equalTo: canvas.centerXAnchor),
-            mascot.centerYAnchor.constraint(equalTo: canvas.centerYAnchor),
-            // Match the iOS @3x image footprint without stretching on rotation.
-            mascot.widthAnchor.constraint(equalTo: canvas.widthAnchor, multiplier: 0.72),
-            mascot.heightAnchor.constraint(equalTo: canvas.heightAnchor, multiplier: 0.70)
+            mascot.leadingAnchor.constraint(equalTo: canvas.leadingAnchor),
+            mascot.trailingAnchor.constraint(equalTo: canvas.trailingAnchor),
+            mascot.topAnchor.constraint(equalTo: canvas.topAnchor),
+            mascot.bottomAnchor.constraint(equalTo: canvas.bottomAnchor)
         ])
         return canvas
     }
