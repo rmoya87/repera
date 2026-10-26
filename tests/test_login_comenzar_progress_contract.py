@@ -54,6 +54,11 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("private var averagePace: String?", splits)
         self.assertIn('averageStat("Ritmo medio"', splits)
         self.assertIn('averageStat("Velocidad media"', splits)
+        stats = splits.split("private func averageStat(", 1)[1].split(
+            "static func clock(", 1
+        )[0]
+        self.assertIn("HStack(alignment: .center, spacing: 8)", stats)
+        self.assertLess(stats.index("Image(systemName: icon)"), stats.index("Text(value)"))
         self.assertIn("totalActiveSeconds: session.activeDurationSeconds", live)
         self.assertIn("totalDistanceMeters: session.recordedDistanceMeters", live)
         self.assertIn("fullScreenCover(isPresented: $showFullScreenRoute)", live)
@@ -70,9 +75,18 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         )[0]
         self.assertNotIn('Text(isRecordedRoute ? "Recorrido registrado"', review)
         self.assertNotIn('"%.1f km/h de media"', review)
-        self.assertIn("fullScreenCover(isPresented: $showFullScreenRoute)", maps)
+        self.assertIn("navigationDestination(isPresented: $showFullScreenRoute)", maps)
+        self.assertIn(".navigationTransition(.zoom(sourceID: sessionId, in: routeZoomNamespace))", maps)
+        self.assertEqual(maps.count(".matchedTransitionSource(id: sessionId, in: routeZoomNamespace)"), 2)
+        self.assertIn(".glassEffect(.regular, in: .circle)", maps)
+        self.assertIn("colorScheme == .dark ? Color.white : Color.black", maps)
+        self.assertIn("isInteractive: true", maps)
+        self.assertIn("MapPolygon(coordinates: routeBackdrop)", maps)
+        self.assertIn(".stroke(Color.white.opacity(0.95), lineWidth: 9)", maps)
         self.assertIn("var isWaterSport: Bool = false", maps)
-        self.assertIn("water ? (0.08, 0.72, 0.31) : (0.06, 0.39, 0.98)", maps)
+        self.assertIn("water ? (0.10, 0.84, 0.42) : (0.15, 0.88, 0.30)", maps)
+        self.assertIn("(1.00, 0.87, 0.10), (1.00, 0.48, 0.06), (0.96, 0.18, 0.13)", maps)
+        self.assertNotIn("(0.06, 0.39, 0.98)", maps)
 
     def test_cardio_fatigue_and_records_include_start_sports_without_fake_e1rm(self):
         health = text(IOS / "HealthMuscleMapper.swift")
