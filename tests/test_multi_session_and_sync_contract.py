@@ -84,7 +84,7 @@ class MultiSessionAndSyncTests(unittest.TestCase):
                       '"pickleball"', '"squash"', '"elliptical"', '"stairClimbing"',
                       '"americanFootball"', '"hockey"', '"rugby"'):
             self.assertIn(sport, stats)
-        self.assertIn(".coreTraining, .yoga, .pilates, .flexibility, .cooldown:", muscles)
+        self.assertIn(".coreTraining, .yoga, .pilates, .flexibility, .cooldown, .other:", muscles)
 
     def test_finished_saves_trigger_supabase_after_local_flush(self):
         store = read(IOS, "ReperaStore.swift")
