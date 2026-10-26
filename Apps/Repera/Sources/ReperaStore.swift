@@ -96,6 +96,10 @@ final class ReperaStore: NSObject {
             || loaded.workouts.count != state.workouts.count
             || loaded.exercises.count != state.exercises.count
         state = loaded
+        // Tras actualizar desde el antiguo plan recurrente, fijar las
+        // asignaciones a fechas de ESTA semana (sin repetir indefinidamente).
+        let migratedWeekly = migrateLegacyWeeklyPlans()
+        if migratedWeekly { persistLocalOnly(immediate: true) }
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
         isHydrated = true
@@ -511,6 +515,7 @@ final class ReperaStore: NSObject {
         switch outcome {
         case .adoptedRemote(let remote):
             state = remote
+            let migratedWeekly = migrateLegacyWeeklyPlans()
             stripSeededDemoPlanIfNeeded()
             _ = enrichCatalogMetadata()
             _ = relinkOrphanSessionExercisesToCatalog()
@@ -520,6 +525,7 @@ final class ReperaStore: NSObject {
             workoutsEpoch &+= 1
             publishSessionChrome()
             allowRemoteUpload = true
+            if migratedWeekly { persist() }
             lastiCloudSyncMessage = "Datos restaurados desde iCloud"
         case .keptLocal(let shouldUpload):
             allowRemoteUpload = true
@@ -591,8 +597,8 @@ final class ReperaStore: NSObject {
         }) {
             return oneOff
         }
-        let iso = CalendarHelpers.isoWeekday(for: date, calendar: calendar)
-        return state.routines.first { $0.scheduledDate == nil && $0.weekday == iso }
+        // Diario ya no repite un entreno por el simple número de día.
+        return nil
     }
 
     func startTodaySession() {
@@ -1970,39 +1976,94 @@ final class ReperaStore: NSObject {
         pushActiveToWatch()
     }
 
-    /// Quita todas las asignaciones de días; conserva plantillas de Rutinas y entrenos sueltos.
-    func clearWeeklySchedule() {
-        for i in state.routines.indices where state.routines[i].scheduledDate == nil {
-            state.routines[i].weekday = nil
+    /// Lunes de la semana seleccionada, sin depender del día en que se abre Diario.
+    private func diaryWeekStart(containing date: Date, calendar: Calendar = .current) -> Date {
+        var cal = calendar
+        cal.firstWeekday = 2
+        let start = cal.startOfDay(for: date)
+        let iso = CalendarHelpers.isoWeekday(for: start, calendar: cal)
+        return cal.date(byAdding: .day, value: 1 - iso, to: start) ?? start
+    }
+
+    /// Migración idempotente de los antiguos días recurrentes. El plan antiguo
+    /// solo se conserva en la semana de actualización. Cada rutina queda además
+    /// como plantilla independiente y el historial completado no se modifica.
+    @discardableResult
+    private func migrateLegacyWeeklyPlans() -> Bool {
+        let legacy = state.routines.indices.filter {
+            state.routines[$0].scheduledDate == nil && state.routines[$0].weekday != nil
         }
-        state.rotation = nil
+        guard !legacy.isEmpty else { return false }
+        let cal = Calendar.current
+        let start = diaryWeekStart(containing: Date(), calendar: cal)
+        var templates: [Routine] = []
+        for index in legacy {
+            let source = state.routines[index]
+            guard let weekday = source.weekday,
+                  let target = cal.date(byAdding: .day, value: weekday - 1, to: start)
+            else { continue }
+            let alreadyDated = state.routines.contains {
+                guard let scheduled = $0.scheduledDate else { return false }
+                return cal.isDate(scheduled, inSameDayAs: target)
+            }
+            var migrated = source
+            migrated.weekday = nil
+            if !alreadyDated {
+                migrated.scheduledDate = target
+                migrated.isFavorite = false
+                // Mantener la plantilla reusable sin compartir IDs de sesiones.
+                templates.append(Routine(
+                    title: source.title, scheduledTimeMinutes: source.scheduledTimeMinutes,
+                    blocks: source.blocks.map { $0.duplicatingContent() },
+                    progression: source.progression, isFavorite: source.isFavorite
+                ))
+            }
+            state.routines[index] = migrated
+        }
+        state.routines.append(contentsOf: templates)
+        return true
+    }
+
+    /// Programación concreta de la semana indicada (sin patrones recurrentes).
+    func scheduledRoutines(inWeekContaining date: Date) -> [Routine] {
+        let start = diaryWeekStart(containing: date)
+        let end = Calendar.current.date(byAdding: .day, value: 7, to: start) ?? start
+        return state.routines.filter {
+            guard let day = $0.scheduledDate else { return false }
+            return day >= start && day < end
+        }.sorted { ($0.scheduledDate ?? .distantFuture) < ($1.scheduledDate ?? .distantFuture) }
+    }
+
+    func scheduledRoutine(on date: Date) -> Routine? {
+        state.routines.first {
+            guard let scheduled = $0.scheduledDate else { return false }
+            return Calendar.current.isDate(scheduled, inSameDayAs: date)
+        }
+    }
+
+    /// Vaciar solo la semana visible. No tocar otras semanas, plantillas ni sesiones.
+    func clearWeeklySchedule(for weekReference: Date = Date()) {
+        let ids = Set(scheduledRoutines(inWeekContaining: weekReference).map(\.id))
+        guard !ids.isEmpty else { return }
+        state.routines.removeAll { ids.contains($0.id) }
+        persist()
+        pushActiveToWatch()
+    }
+
+    func removeScheduledRoutine(on date: Date) {
+        guard let target = scheduledRoutine(on: date) else { return }
+        state.routines.removeAll { $0.id == target.id }
         persist()
         pushActiveToWatch()
     }
 
     func deleteAllRoutines() {
-        // Solo borra el plan semanal; conserva favoritos, plantillas sin día y entrenos sueltos.
-        state.routines = state.routines.compactMap { routine in
-            if routine.isOneOff { return routine }
-            if routine.isFavorite || routine.weekday == nil {
-                var keep = routine
-                keep.weekday = nil
-                return keep
-            }
-            // Rutina solo del plan (con día, no favorita): se elimina al vaciar el plan antiguo.
-            return nil
-        }
-        state.rotation = nil
-        persist()
-        pushActiveToWatch()
+        // Restablecer el plan actual, respetando semanas previas/futuras e historial.
+        clearWeeklySchedule()
     }
 
-    /// Días del plan semanal (Diario). Excluye entrenos sueltos.
-    var plannedRoutines: [Routine] {
-        state.routines
-            .filter(\.isWeeklyPlan)
-            .sorted { ($0.weekday ?? 99) < ($1.weekday ?? 99) }
-    }
+    /// Solo fechas de la semana actual; no cambia automáticamente al siguiente lunes.
+    var plannedRoutines: [Routine] { scheduledRoutines(inWeekContaining: Date()) }
 
     /// Rutinas reutilizables (Diario → Rutinas). Excluye entrenos sueltos por fecha.
     var libraryRoutines: [Routine] {
@@ -2025,9 +2086,13 @@ final class ReperaStore: NSObject {
         state.routines.filter(\.isFavorite).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
-    /// Rutina asignada a un día ISO del plan (1 = lunes … 7 = domingo).
+    /// Compatibilidad de consumidores antiguos: solo busca en la semana actual.
     func routine(forWeekday day: Int) -> Routine? {
-        state.routines.first { $0.isWeeklyPlan && $0.weekday == day }
+        guard (1...7).contains(day),
+              let date = Calendar.current.date(byAdding: .day, value: day - 1,
+                                               to: diaryWeekStart(containing: Date()))
+        else { return nil }
+        return scheduledRoutine(on: date)
     }
 
     func setRoutineFavorite(_ id: UUID, isFavorite: Bool) {
@@ -2339,69 +2404,52 @@ final class ReperaStore: NSObject {
         return true
     }
 
-    /// Copia entrenos sueltos de la semana ISO anterior a la actual (nuevos IDs).
+    /// Duplicar voluntariamente el plan de una semana a la semana siguiente.
+    /// Nunca pisa un día ocupado ni altera la semana origen.
     @discardableResult
-    func copyPreviousWeekSchedule() -> Int {
+    func copyPreviousWeekSchedule(to weekReference: Date = Date()) -> Int {
         let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        guard let thisWeekStart = ProgressTimeRange.week.startDate(now: today, weekStartsOnMonday: true),
-              let prevWeekStart = cal.date(byAdding: .day, value: -7, to: thisWeekStart),
-              let thisWeekEnd = cal.date(byAdding: .day, value: 7, to: thisWeekStart)
-        else { return 0 }
-
-        let sources = state.routines.filter { routine in
-            guard let scheduled = routine.scheduledDate else { return false }
-            let day = cal.startOfDay(for: scheduled)
-            return day >= prevWeekStart && day < thisWeekStart
-        }
-
+        let targetStart = diaryWeekStart(containing: weekReference)
+        guard let previous = cal.date(byAdding: .day, value: -7, to: targetStart) else { return 0 }
+        let sources = scheduledRoutines(inWeekContaining: previous)
         var created = 0
         for source in sources {
-            guard let scheduled = source.scheduledDate,
-                  let newDate = cal.date(byAdding: .day, value: 7, to: cal.startOfDay(for: scheduled))
+            guard let day = source.scheduledDate,
+                  let copyDate = cal.date(byAdding: .day, value: 7, to: day),
+                  scheduledRoutine(on: copyDate) == nil
             else { continue }
-            let day = cal.startOfDay(for: newDate)
-            guard day >= thisWeekStart && day < thisWeekEnd else { continue }
-            if state.routines.contains(where: {
-                guard let s = $0.scheduledDate else { return false }
-                return cal.isDate(s, inSameDayAs: day)
-            }) { continue }
-
             let copy = Routine(
-                title: source.title,
-                weekday: nil,
-                scheduledDate: day,
+                title: source.title, weekday: nil, scheduledDate: copyDate,
                 scheduledTimeMinutes: source.scheduledTimeMinutes,
                 blocks: source.blocks.map { $0.duplicatingContent() },
-                progression: source.progression,
-                isFavorite: false
+                progression: source.progression, isFavorite: false
             )
-            saveRoutine(copy)
-            created += 1
+            if saveRoutine(copy) { created += 1 }
         }
         return created
     }
 
-    /// Asigna una plantilla a un día del plan (o la desasigna). Un día solo puede tener una rutina.
+    /// Programar una plantilla en una fecha concreta sin mover ni modificar
+    /// la plantilla, y sin activar recurrencia semanal.
+    func assignRoutine(_ routineId: UUID, toDate date: Date) {
+        guard let source = state.routines.first(where: { $0.id == routineId }),
+              scheduledRoutine(on: date) == nil else { return }
+        let copy = Routine(
+            title: source.title, scheduledDate: date,
+            scheduledTimeMinutes: source.scheduledTimeMinutes,
+            blocks: source.blocks.map { $0.duplicatingContent() },
+            progression: source.progression, isFavorite: false
+        )
+        _ = saveRoutine(copy)
+    }
+
+    /// API antigua: interpreta el día de semana como una fecha de ESTA semana.
     func assignRoutine(_ routineId: UUID, toWeekday day: Int?) {
-        guard let i = state.routines.firstIndex(where: { $0.id == routineId }) else { return }
-        if let day {
-            for j in state.routines.indices where state.routines[j].id != routineId
-                && state.routines[j].scheduledDate == nil
-                && state.routines[j].weekday == day {
-                state.routines[j].weekday = nil
-            }
-            state.routines[i].scheduledDate = nil
-            state.routines[i].weekday = day
-        } else {
-            state.routines[i].weekday = nil
-        }
-        state.routines.sort {
-            ($0.weekday ?? 99, $0.scheduledDate ?? .distantFuture, $0.title)
-                < ($1.weekday ?? 99, $1.scheduledDate ?? .distantFuture, $1.title)
-        }
-        persist()
-        pushActiveToWatch()
+        guard let day, (1...7).contains(day),
+              let date = Calendar.current.date(
+                  byAdding: .day, value: day - 1, to: diaryWeekStart(containing: Date())
+              ) else { return }
+        assignRoutine(routineId, toDate: date)
     }
 
     // MARK: - Body weight
