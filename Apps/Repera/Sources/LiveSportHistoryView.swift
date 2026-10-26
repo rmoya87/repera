@@ -64,7 +64,7 @@ struct LiveSportsCatalogView: View {
             let kilometers = sessions.reduce(0) {
                 $0 + max(0, $1.recordedDistanceMeters ?? 0)
             } / 1000
-            return "\(sessions.count) actividades · \(String(format: "%.1f", kilometers)) km"
+            return "\(sessions.count) actividades · \(ReperaNumberFormat.decimal(kilometers)) km"
         }
         let totalSeconds = sessions.reduce(0) { $0 + max(0, $1.activeDurationSeconds ?? 0) }
         return "\(sessions.count) actividades · \(LiveSportStatsFormat.duration(totalSeconds))"
@@ -137,7 +137,7 @@ struct LiveSportHistoryView: View {
                     tile("Actividades", value: "\(sessions.count)")
                     tile("Tiempo", value: LiveSportStatsFormat.duration(totalDuration))
                     if sport.usesGPS {
-                        tile("Distancia", value: String(format: "%.1f km", totalKm))
+                        tile("Distancia", value: "\(ReperaNumberFormat.decimal(totalKm)) km")
                     } else if let kcal = measuredEnergyKcal {
                         tile("Energía medida", value: "\(Int(kcal.rounded())) kcal")
                     } else if let heart = measuredHeartRateBpm {
@@ -159,7 +159,7 @@ struct LiveSportHistoryView: View {
                 Section("Mejores marcas · \(sport.title)") {
                     HStack(spacing: 8) {
                         if let distance = longestDistanceMeters, sport.usesGPS {
-                            tile("Mayor distancia", value: String(format: "%.2f km", distance / 1000))
+                            tile("Mayor distancia", value: "\(ReperaNumberFormat.decimal(distance / 1000)) km")
                         }
                         if let seconds = fastestRecordedKilometerSeconds, sport.usesGPS {
                             tile("Mejor km", value: LiveSportStatsFormat.duration(seconds))
@@ -215,7 +215,7 @@ struct LiveSportHistoryView: View {
                                 HStack(spacing: 12) {
                                     Text(LiveSportStatsFormat.duration(session.activeDurationSeconds ?? 0))
                                     if let distance = session.recordedDistanceMeters, distance > 0 {
-                                        Text(String(format: "%.2f km", distance / 1000))
+                                        Text("\(ReperaNumberFormat.decimal(distance / 1000)) km")
                                     }
                                     if let heartRate = session.appleAverageHeartRateBpm,
                                        heartRate > 0 {
@@ -390,7 +390,7 @@ struct LiveRouteEvolutionView: View {
                             summary("Mejor tiempo", value: fastest
                                 .map { LiveSportStatsFormat.duration($0.activeDurationSeconds ?? 0) } ?? "—")
                             summary("Distancia", value: plannedDistanceKm > 0
-                                ? String(format: "%.2f km", plannedDistanceKm) : "—")
+                                ? "\(ReperaNumberFormat.decimal(plannedDistanceKm)) km" : "—")
                         }
                         if attempts.count != eligibleAttempts.count {
                             Text("Los intentos con un recorrido incompleto no cuentan para el mejor tiempo.")
@@ -443,7 +443,7 @@ struct LiveRouteEvolutionView: View {
                                     Text((session.startedAt ?? .now)
                                         .formatted(date: .abbreviated, time: .shortened))
                                         .foregroundStyle(OG.label)
-                                    Text(String(format: "%.2f km", max(0, session.recordedDistanceMeters ?? 0) / 1000))
+                                    Text("\(ReperaNumberFormat.decimal(max(0, session.recordedDistanceMeters ?? 0) / 1000)) km")
                                         .font(.caption).foregroundStyle(OG.label2)
                                 }
                                 Spacer()
