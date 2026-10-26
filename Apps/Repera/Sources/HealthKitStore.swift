@@ -1204,8 +1204,19 @@ final class HealthKitStore {
         var workout: HKWorkout? = nil
         if let uuid = workoutUUID {
             workout = await fetchWorkout(uuid: uuid)
-        }
-        if workout == nil {
+            // Tras editar el horario, un enlace previo no se sustituye por
+            // un entrenamiento diferente que coincida con la nueva hora.
+            guard workout != nil else { return nil }
+        } else if let own = await existingReperaWorkout(sessionId: session.id) {
+            workout = own
+            workoutUUID = own.uuid
+        } else if let watch = await verifiedWatchWorkout(forReperaSession: session.id),
+                  let verified = watch.workoutUUID,
+                  let found = await fetchWorkout(uuid: verified) {
+            workout = found
+            workoutUUID = verified
+        } else {
+            // Solo se recurre al solape cuando no hay identidad persistida.
             workout = await overlappingWorkout(from: start, to: end)
             workoutUUID = workout?.uuid
         }
@@ -1915,19 +1926,20 @@ final class HealthKitStore {
         ]
     }
 
-    /// Busca registros ya guardados por Repera, sin depender de que iCloud
-    /// haya podido conservar todavía el UUID de HealthKit.
-    private func existingReperaWorkout(sessionId: UUID, start: Date, end: Date) async -> HKWorkout? {
-        let predicate = HKQuery.predicateForSamples(
-            withStart: start.addingTimeInterval(-3600),
-            end: end.addingTimeInterval(3600)
+    /// Busca por identidad estable, no por horario: el usuario puede corregir
+    /// la hora días después y Salud conserva la fecha original del HKWorkout.
+    /// Evita duplicados sin tocar ni borrar muestras de Apple Watch / terceros.
+    private func existingReperaWorkout(sessionId: UUID) async -> HKWorkout? {
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: "ReperaSessionID",
+            allowedValues: [sessionId.uuidString]
         )
-        return await withCheckedContinuation { cont in
+        return await withCheckedContinuation { (cont: CheckedContinuation<HKWorkout?, Never>) in
             let query = HKSampleQuery(
                 sampleType: .workoutType(),
                 predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: nil
+                limit: 10,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
             ) { _, samples, _ in
                 let match = (samples as? [HKWorkout] ?? []).first {
                     Self.isReperaSource($0.sourceRevision.source)
@@ -2032,8 +2044,13 @@ final class HealthKitStore {
         // Primero un registro ajeno real (Apple Watch/Entreno) o el HKWorkout
         // propio con este ID. No se permite que tener kcal sea requisito
         // para respetar los tiempos/FC guardados por Apple Watch.
-        let previous = await existingReperaWorkout(sessionId: sessionId, start: start, end: safeEnd)
-        let overlapping = await overlappingWorkout(from: start, to: safeEnd)
+        let previous = await existingReperaWorkout(sessionId: sessionId)
+        let verifiedWatch = await verifiedWatchWorkout(forReperaSession: sessionId)
+        // Si ya existe un entrenamiento propio con el mismo ID, no buscar
+        // otro por la hora recién editada; evita asociar un Apple Watch ajeno.
+        let overlapping = previous == nil && verifiedWatch == nil
+            ? await overlappingWorkout(from: start, to: safeEnd)
+            : nil
         let external: HKWorkout? = overlapping.flatMap { candidate -> HKWorkout? in
             guard activityType == .traditionalStrengthTraining ||
                     candidate.workoutActivityType == activityType else { return nil }
@@ -2053,9 +2070,25 @@ final class HealthKitStore {
         var verifiedKcal: Double = 0
         var savedUUID: UUID?
 
-        if let external {
-            // Fuente de la verdad: duración y fechas del HKWorkout real de
-            // Watch / Apple Entreno, incluso si no ofrece energía medida.
+        if let verifiedWatch, let watchUUID = verifiedWatch.workoutUUID {
+            // Prioridad absoluta: misma ejecución registrada por el reloj,
+            // aunque la hora local del usuario se haya desplazado.
+            resolvedStart = verifiedWatch.startedAt
+            resolvedEnd = verifiedWatch.finishedAt
+            duration = max(1, verifiedWatch.durationSeconds)
+            verifiedKcal = verifiedWatch.kcal
+            savedUUID = watchUUID
+            await discardLocalBuilder()
+            lastError = nil
+        } else if let owned = previous {
+            savedUUID = owned.uuid
+            duration = max(1, owned.duration)
+            resolvedStart = owned.startDate
+            resolvedEnd = owned.endDate
+            await discardLocalBuilder()
+            lastError = nil
+        } else if let external {
+            // Solo sin identidad conocida, vincular solape temporal inequívoco.
             resolvedStart = external.startDate
             resolvedEnd = external.endDate
             duration = max(1, external.duration)
@@ -2063,9 +2096,8 @@ final class HealthKitStore {
             savedUUID = external.uuid
             await discardLocalBuilder()
             lastError = nil
-        } else if let owned = previous ?? legacyOwn {
-            // UUID recuperado por metadatos o un registro anterior a esta
-            // versión, sin crear otro duplicado en Apple Salud.
+        } else if let owned = legacyOwn {
+            // Solo para históricos sin identificador de ejecución.
             savedUUID = owned.uuid
             duration = max(1, owned.duration)
             resolvedStart = owned.startDate
