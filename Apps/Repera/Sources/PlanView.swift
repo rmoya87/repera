@@ -2329,18 +2329,10 @@ struct DayEditorView: View {
 
     /// Resuelve el ejercicio del catálogo para miniaturas en bloques WOD (EMOM, AMRAP…).
     private func resolvedExercise(for move: WODMovement) -> Exercise {
-        if let id = move.exerciseId, let ex = store.state.exercises.first(where: { $0.id == id }) {
-            return ex
-        }
-        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
-        let rawCanonical = CrossFitGlossary.canonicalName(for: move.name)
-        if let match = store.state.exercises.first(where: {
-            $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
-                || $0.name.localizedCaseInsensitiveCompare(canonical) == .orderedSame
-                || $0.name.localizedCaseInsensitiveCompare(rawCanonical) == .orderedSame
-        }) {
+        if let match = CrossFitGlossary.catalogExercise(for: move, in: store.state.exercises) {
             return match
         }
+        let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
         // Mantiene una identidad visual coherente incluso si el ejercicio
         // importado todavía no tiene ID en el catálogo del usuario.
         return Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
