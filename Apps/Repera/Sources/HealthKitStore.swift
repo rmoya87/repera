@@ -147,6 +147,9 @@ final class HealthKitStore {
         var routePoints: [RoutePoint] = []
         var averageSpeedKmh: Double?
         var maxSpeedKmh: Double?
+        var stepsCount: Int? = nil
+        var movementDistanceMeters: Double? = nil
+        var movementUsesTimeWindow: Bool = false
     }
 
     /// Métricas de Salud asociadas a un entreno propio de Repera.
@@ -158,6 +161,11 @@ final class HealthKitStore {
         var routePoints: [RoutePoint] = []
         var averageSpeedKmh: Double?
         var maxSpeedKmh: Double?
+        var stepsCount: Int? = nil
+        var movementDistanceMeters: Double? = nil
+        /// Muestras horarias (no ligadas formalmente al HKWorkout): indicar
+        /// procedencia en la UI y evitar atribuirlas a una serie concreta.
+        var movementUsesTimeWindow: Bool = false
         var activeEnergyKcal: Double?
         var sourceName: String?
         var activityTypeRaw: UInt?
@@ -181,6 +189,8 @@ final class HealthKitStore {
                 || averageHeartRateBpm != nil
                 || showRouteMap
                 || (averageSpeedKmh ?? 0) > 0
+                || stepsCount != nil
+                || movementDistanceMeters != nil
                 || sourceName != nil
                 || (activeEnergyKcal ?? 0) > 0
         }
@@ -191,6 +201,8 @@ final class HealthKitStore {
                 || averageHeartRateBpm != nil
                 || showRouteMap
                 || (averageSpeedKmh ?? 0) > 0
+                || stepsCount != nil
+                || movementDistanceMeters != nil
         }
 
         /// Origen externo (Watch / otra app). El workout escrito por Repera no cuenta.
@@ -293,6 +305,10 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .stepCount)!,
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
+            HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!,
+            HKObjectType.quantityType(forIdentifier: .distanceSwimming)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
             // Opt-in read scopes; HealthKit may return no samples when declined.
             // Do not use authorizationStatus to infer READ grants.
@@ -1182,7 +1198,10 @@ final class HealthKitStore {
             heartRateSeries: extras.heartRateSeries,
             routePoints: extras.routePoints,
             averageSpeedKmh: extras.averageSpeedKmh,
-            maxSpeedKmh: extras.maxSpeedKmh
+            maxSpeedKmh: extras.maxSpeedKmh,
+            stepsCount: extras.stepsCount,
+            movementDistanceMeters: extras.movementDistanceMeters,
+            movementUsesTimeWindow: extras.movementUsesTimeWindow
         )
     }
 
@@ -1377,6 +1396,9 @@ final class HealthKitStore {
         var kcal: Double?
         var source: String?
         var typeRaw: UInt?
+        var steps: Int?
+        var movingMeters: Double?
+        var timedMovement = false
         if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
             source = workout.sourceRevision.source.name
             typeRaw = workout.workoutActivityType.rawValue
@@ -1385,6 +1407,10 @@ final class HealthKitStore {
                burned > 0 {
                 kcal = burned
             }
+            let movement = await workoutMovementMetrics(workout)
+            steps = movement.steps
+            movingMeters = movement.distanceMeters
+            timedMovement = movement.fromTimeWindow
         }
 
         return SessionHealthExtras(
@@ -1397,11 +1423,96 @@ final class HealthKitStore {
             routePoints: downsampleRoute(points, maxCount: 400),
             averageSpeedKmh: avgSpeedKmh,
             maxSpeedKmh: maxSpeedKmh,
+            stepsCount: steps,
+            movementDistanceMeters: movingMeters,
+            movementUsesTimeWindow: timedMovement,
             activeEnergyKcal: kcal,
             sourceName: source,
             activityTypeRaw: typeRaw,
             resolvedWorkoutUUID: workoutUUID
         )
+    }
+
+    /// Métricas de movimiento ancladas al HKWorkout original (no a la
+    /// hora editada en Repera). Los valores son opcionales, nunca estimados
+    /// a partir de calorías, ritmo cardíaco ni longitud de zancada.
+    private func workoutMovementMetrics(
+        _ workout: HKWorkout
+    ) async -> (steps: Int?, distanceMeters: Double?, fromTimeWindow: Bool) {
+        let walking = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)
+        let snow = HKQuantityType.quantityType(forIdentifier: .distanceDownhillSnowSports)
+        let bike = HKQuantityType.quantityType(forIdentifier: .distanceCycling)
+        let swimming = HKQuantityType.quantityType(forIdentifier: .distanceSwimming)
+        let preferred: HKQuantityType? = {
+            switch workout.workoutActivityType {
+            case .downhillSkiing, .snowboarding: return snow
+            case .cycling: return bike
+            case .swimming: return swimming
+            // Tenis, pádel y entrenamiento general: solo pasos/distancia a pie.
+            // Para surf/kitesurf nunca convertir pasos en distancia navegada.
+            case .surfingSports, .paddleSports, .rowing, .sailing: return nil
+            default: return walking
+            }
+        }()
+
+        let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)
+        let stepsAssociated: Double? = if let stepsType {
+            await summedHealthQuantity(stepsType, workout: workout, inTimeWindow: false)
+        } else { nil }
+        let distanceAssociated: Double? = if let preferred {
+            await summedHealthQuantity(preferred, workout: workout, inTimeWindow: false)
+        } else { nil }
+
+        let stepFallback: Double? = if stepsAssociated == nil, let stepsType {
+            await summedHealthQuantity(stepsType, workout: workout, inTimeWindow: true)
+        } else { nil }
+        let distanceFallback: Double? = if distanceAssociated == nil, let preferred {
+            await summedHealthQuantity(preferred, workout: workout, inTimeWindow: true)
+        } else { nil }
+
+        // Prioridad: distancia propia del HKWorkout. Si Salud no la guarda,
+        // muestras asociadas. Solo después se considera la ventana horaria.
+        let distance = preferred.flatMap { workout.statistics(for: $0)?
+            .sumQuantity()?.doubleValue(for: .meter()) }
+            ?? workout.totalDistance?.doubleValue(for: .meter())
+            ?? distanceAssociated
+            ?? distanceFallback
+        let stepValue = stepsAssociated ?? stepFallback
+        return (
+            steps: stepValue.flatMap { $0.isFinite && $0 > 0 ? Int($0.rounded()) : nil },
+            distanceMeters: distance.flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
+            fromTimeWindow: (stepsAssociated == nil && stepFallback != nil)
+                || (distanceAssociated == nil && distanceFallback != nil)
+        )
+    }
+
+    /// Para sesiones sin muestras asociadas (Apple Watch puede agruparlas),
+    /// permite la suma estrictamente dentro del horario del HKWorkout. La UI
+    /// la etiqueta como «en horario», no como una medida exclusiva del deporte.
+    private func summedHealthQuantity(
+        _ type: HKQuantityType,
+        workout: HKWorkout,
+        inTimeWindow: Bool
+    ) async -> Double? {
+        let predicate: NSPredicate = inTimeWindow
+            ? HKQuery.predicateForSamples(
+                withStart: workout.startDate, end: workout.endDate,
+                options: [.strictStartDate, .strictEndDate]
+            )
+            : HKQuery.predicateForObjects(from: workout)
+        return await withCheckedContinuation { (cont: CheckedContinuation<Double?, Never>) in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, stats, _ in
+                let unit: HKUnit = type.identifier == HKQuantityTypeIdentifier.stepCount.rawValue
+                    ? .count() : .meter()
+                let number = stats?.sumQuantity()?.doubleValue(for: unit)
+                cont.resume(returning: number.flatMap { $0.isFinite && $0 > 0 ? $0 : nil })
+            }
+            store.execute(query)
+        }
     }
 
     private func heartRateSeries(from start: Date, to end: Date) async -> [HeartRatePoint] {
@@ -1467,6 +1578,11 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
+            HKObjectType.quantityType(forIdentifier: .stepCount)!,
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
+            HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!,
+            HKObjectType.quantityType(forIdentifier: .distanceSwimming)!,
             HKObjectType.workoutType(),
             HKSeriesType.workoutRoute(),
         ]
