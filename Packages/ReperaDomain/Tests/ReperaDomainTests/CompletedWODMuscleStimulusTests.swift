@@ -1,15 +1,16 @@
 import XCTest
 @testable import ReperaDomain
 
-/// WOD acabado ≠ series de fuerza inventadas. El check confirmado únicamente
-/// aporta un estímulo muscular conservador cuando no existen LoggedSet reales.
+/// Finalizar la sesión equivale a dar por hecho lo prescrito; el check
+/// manual NO es necesario para datos antiguos ni nuevos.
 final class CompletedWODMuscleStimulusTests: XCTestCase {
     private let now = Date()
 
     private func session(
         isCompleted: Bool,
         kind: RoutineBlockKind = .wod,
-        recorded: [LoggedSet] = []
+        recorded: [LoggedSet] = [],
+        finished: Bool = true
     ) -> WorkoutSession {
         let clean = Exercise(name: "Power Clean", muscleGroup: "Piernas")
         let entry = SessionExercise(
@@ -23,9 +24,9 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         return WorkoutSession(
             title: "EMOM real",
             exercises: [entry],
-            phase: .finished,
+            phase: finished ? .finished : .counting,
             startedAt: now.addingTimeInterval(-3600),
-            finishedAt: now.addingTimeInterval(-60)
+            finishedAt: finished ? now.addingTimeInterval(-60) : nil
         )
     }
 
@@ -39,15 +40,41 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         XCTAssertTrue(load.values.contains { $0 > 0 })
         XCTAssertTrue(fatigue.values.contains { $0 > 0 })
         XCTAssertEqual(MuscleCompletedWODStimulus.estimatedSetEquivalent(
-            for: workout.exercises[0], hardOnly: false
+            for: workout.exercises[0], in: workout, hardOnly: false
         ), 1)
     }
 
-    func testUnconfirmedPlansDoNotProducePhantomMuscles() {
+    func testFinishedUncheckedWorkoutsCountForMuscleAndExerciseProgress() {
         for workout in [
             session(isCompleted: false),
             session(isCompleted: false, kind: .strength)
         ] {
+            let entry = workout.exercises[0]
+            XCTAssertEqual(StatsEngine.confirmedWorkSets(entry, in: workout).map(\.reps), [5])
+            XCTAssertNil(StatsEngine.confirmedWorkSets(entry, in: workout).first?.rir)
+            XCTAssertFalse(MuscleLoadEngine.load(
+                workouts: [workout], window: .week, now: now
+            ).isEmpty)
+            XCTAssertFalse(MuscleMapEngine.retainedLoad(
+                workouts: [workout], now: now
+            ).isEmpty)
+            XCTAssertEqual(StatsEngine.history(
+                for: entry.exercise.id, workouts: [workout]
+            ).timesPerformed, 1)
+            XCTAssertTrue(MuscleLoadEngine.load(
+                workouts: [workout], window: .week, now: now, hardOnly: true
+            ).isEmpty)
+        }
+    }
+
+    func testUnfinishedPlansWithoutRecordedSetsStillDoNotCount() {
+        for workout in [
+            session(isCompleted: false, finished: false),
+            session(isCompleted: false, kind: .strength, finished: false)
+        ] {
+            XCTAssertTrue(StatsEngine.confirmedWorkSets(
+                workout.exercises[0], in: workout
+            ).isEmpty)
             XCTAssertTrue(MuscleLoadEngine.load(
                 workouts: [workout], window: .week, now: now
             ).isEmpty)
@@ -115,7 +142,7 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
             LoggedSet(reps: 5, rir: 2)
         ])
         XCTAssertEqual(MuscleCompletedWODStimulus.estimatedSetEquivalent(
-            for: workout.exercises[0], hardOnly: false
+            for: workout.exercises[0], in: workout, hardOnly: false
         ), 0)
         let load = MuscleLoadEngine.load(
             workouts: [workout], window: .week, now: now
