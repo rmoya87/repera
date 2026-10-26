@@ -29,7 +29,27 @@ struct PlanView: View {
     @State private var editing: Routine?
     @State private var isCreating = false
     @State private var confirmClearSchedule = false
-    @State private var assigningDay: Int?
+    @State private var assigningDay: Date?
+    @State private var weekOffset = 0
+
+    private var selectedWeekStart: Date {
+        var cal = Calendar.current
+        cal.firstWeekday = 2
+        let today = cal.startOfDay(for: Date())
+        let iso = CalendarHelpers.isoWeekday(for: today, calendar: cal)
+        let monday = cal.date(byAdding: .day, value: 1 - iso, to: today) ?? today
+        return cal.date(byAdding: .day, value: weekOffset * 7, to: monday) ?? monday
+    }
+
+    private func dateForWeekday(_ day: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: day - 1, to: selectedWeekStart)
+            ?? selectedWeekStart
+    }
+
+    private struct DiaryDateBox: Identifiable {
+        var date: Date
+        var id: Date { date }
+    }
     @State private var copyWeekFlash: Int?
     @State private var isExpandedLayout = false
     /// Navegación independiente: editar una rutina no tapa la columna Programado.
@@ -150,12 +170,12 @@ struct PlanView: View {
                 if isExpandedLayout || section == .schedule {
                     Menu {
                         Button {
-                            let n = store.copyPreviousWeekSchedule()
+                            let n = store.copyPreviousWeekSchedule(to: selectedWeekStart)
                             copyWeekFlash = n
                         } label: {
-                            Label("Repetir entrenos de la semana pasada", systemImage: "calendar.badge.clock")
+                            Label("Copiar semana anterior", systemImage: "calendar.badge.clock")
                         }
-                        if !store.plannedRoutines.isEmpty {
+                        if !store.scheduledRoutines(inWeekContaining: selectedWeekStart).isEmpty {
                             Button(role: .destructive) {
                                 confirmClearSchedule = true
                             } label: {
@@ -183,18 +203,18 @@ struct PlanView: View {
                 .onDisappear { isCreating = false }
             }
             .sheet(item: Binding(
-                get: { assigningDay.map { WeekdayBox(day: $0) } },
-                set: { assigningDay = $0?.day }
+                get: { assigningDay.map { DiaryDateBox(date: $0) } },
+                set: { assigningDay = $0?.date }
             )) { box in
                 DayOverrideSheet(
-                    isoWeekday: box.day,
-                    dayLabel: CalendarHelpers.weekdayName(box.day),
+                    scheduledDate: box.date,
+                    dayLabel: "\(CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: box.date))) · \(box.date.formatted(.dateTime.day().month(.abbreviated)))",
                     onCreateNew: {
                         isCreating = true
                         let newRoutine = Routine(
-                            title: CalendarHelpers.weekdayName(box.day),
-                            weekday: box.day,
-                            scheduledDate: nil,
+                            title: CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: box.date)),
+                            weekday: nil,
+                            scheduledDate: box.date,
                             blocks: [.strength()]
                         )
                         if isExpandedLayout { rightEditing = newRoutine }
@@ -206,10 +226,10 @@ struct PlanView: View {
                 OGConfirmSheet(
                     systemImage: "calendar.badge.minus",
                     title: "¿Vaciar programación?",
-                    message: "Se quitan las rutinas de todos los días. Las plantillas en Rutinas se conservan. Los entrenos ya registrados se mantienen.",
+                    message: "Se quitan únicamente los entrenamientos programados para esta semana. Otras semanas, plantillas y sesiones completadas se conservan.",
                     confirmTitle: "Vaciar",
                     onConfirm: {
-                        store.clearWeeklySchedule()
+                        store.clearWeeklySchedule(for: selectedWeekStart)
                         confirmClearSchedule = false
                     },
                     onCancel: { confirmClearSchedule = false }
@@ -226,7 +246,7 @@ struct PlanView: View {
             } message: {
                 let n = copyWeekFlash ?? 0
                 Text(n == 0
-                     ? "No hay entrenos fechados que copiar o los días ya están ocupados. Las rutinas semanales recurrentes no necesitan copiarse."
+                     ? "La semana anterior está vacía o los días correspondientes ya están ocupados."
                      : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") de la semana anterior, sin modificar los días ya programados.")
             }
         }
@@ -303,13 +323,47 @@ struct PlanView: View {
         // Rutinas con scheduledDate (entrenos sueltos de Inicio/IA) NO pertenecen
         // necesariamente a la programación del Diario y no deben aparecer aquí.
         Section {
+            HStack(spacing: 12) {
+                Button {
+                    weekOffset -= 1
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 40, height: 40)
+                }
+                .accessibilityLabel("Semana anterior")
+                Spacer(minLength: 4)
+                VStack(spacing: 3) {
+                    Text("\(selectedWeekStart.formatted(.dateTime.day().month(.abbreviated))) – \((Calendar.current.date(byAdding: .day, value: 6, to: selectedWeekStart) ?? selectedWeekStart).formatted(.dateTime.day().month(.abbreviated)))")
+                        .font(.subheadline.weight(.semibold))
+                    if weekOffset != 0 {
+                        Button("Volver a esta semana") { weekOffset = 0 }
+                            .font(.caption)
+                    } else {
+                        Text("Esta semana").font(.caption).foregroundStyle(OG.label2)
+                    }
+                }
+                Spacer(minLength: 4)
+                Button {
+                    weekOffset += 1
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 40, height: 40)
+                }
+                .accessibilityLabel("Semana siguiente")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(OG.label)
+            .listRowBackground(OG.surface)
             ForEach(1...7, id: \.self) { day in
-                let routine = store.routine(forWeekday: day)
+                let date = dateForWeekday(day)
+                let routine = store.scheduledRoutine(on: date)
                 Button {
                     if let routine {
                         onOpenRoutine(routine)
                     } else {
-                        assigningDay = day
+                        assigningDay = date
                     }
                 } label: {
                     HStack(alignment: .top, spacing: 14) {
@@ -357,7 +411,7 @@ struct PlanView: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if let routine {
                         OGSwipeDeleteButton(systemImage: "trash", accessibilityLabel: "Quitar del día", tint: OG.red) {
-                            store.assignRoutine(routine.id, toWeekday: nil)
+                            store.removeScheduledRoutine(on: date)
                         }
                     }
                 }
@@ -498,15 +552,7 @@ struct PlanView: View {
                         OGSwipeDeleteButton {
                             store.deleteRoutine(routine.id)
                         }
-                        if routine.weekday != nil {
-                            Button {
-                                store.assignRoutine(routine.id, toWeekday: nil)
-                            } label: {
-                                Image(systemName: "calendar.badge.minus")
-                            }
-                            .tint(OG.orange)
-                            .accessibilityLabel("Desasignar")
-                        }
+                        // Las plantillas ya no se vinculan a días recurrentes.
                     }
                     .swipeActions(edge: .leading) {
                         Button {
@@ -555,11 +601,7 @@ struct PlanView: View {
 
     private func librarySubtitle(_ routine: Routine) -> String {
         var parts = [routineSubtitle(routine)]
-        if let day = routine.weekday {
-            parts.append(CalendarHelpers.weekdayName(day))
-        } else {
-            parts.append("Sin día")
-        }
+        parts.append("Sin fecha · reutilizable")
         return parts.joined(separator: " · ")
     }
 
@@ -723,14 +765,14 @@ struct DayEditorView: View {
                 TextField(nameFieldPlaceholder, text: $routine.title)
                 switch mode {
                 case .plan:
-                    Picker("Día en Programado", selection: Binding(
-                        get: { routine.weekday ?? 0 },
-                        set: { routine.weekday = $0 == 0 ? nil : $0 }
-                    )) {
-                        Text("Sin asignar").tag(0)
-                        ForEach(1...7, id: \.self) { day in
-                            Text(CalendarHelpers.weekdayName(day)).tag(day)
-                        }
+                    if routine.scheduledDate != nil {
+                        DatePicker("Fecha programada", selection: Binding(
+                            get: { routine.scheduledDate ?? Date() },
+                            set: { routine.scheduledDate = Calendar.current.startOfDay(for: $0) }
+                        ), displayedComponents: .date)
+                    } else {
+                        Text("Plantilla reutilizable · sin fecha")
+                            .foregroundStyle(OG.label2)
                     }
                     scheduledTimeControls
                     Picker("Progresión (fuerza)", selection: $routine.progression) {
@@ -747,15 +789,9 @@ struct DayEditorView: View {
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
                         .disabled(true)
-                    Picker("También en Programado", selection: Binding(
-                        get: { routine.weekday ?? 0 },
-                        set: { routine.weekday = $0 == 0 ? nil : $0 }
-                    )) {
-                        Text("Solo favorito").tag(0)
-                        ForEach(1...7, id: \.self) { day in
-                            Text(CalendarHelpers.weekdayName(day)).tag(day)
-                        }
-                    }
+                    Text("Para programarla, selecciónala en la fecha deseada desde Diario.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
                     scheduledTimeControls
                 case .session:
                     if onApplyDraft == nil {
@@ -771,11 +807,13 @@ struct DayEditorView: View {
                             ? "Solo empieza la sesión. El plan semanal se gestiona en Diario."
                             : "Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
                 case .favorite:
-                    Text("Los favoritos se reutilizan desde Crear. Opcionalmente puedes asignarlos a un día en Programado.")
+                    Text("Los favoritos se reutilizan desde Crear y pueden asignarse a cualquier fecha desde Diario.")
                 case .oneOff:
                     EmptyView()
                 case .plan:
-                    Text("La rutina es reutilizable. En Programado puedes cambiar el día sin editar el contenido.")
+                    Text(routine.scheduledDate == nil
+                         ? "Esta plantilla se conserva para reutilizarla en Diario."
+                         : "Este entrenamiento pertenece solo a la fecha indicada; no se repite en otras semanas.")
                 }
             }
 
@@ -1423,7 +1461,7 @@ struct DayEditorView: View {
         switch mode {
         case .plan:
             var draft = routine
-            draft.scheduledDate = nil
+            draft.weekday = nil
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 draft.title = "Rutina"
             }
