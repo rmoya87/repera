@@ -65,7 +65,8 @@ struct MuscleBalanceCard: View {
         if let preparedHasHardSets { return preparedHasHardSets }
         return workouts.contains { session in
             session.exercises.contains { entry in
-                entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
+                StatsEngine.confirmedWorkSets(entry, in: session)
+                    .contains { Effort.isHard(rir: $0.rir) }
             }
         }
     }
