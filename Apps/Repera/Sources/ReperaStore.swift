@@ -622,6 +622,12 @@ final class ReperaStore: NSObject {
     }
 
     func startSession(from routine: Routine) {
+        // No perder la sesión A al pulsar Comenzar en B: hay que finalizar
+        // o descartar A expresamente antes de iniciar la siguiente.
+        guard state.activeSession == nil else {
+            HealthKitStore.shared.lastError = "Ya tienes un entrenamiento en curso. Finalízalo o descártalo antes de comenzar otro."
+            return
+        }
         guard !LiveActivityRecorder.shared.isActive else {
             HealthKitStore.shared.lastError = "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
             return
@@ -663,6 +669,10 @@ final class ReperaStore: NSObject {
         ocrText: String? = nil,
         blocks: [RoutineBlock]? = nil
     ) -> Bool {
+        guard state.activeSession == nil else {
+            HealthKitStore.shared.lastError = "Finaliza o descarta el entrenamiento actual antes de iniciar el escaneado."
+            return false
+        }
         guard !LiveActivityRecorder.shared.isActive else {
             HealthKitStore.shared.lastError = "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
             return false
