@@ -1172,7 +1172,7 @@ struct HomeView: View {
                 // .frame(minHeight:) permitía crecer toda la banda y creaba
                 // un hueco grande entre titular, chip y borde inferior.
                 // Altura acotada idéntica al estado sin entrenamiento.
-                .frame(height: 27, alignment: .center)
+                .frame(height: 24, alignment: .center)
                 .padding(.top, 0)
             }
         )
