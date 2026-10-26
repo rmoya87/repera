@@ -1,5 +1,9 @@
 # Arquitectura Repera
 
+## Formatos numéricos compartidos (26/10/2026)
+
+`ReperaDomain.ReperaNumberFormat` centraliza la representación humana de cifras con punto para agrupar millares desde 1.000, coma decimal y entre cero y dos posiciones decimales. Tanto los targets iOS como los watchOS reutilizan esta utilidad; las vistas raíz propagan el locale español para gráficos y formatos nativos. `ReperaNumberFormat.parse` acepta cadenas españolas y puntos decimales antiguos en campos editables, sin cambiar los tipos de dominio ni las codificaciones ISO/JSON/Supabase/HealthKit. Las pruebas de regresión cubren millares, redondeo, negativos, entradas mixtas y separación de presentación y almacenamiento.
+
 ## Token renovable, rutas GPS y récords deportivos (26/10/2026)
 
 - `BusinessAuthStore.ensureUsableSession()` pide una sesión vigente a `supabase-swift`, que renueva la credencial si es necesario. El inicio de la app y `BusinessWorkoutSyncStore.sync` lo utilizan. `requiresReauthentication` cambia el `ReperaApp.launchRootView` al login solo ante revocación/ausencia definitiva de credenciales; un error de transporte no borra el historial local ni provoca salida forzada. `autoRefreshToken` ya está activado.
