@@ -1,0 +1,88 @@
+"""Regresiones estáticas: Diario usa fechas semanales y Recuperación grafica el espacio.
+
+Son contratos de fuente; la apariencia final requiere Xcode y dispositivos iOS.
+"""
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCES = ROOT / "Apps" / "Repera" / "Sources"
+
+
+def swift(name):
+    return (SOURCES / name).read_text(encoding="utf-8")
+
+
+class DiaryWeekScopeContractTests(unittest.TestCase):
+    def test_diary_has_week_navigation_and_selected_dates(self):
+        diary = swift("PlanView.swift")
+        self.assertIn("@State private var weekOffset = 0", diary)
+        self.assertIn("private var selectedWeekStart: Date", diary)
+        self.assertIn('accessibilityLabel("Semana anterior")', diary)
+        self.assertIn('accessibilityLabel("Semana siguiente")', diary)
+        self.assertIn("let date = dateForWeekday(day)", diary)
+        self.assertIn("store.scheduledRoutine(on: date)", diary)
+        self.assertNotIn("let routine = store.routine(forWeekday: day)", diary)
+
+    def test_copy_and_clear_act_only_on_selected_week(self):
+        diary = swift("PlanView.swift")
+        store = swift("ReperaStore.swift")
+        self.assertIn("store.copyPreviousWeekSchedule(to: selectedWeekStart)", diary)
+        self.assertIn("store.clearWeeklySchedule(for: selectedWeekStart)", diary)
+        self.assertIn("func copyPreviousWeekSchedule(to weekReference: Date = Date())", store)
+        self.assertIn("scheduledRoutines(inWeekContaining: previous)", store)
+        self.assertIn("scheduledRoutine(on: copyDate) == nil", store)
+        self.assertIn("blocks: source.blocks.map { $0.duplicatingContent() }", store)
+        self.assertIn("func clearWeeklySchedule(for weekReference: Date = Date())", store)
+        self.assertIn("scheduledRoutines(inWeekContaining: weekReference)", store)
+        self.assertIn("func removeScheduledRoutine(on date: Date)", store)
+
+    def test_templates_do_not_become_recurring_when_assigned(self):
+        sheet = swift("DayOverrideSheet.swift")
+        store = swift("ReperaStore.swift")
+        editor = swift("PlanView.swift")
+        self.assertIn("store.assignRoutine(routine.id, toDate: scheduledDate)", sheet)
+        self.assertIn("func assignRoutine(_ routineId: UUID, toDate date: Date)", store)
+        self.assertIn("let copy = Routine(", store)
+        self.assertIn("if draft.scheduledDate == nil, let weekday = draft.weekday", store)
+        self.assertIn("draft.weekday = nil", store)
+        self.assertIn("DatePicker(\"Fecha programada\"", editor)
+        self.assertNotIn('Picker("Día en Programado"', editor)
+
+    def test_existing_weekdays_are_migrated_without_deleting_completed_history(self):
+        store = swift("ReperaStore.swift")
+        self.assertIn("private func migrateLegacyWeeklyPlans() -> Bool", store)
+        self.assertIn("let migratedWeekly = migrateLegacyWeeklyPlans()", store)
+        self.assertIn("templates.append(Routine(", store)
+        self.assertIn("migrated.scheduledDate = target", store)
+        self.assertIn("migrated.weekday = nil", store)
+        self.assertIn("if !alreadyDated", store)
+        migrate = store.split("private func migrateLegacyWeeklyPlans()", 1)[1].split("func scheduledRoutines(", 1)[0]
+        self.assertNotIn("state.workouts", migrate)
+        self.assertNotIn("state.routines.removeAll", migrate)
+
+    def test_home_only_marks_plans_with_matching_dates(self):
+        home = swift("HomeView.swift")
+        plan = home.split("private func makeWeekDays(", 1)[1]
+        self.assertIn("guard let scheduled = routine.scheduledDate else { continue }", plan)
+        self.assertNotIn("else if let wd = routine.weekday", plan)
+        self.assertIn("store.scheduledRoutines(inWeekContaining: Date()).count", home)
+
+
+class RecoveryChartFillContractTests(unittest.TestCase):
+    def test_duo_height_comes_from_actual_column_width_not_empty_minimum(self):
+        source = swift("HealthRecovery.swift")
+        self.assertIn("@State private var recoveryGridWidth: CGFloat = 0", source)
+        self.assertIn("private var duoColumnWidth: CGFloat?", source)
+        self.assertIn("private var readinessChartHeight: CGFloat", source)
+        self.assertIn("private var sleepChartHeight: CGFloat", source)
+        self.assertIn("private var physiologyChartHeight: CGFloat", source)
+        self.assertIn(".frame(height: readinessChartHeight)", source)
+        self.assertIn(".frame(height: sleepChartHeight)", source)
+        self.assertIn(".frame(height: physiologyChartHeight)", source)
+        self.assertNotIn("readinessRowMinHeight", source)
+        self.assertNotIn("sleepRowMinHeight", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
