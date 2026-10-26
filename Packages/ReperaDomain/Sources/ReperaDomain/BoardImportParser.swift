@@ -877,6 +877,15 @@ public enum BoardImportParser {
             CrossFitGlossary.normalize(cleaned),
         ].filter { !$0.isEmpty }
 
+        // La lectura anterior pudo crear fichas custom del mismo nombre.
+        // No volver a enlazar esos UUID si el catálogo oficial ya existe.
+        for needle in candidates {
+            if let exact = catalog.first(where: {
+                !$0.isCustom && CrossFitGlossary.normalize($0.name) == needle
+            }) {
+                return exact
+            }
+        }
         for needle in candidates {
             if let exact = catalog.first(where: { CrossFitGlossary.normalize($0.name) == needle }) {
                 return exact
@@ -902,7 +911,9 @@ public enum BoardImportParser {
                         score = 50 - hits * 10
                     }
                 }
-                if let score, best == nil || score < best!.1 {
+                if let score,
+                   best == nil || score < best!.1
+                       || (score == best!.1 && best!.0.isCustom && !ex.isCustom) {
                     best = (ex, score)
                 }
             }
