@@ -116,6 +116,20 @@ struct LiveSportHistoryView: View {
         return values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
     }
 
+    /// Marcas deportivas: no mezclar distancia/ritmo con récords de fuerza (e1RM).
+    private var longestDistanceMeters: Double? {
+        sessions.compactMap(\.recordedDistanceMeters).filter { $0 > 0 }.max()
+    }
+
+    private var longestActiveSeconds: Double? {
+        sessions.compactMap(\.activeDurationSeconds).filter { $0 > 0 }.max()
+    }
+
+    private var fastestRecordedKilometerSeconds: Double? {
+        sessions.flatMap { $0.liveKilometerSplitsSeconds ?? [] }
+            .filter { $0.isFinite && $0 > 0 }.min()
+    }
+
     var body: some View {
         List {
             Section("Resumen") {
@@ -138,6 +152,26 @@ struct LiveSportHistoryView: View {
                     )
                     .font(.caption)
                     .foregroundStyle(OG.label2)
+                }
+            }
+
+            if !sessions.isEmpty {
+                Section("Mejores marcas · \(sport.title)") {
+                    HStack(spacing: 8) {
+                        if let distance = longestDistanceMeters, sport.usesGPS {
+                            tile("Mayor distancia", value: String(format: "%.2f km", distance / 1000))
+                        }
+                        if let seconds = fastestRecordedKilometerSeconds, sport.usesGPS {
+                            tile("Mejor km", value: LiveSportStatsFormat.duration(seconds))
+                        }
+                        if let seconds = longestActiveSeconds {
+                            tile("Mayor duración", value: LiveSportStatsFormat.duration(seconds))
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    Text("Marcas basadas en actividades guardadas de este deporte. No representan récords de fuerza.")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
                 }
             }
 
