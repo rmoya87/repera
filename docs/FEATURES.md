@@ -391,7 +391,15 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 
 ### Espaciado de topbars (26/10/2026)
 
-- **Cabeceras propias (Inicio, Progreso, Diario, Ejercicios DUO y modales):** mismo inicio de contenido dentro de la safe area, márgenes horizontales **16 pt**, superior **4 pt** e inferior **8 pt**. Todos los controles propios utilizan la misma base circular de **44 × 44 pt**.
+- **Cabeceras propias (Inicio, Progreso, Diario, Ejercicios DUO y modales):** mismo inicio de contenido dentro de la safe area, márgenes horizontales **16 pt**, superior **12 pt** (elección visual de Repera **dentro de la safe area**, no una medida universal de Apple) e inferior **8 pt**. Todos los controles propios utilizan la misma base circular de **44 × 44 pt**.
 - Las acciones de `OGFixedTopBar` quedan **alineadas arriba**, independientemente de que exista un subtítulo (fecha/período); antes quedaban unos puntos más bajas al centrarse dentro de una cabecera más alta.
 - `OGPageHeader` y `OGBackPageHeader` comparten la métrica de altura. Se han eliminado los `padding(.top, 4)` duplicados en las modales de añadir entreno, elegir plantilla, importar rutina y ordenar/filtrar.
 - **Toolbars nativas de pantallas secundarias:** se mantienen las distancias y el Liquid Glass que gestiona iOS 27 automáticamente, sin añadir un segundo cristal o padding manual. Los márgenes reales dependen de la safe area, Dynamic Island, orientación y dispositivo.
+
+### Revisión con las recomendaciones de Apple (26/10/2026)
+
+- **La medida de Apple no es «12 pt desde el borde superior»:** lo obligatorio es trabajar **dentro de la safe area**, que cambia con Dynamic Island, orientación, barra de estado e iPad en multitarea. Los **12 pt** adicionales son una decisión visual propia para que los encabezados de Repera no queden pegados a la parte alta; mantienen los **16 pt** laterales propios.
+- **Superficies táctiles:** controles propios **44 × 44 pt**; cuando hay varios botones, separación **16 pt** para dejar sus centros a **60 pt**. Las toolbars nativas siguen usando la disposición que determine iOS.
+- **Ejercicios en iPhone:** cabecera grande y filtro/añadir en los dos botones nativos del extremo derecho, sin imponer distancias manuales ni envolverlos en otro Liquid Glass. **Ejercicios DUO/iPad:** el título y los botones personalizados usan la misma distancia superior/lateral y separación entre botones.
+- **Comenzar → Mapa:** la capa MapKit continúa de borde a borde, pero **solo el mapa** ignora la safe area; la capa con los controles utiliza `safeAreaPadding(.top, OG.topBarTopInset)` y márgenes laterales compartidos. Los botones derechos conservan 44 pt con 16 pt entre ellos, en vertical y apaisado. No se modifica la posición de inicio/guardar ni las métricas fuera de lo necesario para mantener esa alineación.
+- Referencias oficiales: [HIG Layout](https://developer.apple.com/design/human-interface-guidelines/layout), [HIG Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons), [SwiftUI ToolbarItemPlacement](https://developer.apple.com/documentation/swiftui/toolbaritemplacement).
