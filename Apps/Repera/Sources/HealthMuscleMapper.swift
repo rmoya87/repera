@@ -82,8 +82,9 @@ enum HealthMuscleMapper {
              .dance, .wheelchairRunPace, .paddleSports:
             return true
         case .traditionalStrengthTraining, .functionalStrengthTraining,
-             .coreTraining, .yoga, .pilates, .flexibility, .cooldown:
-            // Estímulo muscular estimado sí; minutos de cardio no.
+             .coreTraining, .yoga, .pilates, .flexibility, .cooldown, .other:
+            // Estímulo muscular estimado sí; no convertir una actividad
+            // genérica sin categoría en minutos de cardio verificados.
             return false
         default:
             // Deportes y resto: cuentan como cardio para minutos de Progreso.
