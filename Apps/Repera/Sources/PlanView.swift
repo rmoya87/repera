@@ -143,8 +143,9 @@ struct PlanView: View {
         .accessibilityLabel("Más opciones")
     }
 
-    /// iPhone: cápsula de semanas arriba a la izquierda de la topbar.
-    /// DUO/iPad: la cápsula va alineada con «Programado» en la primera columna.
+    /// iPhone: título y menú ⋯ en la misma fila; semana debajo del título.
+    /// DUO/iPad: «Diario» permanece en su cabecera y el selector semanal
+    /// sigue junto a «Programado» en la primera columna.
     @ViewBuilder
     private var diaryTopBar: some View {
         if isExpandedLayout {
@@ -152,23 +153,48 @@ struct PlanView: View {
                 weekActionsMenu
             }
         } else {
-            VStack(alignment: .leading, spacing: 6) {
-                if section == .schedule {
-                    HStack(spacing: 8) {
-                        weekSelector(narrow: false)
-                        Spacer(minLength: 8)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 12) {
+                    Text("Diario")
+                        .font(.largeTitle.weight(.bold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Spacer(minLength: 8)
+                    if section == .schedule {
                         weekActionsMenu
                     }
                 }
-                Text("Diario")
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundStyle(OG.label)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: OG.toolbarGlassSize, alignment: .top)
+
+                if section == .schedule {
+                    weekSelector(narrow: false)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.horizontal, OG.topBarHorizontalInset)
             .padding(.top, OG.topBarTopInset)
             .padding(.bottom, OG.topBarBottomInset)
         }
+    }
+
+    /// Mismo selector nativo Liquid Glass que Progreso; queda bajo el
+    /// selector de semana y fuera de List para evitar el hueco superior
+    /// que introduce una Section vacía/inicial en insetGrouped.
+    private var compactDiaryTabs: some View {
+        Picker("Sección", selection: $section) {
+            ForEach(DiarioSection.allCases) { tab in
+                Text(tab.title).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .controlSize(.large)
+        .glassEffect(.regular, in: .capsule)
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+        .frame(maxWidth: OG.contentColumnMaxWidth)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private struct DiaryDateBox: Identifiable {
@@ -266,15 +292,6 @@ struct PlanView: View {
                     .background(OG.bg)
                 } else {
                     List {
-                        Section {
-                            Picker("Sección", selection: $section) {
-                                ForEach(DiarioSection.allCases) { tab in
-                                    Text(tab.title).tag(tab)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .ogSegmentedListRow()
-                        }
                         switch section {
                         case .schedule:
                             scheduleContent
@@ -300,7 +317,13 @@ struct PlanView: View {
             }
             .ogContentTitleNav()
             .safeAreaInset(edge: .top, spacing: 0) {
-                diaryTopBar
+                VStack(spacing: 0) {
+                    diaryTopBar
+                    if !isExpandedLayout {
+                        compactDiaryTabs
+                    }
+                }
+                .background(OG.bg)
             }
             .navigationDestination(item: $editing) { routine in
                 DayEditorView(
