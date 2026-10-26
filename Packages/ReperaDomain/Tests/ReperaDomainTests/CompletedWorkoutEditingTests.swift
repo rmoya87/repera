@@ -611,7 +611,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         let emom = RoutineBlock(
             title: "Every 2'", kind: .wod,
             movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 6)],
-            wodFormat: .emom, rounds: 4, emomIntervalSeconds: 120
+            wodFormat: .emom, emomIntervalSeconds: 120, rounds: 4
         )
         var controller = SessionController(session: SessionController.from(
             routine: Routine(title: "Pizarra", blocks: [rft, amrap, emom]),
