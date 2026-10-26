@@ -27,6 +27,32 @@ public enum StatsEngine {
             )
         }
     }
+    /// Para estadísticas de rendimiento muscular: series realmente anotadas
+    /// o ejercicios explícitamente finalizados. Nunca convertir un movimiento
+    /// solo planificado (sin check ni datos) en entrenamiento realizado.
+    /// En registros anteriores no se puede inferir un RIR realmente ejecutado.
+    public static func confirmedWorkSets(
+        _ exercise: SessionExercise, in workout: WorkoutSession
+    ) -> [LoggedSet] {
+        let actual = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+        if !actual.isEmpty { return actual }
+        guard exercise.isCompleted else { return [] }
+        return effectiveWorkSets(exercise, in: workout).map { prescribed in
+            var set = prescribed
+            set.rir = nil
+            set.toFailure = false
+            return set
+        }
+    }
+
+    /// Volumen consistente entre Resumen, Heatmap y Equilibrio muscular.
+    public static func confirmedVolumeKg(in workout: WorkoutSession) -> Double {
+        workout.exercises.reduce(0) { partial, entry in
+            partial + confirmedWorkSets(entry, in: workout)
+                .reduce(0) { $0 + $1.volumeKg }
+        }
+    }
+
     public static func personalRecords(from workouts: [WorkoutSession]) -> [PersonalRecord] {
         var best: [UUID: PersonalRecord] = [:]
 
@@ -34,7 +60,7 @@ public enum StatsEngine {
             let date = workout.finishedAt ?? workout.startedAt ?? Date()
             for exercise in workout.exercises {
                 guard !exercise.exercise.isMobility else { continue }
-                for set in exercise.loggedSets {
+                for set in confirmedWorkSets(exercise, in: workout) {
                     guard let weight = set.weightKg, weight > 0, set.reps > 0 else { continue }
                     let candidate = PersonalRecord(
                         exerciseId: exercise.exercise.id,
@@ -692,7 +718,7 @@ extension StatsEngine {
             var count = 0
             var sessionBests: [(UUID, Double)] = []
             for exercise in session.exercises {
-                let work = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 && ($0.weightKg ?? 0) > 0 }
+                let work = confirmedWorkSets(exercise, in: session).filter { ($0.weightKg ?? 0) > 0 }
                 guard !work.isEmpty else { continue }
                 let sessionBest = work.map { $0.weightKg! * (1 + Double($0.reps) / 30.0) }.max() ?? 0
                 guard sessionBest > 0 else { continue }
@@ -712,7 +738,7 @@ extension StatsEngine {
     }
 
     public static func totalSets(in session: WorkoutSession) -> Int {
-        session.exercises.reduce(0) { $0 + $1.loggedSets.filter { !$0.isWarmup }.count }
+        session.exercises.reduce(0) { $0 + confirmedWorkSets($1, in: session).count }
     }
 
     /// Actividad diaria (Repera + externas) para el heatmap de 12 meses.
@@ -739,7 +765,7 @@ extension StatsEngine {
             )
             row.sessionCount += 1
             row.minutes += max(0, workout.durationMinutes)
-            row.volumeKg += max(0, workout.totalVolumeKg)
+            row.volumeKg += max(0, confirmedVolumeKg(in: workout))
             agg[key] = row
         }
 
@@ -1185,7 +1211,7 @@ extension StatsEngine {
         for workout in filteredW {
             let m = workout.durationMinutes
             if m > 0 { minutes.append(m) }
-            volume += max(0, workout.totalVolumeKg)
+            volume += max(0, confirmedVolumeKg(in: workout))
             if let k = workout.appleActiveEnergyKcal, k > 0 {
                 kcal += k
             }
