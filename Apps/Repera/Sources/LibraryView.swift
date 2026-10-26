@@ -166,10 +166,10 @@ struct LibraryView: View {
                                     createExerciseIfAllowed()
                                 }
                             }
-                            .padding(.horizontal, OG.pad)
-                            .padding(.top, 4)
-                            .padding(.bottom, 4)
-                            .background(Color.clear) // cabecera transparente, igual que la raíz compacta
+                            .padding(.horizontal, OG.topBarHorizontalInset)
+                            .padding(.top, OG.topBarTopInset)
+                            .padding(.bottom, OG.topBarBottomInset)
+                            .background(Color.clear) // misma geometría de cabecera que Inicio y Diario
 
                             HStack(spacing: 9) {
                                 Image(systemName: "magnifyingglass")
@@ -511,8 +511,7 @@ struct LibraryView: View {
             OGPageHeader(title: "Ordenar y filtrar") {
                 CloseToolbarButton { showFilter = false }
             }
-            .padding(.horizontal, OG.pad)
-            .padding(.top, 4)
+            .padding(.horizontal, OG.topBarHorizontalInset)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     modalSection("Ordenar") {
