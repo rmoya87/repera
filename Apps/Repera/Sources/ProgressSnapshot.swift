@@ -294,7 +294,7 @@ enum ProgressDataEngine {
             hardOnly: true,
             now: now
         )
-        let hasHardSets = filteredWorkouts.contains { session in
+        let hasHardSets = !filteredHighEffortStimuli.isEmpty || filteredWorkouts.contains { session in
             session.exercises.contains { entry in
                 !entry.exercise.isMobility && StatsEngine.confirmedWorkSets(entry, in: session)
                     .contains { Effort.isHard(rir: $0.rir) }
