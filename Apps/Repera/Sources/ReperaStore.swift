@@ -1226,19 +1226,28 @@ final class ReperaStore: NSObject {
         guard !fresh.exercises.isEmpty else { return }
         let current = session.currentExercise
         var remaining = session.exercises
+        // Las sesiones creadas con IDs de los ítems del plan se enlazan
+        // exclusivamente por identidad: añadir otro ejercicio idéntico
+        // nunca debe robar sus series completadas a un ejercicio previo.
+        // Solo entrenos anteriores a la corrección necesitan fallback.
+        let sourceIDs = Set((session.routineBlocks ?? []).flatMap { block in
+            block.exercises.map(\.id) + block.movements.map(\.id)
+        })
+        let legacyIdentity = !remaining.contains(where: { sourceIDs.contains($0.id) })
 
         session.routineBlocks = routine.blocks
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
             let oldIndex = remaining.firstIndex(where: { $0.id == planned.id })
-                ?? remaining.firstIndex(where: { old in
-                old.blockId == planned.blockId
-                    && (old.exercise.id == planned.exercise.id
-                        || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame)
-            }) ?? remaining.firstIndex(where: { old in
-                old.exercise.id == planned.exercise.id
-                    || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame
-            })
+                ?? (legacyIdentity ? remaining.firstIndex(where: { old in
+                    old.blockId == planned.blockId
+                        && (old.exercise.id == planned.exercise.id
+                            || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame)
+                }) : nil)
+                ?? (legacyIdentity ? remaining.firstIndex(where: { old in
+                    old.exercise.id == planned.exercise.id
+                        || old.exercise.name.localizedCaseInsensitiveCompare(planned.exercise.name) == .orderedSame
+                }) : nil)
             if let oldIndex {
                 let old = remaining.remove(at: oldIndex)
                 updated.loggedSets = old.loggedSets
@@ -1251,14 +1260,15 @@ final class ReperaStore: NSObject {
         }
         if let current,
            let index = session.exercises.firstIndex(where: { $0.id == current.id })
-                ?? session.exercises.firstIndex(where: {
-               $0.blockId == current.blockId
-                   && ($0.exercise.id == current.exercise.id
-                       || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame)
-           }) ?? session.exercises.firstIndex(where: {
-               $0.exercise.id == current.exercise.id
-                   || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame
-           }) {
+                ?? (legacyIdentity ? session.exercises.firstIndex(where: {
+                    $0.blockId == current.blockId
+                        && ($0.exercise.id == current.exercise.id
+                            || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame)
+                }) : nil)
+                ?? (legacyIdentity ? session.exercises.firstIndex(where: {
+                    $0.exercise.id == current.exercise.id
+                        || $0.exercise.name.localizedCaseInsensitiveCompare(current.exercise.name) == .orderedSame
+                }) : nil) {
             session.currentIndex = index
         } else {
             session.currentIndex = min(session.currentIndex, session.exercises.count - 1)
