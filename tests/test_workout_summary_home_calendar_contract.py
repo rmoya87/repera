@@ -14,37 +14,33 @@ def swift(filename):
 
 
 class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
-    def test_workout_date_keeps_same_origin_without_negative_offset(self):
+    def test_date_is_section_header_outside_rounded_list_row(self):
         history = swift("HistoryView.swift")
-        block = history.split("if !subtitle.isEmpty {", 1)[1].split(
-            "summaryCard(session)", 1
+        header = history.split("private var detailList: some View {", 1)[1].split(
+            "// El mapa va directamente debajo", 1
         )[0]
-        self.assertIn("Text(subtitle)", block)
-        self.assertIn(".fixedSize(horizontal: false, vertical: true)", block)
-        self.assertIn(".padding(.leading, 2)", block)
-        self.assertNotIn(".offset(x: -6)", block)
-        self.assertNotIn(".padding(.leading, 8)", block)
+        # El header, no una fila redondeada, contiene la primera letra.
+        self.assertIn("Section {", header)
+        self.assertIn("} header: {", header)
+        self.assertIn(".ogCardListRow(top: 0, bottom: 2)", header)
+        self.assertLess(header.index("summaryCard(session)"), header.index("} header: {"))
+        subtitle = header.split("} header: {", 1)[1]
+        self.assertIn("Text(subtitle)", subtitle)
+        self.assertIn(".fixedSize(horizontal: false, vertical: true)", subtitle)
+        self.assertIn(".padding(.leading, 2)", subtitle)
+        self.assertIn(".textCase(nil)", subtitle)
+        self.assertNotIn(".offset(x: -6)", subtitle)
 
     def test_pin_label_is_not_repeated_below_map(self):
         history = swift("HistoryView.swift")
         section = history.split("SessionMapWeatherCard(", 1)[1].split(
-            "// Solo métricas reales de Apple Salud", 1
+            "// Ritmo, velocidad y kilómetros guardados", 1
         )[0]
         self.assertIn("sessionMapView(session)", section)
         self.assertIn("if sessionMapContent(session) != .pin", section)
         self.assertIn('Text("Colores = velocidad', section)
         self.assertNotIn("Text(name)", section)
         self.assertNotIn("session.locationPin?.name", section)
-
-    def test_completed_summary_has_no_invisible_outer_rounded_section(self):
-        history = swift("HistoryView.swift")
-        header = history.split("private var detailList: some View {", 1)[1].split(
-            "// El mapa va directamente debajo", 1
-        )[0]
-        self.assertIn("summaryCard(session)", header)
-        self.assertIn(".ogCardListRow(top: 0, bottom: 2)", header)
-        self.assertNotIn("Section {", header)
-        self.assertIn("Text(subtitle)", header)
 
     def test_comenzar_splits_survive_private_supabase_restore(self):
         history = swift("HistoryView.swift")
