@@ -1025,13 +1025,12 @@ struct HomeView: View {
             onDelete: { routinePendingDelete = routine },
             title: {
                 HStack(alignment: .top, spacing: 12) {
-                    ZStack {
-                        Circle().fill(todayIconBg)
-                        Image(systemName: todayIcon)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(todayIconFg)
-                    }
-                    .frame(width: 44, height: 44)
+                    // Pendiente: icono de fuerza gris, incluso si ya hay
+                    // otro entreno completado en la misma fecha.
+                    OGRegisterLeadingIcon(
+                        systemName: "figure.strengthtraining.traditional",
+                        tint: OG.label2
+                    )
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WorkoutListCaption.dayTimeLine(
@@ -1074,9 +1073,11 @@ struct HomeView: View {
             onDelete: { workoutPendingDelete = session },
             title: {
                 HStack(alignment: .top, spacing: 12) {
-                    // Completado en Inicio: check (Historial usa icono de fuerza).
+                    // Completado: mismo símbolo que un plan gris, en verde.
+                    // Las actividades de Comenzar mantienen su icono deportivo.
                     OGRegisterLeadingIcon(
-                        systemName: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol } ?? "checkmark",
+                        systemName: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol }
+                            ?? "figure.strengthtraining.traditional",
                         tint: OG.accent
                     )
 
@@ -1171,8 +1172,8 @@ struct HomeView: View {
                 // .frame(minHeight:) permitía crecer toda la banda y creaba
                 // un hueco grande entre titular, chip y borde inferior.
                 // Altura acotada idéntica al estado sin entrenamiento.
-                .frame(height: 30, alignment: .center)
-                .padding(.top, 2)
+                .frame(height: 27, alignment: .center)
+                .padding(.top, 0)
             }
         )
         .accessibilityHint(accessibilityHint)
