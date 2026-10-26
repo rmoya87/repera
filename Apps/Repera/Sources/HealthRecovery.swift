@@ -537,11 +537,31 @@ struct HealthRecoveryProgressView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
 
     private var isPro: Bool { subscriptions.isPro }
-    /// Alturas mínimas compartidas por parejas únicamente en DUO horizontal.
-    /// El contenido puede crecer si Dynamic Type necesita más espacio.
+    /// La superficie de cada columna en DUO determina la altura real de
+    /// las gráficas: nunca se rellena una tarjeta con padding blanco.
     private let primaryChartHeight: CGFloat = 220
-    private var readinessRowMinHeight: CGFloat? { usesExpandedLayout ? 310 : nil }
-    private var sleepRowMinHeight: CGFloat? { usesExpandedLayout ? 540 : nil }
+    @State private var recoveryGridWidth: CGFloat = 0
+    private var duoColumnWidth: CGFloat? {
+        guard usesExpandedLayout, recoveryGridWidth > 0 else { return nil }
+        return (recoveryGridWidth - 16) / 2
+    }
+    private var readinessChartHeight: CGFloat {
+        guard let width = duoColumnWidth else { return primaryChartHeight }
+        // Encajar el chart dentro de una tarjeta aproximadamente cuadrada.
+        return max(240, width - OG.pad * 2)
+    }
+    private var sleepChartHeight: CGFloat {
+        guard let width = duoColumnWidth else { return primaryChartHeight }
+        return max(220, width - 150)
+    }
+    private var physiologyChartHeight: CGFloat {
+        guard let width = duoColumnWidth else { return 128 }
+        let additionalVitals = physiology.days.last.map {
+            $0.oxygenSaturationPercent != nil || $0.wristTemperatureCelsius != nil
+                || $0.heartRateRecoveryBpm != nil
+        } ?? false
+        return max(128, width - (additionalVitals ? 330 : 265))
+    }
 
     private struct TrainingRecoveryPoint: Identifiable, Sendable {
         let date: Date
@@ -688,6 +708,9 @@ struct HealthRecoveryProgressView: View {
                 recoveryUpsellBanner
             }
         }
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { _, width in
+            if abs(recoveryGridWidth - width) > 1 { recoveryGridWidth = width }
+        }
         // Las lecturas de Salud ya se han cargado: no reiniciar todas las
         // tarjetas al entrar y salir de la pestaña Recuperación.
         .task {
@@ -715,7 +738,7 @@ struct HealthRecoveryProgressView: View {
                             message: "Aún no hay suficientes registros para ver la recuperación.",
                             height: primaryChartHeight
                         )
-                        .frame(minHeight: readinessRowMinHeight, alignment: .top)
+                        .frame(height: readinessChartHeight)
                     }
                 }
             }
@@ -779,8 +802,7 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
                 }
-                .frame(height: primaryChartHeight)
-                .frame(minHeight: readinessRowMinHeight, alignment: .top)
+                .frame(height: readinessChartHeight)
                 .allowsHitTesting(false)
             }
         }
@@ -820,14 +842,13 @@ struct HealthRecoveryProgressView: View {
                     }
                     .chartXScale(domain: 0...8)
                     .chartPlotStyle { $0.clipped() }
-                    .frame(height: 128)
+                    .frame(height: physiologyChartHeight)
                     Divider().opacity(0.25)
                     HStack(alignment: .top, spacing: 10) {
                         physiologyPreviewBars("Pulso en reposo", unit: "lpm", values: [66, 63, 65, 61, 60, 62, 58])
                         physiologyPreviewBars("Respiración", unit: "rpm", values: [16, 15, 15, 14, 16, 14, 13])
                     }
                 }
-                .frame(minHeight: sleepRowMinHeight, alignment: .top)
                 .allowsHitTesting(false)
             }
         }
@@ -871,10 +892,9 @@ struct HealthRecoveryProgressView: View {
                     message: recovery.sleepEnabled
                         ? "Sin registros de sueño en Apple Salud todavía."
                         : "Activa el análisis de descanso en Ajustes → Salud conectada.",
-                    height: 150,
+                    height: sleepChartHeight,
                     yRange: 0.0...10.0
                 )
-                .frame(minHeight: sleepRowMinHeight, alignment: .top)
             }
         }
     }
@@ -1061,7 +1081,6 @@ struct HealthRecoveryProgressView: View {
                         }
                     }
                 }
-                .frame(minHeight: sleepRowMinHeight, alignment: .top)
             }
         }
     }
@@ -1128,6 +1147,7 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.label2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: readinessChartHeight, alignment: .center)
                 } else if let readiness = currentReadiness {
                     let tint = readinessColor(readiness.score)
                     VStack(alignment: .leading, spacing: 16) {
@@ -1166,7 +1186,9 @@ struct HealthRecoveryProgressView: View {
                             .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                         }
 
+                        Spacer(minLength: 8)
                         Divider().opacity(0.25)
+                        Spacer(minLength: 8)
 
                         LazyVGrid(
                             columns: [
@@ -1198,14 +1220,14 @@ struct HealthRecoveryProgressView: View {
                             )
                         }
                     }
+                    .frame(height: readinessChartHeight, alignment: .top)
                 } else {
                     ProgressEmptyChart(
                         message: "Necesitamos datos de sueño y entrenamientos recientes",
-                        height: 150
+                        height: readinessChartHeight
                     )
                 }
                 }
-                .frame(minHeight: readinessRowMinHeight, alignment: .top)
             }
         }
     }
@@ -1270,8 +1292,7 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: primaryChartHeight)
-                .frame(minHeight: readinessRowMinHeight, alignment: .top)
+                .frame(height: readinessChartHeight)
                 .accessibilityLabel("Evolución de preparación para entrenar")
             }
         }
@@ -1365,7 +1386,7 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis(.hidden)
                 .chartLegend(.hidden)
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: primaryChartHeight)
+                .frame(height: sleepChartHeight)
                 .frame(maxWidth: .infinity)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipped()
@@ -1381,7 +1402,6 @@ struct HealthRecoveryProgressView: View {
                 }
 
             }
-            .frame(minHeight: sleepRowMinHeight, alignment: .top)
         }
     }
 
