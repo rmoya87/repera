@@ -149,7 +149,9 @@ enum ProgressDataEngine {
             heartRateDays: input.heartRateDays,
             energyDays: input.energyDays,
             workouts: filteredWorkouts,
-            external: filteredExternal,
+            // El gráfico filtra por fecha internamente. Conservamos aquí
+            // el histórico externo necesario para comparar el periodo previo.
+            external: externalSamples,
             now: now
         )
         if Task.isCancelled { return nil }
