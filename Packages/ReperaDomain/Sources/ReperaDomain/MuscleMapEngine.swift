@@ -179,7 +179,7 @@ public enum MuscleMapEngine {
             guard when >= weekAgo else { continue }
             for entry in workout.exercises {
                 guard entry.exercise.sportTag != "Movilidad" else { continue }
-                let sets = entry.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }.count
+                let sets = StatsEngine.confirmedWorkSets(entry, in: workout).count
                 let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
                     for: entry, hardOnly: hardOnly
                 )
