@@ -366,6 +366,7 @@ struct WorkoutDetailView: View {
                 LiveSport(rawValue: $0)?.isWaterSport
             } ?? false,
             referenceRoutePoints: draft.map { referenceRoutePoints($0) } ?? [],
+            showsSpeedLegend: true,
             onClose: { showFullScreenRoute = false }
         )
     }
@@ -457,7 +458,8 @@ struct WorkoutDetailView: View {
                         isWaterSport: session.liveSportID.flatMap {
                             LiveSport(rawValue: $0)?.isWaterSport
                         } ?? false,
-                        referenceRoutePoints: referenceRoutePoints(session)
+                        referenceRoutePoints: referenceRoutePoints(session),
+                        showsSpeedLegend: true
                     )
                     .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
                 }
@@ -474,7 +476,8 @@ struct WorkoutDetailView: View {
                     isWaterSport: session.liveSportID.flatMap {
                         LiveSport(rawValue: $0)?.isWaterSport
                     } ?? false,
-                    referenceRoutePoints: referenceRoutePoints(session)
+                    referenceRoutePoints: referenceRoutePoints(session),
+                    showsSpeedLegend: true
                 )
                 .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
             }
@@ -1883,6 +1886,8 @@ struct WorkoutMapZoomDestination: View {
     var pin: WorkoutLocationPin? = nil
     var isWaterSport: Bool = false
     var referenceRoutePoints: [WorkoutRoutePoint] = []
+    /// Solo los recorridos ya guardados muestran su escala de color.
+    var showsSpeedLegend: Bool = false
     var onClose: () -> Void
 
     var body: some View {
@@ -1894,7 +1899,8 @@ struct WorkoutMapZoomDestination: View {
                     HealthWorkoutRouteMap(
                         points: points, isInteractive: true,
                         isWaterSport: isWaterSport,
-                        referenceRoutePoints: referenceRoutePoints
+                        referenceRoutePoints: referenceRoutePoints,
+                        showsSpeedLegend: showsSpeedLegend
                     )
                 }
             }
@@ -1950,6 +1956,7 @@ struct HealthActivityDetailView: View {
         .navigationDestination(isPresented: $showFullScreenRoute) {
             WorkoutMapZoomDestination(
                 points: detail?.routePoints ?? [],
+                showsSpeedLegend: true,
                 onClose: { showFullScreenRoute = false }
             )
             .navigationTransition(.zoom(sourceID: activityId, in: routeZoomNamespace))
@@ -1987,7 +1994,8 @@ struct HealthActivityDetailView: View {
                         } map: {
                             HealthWorkoutRouteMap(
                                 points: detail.routePoints,
-                                isInteractive: false
+                                isInteractive: false,
+                                showsSpeedLegend: true
                             )
                             .matchedTransitionSource(id: activityId, in: routeZoomNamespace)
                         }
@@ -2210,6 +2218,7 @@ struct HealthWorkoutRouteMap: View {
     var isWaterSport: Bool = false
     /// Trazado GPX cargado por el usuario, solo para reparar huecos de pantalla.
     var referenceRoutePoints: [WorkoutRoutePoint] = []
+    var showsSpeedLegend: Bool = false
 
     // MapKit overlays are expensive: cache the route geometry between SwiftUI
     // updates (including continuous GPS changes from another active session).
@@ -2586,6 +2595,48 @@ struct HealthWorkoutRouteMap: View {
         ]
     }
 
+
+    /// Misma función cromática que utiliza cada segmento del trazado. Las
+    /// muestras distribuidas compensan la curva de contraste (pow 0.72).
+    private var speedLegendStops: [Gradient.Stop] {
+        (0...24).map { index in
+            let position = Double(index) / 24.0
+            return Gradient.Stop(
+                color: Self.speedColor(position, minSpeed: 0, maxSpeed: 1, water: isWaterSport),
+                location: position
+            )
+        }
+    }
+
+    private var speedLegend: some View {
+        VStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(LinearGradient(
+                    stops: speedLegendStops,
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ))
+                .frame(width: 130, height: 7)
+
+            HStack {
+                Text("Lento")
+                Spacer(minLength: 10)
+                Text("Rápido")
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(OG.label)
+        }
+        .frame(width: 130)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(.regularMaterial, in: RoundedRectangle(
+            cornerRadius: 10, style: .continuous
+        ))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Colores del recorrido: lento a la izquierda y rápido a la derecha")
+        .allowsHitTesting(false)
+    }
+
     var body: some View {
         Map(initialPosition: cameraPosition, interactionModes: modes) {
             if !routeBackdrop.isEmpty {
@@ -2644,6 +2695,15 @@ struct HealthWorkoutRouteMap: View {
             if isInteractive {
                 // La X ocupa arriba a la derecha.
                 MapScaleView()
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if showsSpeedLegend && !cachedRuns.isEmpty {
+                speedLegend
+                    // Dejar libres el aviso legal de MapKit y, en el visor
+                    // completo, la zona del indicador de inicio del iPhone.
+                    .padding(.trailing, 12)
+                    .padding(.bottom, isInteractive ? 54 : 30)
             }
         }
         .allowsHitTesting(isInteractive)
