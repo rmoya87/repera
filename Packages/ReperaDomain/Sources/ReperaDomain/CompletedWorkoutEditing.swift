@@ -229,33 +229,29 @@ public enum CompletedWorkoutEditing {
                 // diferentes y ambos deben persistir sin contaminarse.
                 if let old, !old.loggedSets.isEmpty,
                    block.wodFormat == nil || block.wodFormat?.resultCapture == .perMovementSets {
-                    entry.loggedSets = sets.map { set in
-                        if let previous = old.loggedSets.first(where: { $0.id == set.id }) {
-                            var edited = previous
-                            edited.reps = max(0, set.targetReps)
-                            if exercise.loadField == .deficitCm {
-                                edited.deficitCm = set.targetWeightKg.map { Int($0.rounded()) }
-                                edited.weightKg = nil
-                            } else {
-                                edited.weightKg = set.targetWeightKg
-                            }
-                            edited.rir = set.targetRir
-                            edited.toFailure = set.targetRir == 0 && previous.toFailure
-                            edited.quantityUnit = unit ?? previous.quantityUnit
-                            return edited
+                    // El editor mezcla series realizadas y pendientes. Solo los
+                    // UUID ya registrados representan resultados: una serie nueva
+                    // o aún sin confirmar NO puede convertirse en LoggedSet.
+                    entry.loggedSets = sets.compactMap { set -> LoggedSet? in
+                        guard let previous = old.loggedSets.first(where: { $0.id == set.id }) else {
+                            return nil
                         }
-                        return LoggedSet(
-                            id: set.id,
-                            reps: max(0, set.targetReps),
-                            weightKg: exercise.loadField == .deficitCm ? nil : set.targetWeightKg,
-                            deficitCm: exercise.loadField == .deficitCm
-                                ? set.targetWeightKg.map { Int($0.rounded()) } : nil,
-                            quantityUnit: unit,
-                            completedAt: original.finishedAt ?? Date(),
-                            rir: set.targetRir
-                        )
+                        var edited = previous
+                        edited.reps = max(0, set.targetReps)
+                        if exercise.loadField == .deficitCm {
+                            edited.deficitCm = set.targetWeightKg.map { Int($0.rounded()) }
+                            edited.weightKg = nil
+                        } else {
+                            edited.weightKg = set.targetWeightKg
+                            edited.deficitCm = nil
+                        }
+                        edited.durationSeconds = set.targetDurationSeconds
+                        edited.rir = set.targetRir
+                        edited.toFailure = set.targetRir == 0 && previous.toFailure
+                        edited.quantityUnit = unit ?? previous.quantityUnit
+                        return edited
                     }
-                    entry.completedReps = entry.loggedSets.filter { !$0.isWarmup }
+                    entry.completedReps = entry.loggedSets.filter { $0.phase == .work }
                         .reduce(0) { $0 + $1.reps + $1.drops.reduce(0) { $0 + $1.reps } }
                 }
                 // Ejercicio añadido: sigue pendiente hasta que existan sets de verdad.
@@ -297,14 +293,28 @@ public enum CompletedWorkoutEditing {
 
     private static func visibleSets(for entry: SessionExercise) -> [PlannedSet] {
         guard !entry.loggedSets.isEmpty else { return entry.plannedSets }
-        return entry.loggedSets.map {
-            PlannedSet(
-                id: $0.id,
-                targetReps: $0.reps,
-                targetWeightKg: $0.deficitCm.map(Double.init) ?? $0.weightKg,
-                targetRir: $0.rir
+        // En Play se pueden completar solo algunas series y añadir otras.
+        // Presentar las realizadas con su UUID original para editarlas,
+        // conservando detrás las pendientes con sus valores y metadatos Rx.
+        // Los LoggedSet históricos tienen UUID distinto del PlannedSet:
+        // su correspondencia se realiza por la posición registrada, no por
+        // la identidad de una prescripción que ya pudo ser modificada.
+        var visible = entry.plannedSets
+        for (index, performed) in entry.loggedSets.enumerated() {
+            let set = PlannedSet(
+                id: performed.id,
+                targetReps: performed.reps,
+                targetWeightKg: performed.deficitCm.map(Double.init) ?? performed.weightKg,
+                targetDurationSeconds: performed.durationSeconds,
+                targetRir: performed.rir
             )
+            if visible.indices.contains(index) {
+                visible[index] = set
+            } else {
+                visible.append(set)
+            }
         }
+        return visible
     }
 
     private static func movement(
