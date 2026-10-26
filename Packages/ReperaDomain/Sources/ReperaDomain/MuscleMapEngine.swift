@@ -30,25 +30,116 @@ public struct MuscleStatus: Identifiable, Sendable, Equatable {
     }
 }
 
-/// Aproximación de estímulo en un WOD completado sin registro de series.
-/// Es únicamente un equivalente de carga para gráficas: NO genera LoggedSet,
-/// ni altera los resultados guardados ni puede inferir RIR o repeticiones exactas.
+/// Estímulo muscular orientativo para WODs con un resultado global.
+//// No modifica LoggedSet, no atribuye RIR y no se utiliza como récord.
 public enum MuscleCompletedWODStimulus {
+    /// Los resultados de bloque tienen prioridad sobre cantidades prescritas
+    /// cuando no se registraron series individuales.
+    public static func usesScoredEstimate(
+        for entry: SessionExercise, in workout: WorkoutSession
+    ) -> Bool {
+        guard workout.phase == .finished || workout.finishedAt != nil,
+              entry.blockKind == .wod,
+              !entry.exercise.isMobility,
+              !entry.loggedSets.contains(where: { !$0.isWarmup && $0.reps > 0 }),
+              let id = entry.blockId else { return false }
+        return workout.wodResults.contains {
+            $0.id == id && (
+                ($0.elapsedSeconds ?? 0) > 0 ||
+                ($0.roundsCompleted ?? 0) > 0 ||
+                ($0.totalReps ?? 0) > 0
+            )
+        }
+    }
+
+    private static func cycleQuantity(_ entry: SessionExercise) -> Int {
+        max(0, entry.adaptedReps ?? entry.plannedSets.first?.targetReps ?? 0)
+    }
+
+    /// Cantidad estimada de este movimiento; AMRAP distribuye las reps
+    /// parciales según el orden original, no las suma a todos los ejercicios.
+    private static func quantity(
+        for entry: SessionExercise, siblings: [SessionExercise],
+        result: WODBlockResult
+    ) -> Double {
+        let base = cycleQuantity(entry)
+        guard base > 0 else { return 0 }
+        if result.totalReps != nil || result.roundsCompleted != nil {
+            let cycleTotal = max(1, siblings.reduce(0) { $0 + cycleQuantity($1) })
+            let partialTotal = max(0, result.totalReps ?? 0)
+            let fullRounds = result.roundsCompleted.map { max(0, $0) }
+                ?? (partialTotal / cycleTotal)
+            let remainder = result.roundsCompleted == nil
+                ? partialTotal % cycleTotal : partialTotal
+            let before = siblings.prefix(while: { $0.id != entry.id })
+                .reduce(0) { $0 + cycleQuantity($1) }
+            let partial = min(base, max(0, remainder - before))
+            return Double(fullRounds * base + partial)
+        }
+        // For Time: el tiempo medido corresponde al bloque completado.
+        // Una prescripción expandida por rondas no se vuelve a multiplicar.
+        let prescribed = entry.plannedSets.reduce(0) { $0 + max(0, $1.targetReps) }
+        return Double(max(prescribed, base * max(1, entry.blockRounds ?? 1)))
+    }
+
+    private static func normalizedQuantity(_ amount: Double, for entry: SessionExercise) -> Double {
+        switch entry.quantityUnit ?? entry.exercise.defaultQuantityUnit {
+        case .reps: return amount
+        case .calories: return amount * 1.2
+        case .meters: return amount / 100
+        }
+    }
+
     public static func estimatedSetEquivalent(
         for entry: SessionExercise, in workout: WorkoutSession, hardOnly: Bool
     ) -> Double {
-        let hasBlockScore = entry.blockId.map { id in
-            workout.wodResults.contains { $0.id == id }
-        } ?? false
-        guard !hardOnly,
-              workout.phase == .finished || workout.finishedAt != nil,
-              entry.blockKind == .wod || hasBlockScore,
+        guard workout.phase == .finished || workout.finishedAt != nil,
+              entry.blockKind == .wod || entry.blockId.map({
+                  id in workout.wodResults.contains { $0.id == id }
+              }) == true,
               !entry.exercise.isMobility,
               !entry.loggedSets.contains(where: { !$0.isWarmup && $0.reps > 0 })
         else { return 0 }
-        // Un score global del WOD no permite saber repeticiones por movimiento.
-        // Solo asignamos un equivalente conservador de estímulo muscular.
-        return 1
+
+        guard usesScoredEstimate(for: entry, in: workout),
+              let id = entry.blockId,
+              let result = workout.wodResults.last(where: { $0.id == id }) else {
+            // Sin resultado cuantificado: conservar el mínimo prudente,
+            // solo en fatiga, nunca inventar esfuerzo intenso.
+            return hardOnly ? 0 : 1
+        }
+
+        let siblings = workout.exercises.filter {
+            $0.blockId == id && $0.blockKind == .wod && !$0.exercise.isMobility
+        }
+        let movementUnits = normalizedQuantity(
+            quantity(for: entry, siblings: siblings, result: result), for: entry
+        )
+        guard movementUnits > 0 else { return 0 }
+        let totalUnits = siblings.reduce(0.0) {
+            $0 + normalizedQuantity(
+                quantity(for: $1, siblings: siblings, result: result), for: $1
+            )
+        }
+        let blockCount = max(1, Set(workout.exercises.compactMap(\.blockId)).count)
+        let sessionMinutes = workout.durationMinutes / Double(blockCount)
+        let elapsedMinutes = Double(result.elapsedSeconds ?? 0) / 60
+        let capMinutes = Double(entry.blockTimeCapMinutes ?? 0)
+        let minutes = max(1.0, min(120.0,
+            elapsedMinutes > 0 ? elapsedMinutes :
+                (capMinutes > 0 ? capMinutes : max(1, sessionMinutes))
+        ))
+        let durationFactor = 0.8 + 0.2 * min(2.0, minutes / 15.0)
+        let kg = max(0, entry.adaptedWeightKg ?? entry.plannedSets.first?.targetWeightKg ?? 0)
+        let loadFactor = 1.0 + min(0.35, kg / 250.0)
+        let equivalent = min(12.0, max(0.25, movementUnits / 10.0) * durationFactor * loadFactor)
+        if !hardOnly { return equivalent }
+
+        // Esfuerzo metabólico ESTIMADO por densidad global del bloque.
+        // Nunca se registra como serie dura real ni como RIR inferido.
+        let repetitionsPerMinute = totalUnits / minutes
+        let densityFactor = min(0.75, max(0, (repetitionsPerMinute - 5) / 20.0))
+        return equivalent * densityFactor
     }
 }
 
@@ -93,7 +184,9 @@ public enum MuscleMapEngine {
             for entry in workout.exercises {
                 // La movilidad no representa volumen de fuerza ni fatiga muscular.
                 guard entry.exercise.sportTag != "Movilidad" else { continue }
-                let hardSets = StatsEngine.confirmedWorkSets(entry, in: workout).reduce(0.0) { partial, set in
+                let scored = MuscleCompletedWODStimulus.usesScoredEstimate(for: entry, in: workout)
+                let workSets = scored ? [] : StatsEngine.confirmedWorkSets(entry, in: workout)
+                let hardSets = workSets.reduce(0.0) { partial, set in
                     guard set.reps > 0 else { return partial }
                     if hardOnly {
                         // Solo fuerza «dura» (RIR); cardio/máquina no entra en este filtro.
@@ -109,7 +202,9 @@ public enum MuscleMapEngine {
                 let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
                     for: entry, in: workout, hardOnly: hardOnly
                 )
-                let recordedOrEstimated = hardSets > 0 ? hardSets : completedWOD * 0.7
+                let recordedOrEstimated = scored
+                    ? completedWOD
+                    : (hardSets > 0 ? hardSets : completedWOD * 0.7)
                 guard recordedOrEstimated > 0 else { continue }
                 let capped = min(recordedOrEstimated, 12)
                 let weights = MuscleTaxonomy.muscleWeights(for: entry.exercise)
@@ -186,11 +281,12 @@ public enum MuscleMapEngine {
             guard when >= weekAgo else { continue }
             for entry in workout.exercises {
                 guard entry.exercise.sportTag != "Movilidad" else { continue }
-                let sets = StatsEngine.confirmedWorkSets(entry, in: workout).count
+                let scored = MuscleCompletedWODStimulus.usesScoredEstimate(for: entry, in: workout)
+                let sets = scored ? 0 : StatsEngine.confirmedWorkSets(entry, in: workout).count
                 let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
                     for: entry, in: workout, hardOnly: hardOnly
                 )
-                let countedSets = sets > 0 ? Double(sets) : completedWOD
+                let countedSets = scored ? completedWOD : (sets > 0 ? Double(sets) : completedWOD)
                 guard countedSets > 0 else { continue }
                 for (slug, w) in MuscleTaxonomy.muscleWeights(for: entry.exercise) {
                     weekly[slug, default: 0] += w * countedSets

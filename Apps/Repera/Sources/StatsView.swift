@@ -108,25 +108,6 @@ struct StatsView: View {
                             }
                             }
 
-                            if topic == .training,
-                               store.state.workouts.contains(where: {
-                                   $0.liveSportID != nil && ($0.phase == .finished || $0.finishedAt != nil)
-                               }) {
-                                NavigationLink {
-                                    LiveSportsCatalogView()
-                                } label: {
-                                    OGCard {
-                                        HStack {
-                                            Label("Deportes · evolución y récords", systemImage: "figure.run")
-                                                .foregroundStyle(OG.label)
-                                            Spacer()
-                                            Image(systemName: "chevron.right").foregroundStyle(OG.label3)
-                                        }
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-
                             if topic == .training {
                                 NavigationLink {
                                     HistoryView()

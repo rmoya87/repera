@@ -262,7 +262,8 @@ public enum MuscleLoadEngine {
         var load: [String: Double] = [:]
         for workout in inWindow {
             for entry in workout.exercises {
-                let sets = StatsEngine.confirmedWorkSets(entry, in: workout).filter { set in
+                let scored = MuscleCompletedWODStimulus.usesScoredEstimate(for: entry, in: workout)
+                let sets = (scored ? [] : StatsEngine.confirmedWorkSets(entry, in: workout)).filter { set in
                     guard set.reps > 0, !set.isWarmup else { return false }
                     if hardOnly {
                         return Effort.isHard(rir: set.rir)
@@ -275,7 +276,7 @@ public enum MuscleLoadEngine {
                 let estimated = MuscleCompletedWODStimulus.estimatedSetEquivalent(
                     for: entry, in: workout, hardOnly: hardOnly
                 )
-                let effectiveSets = sets > 0 ? Double(sets) : estimated
+                let effectiveSets = scored ? estimated : (sets > 0 ? Double(sets) : estimated)
                 guard effectiveSets > 0 else { continue }
                 let weights = MuscleTaxonomy.muscleWeights(for: entry.exercise)
                 for (slug, w) in weights {
