@@ -262,7 +262,7 @@ public enum MuscleLoadEngine {
         var load: [String: Double] = [:]
         for workout in inWindow {
             for entry in workout.exercises {
-                let sets = entry.loggedSets.filter { set in
+                let sets = StatsEngine.confirmedWorkSets(entry, in: workout).filter { set in
                     guard set.reps > 0, !set.isWarmup else { return false }
                     if hardOnly {
                         return Effort.isHard(rir: set.rir)
