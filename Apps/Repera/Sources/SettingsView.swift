@@ -25,6 +25,8 @@ struct SettingsView: View {
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
     @State private var googleLinkFeedback: String?
+    @State private var workoutSync = BusinessWorkoutSyncStore.shared
+    @State private var localSyncError: String?
     var body: some View {
         @Bindable var store = store
         Form {
@@ -106,6 +108,52 @@ struct SettingsView: View {
                         photoItem = nil
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Button {
+                        Task { @MainActor in
+                            localSyncError = nil
+                            await LocalStore.shared.persistAndFlush(store.state)
+                            if let error = LocalStore.shared.lastPersistenceError {
+                                localSyncError = error
+                                return
+                            }
+                            _ = await workoutSync.sync(store: store)
+                        }
+                    } label: {
+                        HStack(spacing: 9) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .rotationEffect(.degrees(workoutSync.isSyncing ? 360 : 0))
+                                .animation(
+                                    workoutSync.isSyncing
+                                        ? .linear(duration: 1).repeatForever(autoreverses: false)
+                                        : .default,
+                                    value: workoutSync.isSyncing
+                                )
+                            Text(workoutSync.isSyncing ? "Sincronizando…" : "Sincronizar ahora")
+                            Spacer()
+                            if workoutSync.isSyncing {
+                                ProgressView().controlSize(.small)
+                            }
+                        }
+                        .foregroundStyle(OG.label)
+                    }
+                    .disabled(workoutSync.isSyncing || !businessAuth.isConnected)
+                    if let failure = localSyncError ?? workoutSync.lastError {
+                        Text(failure)
+                            .font(.caption)
+                            .foregroundStyle(OG.red)
+                    } else if let syncedAt = workoutSync.lastSyncAt {
+                        Text("Última sincronización con Supabase: \(syncedAt.formatted(date: .abbreviated, time: .shortened)) · \(workoutSync.mirroredCount) registros remotos")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    } else {
+                        Text("Los entrenos finalizados se guardan localmente y se envían a Supabase al conectarte.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                .padding(.vertical, 3)
 
                 if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
                     Button {
