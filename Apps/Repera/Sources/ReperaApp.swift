@@ -51,6 +51,7 @@ struct ReperaApp: App {
     /// Isolate the root environment graph from the startup/lifecycle closures.
     private var appEnvironmentContent: some View {
             launchRootView
+                .environment(\.locale, Locale(identifier: "es_ES"))
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
                 }
