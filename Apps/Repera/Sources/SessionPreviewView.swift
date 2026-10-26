@@ -80,7 +80,12 @@ struct SessionPreviewView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav(active != nil ? "Sesión" : "Entreno")
+        // Evitar el título grande detrás del topbar: la etiqueta comparte
+        // la misma fila nativa que la X, sin una segunda capa al hacer scroll.
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .ogTransparentNav()
         .safeAreaInset(edge: .top, spacing: 0) {
             if active == nil, !dayLabel.isEmpty {
                 Text("Entreno · \(dayLabel)")
@@ -93,8 +98,13 @@ struct SessionPreviewView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItemGroup(placement: .topBarLeading) {
                 CloseToolbarButton(action: onClose, large: false)
+                Text(active != nil ? "Sesión" : "Entreno")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
             }
             if active == nil, liveRoutine != nil {
                 ToolbarItem(placement: .topBarTrailing) {
