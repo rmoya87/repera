@@ -226,8 +226,8 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         let accepted = StatsEngine.confirmedWorkSets(entry, in: workout)
         XCTAssertEqual(accepted.count, 1)
         XCTAssertEqual(accepted[0].reps, 3)
-        XCTAssertEqual(accepted[0].weightKg, 115)
-        XCTAssertEqual(accepted[0].rir, 2)
+        XCTAssertEqual(accepted[0].weightKg ?? 0, 115)
+        XCTAssertEqual(accepted[0].rir ?? -1, 2)
         XCTAssertTrue(Effort.isHard(rir: accepted[0].rir))
 
         let unfinished = WorkoutSession(
