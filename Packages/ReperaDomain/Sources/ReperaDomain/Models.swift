@@ -1948,6 +1948,9 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
     /// Precisión real de la medida (nil para rutas antiguas/importadas).
     public var horizontalAccuracyMeters: Double?
     public var verticalAccuracyMeters: Double?
+    /// nil/false = GPS real o punto histórico; true = posición interpolada,
+    /// NUNCA una medición real de Core Location.
+    public var isEstimated: Bool?
 
     public init(
         id: Int,
@@ -1957,7 +1960,8 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
         speedMps: Double? = nil,
         altitudeMeters: Double? = nil,
         horizontalAccuracyMeters: Double? = nil,
-        verticalAccuracyMeters: Double? = nil
+        verticalAccuracyMeters: Double? = nil,
+        isEstimated: Bool? = nil
     ) {
         self.id = id
         self.latitude = latitude
@@ -1967,6 +1971,7 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
         self.altitudeMeters = altitudeMeters
         self.horizontalAccuracyMeters = horizontalAccuracyMeters
         self.verticalAccuracyMeters = verticalAccuracyMeters
+        self.isEstimated = isEstimated
     }
 }
 

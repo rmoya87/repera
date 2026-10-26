@@ -33,6 +33,9 @@ struct WorkoutGPSUpdate: Sendable {
     var fix: WorkoutGPSFix
     var point: WorkoutRoutePoint
     var distanceMeters: Double
+    /// Inferencia solo para recuperación de cierres inesperados.
+    var bridgedPoints: [WorkoutRoutePoint] = []
+    var bridgedDistanceMeters: Double = 0
 }
 
 /// Single owner for the iPhone GPS sensor in BOTH Comenzar and Play.
@@ -54,6 +57,8 @@ final class WorkoutLocationTracker: NSObject {
     @ObservationIgnored private var backgroundSession: CLBackgroundActivitySession?
     @ObservationIgnored private var lastAccepted: CLLocation?
     @ObservationIgnored private var segmentBeganAt: Date?
+    @ObservationIgnored private var interruptedAnchor: WorkoutRoutePoint?
+    @ObservationIgnored private var recoveryMaximumSpeedMps = 2.8
     @ObservationIgnored private var onAccepted: (@MainActor (WorkoutGPSUpdate) -> Void)?
     @ObservationIgnored private var speedLimitMetersPerSecond = 12.0
     @ObservationIgnored private var authContinuations: [CheckedContinuation<Bool, Never>] = []
@@ -184,6 +189,8 @@ final class WorkoutLocationTracker: NSObject {
         maxSpeedMetersPerSecond: Double? = nil,
         existingPoints: [WorkoutRoutePoint] = [],
         existingDistanceMeters: Double = 0,
+        bridgeInterruptedGap: Bool = false,
+        recoveryMaximumSpeedMps: Double = 2.8,
         onUpdate: (@MainActor (WorkoutGPSUpdate) -> Void)? = nil
     ) -> Bool {
         guard isAuthorized else { return false }
@@ -194,7 +201,10 @@ final class WorkoutLocationTracker: NSObject {
             let restored = readSnapshot(for: sessionID)
             routeBuffer = existingPoints.isEmpty ? (restored?.points ?? []) : existingPoints
             recordedDistanceMeters = max(existingDistanceMeters, restored?.meters ?? 0)
-            lastAccepted = nil // Never connect across pause, crash or service restart.
+            // Exclusivo para cierres imprevistos, nunca al pausar manualmente.
+            interruptedAnchor = bridgeInterruptedGap ? routeBuffer.last : nil
+            self.recoveryMaximumSpeedMps = recoveryMaximumSpeedMps
+            lastAccepted = nil
             segmentBeganAt = Date()
         }
         manager.distanceFilter = cycling ? 5 : 3
@@ -226,6 +236,7 @@ final class WorkoutLocationTracker: NSObject {
         backgroundSession = nil
         lastAccepted = nil
         segmentBeganAt = nil
+        interruptedAnchor = nil
         onAccepted = nil
         let result = routeBuffer
         if clear {
@@ -294,7 +305,29 @@ final class WorkoutLocationTracker: NSObject {
             }
             // A gap or implausible jump starts a new segment but adds 0 m.
         }
-        recordedDistanceMeters += delta
+        // Primer GPS real tras relanzar: infiere solo un intervalo plausible.
+        // Las posiciones estimadas no se introducen en Salud.
+        var bridged: [WorkoutRoutePoint] = []
+        var bridgedMeters: Double = 0
+        if let anchor = interruptedAnchor {
+            interruptedAnchor = nil
+            let next = WorkoutRoutePoint(
+                id: 0, latitude: fix.latitude, longitude: fix.longitude,
+                recordedAt: fix.timestamp
+            )
+            if let estimate = InterruptedRouteEstimator.bridge(
+                from: anchor, to: next, maximumSpeedMps: recoveryMaximumSpeedMps
+            ) {
+                bridged = estimate.points.enumerated().map { index, item in
+                    var point = item
+                    point.id = routeBuffer.count + index
+                    return point
+                }
+                bridgedMeters = estimate.distanceMeters
+                routeBuffer.append(contentsOf: bridged)
+            }
+        }
+        recordedDistanceMeters += delta + bridgedMeters
         let point = WorkoutRoutePoint(
             id: routeBuffer.count, latitude: fix.latitude,
             longitude: fix.longitude, recordedAt: fix.timestamp,
@@ -305,7 +338,10 @@ final class WorkoutLocationTracker: NSObject {
         )
         lastAccepted = position
         routeBuffer.append(point)
-        onAccepted?(WorkoutGPSUpdate(fix: fix, point: point, distanceMeters: recordedDistanceMeters))
+        onAccepted?(WorkoutGPSUpdate(
+            fix: fix, point: point, distanceMeters: recordedDistanceMeters,
+            bridgedPoints: bridged, bridgedDistanceMeters: bridgedMeters
+        ))
         // Store the original accuracy in HealthKit, never substitute 15 m.
         HealthKitStore.shared.appendRecordedRouteLocation(sessionID: id, location: position)
         if Date().timeIntervalSince(lastSavedAt) > 10 { saveSnapshot() }
