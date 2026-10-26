@@ -2383,65 +2383,62 @@ struct LiveActivityView: View {
     private var review: some View {
         List {
             if let session = recorder.makeSession(title: title, notes: notes) {
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text((session.startedAt ?? Date())
-                            .formatted(date: .complete, time: .shortened))
-                            .font(.subheadline)
-                            .foregroundStyle(OG.label2)
-                        HStack(spacing: 10) {
+                // Fecha y métricas directamente sobre el fondo, sin contenedor exterior.
+                VStack(alignment: .leading, spacing: 10) {
+                    Text((session.startedAt ?? Date())
+                        .formatted(date: .complete, time: .shortened))
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                    HStack(spacing: 10) {
+                        reviewTile(
+                            "Tiempo activo",
+                            value: formattedTime(recorder.durationSeconds),
+                            icon: "clock.fill", tint: OG.blue
+                        )
+                        if recorder.sport.usesGPS {
                             reviewTile(
-                                "Tiempo activo",
-                                value: formattedTime(recorder.durationSeconds),
-                                icon: "clock.fill", tint: OG.blue
-                            )
-                            if recorder.sport.usesGPS {
-                                reviewTile(
-                                    "Distancia",
-                                    value: String(format: "%.2f km",
-                                        (session.recordedDistanceMeters ?? 0) / 1000),
-                                    icon: "point.bottomleft.forward.to.point.topright.scurvepath",
-                                    tint: OG.accent
-                                )
-                            }
-                            reviewTile(
-                                "Energía",
-                                value: previewHealthExtras.flatMap { extras in
-                                    extras.hasExternalSaludSource ?
-                                        extras.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" } : nil
-                                } ?? "—",
-                                icon: "flame.fill",
-                                tint: OG.orange
+                                "Distancia",
+                                value: String(format: "%.2f km",
+                                    (session.recordedDistanceMeters ?? 0) / 1000),
+                                icon: "point.bottomleft.forward.to.point.topright.scurvepath",
+                                tint: OG.accent
                             )
                         }
-                        if let extras = previewHealthExtras, extras.hasExternalSaludSource,
-                           let heartRate = extras.averageHeartRateBpm {
-                            Label(
-                                "Pulso medio: \(Int(heartRate.rounded())) lpm",
-                                systemImage: "heart"
-                            )
-                            .font(.subheadline)
-                            .foregroundStyle(OG.label2)
-                        }
-                        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
-                            HStack(spacing: 14) {
-                                Label(
-                                    "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
-                                    systemImage: "arrow.up.right"
-                                )
-                                Label(
-                                    "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
-                                    systemImage: "arrow.down.right"
-                                )
-                            }
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(OG.label2)
-                        }
+                        reviewTile(
+                            "Energía",
+                            value: previewHealthExtras.flatMap { extras in
+                                extras.hasExternalSaludSource ?
+                                    extras.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" } : nil
+                            } ?? "—",
+                            icon: "flame.fill",
+                            tint: OG.orange
+                        )
                     }
-                    .ogCardListRow(top: 4, bottom: 4)
-                } header: {
-                    Text("Resumen").foregroundStyle(OG.accent).textCase(nil)
+                    if let extras = previewHealthExtras, extras.hasExternalSaludSource,
+                       let heartRate = extras.averageHeartRateBpm {
+                        Label(
+                            "Pulso medio: \(Int(heartRate.rounded())) lpm",
+                            systemImage: "heart"
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                    }
+                    if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                        HStack(spacing: 14) {
+                            Label(
+                                "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
+                                systemImage: "arrow.up.right"
+                            )
+                            Label(
+                                "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
+                                systemImage: "arrow.down.right"
+                            )
+                        }
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(OG.label2)
+                    }
                 }
+                .ogCardListRow(top: 4, bottom: 4)
 
                 // Si el GPS no adquirió señal, enseñar igualmente el mapa
                 // de la ruta elegida, diferenciándolo del recorrido registrado.
