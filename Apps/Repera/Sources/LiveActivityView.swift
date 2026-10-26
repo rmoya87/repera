@@ -1965,6 +1965,7 @@ struct LiveActivityView: View {
                     kilometerSplitSummary
                         .padding(.horizontal, 8)
                 }
+                ReperaNowPlayingBar(horizontalPadding: 8, showsSeparator: true)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
@@ -2128,7 +2129,14 @@ struct LiveActivityView: View {
                     .foregroundStyle(OG.label2)
                     .padding(.horizontal, 28)
                 }
-                Spacer(minLength: 16)
+                Spacer(minLength: 12)
+                // En sesión activa, música dentro del panel de métricas,
+                // no flotando encima de los botones de grabación.
+                ReperaNowPlayingBar(horizontalPadding: 12, showsSeparator: true)
+                    .padding(.vertical, 4)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 12)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
@@ -2163,7 +2171,8 @@ struct LiveActivityView: View {
         Group {
             switch recorder.phase {
             case .idle:
-                HStack(alignment: .center, spacing: 12) {
+                VStack(spacing: 0) {
+                    HStack(alignment: .center, spacing: 12) {
                     Button {
                         sportPicker = true
                     } label: {
@@ -2220,8 +2229,13 @@ struct LiveActivityView: View {
                             .accessibilityHidden(true)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 12)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 12)
+                    // El reproductor comparte caja con Carrera/Iniciar/Cargar ruta.
+                    // Su separador solo aparece cuando hay audio.
+                    ReperaNowPlayingBar(horizontalPadding: 12, showsSeparator: true)
+                        .padding(.bottom, 8)
+                }
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
 
             case .recording, .paused, .review:
