@@ -1,3 +1,4 @@
+import ReperaDomain
 import SwiftUI
 
 struct BodyWeightListView: View {
@@ -17,7 +18,7 @@ struct BodyWeightListView: View {
                     .frame(minHeight: 44)
                     .accessibilityLabel("Peso en kilogramos")
                     Button("Añadir") {
-                        if let value = Double(kgText.replacingOccurrences(of: ",", with: ".")), value > 0 {
+                        if let value = ReperaNumberFormat.parse(kgText), value > 0 {
                             store.addBodyWeight(value)
                             kgText = ""
                         }
@@ -42,7 +43,7 @@ struct BodyWeightListView: View {
                                 .foregroundStyle(OG.label2)
                         }
                         Spacer()
-                        Text("\(entry.weightKg.formatted(.number.precision(.fractionLength(1)))) kg")
+                        Text("\(ReperaNumberFormat.decimal(entry.weightKg)) kg")
                             .monospacedDigit()
                             .foregroundStyle(OG.label)
                     }
