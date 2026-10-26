@@ -46,6 +46,131 @@ struct PlanView: View {
             ?? selectedWeekStart
     }
 
+    private var selectedWeekEnd: Date {
+        Calendar.current.date(byAdding: .day, value: 6, to: selectedWeekStart)
+            ?? selectedWeekStart
+    }
+
+    /// Sin repetir un subtítulo bajo el selector: la propia cápsula indica el rango.
+    private var weekRangeText: String {
+        let start = selectedWeekStart
+        let end = selectedWeekEnd
+        if Calendar.current.isDate(start, equalTo: end, toGranularity: .month) {
+            return "\(start.formatted(.dateTime.day()))–\(end.formatted(.dateTime.day())) \(end.formatted(.dateTime.month(.abbreviated)))"
+        }
+        return "\(start.formatted(.dateTime.day().month(.abbreviated))) – \(end.formatted(.dateTime.day().month(.abbreviated)))"
+    }
+
+    /// En la columna DUO gana espacio horizontal sin perder el mes.
+    private var narrowWeekRangeText: String {
+        let start = selectedWeekStart
+        let end = selectedWeekEnd
+        if Calendar.current.isDate(start, equalTo: end, toGranularity: .month) {
+            return "\(start.formatted(.dateTime.day()))–\(end.formatted(.dateTime.day())) \(end.formatted(.dateTime.month(.abbreviated)))"
+        }
+        return "\(start.formatted(.dateTime.day()))/\(start.formatted(.dateTime.month(.twoDigits)))–\(end.formatted(.dateTime.day()))/\(end.formatted(.dateTime.month(.twoDigits)))"
+    }
+
+    /// Liquid Glass único, con controles y área táctil sin tarjeta blanca contenedora.
+    private func weekSelector(narrow: Bool) -> some View {
+        HStack(spacing: 0) {
+            Button {
+                weekOffset -= 1
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: narrow ? 32 : 40, height: 42)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Semana anterior")
+
+            Button {
+                weekOffset = 0
+            } label: {
+                Text(narrow ? narrowWeekRangeText : weekRangeText)
+                    .font(.system(size: narrow ? 12 : 14, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, narrow ? 2 : 6)
+                    .frame(height: 42)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(weekOffset == 0
+                ? "Semana actual, \(weekRangeText)"
+                : "Semana del \(weekRangeText). Volver a esta semana")
+
+            Button {
+                weekOffset += 1
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: narrow ? 32 : 40, height: 42)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Semana siguiente")
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(OG.label)
+        .padding(.horizontal, 4)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// Acciones solo para la semana visible. El menú permanece a la derecha.
+    private var weekActionsMenu: some View {
+        Menu {
+            Button {
+                let n = store.copyPreviousWeekSchedule(to: selectedWeekStart)
+                copyWeekFlash = n
+            } label: {
+                Label("Copiar semana anterior", systemImage: "calendar.badge.clock")
+            }
+            if !store.scheduledRoutines(inWeekContaining: selectedWeekStart).isEmpty {
+                Button(role: .destructive) {
+                    confirmClearSchedule = true
+                } label: {
+                    Label("Vaciar programación", systemImage: "calendar.badge.minus")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                .contentShape(Circle())
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .accessibilityLabel("Más opciones")
+    }
+
+    /// iPhone: cápsula de semanas arriba a la izquierda de la topbar.
+    /// DUO/iPad: la cápsula va alineada con «Programado» en la primera columna.
+    @ViewBuilder
+    private var diaryTopBar: some View {
+        if isExpandedLayout {
+            OGFixedTopBar(title: "Diario") {
+                weekActionsMenu
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                if section == .schedule {
+                    HStack(spacing: 8) {
+                        weekSelector(narrow: false)
+                        Spacer(minLength: 8)
+                        weekActionsMenu
+                    }
+                }
+                Text("Diario")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(OG.label)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, OG.pad)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+        }
+    }
+
     private struct DiaryDateBox: Identifiable {
         var date: Date
         var id: Date { date }
@@ -98,12 +223,19 @@ struct PlanView: View {
                     HStack(alignment: .top, spacing: 12) {
                         List {
                             Section {
-                                Text("Programado")
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(OG.label)
-                                    .listRowBackground(Color.clear)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
-                                    .listRowSeparator(.hidden)
+                                HStack(alignment: .center, spacing: 8) {
+                                    Text("Programado")
+                                        .font(.title2.weight(.bold))
+                                        .foregroundStyle(OG.label)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                        .layoutPriority(1)
+                                    Spacer(minLength: 0)
+                                    weekSelector(narrow: true)
+                                }
+                                .listRowBackground(Color.clear)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
+                                .listRowSeparator(.hidden)
                             }
                             scheduleContent
                         }
@@ -166,32 +298,9 @@ struct PlanView: View {
             .onChange(of: businessAuth.isConnected) { _, _ in
                 Task { await refreshAIPrograms() }
             }
-            .ogFixedTopBar("Diario") {
-                if isExpandedLayout || section == .schedule {
-                    Menu {
-                        Button {
-                            let n = store.copyPreviousWeekSchedule(to: selectedWeekStart)
-                            copyWeekFlash = n
-                        } label: {
-                            Label("Copiar semana anterior", systemImage: "calendar.badge.clock")
-                        }
-                        if !store.scheduledRoutines(inWeekContaining: selectedWeekStart).isEmpty {
-                            Button(role: .destructive) {
-                                confirmClearSchedule = true
-                            } label: {
-                                Label("Vaciar programación", systemImage: "calendar.badge.minus")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                            .contentShape(Circle())
-                            .glassEffect(.regular.interactive(), in: .circle)
-                    }
-                    .accessibilityLabel("Más opciones")
-                }
+            .ogContentTitleNav()
+            .safeAreaInset(edge: .top, spacing: 0) {
+                diaryTopBar
             }
             .navigationDestination(item: $editing) { routine in
                 DayEditorView(
@@ -319,43 +428,9 @@ struct PlanView: View {
             }
         }
 
-        // Diario únicamente muestra su plan semanal y publicaciones profesionales.
-        // Rutinas con scheduledDate (entrenos sueltos de Inicio/IA) NO pertenecen
-        // necesariamente a la programación del Diario y no deben aparecer aquí.
+        // Los siete días siguen ligados a la semana visible. El selector
+        // vive en la topbar (iPhone) o en el encabezado de columna (DUO).
         Section {
-            HStack(spacing: 12) {
-                Button {
-                    weekOffset -= 1
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 40, height: 40)
-                }
-                .accessibilityLabel("Semana anterior")
-                Spacer(minLength: 4)
-                VStack(spacing: 3) {
-                    Text("\(selectedWeekStart.formatted(.dateTime.day().month(.abbreviated))) – \((Calendar.current.date(byAdding: .day, value: 6, to: selectedWeekStart) ?? selectedWeekStart).formatted(.dateTime.day().month(.abbreviated)))")
-                        .font(.subheadline.weight(.semibold))
-                    if weekOffset != 0 {
-                        Button("Volver a esta semana") { weekOffset = 0 }
-                            .font(.caption)
-                    } else {
-                        Text("Esta semana").font(.caption).foregroundStyle(OG.label2)
-                    }
-                }
-                Spacer(minLength: 4)
-                Button {
-                    weekOffset += 1
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 40, height: 40)
-                }
-                .accessibilityLabel("Semana siguiente")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(OG.label)
-            .listRowBackground(OG.surface)
             ForEach(1...7, id: \.self) { day in
                 let date = dateForWeekday(day)
                 let routine = store.scheduledRoutine(on: date)
@@ -416,8 +491,6 @@ struct PlanView: View {
                     }
                 }
             }
-        } header: {
-            Text("Tu programación")
         }
     }
 
