@@ -2132,11 +2132,11 @@ struct LiveActivityView: View {
                 Spacer(minLength: 12)
                 // En sesión activa, música dentro del panel de métricas,
                 // no flotando encima de los botones de grabación.
-                ReperaNowPlayingBar(horizontalPadding: 12, showsSeparator: true)
-                    .padding(.vertical, 4)
-                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 12)
+                ReperaNowPlayingBar(
+                    horizontalPadding: 12, showsSeparator: true,
+                    cardStyle: true, bottomPadding: 12
+                )
+                .padding(.horizontal, 18)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
@@ -2233,8 +2233,9 @@ struct LiveActivityView: View {
                     .padding(.vertical, 12)
                     // El reproductor comparte caja con Carrera/Iniciar/Cargar ruta.
                     // Su separador solo aparece cuando hay audio.
-                    ReperaNowPlayingBar(horizontalPadding: 12, showsSeparator: true)
-                        .padding(.bottom, 8)
+                    ReperaNowPlayingBar(
+                        horizontalPadding: 12, showsSeparator: true, bottomPadding: 8
+                    )
                 }
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
 
