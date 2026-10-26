@@ -1500,6 +1500,11 @@ public enum CrossFitGlossary {
         let assigned = move.exerciseId.flatMap { id in catalog.first(where: { $0.id == id }) }
         let isKnownAbbreviation = ["burpee to target", "toes to bar"].contains(normalize(canonical))
         let raw = normalize(move.name)
+        // Un nombre oficial exacto siempre prevalece frente a un alias
+        // ambiguo que otra ficha haya podido publicar en Supabase.
+        if let exactOfficial = catalog.first(where: {
+            !$0.isCustom && !$0.isCatalogArchived && normalize($0.name) == raw
+        }) { return exactOfficial }
         let remoteMatch = catalog.first(where: {
             !$0.isCustom && !$0.isCatalogArchived && $0.searchAliases.contains(where: {
                 normalize($0) == raw
