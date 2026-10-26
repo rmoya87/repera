@@ -218,7 +218,7 @@ public enum StatsEngine {
 
         for workout in sorted {
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = effectiveWorkSets(ex, in: workout)
+            let work = confirmedWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
             times += 1
             let date = workout.finishedAt ?? workout.startedAt
@@ -527,7 +527,7 @@ extension StatsEngine {
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = effectiveWorkSets(ex, in: workout)
+            let work = confirmedWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
 
             switch metric {
@@ -639,7 +639,7 @@ extension StatsEngine {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = effectiveWorkSets(ex, in: workout)
+            let work = confirmedWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
             return ExerciseLastSession(
                 sessionId: workout.id,
@@ -678,7 +678,7 @@ extension StatsEngine {
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
             guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = effectiveWorkSets(ex, in: workout)
+            let work = confirmedWorkSets(ex, in: workout)
             guard !work.isEmpty else { continue }
 
             let lines = work.map(\.displaySummaryLine)
