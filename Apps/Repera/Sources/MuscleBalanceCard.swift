@@ -55,7 +55,7 @@ struct MuscleBalanceCard: View {
         workouts.contains { workout in
             workout.exercises.contains { entry in
                 MuscleCompletedWODStimulus.estimatedSetEquivalent(
-                    for: entry, hardOnly: false
+                    for: entry, in: workout, hardOnly: false
                 ) > 0
             }
         }
