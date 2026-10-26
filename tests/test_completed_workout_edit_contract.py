@@ -77,7 +77,7 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         history = source("Apps/Repera/Sources/HistoryView.swift")
         bridge = source("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
         self.assertIn("updated.wodResults.removeAll {", bridge)
-        self.assertIn("$0.id == block.id && ($0.format == nil || $0.format == format)", bridge)
+        self.assertIn("$0.id == block.id && scoreMatches($0, format: format)", bridge)
         self.assertIn("return result", bridge)
         self.assertIn("historicalResults: historical", history)
         self.assertIn("Resultado de formato anterior", history)
