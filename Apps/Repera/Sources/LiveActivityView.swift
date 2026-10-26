@@ -1234,7 +1234,6 @@ final class LiveActivityRecorder: NSObject {
             result = "\(split.clock) min/km"
         }
         latestKilometerReport = "Km \(split.kilometer) · \(result)"
-        var didSpeak = false
         if sport.usesGPS {
             let seconds = max(1, Int(split.seconds.rounded()))
             let minutes = seconds / 60
@@ -1252,7 +1251,7 @@ final class LiveActivityRecorder: NSObject {
             let message = sport.displaysSpeed
                 ? "Kilómetro \(split.kilometer) completado. Has ido a \(spokenSpeed) kilómetros por hora, de media."
                 : "Kilómetro \(split.kilometer) completado. Tu tiempo ha sido de \(spokenTime)."
-            didSpeak = speakNavigation(message)
+            _ = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
