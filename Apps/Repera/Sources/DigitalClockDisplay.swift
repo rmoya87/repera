@@ -142,10 +142,9 @@ private struct SevenSegmentDigit: View {
     }
 }
 
-/// Repera no reproduce audio propio. La API pública de iOS no expone el
-/// Now Playing global de Spotify o Podcasts a otras apps; por eso no se
-/// muestra una tarjeta falsa ni un placeholder cuando nada es accesible.
 /// Reloj del bloque para orientación vertical u horizontal.
+/// Comparte información de Apple Music con Comenzar y el temporizador libre
+/// sin sustituir nunca la sesión Now Playing de la app que reproduce audio.
 /// Botones siempre visibles; solo se muestra «Terminar» si el formato lo permite.
 struct BlockTimerScreen: View {
     var title: String
@@ -256,6 +255,9 @@ struct BlockTimerScreen: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 12)
             Spacer(minLength: 16)
+            ReperaNowPlayingBar(darkAppearance: true)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
             controls(horizontal: false)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 18)
@@ -276,6 +278,8 @@ struct BlockTimerScreen: View {
                 VStack(spacing: 14) {
                     Spacer(minLength: 0)
                     clockBlock(digitHeight: digitHeight)
+                    ReperaNowPlayingBar(darkAppearance: true)
+                        .frame(maxWidth: 500)
                     // Pausar/Continuar + Terminar en UNA fila bajo el reloj.
                     controls(horizontal: true)
                         .frame(maxWidth: 500)
