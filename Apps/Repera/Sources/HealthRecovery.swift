@@ -761,7 +761,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard(padding: 10, verticalPadding: OG.pad) {
                 Chart {
                     ForEach(0..<scores.count, id: \.self) { index in
                         LineMark(
@@ -797,7 +797,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard(padding: 10, verticalPadding: OG.pad) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Text("Variabilidad cardíaca (VFC)")
@@ -1039,7 +1039,7 @@ struct HealthRecoveryProgressView: View {
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Constantes fisiológicas")
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard(padding: 10, verticalPadding: OG.pad) {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
@@ -1216,7 +1216,7 @@ struct HealthRecoveryProgressView: View {
     private var trainingRecoveryTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard(padding: 10, verticalPadding: OG.pad) {
                 Chart {
                     ForEach(recoveryPoints) { point in
                     LineMark(
