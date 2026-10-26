@@ -383,3 +383,8 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 
 - **Comenzar → Métricas (sin iniciar):** los controles Carrera/Iniciar/Cargar ruta aparecen **arriba y alineados a la izquierda**. En Mapa siguen anclados abajo; no se duplican tras iniciar. Se ha retirado de todas estas vistas, del reloj de Entreno y del temporizador libre la integración de música, su permiso y su panel.
 - **Apuntar ejercicio:** series en tarjetas independientes con número a la izquierda de «Serie», unidades al lado izquierdo del campo numérico de Repera y eliminación por swipe rojo nativo. Sin botones ±, sin papelera visible y sin texto instructivo al pie. Repeticiones, peso/déficit, segundos y Cal/Metros aparecen solo si corresponden al estilo de registro del ejercicio. Los datos se consolidan al escribir y al confirmar, sin generar valores no introducidos.
+
+### Selección DUO y controles de actividad (26/10/2026)
+
+- **Ejercicios en dos columnas (DUO/iPad):** al seleccionar una fila de la columna izquierda para abrir el detalle de la derecha, toda la fila utiliza verde Repera y títulos negros de contraste. El fondo seleccionado se recorta a la geometría de la sección agrupada: esquinas superiores redondeadas si es la primera fila, inferiores si es la última y las cuatro cuando es la única. Las filas no seleccionadas mantienen el fondo blanco anterior.
+- **Comenzar → Métricas:** durante la grabación, los controles Audio, Mapa, Pausa/Play y Finalizar se alinean hacia la izquierda, todos en una sola fila horizontal, sin el apilado Play/Finalizar a la derecha. La disposición vertical del modo **Mapa** no cambia. Antes de grabar, los controles de inicio permanecen arriba a la izquierda.
