@@ -1940,23 +1940,9 @@ final class ReperaStore: NSObject {
             draft.weekday = nil
         }
         if let scheduled = draft.scheduledDate {
+            // Varias sesiones por fecha, identificadas por ID. Nunca borrar
+            // otra rutina del mismo día al guardar/editar una nueva.
             draft.scheduledDate = Calendar.current.startOfDay(for: scheduled)
-            // Entreno suelto: no pisa el plan semanal; solo otro suelto del mismo día.
-            var removeIds: [UUID] = []
-            for other in state.routines where other.id != draft.id {
-                guard let otherDate = other.scheduledDate else { continue }
-                if Calendar.current.isDate(otherDate, inSameDayAs: draft.scheduledDate!) {
-                    if other.isFavorite {
-                        // favorito suelto → quitar fecha
-                        if let i = state.routines.firstIndex(where: { $0.id == other.id }) {
-                            state.routines[i].scheduledDate = nil
-                        }
-                    } else {
-                        removeIds.append(other.id)
-                    }
-                }
-            }
-            state.routines.removeAll { removeIds.contains($0.id) }
         } else if let day = draft.weekday {
             // Un día del plan → una plantilla. Las demás se desasignan (no se borran).
             for i in state.routines.indices where state.routines[i].id != draft.id
@@ -2047,11 +2033,20 @@ final class ReperaStore: NSObject {
         }.sorted { ($0.scheduledDate ?? .distantFuture) < ($1.scheduledDate ?? .distantFuture) }
     }
 
-    func scheduledRoutine(on date: Date) -> Routine? {
-        state.routines.first {
+    func scheduledRoutines(on date: Date) -> [Routine] {
+        state.routines.filter {
             guard let scheduled = $0.scheduledDate else { return false }
             return Calendar.current.isDate(scheduled, inSameDayAs: date)
+        }.sorted {
+            let t0 = $0.normalizedScheduledTimeMinutes ?? 0
+            let t1 = $1.normalizedScheduledTimeMinutes ?? 0
+            return t0 == t1 ? $0.title < $1.title : t0 < t1
         }
+    }
+
+    /// Consumidores históricos que solo necesitan la primera sesión del día.
+    func scheduledRoutine(on date: Date) -> Routine? {
+        scheduledRoutines(on: date).first
     }
 
     /// Vaciar solo la semana visible. No tocar otras semanas, plantillas ni sesiones.
@@ -2070,17 +2065,22 @@ final class ReperaStore: NSObject {
         pushActiveToWatch()
     }
 
-    func removeScheduledRoutine(on date: Date) {
-        guard let target = scheduledRoutine(on: date) else { return }
-        if let index = state.routines.firstIndex(where: { $0.id == target.id }),
-           state.routines[index].isFavorite {
+    func removeScheduledRoutine(id: UUID) {
+        guard let index = state.routines.firstIndex(where: { $0.id == id }),
+              state.routines[index].scheduledDate != nil else { return }
+        if state.routines[index].isFavorite {
             state.routines[index].scheduledDate = nil
             state.routines[index].weekday = nil
         } else {
-            state.routines.removeAll { $0.id == target.id }
+            state.routines.remove(at: index)
         }
         persist()
         pushActiveToWatch()
+    }
+
+    func removeScheduledRoutine(on date: Date) {
+        guard let routine = scheduledRoutine(on: date) else { return }
+        removeScheduledRoutine(id: routine.id)
     }
 
     func deleteAllRoutines() {
@@ -2458,8 +2458,7 @@ final class ReperaStore: NSObject {
     /// Programar una plantilla en una fecha concreta sin mover ni modificar
     /// la plantilla, y sin activar recurrencia semanal.
     func assignRoutine(_ routineId: UUID, toDate date: Date) {
-        guard let source = state.routines.first(where: { $0.id == routineId }),
-              scheduledRoutine(on: date) == nil else { return }
+        guard let source = state.routines.first(where: { $0.id == routineId }) else { return }
         let copy = Routine(
             title: source.title, scheduledDate: date,
             scheduledTimeMinutes: source.scheduledTimeMinutes,
