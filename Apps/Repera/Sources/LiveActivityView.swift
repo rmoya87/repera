@@ -2504,7 +2504,8 @@ struct LiveActivityView: View {
                         longitude: point.longitude,
                         date: point.recordedAt,
                         speedMps: point.speedMps,
-                        altitudeMeters: point.altitudeMeters
+                        altitudeMeters: point.altitudeMeters,
+                        isEstimated: point.isEstimated == true
                     )
                 }
                 if previewPoints.count >= 2 {
