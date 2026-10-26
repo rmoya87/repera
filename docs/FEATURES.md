@@ -1,5 +1,11 @@
 # Funcionalidades Repera
 
+## Formato numérico español (26/10/2026)
+
+- Las cifras visibles en iPhone y Apple Watch utilizan coma decimal y punto de millares desde 1.000; se muestran solo los decimales necesarios, con máximo dos. Se aplica a los pesos, marcas, distancias, ritmos, velocidades, progreso, actividad, recuperación, prescripciones y métricas deportivas. Los relojes (mm:ss), las fechas, los identificadores y las cifras en mensajes de protocolo no se convierten a valores decimales.
+- El teclado numérico personalizado presenta e introduce «,», acepta pegado en formato español como «1.234,56» o anterior «1234.56» y no permite más de dos decimales. Los campos de ajustes y planificación usan el parser común para aceptar los separadores españoles.
+- El formato es exclusivo de la presentación: las magnitudes de GPS, HealthKit, la persistencia local y las serializaciones del backend conservan su precisión original.
+
 ## Comenzar, sesión y Progreso (26/10/2026)
 
 - Supabase Auth mantiene tokens en Keychain con renovación automática del JWT antes de sincronizar y al volver a primer plano. Si el servidor invalida irreversiblemente la sesión, Repera muestra login; ante ausencia temporal de red permite ver lo guardado localmente y reintenta después. No existe promesa de sesión perpetua.
