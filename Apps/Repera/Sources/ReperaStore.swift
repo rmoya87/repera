@@ -514,6 +514,31 @@ final class ReperaStore: NSObject {
         return changed
     }
 
+    /// Recupera las fichas oficiales empaquetadas ausentes en catálogos antiguos,
+    /// sin modificar UUIDs ni metadatos de las fichas que ya existen.
+    /// Posteriormente vuelve a enlazar los WOD por la identidad correcta.
+    func restoreMissingOfficialWODExercises(_ packaged: [Exercise]) {
+        let wanted = Set(["burpee to target", "toes to bar"])
+        var additions: [Exercise] = []
+        for seed in packaged where !seed.isCustom {
+            let name = CrossFitGlossary.normalize(seed.name)
+            guard wanted.contains(name),
+                  !state.exercises.contains(where: {
+                      !$0.isCustom && CrossFitGlossary.normalize($0.name) == name
+                  }),
+                  !additions.contains(where: {
+                      CrossFitGlossary.normalize($0.name) == name
+                  })
+            else { continue }
+            additions.append(seed)
+        }
+        guard !additions.isEmpty else { return }
+        state.exercises.append(contentsOf: additions)
+        _ = relinkScheduledWODMovementsToCatalog()
+        catalogEpoch &+= 1
+        persist()
+    }
+
     func cachedPersonalRecordCount(in session: WorkoutSession) -> Int {
         cachedPersonalRecordCountsBySession()[session.id] ?? 0
     }

@@ -90,7 +90,36 @@ struct SessionPreviewView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .ogTransparentNav()
+        // Fondo estable (negro en noche, lienzo claro de día).
+        // El material «automatic» del nav variaba de gris al hacer scroll.
+        .toolbarBackground(OG.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .task(id: liveRoutine?.id) {
+            guard let routine = liveRoutine else { return }
+            // Reconstruir fichas oficiales que falten en un catálogo local
+            // antiguo; no crear un ejercicio custom ni cambiar la prescripción.
+            let known = Set(["burpee to target", "toes to bar"])
+            let missing = Set(routine.blocks
+                .filter { $0.kind == .wod }
+                .flatMap(\.movements)
+                .filter { !$0.isRest }
+                .compactMap { move -> String? in
+                    let key = CrossFitGlossary.normalize(
+                        CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
+                    )
+                    guard known.contains(key) else { return nil }
+                    let match = CrossFitGlossary.catalogExercise(for: move, in: store.state.exercises)
+                    return match?.isCustom == false ? nil : key
+                })
+            guard !missing.isEmpty else { return }
+            let packaged = await Task.detached(priority: .utility) {
+                Catalog.seed().filter {
+                    missing.contains(CrossFitGlossary.normalize($0.name))
+                }
+            }.value
+            guard !Task.isCancelled else { return }
+            store.restoreMissingOfficialWODExercises(packaged)
+        }
         // Cabecera explícita bajo la barra (y sobre la lista), nunca detrás
         // del glass o dentro de la cápsula que contiene el botón Cerrar.
         .safeAreaInset(edge: .top, spacing: 0) {

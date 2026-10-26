@@ -127,9 +127,12 @@ struct OGRoutineBlockCard: View {
     }
 
     private func resolvedWODExercise(_ move: WODMovement) -> Exercise {
-        if let match = CrossFitGlossary.catalogExercise(for: move, in: store.state.exercises) {
+        if let match = CrossFitGlossary.catalogExercise(for: move, in: store.state.exercises),
+           !match.isCustom, !match.isCatalogArchived {
             return match
         }
+        // Una ficha provisional «BTt»/«T2B» no debe eclipsar el nombre
+        // canónico mientras se rehidrata el catálogo oficial.
         let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
         // Nombre limpio → miniatura correcta en preview / revisión / día.
         return Exercise(name: canonical.isEmpty ? move.name : canonical, muscleGroup: "WOD", isCustom: true)

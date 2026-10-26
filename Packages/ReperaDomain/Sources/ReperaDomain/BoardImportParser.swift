@@ -1518,8 +1518,12 @@ public enum CrossFitGlossary {
             return assigned
         }
         if let match = catalog.first(where: {
-            !$0.isCustom && normalize($0.name) == normalize(canonical)
+            !$0.isCustom && !$0.isCatalogArchived && normalize($0.name) == normalize(canonical)
         }) { return match }
+        // No devolver la ficha temporal con nombre «BTt» o «T2B» para
+        // abreviaturas conocidas: impide que la UI muestre un icono genérico
+        // y bloquea la reparación hacia la entrada oficial del catálogo.
+        if isKnownAbbreviation { return nil }
         if let assigned { return assigned }
         return catalog.first(where: {
             ExerciseEquivalence.sameName($0.name, canonical)
