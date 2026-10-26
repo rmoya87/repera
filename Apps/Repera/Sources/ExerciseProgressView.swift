@@ -235,11 +235,11 @@ struct ExerciseEvolutionPanel: View {
                     topeOneRMTile
                     evoTile(
                         "Máx.",
-                        h.maxWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—"
+                        h.maxWeightKg.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0)) kg" } ?? "—"
                     )
                     evoTile(
                         "e1RM",
-                        h.estimatedOneRM.map { "\($0.formatted(.number.precision(.fractionLength(0)))) kg" } ?? "—"
+                        h.estimatedOneRM.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0)) kg" } ?? "—"
                     )
                 }
                 HStack(spacing: 10) {
@@ -299,7 +299,7 @@ struct ExerciseEvolutionPanel: View {
                         onCommit: { commitTopeEdit() }
                     )
                 } else {
-                    Text(testedOneRMKg.map { String(format: "%g", $0) } ?? "—")
+                    Text(testedOneRMKg.map { ReperaNumberFormat.decimal($0) } ?? "—")
                         .font(.system(size: 18, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.accent)
                         .lineLimit(1)
@@ -324,7 +324,7 @@ struct ExerciseEvolutionPanel: View {
     }
 
     private func beginTopeEdit() {
-        topeDraft = testedOneRMKg.map { String(format: "%g", $0) } ?? ""
+        topeDraft = testedOneRMKg.map { ReperaNumberFormat.decimal($0) } ?? ""
         editingTope = true
     }
 
@@ -334,7 +334,7 @@ struct ExerciseEvolutionPanel: View {
         let trimmed = topeDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty || trimmed == "—" {
             pref.testedOneRMKg = nil
-        } else if let v = Double(trimmed.replacingOccurrences(of: ",", with: ".")), v > 0 {
+        } else if let v = ReperaNumberFormat.parse(trimmed), v > 0 {
             pref.testedOneRMKg = (v * 10).rounded() / 10
         }
         store.setLoadPreference(pref, for: exerciseId)
@@ -403,7 +403,7 @@ struct ExerciseEvolutionPanel: View {
                             .foregroundStyle(OG.accent.opacity(0.85))
                             .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
                             .annotation(position: .top, alignment: .trailing) {
-                                Text("1RM \(tested.formatted(.number.precision(.fractionLength(0...1))))")
+                                Text("1RM \(ReperaNumberFormat.decimal(tested))")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundStyle(OG.accent)
                                     .padding(.horizontal, 4)
@@ -453,12 +453,12 @@ struct ExerciseEvolutionPanel: View {
         switch metric {
         case .topSet:
             if let w = point.weightKg {
-                parts.append("\(w.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                parts.append("\(ReperaNumberFormat.decimal(w)) kg")
             }
         case .estimatedOneRM:
-            parts.append("~\(point.value.formatted(.number.precision(.fractionLength(0...1)))) kg")
+            parts.append("~\(ReperaNumberFormat.decimal(point.value)) kg")
         case .effort:
-            parts.append("RIR \(point.value.formatted(.number.precision(.fractionLength(0...1))))")
+            parts.append("RIR \(ReperaNumberFormat.decimal(point.value))")
         case .bestQuantity, .totalQuantity, .bestMeters, .bestCalories, .totalMeters, .totalCalories:
             let qty = Int(point.value.rounded())
             switch point.quantityUnit {
@@ -473,7 +473,7 @@ struct ExerciseEvolutionPanel: View {
             parts.append(formatDuration(Int(point.value.rounded())))
         }
         if let rir = point.rir, metric != .effort {
-            parts.append("RIR \(String(format: "%g", rir))")
+            parts.append("RIR \(ReperaNumberFormat.decimal(rir))")
         }
         return parts.joined(separator: " · ")
     }
@@ -494,7 +494,7 @@ struct ExerciseEvolutionPanel: View {
             if h.hasData {
                 VStack(alignment: .leading, spacing: 6) {
                     if isStrengthProgress, let w = h.maxWeightKg, let r = h.repsAtMaxWeight {
-                        sessionMetaRow("Mejor serie", "\(r) × \(w.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                        sessionMetaRow("Mejor serie", "\(r) × \(ReperaNumberFormat.decimal(w)) kg")
                     }
                     if !isStrengthProgress && !isMobility, let cal = h.bestCalories {
                         sessionMetaRow("Mejor cal", "\(cal)")
@@ -504,12 +504,12 @@ struct ExerciseEvolutionPanel: View {
                     }
                     if isStrengthProgress, let tested, let e1 = h.estimatedOneRM, e1 > 0 {
                         let pct = e1 / tested * 100
-                        sessionMetaRow("% del tope", "\(pct.formatted(.number.precision(.fractionLength(0...0))))%")
+                        sessionMetaRow("% del tope", "\(ReperaNumberFormat.decimal(pct, maximumFractionDigits: 0))%")
                     }
                     if let date = h.lastDate {
                         let lastBits: [String?] = [
                             h.lastQuantityLabel,
-                            h.lastWeightKg.map { "\($0.formatted(.number.precision(.fractionLength(1)))) kg" },
+                            h.lastWeightKg.map { "\(ReperaNumberFormat.decimal($0)) kg" },
                             h.lastDurationSeconds.map(formatDuration),
                         ]
                         let last = lastBits.compactMap { $0 }.joined(separator: " · ")
@@ -627,7 +627,7 @@ struct ExerciseHistoryView: View {
                                 Spacer(minLength: 8)
 
                                 if let top = row.topWeightKg {
-                                    Text("\(top.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                                    Text("\(ReperaNumberFormat.decimal(top)) kg")
                                         .font(.system(size: 13, weight: .semibold).monospacedDigit())
                                         .foregroundStyle(OG.accent)
                                 }
