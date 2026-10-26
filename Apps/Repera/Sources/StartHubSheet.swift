@@ -10,12 +10,11 @@ private enum StartHubRoute: Hashable {
     case boardReview
 }
 
-/// Pestaña Crear: mismas transiciones push que el resto (sin sheet de abajo arriba).
+/// Herramientas de creación: navegación push dentro de su contenedor.
 struct StartHubSheet: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
 
-    var onGoPlan: () -> Void
     var onOpenedWorkout: () -> Void
 
     @State private var path = NavigationPath()
@@ -151,61 +150,6 @@ struct StartHubSheet: View {
                     .disabled(isReading)
                 }
 
-                Section {
-                    if store.plannedRoutines.isEmpty {
-                        Button {
-                            onGoPlan()
-                        } label: {
-                            Label {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Crear plan de entreno")
-                                        .foregroundStyle(OG.label)
-                                    Text("Plan semanal en Diario")
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label2)
-                                }
-                            } icon: {
-                                Image(systemName: "calendar.badge.plus")
-                                    .foregroundStyle(OG.accent)
-                            }
-                        }
-                    } else {
-                        ForEach(store.plannedRoutines) { routine in
-                            Button {
-                                store.startSession(from: routine)
-                                guard store.state.activeSession?.routineId == routine.id else { return }
-                                onOpenedWorkout()
-                            } label: {
-                                Label {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(routine.title)
-                                            .foregroundStyle(OG.label)
-                                        Text(routine.weekday.map(CalendarHelpers.weekdayName).map { $0 } ?? "Sin día")
-                                            .font(.caption)
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                } icon: {
-                                    Image(systemName: "list.bullet.rectangle")
-                                        .foregroundStyle(OG.blue)
-                                }
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                OGSwipeDeleteButton(systemImage: "xmark", tint: OG.label) {
-                                    store.deleteRoutine(routine.id)
-                                }
-                            }
-                        }
-                        Button {
-                            onGoPlan()
-                        } label: {
-                            Label("Editar plan de entreno", systemImage: "calendar")
-                        }
-                    }
-                } header: {
-                    Text("Entrenos por día")
-                } footer: {
-                    Text("Aquí ves lo asignado a cada día. El plan semanal se crea y edita en Diario.")
-                }
 
                 if isReading {
                     Section {

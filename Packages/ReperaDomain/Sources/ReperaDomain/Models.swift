@@ -1984,6 +1984,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public let id: UUID
     public var title: String
     public var routineId: UUID?
+    /// Plantilla favorita creada desde este entreno terminado; independiente del plan original.
+    public var favoriteRoutineId: UUID?
     public var exercises: [SessionExercise]
     public var currentIndex: Int
     public var phase: SessionPhase
@@ -2030,6 +2032,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         id: UUID = UUID(),
         title: String,
         routineId: UUID? = nil,
+        favoriteRoutineId: UUID? = nil,
         exercises: [SessionExercise],
         currentIndex: Int = 0,
         phase: SessionPhase = .idle,
@@ -2055,6 +2058,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.id = id
         self.title = title
         self.routineId = routineId
+        self.favoriteRoutineId = favoriteRoutineId
         self.exercises = exercises
         self.currentIndex = currentIndex
         self.phase = phase
@@ -2079,7 +2083,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, routineId, exercises, currentIndex, phase
+        case id, title, routineId, favoriteRoutineId, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
         case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
@@ -2092,6 +2096,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         id = try c.decode(UUID.self, forKey: .id)
         title = try c.decode(String.self, forKey: .title)
         routineId = try c.decodeIfPresent(UUID.self, forKey: .routineId)
+        favoriteRoutineId = try c.decodeIfPresent(UUID.self, forKey: .favoriteRoutineId)
         exercises = try c.decode([SessionExercise].self, forKey: .exercises)
         currentIndex = try c.decodeIfPresent(Int.self, forKey: .currentIndex) ?? 0
         phase = try c.decodeIfPresent(SessionPhase.self, forKey: .phase) ?? .idle
@@ -2120,6 +2125,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encode(id, forKey: .id)
         try c.encode(title, forKey: .title)
         try c.encodeIfPresent(routineId, forKey: .routineId)
+        try c.encodeIfPresent(favoriteRoutineId, forKey: .favoriteRoutineId)
         try c.encode(exercises, forKey: .exercises)
         try c.encode(currentIndex, forKey: .currentIndex)
         try c.encode(phase, forKey: .phase)

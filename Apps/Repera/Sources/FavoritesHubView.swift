@@ -18,12 +18,26 @@ struct FavoritesHubView: View {
         List {
             if !hasAnyFavorite {
                 Section {
-                    ContentUnavailableView(
-                        "Sin favoritos",
-                        systemImage: "star",
-                        description: Text("Guarda entrenos o temporizadores que uses a menudo.")
-                    )
-                    .listRowBackground(Color.clear)
+                    VStack(spacing: 12) {
+                        Image(systemName: "star")
+                            .font(.system(size: 32, weight: .medium))
+                            .foregroundStyle(OG.accent)
+                        Text("Sin favoritos")
+                            .font(.headline)
+                            .foregroundStyle(OG.label)
+                        Text("Pulsa la estrella de un entreno para guardarlo aquí y reutilizarlo cuando quieras.")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 220)
+                    .padding(24)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: OG.radiusCard)
+                            .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                    }
+                    .ogCardListRow(top: 0, bottom: 8)
                 }
             }
 
@@ -115,16 +129,21 @@ struct FavoritesHubView: View {
             }
         }
         .ogListChrome()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(OG.bg.ignoresSafeArea())
         .ogPinnedTransparentNav("Favoritos")
-        .ogDiaryTransparentNav()
-        .sheet(item: $editing) { routine in
+        .navigationBarBackButtonHidden(false)
+        .navigationDestination(item: $editing) { routine in
             DayEditorView(
                 routine: routine,
                 mode: .favorite(isNew: isCreating),
-                embedsNavigationStack: true
+                onClose: {
+                    editing = nil
+                    isCreating = false
+                },
+                embedsNavigationStack: false,
+                usesPageCloseHeader: true
             )
-            .ogSheetChrome(detents: [.large])
-            .onDisappear { isCreating = false }
         }
         .navigationDestination(item: $openTimer) { timer in
             StandaloneTimerView(

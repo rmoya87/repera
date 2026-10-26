@@ -120,6 +120,21 @@ struct SessionPreviewView: View {
             }
             if active == nil, liveRoutine != nil {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        guard let routine = liveRoutine else { return }
+                        if store.state.routines.contains(where: { $0.id == routine.id }) {
+                            store.setRoutineFavorite(routine.id, isFavorite: !routine.isFavorite)
+                        } else if !routine.isFavorite {
+                            _ = store.saveAsFavorite(routine)
+                        }
+                    } label: {
+                        Image(systemName: liveRoutine?.isFavorite == true ? "star.fill" : "star")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(liveRoutine?.isFavorite == true ? OG.yellow : OG.label)
+                    }
+                    .accessibilityLabel(liveRoutine?.isFavorite == true ? "Quitar de favoritos" : "Guardar en favoritos")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
                             if let routine = liveRoutine {

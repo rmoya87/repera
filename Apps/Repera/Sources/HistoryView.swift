@@ -760,6 +760,17 @@ struct WorkoutDetailView: View {
                 }
             } else {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        store.toggleWorkoutFavorite(sessionId)
+                        draft = store.state.workouts.first(where: { $0.id == sessionId })
+                    } label: {
+                        Image(systemName: store.isWorkoutFavorite(sessionId) ? "star.fill" : "star")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(store.isWorkoutFavorite(sessionId) ? OG.yellow : OG.label)
+                    }
+                    .accessibilityLabel(store.isWorkoutFavorite(sessionId) ? "Quitar de favoritos" : "Guardar en favoritos")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
                             showCompletedEditor = true

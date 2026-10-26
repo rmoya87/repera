@@ -41,7 +41,6 @@ struct DayPlusSheet: View {
 
     /// Día del calendario al que se asigna el entreno suelto.
     var targetDate: Date = Calendar.current.startOfDay(for: Date())
-    var onGoPlan: () -> Void = {}
     var onStartedWorkout: () -> Void
     /// Tras escanear: el caller cierra el sheet y abre la página de revisión.
     var onBoardReady: (BoardScanReviewPayload) -> Void = { _ in }
@@ -70,8 +69,6 @@ struct DayPlusSheet: View {
         if timers > 0 { parts.append("\(timers) tempo") }
         return parts.joined(separator: " · ")
     }
-
-    private var isPushed: Bool { !path.isEmpty }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -137,11 +134,13 @@ struct DayPlusSheet: View {
                     .tint(OG.accent)
                 }
         }
-        // Congelar alto solo con pickers a pantalla completa (no con «Leyendo…»).
-        .ogFittedSheet(
-            expanded: isPushed,
-            freezeHeight: showLibraryPicker || showCameraPicker
-        )
+        // Un único tamaño estable: evita el cambio de detent y el repintado
+        // de media pantalla al navegar a Favoritos y regresar.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(OG.bg)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+        .ogSheetCorners()
     }
 
     /// Menú con tamaño intrínseco (sin List) para que el sheet ajuste el alto.
@@ -232,7 +231,6 @@ struct DayPlusSheet: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .ogFittedHeight()
     }
 
     private var menuDivider: some View {

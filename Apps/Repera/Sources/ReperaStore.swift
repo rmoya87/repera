@@ -2252,6 +2252,41 @@ final class ReperaStore: NSObject {
         return fav
     }
 
+    /// El favorito de un entreno completado se mantiene tras cerrar y reabrir el detalle.
+    func isWorkoutFavorite(_ id: UUID) -> Bool {
+        guard let session = state.workouts.first(where: { $0.id == id }) else { return false }
+        if let favoriteId = session.favoriteRoutineId {
+            return state.routines.contains { $0.id == favoriteId && $0.isFavorite }
+        }
+        if let routineId = session.routineId {
+            return state.routines.contains { $0.id == routineId && $0.isFavorite }
+        }
+        return false
+    }
+
+    /// Marca o desmarca entrenos registrados sin modificar la programación original.
+    /// Las sesiones sueltas conservan el ID de su plantilla favorita para no duplicarla.
+    func toggleWorkoutFavorite(_ id: UUID) {
+        guard let workoutIndex = state.workouts.firstIndex(where: { $0.id == id }) else { return }
+        let session = state.workouts[workoutIndex]
+        if let favoriteId = session.favoriteRoutineId,
+           let index = state.routines.firstIndex(where: { $0.id == favoriteId }) {
+            state.routines[index].isFavorite.toggle()
+            persist()
+            return
+        }
+        if let routineId = session.routineId,
+           let index = state.routines.firstIndex(where: { $0.id == routineId }) {
+            state.routines[index].isFavorite.toggle()
+            persist()
+            return
+        }
+        let template = Self.favoriteTemplate(from: session)
+        guard saveRoutine(template) else { return }
+        state.workouts[workoutIndex].favoriteRoutineId = template.id
+        persist()
+    }
+
     /// Marca la rutina de la sesión activa como favorita, o crea plantilla desde la sesión.
     @discardableResult
     func saveActiveSessionAsFavorite() -> Routine? {

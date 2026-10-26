@@ -61,7 +61,6 @@ struct HomeView: View {
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
-    var onGoPlan: () -> Void
 
     /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
@@ -419,10 +418,6 @@ struct HomeView: View {
             .sheet(isPresented: $showCreatePlanForDay) {
                 DayPlusSheet(
                     targetDate: selectedDay,
-                    onGoPlan: {
-                        showCreatePlanForDay = false
-                        onGoPlan()
-                    },
                     onStartedWorkout: {
                         showCreatePlanForDay = false
                         onOpenWorkout()

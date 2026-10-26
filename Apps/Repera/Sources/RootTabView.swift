@@ -9,13 +9,12 @@ enum WorkoutFlowRoute: Hashable {
     case workout
 }
 
-/// Menú principal: Inicio · Diario · Comenzar · Progreso · Ejercicios.
+/// Menú principal: Inicio · Comenzar · Progreso · Ejercicios.
 /// Las herramientas de Crear y el centro profesional siguen disponibles sin ocupar la pestaña.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(BusinessDataStore.self) private var businessData
     @State private var tab: AppTab = .home
-    @State private var planSection: DiarioSection = .schedule
     @State private var showStartHub = false
     @State private var showCenter = false
     @State private var homeFocusDay: Date?
@@ -23,7 +22,7 @@ struct RootTabView: View {
     @State private var previewRoutine: Routine?
 
     enum AppTab: Hashable {
-        case home, plan, center, stats, exercises
+        case home, center, stats, exercises
     }
 
     /// Gimnasio/entrenador vinculado o invitación pendiente → pestaña Center; si no, Crear.
@@ -39,13 +38,8 @@ struct RootTabView: View {
                         onOpenWorkout: openWorkout,
                         focusDay: homeFocusDay,
                         onStart: openTodayPreview,
-                        onStartRoutine: openRoutinePreview,
-                        onGoPlan: { planSection = .schedule; tab = .plan }
+                        onStartRoutine: openRoutinePreview
                     )
-                }
-
-                SwiftUI.Tab("Diario", systemImage: "calendar", value: AppTab.plan) {
-                    PlanView(section: $planSection, onOpenRoutine: openRoutinePreview)
                 }
 
                 SwiftUI.Tab("Comenzar", systemImage: "livephoto.play", value: AppTab.center) {
@@ -95,11 +89,6 @@ struct RootTabView: View {
         .sheet(isPresented: $showStartHub) {
             // The former Crear tab remains available from Inicio, without losing tools.
             StartHubSheet(
-                onGoPlan: {
-                    showStartHub = false
-                    planSection = .schedule
-                    tab = .plan
-                },
                 onOpenedWorkout: {
                     showStartHub = false
                     openWorkout()
