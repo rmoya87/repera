@@ -1489,6 +1489,7 @@ struct LiveActivityView: View {
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
+    @Namespace private var routeZoomNamespace
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
@@ -1513,6 +1514,16 @@ struct LiveActivityView: View {
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
             .navigationTitle(recorder.phase == .review ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showFullScreenRoute) {
+                WorkoutMapZoomDestination(
+                    points: fullScreenRoutePoints,
+                    isWaterSport: recorder.sport.isWaterSport,
+                    onClose: { showFullScreenRoute = false }
+                )
+                .navigationTransition(.zoom(
+                    sourceID: "live-review-route", in: routeZoomNamespace
+                ))
+            }
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
                     recorder.choose(sport)
@@ -1560,30 +1571,6 @@ struct LiveActivityView: View {
             }
         }
         .tint(OG.accent)
-        .fullScreenCover(isPresented: $showFullScreenRoute) {
-            NavigationStack {
-                HealthWorkoutRouteMap(
-                    points: fullScreenRoutePoints,
-                    isInteractive: true,
-                    isWaterSport: recorder.sport.isWaterSport
-                )
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Recorrido")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showFullScreenRoute = false
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 15, weight: .semibold))
-                        }
-                        .accessibilityLabel("Cerrar mapa")
-                    }
-                }
-            }
-            .tint(OG.accent)
-        }
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
@@ -2440,22 +2427,22 @@ struct LiveActivityView: View {
                 }
                 .ogCardListRow(top: 4, bottom: 4)
 
-                // Si el GPS no adquirió señal, enseñar igualmente el mapa
-                // de la ruta elegida, diferenciándolo del recorrido registrado.
+                // Misma plantilla de mapa que el historial, con transición
+                // de zoom compartida al modo interactivo a pantalla completa.
                 let previewPoints = session.routePoints.count >= 2
                     ? session.routePoints : (recorder.chosenRoute?.points ?? [])
+                let isRecordedRoute = session.routePoints.count >= 2
+                let route = previewPoints.map { point in
+                    HealthKitStore.RoutePoint(
+                        id: point.id,
+                        latitude: point.latitude,
+                        longitude: point.longitude,
+                        date: point.recordedAt,
+                        speedMps: point.speedMps,
+                        altitudeMeters: point.altitudeMeters
+                    )
+                }
                 if previewPoints.count >= 2 {
-                    let isRecordedRoute = session.routePoints.count >= 2
-                    let route = previewPoints.map { point in
-                        HealthKitStore.RoutePoint(
-                            id: point.id,
-                            latitude: point.latitude,
-                            longitude: point.longitude,
-                            date: point.recordedAt,
-                            speedMps: point.speedMps,
-                            altitudeMeters: point.altitudeMeters
-                        )
-                    }
                     Section {
                         SessionMapWeatherCard(
                             latitude: route.first?.latitude,
@@ -2467,9 +2454,11 @@ struct LiveActivityView: View {
                                 showFullScreenRoute = true
                             } label: {
                                 HealthWorkoutRouteMap(
-                                    points: route,
-                                    isInteractive: false,
+                                    points: route, isInteractive: false,
                                     isWaterSport: recorder.sport.isWaterSport
+                                )
+                                .matchedTransitionSource(
+                                    id: "live-review-route", in: routeZoomNamespace
                                 )
                             }
                             .buttonStyle(.plain)
@@ -2477,51 +2466,51 @@ struct LiveActivityView: View {
                         }
                         .ogCardListRow()
                     }
-                    if isRecordedRoute {
-                        Section {
-                            CardioSplitsView(
-                                routePoints: route,
-                                heartRate: previewHealthExtras?.heartRateSeries ?? [],
-                                cycling: recorder.sport.displaysSpeed,
-                                activeKilometerSeconds: session.liveKilometerSplitsSeconds,
-                                totalActiveSeconds: session.activeDurationSeconds,
-                                totalDistanceMeters: session.recordedDistanceMeters
-                            )
-                            .ogCardListRow()
-                        } header: {
-                            Text("Parciales").foregroundStyle(OG.accent).textCase(nil)
-                        }
-                    } else {
-                        Section {
-                            Text("No hay suficientes puntos GPS grabados para calcular los parciales. El mapa muestra la ruta planificada.")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .ogCardListRow()
-                        }
-                    }
                 } else if recorder.sport.usesGPS {
                     Section {
                         ContentUnavailableView(
                             "Recorrido sin puntos GPS",
                             systemImage: "location.slash",
-                            description: Text("El tiempo se ha guardado, pero no hay suficientes posiciones para dibujar el recorrido.")
+                            description: Text("La distancia y los parciales se conservan aunque no haya puntos para dibujar el mapa.")
                         )
                         .ogCardListRow()
-                    } header: {
-                        Text("Recorrido").foregroundStyle(OG.accent).textCase(nil)
                     }
                 }
 
-                if let extras = previewHealthExtras,
-                   extras.averageHeartRateBpm != nil || extras.activeEnergyKcal != nil {
+                // Un solo Entreno: primero tiles y parciales específicos
+                // del deporte y, inmediatamente después, Salud/altitud.
+                if recorder.sport.usesGPS || previewHealthExtras != nil {
                     Section {
-                        HealthSessionMetricsCard(
-                            extras: extras,
-                            includeSourceRows: extras.hasExternalSaludSource
-                        )
+                        VStack(alignment: .leading, spacing: 14) {
+                            CardioSplitsView(
+                                routePoints: isRecordedRoute ? route : [],
+                                heartRate: previewHealthExtras?.heartRateSeries ?? [],
+                                cycling: recorder.sport.displaysSpeed,
+                                activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                totalActiveSeconds: session.activeDurationSeconds,
+                                totalDistanceMeters: session.recordedDistanceMeters,
+                                maxSpeedKmh: previewHealthExtras?.maxSpeedKmh,
+                                healthStats: previewHealthExtras,
+                                sport: recorder.sport,
+                                embedded: true
+                            )
+                            if let extras = previewHealthExtras,
+                               extras.hasAuthenticSaludMetrics || extras.hasExternalSaludSource {
+                                Divider().opacity(0.35)
+                                HealthSessionMetricsCard(
+                                    extras: extras,
+                                    includeSourceRows: extras.hasExternalSaludSource,
+                                    embedded: true
+                                )
+                            }
+                        }
+                        .padding(OG.pad)
+                        .background(OG.surface, in: RoundedRectangle(
+                            cornerRadius: OG.radiusCard, style: .continuous
+                        ))
                         .ogCardListRow()
                     } header: {
-                        Text("Apple Salud").foregroundStyle(OG.accent).textCase(nil)
+                        Text("Entreno").foregroundStyle(OG.accent).textCase(nil)
                     }
                 }
 
