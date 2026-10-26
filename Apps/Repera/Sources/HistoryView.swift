@@ -276,6 +276,7 @@ struct WorkoutDetailView: View {
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
+    @State private var fullScreenPin: WorkoutLocationPin?
     /// Un solo destino: evita apilar fichas si hay varios links en la misma card.
     @State private var exerciseRoute: DetailExerciseRoute?
 
@@ -341,33 +342,14 @@ struct WorkoutDetailView: View {
 
     /// Mapa completo con pan/zoom; la X cambia contraste con el sistema.
     private var fullScreenRouteDestination: some View {
-        ZStack(alignment: .topTrailing) {
-            HealthWorkoutRouteMap(
-                points: fullScreenRoutePoints,
-                isInteractive: true,
-                isWaterSport: draft?.liveSportID.flatMap {
-                    LiveSport(rawValue: $0)?.isWaterSport
-                } ?? false
-            )
-            .ignoresSafeArea()
-
-            Button {
-                showFullScreenRoute = false
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Circle())
-                    .glassEffect(.regular, in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar mapa")
-            .padding(.top, 10)
-            .padding(.trailing, 16)
-        }
-        .toolbar(.hidden, for: .navigationBar)
-        .background(OG.bg)
+        WorkoutMapZoomDestination(
+            points: fullScreenRoutePoints,
+            pin: fullScreenPin,
+            isWaterSport: draft?.liveSportID.flatMap {
+                LiveSport(rawValue: $0)?.isWaterSport
+            } ?? false,
+            onClose: { showFullScreenRoute = false }
+        )
     }
 
     private func loadDraft() {
@@ -424,6 +406,7 @@ struct WorkoutDetailView: View {
         case .healthRoute:
             if let extras = healthExtras {
                 Button {
+                    fullScreenPin = nil
                     fullScreenRoutePoints = extras.routePoints
                     showFullScreenRoute = true
                 } label: {
@@ -439,6 +422,7 @@ struct WorkoutDetailView: View {
             }
         case .ownRoute:
             Button {
+                fullScreenPin = nil
                 fullScreenRoutePoints = session.routePoints.map(\.asHealthRoutePoint)
                 showFullScreenRoute = true
             } label: {
@@ -454,7 +438,17 @@ struct WorkoutDetailView: View {
             .accessibilityLabel("Ampliar recorrido")
         case .pin:
             if let pin = session.locationPin {
-                WorkoutLocationPinMap(pin: pin, isInteractive: interactive)
+                Button {
+                    fullScreenRoutePoints = []
+                    fullScreenPin = pin
+                    showFullScreenRoute = true
+                } label: {
+                    WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                        .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
+                }
+                .buttonStyle(.plain)
+                .disabled(interactive)
+                .accessibilityLabel("Ampliar ubicación")
             }
         case .none:
             EmptyView()
@@ -1851,13 +1845,56 @@ private struct HealthSpeedStatRow: View {
     }
 }
 
+/// Único destino de mapa para entrenamiento, Comenzar y actividades de Salud.
+/// Comparte los controles y la apariencia; recibe ruta real o ubicación.
+struct WorkoutMapZoomDestination: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var points: [HealthKitStore.RoutePoint]
+    var pin: WorkoutLocationPin? = nil
+    var isWaterSport: Bool = false
+    var onClose: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Group {
+                if let pin {
+                    WorkoutLocationPinMap(pin: pin, isInteractive: true)
+                } else {
+                    HealthWorkoutRouteMap(
+                        points: points, isInteractive: true,
+                        isWaterSport: isWaterSport
+                    )
+                }
+            }
+            .ignoresSafeArea()
+
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .glassEffect(.regular, in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cerrar mapa")
+            .padding(.trailing, 16)
+            .padding(.top, 10)
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .background(OG.bg)
+    }
+}
+
 /// Ficha de un entreno importado de Apple Salud (mismo lenguaje visual que Entreno).
 struct HealthActivityDetailView: View {
     @Environment(HealthKitStore.self) private var health
+    @Namespace private var routeZoomNamespace
 
     var activityId: UUID
 
     @State private var detail: HealthKitStore.ExternalActivityDetail?
+    @State private var showFullScreenRoute = false
 
     private var subtitle: String {
         guard let activity = detail?.activity else { return "" }
@@ -1878,6 +1915,13 @@ struct HealthActivityDetailView: View {
         .task {
             detail = await health.activityDetail(for: activityId)
         }
+        .navigationDestination(isPresented: $showFullScreenRoute) {
+            WorkoutMapZoomDestination(
+                points: detail?.routePoints ?? [],
+                onClose: { showFullScreenRoute = false }
+            )
+            .navigationTransition(.zoom(sourceID: activityId, in: routeZoomNamespace))
+        }
     }
 
     private func detailList(_ detail: HealthKitStore.ExternalActivityDetail) -> some View {
@@ -1886,17 +1930,16 @@ struct HealthActivityDetailView: View {
 
         return List {
             Section {
-                VStack(alignment: .leading, spacing: 10) {
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(OG.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 2)
-                    }
-                    summaryRow(activity, detail: detail)
+                summaryRow(activity, detail: detail)
+                    .ogCardListRow(top: 0, bottom: 2)
+            } header: {
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .textCase(nil)
+                        .padding(.leading, 2)
                 }
-                .ogCardListRow(top: 4, bottom: 4)
             }
 
             if showRouteMap {
@@ -1907,38 +1950,50 @@ struct HealthActivityDetailView: View {
                         longitude: first?.longitude,
                         workoutDate: activity.start
                     ) {
-                        HealthWorkoutRouteMap(points: detail.routePoints, isInteractive: false)
+                        Button {
+                            showFullScreenRoute = true
+                        } label: {
+                            HealthWorkoutRouteMap(
+                                points: detail.routePoints,
+                                isInteractive: false
+                            )
+                            .matchedTransitionSource(id: activityId, in: routeZoomNamespace)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Ampliar recorrido")
                     }
                     .ogCardListRow()
-                } header: {
-                    sectionHeader("Recorrido")
-                } footer: {
-                    Text("Colores = velocidad (verde más lento → rojo más rápido).")
                 }
             }
 
+            // Igual que las sesiones Repera: deportes, parciales y Salud en
+            // una sola tarjeta y bajo una sola cabecera.
             Section {
-                // Título/distancia ya van arriba (cabecera + tiles); no duplicar aquí.
-                HealthSessionMetricsCard(
-                    extras: detail.asSessionExtras,
-                    includeSourceRows: false
-                )
-                .ogCardListRow()
-            } header: {
-                sectionHeader("Entreno")
-            }
-
-            if showRouteMap {
-                Section {
+                VStack(alignment: .leading, spacing: 14) {
                     CardioSplitsView(
                         routePoints: detail.routePoints,
                         heartRate: detail.heartRateSeries,
-                        cycling: activity.activityType == .cycling
+                        cycling: activity.activityType == .cycling,
+                        totalActiveSeconds: activity.durationMinutes * 60,
+                        totalDistanceMeters: activity.distanceMeters,
+                        maxSpeedKmh: detail.maxSpeedKmh,
+                        healthStats: detail.asSessionExtras,
+                        embedded: true
                     )
-                    .ogCardListRow()
-                } header: {
-                    sectionHeader("Parciales")
+                    Divider().opacity(0.35)
+                    HealthSessionMetricsCard(
+                        extras: detail.asSessionExtras,
+                        includeSourceRows: false,
+                        embedded: true
+                    )
                 }
+                .padding(OG.pad)
+                .background(OG.surface, in: RoundedRectangle(
+                    cornerRadius: OG.radiusCard, style: .continuous
+                ))
+                .ogCardListRow()
+            } header: {
+                sectionHeader("Entreno")
             }
 
             Section {
