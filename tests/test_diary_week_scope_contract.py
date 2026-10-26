@@ -105,6 +105,43 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertIn("DatePicker(\"Fecha programada\"", editor)
         self.assertNotIn('Picker("Día en Programado"', editor)
 
+    def test_saved_diary_routines_remain_in_library_with_optional_date_copy(self):
+        editor = swift("PlanView.swift")
+        form = editor.split("private var editorForm: some View {", 1)[1].split(
+            "if onApplyCompleted != nil {", 1
+        )[0]
+        plan = form.split("case .plan:", 1)[1].split("case .oneOff:", 1)[0]
+        self.assertIn('Toggle("Programar también en una fecha", isOn: planScheduleEnabled)', plan)
+        self.assertIn('DatePicker("Fecha programada", selection: planScheduledDate,', plan)
+        self.assertNotIn("Plantilla reutilizable · sin fecha", form)
+        self.assertNotIn('Toggle("Favorito"', plan)
+        self.assertIn("private var planScheduleEnabled: Binding<Bool>", editor)
+        self.assertIn("private var planScheduledDate: Binding<Date>", editor)
+
+        saved = editor.split("private func confirm() {", 1)[1].split(
+            "case .oneOff:", 1
+        )[0].rsplit("case .plan:", 1)[1]
+        self.assertLess(saved.index("let dateToSchedule = draft.scheduledDate"),
+                        saved.index("draft.scheduledDate = nil"))
+        self.assertLess(saved.index("guard store.saveRoutine(draft)"),
+                        saved.index("store.assignRoutine(draft.id, toDate: dateToSchedule)"))
+        self.assertIn("draft.weekday = nil", saved)
+
+        library = editor.split("private var routinesContent: some View", 1)[1].split(
+            "private var newRoutineGreenButton:", 1
+        )[0]
+        self.assertNotIn("setRoutineFavorite(", library)
+        self.assertNotIn('Image(systemName: routine.isFavorite', library)
+        self.assertNotIn("Sin fecha · reutilizable", editor)
+
+    def test_add_routine_sheet_has_top_spacing_and_no_redundant_copy_text(self):
+        sheet = swift("DayOverrideSheet.swift")
+        self.assertIn('OGPageHeader(title: dayLabel)', sheet)
+        self.assertIn(".padding(.top, 14)", sheet)
+        self.assertIn(".padding(.bottom, 18)", sheet)
+        self.assertIn(".ogFittedHeight()", sheet)
+        self.assertNotIn("La rutina se copiará solo a esta fecha.", sheet)
+
     def test_existing_weekdays_are_migrated_without_deleting_completed_history(self):
         store = swift("ReperaStore.swift")
         self.assertIn("private func migrateLegacyWeeklyPlans() -> Bool", store)
