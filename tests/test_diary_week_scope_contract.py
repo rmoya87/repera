@@ -59,13 +59,15 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
             self.assertIn(".controlSize(.large)", control)
             self.assertIn(".glassEffect(.regular, in: .capsule)", control)
         self.assertIn(".padding(.top, 4)", tabs)
-        self.assertIn(".padding(.bottom, 10)", tabs)
+        self.assertIn(".padding(.bottom, 4)", tabs)
         body = diary.split("var body: some View {", 1)[1].split(
             ".navigationDestination(item: $editing)", 1
         )[0]
         self.assertIn(".safeAreaInset(edge: .top, spacing: 0)", body)
         self.assertIn("compactDiaryTabs", body)
         self.assertNotIn(".ogSegmentedListRow()", body)
+        # List agrupada no añade su margen de sección sobre los primeros días.
+        self.assertIn(".contentMargins(.top, 0, for: .scrollContent)", body)
         self.assertEqual(diary.count('Picker("Sección", selection: $section)'), 1)
         self.assertIn("weekSelector(narrow: true)", body)
 
