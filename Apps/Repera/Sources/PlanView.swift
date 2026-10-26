@@ -153,7 +153,7 @@ struct PlanView: View {
                             let n = store.copyPreviousWeekSchedule()
                             copyWeekFlash = n
                         } label: {
-                            Label("Copiar semana pasada", systemImage: "calendar.badge.clock")
+                            Label("Repetir entrenos de la semana pasada", systemImage: "calendar.badge.clock")
                         }
                         if !store.plannedRoutines.isEmpty {
                             Button(role: .destructive) {
@@ -226,8 +226,8 @@ struct PlanView: View {
             } message: {
                 let n = copyWeekFlash ?? 0
                 Text(n == 0
-                     ? "No había entrenos sueltos en la semana ISO anterior."
-                     : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") a esta semana.")
+                     ? "No hay entrenos fechados que copiar o los días ya están ocupados. Las rutinas semanales recurrentes no necesitan copiarse."
+                     : "Se añadieron \(n) entreno\(n == 1 ? "" : "s") de la semana anterior, sin modificar los días ya programados.")
             }
         }
         .ogTrailingColumnPanel(
@@ -1488,6 +1488,14 @@ struct DayEditorView: View {
                 Text("Resultado del entreno")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(OG.label)
+
+                if let olderScore = completedWorkoutDraft?.wodResults.last(where: {
+                    $0.id == block.id && $0.format != nil && $0.format != format
+                }) {
+                    Text("Se conserva el resultado anterior (\(olderScore.format?.displayName ?? "otro formato"): \(olderScore.summaryLabel)). Puedes registrar también el resultado del formato actual sin perderlo.")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                }
 
                 // Todos los formatos con score global admiten edición,
                 // aunque Salud/Play no hubiera guardado todavía un resultado
