@@ -150,6 +150,18 @@ def main() -> int:
             if not marketing or not build:
                 raise ValueError("Xcode no proporcionó MARKETING_VERSION o CURRENT_PROJECT_VERSION")
             pair = validate(marketing, build)
+            # La pre-acción de Xcode se ejecuta antes de compilar/archivar:
+            # nunca rebajar el build del repo por ajustes desfasados de un
+            # .xcodeproj generado localmente. Fallar pronto evita que Apple
+            # rechace otro IPA con el número ya subido a TestFlight.
+            newest = prefer_newer_config(pair)
+            if newest != pair:
+                raise ValueError(
+                    f"Xcode está compilando {pair[0]} ({pair[1]}), pero "
+                    f"Configs/Version.xcconfig define {newest[0]} ({newest[1]}). "
+                    "Regenera el proyecto con 'xcodegen generate' "
+                    "y comprueba CURRENT_PROJECT_VERSION en Release antes de archivar."
+                )
         elif args.from_project:
             pair = from_project()
             if pair is None:
