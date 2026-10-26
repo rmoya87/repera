@@ -111,6 +111,7 @@ final class RemoteExerciseCatalogStore {
         guard saved.revision > 0 else { return }
         let originalIDs = saved.localIDs
         if await apply(saved: &saved, to: store) {
+            _ = store.relinkScheduledWODMovementsToCatalog()
             store.bumpCatalogEpoch()
             store.persistLocalOnly(immediate: true)
         }
@@ -193,6 +194,7 @@ final class RemoteExerciseCatalogStore {
             snapshot = working
             let idsBeforeMerge = working.localIDs
             if let store, await apply(saved: &working, to: store) {
+                _ = store.relinkScheduledWODMovementsToCatalog()
                 store.bumpCatalogEpoch()
                 store.persistLocalOnly(immediate: true)
                 store.notifyCatalogChangedForWatch()
