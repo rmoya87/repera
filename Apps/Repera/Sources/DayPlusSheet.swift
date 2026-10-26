@@ -231,6 +231,7 @@ struct DayPlusSheet: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var menuDivider: some View {
