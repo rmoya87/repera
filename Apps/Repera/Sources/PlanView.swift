@@ -484,7 +484,7 @@ struct PlanView: View {
                     .padding(.vertical, 6)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    if let routine {
+                    if routine != nil {
                         OGSwipeDeleteButton(systemImage: "trash", accessibilityLabel: "Quitar del día", tint: OG.red) {
                             store.removeScheduledRoutine(on: date)
                         }
