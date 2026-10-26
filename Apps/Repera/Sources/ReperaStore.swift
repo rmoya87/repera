@@ -850,21 +850,10 @@ final class ReperaStore: NSObject {
             : "\(planName) · \(day)"
         imported.isFavorite = false
 
-        if let idx = state.routines.firstIndex(where: {
-            guard let scheduled = $0.scheduledDate else { return false }
-            return calendar.isDate(scheduled, inSameDayAs: date)
-        }) {
-            var existing = state.routines[idx]
-            existing.blocks.append(contentsOf: imported.blocks)
-            if existing.title.isEmpty { existing.title = imported.title }
-            existing.scheduledDate = date
-            existing.weekday = nil
-            saveRoutine(existing)
-            return existing
-        } else {
-            saveRoutine(imported)
-            return imported
-        }
+        // Cada escaneo guardado es una sesión independiente del mismo día.
+        // Nunca fusionar sus bloques con otra rutina programada.
+        saveRoutine(imported)
+        return imported
     }
 
     /// Próxima fecha del calendario con ese weekday ISO (hoy si coincide).
@@ -1958,23 +1947,9 @@ final class ReperaStore: NSObject {
             draft.weekday = nil
         }
         if let scheduled = draft.scheduledDate {
+            // La fecha agrupa sesiones, no es clave única: cada UUID conserva
+            // sus bloques y su resultado, aunque existan varias ese día.
             draft.scheduledDate = Calendar.current.startOfDay(for: scheduled)
-            // Entreno suelto: no pisa el plan semanal; solo otro suelto del mismo día.
-            var removeIds: [UUID] = []
-            for other in state.routines where other.id != draft.id {
-                guard let otherDate = other.scheduledDate else { continue }
-                if Calendar.current.isDate(otherDate, inSameDayAs: draft.scheduledDate!) {
-                    if other.isFavorite {
-                        // favorito suelto → quitar fecha
-                        if let i = state.routines.firstIndex(where: { $0.id == other.id }) {
-                            state.routines[i].scheduledDate = nil
-                        }
-                    } else {
-                        removeIds.append(other.id)
-                    }
-                }
-            }
-            state.routines.removeAll { removeIds.contains($0.id) }
         } else if let day = draft.weekday {
             // Un día del plan → una plantilla. Las demás se desasignan (no se borran).
             for i in state.routines.indices where state.routines[i].id != draft.id
@@ -2065,11 +2040,23 @@ final class ReperaStore: NSObject {
         }.sorted { ($0.scheduledDate ?? .distantFuture) < ($1.scheduledDate ?? .distantFuture) }
     }
 
-    func scheduledRoutine(on date: Date) -> Routine? {
-        state.routines.first {
+    /// Sesiones independientes de la misma fecha, ordenadas por hora e identidad.
+    func scheduledRoutines(on date: Date) -> [Routine] {
+        state.routines.filter {
             guard let scheduled = $0.scheduledDate else { return false }
             return Calendar.current.isDate(scheduled, inSameDayAs: date)
+        }.sorted {
+            let left = $0.normalizedScheduledTimeMinutes ?? 24 * 60
+            let right = $1.normalizedScheduledTimeMinutes ?? 24 * 60
+            if left != right { return left < right }
+            if $0.title != $1.title { return $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            return $0.id.uuidString < $1.id.uuidString
         }
+    }
+
+    /// Compatibilidad con pantallas que necesitan un solo entrenamiento sugerido.
+    func scheduledRoutine(on date: Date) -> Routine? {
+        scheduledRoutines(on: date).first
     }
 
     /// Vaciar solo la semana visible. No tocar otras semanas, plantillas ni sesiones.
@@ -2088,17 +2075,23 @@ final class ReperaStore: NSObject {
         pushActiveToWatch()
     }
 
-    func removeScheduledRoutine(on date: Date) {
-        guard let target = scheduledRoutine(on: date) else { return }
-        if let index = state.routines.firstIndex(where: { $0.id == target.id }),
-           state.routines[index].isFavorite {
+    /// Quita exclusivamente la sesión seleccionada, nunca sus compañeras de día.
+    func removeScheduledRoutine(id: UUID) {
+        guard let index = state.routines.firstIndex(where: { $0.id == id }),
+              state.routines[index].scheduledDate != nil else { return }
+        if state.routines[index].isFavorite {
             state.routines[index].scheduledDate = nil
             state.routines[index].weekday = nil
         } else {
-            state.routines.removeAll { $0.id == target.id }
+            state.routines.remove(at: index)
         }
         persist()
         pushActiveToWatch()
+    }
+
+    func removeScheduledRoutine(on date: Date) {
+        guard let target = scheduledRoutine(on: date) else { return }
+        removeScheduledRoutine(id: target.id)
     }
 
     func deleteAllRoutines() {
@@ -2456,11 +2449,15 @@ final class ReperaStore: NSObject {
         let targetStart = diaryWeekStart(containing: weekReference)
         guard let previous = cal.date(byAdding: .day, value: -7, to: targetStart) else { return 0 }
         let sources = scheduledRoutines(inWeekContaining: previous)
+        // Tomar los días ocupados ANTES de copiar; el segundo entreno de
+        // un día copiado no debe bloquearse por el primero recién creado.
+        let originallyOccupied = scheduledRoutines(inWeekContaining: targetStart)
+            .compactMap(\.scheduledDate)
         var created = 0
         for source in sources {
             guard let day = source.scheduledDate,
                   let copyDate = cal.date(byAdding: .day, value: 7, to: day),
-                  scheduledRoutine(on: copyDate) == nil
+                  !originallyOccupied.contains(where: { cal.isDate($0, inSameDayAs: copyDate) })
             else { continue }
             let copy = Routine(
                 title: source.title, weekday: nil, scheduledDate: copyDate,
@@ -2476,8 +2473,7 @@ final class ReperaStore: NSObject {
     /// Programar una plantilla en una fecha concreta sin mover ni modificar
     /// la plantilla, y sin activar recurrencia semanal.
     func assignRoutine(_ routineId: UUID, toDate date: Date) {
-        guard let source = state.routines.first(where: { $0.id == routineId }),
-              scheduledRoutine(on: date) == nil else { return }
+        guard let source = state.routines.first(where: { $0.id == routineId }) else { return }
         let copy = Routine(
             title: source.title, scheduledDate: date,
             scheduledTimeMinutes: source.scheduledTimeMinutes,
