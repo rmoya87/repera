@@ -464,7 +464,8 @@ struct CardioSplitsView: View {
                     if let meters = healthStats.movementDistanceMeters, meters > 0 {
                         SessionSportMetricTile(
                             title: healthStats.movementUsesTimeWindow
-                                ? "Dist. en horario" : "Distancia a pie",
+                                ? "Dist. en horario"
+                                : (healthStats.movementDistanceLabel ?? "Distancia"),
                             value: meters >= 1000 ? decimal(meters / 1000) : "\(Int(meters.rounded()))",
                             unit: meters >= 1000 ? "km" : "m", tint: OG.blue
                         )
