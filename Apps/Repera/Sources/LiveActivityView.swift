@@ -1485,6 +1485,7 @@ struct LiveActivityView: View {
     @State private var title = ""
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
+    @State private var isSavingRecordedActivity = false
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
@@ -2548,6 +2549,7 @@ struct LiveActivityView: View {
                             .background(OG.accent, in: Capsule())
                     }
                     .buttonStyle(.plain)
+                    .disabled(isSavingRecordedActivity)
                     .ogCardListRow()
                 }
 
@@ -2600,26 +2602,48 @@ struct LiveActivityView: View {
     }
 
     private func saveRecordedActivity() {
-        guard var session = recorder.makeSession(title: title, notes: notes) else { return }
-        guard savedWorkoutID != session.id else { return }
-        savedWorkoutID = session.id
-        if session.liveRouteID == nil && session.routePoints.count >= 2 &&
-            recorder.sport.usesGPS {
-            do {
-                session.liveRouteID = try routes.addRecordedRoute(from: session)
-            } catch {
-                // No perder el entrenamiento registrado si falla el catálogo GPX.
-                routeError = "No se pudo archivar la ruta. La actividad sí se guardará."
+        guard !isSavingRecordedActivity,
+              let draft = recorder.makeSession(title: title, notes: notes),
+              savedWorkoutID != draft.id else { return }
+        isSavingRecordedActivity = true
+        savedWorkoutID = draft.id
+        Task { @MainActor in
+            var session = draft
+            // Consultar Salud también al pulsar Guardar: la lectura asíncrona
+            // de la preview quizá todavía no terminó. No crear un segundo
+            // HKWorkout si existe otro real de Apple Watch para esta salida.
+            let extras: HealthKitStore.SessionHealthExtras?
+            if let cached = previewHealthExtras {
+                extras = cached
+            } else {
+                extras = await health.sessionHealthExtras(for: session)
             }
+            if let extras, extras.hasExternalSaludSource,
+               let matchedUUID = extras.resolvedWorkoutUUID {
+                session.healthKitWorkoutUUID = matchedUUID
+                session.appleActiveEnergyKcal = extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
+                session.appleAverageHeartRateBpm = extras.averageHeartRateBpm
+                session.appleHealthProvenance = "healthKitExternal"
+            }
+            if session.liveRouteID == nil && session.routePoints.count >= 2
+                && recorder.sport.usesGPS {
+                do {
+                    session.liveRouteID = try routes.addRecordedRoute(from: session)
+                } catch {
+                    // Guardar siempre el entreno aunque falle archivar el GPX.
+                    routeError = "No se pudo archivar la ruta. La actividad sí se guardará."
+                }
+            }
+            store.saveWorkout(session)
+            let day = session.startedAt ?? Date()
+            recorder.discard(saved: true)
+            title = ""
+            notes = ""
+            savedWorkoutID = nil
+            isSavingRecordedActivity = false
+            showingMetrics = false
+            onSaved(day)
         }
-        store.saveWorkout(session)
-        let day = session.startedAt ?? Date()
-        recorder.discard(saved: true)
-        title = ""
-        notes = ""
-        savedWorkoutID = nil
-        showingMetrics = false
-        onSaved(day)
     }
 
     private var routeSheet: some View {
