@@ -19,7 +19,7 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertIn(".background(OG.surface)", home)
         self.assertIn('activityTodayCard', home)
 
-    def test_diary_does_not_show_one_off_workouts_created_elsewhere(self):
+    def test_diary_lists_date_scoped_weekly_workouts(self):
         diary = swift("PlanView.swift")
         section = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
         self.assertNotIn("ForEach(datedPlans)", section)
