@@ -84,6 +84,17 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertEqual(history.count("WorkoutSummaryTile(title: title, value: value, icon: icon, tint: tint)"), 2)
         self.assertIn("WorkoutSummaryTile(title: label, value: value, icon: icon, tint: tint)", live)
         self.assertIn("struct WorkoutMapZoomDestination: View", history)
+        self.assertIn("struct WorkoutMapTapTarget<MapPreview: View>: View", history)
+        self.assertGreaterEqual(history.count("WorkoutMapTapTarget("), 3)
+        self.assertIn("WorkoutMapTapTarget(", live)
+        tap = history.split("struct WorkoutMapTapTarget<MapPreview: View>: View", 1)[1].split(
+            "/// Único destino de mapa", 1
+        )[0]
+        self.assertIn("map()", tap)
+        self.assertIn(".allowsHitTesting(false)", tap)
+        self.assertIn(".overlay {", tap)
+        self.assertIn("Button(action: action)", tap)
+        self.assertIn(".contentShape(Rectangle())", tap)
         self.assertIn("matchedTransitionSource(id: sessionId, in: routeZoomNamespace)", history)
         self.assertIn("matchedTransitionSource(id: activityId, in: routeZoomNamespace)", history)
 
@@ -106,7 +117,7 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertNotIn('miniStat("Vel. media"', charts)
         self.assertNotIn('miniStat("Vel. máx"', charts)
         heart = history.split("private struct HealthHeartRateStatRow: View", 1)[1].split(
-            "private struct HealthSpeedStatRow: View", 1
+            "/// Superficie de toque independiente de MapKit.", 1
         )[0]
         self.assertNotIn('stat("Vel. media"', heart)
         self.assertNotIn('stat("Vel. máx"', heart)
