@@ -288,6 +288,9 @@ final class ReperaStore: NSObject {
                 bodyPart: fresh.bodyPart,
                 detailDescription: fresh.detailDescription,
                 instructions: fresh.instructions,
+                // La hidratación del catálogo empaquetado no puede borrar los
+                // alias editoriales recibidos de Supabase.
+                searchAliases: exercises[i].searchAliases,
                 primaryRegions: fresh.primaryRegions,
                 secondaryRegions: fresh.secondaryRegions,
                 isFavorite: fav,
