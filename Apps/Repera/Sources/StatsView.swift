@@ -324,19 +324,31 @@ struct StatsView: View {
         }
     }
 
+    /// Una sola retícula para los gráficos de Actividad, tanto de Pro como
+    /// de la previsualización gratuita. No permitir que diverjan en tamaños
+    /// o separación al cambiar la suscripción.
+    private func healthChartsLayout<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Group {
+            if isExpandedLayout {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 12, alignment: .top),
+                    GridItem(.flexible(), spacing: 12, alignment: .top)
+                ], spacing: 12) {
+                    content()
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    content()
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var healthSections: some View {
-        if isExpandedLayout {
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 12, alignment: .top),
-                GridItem(.flexible(), spacing: 12, alignment: .top)
-            ], spacing: 12) {
-                sessionScoreSection
-                cardioHealthSection
-                caloriesHealthSection
-                weightHealthSection
-            }
-        } else {
+        healthChartsLayout {
             sessionScoreSection
             cardioHealthSection
             caloriesHealthSection
@@ -495,31 +507,17 @@ struct StatsView: View {
         .accessibilityLabel("Ejemplo de evolución por ejercicio, datos simulados.")
     }
 
-    /// Preview free de Actividad: datos simulados (no Salud real) para mostrar el valor de Pro.
+    /// Preview free de Actividad: mismas tarjetas, columnas y tamaños que
+    /// Pro; solo cambian los datos de ejemplo y la interacción desactivada.
     @ViewBuilder
     private var freeHealthPreview: some View {
         let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
-        Group {
-            if isExpandedLayout {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 12, alignment: .top),
-                    GridItem(.flexible(), spacing: 12, alignment: .top)
-                ], spacing: 12) {
-                    freeHealthScoreCard
-                    ProgressCardioChartCard(prepared: sample)
-                    ProgressCaloriesChartCard(prepared: sample)
-                    freeHealthWeightCard
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    freeHealthScoreCard
-                    ProgressCardioChartCard(prepared: sample)
-                    ProgressCaloriesChartCard(prepared: sample)
-                    freeHealthWeightCard
-                }
-            }
+        healthChartsLayout {
+            freeHealthScoreCard
+            ProgressCardioChartCard(prepared: sample)
+            ProgressCaloriesChartCard(prepared: sample)
+            freeHealthWeightCard
         }
-        .opacity(0.88)
         .allowsHitTesting(false)
         .accessibilityLabel("Gráficas de ejemplo de actividad. Los valores no son datos reales.")
     }
