@@ -1507,9 +1507,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
 public struct Routine: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var title: String
-    /// 1 = Monday … 7 = Sunday (ISO). Plan semanal (Diario) cuando `scheduledDate == nil`.
+    /// Campo histórico: 1 = Monday … 7 = Sunday (ISO). Se migra a una fecha concreta al recuperar datos antiguos.
     public var weekday: Int?
-    /// Día concreto (inicio del día). Si no es nil → entreno suelto de ese día (no es plan semanal).
+    /// Día concreto (inicio del día): programación individual, sin repetición automática semanal.
     public var scheduledDate: Date?
     /// Hora del día en minutos desde medianoche (0…1439). Opcional.
     public var scheduledTimeMinutes: Int?
@@ -1519,7 +1519,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     public var blocks: [RoutineBlock]
     public var progression: ProgressionPolicy
 
-    /// Forma parte del plan semanal de Diario (no es un entreno suelto).
+    /// Solo identifica asignaciones del esquema anterior aún sin migrar.
     public var isWeeklyPlan: Bool { scheduledDate == nil && weekday != nil }
 
     /// Plantilla reutilizable (Diario → Rutinas): no es un entreno suelto por fecha.
