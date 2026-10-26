@@ -171,6 +171,7 @@ final class ReperaStore: NSObject {
             }
             dirty = dedupeBodyWeightsByDay() || dirty
             dirty = relinkOrphanSessionExercisesToCatalog() || dirty
+            dirty = relinkScheduledWODMovementsToCatalog() || dirty
             if dirty {
                 catalogEpoch &+= 1
                 // Local only until iCloud recovery completes — never upload seed over undownloaded cloud.
@@ -475,6 +476,36 @@ final class ReperaStore: NSObject {
         return changed
     }
 
+    /// Corrige los movimientos WOD de rutinas programadas previamente
+    /// sin modificar series, bloques, fechas ni métricas registradas.
+    @discardableResult
+    func relinkScheduledWODMovementsToCatalog() -> Bool {
+        var changed = false
+        for routineIndex in state.routines.indices {
+            for blockIndex in state.routines[routineIndex].blocks.indices {
+                guard state.routines[routineIndex].blocks[blockIndex].kind == .wod else { continue }
+                for moveIndex in state.routines[routineIndex].blocks[blockIndex].movements.indices {
+                    let move = state.routines[routineIndex].blocks[blockIndex].movements[moveIndex]
+                    guard let match = CrossFitGlossary.catalogExercise(
+                        for: move, in: state.exercises
+                    ), !match.isCustom else { continue }
+                    if move.exerciseId != match.id {
+                        state.routines[routineIndex].blocks[blockIndex].movements[moveIndex].exerciseId = match.id
+                        changed = true
+                    }
+                    let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
+                    if CrossFitGlossary.normalize(move.name) != CrossFitGlossary.normalize(canonical),
+                       CrossFitGlossary.normalize(match.name) == CrossFitGlossary.normalize(canonical) {
+                        state.routines[routineIndex].blocks[blockIndex].movements[moveIndex].name = match.name
+                        changed = true
+                    }
+                }
+            }
+        }
+        if changed { state.updatedAt = Date() }
+        return changed
+    }
+
     func cachedPersonalRecordCount(in session: WorkoutSession) -> Int {
         cachedPersonalRecordCountsBySession()[session.id] ?? 0
     }
@@ -555,6 +586,7 @@ final class ReperaStore: NSObject {
             stripSeededDemoPlanIfNeeded()
             _ = enrichCatalogMetadata()
             _ = relinkOrphanSessionExercisesToCatalog()
+            _ = relinkScheduledWODMovementsToCatalog()
             // Metadata merges stay local until the next user edit bumps revision.
             store.persistLocal(state, immediate: true)
             catalogEpoch &+= 1
