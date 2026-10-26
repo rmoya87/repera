@@ -128,6 +128,8 @@ enum ProgressDataEngine {
         let externalSamples = HealthMuscleMapper.daySamples(from: externalActivities)
         let stimuli = HealthMuscleMapper.stimuli(from: externalActivities)
             + HealthMuscleMapper.nativeSportStimuli(from: input.workouts)
+        let highEffortStimuli = HealthMuscleMapper.highEffortStimuli(from: externalActivities)
+            + HealthMuscleMapper.nativeHighEffortSportStimuli(from: input.workouts)
         if Task.isCancelled { return nil }
 
         let filteredWorkouts = StatsEngine.filterWorkouts(
@@ -144,6 +146,12 @@ enum ProgressDataEngine {
         )
         let filteredStimuli = StatsEngine.filterStimuli(
             stimuli,
+            range: range,
+            weekStartsOnMonday: monday,
+            now: now
+        )
+        let filteredHighEffortStimuli = StatsEngine.filterStimuli(
+            highEffortStimuli,
             range: range,
             weekStartsOnMonday: monday,
             now: now
@@ -267,7 +275,7 @@ enum ProgressDataEngine {
         )
         let muscleHard = MuscleLoadEngine.load(
             workouts: filteredWorkouts,
-            external: filteredStimuli,
+            external: filteredHighEffortStimuli,
             window: .all,
             weekStartsOnMonday: monday,
             now: now,
@@ -282,7 +290,7 @@ enum ProgressDataEngine {
         )
         let muscleFatigueHard = MuscleMapEngine.retainedLoad(
             workouts: filteredWorkouts,
-            external: filteredStimuli,
+            external: filteredHighEffortStimuli,
             hardOnly: true,
             now: now
         )
