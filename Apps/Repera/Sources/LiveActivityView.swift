@@ -20,12 +20,16 @@ enum LiveSport: String, CaseIterable, Identifiable {
     case golf, skiing, iceSkating, snowboarding, crossCountrySkiing
     case soccer, basketball, volleyball
     case climbing, dance, pilates, skateboarding
+    case boxing, kickboxing, martialArts, wrestling
+    case badminton, pickleball, squash
+    case functionalStrength, coreTraining, elliptical, stairClimbing
+    case americanFootball, baseball, softball, hockey, lacrosse, rugby
     case yoga, mobility, other
 
     static let groups = [
         "A pie", "Ciclismo", "Fuerza y fitness", "Deportes de raqueta",
         "Deportes acuáticos", "Deportes de invierno", "Deportes de equipo",
-        "Otros deportes"
+        "Combate", "Cardio y gimnasio", "Otros deportes"
     ]
 
     var id: String { rawValue }
@@ -81,6 +85,23 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .skateboarding: "Skateboard"
         case .yoga: "Yoga"
         case .mobility: "Movilidad"
+        case .boxing: "Boxeo"
+        case .kickboxing: "Kickboxing"
+        case .martialArts: "Artes marciales"
+        case .wrestling: "Lucha"
+        case .badminton: "Bádminton"
+        case .pickleball: "Pickleball"
+        case .squash: "Squash"
+        case .functionalStrength: "Fuerza funcional"
+        case .coreTraining: "Core"
+        case .elliptical: "Elíptica"
+        case .stairClimbing: "Subida de escaleras"
+        case .americanFootball: "Fútbol americano"
+        case .baseball: "Béisbol"
+        case .softball: "Sóftbol"
+        case .hockey: "Hockey"
+        case .lacrosse: "Lacrosse"
+        case .rugby: "Rugby"
         case .other: "Otra actividad"
         }
     }
@@ -120,6 +141,13 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .pilates: "figure.pilates"
         case .yoga: "figure.yoga"
         case .mobility: "figure.flexibility"
+        case .boxing, .kickboxing: "figure.boxing"
+        case .martialArts, .wrestling: "figure.martial.arts"
+        case .badminton, .pickleball, .squash: "figure.tennis"
+        case .functionalStrength: "dumbbell"
+        case .coreTraining: "figure.core.training"
+        case .elliptical, .stairClimbing: "figure.mixed.cardio"
+        case .americanFootball, .baseball, .softball, .hockey, .lacrosse, .rugby: "sportscourt"
         case .other: "figure.mixed.cardio"
         }
     }
@@ -129,11 +157,14 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .running, .trail, .walking, .hiking: "A pie"
         case .cycling, .mountainBike, .gravel: "Ciclismo"
         case .crossfit, .strength, .hiit, .hyrox: "Fuerza y fitness"
-        case .tennis, .padel: "Deportes de raqueta"
+        case .tennis, .padel, .badminton, .pickleball, .squash: "Deportes de raqueta"
         case .surfing, .swimming, .windsurfing, .kitesurfing,
              .kayaking, .rowing, .canoeing, .sailing: "Deportes acuáticos"
         case .skiing, .iceSkating, .snowboarding, .crossCountrySkiing: "Deportes de invierno"
-        case .soccer, .basketball, .volleyball: "Deportes de equipo"
+        case .soccer, .basketball, .volleyball, .americanFootball,
+             .baseball, .softball, .hockey, .lacrosse, .rugby: "Deportes de equipo"
+        case .boxing, .kickboxing, .martialArts, .wrestling: "Combate"
+        case .functionalStrength, .coreTraining, .elliptical, .stairClimbing: "Cardio y gimnasio"
         default: "Otros deportes"
         }
     }
@@ -205,8 +236,15 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .hiking: .hiking
         case .crossfit, .hyrox: .crossTraining
         case .strength: .traditionalStrengthTraining
+        case .functionalStrength: .functionalStrengthTraining
+        case .coreTraining: .coreTraining
+        case .elliptical: .elliptical
+        case .stairClimbing: .stairClimbing
         case .hiit: .highIntensityIntervalTraining
         case .tennis, .padel: .tennis
+        case .badminton: .badminton
+        case .pickleball: .pickleball
+        case .squash: .squash
         case .surfing: .surfingSports
         case .windsurfing, .kitesurfing: .surfingSports
         case .swimming: .swimming
@@ -221,6 +259,16 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .soccer: .soccer
         case .basketball: .basketball
         case .volleyball: .volleyball
+        case .americanFootball: .americanFootball
+        case .baseball: .baseball
+        case .softball: .softball
+        case .hockey: .hockey
+        case .lacrosse: .lacrosse
+        case .rugby: .rugby
+        case .boxing: .boxing
+        case .kickboxing: .kickboxing
+        case .martialArts: .martialArts
+        case .wrestling: .wrestling
         case .climbing: .climbing
         case .dance: .cardioDance
         case .pilates: .pilates
