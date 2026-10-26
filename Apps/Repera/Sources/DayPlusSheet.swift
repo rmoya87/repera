@@ -2,10 +2,6 @@ import ReperaDomain
 import SwiftUI
 import UIKit
 
-private enum DayPlusRoute: Hashable {
-    case timer
-}
-
 /// Resultado del escaneo para abrir la página «Añadir entreno» (fuera del sheet).
 struct BoardScanReviewPayload: Identifiable, Hashable {
     let id: UUID
@@ -40,9 +36,10 @@ struct DayPlusSheet: View {
 
     /// Día del calendario al que se asigna el entreno suelto.
     var targetDate: Date = Calendar.current.startOfDay(for: Date())
-    var onStartedWorkout: () -> Void
-    /// El host cierra esta modal y abre Favoritos como página push independiente.
+    /// Los destinos se abren como páginas nativas tras cerrar la modal.
+    var onCreateWorkout: () -> Void = {}
     var onOpenFavorites: () -> Void = {}
+    var onOpenTimer: () -> Void = {}
     /// Tras escanear: el caller cierra el sheet y abre la página de revisión.
     var onBoardReady: (BoardScanReviewPayload) -> Void = { _ in }
 
@@ -53,13 +50,7 @@ struct DayPlusSheet: View {
     @State private var isReading = false
     @State private var readingTask: Task<Void, Never>?
     @State private var errorMessage: String?
-    @State private var showDayEditor = false
-    @State private var path = NavigationPath()
-
-    private var targetWeekday: Int { CalendarHelpers.isoWeekday(for: targetDate) }
-    private var dayName: String { CalendarHelpers.weekdayName(targetWeekday) }
     private var dayStart: Date { Calendar.current.startOfDay(for: targetDate) }
-    private var isPushed: Bool { !path.isEmpty }
 
     private var favoritesSubtitle: String {
         let workouts = store.favoriteRoutines.count
@@ -73,88 +64,38 @@ struct DayPlusSheet: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            menuContent
-                .tint(OG.accent)
-                .toolbar(.hidden, for: .navigationBar)
-                .navigationDestination(for: DayPlusRoute.self) { route in
-                    switch route {
-                    case .timer:
-                        StandaloneTimerView(embedsNavigation: false)
-                    }
-                }
-                .sheet(isPresented: $showImageSourceDialog) {
-                    BoardScanSourceSheet(
-                        onCamera: { showCameraPicker = true },
-                        onLibrary: { showLibraryPicker = true }
-                    )
-                }
-                .fullScreenCover(isPresented: $showCameraPicker, onDismiss: {
-                    processCapturedImageIfNeeded()
-                }) {
-                    CameraPicker(image: $captured).ignoresSafeArea()
-                }
-                .fullScreenCover(isPresented: $showLibraryPicker, onDismiss: {
-                    processCapturedImageIfNeeded()
-                }) {
-                    LibraryPicker(image: $captured).ignoresSafeArea()
-                }
-                .fullScreenCover(isPresented: $showDayEditor) {
-                    NavigationStack {
-                        DayEditorView(
-                            routine: Routine(
-                                title: "Entreno · \(dayName)",
-                                weekday: nil,
-                                scheduledDate: dayStart,
-                                blocks: [.strength(title: "Bloque 1")],
-                                progression: .off
-                            ),
-                            mode: .oneOff(isNew: true),
-                            onClose: {
-                                showDayEditor = false
-                                dismiss()
-                            },
-                            embedsNavigationStack: false,
-                            usesPageCloseHeader: true
-                        )
-                        .toolbar {
-                            ToolbarItem(placement: .topBarLeading) {
-                                Button {
-                                    showDayEditor = false
-                                } label: {
-                                    Image(systemName: "chevron.left")
-                                }
-                                .accessibilityLabel("Volver")
-                            }
-                        }
-                    }
-                    .tint(OG.accent)
-                }
-        }
-        // «Añadir entreno» vuelve a ser una modal compacta por altura real.
-        // Favoritos se navega fuera de la sheet, por tanto no modifica su detent.
-        // El temporizador sí puede ampliar la sheet mientras siga dentro.
-        .ogFittedSheet(
-            expanded: isPushed,
-            freezeHeight: showLibraryPicker || showCameraPicker
-        )
+        // Esta vista ya no tiene rutas internas ni pantallas completas.
+        menuContent
+            .tint(OG.accent)
+            .sheet(isPresented: $showImageSourceDialog) {
+                BoardScanSourceSheet(
+                    onCamera: { showCameraPicker = true },
+                    onLibrary: { showLibraryPicker = true }
+                )
+            }
+            .fullScreenCover(isPresented: $showCameraPicker, onDismiss: {
+                processCapturedImageIfNeeded()
+            }) {
+                CameraPicker(image: $captured).ignoresSafeArea()
+            }
+            .fullScreenCover(isPresented: $showLibraryPicker, onDismiss: {
+                processCapturedImageIfNeeded()
+            }) {
+                LibraryPicker(image: $captured).ignoresSafeArea()
+            }
+            // La sheet nativa entra desde abajo y sale hacia abajo.
+            .ogFittedSheet(freezeHeight: showLibraryPicker || showCameraPicker)
     }
 
     /// Menú con tamaño intrínseco (sin List) para que el sheet ajuste el alto.
     private var menuContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            OGPageHeader(title: "Añadir entreno", subtitle: dayName) {
+            OGPageHeader(title: "Añadir entreno") {
                 CloseToolbarButton(action: { dismiss() }, large: true)
             }
 
-            Text("Entreno")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(OG.label2)
-                .textCase(.uppercase)
-                .padding(.horizontal, 4)
-
             VStack(spacing: 0) {
-                Button { showDayEditor = true } label: {
+                Button(action: onCreateWorkout) {
                     menuLabel(
                         title: "Crear entreno",
                         subtitle: "Bloques de fuerza y WODs",
@@ -172,7 +113,7 @@ struct DayPlusSheet: View {
                     )
                 }
                 menuDivider
-                NavigationLink(value: DayPlusRoute.timer) {
+                Button(action: onOpenTimer) {
                     menuLabel(
                         title: "Temporizador",
                         subtitle: "Arriba, abajo o intervalos · reloj digital",

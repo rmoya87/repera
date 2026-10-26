@@ -4,6 +4,15 @@ import SwiftUI
 /// Barra de progreso adaptable: el objetivo ocupa su fracción real del
 /// total si se supera y el excedente aparece al final en un tono más oscuro.
 /// Por debajo de la meta, el resto del recorrido permanece gris.
+/// Destinos de «Añadir entreno»: misma navegación push nativa de Inicio.
+private enum AddWorkoutPage: Hashable, Identifiable {
+    case create(date: Date)
+    case favorites
+    case timer
+
+    var id: Self { self }
+}
+
 private struct HomeGoalProgressBar: View {
     var measurement: Double?
     var goal: Double
@@ -80,13 +89,10 @@ struct HomeView: View {
     /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
     @State private var selectedDaySteps: Int?
     @State private var showCreatePlanForDay = false
-    /// Favoritos no vive dentro de la sheet: cerrar primero y después empujar
-    /// una página real en el NavigationStack de Inicio.
-    @State private var pendingFavoritesAfterSheetDismiss = false
-    @State private var showsFavoritesPage = false
-    /// El botón Volver de Favoritos debe recuperar la sheet compacta, no
-    /// volver a montar un NavigationStack dentro de una sheet expandida.
-    @State private var restoresAddSheetAfterFavorites = false
+    /// El menú es modal; los tres destinos son páginas fuera de la sheet.
+    @State private var pendingAddWorkoutPage: AddWorkoutPage?
+    @State private var addWorkoutPage: AddWorkoutPage?
+    @State private var restoresAddSheetAfterPage = false
     /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
     @State private var boardReviewPayload: BoardScanReviewPayload?
     @State private var workoutPendingDelete: WorkoutSession?
@@ -423,23 +429,17 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showCreatePlanForDay, onDismiss: {
-                // No presentar NavigationDestination desde una sheet visible:
-                // UIKit acabaría mostrando Favoritos dentro de la propia modal.
-                guard pendingFavoritesAfterSheetDismiss else { return }
-                pendingFavoritesAfterSheetDismiss = false
-                restoresAddSheetAfterFavorites = true
-                showsFavoritesPage = true
+                // Abrir la página tras el cierre vertical completo del sheet.
+                guard let pending = pendingAddWorkoutPage else { return }
+                pendingAddWorkoutPage = nil
+                restoresAddSheetAfterPage = true
+                addWorkoutPage = pending
             }) {
                 DayPlusSheet(
                     targetDate: selectedDay,
-                    onStartedWorkout: {
-                        showCreatePlanForDay = false
-                        onOpenWorkout()
-                    },
-                    onOpenFavorites: {
-                        pendingFavoritesAfterSheetDismiss = true
-                        showCreatePlanForDay = false
-                    },
+                    onCreateWorkout: { openAddWorkoutPage(.create(date: selectedDay)) },
+                    onOpenFavorites: { openAddWorkoutPage(.favorites) },
+                    onOpenTimer: { openAddWorkoutPage(.timer) },
                     onBoardReady: { payload in
                         showCreatePlanForDay = false
                         // Empujar página tras cerrar el sheet.
@@ -450,29 +450,49 @@ struct HomeView: View {
                     }
                 )
             }
-            .navigationDestination(isPresented: Binding(
-                get: { showsFavoritesPage },
-                set: { isPresented in
-                    guard showsFavoritesPage != isPresented else { return }
-                    showsFavoritesPage = isPresented
-                    if !isPresented && restoresAddSheetAfterFavorites {
-                        restoresAddSheetAfterFavorites = false
-                        // Esperar al siguiente ciclo de MainActor antes de volver
-                        // a presentar la sheet: evita competir con la animación
-                        // nativa de pop y el repintado de media pantalla.
-                        Task { @MainActor in
-                            await Task.yield()
-                            guard !showsFavoritesPage && !showCreatePlanForDay else { return }
-                            showCreatePlanForDay = true
-                        }
+            .navigationDestination(item: Binding(
+                get: { addWorkoutPage },
+                set: { next in
+                    let returnedFromPage = addWorkoutPage != nil && next == nil
+                    addWorkoutPage = next
+                    guard returnedFromPage && restoresAddSheetAfterPage else { return }
+                    restoresAddSheetAfterPage = false
+                    // Dejar terminar el pop lateral antes de recuperar la modal.
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(330))
+                        guard addWorkoutPage == nil, !showCreatePlanForDay else { return }
+                        showCreatePlanForDay = true
                     }
                 }
-            )) {
-                FavoritesHubView(onOpenedWorkout: {
-                    restoresAddSheetAfterFavorites = false
-                    showsFavoritesPage = false
-                    onOpenWorkout()
-                })
+            )) { destination in
+                switch destination {
+                case .create(let date):
+                    DayEditorView(
+                        routine: Routine(
+                            title: "Entreno · " + CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: date)),
+                            weekday: nil,
+                            scheduledDate: date,
+                            blocks: [.strength(title: "Bloque 1")],
+                            progression: .off
+                        ),
+                        mode: .oneOff(isNew: true),
+                        onClose: {
+                            // Guardar vuelve al calendario sin reabrir el menú.
+                            restoresAddSheetAfterPage = false
+                            addWorkoutPage = nil
+                        },
+                        embedsNavigationStack: false,
+                        usesPageCloseHeader: true
+                    )
+                case .favorites:
+                    FavoritesHubView(onOpenedWorkout: {
+                        restoresAddSheetAfterPage = false
+                        addWorkoutPage = nil
+                        onOpenWorkout()
+                    })
+                case .timer:
+                    StandaloneTimerView(embedsNavigation: false)
+                }
             }
             .navigationDestination(item: $boardReviewPayload) { payload in
                 BoardImportReviewView(
@@ -1257,6 +1277,14 @@ struct HomeView: View {
     private static let registerCardPad: CGFloat = 14
     /// Card pad + icono 44 + gap 12 → chips alineados al título en reposo.
     private static let chipsTitleLeading: CGFloat = registerCardPad + 44 + 12
+
+    private func openAddWorkoutPage(_ page: AddWorkoutPage) {
+        // El sheet usa su propia animación de entrada/salida vertical;
+        // la navegación push empieza únicamente después de onDismiss.
+        guard showCreatePlanForDay, pendingAddWorkoutPage == nil else { return }
+        pendingAddWorkoutPage = page
+        showCreatePlanForDay = false
+    }
 
     private func startPlannedDayIfPossible() {
         if calendar.isDateInToday(selectedDay), store.hasActiveSession {
