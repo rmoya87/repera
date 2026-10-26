@@ -65,6 +65,15 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         self.assertIn("performedSets: recorded", play)
         self.assertNotIn("guard liveSets.count > 1", play)
         self.assertIn("let total = max(planned.count, max(logged.count, retained.count))", play)
+        controller = read(DOMAIN, "SessionController.swift")
+        models = read(DOMAIN, "Models.swift")
+        update = controller.split("public mutating func updateExerciseDraft(", 1)[1].split(
+            "public static func from(", 1
+        )[0]
+        self.assertNotIn("guard !plannedSets.isEmpty", update)
+        self.assertIn("session.exercises[index].plannedSets = plannedSets", update)
+        self.assertIn("if let explicit = movement.explicitPlannedSets {", models)
+        self.assertNotIn("if let explicit = movement.explicitPlannedSets, !explicit.isEmpty", models)
 
     def test_comenzar_sports_use_healthkit_and_muscle_stimuli(self):
         sports = read(IOS, "LiveActivityView.swift")
