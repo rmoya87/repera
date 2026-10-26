@@ -2285,7 +2285,8 @@ private struct WorkoutSetSwipeDeleteRow<Content: View>: View {
 
             content()
                 .frame(maxWidth: .infinity)
-                .background(OG.bg)
+                // Mismo fondo que la tarjeta: sin franjas negras puras entre series.
+                .background(OG.surface)
                 .offset(x: deleteRevealed ? -66 : 0)
                 .contentShape(Rectangle())
                 .simultaneousGesture(
