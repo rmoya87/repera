@@ -93,7 +93,7 @@ public enum LoadSuggestion {
                 var m = move
                 let kg = weightKg(oneRM: oneRM, percent: pct, roundTo: incrementKg)
                 m.weightMaleKg = kg
-                let note = "~\(Int(pct))% \(sourceLabel) → \(kg.formatted(.number.precision(.fractionLength(0...1)))) kg"
+                let note = "~\(Int(pct))% \(sourceLabel) → \(ReperaNumberFormat.decimal(kg)) kg"
                 if let existing = m.notes, !existing.isEmpty {
                     if !existing.contains("% e1RM"), !existing.contains("% 1RM") {
                         m.notes = existing + " · " + note
