@@ -196,6 +196,41 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         )
         self.assertNotIn("healthMap[key]?.sort { $0.start > $1.start }", rebuild)
 
+    def test_summary_tiles_put_title_beside_icon_and_value_below(self):
+        chrome = swift("RegisterSessionChrome.swift")
+        summary = chrome.split("struct WorkoutSummaryTile: View {", 1)[1].split(
+            "struct OGRegisterLeadingIcon:", 1
+        )[0]
+        header = summary.split("HStack(spacing: 6) {", 1)[1].split(
+            ".frame(maxWidth: .infinity, alignment: .leading)", 1
+        )[0]
+        self.assertIn("Image(systemName: icon)", header)
+        self.assertIn("Text(title)", header)
+        self.assertLess(header.index("Image(systemName: icon)"), header.index("Text(title)"))
+        self.assertLess(summary.index("Text(title)"), summary.index("Text(value)"))
+        self.assertNotIn("Text(title)", summary.split("Text(value)", 1)[1])
+
+        # También en los tres indicadores del pie del mapa meteorológico.
+        cardio = swift("CardioRouteComponents.swift")
+        weather = cardio.split("private func weatherStat(", 1)[1].split(
+            "private func loadWeather()", 1
+        )[0]
+        self.assertLess(weather.index("Image(systemName: symbol)"), weather.index("Text(title)"))
+        self.assertLess(weather.index("Text(title)"), weather.index('Text(value ?? "—")'))
+
+        # Inicio y Progreso ya muestran el icono y su etiqueta en la cabecera.
+        home = swift("HomeView.swift").split(
+            "private func metricTile(", 1
+        )[1].split("private func setLine(", 1)[0]
+        stats = swift("StatsView.swift").split(
+            "private func tile(", 1
+        )[1].split("// MARK: - Activity", 1)[0]
+        for component in (home, stats):
+            self.assertLess(component.index("Image(systemName: icon)"),
+                            component.index("Text(title)" if component is home else "Text(label)"))
+            self.assertLess(component.index("Text(title)" if component is home else "Text(label)"),
+                            component.index("Text(value)"))
+
     def test_home_initial_scroll_shows_yesterday_first_today_second(self):
         home = swift("HomeView.swift")
         rebuild = home.split("private func rebuildWeekChrome() {", 1)[1].split(

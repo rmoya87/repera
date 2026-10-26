@@ -586,32 +586,31 @@ struct RouteWeatherStrip: View {
     }
 
     private func weatherStat(symbol: String, title: String, value: String?, loading: Bool) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(OG.label)
-                .frame(width: 28, height: 28)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                if loading, value == nil {
-                    ProgressView()
-                        .controlSize(.mini)
-                        .tint(OG.label2)
-                        .frame(height: 18, alignment: .leading)
-                } else {
-                    Text(value ?? "—")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(OG.label)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+                    .accessibilityHidden(true)
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(OG.label2)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.7)
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if loading, value == nil {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(OG.label2)
+                    .frame(height: 18, alignment: .leading)
+            } else {
+                Text(value ?? "—")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
