@@ -361,3 +361,11 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 Última actualización: 2026-10-24.
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
+
+## Ajustes de persistencia y Progreso DUO (26/10/2026)
+
+- **Entrenamiento realizado → Editar:** las series registradas, series nuevas pendientes, carga, repeticiones, tiempos y resultados WOD se mantienen diferenciados. Si el usuario cambia el formato de un bloque ya puntuado (p. ej., AMRAP a For Time), la marca del formato anterior **no se elimina ni se convierte de unidades**: queda conservada en el historial de la sesión; un nuevo resultado del formato actual se guarda junto a ella. Solo el cambio explícito de la marca de ese mismo formato sustituye su valor. El resumen muestra el resultado actual y, cuando corresponda, los resultados de formatos anteriores.
+- **Inicio DUO horizontal:** «Progreso semanal» sitúa el número de días entrenados bajo el titular; si existe una meta, conserva el contador de entrenos frente a esa meta.
+- **Diario:** «Repetir entrenos de la semana pasada» copia exclusivamente rutinas fechadas de la semana anterior a días libres de la presente, con nuevo ID; no repite las rutinas recurrentes ni modifica el registro histórico.
+- **Progreso → Actividad:** Calorías y Peso usan la misma altura de gráfica y tres tiles alineados. Calorías muestra promedio diario de kcal activas registradas, promedio del periodo anterior y variación porcentual de medias, únicamente si existen suficientes lecturas comparables; los datos ausentes figuran «—». Las muestras ficticias de la vista gratuita siguen identificadas como ejemplos.
+- **Progreso → Recuperación DUO:** se establecen alturas mínimas compartidas para las parejas Preparación/Evolución y Sueño/Constantes, sin obligar a alturas excesivas en iPhone vertical y dejando crecer el contenido con accesibilidad.
