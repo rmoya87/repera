@@ -760,7 +760,7 @@ struct WorkoutView: View {
                 if current.exercise.loadField == .deficitCm {
                     return row.deficitCm.map(String.init) ?? "0"
                 }
-                return row.weightKg.map { String(format: "%g", $0) } ?? "—"
+                return row.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—"
             case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
             }
         }()
@@ -1044,13 +1044,13 @@ struct WorkoutView: View {
 
     private func commitLiveWeightText(at index: Int, text: String) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        let normalized = text
         if normalized.isEmpty || normalized == "—" {
             liveSets[index].weightKg = nil
             noteLiveDraftEdited()
             return
         }
-        guard let value = Double(normalized) else { return }
+        guard let value = ReperaNumberFormat.parse(normalized) else { return }
         liveSets[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
         noteLiveDraftEdited()
     }
@@ -1204,8 +1204,8 @@ struct WorkoutView: View {
             .accessibilityHint("Ver ficha del ejercicio")
 
             HStack(spacing: 8) {
-                metaPill("Último", last.map { String(format: "%g kg", $0) } ?? "—")
-                metaPill("Mejor", pr.map { String(format: "%g kg", $0.weightKg) } ?? "—")
+                metaPill("Último", last.map { "\(ReperaNumberFormat.decimal($0)) kg" } ?? "—")
+                metaPill("Mejor", pr.map { "\(ReperaNumberFormat.decimal($0.weightKg)) kg" } ?? "—")
                 if let target = current.exercise.targetMuscle {
                     metaPill("Músculo", LocalizedMuscle.es(target))
                 }
@@ -1266,7 +1266,7 @@ struct WorkoutView: View {
     private func exerciseMetaLine(_ current: SessionExercise, target: PlannedSet?) -> String {
         if let format = current.wodFormat {
             let reps = target?.targetReps ?? 0
-            let weight = target?.targetWeightKg.map { String(format: "%g kg", $0) } ?? "PC"
+            let weight = target?.targetWeightKg.map { "\(ReperaNumberFormat.decimal($0)) kg" } ?? "PC"
             return "\(format.displayName) · \(reps) reps · \(weight)"
         }
         return "\(current.exercise.muscleGroup) · \(current.plannedSets.compactSummary)"
@@ -1585,7 +1585,7 @@ struct WorkoutView: View {
                         onMinus: { bumpWeight(-store.state.settings.weightIncrementKg) },
                         onPlus: { bumpWeight(store.state.settings.weightIncrementKg) },
                         onCommitText: { text in
-                            let normalized = text.replacingOccurrences(of: ",", with: ".")
+                            let normalized = text
                             weightText = normalized
                         }
                     )
@@ -1628,7 +1628,7 @@ struct WorkoutView: View {
                     Toggle("Registrar \(unit.displayName)", isOn: $logEffort)
                     if logEffort {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("\(unit.displayName) \(effortValue.formatted(.number.precision(.fractionLength(0)))) · \(Effort.plainLanguage(rir: Effort.toRIR(value: effortValue, unit: unit)))")
+                            Text("\(unit.displayName) \(ReperaNumberFormat.decimal(effortValue, maximumFractionDigits: 0)) · \(Effort.plainLanguage(rir: Effort.toRIR(value: effortValue, unit: unit)))")
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
                             Slider(
@@ -1647,7 +1647,7 @@ struct WorkoutView: View {
                     Text("Drops")
                         .font(.subheadline.bold())
                     ForEach(pendingDrops) { drop in
-                        Text("→ \(drop.weightKg.map { String(format: "%g", $0) } ?? "—") kg × \(drop.reps)")
+                        Text("→ \(drop.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—") kg × \(drop.reps)")
                             .font(.caption.monospacedDigit())
                     }
                     HStack(spacing: 10) {
@@ -1681,7 +1681,7 @@ struct WorkoutView: View {
 
                         Button("Añadir") {
                             let reps = Int(dropRepsText) ?? 0
-                            let w = Double(dropWeightText.replacingOccurrences(of: ",", with: "."))
+                            let w = ReperaNumberFormat.parse(dropWeightText)
                             guard reps > 0 else { return }
                             pendingDrops.append(DropSegment(reps: reps, weightKg: w))
                             dropRepsText = ""
@@ -1808,7 +1808,7 @@ struct WorkoutView: View {
                                     .foregroundStyle(OG.label2)
                             }
                             ForEach(set.drops) { drop in
-                                Text("Drop \(drop.weightKg.map { String(format: "%g", $0) } ?? "—") × \(drop.reps)")
+                                Text("Drop \(drop.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—") × \(drop.reps)")
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(OG.label2)
                             }
@@ -1850,7 +1850,7 @@ struct WorkoutView: View {
     }
 
     private func saveSet(for current: SessionExercise) {
-        let weight = Double(weightText.replacingOccurrences(of: ",", with: "."))
+        let weight = ReperaNumberFormat.parse(weightText)
         let clusters = setKind == .restpause ? pendingClusters : []
         let drops = setKind == .dropset ? pendingDrops : []
         let reps: Int = {
@@ -2049,7 +2049,7 @@ struct WorkoutView: View {
             let weight = item.plannedSets.first?.targetWeightKg
             var parts: [String] = []
             if let reps { parts.append("\(reps) reps") }
-            if let weight { parts.append(String(format: "%g kg", weight)) }
+            if let weight { parts.append("\(ReperaNumberFormat.decimal(weight)) kg") }
             if parts.isEmpty { return format.displayName }
             return parts.joined(separator: " · ")
         }
@@ -2077,7 +2077,7 @@ struct WorkoutView: View {
         let suggested = current.lastLoggedWeight
             ?? store.cachedLastWorkingWeight(for: current.exercise.id)
             ?? current.plannedSets.first?.targetWeightKg
-        weightText = suggested.map { String(format: "%g", $0) } ?? ""
+        weightText = suggested.map { ReperaNumberFormat.decimal($0) } ?? ""
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
         rebuildLiveSets(from: current)
         // Si hay peso sugerido y la primera serie pendiente no tiene peso, rellenarla.
@@ -2090,14 +2090,14 @@ struct WorkoutView: View {
 
     private func bumpWeightSuggestion(_ current: SessionExercise) {
         if weightText.isEmpty {
-            weightText = current.lastLoggedWeight.map { String(format: "%g", $0) } ?? weightText
+            weightText = current.lastLoggedWeight.map { ReperaNumberFormat.decimal($0) } ?? weightText
         }
     }
 
     private func bumpWeight(_ delta: Double) {
-        let current = Double(weightText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let current = ReperaNumberFormat.parse(weightText) ?? 0
         let next = max(0, current + delta)
-        weightText = String(format: "%g", next)
+        weightText = ReperaNumberFormat.decimal(next)
     }
 
     private func bumpReps(_ delta: Int) {
