@@ -281,7 +281,8 @@ enum ProgressDataEngine {
         )
         let hasHardSets = filteredWorkouts.contains { session in
             session.exercises.contains { entry in
-                !entry.exercise.isMobility && entry.loggedSets.contains { !$0.isWarmup && $0.reps > 0 && Effort.isHard(rir: $0.rir) }
+                !entry.exercise.isMobility && StatsEngine.confirmedWorkSets(entry, in: session)
+                    .contains { Effort.isHard(rir: $0.rir) }
             }
         }
         if Task.isCancelled { return nil }
