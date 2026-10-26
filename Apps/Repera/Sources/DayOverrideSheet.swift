@@ -29,6 +29,9 @@ struct DayOverrideSheet: View {
                         }
                     }
                 }
+                // El título y el botón + necesitan aire bajo el tirador
+                // superior del sheet; no moverlos horizontalmente.
+                .padding(.top, 14)
 
                 if routines.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -77,13 +80,9 @@ struct DayOverrideSheet: View {
                     .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                 }
 
-                Text("La rutina se copiará solo a esta fecha. No se repetirá la próxima semana.")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
-                    .padding(.horizontal, 4)
             }
             .padding(.horizontal, OG.pad)
-            .padding(.bottom, 8)
+            .padding(.bottom, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .ogFittedHeight()
