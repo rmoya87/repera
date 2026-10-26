@@ -857,15 +857,22 @@ struct WorkoutView: View {
         let existing = entry.plannedSets
         let revised: [PlannedSet] = liveSets.enumerated().map { index, row in
             let previous = existing.indices.contains(index) ? existing[index] : nil
+            let kg = entry.exercise.loadField == .deficitCm
+                ? row.deficitCm.map(Double.init) : row.weightKg
+            let changedAbsoluteLoad = entry.exercise.loadField == .weightKg
+                && kg != previous?.targetWeightKg
             return PlannedSet(
-                id: previous?.id ?? row.id,
+                // La identidad de una serie pendiente sobrevive incluso
+                // cuando se elimina la anterior o se reordena el ejercicio.
+                id: row.completed ? (previous?.id ?? row.id) : row.id,
                 targetReps: max(1, row.reps),
-                targetWeightKg: entry.exercise.loadField == .deficitCm
-                    ? row.deficitCm.map(Double.init) : row.weightKg,
+                targetWeightKg: kg,
                 targetDurationSeconds: row.durationSeconds,
                 targetRir: row.rir,
-                targetPercent1RM: previous?.targetPercent1RM,
-                targetPercent1RMIsMinimum: previous?.targetPercent1RMIsMinimum ?? false
+                // Escribir kg reales deja de ser una prescripción porcentual.
+                targetPercent1RM: changedAbsoluteLoad ? nil : previous?.targetPercent1RM,
+                targetPercent1RMIsMinimum: !changedAbsoluteLoad
+                    && (previous?.targetPercent1RMIsMinimum ?? false)
             )
         }
         store.updateActiveExerciseDraft(
