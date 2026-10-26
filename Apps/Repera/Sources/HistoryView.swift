@@ -2189,7 +2189,7 @@ struct HealthWorkoutRouteMap: View {
         isInteractive ? [.pan, .zoom, .rotate] : []
     }
 
-    /// Capa semitransparente entre teselas y ruta: colores más luminosos.
+    /// Capa oscura entre teselas y ruta: resalta los tonos vivos de velocidad.
     private var routeBackdrop: [CLLocationCoordinate2D] {
         guard let minLat = points.map(\.latitude).min(),
               let maxLat = points.map(\.latitude).max(),
@@ -2210,12 +2210,26 @@ struct HealthWorkoutRouteMap: View {
         Map(initialPosition: cameraPosition, interactionModes: modes) {
             if !routeBackdrop.isEmpty {
                 MapPolygon(coordinates: routeBackdrop)
-                    .foregroundStyle(Color.white.opacity(0.24))
+                    .foregroundStyle(Color.black.opacity(0.26))
             }
             ForEach(segments) { segment in
-                // Contorno blanco debajo, recorrido vivo arriba.
+                // Tres capas, sobre el mapa oscuro: resplandor exterior suave,
+                // borde degradado luminoso y recorrido a todo color.
                 MapPolyline(coordinates: [segment.start, segment.end])
-                    .stroke(Color.white.opacity(0.95), lineWidth: 9)
+                    .stroke(segment.color.opacity(0.20), lineWidth: 17)
+                MapPolyline(coordinates: [segment.start, segment.end])
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.90),
+                                segment.color.opacity(0.70),
+                                Color.white.opacity(0.90)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 10
+                    )
                 MapPolyline(coordinates: [segment.start, segment.end])
                     .stroke(segment.color, lineWidth: 5)
             }
