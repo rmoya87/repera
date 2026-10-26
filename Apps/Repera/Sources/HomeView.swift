@@ -646,9 +646,16 @@ struct HomeView: View {
             Text("\(day.num)")
                 .font(.system(size: 17, weight: selected ? .semibold : .medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label)
-            Circle()
-                .fill(selected ? OG.onAccent : dayDot(day))
-                .frame(width: 4, height: 4)
+            // Solo marcar entrenamientos finalizados (Repera o Apple Salud).
+            // La selección cambia el color del punto, nunca su visibilidad.
+            if day.hasWorkout {
+                Circle()
+                    .fill(selected ? OG.onAccent : OG.accent)
+                    .frame(width: 4, height: 4)
+            } else {
+                Color.clear.frame(width: 4, height: 4)
+                    .accessibilityHidden(true)
+            }
         }
         .frame(width: side, height: side)
         .background(
@@ -1373,8 +1380,12 @@ struct HomeView: View {
     private func rebuildDayBuckets() {
         var workouts: [String: [WorkoutSession]] = [:]
         for w in store.state.workouts {
-            guard let d = w.liveSportID == nil ? w.finishedAt : (w.startedAt ?? w.finishedAt) else { continue }
-            workouts[dayKey(d), default: []].append(w)
+            // Una sesión en curso no es un entrenamiento terminado.
+            // En actividades GPS la fecha corresponde al inicio, pero solo
+            // después de tener confirmación de fin.
+            guard let finishedAt = w.finishedAt else { continue }
+            let day = w.liveSportID == nil ? finishedAt : (w.startedAt ?? finishedAt)
+            workouts[dayKey(day), default: []].append(w)
         }
         for key in workouts.keys {
             workouts[key]?.sort {
@@ -1581,10 +1592,9 @@ struct HomeView: View {
             ? ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]
             : ["DO", "LU", "MA", "MI", "JU", "VI", "SA"]
 
+        // Solo finalizados: el bucket Repera excluye sesiones en curso.
+        // Health contiene actividades completadas, no entrenos planificados.
         var workoutDays = Set(workoutsByDayKey.keys)
-        for w in store.state.workouts where w.finishedAt == nil {
-            if let d = w.startedAt { workoutDays.insert(dayKey(d)) }
-        }
         workoutDays.formUnion(healthActiveDayKeys)
 
         // Un solo pase de rutinas → keys de plan de la semana visible.
@@ -1616,12 +1626,6 @@ struct HomeView: View {
                 hasPlan: planKeys.contains(key)
             )
         }
-    }
-
-    private func dayDot(_ day: DayCell) -> Color {
-        if day.hasWorkout { return OG.accent }
-        if day.hasPlan { return OG.label3 }
-        return .clear
     }
 
     private func dayKey(_ date: Date) -> String {
