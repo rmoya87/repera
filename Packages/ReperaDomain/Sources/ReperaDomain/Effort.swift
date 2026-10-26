@@ -86,9 +86,9 @@ public enum Effort {
         let display = fromRIR(rir, unit: unit)
         switch unit {
         case .rir:
-            return "RIR \(display.formatted(.number.precision(.fractionLength(0...1))))"
+            return "RIR \(ReperaNumberFormat.decimal(display))"
         case .rpe:
-            return "RPE \(display.formatted(.number.precision(.fractionLength(0...1))))"
+            return "RPE \(ReperaNumberFormat.decimal(display))"
         }
     }
 
