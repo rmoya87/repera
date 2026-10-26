@@ -46,7 +46,7 @@ private struct HomeGoalProgressBar: View {
         .accessibilityValue(
             measurement == nil
                 ? "Sin medición"
-                : "\(Int(value.rounded()).formatted())\(unit.isEmpty ? "" : " \(unit)") de \(Int(safeGoal.rounded()).formatted())\(unit.isEmpty ? "" : " \(unit)")\(value > safeGoal ? ", \(Int((value - safeGoal).rounded()).formatted()) adicionales" : "")"
+                : "\(ReperaNumberFormat.integer(Int(value.rounded())))\(unit.isEmpty ? "" : " \(unit)") de \(ReperaNumberFormat.integer(Int(safeGoal.rounded())))\(unit.isEmpty ? "" : " \(unit)")\(value > safeGoal ? ", \(Int((value - safeGoal).rounded()).formatted()) adicionales" : "")"
         )
     }
 }
@@ -779,7 +779,7 @@ struct HomeView: View {
                 HStack(alignment: .top, spacing: 8) {
                     homeActivityMetric(
                         title: "Pasos",
-                        value: selectedDaySteps.map { $0.formatted() } ?? "—",
+                        value: selectedDaySteps.map { ReperaNumberFormat.integer($0) } ?? "—",
                         unit: "",
                         symbol: "figure.walk",
                         tint: OG.accent,
@@ -788,7 +788,7 @@ struct HomeView: View {
                     )
                     homeActivityMetric(
                         title: "Calorías",
-                        value: kcal.map { Int($0.rounded()).formatted() } ?? "—",
+                        value: kcal.map { ReperaNumberFormat.integer(Int($0.rounded())) } ?? "—",
                         unit: "kcal",
                         symbol: "flame",
                         tint: OG.orange,
@@ -798,7 +798,7 @@ struct HomeView: View {
                     homeActivityMetric(
                         title: "Tiempo",
                         value: dayHealth.workoutMinutes.map {
-                            Int($0.rounded()).formatted()
+                            ReperaNumberFormat.integer(Int($0.rounded()))
                         } ?? "—",
                         unit: "min",
                         symbol: "clock",
@@ -1101,7 +1101,7 @@ struct HomeView: View {
             },
             chips: {
                 if let meters = session.recordedDistanceMeters, meters > 0 {
-                    OGRegisterChip(text: String(format: "%.2f km", meters / 1000), icon: "point.topleft.down.curvedto.point.bottomright.up")
+                    OGRegisterChip(text: "\(ReperaNumberFormat.decimal(meters / 1000)) km", icon: "point.topleft.down.curvedto.point.bottomright.up")
                 }
                 WorkoutRegisterChips.repera(
                     session: session,
@@ -1342,7 +1342,7 @@ struct HomeView: View {
     }
 
     private func setLine(_ set: LoggedSet) -> String {
-        let w = set.weightKg.map { "\($0.formatted(.number.precision(.fractionLength(0))))kg" } ?? "PC"
+        let w = set.weightKg.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0))kg" } ?? "PC"
         return "\(set.reps)×\(w)"
     }
 
