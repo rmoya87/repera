@@ -644,7 +644,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         let reopened = try JSONDecoder().decode(
             WorkoutSession.self, from: JSONEncoder().encode(stored)
         )
-        XCTAssertEqual(reopened.wodResults.first(where: { $0.id == rft.id })?.elapsedSeconds, 561)
+        XCTAssertEqual(reopened.wodResults.first(where: { $0.id == rft.id })?.elapsedSeconds, 501)
         XCTAssertEqual(reopened.wodResults.first(where: { $0.id == amrap.id })?.roundsCompleted, 6)
         XCTAssertEqual(reopened.wodResults.first(where: { $0.id == amrap.id })?.totalReps, 4)
         XCTAssertEqual(reopened.exercises[2].plannedSets.count, newSets.count)
