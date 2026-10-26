@@ -541,7 +541,7 @@ struct HealthRecoveryProgressView: View {
     /// El contenido puede crecer si Dynamic Type necesita más espacio.
     private let primaryChartHeight: CGFloat = 220
     private var readinessRowMinHeight: CGFloat? { usesExpandedLayout ? 310 : nil }
-    private var sleepRowMinHeight: CGFloat? { usesExpandedLayout ? 480 : nil }
+    private var sleepRowMinHeight: CGFloat? { usesExpandedLayout ? 540 : nil }
 
     private struct TrainingRecoveryPoint: Identifiable, Sendable {
         let date: Date
