@@ -3322,7 +3322,6 @@ private struct RoutineImportPickerSheet: View {
             OGPageHeader(title: "Añadir rutina") {
                 CloseToolbarButton(action: onCancel, large: true)
             }
-            .padding(.top, 4)
 
             Text("Se copian los bloques; el título y el día de esta rutina no cambian.")
                 .font(.footnote)
