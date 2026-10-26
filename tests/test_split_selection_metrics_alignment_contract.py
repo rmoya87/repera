@@ -16,15 +16,30 @@ class DuoSelectionAndMetricsTests(unittest.TestCase):
             "private struct LibrarySearchIfCompact:", 1
         )[0]
         self.assertIn("selectedExerciseID == row.id", exercise_list)
-        self.assertIn("UnevenRoundedRectangle(", exercise_list)
-        self.assertIn("topLeadingRadius: items.first?.id == row.id", exercise_list)
-        self.assertIn("topTrailingRadius: items.first?.id == row.id", exercise_list)
-        self.assertIn("bottomLeadingRadius: items.last?.id == row.id", exercise_list)
-        self.assertIn("bottomTrailingRadius: items.last?.id == row.id", exercise_list)
-        self.assertIn(".fill(OG.accent)", exercise_list)
+        self.assertIn("LibrarySelectedExerciseBackground(", exercise_list)
+        self.assertIn("isFirst: items.first?.id == row.id", exercise_list)
+        self.assertIn("isLast: items.last?.id == row.id", exercise_list)
+        # El Shape se infiere fuera del ForEach/List; evita el timeout de Swift.
+        background = swift.split("private struct LibrarySelectedExerciseBackground: View {", 1)[1].split(
+            "private struct LibrarySearchIfCompact:", 1
+        )[0]
+        self.assertIn("UnevenRoundedRectangle(", background)
+        self.assertIn("topLeadingRadius: isFirst ? OG.radiusCard : 0", background)
+        self.assertIn("topTrailingRadius: isFirst ? OG.radiusCard : 0", background)
+        self.assertIn("bottomLeadingRadius: isLast ? OG.radiusCard : 0", background)
+        self.assertIn("bottomTrailingRadius: isLast ? OG.radiusCard : 0", background)
+        self.assertIn(".fill(OG.accent)", background)
         label = swift.split("private struct LibraryExerciseRowLabel: View {", 1)[1]
         self.assertIn("isSelected ? OG.onAccent : OG.label", label)
         self.assertIn("isSelected ? OG.onAccent.opacity(0.74) : OG.label2", label)
+
+    def test_diary_swipe_does_not_bind_unused_routine(self):
+        plan = (SOURCE / "PlanView.swift").read_text(encoding="utf-8")
+        schedule = plan.split("private var scheduleContent:", 1)[1].split(
+            "private func scheduleChips(", 1
+        )[0]
+        self.assertIn("if routine != nil {", schedule)
+        self.assertNotIn('if let routine {\n                        OGSwipeDeleteButton(', schedule)
 
     def test_metrics_controls_share_left_aligned_row_not_vertical_play_stack(self):
         swift = (SOURCE / "LiveActivityView.swift").read_text(encoding="utf-8")
