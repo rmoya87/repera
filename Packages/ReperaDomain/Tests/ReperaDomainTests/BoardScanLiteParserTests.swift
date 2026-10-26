@@ -2,6 +2,27 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func mixedCaseBTTAndT2BPreferOfficialCatalogWhenOldCustomExists() {
+        let catalog = Catalog.seed()
+        guard let btt = catalog.first(where: { $0.name == "Burpee to target" }),
+              let t2b = catalog.first(where: { $0.name == "Toes to bar" }) else {
+            Issue.record("Faltan ejercicios en el catálogo del paquete")
+            return
+        }
+        let oldBTT = Exercise(name: "Burpee to target", muscleGroup: "Custom", isCustom: true)
+        let oldT2B = Exercise(name: "Toes to bar", muscleGroup: "Custom", isCustom: true)
+        let blocks = BoardScanLiteParser.parse(
+            ocrText: "AMRAP 15'\n6 BTt\n8 T2B",
+            catalog: [oldBTT, oldT2B] + catalog
+        ).blocks
+        #expect(blocks.count == 1)
+        #expect(blocks.first?.movements.count == 2)
+        #expect(blocks.first?.movements.first?.name == "Burpee to target")
+        #expect(blocks.first?.movements.first?.exerciseId == btt.id)
+        #expect(blocks.first?.movements.last?.name == "Toes to bar")
+        #expect(blocks.first?.movements.last?.exerciseId == t2b.id)
+    }
+
     @Test func photographedNinetySecondComplexAndSnatchBalanceWave() {
         let board = """
         EVERY 90" X 6 @6-8
