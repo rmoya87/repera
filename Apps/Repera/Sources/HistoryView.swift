@@ -448,23 +448,28 @@ struct WorkoutDetailView: View {
     private var detailList: some View {
         List {
             if let session = draft {
-                // Fecha y tiles sin la caja de Section/insetGrouped: fondo
-                // continuo OG.bg; solo las tres tiles conservan sus tarjetas.
-                VStack(alignment: .leading, spacing: 10) {
+                // La fecha es cabecera EXTERIOR, no contenido de la primera
+                // fila insetGrouped. Evita que las esquinas redondeadas de List
+                // recorten la L de «Lunes» mientras deja visibles solo las tiles.
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        summaryCard(session)
+                        if let review = session.sessionReview {
+                            SessionReviewCard(review: review)
+                        }
+                    }
+                    .ogCardListRow(top: 0, bottom: 2)
+                } header: {
                     if !subtitle.isEmpty {
                         Text(subtitle)
                             .font(.system(size: 15, weight: .regular))
                             .foregroundStyle(OG.label2)
+                            .textCase(nil)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.leading, 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    summaryCard(session)
-                    if let review = session.sessionReview {
-                        SessionReviewCard(review: review)
-                    }
                 }
-                .ogCardListRow(top: 0, bottom: 2)
 
                 // El mapa va directamente debajo de la fecha y las tiles.
                 if !isEditing, sessionMapContent(session) != .none {
