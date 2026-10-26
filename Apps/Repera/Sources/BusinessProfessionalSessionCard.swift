@@ -1,3 +1,4 @@
+import ReperaDomain
 import SwiftUI
 
 /// Read-only projection of the same block tree stored in Supabase and authored on web.
@@ -102,8 +103,8 @@ struct BusinessProfessionalSessionCard: View {
         if let sets = entry.plannedSets, !sets.isEmpty {
             return sets.map { set in
                 var value = "\(set.targetReps) rep"
-                if let weight = set.targetWeightKg { value += " · \(weight.formatted()) kg" }
-                if let rir = set.targetRir { value += " · RIR \(rir.formatted())" }
+                if let weight = set.targetWeightKg { value += " · \(ReperaNumberFormat.decimal(weight)) kg" }
+                if let rir = set.targetRir { value += " · RIR \(ReperaNumberFormat.decimal(rir))" }
                 return value
             }.joined(separator: " / ")
         }
