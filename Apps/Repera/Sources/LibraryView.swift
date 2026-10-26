@@ -783,13 +783,29 @@ private struct LibraryExerciseList: View {
                     Button {
                         onSelect(row.id)
                     } label: {
-                        LibraryExerciseRowLabel(row: row)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        LibraryExerciseRowLabel(
+                            row: row, isSelected: selectedExerciseID == row.id
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(
-                        selectedExerciseID == row.id ? OG.surface2 : OG.surface
-                    )
+                    .listRowBackground {
+                        if selectedExerciseID == row.id {
+                            // La selección respeta las esquinas agrupadas de List:
+                            // superior para primera fila, inferior para última;
+                            // si es la única, se redondean las cuatro.
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: items.first?.id == row.id ? OG.radiusCard : 0,
+                                bottomLeadingRadius: items.last?.id == row.id ? OG.radiusCard : 0,
+                                bottomTrailingRadius: items.last?.id == row.id ? OG.radiusCard : 0,
+                                topTrailingRadius: items.first?.id == row.id ? OG.radiusCard : 0,
+                                style: .continuous
+                            )
+                            .fill(OG.accent)
+                        } else {
+                            OG.surface
+                        }
+                    }
                 } else {
                     NavigationLink(value: row.id) {
                         LibraryExerciseRowLabel(row: row)
@@ -870,6 +886,7 @@ private struct ExerciseZoomDestinationModifier: ViewModifier {
 
 private struct LibraryExerciseRowLabel: View {
     let row: LibraryRowModel
+    var isSelected = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -877,7 +894,7 @@ private struct LibraryExerciseRowLabel: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(row.name)
-                        .foregroundStyle(OG.label)
+                        .foregroundStyle(isSelected ? OG.onAccent : OG.label)
                     if row.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption2)
@@ -886,7 +903,7 @@ private struct LibraryExerciseRowLabel: View {
                 }
                 Text(row.subtitle)
                     .font(.caption)
-                    .foregroundStyle(OG.label2)
+                    .foregroundStyle(isSelected ? OG.onAccent.opacity(0.74) : OG.label2)
             }
             Spacer(minLength: 0)
         }
