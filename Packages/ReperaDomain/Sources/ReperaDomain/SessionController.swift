@@ -303,15 +303,10 @@ public struct SessionController: Sendable {
                     for move in resolved.movements where !move.isRest {
                         let exercise: Exercise
                         let canonical = CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
-                        if let id = move.exerciseId, let ex = byId[id] {
-                            exercise = ex
-                        } else if let match = byId.values.first(where: {
-                            ExerciseEquivalence.sameName($0.name, move.name)
-                                || ExerciseEquivalence.sameName($0.name, canonical)
-                        }) {
+                        if let match = CrossFitGlossary.catalogExercise(for: move, in: exercises) {
                             exercise = match
                         } else {
-                            // Nombre canónico → miniaturas (`ExerciseArt.nameMap`) aunque no esté en catálogo.
+                            // No inventar un ID de catálogo si aún no está disponible.
                             exercise = Exercise(name: canonical, muscleGroup: "WOD", isCustom: true)
                         }
                         sessionExercises.append(
