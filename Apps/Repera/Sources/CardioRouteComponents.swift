@@ -506,13 +506,11 @@ struct RouteWeatherStrip: View {
     var longitude: Double
     var workoutDate: Date
 
-    @Environment(\.colorScheme) private var colorScheme
     @State private var temperatureC: Double?
     @State private var humidity: Double?
     @State private var windKmh: Double?
     @State private var symbol = "cloud.sun"
     @State private var attributionURL: URL?
-    @State private var attributionMarkURL: URL?
     @State private var isLoading = true
     @State private var failureHint: String?
 
@@ -597,19 +595,13 @@ struct RouteWeatherStrip: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            // WeatherKit exige la marca + enlace legal. Integrarla en el
-            // tile Tiempo evita una fila de atribución independiente.
-            if title == "Tiempo", hasWeather,
-               let attributionURL, let attributionMarkURL {
-                Link(destination: attributionURL) {
-                    AsyncImage(url: attributionMarkURL) { image in
-                        image.resizable().scaledToFit().frame(height: 12)
-                    } placeholder: {
-                        Text("Apple Weather").font(.system(size: 10))
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Apple Weather · atribución legal")
+            // Sin logotipo ni segunda fila «Tiempo»: conservar la marca textual
+            // de Apple Weather y el enlace legal obligatorio de WeatherKit.
+            if title == "Tiempo", hasWeather, let attributionURL {
+                Link("Apple Weather", destination: attributionURL)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .accessibilityLabel("Apple Weather · atribución legal")
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -620,7 +612,6 @@ struct RouteWeatherStrip: View {
         windKmh = nil
         temperatureC = nil
         attributionURL = nil
-        attributionMarkURL = nil
         failureHint = nil
         isLoading = true
         defer { isLoading = false }
@@ -676,9 +667,6 @@ struct RouteWeatherStrip: View {
         do {
             let attribution = try await WeatherService.shared.attribution
             attributionURL = attribution.legalPageURL
-            attributionMarkURL = colorScheme == .dark
-                ? attribution.combinedMarkDarkURL
-                : attribution.combinedMarkLightURL
         } catch {
             #if DEBUG
             print("WeatherKit attribution error: \(error)")

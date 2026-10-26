@@ -327,6 +327,17 @@ struct BoardImportParserTests {
         #expect(blocks[1].movements.filter { !$0.isRest }.count >= 4)
     }
 
+    @Test func recognizesT2BAndBTTAsDistinctCatalogExercises() {
+        let catalog = Catalog.seed()
+        let rows = BoardImportParser.parse(ocrText: "10 T2B\n8 BTT", catalog: catalog)
+        #expect(rows.count == 2)
+        #expect(rows[0].matchedName == "Toes to bar")
+        #expect(rows[1].matchedName == "Burpee to target")
+        #expect(rows[0].matchedExerciseId != nil)
+        #expect(rows[1].matchedExerciseId != nil)
+        #expect(rows[0].matchedExerciseId != rows[1].matchedExerciseId)
+    }
+
     @Test func derivesEmomRoundsFromStations() {
         let catalog = Catalog.seed()
         let text = """

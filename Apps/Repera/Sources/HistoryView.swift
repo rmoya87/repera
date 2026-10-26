@@ -2231,21 +2231,28 @@ struct HealthWorkoutRouteMap: View {
                 continue
             }
             // Puntos casi inmóviles no cortan la ruta ni crean falsos segmentos.
-            if meters < 0.5 { continue }
+            // Conservar puntos casi inmóviles: descartarlos abría huecos en el dibujo
+            // aunque pertenecieran al mismo recorrido real.
+            if meters < 0.5 {
+                legs.append(SpeedLeg(
+                    index: index, start: start, end: end, distance: meters,
+                    speed: max(0.2, min(25, last.speedMps ?? first.speedMps ?? 0.2)),
+                    isEstimated: first.isEstimated || last.isEstimated
+                ))
+                continue
+            }
             let speedFromGPS = meters / seconds
-            if seconds <= 30, speedFromGPS.isFinite, speedFromGPS <= 25 {
+            if seconds <= 45, speedFromGPS.isFinite, speedFromGPS <= 25 {
                 let measured = last.speedMps ?? first.speedMps
                 let speed = (measured?.isFinite == true
                              && (0.2...25).contains(measured ?? 0))
                     ? (measured ?? speedFromGPS) : speedFromGPS
-                if speed >= 0.2 {
-                    legs.append(SpeedLeg(
-                        index: index, start: start, end: end,
-                        distance: meters, speed: speed,
-                        isEstimated: first.isEstimated || last.isEstimated
-                    ))
-                    continue
-                }
+                legs.append(SpeedLeg(
+                    index: index, start: start, end: end,
+                    distance: meters, speed: max(0.2, speed),
+                    isEstimated: first.isEstimated || last.isEstimated
+                ))
+                continue
             }
             // Un salto temporal no es una segunda actividad. Si es compatible
             // con el tiempo y las posiciones, usar el GPX cargado como guía.
@@ -2296,7 +2303,7 @@ struct HealthWorkoutRouteMap: View {
         seconds: TimeInterval,
         directMeters: CLLocationDistance
     ) -> [SpeedLeg]? {
-        guard seconds > 30, seconds <= 30 * 60,
+        guard seconds > 0, seconds <= 2 * 60 * 60,
               directMeters >= 0.5, directMeters.isFinite else { return nil }
 
         let start = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
@@ -2558,22 +2565,22 @@ struct HealthWorkoutRouteMap: View {
             ForEach(cachedRuns) { run in
                 // El mapa pequeño no puede tener el mismo grosor que el zoom.
                 // Los enlaces inferidos se dibujan discontinuos en las 3 capas.
-                let dash: [CGFloat] = run.isEstimated ? (isInteractive ? [7, 6] : [4, 4]) : []
+                let dash: [CGFloat] = run.isEstimated ? [4, 4] : []
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.halo, style: StrokeStyle(
-                        lineWidth: isInteractive ? 18 : 8,
+                        lineWidth: 4,
                         lineCap: .round, lineJoin: .round, dash: dash
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.edge, style: StrokeStyle(
-                        lineWidth: isInteractive ? 10 : 4.5,
+                        lineWidth: 2.25,
                         lineCap: .round, lineJoin: .round, dash: dash
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.core, style: StrokeStyle(
-                        lineWidth: isInteractive ? 6 : 2.8,
+                        lineWidth: 1.4,
                         lineCap: .round, lineJoin: .round, dash: dash
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
