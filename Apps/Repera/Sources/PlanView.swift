@@ -853,6 +853,26 @@ struct DayEditorView: View {
         }
     }
 
+    /// La fecha no se guarda en la plantilla: solo solicita una copia
+    /// del entrenamiento para ese día al confirmar.
+    private var planScheduleEnabled: Binding<Bool> {
+        Binding(
+            get: { routine.scheduledDate != nil },
+            set: { enabled in
+                routine.scheduledDate = enabled
+                    ? (routine.scheduledDate ?? Calendar.current.startOfDay(for: Date()))
+                    : nil
+            }
+        )
+    }
+
+    private var planScheduledDate: Binding<Date> {
+        Binding(
+            get: { routine.scheduledDate ?? Date() },
+            set: { routine.scheduledDate = Calendar.current.startOfDay(for: $0) }
+        )
+    }
+
     private var editorForm: some View {
         Form {
             Section {
@@ -861,20 +881,11 @@ struct DayEditorView: View {
                 case .plan:
                     // Todas las rutinas guardadas en Diario permanecen en la
                     // biblioteca. Esta fecha opcional crea una COPIA programada.
-                    Toggle("Programar también en una fecha", isOn: Binding(
-                        get: { routine.scheduledDate != nil },
-                        set: { enabled in
-                            routine.scheduledDate = enabled
-                                ? (routine.scheduledDate ?? Calendar.current.startOfDay(for: Date()))
-                                : nil
-                        }
-                    ))
-                    .tint(OG.accent)
+                    Toggle("Programar también en una fecha", isOn: planScheduleEnabled)
+                        .tint(OG.accent)
                     if routine.scheduledDate != nil {
-                        DatePicker("Fecha programada", selection: Binding(
-                            get: { routine.scheduledDate ?? Date() },
-                            set: { routine.scheduledDate = Calendar.current.startOfDay(for: $0) }
-                        ), displayedComponents: .date)
+                        DatePicker("Fecha programada", selection: planScheduledDate,
+                                   displayedComponents: .date)
                     }
                     scheduledTimeControls
                     Picker("Progresión (fuerza)", selection: $routine.progression) {
