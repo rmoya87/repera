@@ -682,7 +682,7 @@ extension [PlannedSet] {
             }
             return groups.map { group in
                 let reps=group.count>1 ? "\(group.count)×\(group.reps)" : "\(group.reps)"
-                return reps + (group.percent.map { " @ \(group.isMinimum ? ">" : "")\(String(format: "%g", $0))% 1RM" } ?? "")
+                return reps + (group.percent.map { " @ \(group.isMinimum ? ">" : "")\(ReperaNumberFormat.decimal($0))% 1RM" } ?? "")
             }.joined(separator: ", ")
         }
         // (reps, weightKg, count)
@@ -738,7 +738,7 @@ private enum PlannedSetSummary {
     }
 
     static func weightLabel(_ w: Double?) -> String {
-        w.map { String(format: "%g kg", $0) } ?? "—"
+        w.map { "\(ReperaNumberFormat.decimal($0)) kg" } ?? "—"
     }
 }
 
@@ -836,7 +836,7 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
         if let deficit = deficitCm {
             return "\(deficit) cm × \(reps)"
         }
-        let w = weightKg.map { String(format: "%g", $0) } ?? "—"
+        let w = weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—"
         var line = "\(w)×\(reps)"
         if let sec = durationSeconds, sec > 0 {
             line += " · \(Self.formatClock(sec))"
@@ -1186,8 +1186,8 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         if let c = calories { parts.append("\(c) cal") }
         parts.append(name.uppercased())
         if let male = weightMaleKg {
-            let female = weightFemaleKg.map { "\($0.formatted(.number.precision(.fractionLength(0))))" } ?? "—"
-            parts.append("\(male.formatted(.number.precision(.fractionLength(0))))/\(female)")
+            let female = weightFemaleKg.map { "\(ReperaNumberFormat.decimal($0))" } ?? "—"
+            parts.append("\(ReperaNumberFormat.decimal(male))/\(female)")
         }
         var line = parts.joined(separator: " ")
         if let scaleAlternative, !scaleAlternative.isEmpty {
@@ -1747,7 +1747,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         var values: [String] = []
         if let adaptedReps { values.append("\(adaptedReps) reps") }
         if let adaptedWeightKg {
-            values.append("\(adaptedWeightKg.formatted(.number.precision(.fractionLength(0...1)))) kg")
+            values.append("\(ReperaNumberFormat.decimal(adaptedWeightKg)) kg")
         }
         return (hasWODScaling ? "Adaptado · " : "Realizado · ") + values.joined(separator: " · ")
     }
@@ -1845,7 +1845,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         if let first = plannedSets.first {
             let reps = first.targetReps
             if let kg = first.targetWeightKg, kg > 0 {
-                return "\(reps) @ \(kg.formatted(.number.precision(.fractionLength(0...1)))) kg"
+                return "\(reps) @ \(ReperaNumberFormat.decimal(kg)) kg"
             }
             if reps > 0 { return "\(reps) reps" }
         }
