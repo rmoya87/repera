@@ -22,6 +22,7 @@ struct ReperaWatchApp: App {
     var body: some Scene {
         WindowGroup {
             WatchSessionView()
+                .environment(\.locale, Locale(identifier: "es_ES"))
                 .environment(hub)
                 .task {
                     hub.activate()
