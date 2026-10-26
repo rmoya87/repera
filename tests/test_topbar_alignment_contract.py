@@ -98,7 +98,7 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         self.assertGreaterEqual(library.count("ToolbarItem(placement: .topBarTrailing)"), 2)
         self.assertIn(".navigationBarTitleDisplayMode(.large)", library)
         self.assertIn(".toolbar(usesSplitExerciseLayout ? .hidden : .visible", library)
-        duo = library.split('Text("Ejercicios")', 1)[1].split(
+        duo = library.split("} else if usesSplitExerciseLayout {", 1)[1].split(
             "HStack(spacing: 9)", 1
         )[0]
         self.assertIn(".padding(.top, OG.topBarTopInset)", duo)
