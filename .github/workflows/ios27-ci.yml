@@ -91,6 +91,10 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_watch_widget_plist.py' -v
           python3 scripts/check_watch_widget_plist.py
+          python3 -m unittest discover -s tests -p 'test_diary_week_scope_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_autosaved_series_progress_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_finished_workout_all_metrics_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_multi_session_and_sync_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_wod_play_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_completed_workout_edit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
