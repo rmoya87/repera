@@ -1926,6 +1926,15 @@ final class ReperaStore: NSObject {
         }
         lastAccessDenial = nil
         var draft = routine
+        // Compatibilidad: nuevos emisores (IA, importaciones) que todavía
+        // faciliten un weekday no generan recurrencia oculta.
+        if draft.scheduledDate == nil, let weekday = draft.weekday, (1...7).contains(weekday) {
+            draft.scheduledDate = Calendar.current.date(
+                byAdding: .day, value: weekday - 1,
+                to: diaryWeekStart(containing: Date())
+            )
+            draft.weekday = nil
+        }
         if let scheduled = draft.scheduledDate {
             draft.scheduledDate = Calendar.current.startOfDay(for: scheduled)
             // Entreno suelto: no pisa el plan semanal; solo otro suelto del mismo día.
