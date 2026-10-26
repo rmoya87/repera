@@ -34,13 +34,20 @@ public struct MuscleStatus: Identifiable, Sendable, Equatable {
 /// Es únicamente un equivalente de carga para gráficas: NO genera LoggedSet,
 /// ni altera los resultados guardados ni puede inferir RIR o repeticiones exactas.
 public enum MuscleCompletedWODStimulus {
-    public static func estimatedSetEquivalent(for entry: SessionExercise, hardOnly: Bool) -> Double {
+    public static func estimatedSetEquivalent(
+        for entry: SessionExercise, in workout: WorkoutSession, hardOnly: Bool
+    ) -> Double {
+        let hasBlockScore = entry.blockId.map { id in
+            workout.wodResults.contains { $0.id == id }
+        } ?? false
         guard !hardOnly,
-              entry.blockKind == .wod,
-              entry.isCompleted,
+              workout.phase == .finished || workout.finishedAt != nil,
+              entry.blockKind == .wod || hasBlockScore,
               !entry.exercise.isMobility,
               !entry.loggedSets.contains(where: { !$0.isWarmup && $0.reps > 0 })
         else { return 0 }
+        // Un score global del WOD no permite saber repeticiones por movimiento.
+        // Solo asignamos un equivalente conservador de estímulo muscular.
         return 1
     }
 }
@@ -100,7 +107,7 @@ public enum MuscleMapEngine {
                 // sin series individuales. Reconocer la finalización confirmada
                 // con un equivalente conservador, jamás como «serie dura».
                 let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
-                    for: entry, hardOnly: hardOnly
+                    for: entry, in: workout, hardOnly: hardOnly
                 )
                 let recordedOrEstimated = hardSets > 0 ? hardSets : completedWOD * 0.7
                 guard recordedOrEstimated > 0 else { continue }
@@ -181,7 +188,7 @@ public enum MuscleMapEngine {
                 guard entry.exercise.sportTag != "Movilidad" else { continue }
                 let sets = StatsEngine.confirmedWorkSets(entry, in: workout).count
                 let completedWOD = MuscleCompletedWODStimulus.estimatedSetEquivalent(
-                    for: entry, hardOnly: hardOnly
+                    for: entry, in: workout, hardOnly: hardOnly
                 )
                 let countedSets = sets > 0 ? Double(sets) : completedWOD
                 guard countedSets > 0 else { continue }
