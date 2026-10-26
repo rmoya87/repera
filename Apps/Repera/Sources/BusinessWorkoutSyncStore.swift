@@ -145,7 +145,8 @@ final class BusinessWorkoutSyncStore {
     /// Silent early exits must never appear as a successful manual synchronization.
     @discardableResult
     func sync(store: ReperaStore) async -> Bool {
-        guard BusinessAuthStore.shared.isConnected,
+        // Renovar JWT antes de publicar, sin requerir logout manual.
+        guard await BusinessAuthStore.shared.ensureUsableSession(),
               let client = BusinessAuthStore.shared.apiClient else {
             lastError = "No hay una sesión activa de Supabase. Reconecta tu cuenta en Ajustes."
             return false
