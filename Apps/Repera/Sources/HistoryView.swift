@@ -366,6 +366,11 @@ struct WorkoutDetailView: View {
     }
 
     private func sessionMapContent(_ session: WorkoutSession) -> SessionMapKind {
+        // La reconstrucción pertenece al mapa local de Repera, no al de Salud.
+        if session.routePoints.count >= 2,
+           session.routePoints.contains(where: { $0.isEstimated == true }) {
+            return .ownRoute
+        }
         if let extras = healthExtras, extras.showRouteMap { return .healthRoute }
         if session.routePoints.count >= 2 { return .ownRoute }
         if session.locationPin != nil { return .pin }
@@ -373,6 +378,9 @@ struct WorkoutDetailView: View {
     }
 
     private func displayedRoute(_ session: WorkoutSession) -> [HealthKitStore.RoutePoint] {
+        if session.routePoints.contains(where: { $0.isEstimated == true }) {
+            return session.routePoints.map(\.asHealthRoutePoint)
+        }
         if let route = healthExtras?.routePoints, route.count >= 2 { return route }
         return session.routePoints.map(\.asHealthRoutePoint)
     }
@@ -488,6 +496,12 @@ struct WorkoutDetailView: View {
                             sessionMapView(session)
                         }
                         .ogCardListRow()
+                        if session.routePoints.contains(where: { $0.isEstimated == true }) {
+                            Text("El tramo discontinuo se ha estimado en línea recta tras un cierre inesperado; no es una medición GPS.")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .ogCardListRow()
+                        }
                     }
                 } else if !isEditing,
                           session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
@@ -2133,7 +2147,8 @@ private extension WorkoutRoutePoint {
             longitude: longitude,
             date: recordedAt,
             speedMps: speedMps,
-            altitudeMeters: altitudeMeters
+            altitudeMeters: altitudeMeters,
+            isEstimated: isEstimated == true
         )
     }
 }
@@ -2195,8 +2210,11 @@ struct HealthWorkoutRouteMap: View {
                 legs.append(nil)
                 continue
             }
-            legs.append(SpeedLeg(index: index, start: start, end: end,
-                                 distance: meters, speed: speed))
+            legs.append(SpeedLeg(
+                index: index, start: start, end: end,
+                distance: meters, speed: speed,
+                isEstimated: first.isEstimated || last.isEstimated
+            ))
         }
 
         let values = legs.compactMap { $0?.speed }
@@ -2206,6 +2224,11 @@ struct HealthWorkoutRouteMap: View {
         var current: [SpeedLeg] = []
         for leg in legs {
             if let leg {
+                if let previous = current.last,
+                   previous.isEstimated != leg.isEstimated {
+                    groups.append(current)
+                    current.removeAll(keepingCapacity: true)
+                }
                 current.append(leg)
             } else if !current.isEmpty {
                 groups.append(current)
@@ -2297,6 +2320,7 @@ struct HealthWorkoutRouteMap: View {
 
         return SpeedRun(
             id: legs[0].index, coordinates: renderedCoordinates,
+            isEstimated: legs[0].isEstimated,
             halo: Gradient(stops: haloStops),
             edge: Gradient(stops: edgeStops),
             core: Gradient(stops: coreStops)
@@ -2334,11 +2358,13 @@ struct HealthWorkoutRouteMap: View {
         var end: CLLocationCoordinate2D
         var distance: Double
         var speed: Double
+        var isEstimated: Bool
     }
 
     private struct SpeedRun: Identifiable {
         var id: Int
         var coordinates: [CLLocationCoordinate2D]
+        var isEstimated: Bool
         var halo: Gradient
         var edge: Gradient
         var core: Gradient
@@ -2408,7 +2434,8 @@ struct HealthWorkoutRouteMap: View {
                     .mapOverlayLevel(level: .aboveLabels)
                 MapPolyline(coordinates: run.coordinates)
                     .stroke(run.core, style: StrokeStyle(
-                        lineWidth: 6, lineCap: .round, lineJoin: .round
+                        lineWidth: 6, lineCap: .round, lineJoin: .round,
+                        dash: run.isEstimated ? [7, 6] : []
                     ))
                     .mapOverlayLevel(level: .aboveLabels)
             }
