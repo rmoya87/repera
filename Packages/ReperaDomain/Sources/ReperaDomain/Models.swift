@@ -246,6 +246,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var bodyPart: String?
     public var detailDescription: String?
     public var instructions: [String]
+    /// Sinónimos publicados desde Supabase, persistentes offline y editables sin nueva versión de la app.
+    public var searchAliases: [String]
     public var primaryRegions: [String]
     public var secondaryRegions: [String]
     public var isFavorite: Bool
@@ -537,6 +539,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         bodyPart: String? = nil,
         detailDescription: String? = nil,
         instructions: [String] = [],
+        searchAliases: [String] = [],
         primaryRegions: [String] = [],
         secondaryRegions: [String] = [],
         isFavorite: Bool = false,
@@ -554,6 +557,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         self.bodyPart = bodyPart
         self.detailDescription = detailDescription
         self.instructions = instructions
+        self.searchAliases = searchAliases
         self.primaryRegions = primaryRegions
         self.secondaryRegions = secondaryRegions
         self.isFavorite = isFavorite
@@ -564,7 +568,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, name, muscleGroup, equipment, isCustom
         case catalogId, targetMuscle, secondaryMuscles, bodyPart
-        case detailDescription, instructions, primaryRegions, secondaryRegions, isFavorite
+        case detailDescription, instructions, searchAliases, primaryRegions, secondaryRegions, isFavorite
         case isCatalogArchived, sportTag
     }
 
@@ -581,6 +585,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         bodyPart = try c.decodeIfPresent(String.self, forKey: .bodyPart)
         detailDescription = try c.decodeIfPresent(String.self, forKey: .detailDescription)
         instructions = try c.decodeIfPresent([String].self, forKey: .instructions) ?? []
+        searchAliases = try c.decodeIfPresent([String].self, forKey: .searchAliases) ?? []
         primaryRegions = try c.decodeIfPresent([String].self, forKey: .primaryRegions) ?? []
         secondaryRegions = try c.decodeIfPresent([String].self, forKey: .secondaryRegions) ?? []
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
