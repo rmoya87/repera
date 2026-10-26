@@ -2058,14 +2058,27 @@ final class ReperaStore: NSObject {
     func clearWeeklySchedule(for weekReference: Date = Date()) {
         let ids = Set(scheduledRoutines(inWeekContaining: weekReference).map(\.id))
         guard !ids.isEmpty else { return }
-        state.routines.removeAll { ids.contains($0.id) }
+        // Una favorita fechada también es una plantilla: desprogramarla
+        // sin borrar el favorito del catálogo del usuario.
+        for i in state.routines.indices where ids.contains(state.routines[i].id)
+            && state.routines[i].isFavorite {
+            state.routines[i].scheduledDate = nil
+            state.routines[i].weekday = nil
+        }
+        state.routines.removeAll { ids.contains($0.id) && !$0.isFavorite }
         persist()
         pushActiveToWatch()
     }
 
     func removeScheduledRoutine(on date: Date) {
         guard let target = scheduledRoutine(on: date) else { return }
-        state.routines.removeAll { $0.id == target.id }
+        if let index = state.routines.firstIndex(where: { $0.id == target.id }),
+           state.routines[index].isFavorite {
+            state.routines[index].scheduledDate = nil
+            state.routines[index].weekday = nil
+        } else {
+            state.routines.removeAll { $0.id == target.id }
+        }
         persist()
         pushActiveToWatch()
     }
