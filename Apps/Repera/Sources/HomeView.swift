@@ -495,11 +495,7 @@ struct HomeView: View {
                         : "Se quitará «\(routine.title)» de este día. La plantilla seguirá en Rutinas.",
                     confirmTitle: "Borrar entreno",
                     onConfirm: {
-                        if routine.isOneOff {
-                            store.deleteRoutine(routine.id)
-                        } else {
-                            store.assignRoutine(routine.id, toWeekday: nil)
-                        }
+                        store.removeScheduledRoutine(id: routine.id)
                         routinePendingDelete = nil
                         rebuildWeekChrome()
                         rebuildStreakChrome()
@@ -897,6 +893,7 @@ struct HomeView: View {
         let isToday = calendar.isDateInToday(selectedDay)
         let hasActive = isToday && store.hasActiveSession
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
+        let planned = plannedRoutinesForSelectedDay
 
         VStack(spacing: 6) {
             if hasActive {
@@ -917,18 +914,18 @@ struct HomeView: View {
                 }
             }
             // La sesión estándar activa no debe ocultar actividades En vivo ya guardadas.
-            if !workouts.isEmpty {
-                ForEach(workouts) { session in
-                    dayWorkoutCard(session)
-                        .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
-                }
-            } else if !hasActive {
-                if let planned = plannedRoutineForSelectedDay {
-                    plannedDayCard(planned)
-                        .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
-                } else if !hasCompletedActivity {
-                    emptyWorkoutCard
-                }
+            ForEach(workouts) { session in
+                dayWorkoutCard(session)
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+            }
+            // Una sesión ya realizada no oculta los otros entrenos pendientes
+            // de esa misma fecha. Cada plan conserva su ficha y su gesto swipe.
+            ForEach(planned) { routine in
+                plannedDayCard(routine)
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+            }
+            if !hasActive && workouts.isEmpty && planned.isEmpty && !hasCompletedActivity {
+                emptyWorkoutCard
             }
 
             ForEach(healthActivities) { activity in
@@ -1037,7 +1034,12 @@ struct HomeView: View {
                     .frame(width: 44, height: 44)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
+                        Text(WorkoutListCaption.dayTimeLine(
+                            for: selectedDay,
+                            time: routine.normalizedScheduledTimeMinutes.map {
+                                SpanishDate.time(minutesFromMidnight: $0)
+                            }
+                        ))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
@@ -1459,8 +1461,19 @@ struct HomeView: View {
         cachedStreakWeeks = consecutiveWeekStreak()
     }
 
+    /// Excluir solo la rutina activa o ya terminada; las demás siguen
+    /// visibles y se pueden comenzar aunque haya otro registro ese día.
+    private var plannedRoutinesForSelectedDay: [Routine] {
+        let completedIDs = Set(workoutsOnSelectedDay.compactMap(\.routineId))
+        let activeID = calendar.isDateInToday(selectedDay)
+            ? store.state.activeSession?.routineId : nil
+        return store.scheduledRoutines(on: selectedDay).filter {
+            !completedIDs.contains($0.id) && $0.id != activeID
+        }
+    }
+
     private var plannedRoutineForSelectedDay: Routine? {
-        store.routineForDay(selectedDay)
+        plannedRoutinesForSelectedDay.first
     }
 
     private var plannedTitleForSelectedDay: String? {
