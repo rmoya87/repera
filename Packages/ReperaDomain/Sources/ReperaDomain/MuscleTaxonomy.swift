@@ -269,10 +269,17 @@ public enum MuscleLoadEngine {
                     }
                     return true
                 }.count
-                guard sets > 0 else { continue }
+                // WODs completados pueden tener check de movimiento sin
+                // series desglosadas. Solo contamos un equivalente estimado
+                // para Fatiga; nunca atribuimos RIR/esfuerzo alto sin datos.
+                let estimated = MuscleCompletedWODStimulus.estimatedSetEquivalent(
+                    for: entry, hardOnly: hardOnly
+                )
+                let effectiveSets = sets > 0 ? Double(sets) : estimated
+                guard effectiveSets > 0 else { continue }
                 let weights = MuscleTaxonomy.muscleWeights(for: entry.exercise)
                 for (slug, w) in weights {
-                    load[slug, default: 0] += w * Double(sets)
+                    load[slug, default: 0] += w * effectiveSets
                 }
             }
         }
