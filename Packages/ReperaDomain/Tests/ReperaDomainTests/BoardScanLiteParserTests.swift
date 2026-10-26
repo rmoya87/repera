@@ -2,6 +2,20 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func publishedRemoteAliasWorksWithNoScannerCodeChanges() {
+        let official = Exercise(
+            name: "Burpee to target", muscleGroup: "Cardio",
+            searchAliases: ["BXT-PRO"]
+        )
+        let blocks = BoardScanLiteParser.parse(
+            ocrText: "AMRAP 9'\n6 BXT-PRO",
+            catalog: [official]
+        ).blocks
+        #expect(blocks.count == 1)
+        #expect(blocks.first?.movements.first?.exerciseId == official.id)
+        #expect(blocks.first?.movements.first?.name == official.name)
+    }
+
     @Test func mixedCaseBTTAndT2BPreferOfficialCatalogWhenOldCustomExists() {
         let catalog = Catalog.seed()
         guard let btt = catalog.first(where: { $0.name == "Burpee to target" }),
