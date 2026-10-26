@@ -11,6 +11,8 @@ struct SessionPreviewView: View {
     var onStart: () -> Void
     var onContinue: () -> Void
     var onEdit: (Routine) -> Void
+    /// Push del ejercicio por una única ruta en RootTabView.
+    var onOpenExercise: (UUID) -> Void
 
     /// Copia de trabajo tras editar; si nil, se usa `routine`.
     @State private var editedSnapshot: Routine?
@@ -69,7 +71,11 @@ struct SessionPreviewView: View {
                     if routine.blocks.isEmpty {
                         flatExercises(routine)
                     } else {
-                        OGRoutineBlocksList(blocks: routine.blocks, opensExerciseDetail: true)
+                        OGRoutineBlocksList(
+                            blocks: routine.blocks,
+                            opensExerciseDetail: true,
+                            onOpenExercise: onOpenExercise
+                        )
                     }
                 }
             } else if active == nil {
@@ -220,7 +226,11 @@ struct SessionPreviewView: View {
     @ViewBuilder
     private func flatExercises(_ routine: Routine) -> some View {
         let synthetic = RoutineBlock.strength(title: "Ejercicios", exercises: routine.exercises)
-        OGRoutineBlockCard(block: synthetic, opensExerciseDetail: true)
+        OGRoutineBlockCard(
+            block: synthetic,
+            opensExerciseDetail: true,
+            onOpenExercise: onOpenExercise
+        )
             .ogCardListRow(top: 0, bottom: 8)
     }
 }
