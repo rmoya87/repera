@@ -808,22 +808,7 @@ struct WorkoutDetailView: View {
     }
 
     private func summaryTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-            Text(value)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        WorkoutSummaryTile(title: title, value: value, icon: icon, tint: tint)
     }
 
     private var notesCard: some View {
@@ -2007,22 +1992,7 @@ struct HealthActivityDetailView: View {
     }
 
     private func summaryTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-            Text(value)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(OG.label)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        WorkoutSummaryTile(title: title, value: value, icon: icon, tint: tint)
     }
 
     private func originCard(_ activity: HealthKitStore.ExternalActivity) -> some View {
