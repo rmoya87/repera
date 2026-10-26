@@ -381,11 +381,23 @@ struct CardioSplitsView: View {
                         value: recordedMaxSpeedKmh.map(decimal) ?? "—",
                         unit: "km/h", tint: OG.accent
                     )
-                    SessionSportMetricTile(
-                        title: "Ritmo medio",
-                        value: averagePace.map { $0.replacingOccurrences(of: " min/km", with: "") } ?? "—",
-                        unit: "min/km", tint: OG.label
-                    )
+                    if cycling || sport?.displaysSpeed == true {
+                        // Ciclismo y deportes acuáticos priorizan distancia
+                        // frente a un ritmo por kilómetro poco representativo.
+                        SessionSportMetricTile(
+                            title: "Distancia",
+                            value: totalDistanceMeters.map { decimal($0 / 1000) } ?? "—",
+                            unit: "km", tint: OG.label
+                        )
+                    } else {
+                        SessionSportMetricTile(
+                            title: "Ritmo medio",
+                            value: averagePace.map {
+                                $0.replacingOccurrences(of: " min/km", with: "")
+                            } ?? "—",
+                            unit: "min/km", tint: OG.label
+                        )
+                    }
                 }
 
                 if !displayedSplits.isEmpty {
