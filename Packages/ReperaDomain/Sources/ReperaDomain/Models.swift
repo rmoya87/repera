@@ -2142,9 +2142,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     }
 
     public var totalVolumeKg: Double {
-        exercises.reduce(0) { partial, ex in
-            partial + ex.loggedSets.reduce(0) { $0 + $1.volumeKg }
-        }
+        // Fuente única: series anotadas o movimientos realmente finalizados.
+        // No contar el entrenamiento meramente programado.
+        StatsEngine.confirmedVolumeKg(in: self)
     }
 
     /// Minutos del entreno: prioriza Apple Salud / Watch.
