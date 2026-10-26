@@ -2343,7 +2343,7 @@ final class HealthKitStore {
         }
         // Otro intento puede haber finalizado correctamente aunque no llegase
         // a guardarse el UUID en Repera. No volver a crear ese HKWorkout.
-        if let existing = await existingReperaWorkout(sessionId: sessionId, start: start, end: end) {
+        if let existing = await existingReperaWorkout(sessionId: sessionId) {
             if preferBuilder != nil { await discardLocalBuilder() }
             return existing.uuid
         }
@@ -2356,15 +2356,13 @@ final class HealthKitStore {
                 // Apple puede devolver nil sin error cuando el dispositivo está
                 // bloqueado; NO generar otra sesión en ese caso.
                 lastError = "Apple Salud guardó el entreno pero todavía no confirmó su UUID"
-                return await existingReperaWorkout(sessionId: sessionId, start: start, end: end)?.uuid
+                return await existingReperaWorkout(sessionId: sessionId)?.uuid
             } catch {
                 lastError = "Error al cerrar el entreno en Salud: " + error.localizedDescription
                 liveBuilder = nil
                 // El resultado del finish puede ser incierto: no lanzar
                 // otra escritura a ciegas (podría crear un duplicado).
-                return await existingReperaWorkout(
-                    sessionId: sessionId, start: start, end: end
-                )?.uuid
+                return await existingReperaWorkout(sessionId: sessionId)?.uuid
             }
         }
 
@@ -2379,7 +2377,7 @@ final class HealthKitStore {
             let saved = try await builder.finishWorkout()
             if let saved { return saved.uuid }
             lastError = "Apple Salud guardó el entreno pero todavía no confirmó su UUID"
-            return await existingReperaWorkout(sessionId: sessionId, start: start, end: end)?.uuid
+            return await existingReperaWorkout(sessionId: sessionId)?.uuid
         } catch {
             lastError = error.localizedDescription
             return nil
