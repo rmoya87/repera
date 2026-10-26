@@ -1,17 +1,27 @@
 ## Persistencia de ediciones en Play y OCR (2026-10-26)
 
-- [ ] Escanear una pizarra con fuerza + WOD, guardar/programar el entrenamiento, pulsar Play, modificar los kg, reps y RIR, añadir dos series, eliminar una serie pendiente, terminar y consultar Historial: la sesión conserva **todas las series editadas y su orden** en `plannedSets` y la copia de bloques `routineBlocks`. Las series con check se guardan además como `loggedSets`; las no confirmadas NO se hacen pasar por realizadas.
-- [ ] Editar una serie con el teclado nativo y pulsar directamente el check de finalizar (sin salir previamente del campo): la última cantidad/peso introducidos se conservan. Al pasar a otro ejercicio y volver, el borrador se recupera de la sesión persistida.
+## Validación integral de registros y sincronización (26/10/2026)
+
+- [ ] Crear dos sesiones A y B para la misma fecha desde Inicio, Diario y OCR: aparecen separadas. Borrado por swipe de B no afecta A.
+- [ ] Realizar y finalizar A y luego B; ambas aparecen en Inicio/Historial y alimentan correctamente volumen, fuerza, cardio y Equilibrio de Progreso.
+- [ ] Copiar semana con dos sesiones en la misma fecha: copiar ambas si día destino estaba libre antes de empezar la operación.
+- [ ] En Play, introducir y corregir peso/reps/RIR, series de máquina Cal/met, movilidad y bloques AMRAP/EMOM/For Time; eliminar primera, intermedia y última serie con swipe y volver a añadir. No recontar ni cambiar IDs de otras series.
+- [ ] Comenzar: registrar deportes GPS/no GPS, importar Apple Watch por Salud, mostrar valores medidos de pulso, calorías, tiempo y ruta cuando existan; evitar duplicar la carga por UUID/solape.
+- [ ] Cuenta: guardar local en modo avión; recuperar red, Sincronizar ahora y comprobar en athlete_workout_mirror el UUID/payload/series. Sin credenciales válidas ha de mostrar error y no prometer sincronización.
+- [ ] Validación en Xcode 27 y dispositivo TestFlight con watchOS 27: los contratos de fuente/servidor no sustituyen prueba de sensores ni ejecución real.
+
+- [ ] Escanear una pizarra con fuerza + WOD, programarla, editar kg/reps/RIR y terminar: los valores se guardan sin check por serie, y los resultados en Historial y Progreso.
+- [ ] Editar una serie con teclado abierto y pulsar Finalizar entreno: los últimos datos se guardan sin ✓ por serie.
 - [ ] Abrir «Editar entreno» desde Play, añadir/quitar ejercicio o bloque, reordenar, añadir/quitar series o cambiar pesos, pulsar Guardar y terminar: al reabrir Historial aparecen exactamente esos cambios; no reaparece el plan anterior. Con rutina programada existente, la plantilla también se actualiza; con escaneo efímero solo se actualiza la sesión.
 - [ ] Repetir dos veces el mismo ejercicio en un bloque, registrar un peso en cada aparición, reordenar uno y añadir una tercera aparición: cada resultado queda con el elemento de origen por su ID; la nueva aparición no hereda datos registrados ajenos.
 - [ ] Con WOD EMOM/Tabata/RFT, cambiar repeticiones/cargas o añadir series: se preservan `explicitPlannedSets`, el tiempo y el resultado global del bloque; no se convierten series pendientes en resultados ni se pierden pausas/rest.
 - [ ] Cerrar Play, volver a abrir con sesión activa y reiniciar la app: las modificaciones persisten en almacenamiento local/iCloud y la estructura se reproduce de forma consistente en Apple Watch. Tras finalizar, probar la relectura por JSON.
 - [ ] Verificar que precargar pesos sugeridos de una sesión anterior sin tocarlos NO altera el plan; solo las ediciones reales del usuario se guardan.
-- [ ] Dynamic Type y VoiceOver: botón «Quitar serie» de contorno en filas no confirmadas; nunca permite borrar sin desmarcar una serie ya registrada.
+- [ ] Dynamic Type y VoiceOver: borrar cualquier serie en Play con swipe a la izquierda; no aparece el botón menos fijo y existe acción accesible «Eliminar serie».
 
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-25 (catálogo remoto incremental + pruebas anteriores)
+Última actualización: 2026-10-26 (sesiones múltiples, deportes y diagnóstico Supabase)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -24,7 +34,7 @@ Checklist manual por feature. Preferible dispositivo real para Live Activity y W
 - [ ] Verificar en la app instalada que `BGTaskSchedulerPermittedIdentifiers` y `UIBackgroundModes=fetch` están en el Info.plist generado y que el sistema puede registrar la tarea.
 - [ ] Comprobar que si el SO no concede ejecución o el usuario fuerza el cierre, la sincronización se recupera silenciosamente al siguiente arranque; no hay promesas de periodicidad exacta.
 - [ ] Observar Instruments Main Thread Checker/Time Profiler: lectura JSON, codificación y mezcla masiva deben ejecutarse fuera del hilo principal; SwiftUI solo publica el snapshot resultante.
-- [ ] En Cuenta no debe existir «Sincronizar ahora», fecha de última actualización ni spinner.
+- [ ] Cuenta ofrece «Sincronizar ahora» para entrenamientos con estado de error/último envío; el catálogo editorial sigue sin botón manual.
 
 ## Catálogo editorial Supabase (25/10/2026)
 
@@ -132,14 +142,14 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## Play — conservación de entradas numéricas (iOS 27)
 
-- [ ] En una serie con peso y reps, introducir **72,5 kg** sin pulsar ✓; tocar reps, introducir **12** y tocar fuera: ambos valores siguen presentes.
-- [ ] Modificar solo las reps de una serie y pulsar el check directamente, sin confirmar el teclado; el registro conserva exactamente las últimas cifras.
-- [ ] Marcar la última serie, desmarcarla y editarla de nuevo: se muestran los valores **reales registrados**, no ceros ni los objetivos originales de la planificación.
-- [ ] Con varias series pendientes, pulsar la flecha **negra** del teclado: peso → reps → peso de la siguiente serie (o la primera casilla habilitada), sin cerrar el teclado y omitiendo series marcadas.
-- [ ] La última casilla ofrece **✓ verde**. Después de registrar, las series completadas permanecen bloqueadas hasta desmarcar.
+- [ ] En una serie con peso y reps, introducir 72,5 kg y 12 reps sin ✓ y salir del campo: se conservan ambos valores.
+- [ ] Modificar solo las reps y pulsar Finalizar directamente: persisten las cifras más recientes.
+- [ ] Borrar una serie por swipe, añadir otra y finalizar: la eliminada no reaparece ni cuenta en Progreso.
+- [ ] Con varias series, la flecha avanza entre peso/reps; borrar una intermedia con swipe no cambia los IDs restantes.
+- [ ] La última serie también se puede borrar por swipe, dejando solo Añadir serie y ningún resultado ficticio.
 - [ ] Introducir peso con coma o punto decimal, borrar cifras y usar +/−; cambiar de campo o cerrar el teclado sin perder valores válidos.
 - [ ] Repetir con ejercicios de **solo reps**, **tiempo**, **déficit cm** y **Cal/metros**, incluyendo las series añadidas durante el entreno.
-- [ ] Cambiar de ejercicio desde la lista o flechas de la barra superior y volver: permanecen las series editadas aunque aún no se haya marcado el check.
+- [ ] Cambiar de ejercicio y volver: el borrador modificado persiste sin check individual.
 - [ ] En técnicas avanzadas, editar peso/reps del stepper y dropset; cambiar de campo sin pulsar ✓ y comprobar el valor actualizado.
 - [ ] En la planificación, editar dos valores de un formato WOD con el mismo teclado: el avance y los valores se mantienen al cambiar de campo.
 
