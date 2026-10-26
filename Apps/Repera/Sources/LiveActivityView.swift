@@ -1642,15 +1642,14 @@ struct LiveActivityView: View {
                         }
                         .frame(
                             width: min(390, max(260, geometry.size.width * 0.42)),
-                            height: max(0, geometry.size.height - 18),
+                            height: max(0, geometry.size.height - 10),
                             alignment: .topLeading
                         )
                         Spacer(minLength: 0)
                         mapHeader
                             .frame(width: 44, alignment: .trailing)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 8)
+                    .padding(.horizontal, OG.topBarHorizontalInset)
                     .padding(.bottom, 10)
 
                     if recorder.phase == .idle {
@@ -1681,11 +1680,15 @@ struct LiveActivityView: View {
                             bottomControls
                         }
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 8)
+                    .padding(.horizontal, OG.topBarHorizontalInset)
                     .padding(.bottom, 10)
                 }
             }
+            // Apple: el MAPA puede llegar al borde físico, pero su
+            // overlay de controles debe seguir la safe area del dispositivo
+            // (Dynamic Island, iPad en Split View, rotación). Añadimos solo
+            // el aire de la cabecera dentro de esa área, sin coordenadas fijas.
+            .safeAreaPadding(.top, OG.topBarTopInset)
         }
         .task {
             recorder.prepareMapLocation()
