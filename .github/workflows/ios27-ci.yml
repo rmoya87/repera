@@ -95,6 +95,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_autosaved_series_progress_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_finished_workout_all_metrics_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_multi_session_and_sync_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_login_comenzar_progress_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_wod_play_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_completed_workout_edit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
