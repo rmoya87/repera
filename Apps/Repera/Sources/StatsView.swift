@@ -29,6 +29,7 @@ struct StatsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { scrollProxy in
             ScrollView {
                 // El título y el calendario se desplazan con el contenido; sin franja opaca.
                 // Solo las pestañas quedan ancladas al alcanzar la parte superior.
@@ -47,6 +48,7 @@ struct StatsView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Filtrar periodo")
                     }
+                    .id("progress-scroll-top")
 
                     Section {
                         // Un único VStack no lazy evita reciclar gráficas y saltos de offset.
@@ -100,7 +102,8 @@ struct StatsView: View {
                             case .recovery:
                                 HealthRecoveryProgressView(
                                     range: model.range,
-                                    weekStartsOnMonday: mondayFirst
+                                    weekStartsOnMonday: mondayFirst,
+                                    usesExpandedLayout: isExpandedLayout
                                 )
                             }
                             }
@@ -195,6 +198,18 @@ struct StatsView: View {
                 // Solo si cambia el acceso Pro; ignorar churn isConfigured / refresh.
                 enforceFreeRangeIfNeeded()
                 schedulePrepare(reason: "subscription")
+            }
+            .onChange(of: topic) { _, _ in
+                // Las tres pestañas comparten el mismo ScrollView. Si Entreno
+                // está muy abajo y Actividad/Recuperación tienen menos altura,
+                // SwiftUI conservaba un offset inválido, dejando la vista negra.
+                // Volver al encabezado inmediatamente, sin animación ni salto.
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    scrollProxy.scrollTo("progress-scroll-top", anchor: .top)
+                }
+            }
             }
         }
     }
