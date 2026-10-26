@@ -323,7 +323,9 @@ struct CardioSplitsView: View {
     private var stepsCount: Int? { healthStats?.stepsCount }
 
     private var hasGPSMetrics: Bool {
-        (sport?.usesGPS ?? true) &&
+        let isOutdoorMovement = sport?.usesGPS
+            ?? (healthStats?.isOutdoorRouteActivity == true || routePoints.count >= 2)
+        return isOutdoorMovement &&
             ((healthMovementMeters ?? 0) > 0 || routePoints.count >= 2 || !displayedSplits.isEmpty)
     }
 
