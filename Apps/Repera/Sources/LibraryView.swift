@@ -275,12 +275,15 @@ struct LibraryView: View {
                 ExerciseArt.cancelThumbPrefetch()
             }
             .navigationTitle(filterMode == .wods ? "WODs" : filterMode == .sports ? "Deportes" : "Ejercicios")
-            .navigationBarTitleDisplayMode(.inline)
+            // iPhone: título grande y acciones a la DERECHA mediante la
+            // toolbar nativa. SwiftUI gestiona distancias, safe area y glass.
+            // DUO: cabecera propia con los mismos insets semánticos.
+            .navigationBarTitleDisplayMode(.large)
             .ogDiaryTransparentNav()
             .toolbar(usesSplitExerciseLayout ? .hidden : .visible, for: .navigationBar)
             .toolbar {
                 if !usesSplitExerciseLayout {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
                         systemName: "line.3.horizontal.decrease",
                         accessibilityLabel: "Filtrar y ordenar"
