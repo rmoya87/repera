@@ -172,7 +172,7 @@ struct ExerciseLoadGuideCard: View {
 
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(suggest.kg.formatted(.number.precision(.fractionLength(0...1)))) kg")
+                    Text("\(ReperaNumberFormat.decimal(suggest.kg)) kg")
                         .font(.system(size: 36, weight: .bold).monospacedDigit())
                         .foregroundStyle(OG.accent)
                         .contentTransition(.numericText())
@@ -193,15 +193,15 @@ struct ExerciseLoadGuideCard: View {
                         .background(OG.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Aplicar \(suggest.kg.formatted(.number.precision(.fractionLength(0...1)))) kg a las series")
+                .accessibilityLabel("Aplicar \(ReperaNumberFormat.decimal(suggest.kg)) kg a las series")
             }
         }
     }
 
     private func suggestionCaption(source: String) -> String {
         let rirLabel = assumedRir
-            ? "RIR \(String(format: "%g", effectiveRir)) (asumido)"
-            : "RIR \(String(format: "%g", effectiveRir))"
+            ? "RIR \(ReperaNumberFormat.decimal(effectiveRir)) (asumido)"
+            : "RIR \(ReperaNumberFormat.decimal(effectiveRir))"
         return "\(targetReps) reps · \(rirLabel) · \(source)"
     }
 }
