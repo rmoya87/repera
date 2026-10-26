@@ -274,7 +274,7 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Temporizador
 
-- `StandaloneTimerView`: cronómetro ascendente (**Arriba**), cuenta atrás (**Abajo**) e **Intervalos**, con favoritos de temporizador. El selector de modalidad omite el encabezado «Tipo de temporizador» y presenta las tres pestañas con el mismo control segmentado nativo grande y cápsula Liquid Glass que **Progreso → Entreno / Actividad / Recuperación**.
+- `StandaloneTimerView`: cronómetro ascendente (**Arriba**), cuenta atrás (**Abajo**) e **Intervalos**, con favoritos de temporizador. El selector de modalidad omite el encabezado «Tipo de temporizador» y presenta las tres pestañas con el mismo control segmentado nativo grande y cápsula Liquid Glass que **Progreso → Entreno / Actividad / Recuperación**. La tarjeta de parámetros no tiene encabezado «Configuración»: la primera fila («Rondas» en Intervalos o «Duración» en los otros modos) se alinea con el margen interior superior de 14 pt sin dejar un espacio vacío.
 
 ## Fuera de producto
 
