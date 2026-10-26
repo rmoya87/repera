@@ -19,9 +19,9 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         model = source("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")
         self.assertIn("completedScoreEditor(for: block)", editor)
         self.assertIn("format.resultCapture != .perMovementSets", editor)
-        self.assertIn("private func addCompletedResult(for block: RoutineBlock)", editor)
-        self.assertIn('Label("Añadir resultado", systemImage: "plus.circle")', editor)
-        self.assertIn("completedDetails?.wodResults.append(WODBlockResult(", editor)
+        self.assertIn("private func completedScoreBinding(", editor)
+        self.assertIn("completedDetails = CompletedWorkoutEditing.changingScore(", editor)
+        self.assertIn('Text("Resultado del entreno")', editor)
         self.assertIn("case .totalReps:", editor)
         self.assertIn("case .elapsedTime:", editor)
         for fmt in ("forTime", "chipper", "afap", "ladder", "buyInCashOut"):
@@ -34,7 +34,7 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn("onApplyCompleted != nil && completedSession != nil", editor)
         self.assertIn("private var completedWorkoutDraft: WorkoutSession?", editor)
         self.assertIn("completedDetails ?? completedSession", editor)
-        score = editor.split("private func completedScoreEditor(", 1)[1].split("private func addCompletedResult(", 1)[0]
+        score = editor.split("private func completedScoreEditor(", 1)[1].split("private func completedScoreBinding(", 1)[0]
         self.assertIn("if isEditingCompletedWorkout,", score)
         self.assertNotIn("completedDetails != nil", score)
         wod = editor.split("private func wodBlock(index: Int)", 1)[1].split("private func resolvedExercise(", 1)[0]
