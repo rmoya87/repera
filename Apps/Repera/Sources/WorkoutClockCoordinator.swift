@@ -128,6 +128,9 @@ final class WorkoutClockCoordinator {
               let data = UserDefaults.standard.data(forKey: checkpointKey),
               let saved = try? JSONDecoder().decode(SavedClock.self, from: data),
               saved.sessionID == session.id,
+              // A block switch captured just before termination must not
+              // restore an unrelated running timer over the latest exercise.
+              (session.currentExercise?.blockId ?? session.currentExercise?.id) == saved.blockID,
               let match = session.exercises.first(where: {
                   ($0.blockId ?? $0.id) == saved.blockID
               }) else { return }
