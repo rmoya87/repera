@@ -6,6 +6,7 @@
 - Comenzar anuncia cada kilómetro con AVSpeechSynthesizer sobre una sesión AVAudioSession de reproducción hablada (modo background audio habilitado). Los kilómetros no envían push/notificaciones visuales; los resultados siguen en Parciales. La voz está gobernada por el interruptor de guía del usuario.
 - Resumen de Comenzar: tiempo/distancia/energía medidas arriba; mapa inmediatamente debajo, sin encabezado redundante. Ritmo y velocidad medios son tiles dentro de Parciales, antes del desglose de kilómetros. Tocar el mapa abre un visor a pantalla completa con paneo, zoom y X para cerrar; también se aplica al detalle del registro terminado.
 - Escala por velocidad: en tierra azul → amarillo → naranja → rojo, en agua verde → amarillo → naranja → rojo, para mantener contraste con los parques y el mar.
+- Guardar Comenzar vuelve a consultar Salud si el resumen todavía no tenía sensores: cuando existe un HKWorkout externo autenticado se vinculan UUID, FC y kcal reales antes de guardar, evitando crear un duplicado de Apple Watch.
 - Progreso combina las sesiones guardadas desde Inicio/Comenzar y Salud sin duplicar una actividad del Watch; fatiga general por tipo y duración estimadas, y capa de esfuerzo alto separada para no etiquetar caminatas como entrenamiento intenso. Los récords deportivos (distancia, mejor km, duración) se consultan desde Progreso → Deportes; e1RM se reserva a ejercicios con resultados de fuerza.
 
 
