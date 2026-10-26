@@ -188,7 +188,7 @@ struct PlanView: View {
         .glassEffect(.regular, in: .capsule)
         .padding(.horizontal, OG.pad)
         .padding(.top, 4)
-        .padding(.bottom, 10)
+        .padding(.bottom, 4)
         .frame(maxWidth: OG.contentColumnMaxWidth)
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -295,6 +295,9 @@ struct PlanView: View {
                             routinesContent
                         }
                     }
+                    // El primer día/tarjeta debe empezar justo debajo
+                    // de las tabs; insetGrouped añadía un margen inicial.
+                    .contentMargins(.top, 0, for: .scrollContent)
                     .ogListChrome()
                 }
             }
@@ -616,7 +619,7 @@ struct PlanView: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 24, leading: OG.pad, bottom: 16, trailing: OG.pad))
+                .listRowInsets(EdgeInsets(top: 8, leading: OG.pad, bottom: 16, trailing: OG.pad))
             }
         } else {
             Section {
