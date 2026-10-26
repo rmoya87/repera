@@ -143,7 +143,7 @@ enum ProgressChartBuilder {
                 now: now, weekStartsOnMonday: weekStartsOnMonday
             ) else { return nil }
             let previousDays = mergedDailyCalories(
-                energyDays: energyDays, workouts: [], external: [],
+                energyDays: energyDays, workouts: [], external: external,
                 start: bounds.start, endExclusive: bounds.end
             )
             // El histórico de Salud puede ser más corto que el periodo:
