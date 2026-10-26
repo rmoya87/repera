@@ -262,12 +262,15 @@ public enum MuscleLoadEngine {
         var load: [String: Double] = [:]
         for workout in inWindow {
             for entry in workout.exercises {
-                let sets = entry.loggedSets.filter { set in
+                // Históricos finalizados sin check: aprovechar los valores
+                // guardados en la sesión. No atribuir RIR «duro» a un dato
+                // prescrito sin confirmación explícita.
+                let sourceSets = hardOnly
+                    ? entry.loggedSets
+                    : StatsEngine.effectiveWorkSets(entry, in: workout)
+                let sets = sourceSets.filter { set in
                     guard set.reps > 0, !set.isWarmup else { return false }
-                    if hardOnly {
-                        return Effort.isHard(rir: set.rir)
-                    }
-                    return true
+                    return !hardOnly || Effort.isHard(rir: set.rir)
                 }.count
                 // WODs completados pueden tener check de movimiento sin
                 // series desglosadas. Solo contamos un equivalente estimado
