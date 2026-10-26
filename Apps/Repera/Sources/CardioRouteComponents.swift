@@ -385,10 +385,18 @@ struct CardioSplitsView: View {
     }
 
     private func averageStat(_ title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(OG.accent)
-            Text(value).font(.system(size: 16, weight: .semibold).monospacedDigit())
-                .foregroundStyle(OG.label).lineLimit(1).minimumScaleFactor(0.75)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.accent)
+                    .frame(width: 18, alignment: .leading)
+                Text(value)
+                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+            }
             Text(title).font(.caption).foregroundStyle(OG.label2)
         }
         .frame(maxWidth: .infinity, minHeight: 80, alignment: .leading)
