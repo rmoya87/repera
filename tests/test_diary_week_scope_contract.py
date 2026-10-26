@@ -30,14 +30,15 @@ class DiaryWeekScopeContractTests(unittest.TestCase):
         self.assertIn("weekSelector(narrow: true)", diary)
         self.assertLess(diary.index('Text("Programado")'), diary.index("weekSelector(narrow: true)"))
         header = diary.split("private var diaryTopBar:", 1)[1].split("private struct DiaryDateBox", 1)[0]
-        self.assertIn("weekSelector(narrow: false)", header)
         self.assertIn('OGFixedTopBar(title: "Diario")', header)
-        # Compacto: menú a la derecha de Diario, semana debajo, no encima.
-        self.assertLess(header.index('Text("Diario")'), header.index("weekActionsMenu", header.index("} else {")))
-        self.assertLess(header.index("weekActionsMenu", header.index("} else {")),
-                        header.index("weekSelector(narrow: false)"))
-        self.assertIn("HStack(alignment: .top, spacing: 12)", header)
-        self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", header)
+        # Título, semana compacta y menú ⋯ EN LA MISMA HStack, en ese orden.
+        compact = header.split("} else {", 1)[1].split("private var compactDiaryTabs:", 1)[0]
+        self.assertIn("HStack(alignment: .center, spacing: 8)", compact)
+        self.assertIn("weekSelector(narrow: true)", compact)
+        self.assertLess(compact.index('Text("Diario")'), compact.index("weekSelector(narrow: true)"))
+        self.assertLess(compact.index("weekSelector(narrow: true)"), compact.index("weekActionsMenu"))
+        self.assertNotIn("weekSelector(narrow: false)", compact)
+        self.assertIn(".frame(minHeight: OG.toolbarGlassSize)", compact)
         self.assertIn(".glassEffect(.regular.interactive(), in: .capsule)", diary)
         days = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
         self.assertNotIn('Text("Tu programación")', days)
