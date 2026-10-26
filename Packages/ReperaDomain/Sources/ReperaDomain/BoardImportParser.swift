@@ -886,6 +886,15 @@ public enum BoardImportParser {
                 return exact
             }
         }
+        // Alias editoriales descargados desde Supabase: se actualizan sin
+        // incorporar glosarios nuevos en cada release de TestFlight.
+        for needle in candidates {
+            if let aliasHit = catalog.first(where: {
+                !$0.isCustom && !$0.isCatalogArchived && $0.searchAliases.contains(where: {
+                    CrossFitGlossary.normalize($0) == needle
+                })
+            }) { return aliasHit }
+        }
         for needle in candidates {
             if let exact = catalog.first(where: { CrossFitGlossary.normalize($0.name) == needle }) {
                 return exact
@@ -1490,6 +1499,15 @@ public enum CrossFitGlossary {
         let canonical = resolveCatalogName(move.name, notes: move.notes)
         let assigned = move.exerciseId.flatMap { id in catalog.first(where: { $0.id == id }) }
         let isKnownAbbreviation = ["burpee to target", "toes to bar"].contains(normalize(canonical))
+        let raw = normalize(move.name)
+        let remoteMatch = catalog.first(where: {
+            !$0.isCustom && !$0.isCatalogArchived && $0.searchAliases.contains(where: {
+                normalize($0) == raw
+            })
+        })
+        // Una equivalencia exacta publicada por el catálogo corrige también
+        // el UUID provisional de una programación ya guardada.
+        if let remoteMatch { return remoteMatch }
         if let assigned, !assigned.isCustom,
            (!isKnownAbbreviation || ExerciseEquivalence.sameName(assigned.name, canonical)) {
             return assigned
