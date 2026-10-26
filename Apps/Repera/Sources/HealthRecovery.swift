@@ -2,6 +2,7 @@ import Charts
 import Foundation
 import HealthKit
 import Observation
+import ReperaDomain
 import SwiftUI
 import ReperaDomain
 
@@ -936,7 +937,7 @@ struct HealthRecoveryProgressView: View {
                 Text(title).font(.subheadline.weight(.medium)).foregroundStyle(OG.label)
                 Spacer()
                 if let last = values.last {
-                    Text(String(format: "%.0f %@", last.value, unit))
+                    Text("\(ReperaNumberFormat.decimal(last.value, maximumFractionDigits: 0)) \(unit)")
                         .font(.caption.weight(.semibold).monospacedDigit())
                         .foregroundStyle(OG.label2)
                 }
@@ -956,7 +957,7 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.label2)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                             .annotation(position: .top) {
-                                Text(String(format: "%.0f %@", selected.value, unit))
+                                Text("\(ReperaNumberFormat.decimal(selected.value, maximumFractionDigits: 0)) \(unit)")
                                     .font(.caption.weight(.semibold))
                                     .padding(5)
                                     .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
@@ -1005,7 +1006,7 @@ struct HealthRecoveryProgressView: View {
         }
         return VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(OG.label2)
-            Text(values.last.map { String(format: "%.0f %@", $0.value, unit) } ?? "—")
+            Text(values.last.map { "\(ReperaNumberFormat.decimal($0.value, maximumFractionDigits: 0)) \(unit)" } ?? "—")
                 .font(.system(size: 17, weight: .semibold).monospacedDigit())
                 .foregroundStyle(OG.label)
             if !values.isEmpty {
@@ -1021,7 +1022,7 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.label2)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                             .annotation(position: .top) {
-                                Text(String(format: "%.0f %@", selected.value, unit))
+                                Text("\(ReperaNumberFormat.decimal(selected.value, maximumFractionDigits: 0)) \(unit)")
                                     .font(.caption2.weight(.semibold))
                             }
                     }
@@ -1071,10 +1072,10 @@ struct HealthRecoveryProgressView: View {
                     if let latest = physiology.days.last {
                         HStack(alignment: .top, spacing: 10) {
                             if let oxygen = latest.oxygenSaturationPercent {
-                                vitalValueTile("Oxígeno en sangre", value: String(format: "%.0f%%", oxygen), icon: "lungs")
+                                vitalValueTile("Oxígeno en sangre", value: "\(ReperaNumberFormat.decimal(oxygen, maximumFractionDigits: 0))%", icon: "lungs")
                             }
                             if let wrist = latest.wristTemperatureCelsius {
-                                vitalValueTile("T nocturna", value: String(format: "%.1f °C", wrist), icon: "thermometer.medium")
+                                vitalValueTile("T nocturna", value: "\(ReperaNumberFormat.decimal(wrist)) °C", icon: "thermometer.medium")
                             }
                         }
                         if let recovery = latest.heartRateRecoveryBpm {
@@ -1203,7 +1204,7 @@ struct HealthRecoveryProgressView: View {
                             readinessFactor(
                                 "Sueño", icon: "moon",
                                 value: currentSleepHours.map {
-                                    String(format: "%.1f h", $0)
+                                    "\(ReperaNumberFormat.decimal($0)) h"
                                 } ?? "Sin datos"
                             )
                             readinessFactor(
@@ -1325,7 +1326,7 @@ struct HealthRecoveryProgressView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(OG.label2)
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text(hours.map { String(format: "%.1f", $0) } ?? "—")
+                            Text(hours.map { ReperaNumberFormat.decimal($0) } ?? "—")
                                 .font(.system(size: 28, weight: .semibold, design: .rounded).monospacedDigit())
                                 .foregroundStyle(OG.label)
                             Text("h")
@@ -1373,7 +1374,7 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(NightSky.glow)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                             .annotation(position: .top) {
-                                Text(String(format: "%.1f h", selected.hours))
+                                Text("\(ReperaNumberFormat.decimal(selected.hours)) h")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.white)
                                     .padding(5)
@@ -1434,11 +1435,11 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(String(format: "%.1fh", hours))
+                Text("\(ReperaNumberFormat.decimal(hours)) h")
                     .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
             } else if width >= 28 {
-                Text(String(format: "%.1f", hours))
+                Text(ReperaNumberFormat.decimal(hours))
                     .font(.system(size: 10, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
             }
@@ -1592,7 +1593,7 @@ struct RecoveryHomeCard: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     if let night = lastNight {
                                         HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                            Text(String(format: "%.1f h de sueño", night.hours))
+                                            Text("\(ReperaNumberFormat.decimal(night.hours)) h de sueño")
                                                 .font(.subheadline.weight(.semibold))
                                                 .foregroundStyle(OG.label)
                                             if let index = recovery.sleepIndex {
