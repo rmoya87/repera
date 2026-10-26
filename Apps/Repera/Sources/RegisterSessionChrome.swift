@@ -130,7 +130,7 @@ enum WorkoutRegisterChips {
     private static func distanceLabel(_ meters: Double) -> String {
         if meters >= 1000 {
             let km = meters / 1000
-            return String(format: "%.1f km", km)
+            return "\(ReperaNumberFormat.decimal(km)) km"
         }
         return "\(Int(meters.rounded())) m"
     }
