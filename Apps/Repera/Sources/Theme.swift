@@ -1268,11 +1268,31 @@ struct OGNumericTextField: UIViewRepresentable {
             guard string.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return false }
             let current = textField.text ?? ""
             guard let swiftRange = Range(range, in: current) else { return false }
-            let next = current.replacingCharacters(in: swiftRange, with: string)
+            // Teclados físicos: «.» también escribe la coma visible.
+            // El pegado admite tanto «1.234,56» como el formato antiguo «1234.56».
+            if allowsDecimal && !allowsTimeSeparator, string.count > 1,
+               let pasted = ReperaNumberFormat.parse(string) {
+                let value = ReperaNumberFormat.decimal(pasted)
+                textField.text = current.replacingCharacters(in: swiftRange, with: value)
+                text.wrappedValue = textField.text ?? ""
+                return false
+            }
+            let replacement = allowsDecimal && !allowsTimeSeparator && string == "." ? "," : string
+            let next = current.replacingCharacters(in: swiftRange, with: replacement)
             if !allowsTimeSeparator && allowsDecimal {
-                if next.filter({ $0 == "." || $0 == "," }).count > 1 { return false }
+                let parts = next.split(separator: ",", omittingEmptySubsequences: false)
+                guard parts.count <= 2, (parts.count < 2 || parts[1].count <= 2) else {
+                    return false
+                }
+                // «.» solo forma grupos de millares en un texto ya formateado.
+                // Al pulsar el separador decimal nuestro pad introduce «,».
             }
             if allowsTimeSeparator && next.filter({ $0 == ":" }).count > 1 { return false }
+            if replacement != string {
+                textField.text = next
+                text.wrappedValue = next
+                return false
+            }
             return true
         }
     }
