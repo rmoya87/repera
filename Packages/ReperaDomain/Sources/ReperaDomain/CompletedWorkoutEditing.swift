@@ -97,13 +97,22 @@ public enum CompletedWorkoutEditing {
             let entries = remaining.filter { $0.blockId == source.id }
             remaining.removeAll { $0.blockId == source.id }
             var block = source
+            // Algunos escaneos/históricos conservaron la marca global pero
+            // no el formato del bloque en su snapshot editable. Recuperarlo
+            // del resultado registrado evita perder el tiempo RFT o AMRAP
+            // solo por abrir y volver a guardar el editor.
+            if block.wodFormat == nil,
+               let recordedFormat = session.wodResults.first(where: { $0.id == source.id })?.format,
+               recordedFormat.resultCapture != .perMovementSets {
+                block.wodFormat = recordedFormat
+            }
             if source.kind == .strength {
                 block.exercises = entries.enumerated().map { index, entry in
                     RoutineExercise(
                         id: entry.id,
                         exerciseId: entry.exercise.id,
-                        plannedSets: source.wodFormat?.resultCapture == .totalReps
-                            || source.wodFormat?.resultCapture == .elapsedTime
+                        plannedSets: block.wodFormat?.resultCapture == .totalReps
+                            || block.wodFormat?.resultCapture == .elapsedTime
                             ? (source.exercises.indices.contains(index)
                                 ? source.exercises[index].plannedSets : entry.plannedSets)
                             : visibleSets(for: entry),
@@ -121,8 +130,8 @@ public enum CompletedWorkoutEditing {
                     } else if entries.indices.contains(index) {
                         movements.append(movement(
                             for: entries[index], original: original,
-                            preservePrescription: source.wodFormat?.resultCapture != .perMovementSets
-                                && source.wodFormat != nil
+                            preservePrescription: block.wodFormat?.resultCapture != .perMovementSets
+                                && block.wodFormat != nil
                         ))
                         index += 1
                     }
@@ -155,7 +164,7 @@ public enum CompletedWorkoutEditing {
                     id: blockID,
                     title: entry.blockHeader ?? "Bloque \(blocks.count + 1)",
                     kind: kind,
-                    wodFormat: entry.wodFormat,
+                    wodFormat: entry.wodFormat ?? session.wodResults.first(where: { $0.id == blockID })?.format,
                     timeCapMinutes: entry.blockTimeCapMinutes,
                     emomIntervalSeconds: entry.blockIntervalSeconds,
                     rounds: entry.blockRounds,
