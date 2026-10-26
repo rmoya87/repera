@@ -29,6 +29,8 @@ struct WorkoutView: View {
     @State private var liveExerciseID: UUID?
     @State private var liveSessionID: UUID?
     @State private var liveDraftsByExercise: [UUID: [LiveSetRow]] = [:]
+    /// No convertir las sugerencias precargadas en modificaciones del usuario.
+    @State private var editedLiveExerciseIDs: Set<UUID> = []
     /// Unidad Cal/m para erg/bike del ejercicio actual.
     @State private var liveQuantityUnit: ExerciseQuantityUnit = .reps
     @State private var setCompletionPulse = 0
@@ -212,6 +214,7 @@ struct WorkoutView: View {
                         _ = store.saveRoutine(edited)
                     }
                     liveDraftsByExercise = [:]
+                    editedLiveExerciseIDs = []
                     liveExerciseID = nil
                     liveSets = []
                     store.refreshActiveSessionPlan(from: edited)
@@ -252,12 +255,6 @@ struct WorkoutView: View {
                     startBlockClock(for: current)
                 }
             }
-        }
-        .onChange(of: liveSets) { _, _ in
-            persistActiveLiveDraft()
-        }
-        .onChange(of: liveQuantityUnit) { _, _ in
-            persistActiveLiveDraft()
         }
         .onChange(of: store.state.activeSession?.currentExercise?.plannedSets) { _, _ in
             if let current = store.state.activeSession?.currentExercise {
@@ -774,7 +771,13 @@ struct WorkoutView: View {
 
         return VStack(alignment: .leading, spacing: 6) {
             if index == 0, style == .machineWork, current.exercise.allowsCalorieOrDistanceToggle {
-                Picker("Unidad", selection: $liveQuantityUnit) {
+                Picker("Unidad", selection: Binding(
+                    get: { liveQuantityUnit },
+                    set: { newValue in
+                        liveQuantityUnit = newValue
+                        noteLiveDraftEdited()
+                    }
+                )) {
                     Text("Cal").tag(ExerciseQuantityUnit.calories)
                     Text("Metros").tag(ExerciseQuantityUnit.meters)
                 }
@@ -840,8 +843,15 @@ struct WorkoutView: View {
     /// La tabla visible es un borrador de PRESCRIPCIÓN hasta que se marca
     /// cada serie. Guardar los cambios enseguida evita que desaparezcan
     /// al cerrar Play, navegar o finalizar. No generar `LoggedSet` falsos.
+    private func noteLiveDraftEdited() {
+        guard let id = liveExerciseID else { return }
+        editedLiveExerciseIDs.insert(id)
+        persistActiveLiveDraft()
+    }
+
     private func persistActiveLiveDraft() {
-        guard let id = liveExerciseID, liveSessionID == store.state.activeSession?.id,
+        guard let id = liveExerciseID, editedLiveExerciseIDs.contains(id),
+              liveSessionID == store.state.activeSession?.id,
               let entry = store.state.activeSession?.exercises.first(where: { $0.id == id }),
               !liveSets.isEmpty else { return }
         let existing = entry.plannedSets
@@ -872,7 +882,7 @@ struct WorkoutView: View {
               index >= current.loggedSets.count else { return }
         liveSets.remove(at: index)
         liveDraftsByExercise[current.id] = liveSets
-        persistActiveLiveDraft()
+        noteLiveDraftEdited()
     }
 
     private func rebuildLiveSets(from current: SessionExercise) {
@@ -995,6 +1005,7 @@ struct WorkoutView: View {
                 completed: false
             )
         )
+        noteLiveDraftEdited()
     }
 
     private func bumpLiveWeight(at index: Int, delta: Double) {
@@ -1002,17 +1013,20 @@ struct WorkoutView: View {
         let current = liveSets[index].weightKg ?? 0
         let next = max(0, ((current + delta) * 10).rounded() / 10)
         liveSets[index].weightKg = next > 0 ? next : nil
+        noteLiveDraftEdited()
     }
 
     private func bumpLiveDeficit(at index: Int, delta: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         let current = liveSets[index].deficitCm ?? 0
         liveSets[index].deficitCm = min(60, max(0, current + delta))
+        noteLiveDraftEdited()
     }
 
     private func setLiveDeficit(at index: Int, cm: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         liveSets[index].deficitCm = cm
+        noteLiveDraftEdited()
     }
 
     private func commitLiveWeightText(at index: Int, text: String) {
@@ -1020,38 +1034,45 @@ struct WorkoutView: View {
         let normalized = text.replacingOccurrences(of: ",", with: ".")
         if normalized.isEmpty || normalized == "—" {
             liveSets[index].weightKg = nil
+            noteLiveDraftEdited()
             return
         }
         guard let value = Double(normalized) else { return }
         liveSets[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+        noteLiveDraftEdited()
     }
 
     private func bumpLiveDuration(at index: Int, delta: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         let current = liveSets[index].durationSeconds ?? 0
         liveSets[index].durationSeconds = max(0, current + delta)
+        noteLiveDraftEdited()
     }
 
     private func commitLiveDurationText(at index: Int, text: String) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         liveSets[index].durationSeconds = DurationText.parse(text)
+        noteLiveDraftEdited()
     }
 
     private func bumpLiveReps(at index: Int, delta: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
         liveSets[index].reps = min(cap, max(1, liveSets[index].reps + delta))
+        noteLiveDraftEdited()
     }
 
     private func setLiveReps(at index: Int, reps: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
         liveSets[index].reps = min(cap, max(1, reps))
+        noteLiveDraftEdited()
     }
 
     private func setLiveRir(at index: Int, rir: Double?) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         liveSets[index].rir = rir
+        noteLiveDraftEdited()
     }
 
     private func completeLiveSet(at index: Int, current: SessionExercise) {
@@ -2068,6 +2089,7 @@ struct WorkoutView: View {
             liveExerciseID = nil
             liveSets = []
             liveDraftsByExercise = [:]
+            editedLiveExerciseIDs = []
         }
         guard let current = store.state.activeSession?.currentExercise else {
             liveExerciseID = nil
