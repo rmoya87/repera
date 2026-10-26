@@ -443,7 +443,8 @@ struct StatsView: View {
                 label: "Tiempo",
                 value: "\(ReperaNumberFormat.integer(totalMinutes))′",
                 iconColor: OG.blue,
-                delta: previous.map { totalMinutes - Int($0.totalMinutes.rounded()) }
+                delta: previous.map { totalMinutes - Int($0.totalMinutes.rounded()) },
+                deltaUnit: "′"
             )
             tile(
                 icon: "flame.fill",
@@ -688,7 +689,8 @@ struct StatsView: View {
                 iconColor: OG.blue,
                 delta: previous.map {
                     Int(summary.totalMinutes.rounded()) - Int($0.totalMinutes.rounded())
-                }
+                },
+                deltaUnit: "′"
             )
             tile(
                 icon: "flame.fill",
@@ -707,7 +709,8 @@ struct StatsView: View {
         value: String,
         iconColor: Color,
         valueColor: Color = OG.label,
-        delta: Int? = nil
+        delta: Int? = nil,
+        deltaUnit: String = ""
     ) -> some View {
         VStack(alignment: .center, spacing: 4) {
             HStack(spacing: 5) {
@@ -730,7 +733,7 @@ struct StatsView: View {
             // Mostrar también +0: la comparación está disponible aunque no varíe.
             Group {
                 if let delta {
-                    Text(delta > 0 ? "+\(delta)" : "\(delta)")
+                    Text("\(delta > 0 ? "+" : "")\(ReperaNumberFormat.integer(delta))\(deltaUnit)")
                         .foregroundStyle(delta > 0 ? OG.accent : delta < 0 ? OG.yellow : OG.label3)
                 } else {
                     Text("—")
