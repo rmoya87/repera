@@ -166,8 +166,10 @@ final class BusinessAuthStore {
                 return
             }
             if hasPriorSupabaseBinding {
-                markNeedsSoftReconnect(keepBinding: true)
-                AuthSessionTrace.event("restoreSession no Apple no cache; keep binding")
+                requiresReauthentication = true
+                isConnected = false
+                lastErrorMessage = "No quedan credenciales recuperables. Inicia sesión de nuevo."
+                AuthSessionTrace.event("restoreSession no Apple no cache: interactive login required")
                 return
             }
             isConnected = false
@@ -228,11 +230,16 @@ final class BusinessAuthStore {
                 AuthSessionTrace.event("restoreSession recover cache after error: \(error.localizedDescription)")
                 return
             }
-            // Binding previo: no pedir Bienvenido; tokens los limpió el SDK.
-            markNeedsSoftReconnect(keepBinding: hasPriorSupabaseBinding)
-            lastErrorMessage = hasPriorSupabaseBinding
-                ? "Sesión remota caducada. Entra a la app; reconecta en Ajustes si hace falta."
-                : "No se pudo restaurar la sesión. Vuelve a iniciar sesión con Apple."
+            // El vínculo histórico no prueba que haya un refresh token válido.
+            // Solo una revocación confirmada requiere login; no un fallo de red.
+            if Self.isUnrecoverableAuthError(error) {
+                requiresReauthentication = true
+                isConnected = false
+                lastErrorMessage = "Sesión caducada. Inicia sesión de nuevo."
+            } else {
+                markNeedsSoftReconnect(keepBinding: hasPriorSupabaseBinding)
+                lastErrorMessage = "Sin conexión. Reintentaremos automáticamente."
+            }
             AuthSessionTrace.event(
                 "restoreSession MISS binding=\(hasPriorSupabaseBinding): \(error.localizedDescription)"
             )
