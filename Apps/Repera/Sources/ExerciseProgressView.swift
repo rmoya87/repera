@@ -287,13 +287,13 @@ struct ExerciseEvolutionPanel: View {
 
     /// Tope editable: toque → teclado; también sube solo si el e1RM lo supera.
     private var topeOneRMTile: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .center, spacing: 4) {
             Group {
                 if editingTope {
                     OGNumericTextField(
                         text: $topeDraft,
                         allowsDecimal: true,
-                        textAlignment: .left,
+                        textAlignment: .center,
                         fontSize: 18,
                         textColor: UIColor(OG.accent),
                         onCommit: { commitTopeEdit() }
@@ -304,7 +304,7 @@ struct ExerciseEvolutionPanel: View {
                         .foregroundStyle(OG.accent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .contentShape(Rectangle())
                         .onTapGesture { beginTopeEdit() }
                 }
@@ -315,7 +315,7 @@ struct ExerciseEvolutionPanel: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(OG.accent.opacity(0.85))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(10)
         .background(OG.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityLabel("Tope 1RM")
@@ -342,7 +342,7 @@ struct ExerciseEvolutionPanel: View {
     }
 
     private func evoTile(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .center, spacing: 4) {
             Text(value)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(OG.label)
@@ -352,7 +352,7 @@ struct ExerciseEvolutionPanel: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(OG.label3)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }

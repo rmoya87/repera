@@ -840,7 +840,7 @@ struct HomeView: View {
         measurement: Double? = nil,
         goal: Double? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .center, spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 17, weight: .semibold))
@@ -852,7 +852,7 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 22, alignment: .center)
 
             // Número y unidad comparten línea, sin incrementar la altura.
             HStack(alignment: .firstTextBaseline, spacing: 3) {
@@ -869,7 +869,7 @@ struct HomeView: View {
                         .lineLimit(1)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
             if let goal, goal > 0 {
                 HomeGoalProgressBar(
                     measurement: measurement,
@@ -880,7 +880,7 @@ struct HomeView: View {
                 )
             }
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .top)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
@@ -1318,7 +1318,7 @@ struct HomeView: View {
     }
 
     private func metricTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .center, spacing: 12) {
             HStack(spacing: 7) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
@@ -1329,14 +1329,16 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
             Text(value)
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
         // El valor ocupa el alto libre sin dejar más aire abajo que encima de la cabecera.
-        .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .top)
         .padding(12)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }

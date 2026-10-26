@@ -586,7 +586,7 @@ struct RouteWeatherStrip: View {
     }
 
     private func weatherStat(symbol: String, title: String, value: String?, loading: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .center, spacing: 4) {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 12, weight: .semibold))
@@ -598,7 +598,7 @@ struct RouteWeatherStrip: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
             if loading, value == nil {
                 ProgressView()
                     .controlSize(.mini)
@@ -612,7 +612,7 @@ struct RouteWeatherStrip: View {
                     .minimumScaleFactor(0.75)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func loadWeather() async {

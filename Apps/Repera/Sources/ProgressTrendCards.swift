@@ -568,7 +568,7 @@ struct ProgressCaloriesChartCard: View {
     }
 
     private func calorieStat(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .center, spacing: 2) {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(OG.label3)
@@ -578,7 +578,7 @@ struct ProgressCaloriesChartCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -800,7 +800,7 @@ struct ProgressWeightChartCard: View {
     }
 
     private func weightStat(label: String, value: String, valueColor: Color = OG.label) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .center, spacing: 2) {
             Text(label)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(OG.label3)
@@ -808,7 +808,7 @@ struct ProgressWeightChartCard: View {
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .foregroundStyle(valueColor)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 10)
         .padding(.horizontal, 8)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
