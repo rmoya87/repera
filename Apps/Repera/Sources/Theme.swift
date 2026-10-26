@@ -74,10 +74,13 @@ enum OG {
     static let sheetCornerRadius: CGFloat = 44
     /// Diámetro liquid glass de botones en cabecera de contenido (= topbar del sistema).
     static let toolbarGlassSize: CGFloat = 44
-    /// Separación unificada del borde de safe area a los controles propios.
-    /// Las barras nativas .toolbar usan las métricas de UIKit/iOS 27.
+    /// Los controles deben estar dentro de la safe area: no se mide desde
+    /// la Dynamic Island ni desde el borde físico de la pantalla. Apple no
+    /// fija un padding superior universal para cabeceras personalizadas.
+    /// 12 pt es nuestro aire visual dentro de la zona segura del sistema.
+    /// La navegación .toolbar conserva las métricas nativas de iOS 27.
     static let topBarHorizontalInset: CGFloat = 16
-    static let topBarTopInset: CGFloat = 4
+    static let topBarTopInset: CGFloat = 12
     static let topBarBottomInset: CGFloat = 8
     /// Glifo en esos botones glass.
     static let toolbarGlassIcon: CGFloat = 18
