@@ -5,6 +5,7 @@ import UIKit
 enum WorkoutFlowRoute: Hashable {
     case sessionPreview(routineId: UUID?)
     case editWorkout(routineId: UUID)
+    case exerciseDetail(exerciseId: UUID)
     case workout
 }
 
@@ -171,6 +172,11 @@ struct RootTabView: View {
                 onEdit: { routine in
                     previewRoutine = routine
                     flowPath.append(.editWorkout(routineId: routine.id))
+                },
+                onOpenExercise: { exerciseID in
+                    // Un único push por tap; back elimina solo esta ruta.
+                    guard flowPath.last == .sessionPreview(routineId: routineId) else { return }
+                    flowPath.append(.exerciseDetail(exerciseId: exerciseID))
                 }
             )
             .navigationBarBackButtonHidden(true)
@@ -190,6 +196,10 @@ struct RootTabView: View {
                         if !flowPath.isEmpty { flowPath.removeLast() }
                     }
             }
+
+        case .exerciseDetail(let exerciseId):
+            ExerciseDetailView(exerciseId: exerciseId)
+                .navigationBarBackButtonHidden(false)
 
         case .workout:
             // Full session UI owns dismissal; overlay keeps tab state underneath.
