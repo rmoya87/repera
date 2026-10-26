@@ -26,7 +26,7 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertNotIn("routine.weekday == day", section)
         self.assertNotIn('Text("Entrenamientos con fecha")', section)
         self.assertIn("ForEach(1...7, id:", section)
-        self.assertIn('Text("Tu programación")', section)
+        self.assertNotIn('Text("Tu programación")', section)
         self.assertIn("store.scheduledRoutine(on: date)", section)
         self.assertIn("businessData.trainingSessions", section)
         self.assertIn("onOpenRoutine(routine)", section)
