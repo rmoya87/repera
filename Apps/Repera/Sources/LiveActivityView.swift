@@ -2218,42 +2218,8 @@ struct LiveActivityView: View {
                 .padding(.vertical, 12)
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
 
-            case .recording:
-                Button {
-                    recorder.pause()
-                } label: {
-                    Label("Pausar", systemImage: "pause.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 64)
-                        .foregroundStyle(.black)
-                        .background(OG.accent, in: Capsule())
-                }
-                .buttonStyle(.plain)
-
-            case .paused:
-                HStack(spacing: 10) {
-                    Button {
-                        recorder.resume()
-                    } label: {
-                        Label("Reanudar", systemImage: "play.fill")
-                            .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 64)
-                            .foregroundStyle(.black)
-                            .background(OG.accent, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    Button {
-                        finishAndShowSave()
-                    } label: {
-                        Label("Finalizar", systemImage: "flag.checkered")
-                            .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 64)
-                            .foregroundStyle(.white)
-                            .background(Color.black, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            case .review:
+            case .recording, .paused, .review:
+                // El registro activo se controla desde la cabecera.
                 EmptyView()
             }
         }
