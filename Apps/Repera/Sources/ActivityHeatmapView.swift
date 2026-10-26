@@ -137,7 +137,13 @@ struct ActivityHeatmapView: View {
 
     @ViewBuilder
     private func heatmapScrollable(layout: HeatmapLayout.Metrics) -> some View {
-        let canvas = HeatmapCanvas(grid: grid, cell: layout.cell, gap: layout.gap, isStrip: isStrip)
+        let canvas = HeatmapCanvas(
+            grid: grid,
+            cell: layout.cell,
+            cellHeight: layout.cellHeight,
+            gap: layout.gap,
+            isStrip: isStrip
+        )
             .frame(width: layout.canvasWidth, height: layout.canvasHeight)
 
         if layout.needsScroll {
@@ -246,6 +252,7 @@ private struct HeatmapResponsiveLayout: Layout {
 private enum HeatmapLayout {
     struct Metrics {
         var cell: CGFloat
+        var cellHeight: CGFloat
         var gap: CGFloat
         var labelWidth: CGFloat
         var columnCount: Int
@@ -257,7 +264,7 @@ private enum HeatmapLayout {
         }
 
         var canvasHeight: CGFloat {
-            CGFloat(rowCount) * cell + CGFloat(max(0, rowCount - 1)) * gap
+            CGFloat(rowCount) * cellHeight + CGFloat(max(0, rowCount - 1)) * gap
         }
     }
 
@@ -279,6 +286,7 @@ private enum HeatmapLayout {
         if ideal < minCell {
             return Metrics(
                 cell: minCell,
+                cellHeight: minCell,
                 gap: preferStrip ? 4 : 3,
                 labelWidth: labelWidth,
                 columnCount: cols,
@@ -290,6 +298,10 @@ private enum HeatmapLayout {
         let cell = ideal
         return Metrics(
             cell: cell,
+            // 1–3 días (y el resto de franjas cortas) no pueden
+            // ocupar cientos de puntos de alto solo por tener mucho ancho.
+            // La casilla se convierte en rectángulo horizontal.
+            cellHeight: preferStrip ? min(cell, 76) : cell,
             gap: max(2, cell * gapRatio),
             labelWidth: labelWidth,
             columnCount: cols,
@@ -302,6 +314,7 @@ private enum HeatmapLayout {
 private struct HeatmapCanvas: View {
     var grid: HeatmapGrid
     var cell: CGFloat
+    var cellHeight: CGFloat
     var gap: CGFloat
     var isStrip: Bool
 
@@ -312,8 +325,8 @@ private struct HeatmapCanvas: View {
                 let x = CGFloat(colIdx) * (cell + gap)
                 let levels = isStrip ? Array(col.levels.prefix(1)) : col.levels
                 for (row, level) in levels.enumerated() {
-                    let y = CGFloat(row) * (cell + gap)
-                    let rect = CGRect(x: x, y: y, width: cell, height: cell)
+                    let y = CGFloat(row) * (cellHeight + gap)
+                    let rect = CGRect(x: x, y: y, width: cell, height: cellHeight)
                     let path = Path(roundedRect: rect, cornerRadius: radius)
                     var color = BodyMapPalette.fill(level: level)
                     let future = isStrip ? (col.future.first ?? false) : col.future[row]
