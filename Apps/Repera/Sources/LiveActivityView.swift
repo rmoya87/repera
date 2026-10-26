@@ -766,9 +766,12 @@ final class LiveActivityRecorder: NSObject {
         }
         let phrase = AVSpeechUtterance(string: message)
         phrase.voice = preferredGuidanceVoice
-        // Un ritmo ligeramente más pausado ayuda a la prosodia de voces premium.
-        phrase.rate = 0.48
-        phrase.pitchMultiplier = 1.02
+        // Velocidad próxima a la locución natural: la voz premium o mejorada
+        // instalada en el dispositivo aporta la mayor parte de la calidad.
+        // Evitamos elevar el tono, que artificializaba la pronunciación.
+        phrase.rate = 0.52
+        phrase.pitchMultiplier = 1.0
+        phrase.preUtteranceDelay = 0.04
         phrase.volume = 1
         speechSynthesizer.speak(phrase)
         return true
@@ -1179,12 +1182,19 @@ final class LiveActivityRecorder: NSObject {
             let seconds = max(1, Int(split.seconds.rounded()))
             let minutes = seconds / 60
             let remaining = seconds % 60
-            let spokenTime = minutes > 0
-                ? "\(minutes) minutos y \(remaining) segundos"
-                : "\(remaining) segundos"
+            let spokenTime: String
+            if minutes == 0 {
+                spokenTime = "\(remaining) segundo\(remaining == 1 ? "" : "s")"
+            } else if remaining == 0 {
+                spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s")"
+            } else {
+                spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s") y \(remaining) segundos"
+            }
+            let spokenSpeed = String(format: "%.1f", 3600 / split.seconds)
+                .replacingOccurrences(of: ".", with: ",")
             let message = sport.displaysSpeed
-                ? "Has completado el kilómetro \(split.kilometer). Tu velocidad media ha sido de \(String(format: "%.1f", 3600 / split.seconds)) kilómetros por hora."
-                : "Has completado el kilómetro \(split.kilometer). Lo has hecho en \(spokenTime)."
+                ? "Kilómetro \(split.kilometer) completado. Has ido a \(spokenSpeed) kilómetros por hora, de media."
+                : "Kilómetro \(split.kilometer) completado. Tu tiempo ha sido de \(spokenTime)."
             didSpeak = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
@@ -1267,9 +1277,17 @@ final class LiveActivityRecorder: NSObject {
                 announcedTurnIndices.insert(next.routeIndex)
                 // La guía procede solo de la geometría GPX: no sustituye
                 // señalización ni navegación vial oficial.
-                let didSpeak = speakNavigation(
-                    "Dentro de \(meters) metros, \(next.instruction.lowercased())."
-                )
+                let naturalDirection: String
+                if abs(next.angleDegrees) > 145 {
+                    naturalDirection = "cambia de sentido"
+                } else {
+                    naturalDirection = next.angleDegrees > 0
+                        ? "gira a la derecha" : "gira a la izquierda"
+                }
+                let spokenTurn = meters <= 20
+                    ? "Ahora, \(naturalDirection)."
+                    : "En unos \(meters) metros, \(naturalDirection)."
+                let didSpeak = speakNavigation(spokenTurn)
                 notifyDuringBackground(
                     identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
                     title: "Giro orientativo del GPX",
@@ -1431,9 +1449,13 @@ struct LiveActivityView: View {
                 } else {
                     VStack(spacing: 0) {
                         metricsView
-                        bottomControls
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 12)
+                        // Pausar, reanudar y finalizar viven en la cabecera
+                        // durante la sesión; no repetir botones grandes abajo.
+                        if recorder.phase == .idle {
+                            bottomControls
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 12)
+                        }
                     }
                 }
             }
@@ -1604,39 +1626,69 @@ struct LiveActivityView: View {
             }
             .ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                ZStack(alignment: .topLeading) {
-                    mapHeader
-                    if recorder.phase == .recording,
-                       recorder.chosenRoute != nil,
-                       recorder.upcomingTurnMeters != nil {
-                        navigationDirectionsBanner
-                            .padding(.trailing, 76)
+            // Adaptación real al tamaño de la ventana, también para DUO y
+            // pantallas plegables: no depender solo de la orientación física.
+            GeometryReader { geometry in
+                let landscape = geometry.size.width > geometry.size.height
+                    && geometry.size.width >= 620
+                if landscape {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if recorder.phase == .recording,
+                               recorder.chosenRoute != nil,
+                               recorder.upcomingTurnMeters != nil {
+                                navigationDirectionsBanner
+                            }
+                            mapStatusMessages
+                            // Indicaciones y métricas comparten una única
+                            // columna izquierda; el centro del mapa queda libre.
+                            if recorder.phase == .recording || recorder.phase == .paused {
+                                mapMetricStrip
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .frame(width: min(390, max(260, geometry.size.width * 0.42)))
+                        Spacer(minLength: 0)
+                        mapHeader
+                            .frame(width: 44, alignment: .trailing)
                     }
-                }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
 
-                if let offRoute = recorder.offRouteMeters, offRoute > 60 {
-                    Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .glassEffect(.regular, in: .capsule)
+                    if recorder.phase == .idle {
+                        VStack {
+                            Spacer(minLength: 0)
+                            bottomControls
+                                .frame(maxWidth: 570)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 10)
+                        }
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        ZStack(alignment: .topLeading) {
+                            mapHeader
+                            if recorder.phase == .recording,
+                               recorder.chosenRoute != nil,
+                               recorder.upcomingTurnMeters != nil {
+                                navigationDirectionsBanner
+                                    .padding(.trailing, 64)
+                            }
+                        }
+                        mapStatusMessages
+                        Spacer(minLength: 0)
+                        mapMetricStrip
+                        if recorder.phase == .idle {
+                            bottomControls
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
                 }
-                if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
-                    Text(gpsMessage)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(OG.label)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .glassEffect(.regular, in: .capsule)
-                }
-                Spacer(minLength: 0)
-                mapMetricStrip
-                bottomControls
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
         }
         .task {
             recorder.prepareMapLocation()
@@ -1655,42 +1707,60 @@ struct LiveActivityView: View {
         }
     }
 
+    @ViewBuilder
+    private var mapStatusMessages: some View {
+        if let offRoute = recorder.offRouteMeters, offRoute > 60 {
+            Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .glassEffect(.regular, in: .capsule)
+        }
+        if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
+            Text(gpsMessage)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(OG.label)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .glassEffect(.regular, in: .capsule)
+        }
+    }
+
     /// Indicaciones orientativas basadas en los giros del GPX, sin inventar nombres de calles.
     private var navigationDirectionsBanner: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(spacing: 5) {
+            VStack(spacing: 7) {
                 Image(systemName: recorder.upcomingTurnSymbol)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.system(size: 45, weight: .bold))
                 Text("\(recorder.upcomingTurnMeters ?? 0) m")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 18, weight: .bold))
                     .monospacedDigit()
             }
-            .frame(width: 70)
+            .frame(width: 88)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 7) {
                 Text(recorder.upcomingTurnInstruction ?? "Sigue la ruta")
-                    .font(.subheadline.weight(.bold))
-                    .lineLimit(2)
+                    .font(.system(size: 22, weight: .bold))
+                    .lineLimit(3)
                     .minimumScaleFactor(0.8)
                 if let meters = recorder.followingTurnMeters,
                    let symbol = recorder.followingTurnSymbol {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         Text("Después")
                         Image(systemName: symbol)
                         Text("\(meters) m").monospacedDigit()
                     }
-                    .font(.caption.weight(.medium))
-                    .opacity(0.9)
+                    .font(.system(size: 16, weight: .semibold))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .foregroundStyle(.white)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 9)
+        .foregroundStyle(.black)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(red: 0.02, green: 0.35, blue: 0.30),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(OG.accent,
+                    in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(recorder.upcomingTurn ?? "Indicaciones de la ruta")
     }
@@ -1700,10 +1770,20 @@ struct LiveActivityView: View {
         HStack(alignment: .top) {
             Spacer(minLength: 0)
             VStack(spacing: 10) {
-                if recorder.phase == .recording || recorder.phase == .paused {
-                    mapCircleButton("xmark", label: "Descartar entreno") {
-                        showDiscard = true
-                    }
+                if recorder.phase == .recording {
+                    sessionMapButton(
+                        "pause.fill", label: "Pausar grabación",
+                        background: OG.yellow, foreground: .black
+                    ) { recorder.pause() }
+                } else if recorder.phase == .paused {
+                    sessionMapButton(
+                        "play.fill", label: "Reanudar grabación",
+                        background: OG.accent, foreground: .black
+                    ) { recorder.resume() }
+                    sessionMapButton(
+                        "flag.checkered", label: "Finalizar y guardar",
+                        background: .black, foreground: .white
+                    ) { finishAndShowSave() }
                 }
                 mapCircleButton(
                     navigationMapEnabled ? "map" : "cube.transparent",
@@ -1802,6 +1882,26 @@ struct LiveActivityView: View {
                 .foregroundStyle(OG.label)
                 .frame(width: 44, height: 44)
                 .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    /// Acción principal durante una sesión: botón sólido y visible sobre el mapa.
+    /// Amarillo = pausa, verde = continuar, negro = finalizar.
+    private func sessionMapButton(
+        _ symbol: String,
+        label: String,
+        background: Color,
+        foreground: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(foreground)
+                .frame(width: 44, height: 44)
+                .background(background, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -1945,9 +2045,21 @@ struct LiveActivityView: View {
                             showingMetrics = false
                         }
                     }
-                    if recorder.phase != .idle {
-                        metricsCircleButton("xmark", label: "Descartar actividad") {
-                            showDiscard = true
+                    if recorder.phase == .recording {
+                        sessionMapButton(
+                            "pause.fill", label: "Pausar grabación",
+                            background: OG.yellow, foreground: .black
+                        ) { recorder.pause() }
+                    } else if recorder.phase == .paused {
+                        VStack(spacing: 8) {
+                            sessionMapButton(
+                                "play.fill", label: "Reanudar grabación",
+                                background: OG.accent, foreground: .black
+                            ) { recorder.resume() }
+                            sessionMapButton(
+                                "flag.checkered", label: "Finalizar y guardar",
+                                background: .black, foreground: .white
+                            ) { finishAndShowSave() }
                         }
                     }
                 }
@@ -2106,42 +2218,8 @@ struct LiveActivityView: View {
                 .padding(.vertical, 12)
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
 
-            case .recording:
-                Button {
-                    recorder.pause()
-                } label: {
-                    Label("Pausar", systemImage: "pause.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 64)
-                        .foregroundStyle(.black)
-                        .background(OG.accent, in: Capsule())
-                }
-                .buttonStyle(.plain)
-
-            case .paused:
-                HStack(spacing: 10) {
-                    Button {
-                        recorder.resume()
-                    } label: {
-                        Label("Reanudar", systemImage: "play.fill")
-                            .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 64)
-                            .foregroundStyle(.black)
-                            .background(OG.accent, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    Button {
-                        finishAndShowSave()
-                    } label: {
-                        Label("Finalizar", systemImage: "flag.checkered")
-                            .font(.subheadline.weight(.bold))
-                            .frame(maxWidth: .infinity, minHeight: 64)
-                            .foregroundStyle(.white)
-                            .background(Color.black, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            case .review:
+            case .recording, .paused, .review:
+                // El registro activo se controla desde la cabecera.
                 EmptyView()
             }
         }
