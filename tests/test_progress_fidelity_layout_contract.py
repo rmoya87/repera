@@ -23,11 +23,11 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         diary = swift("PlanView.swift")
         section = diary.split("private var scheduleContent", 1)[1].split("private func scheduleChips", 1)[0]
         self.assertNotIn("ForEach(datedPlans)", section)
-        self.assertNotIn("scheduledDate != nil", section)
+        self.assertNotIn("routine.weekday == day", section)
         self.assertNotIn('Text("Entrenamientos con fecha")', section)
         self.assertIn("ForEach(1...7, id:", section)
         self.assertIn('Text("Tu programación")', section)
-        self.assertIn("store.routine(forWeekday: day)", section)
+        self.assertIn("store.scheduledRoutine(on: date)", section)
         self.assertIn("businessData.trainingSessions", section)
         self.assertIn("onOpenRoutine(routine)", section)
 
