@@ -2023,6 +2023,45 @@ struct LiveActivityView: View {
                         .padding(.horizontal, 14)
                         .padding(.top, 10)
                 }
+                // En Métricas, Audio, Mapa, Pausa/Play y Finalizar se alinean
+                // todos hacia la izquierda en una sola fila de botones.
+                // La pila vertical Play/Finalizar se reserva solo para Mapa.
+                if recorder.phase == .recording || recorder.phase == .paused {
+                    HStack(spacing: 12) {
+                        if showGuidanceToggle {
+                            metricsCircleButton(
+                                guidanceSymbol,
+                                label: guidanceAccessibilityLabel
+                            ) {
+                                recorder.toggleSpokenGuidance()
+                            }
+                        }
+                        if recorder.sport.usesGPS {
+                            metricsCircleButton("map", label: "Ver mapa") {
+                                showingMetrics = false
+                            }
+                        }
+                        if recorder.phase == .recording {
+                            sessionMapButton(
+                                "pause.fill", label: "Pausar grabación",
+                                background: OG.yellow, foreground: .black
+                            ) { recorder.pause() }
+                        } else {
+                            sessionMapButton(
+                                "play.fill", label: "Reanudar grabación",
+                                background: OG.accent, foreground: .black
+                            ) { recorder.resume() }
+                            sessionMapButton(
+                                "flag.checkered", label: "Finalizar y guardar",
+                                background: .black, foreground: .white
+                            ) { finishAndShowSave() }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+                }
+
                 HStack(spacing: 12) {
                     Image(systemName: recorder.sport.symbol)
                         .font(.title2.weight(.medium))
@@ -2037,40 +2076,16 @@ struct LiveActivityView: View {
                                 .font(.caption).foregroundStyle(OG.label2)
                         }
                     }
-                    Spacer()
-                    if showGuidanceToggle {
-                        metricsCircleButton(
-                            guidanceSymbol,
-                            label: guidanceAccessibilityLabel
-                        ) {
-                            recorder.toggleSpokenGuidance()
-                        }
-                    }
-                    if recorder.sport.usesGPS {
+                    Spacer(minLength: 0)
+                    // Antes de iniciar sigue existiendo acceso a Mapa.
+                    if recorder.phase == .idle && recorder.sport.usesGPS {
                         metricsCircleButton("map", label: "Ver mapa") {
                             showingMetrics = false
                         }
                     }
-                    if recorder.phase == .recording {
-                        sessionMapButton(
-                            "pause.fill", label: "Pausar grabación",
-                            background: OG.yellow, foreground: .black
-                        ) { recorder.pause() }
-                    } else if recorder.phase == .paused {
-                        VStack(spacing: 8) {
-                            sessionMapButton(
-                                "play.fill", label: "Reanudar grabación",
-                                background: OG.accent, foreground: .black
-                            ) { recorder.resume() }
-                            sessionMapButton(
-                                "flag.checkered", label: "Finalizar y guardar",
-                                background: .black, foreground: .white
-                            ) { finishAndShowSave() }
-                        }
-                    }
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 14)
+                .padding(.top, recorder.phase == .idle ? 14 : 10)
 
                 Spacer(minLength: 16)
                 Text(formattedTime(recorder.duration(at: timeline.date)))
