@@ -173,6 +173,7 @@ struct StartHubSheet: View {
                         ForEach(store.plannedRoutines) { routine in
                             Button {
                                 store.startSession(from: routine)
+                                guard store.state.activeSession?.routineId == routine.id else { return }
                                 onOpenedWorkout()
                             } label: {
                                 Label {
