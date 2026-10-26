@@ -376,6 +376,7 @@ final class WorkoutClockCoordinator {
         advanceInterval(announce: true)
         phaseEndDate = nil
         armCurrentInterval(from: Date())
+        checkpoint()
         scheduleFeedback()
     }
 
@@ -390,6 +391,7 @@ final class WorkoutClockCoordinator {
                 // El inicio real fue el final de la cuenta previa, no la
                 // hora de regreso a la app (que podría ser minutos después).
                 beginWorkPhase(from: pre)
+                checkpoint()
                 syncFromWallClock(now: now)
             }
             return
@@ -427,6 +429,7 @@ final class WorkoutClockCoordinator {
                 // Un solo aviso al volver de background, no uno por cada fase perdida.
                 RestFeedback.intervalBeep(sound: soundEnabled, haptic: hapticEnabled)
             }
+            checkpoint()
             scheduleFeedback()
         } else {
             finishComplete()
@@ -452,6 +455,7 @@ final class WorkoutClockCoordinator {
             pausedPreCountdownRemaining = max(0.01, preCountdownEnd.timeIntervalSinceNow)
             self.preCountdownEnd = nil
             // No mezclar los segundos de preinicio con la fase del WOD.
+            checkpoint()
             return
         }
         if isCountingUp, let countUpAnchor {
@@ -461,6 +465,7 @@ final class WorkoutClockCoordinator {
             pausedRemaining = max(0, phaseEndDate.timeIntervalSinceNow)
             self.phaseEndDate = nil
         }
+        checkpoint()
     }
 
     func resume() {
@@ -474,6 +479,7 @@ final class WorkoutClockCoordinator {
         let now = Date()
         if isCountingUp {
             countUpAnchor = now.addingTimeInterval(-pausedCountUpElapsed)
+            checkpoint()
             scheduleFeedback()
             return
         }
@@ -484,10 +490,14 @@ final class WorkoutClockCoordinator {
         } else {
             beginWorkPhase(from: now)
         }
+        checkpoint()
     }
 
     func stop(keepVisible: Bool = false) {
         cancelFeedback()
+        UserDefaults.standard.removeObject(forKey: checkpointKey)
+        boundSessionID = nil
+        restoredBlockID = nil
         isRunning = false
         preCountdownEnd = nil
         pausedPreCountdownRemaining = nil
@@ -523,16 +533,19 @@ final class WorkoutClockCoordinator {
         isRunning = true
         pausedPreCountdownRemaining = nil
         preCountdownEnd = Date().addingTimeInterval(TimeInterval(seconds))
+        checkpoint()
         scheduleFeedback()
     }
 
     private func beginWorkPhase(from now: Date) {
         if isCountingUp {
             countUpAnchor = now.addingTimeInterval(-pausedCountUpElapsed)
+            checkpoint()
             scheduleFeedback()
             return
         }
         armCurrentInterval(from: now)
+        checkpoint()
         scheduleFeedback()
     }
 
@@ -576,6 +589,7 @@ final class WorkoutClockCoordinator {
         // las series no se inventan: las completa el modelo de sesión.
         pendingElapsedSeconds = configuredCapSeconds
         pendingEndReason = .countdownFinished
+        checkpoint()
         RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
         isVisible = false
     }
