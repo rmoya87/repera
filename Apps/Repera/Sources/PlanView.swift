@@ -165,9 +165,9 @@ struct PlanView: View {
                     .foregroundStyle(OG.label)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, OG.pad)
-            .padding(.top, 4)
-            .padding(.bottom, 8)
+            .padding(.horizontal, OG.topBarHorizontalInset)
+            .padding(.top, OG.topBarTopInset)
+            .padding(.bottom, OG.topBarBottomInset)
         }
     }
 
