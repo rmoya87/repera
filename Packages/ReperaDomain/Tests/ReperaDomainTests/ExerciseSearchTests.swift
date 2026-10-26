@@ -2,6 +2,15 @@ import XCTest
 @testable import ReperaDomain
 
 final class ExerciseSearchTests: XCTestCase {
+    func testNewSupabaseAliasIsSearchableWithoutBundledDictionary() {
+        let entry = Exercise(
+            name: "Burpee to target", muscleGroup: "Cardio",
+            searchAliases: ["BXT-PRO"]
+        )
+        let found = ExerciseSearch.ranked([entry], query: "BXT-PRO")
+        XCTAssertEqual(found.first?.id, entry.id)
+    }
+
     private func exercise(
         name: String,
         muscle: String,
