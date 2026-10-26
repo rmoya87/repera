@@ -78,22 +78,38 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertIn("Ejemplo ·", calories)
         weight = charts.split("struct ProgressWeightChartCard:", 1)[1].split("enum ProgressChartAxis", 1)[0]
         self.assertIn("Ejemplo ·", weight)
-        self.assertIn("if let latest, let goal = goalKg, let delta", weight)
+        self.assertIn('label: "Actual"', weight)
+        self.assertIn('label: "Objetivo"', weight)
+        self.assertIn('label: "Δ"', weight)
+        self.assertIn('title: "Media/día"', calories)
+        self.assertIn('title: "Periodo ant."', calories)
+        self.assertIn('title: "Variación"', calories)
         physiology = swift("HealthRecovery.swift")
         self.assertIn('unit: "lpm"', physiology)
         self.assertIn('unit: "rpm"', physiology)
         self.assertIn('Text("\\(Int(values.last ?? 0)) \\(unit)")', physiology)
+
+    def test_duo_progress_cards_are_equalized_and_use_real_calorie_averages(self):
+        home = swift("HomeView.swift")
+        self.assertIn('Text("\\(days.filter(\\.hasWorkout).count) días entrenados")', home)
+        health = swift("HealthRecovery.swift")
+        self.assertIn("readinessRowMinHeight", health)
+        self.assertIn("sleepRowMinHeight", health)
+        builder = swift("ProgressChartBuilder.swift")
+        self.assertIn("previousCaloriesDailyAverage: previousAverage", builder)
+        self.assertIn("range.previousPeriodBounds(", builder)
 
     def test_chart_cards_are_larger_with_vertical_breathing_room(self):
         theme = swift("Theme.swift")
         self.assertIn("var padding: CGFloat = OG.pad", theme)
         self.assertIn("var verticalPadding: CGFloat? = nil", theme)
         self.assertIn(".padding(.vertical, verticalPadding ?? padding)", theme)
-        for name in ("StatsView.swift", "ProgressTrendCards.swift", "HealthRecovery.swift", "ExerciseProgressView.swift"):
+        for name in ("StatsView.swift", "ProgressTrendCards.swift", "ExerciseProgressView.swift"):
             self.assertIn("OGCard(padding: 10, verticalPadding: 20)", swift(name))
         self.assertIn(".frame(height: 190)", swift("ProgressTrendCards.swift"))
         self.assertIn(".frame(height: 205)", swift("StatsView.swift"))
-        self.assertIn(".frame(height: 220)", swift("HealthRecovery.swift"))
+        self.assertIn("OGCard(padding: 10, verticalPadding: OG.pad)", swift("HealthRecovery.swift"))
+        self.assertIn(".frame(height: primaryChartHeight)", swift("HealthRecovery.swift"))
         self.assertIn(".frame(height: 220)", swift("ExerciseProgressView.swift"))
 
 
