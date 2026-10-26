@@ -457,15 +457,24 @@ struct PlanView: View {
             ForEach(1...7, id: \.self) { day in
                 let date = dateForWeekday(day)
                 let routines = store.scheduledRoutines(on: date)
+                // Programado NO equivale a realizado: el verde indica que
+                // existe una sesión finalizada de verdad en esta fecha.
+                let hasCompletedWorkout = store.state.workouts.contains { workout in
+                    guard workout.finishedAt != nil,
+                          let activityDate = workout.startedAt ?? workout.finishedAt else {
+                        return false
+                    }
+                    return Calendar.current.isDate(activityDate, inSameDayAs: date)
+                }
                 Button {
                     assigningDay = date
                 } label: {
                     HStack(spacing: 14) {
                         Text(String(CalendarHelpers.weekdayName(day).prefix(2)).uppercased())
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(routines.isEmpty ? OG.label3 : OG.onAccent)
+                            .foregroundStyle(hasCompletedWorkout ? OG.onAccent : OG.label3)
                             .frame(width: 44, height: 44)
-                            .background(routines.isEmpty ? OG.surface3 : OG.accent, in: Circle())
+                            .background(hasCompletedWorkout ? OG.accent : OG.surface3, in: Circle())
                         VStack(alignment: .leading, spacing: 4) {
                             Text(CalendarHelpers.weekdayName(day))
                                 .font(.system(size: 17, weight: .semibold))
@@ -491,7 +500,7 @@ struct PlanView: View {
                         HStack(spacing: 14) {
                             Image(systemName: "figure.strengthtraining.traditional")
                                 .font(.system(size: 16))
-                                .foregroundStyle(OG.accent)
+                                .foregroundStyle(hasCompletedWorkout ? OG.accent : OG.label3)
                                 .frame(width: 44)
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(routine.title)
