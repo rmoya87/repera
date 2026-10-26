@@ -315,20 +315,27 @@ struct CardioSplitsView: View {
         String(format: "%.1f", number).replacingOccurrences(of: ".", with: ",")
     }
 
+    private var healthMovementMeters: Double? {
+        if let totalDistanceMeters, totalDistanceMeters > 0 { return totalDistanceMeters }
+        return healthStats?.movementDistanceMeters
+    }
+
+    private var stepsCount: Int? { healthStats?.stepsCount }
+
     private var hasGPSMetrics: Bool {
         (sport?.usesGPS ?? true) &&
-            ((totalDistanceMeters ?? 0) > 0 || routePoints.count >= 2 || !displayedSplits.isEmpty)
+            ((healthMovementMeters ?? 0) > 0 || routePoints.count >= 2 || !displayedSplits.isEmpty)
     }
 
     private var averageSpeedKmh: Double? {
         guard let seconds = totalActiveSeconds, seconds > 0,
-              let meters = totalDistanceMeters, meters > 0 else { return nil }
+              let meters = healthMovementMeters, meters > 0 else { return nil }
         return meters / seconds * 3.6
     }
 
     private var averagePace: String? {
         guard let seconds = totalActiveSeconds, seconds > 0,
-              let meters = totalDistanceMeters, meters > 0 else { return nil }
+              let meters = healthMovementMeters, meters > 0 else { return nil }
         let secondsPerKm = Int((seconds / (meters / 1000)).rounded())
         return String(format: "%d:%02d min/km", secondsPerKm / 60, secondsPerKm % 60)
     }
@@ -386,7 +393,7 @@ struct CardioSplitsView: View {
                         // frente a un ritmo por kilómetro poco representativo.
                         SessionSportMetricTile(
                             title: "Distancia",
-                            value: totalDistanceMeters.map { decimal($0 / 1000) } ?? "—",
+                            value: healthMovementMeters.map { decimal($0 / 1000) } ?? "—",
                             unit: "km", tint: OG.label
                         )
                     } else {
@@ -398,6 +405,16 @@ struct CardioSplitsView: View {
                             unit: "min/km", tint: OG.label
                         )
                     }
+                }
+
+                if let stepsCount, !(sport?.isWaterSport ?? false),
+                   stepsCount > 0 {
+                    SessionSportMetricTile(
+                        title: healthStats?.movementUsesTimeWindow == true
+                            ? "Pasos en horario" : "Pasos",
+                        value: stepsCount.formatted(),
+                        unit: "pasos", tint: OG.accent
+                    )
                 }
 
                 if !displayedSplits.isEmpty {
@@ -432,24 +449,31 @@ struct CardioSplitsView: View {
                     }
                 }
             } else if let healthStats {
-                // Pádel/tenis y otros deportes sin GPS: FC auténtica en lugar
-                // de fabricar velocidad, ritmo o kilómetros.
+                // Tenis/pádel y sesiones de fuerza con cardio: pasos y
+                // distancia medidos. No equivale a metros de pista exactos.
                 HStack(spacing: 7) {
-                    SessionSportMetricTile(
-                        title: "Pulso medio",
-                        value: healthStats.averageHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
-                        unit: "lpm", tint: OG.red
-                    )
-                    SessionSportMetricTile(
-                        title: "Pulso mín.",
-                        value: healthStats.minHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
-                        unit: "lpm", tint: OG.label2
-                    )
-                    SessionSportMetricTile(
-                        title: "Pulso máx.",
-                        value: healthStats.maxHeartRateBpm.map { "\(Int($0.rounded()))" } ?? "—",
-                        unit: "lpm", tint: OG.red
-                    )
+                    if let steps = healthStats.stepsCount, steps > 0 {
+                        SessionSportMetricTile(
+                            title: healthStats.movementUsesTimeWindow
+                                ? "Pasos en horario" : "Pasos",
+                            value: steps.formatted(), unit: "pasos", tint: OG.accent
+                        )
+                    }
+                    if let meters = healthStats.movementDistanceMeters, meters > 0 {
+                        SessionSportMetricTile(
+                            title: healthStats.movementUsesTimeWindow
+                                ? "Dist. en horario" : "Distancia a pie",
+                            value: meters >= 1000 ? decimal(meters / 1000) : "\(Int(meters.rounded()))",
+                            unit: meters >= 1000 ? "km" : "m", tint: OG.blue
+                        )
+                    }
+                    if let bpm = healthStats.averageHeartRateBpm, bpm > 0 {
+                        SessionSportMetricTile(
+                            title: "Pulso medio",
+                            value: "\(Int(bpm.rounded()))",
+                            unit: "lpm", tint: OG.red
+                        )
+                    }
                 }
             }
         }
