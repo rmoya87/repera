@@ -51,7 +51,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                 onDelete: onDelete,
                 onRevealChange: { isDeleteRevealed = $0 }
             ) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     title()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     chips()
