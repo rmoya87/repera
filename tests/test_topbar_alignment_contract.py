@@ -28,6 +28,7 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         self.assertIn("HStack(alignment: .top, spacing: 12)", header)
         self.assertNotIn("subtitle == nil ? .center : .center", header)
         self.assertIn(".frame(minHeight: OG.toolbarGlassSize, alignment: .top)", header)
+        self.assertIn("HStack(alignment: .top, spacing: 16)", header)
         for p in (".padding(.horizontal, OG.topBarHorizontalInset)",
                   ".padding(.top, OG.topBarTopInset)",
                   ".padding(.bottom, OG.topBarBottomInset)"):
@@ -86,17 +87,23 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         # Nunca volver a colocar el overlay 8 pt desde el origen físico.
         self.assertNotIn(".padding(.top, 8)", map_view)
         self.assertIn(".frame(width: 44, alignment: .trailing)", map_view)
+        map_header = live.split("private var mapHeader: some View {", 1)[1].split(
+            "private func center3DMap(", 1
+        )[0]
+        self.assertIn("VStack(spacing: 16)", map_header)
 
     def test_exercises_in_compact_mode_use_native_ios_toolbar(self):
         library = read("LibraryView.swift")
-        self.assertIn("ToolbarItem(placement: .topBarLeading)", library)
-        self.assertIn("ToolbarItem(placement: .topBarTrailing)", library)
+        self.assertNotIn("ToolbarItem(placement: .topBarLeading)", library)
+        self.assertGreaterEqual(library.count("ToolbarItem(placement: .topBarTrailing)"), 2)
+        self.assertIn(".navigationBarTitleDisplayMode(.large)", library)
         self.assertIn(".toolbar(usesSplitExerciseLayout ? .hidden : .visible", library)
         duo = library.split('Text("Ejercicios")', 1)[1].split(
             "HStack(spacing: 9)", 1
         )[0]
         self.assertIn(".padding(.top, OG.topBarTopInset)", duo)
         self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", duo)
+        self.assertIn("HStack(spacing: 16)", duo)
 
     def test_native_toolbar_is_not_forced_into_manual_custom_geometry(self):
         theme = read("Theme.swift")
