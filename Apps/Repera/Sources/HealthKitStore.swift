@@ -1207,14 +1207,16 @@ final class HealthKitStore {
             // Tras editar el horario, un enlace previo no se sustituye por
             // un entrenamiento diferente que coincida con la nueva hora.
             guard workout != nil else { return nil }
-        } else if let own = await existingReperaWorkout(sessionId: session.id) {
-            workout = own
-            workoutUUID = own.uuid
         } else if let watch = await verifiedWatchWorkout(forReperaSession: session.id),
                   let verified = watch.workoutUUID,
                   let found = await fetchWorkout(uuid: verified) {
+            // La medición real de Watch prevalece sobre una ficha vacía
+            // escrita por el iPhone para la misma ejecución.
             workout = found
             workoutUUID = verified
+        } else if let own = await existingReperaWorkout(sessionId: session.id) {
+            workout = own
+            workoutUUID = own.uuid
         } else {
             // Solo se recurre al solape cuando no hay identidad persistida.
             workout = await overlappingWorkout(from: start, to: end)
