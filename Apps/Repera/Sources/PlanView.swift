@@ -79,7 +79,7 @@ struct PlanView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: narrow ? 32 : 40, height: 42)
+                    .frame(width: narrow ? 28 : 40, height: 42)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Semana anterior")
@@ -88,10 +88,10 @@ struct PlanView: View {
                 weekOffset = 0
             } label: {
                 Text(narrow ? narrowWeekRangeText : weekRangeText)
-                    .font(.system(size: narrow ? 12 : 14, weight: .semibold))
+                    .font(.system(size: narrow ? 11 : 14, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .padding(.horizontal, narrow ? 2 : 6)
+                    .padding(.horizontal, narrow ? 1 : 6)
                     .frame(height: 42)
                     .contentShape(Rectangle())
             }
@@ -104,7 +104,7 @@ struct PlanView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: narrow ? 32 : 40, height: 42)
+                    .frame(width: narrow ? 28 : 40, height: 42)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Semana siguiente")
@@ -225,7 +225,7 @@ struct PlanView: View {
                             Section {
                                 HStack(alignment: .center, spacing: 8) {
                                     Text("Programado")
-                                        .font(.title2.weight(.bold))
+                                        .font(.system(size: 19, weight: .semibold))
                                         .foregroundStyle(OG.label)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.8)
