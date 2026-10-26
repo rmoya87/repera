@@ -737,22 +737,13 @@ private struct DayEditorChromeModifier: ViewModifier {
         if usesPageCloseHeader {
             content
                 .ogPinnedTransparentNav(title)
-                // Los botones no comparten cápsula ni color: volver neutro,
-                // confirmar verde al otro lado del topbar.
-                .navigationBarBackButtonHidden(true)
+                // Usar solo el chevron nativo de NavigationStack.
+                // El botón manual duplicaba el volver en iOS 27.
+                .navigationBarBackButtonHidden(false)
+                // Siempre blanco de noche y negro de día; el check mantiene
+                // su tinte verde explícito, independiente del botón Volver.
+                .tint(Color.primary)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            if let onBack { onBack() }
-                            else { dismiss() }
-                        } label: {
-                            Image(systemName: "arrow.left")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                        }
-                        .tint(OG.label)
-                        .accessibilityLabel("Volver")
-                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         confirmButton
                     }
