@@ -12,6 +12,10 @@ struct ProgressPreparedCharts: Equatable, Sendable {
     var granularity: ProgressSeriesGranularity
     /// Preview free: curvas suaves pero acotadas al dominio del chart.
     var isTeaserPreview: Bool = false
+    /// Promedio sobre días con kcal registradas (no sobre días sin permiso).
+    var caloriesDailyAverage: Double? = nil
+    /// Promedio anterior comparable. Nil si no hay días suficientes en Salud.
+    var previousCaloriesDailyAverage: Double? = nil
 
     struct HeartRatePlotPoint: Identifiable, Equatable, Sendable {
         var id: Date { date }
@@ -72,7 +76,9 @@ struct ProgressPreparedCharts: Equatable, Sendable {
             caloriesTotal: calories.reduce(0) { $0 + $1.value },
             averageHeartRate: avg,
             granularity: .day,
-            isTeaserPreview: true
+            isTeaserPreview: true,
+            caloriesDailyAverage: calories.reduce(0) { $0 + $1.value } / Double(max(1, calories.count)),
+            previousCaloriesDailyAverage: 500 // Ejemplo ficticio, solo en la vista gratis.
         )
     }
 
@@ -129,6 +135,23 @@ enum ProgressChartBuilder {
             endExclusive: endExclusive
         )
         let kcalTotal = kcalDaily.reduce(0.0) { $0 + $1.value }
+        let dailyAverage = kcalDaily.isEmpty ? nil : kcalTotal / Double(kcalDaily.count)
+        // Comparamos medias por día registrado para no penalizar un periodo
+        // actual parcial ni contar ausencias de permisos como cero kcal.
+        let previousAverage: Double? = {
+            guard let bounds = range.previousPeriodBounds(
+                now: now, weekStartsOnMonday: weekStartsOnMonday
+            ) else { return nil }
+            let previousDays = mergedDailyCalories(
+                energyDays: energyDays, workouts: [], external: [],
+                start: bounds.start, endExclusive: bounds.end
+            )
+            // El histórico de Salud puede ser más corto que el periodo:
+            // sin una muestra comparable no mostramos un delta engañoso.
+            guard !previousDays.isEmpty,
+                  previousDays.count >= kcalDaily.count else { return nil }
+            return previousDays.reduce(0) { $0 + $1.value } / Double(previousDays.count)
+        }()
         let kcalAgg = StatsEngine.averagedSeries(
             kcalDaily,
             granularity: granularity,
@@ -156,7 +179,9 @@ enum ProgressChartBuilder {
             caloriesTotal: kcalTotal,
             averageHeartRate: avgHr,
             granularity: granularity,
-            isTeaserPreview: false
+            isTeaserPreview: false,
+            caloriesDailyAverage: dailyAverage,
+            previousCaloriesDailyAverage: previousAverage
         )
     }
 
