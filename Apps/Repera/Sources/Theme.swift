@@ -1797,15 +1797,23 @@ struct OGFormatNumberField: View {
                 draft = cleaned
                 return
             }
-            if focus.wrappedValue == fieldID, let entered = Int(cleaned) {
-                value = min(range.upperBound, max(range.lowerBound, entered))
+            // Actualizar el binding mientras se escribe y no solo al perder
+            // foco. El check de Guardar puede cerrar la pantalla antes de
+            // que UIKit invoque onFocusLost (especialmente en TestFlight).
+            if let entered = Int(cleaned) {
+                let valid = min(range.upperBound, max(range.lowerBound, entered))
+                if value != valid { value = valid }
             }
+        }
+        .onDisappear {
+            commit()
         }
     }
 
     private func commit() {
         if let entered = Int(draft) {
-            value = min(range.upperBound, max(range.lowerBound, entered))
+            let valid = min(range.upperBound, max(range.lowerBound, entered))
+            if value != valid { value = valid }
         }
         draft = String(value)
     }
