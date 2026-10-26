@@ -294,6 +294,7 @@ final class RemoteExerciseCatalogStore {
                 bodyPart: remote.bodyPart ?? old?.bodyPart,
                 detailDescription: description,
                 instructions: instructions,
+                searchAliases: remote.aliases ?? [],
                 primaryRegions: primary.isEmpty ? (old?.primaryRegions ?? []) : primary,
                 secondaryRegions: secondary.isEmpty ? (old?.secondaryRegions ?? []) : secondary,
                 isFavorite: old?.isFavorite ?? false,
