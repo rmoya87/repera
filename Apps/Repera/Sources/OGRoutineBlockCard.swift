@@ -151,9 +151,9 @@ struct OGRoutineBlockCard: View {
         if let cal = move.calories { parts.append("\(cal) cal") }
         if let w = move.weightMaleKg {
             if let f = move.weightFemaleKg {
-                parts.append(String(format: "%g/%g kg", w, f))
+                parts.append("\(ReperaNumberFormat.decimal(w))/\(ReperaNumberFormat.decimal(f)) kg")
             } else {
-                parts.append(String(format: "%g kg", w))
+                parts.append("\(ReperaNumberFormat.decimal(w)) kg")
             }
         }
         parts.append(contentsOf: noteParts)
