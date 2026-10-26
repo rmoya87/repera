@@ -23,7 +23,7 @@ struct WorkoutView: View {
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var editingRoutine: Routine?
     @State private var notesDraft = ""
-    /// Filas editables del ejercicio actual (objetivo por serie + check para registrar).
+    /// Filas editables: escribir es guardar; no hay check de confirmación por serie.
     @State private var liveSets: [LiveSetRow] = []
     /// Los borradores pertenecen al ejercicio, no a la fila que se reutiliza al navegar.
     @State private var liveExerciseID: UUID?
@@ -714,15 +714,14 @@ struct WorkoutView: View {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
                 secondTitle: style == .repsOnly || current.exercise.isMobilityHold ? nil : qtyLabel,
-                showsConfirmation: store.state.activeSession?.phase != .ready,
+                showsConfirmation: false,
                 showsRIR: style.usesRIR
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
                 HStack(spacing: 6) {
                     liveSetRow(index: index, row: row, current: current)
-                    if !row.completed, index >= current.loggedSets.count,
-                       liveSets.count > max(1, current.loggedSets.count) {
+                    if liveSets.count > 1 {
                         Button(role: .destructive) {
                             removeLiveSet(at: index, current: current)
                         } label: {
@@ -782,7 +781,7 @@ struct WorkoutView: View {
                     Text("Metros").tag(ExerciseQuantityUnit.meters)
                 }
                 .pickerStyle(.segmented)
-                .disabled(row.completed && liveSets.contains(where: \.completed))
+
             }
 
             OGSetEntryRow(
@@ -791,10 +790,10 @@ struct WorkoutView: View {
                 previous: OGSetEntryRow.previousText(previousSet),
                 firstValue: firstValue,
                 secondValue: style == .repsOnly || current.exercise.isMobilityHold ? nil : "\(row.reps)",
-                nextEditableRowID: liveSets.dropFirst(index + 1).first(where: { !$0.completed })?.id,
+                nextEditableRowID: liveSets.dropFirst(index + 1).first?.id,
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
-                showsConfirmation: store.state.activeSession?.phase != .ready,
-                completed: row.completed,
+                showsConfirmation: false,
+                completed: false,
                 rir: row.rir,
                 showsRIR: style.usesRIR,
                 onRIRChange: { setLiveRir(at: index, rir: $0) },
@@ -816,17 +815,8 @@ struct WorkoutView: View {
                 onSecondCommit: { text in
                     if let value = Int(text), value > 0 { setLiveReps(at: index, reps: value) }
                 },
-                onConfirm: {
-                    guard store.state.activeSession?.phase != .ready else { return }
-                    if row.completed {
-                        if index == liveSets.count - 1 || index == current.loggedSets.count - 1 {
-                            store.removeLastSet()
-                            rebuildLiveSets(from: store.state.activeSession?.currentExercise ?? current)
-                        }
-                    } else {
-                        completeLiveSet(at: index, current: current)
-                    }
-                }
+                onConfirm: { }
+
             )
             .accessibilityLabel("Serie \(index + 1), \(qtyLabel)")
 
@@ -840,9 +830,8 @@ struct WorkoutView: View {
         liveDraftsByExercise[liveExerciseID] = liveSets
     }
 
-    /// La tabla visible es un borrador de PRESCRIPCIÓN hasta que se marca
-    /// cada serie. Guardar los cambios enseguida evita que desaparezcan
-    /// al cerrar Play, navegar o finalizar. No generar `LoggedSet` falsos.
+    /// Prescripción inicial editable. Tras la primera interacción, los valores
+    /// de esas filas son el resultado registrado; se pueden corregir sin check.
     private func noteLiveDraftEdited() {
         guard let id = liveExerciseID else { return }
         editedLiveExerciseIDs.insert(id)
@@ -875,18 +864,39 @@ struct WorkoutView: View {
                     && (previous?.targetPercent1RMIsMinimum ?? false)
             )
         }
+        let existingByID = Dictionary(
+            uniqueKeysWithValues: entry.loggedSets.map { ($0.id, $0) }
+        )
+        let style = entry.exercise.loggingStyle
+        let recorded: [LoggedSet] = liveSets.compactMap { row in
+            guard row.reps > 0 else { return nil }
+            let recordedWeight = entry.exercise.loadField == .weightKg ? row.weightKg : nil
+            let recordedDeficit = entry.exercise.loadField == .deficitCm ? row.deficitCm : nil
+            let unit = style == .machineWork ? liveQuantityUnit
+                : (entry.quantityUnit ?? entry.exercise.defaultQuantityUnit)
+            var result = existingByID[row.id] ?? LoggedSet(
+                id: row.id, reps: row.reps, quantityUnit: unit
+            )
+            result.reps = row.reps
+            result.weightKg = recordedWeight
+            result.deficitCm = recordedDeficit
+            result.durationSeconds = style.usesDuration ? row.durationSeconds : nil
+            result.quantityUnit = unit
+            result.rir = style.usesRIR ? row.rir : nil
+            result.toFailure = style.usesRIR && row.rir == 0
+            return result
+        }
         store.updateActiveExerciseDraft(
             id: id, plannedSets: revised,
-            quantityUnit: entry.exercise.loggingStyle == .machineWork ? liveQuantityUnit : entry.quantityUnit
+            quantityUnit: style == .machineWork ? liveQuantityUnit : entry.quantityUnit,
+            performedSets: recorded
         )
     }
 
     private func removeLiveSet(at index: Int, current: SessionExercise) {
-        // Los resultados ya confirmados no se eliminan con una edición de
-        // prescripción: desmarcar primero con el flujo existente.
-        guard liveSets.count > max(1, current.loggedSets.count),
-              liveSets.indices.contains(index), !liveSets[index].completed,
-              index >= current.loggedSets.count else { return }
+        // El usuario corrige o elimina la serie sin un check previo.
+        // Al persistir se sustituyen también los resultados reales por ID.
+        guard liveSets.count > 1, liveSets.indices.contains(index) else { return }
         liveSets.remove(at: index)
         liveDraftsByExercise[current.id] = liveSets
         noteLiveDraftEdited()
@@ -931,7 +941,7 @@ struct WorkoutView: View {
                     durationSeconds: set.durationSeconds,
                     reps: set.reps,
                     rir: set.rir,
-                    completed: true
+                    completed: false
                 ))
             } else if i < retained.count {
                 // Incluye la serie recién desmarcada: conserva sus valores
@@ -1080,50 +1090,6 @@ struct WorkoutView: View {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
         liveSets[index].rir = rir
         noteLiveDraftEdited()
-    }
-
-    private func completeLiveSet(at index: Int, current: SessionExercise) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        // Solo se puede completar en orden (siguiente pendiente).
-        let nextPending = liveSets.firstIndex(where: { !$0.completed })
-        guard nextPending == index else { return }
-        let row = liveSets[index]
-        guard row.reps > 0 else { return }
-        let style = current.exercise.loggingStyle
-        let loadField = current.exercise.loadField
-        let weight: Double? = {
-            guard loadField == .weightKg, let w = row.weightKg, w > 0 else { return nil }
-            return w
-        }()
-        let deficit: Int? = {
-            guard loadField == .deficitCm, let d = row.deficitCm, d > 0 else { return nil }
-            return d
-        }()
-        store.logSet(
-            reps: row.reps,
-            weightKg: weight,
-            deficitCm: deficit,
-            durationSeconds: style.usesDuration ? row.durationSeconds : nil,
-            quantityUnit: style == .machineWork ? liveQuantityUnit : nil,
-            phase: .work,
-            kind: .straight,
-            rir: style.usesRIR ? row.rir : nil,
-            toFailure: style.usesRIR && row.rir == 0,
-            drops: [],
-            clusters: []
-        )
-        setCompletionPulse &+= 1
-        if shouldStartIndependentRest(for: current) {
-            beginRest(store.state.settings.defaultRestSeconds)
-            restStartedPulse &+= 1
-        }
-        if let updated = store.state.activeSession?.currentExercise {
-            withAnimation(reduceMotion ? nil : .smooth) {
-                rebuildLiveSets(from: updated)
-            }
-            weightText = updated.loggedSets.last?.weightKg.map { String(format: "%g", $0) } ?? weightText
-            repsText = "\(updated.loggedSets.last?.reps ?? row.reps)"
-        }
     }
 
     /// Reloj compacto persistente: anotar intervalos sin apagar el EMOM/Tabata.
