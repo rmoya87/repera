@@ -187,17 +187,27 @@ public enum StatsEngine {
             .first { $0.id == id }
     }
 
-    /// Match por id / catalogId / nombre (WOD/pizarra a veces guardan UUID distinto al catálogo).
+    /// Un ejercicio puede aparecer en varios bloques del MISMO entreno.
+    /// Recoger todas las apariciones evita perder series (p. ej. snatch en EMOM y RFT).
+    public static func matchingSessionExercises(
+        in workout: WorkoutSession,
+        exerciseId: UUID,
+        anchor: Exercise?
+    ) -> [SessionExercise] {
+        workout.exercises.filter { entry in
+            if entry.exercise.id == exerciseId { return true }
+            guard let anchor else { return false }
+            return ExerciseEquivalence.matchesCatalogIdentity(entry.exercise, anchor)
+        }
+    }
+
+    /// Compatibilidad para consumidores que solo necesitan una entrada.
     public static func matchingSessionExercise(
         in workout: WorkoutSession,
         exerciseId: UUID,
         anchor: Exercise?
     ) -> SessionExercise? {
-        workout.exercises.first { entry in
-            if entry.exercise.id == exerciseId { return true }
-            guard let anchor else { return false }
-            return ExerciseEquivalence.matchesCatalogIdentity(entry.exercise, anchor)
-        }
+        matchingSessionExercises(in: workout, exerciseId: exerciseId, anchor: anchor).first
     }
 
     /// Resumen de historial de un ejercicio (PR, última sesión, veces…).
@@ -226,19 +236,21 @@ public enum StatsEngine {
         }
 
         for workout in sorted {
-            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = confirmedWorkSets(ex, in: workout)
+            let entries = matchingSessionExercises(in: workout, exerciseId: exerciseId, anchor: anchor)
+            let work = entries.flatMap { entry in
+                confirmedWorkSets(entry, in: workout).map { (set: $0, exercise: entry) }
+            }
             guard !work.isEmpty else { continue }
-            times += 1
+            times += 1 // Una sesión, aunque el ejercicio aparezca en varios bloques.
             let date = workout.finishedAt ?? workout.startedAt
             if lastDate == nil {
                 lastDate = date
-                lastWeight = work.last?.weightKg
-                lastReps = work.last?.reps
-                lastQuantityUnit = work.last.map { resolvedQuantityUnit($0, in: ex) }
-                lastDurationSeconds = work.last?.durationSeconds
+                lastWeight = work.last?.set.weightKg
+                lastReps = work.last?.set.reps
+                lastQuantityUnit = work.last.map { resolvedQuantityUnit($0.set, in: $0.exercise) }
+                lastDurationSeconds = work.last?.set.durationSeconds
             }
-            for set in work {
+            for (set, ex) in work {
                 switch resolvedQuantityUnit(set, in: ex) {
                 case .calories:
                     bestCalories = max(bestCalories, set.reps)
@@ -535,8 +547,9 @@ extension StatsEngine {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
-            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = confirmedWorkSets(ex, in: workout)
+            let entries = matchingSessionExercises(in: workout, exerciseId: exerciseId, anchor: anchor)
+            guard let ex = entries.first else { continue }
+            let work = entries.flatMap { confirmedWorkSets($0, in: workout) }
             guard !work.isEmpty else { continue }
 
             switch metric {
@@ -647,8 +660,8 @@ extension StatsEngine {
         }) {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
-            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = confirmedWorkSets(ex, in: workout)
+            let entries = matchingSessionExercises(in: workout, exerciseId: exerciseId, anchor: anchor)
+            let work = entries.flatMap { confirmedWorkSets($0, in: workout) }
             guard !work.isEmpty else { continue }
             return ExerciseLastSession(
                 sessionId: workout.id,
@@ -686,8 +699,8 @@ extension StatsEngine {
             guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             guard let date = workout.finishedAt ?? workout.startedAt else { continue }
             if let start, date < start { continue }
-            guard let ex = matchingSessionExercise(in: workout, exerciseId: exerciseId, anchor: anchor) else { continue }
-            let work = confirmedWorkSets(ex, in: workout)
+            let entries = matchingSessionExercises(in: workout, exerciseId: exerciseId, anchor: anchor)
+            let work = entries.flatMap { confirmedWorkSets($0, in: workout) }
             guard !work.isEmpty else { continue }
 
             let lines = work.map(\.displaySummaryLine)
