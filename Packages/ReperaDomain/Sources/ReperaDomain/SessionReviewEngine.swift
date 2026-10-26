@@ -219,7 +219,7 @@ public enum SessionReviewEngine {
             return (
                 level,
                 score,
-                "Hiciste \(formatRounds(rounds)) (unas \(String(format: "%.1f", rate)) por minuto)."
+                "Hiciste \(formatRounds(rounds)) (unas \(ReperaNumberFormat.decimal(rate)) por minuto)."
             )
         case .perMovementSets:
             return (nil, 6, "Entreno por series: nota orientativa.")
@@ -554,7 +554,7 @@ public enum SessionReviewEngine {
         let priorE1 = priorE1Raw.map { $0 * (match?.transferFactor ?? 1) }
 
         var verdict: MovementVerdict = .good
-        var detail = String(format: "%.0f kg × %d (e1RM ~%.0f).", best.0, best.1, e1)
+        var detail = "\(ReperaNumberFormat.decimal(best.0, maximumFractionDigits: 0)) kg × \(best.1) (e1RM ~\(ReperaNumberFormat.decimal(e1, maximumFractionDigits: 0)))."
         var ratio: Double?
         if let priorE1, priorE1 > 0 {
             ratio = e1 / priorE1
@@ -940,6 +940,6 @@ public enum SessionReviewEngine {
         if abs(value - value.rounded()) < 0.05 {
             return "\(Int(value.rounded())) rondas"
         }
-        return String(format: "%.1f rondas", value)
+        return "\(ReperaNumberFormat.decimal(value)) rondas"
     }
 }
