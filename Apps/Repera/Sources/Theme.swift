@@ -162,6 +162,8 @@ struct OGAdaptiveMetricLayout: Layout {
 }
 
 /// Título de sección **encima** de una `OGCard` (gris, estilo Ajustes / Form).
+/// El margen superior es global: separa las gráficas del componente anterior,
+/// igual que los encabezados de sección de Ajustes, sin variar las tarjetas.
 struct OGCardSectionTitle: View {
     var title: String
 
@@ -172,6 +174,7 @@ struct OGCardSectionTitle: View {
             .textCase(.uppercase)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
+            .padding(.top, 12)
     }
 }
 
