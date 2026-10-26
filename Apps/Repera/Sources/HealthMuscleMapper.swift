@@ -59,6 +59,30 @@ enum HealthMuscleMapper {
         }
     }
 
+    /// El mapa "esfuerzo alto" no puede tratar un paseo como entrenamiento
+    /// intenso. Sin RIR medido, solo deportes cuya modalidad declara trabajo
+    /// interválico/alta intensidad aportan un estímulo estimado a esa capa.
+    private static func isEstimatedIntense(_ type: HKWorkoutActivityType) -> Bool {
+        switch type {
+        case .highIntensityIntervalTraining, .crossTraining, .functionalStrengthTraining,
+             .boxing, .kickboxing, .martialArts, .wrestling:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func highEffortStimuli(from activities: [HealthKitStore.ExternalActivity]) -> [ExternalMuscleStimulus] {
+        stimuli(from: activities.filter { isEstimatedIntense($0.activityType) })
+    }
+
+    static func nativeHighEffortSportStimuli(from workouts: [WorkoutSession]) -> [ExternalMuscleStimulus] {
+        nativeSportStimuli(from: workouts.filter {
+            guard let id = $0.liveSportID, let sport = LiveSport(rawValue: id) else { return false }
+            return isEstimatedIntense(sport.healthType)
+        })
+    }
+
     static func daySamples(from activities: [HealthKitStore.ExternalActivity]) -> [ExternalDaySample] {
         activities.map { activity in
             let mins = max(0, activity.durationMinutes)
