@@ -689,14 +689,23 @@ struct HomeView: View {
         let days = cachedWeekDays.isEmpty ? makeWeekDays(offset: weekOffset) : cachedWeekDays
         return OGCard {
             VStack(alignment: .leading, spacing: 17) {
-                HStack {
-                    Text("Progreso semanal")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(OG.label)
-                    Spacer()
-                    Text(weeklyProgressSummary(for: days))
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label2)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Progreso semanal")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        if isExpandedLayout {
+                            Text("\(days.filter(\.hasWorkout).count) días entrenados")
+                                .font(.system(size: 12))
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    if !isExpandedLayout || store.state.settings.weeklyWorkoutGoal != nil {
+                        Text(weeklyProgressSummary(for: days))
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                    }
                 }
                 HStack(alignment: .center, spacing: 4) {
                     ForEach(days, id: \.iso) { day in
