@@ -57,6 +57,58 @@ final class ProgressSnapshotEngineTests: XCTestCase {
         XCTAssertEqual(days360.sessionCount, 1)
     }
 
+
+    private func day(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        return cal.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
+    }
+
+    func testWeekComparisonOnlyUsesElapsedWeekdays() {
+        let tuesday = day(2026, 10, 27)
+        let bounds = ProgressTimeRange.week.previousPeriodBounds(now: tuesday, weekStartsOnMonday: true)!
+        let cal = Calendar.current
+        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 10, 19)))
+        XCTAssertTrue(cal.isDate(bounds.end, inSameDayAs: day(2026, 10, 21)))
+        XCTAssertTrue(ProgressTimeRange.week.containsInPreviousPeriod(day(2026, 10, 20), now: tuesday))
+        XCTAssertFalse(ProgressTimeRange.week.containsInPreviousPeriod(day(2026, 10, 21), now: tuesday))
+    }
+
+    func testMonthComparisonOnlyUsesSameElapsedMonthDays() {
+        let tuesday = day(2026, 10, 27)
+        let bounds = ProgressTimeRange.month.previousPeriodBounds(now: tuesday)!
+        let cal = Calendar.current
+        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 9, 1)))
+        XCTAssertTrue(cal.isDate(bounds.end, inSameDayAs: day(2026, 9, 28)))
+        XCTAssertTrue(ProgressTimeRange.month.containsInPreviousPeriod(day(2026, 9, 27), now: tuesday))
+        XCTAssertFalse(ProgressTimeRange.month.containsInPreviousPeriod(day(2026, 9, 28), now: tuesday))
+    }
+
+    func testPreviousMonthClampsAtEndOfShorterMonth() {
+        let now = day(2026, 3, 31)
+        let bounds = ProgressTimeRange.month.previousPeriodBounds(now: now)!
+        let cal = Calendar.current
+        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 2, 1)))
+        XCTAssertTrue(cal.isDate(bounds.end, inSameDayAs: day(2026, 3, 1)))
+    }
+
+    func testRollingWindowComparesFullPriorWindow() {
+        let now = day(2026, 10, 27)
+        let b = ProgressTimeRange.days90.previousPeriodBounds(now: now)!
+        let currentStart = ProgressTimeRange.days90.startDate(now: now)!
+        XCTAssertEqual(Calendar.current.dateComponents([.day], from: b.start, to: b.end).day, 90)
+        XCTAssertEqual(b.end, currentStart)
+    }
+
+    func testTotalMinutesAreActualRecordedMinutes() {
+        let now = day(2026, 10, 27)
+        let workout = WorkoutSession(title: "Walk", exercises: [], startedAt: now, finishedAt: now, appleDurationSeconds: 45 * 60)
+        let zeroDuration = WorkoutSession(title: "No duration", exercises: [], startedAt: now, finishedAt: now)
+        let summary = StatsEngine.progressHealthSummary(workouts: [workout, zeroDuration], range: .today, now: now)
+        XCTAssertEqual(summary.totalMinutes, 45, accuracy: 0.01)
+        XCTAssertEqual(summary.sessionCount, 2)
+    }
+
     func testAveragedSeriesKeepsStableBucketDates() {
         let cal = Calendar.current
         let start = cal.startOfDay(for: Date())

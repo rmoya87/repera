@@ -86,16 +86,19 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
     /// Días a pedir a Salud (margen sobre el periodo visible).
     public var healthFetchDayCount: Int {
         switch self {
+        // Incluir el tramo equivalente anterior para comparar con Salud.
         case .today: return 7
-        case .week: return 14
-        case .month: return 45
-        case .days90: return 100
-        case .days180: return 190
-        case .days360: return 370
+        case .week: return 16
+        case .month: return 70
+        case .days90: return 190
+        case .days180: return 370
+        case .days360: return 730
         }
     }
 
-    /// Ventana del periodo anterior (misma duración, desplazada hacia atrás).
+    /// Periodo comparable: en semana y mes solo los días transcurridos,
+    /// nunca todo el periodo anterior si el actual aún no ha concluido.
+    /// Los periodos móviles (90/180/360 días) sí comparan ventanas completas.
     public func previousPeriodBounds(
         now: Date = Date(),
         calendar: Calendar = .current,
@@ -114,13 +117,18 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
                 return nil
             }
             let prevStart = cal.date(byAdding: .day, value: -7, to: weekStart) ?? weekStart
-            return (prevStart, weekStart)
+            let elapsedDays = max(1, cal.dateComponents([.day], from: weekStart, to: today).day.map { $0 + 1 } ?? 1)
+            let comparableEnd = cal.date(byAdding: .day, value: min(7, elapsedDays), to: prevStart) ?? weekStart
+            return (prevStart, min(comparableEnd, weekStart))
         case .month:
             guard let monthStart = startDate(now: now, calendar: cal, weekStartsOnMonday: weekStartsOnMonday) else {
                 return nil
             }
             let prevStart = cal.date(byAdding: .month, value: -1, to: monthStart) ?? monthStart
-            return (prevStart, monthStart)
+            let elapsedDays = max(1, cal.dateComponents([.day], from: monthStart, to: today).day.map { $0 + 1 } ?? 1)
+            // Si el mes anterior es más corto, se limita a su último día.
+            let comparableEnd = cal.date(byAdding: .day, value: elapsedDays, to: prevStart) ?? monthStart
+            return (prevStart, min(comparableEnd, monthStart))
         case .days90:
             guard let start = startDate(now: now, calendar: cal, weekStartsOnMonday: weekStartsOnMonday) else {
                 return nil

@@ -938,19 +938,23 @@ public struct ProgressHealthSummary: Sendable, Equatable {
     public var averageCardioMinutes: Double?
     public var volumeKg: Double
     public var sessionCount: Int
+    /// Duración real acumulada; no multiplicar la media por sesiones sin duración.
+    public var totalMinutes: Double
 
     public init(
         averageMinutes: Double?,
         totalKcal: Double,
         averageCardioMinutes: Double?,
         volumeKg: Double,
-        sessionCount: Int
+        sessionCount: Int,
+        totalMinutes: Double = 0
     ) {
         self.averageMinutes = averageMinutes
         self.totalKcal = totalKcal
         self.averageCardioMinutes = averageCardioMinutes
         self.volumeKg = volumeKg
         self.sessionCount = sessionCount
+        self.totalMinutes = totalMinutes
     }
 }
 
@@ -1258,7 +1262,8 @@ extension StatsEngine {
             totalKcal: kcal,
             averageCardioMinutes: avgCardio,
             volumeKg: volume,
-            sessionCount: filteredW.count + filteredE.count
+            sessionCount: filteredW.count + filteredE.count,
+            totalMinutes: minutes.reduce(0, +)
         )
     }
 }
