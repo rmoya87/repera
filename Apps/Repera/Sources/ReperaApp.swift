@@ -148,7 +148,10 @@ struct ReperaApp: App {
 
                     await store.hydrateFromDisk()
                     // Restablecer Comenzar y sus muestras antes del trabajo de red.
-                    LiveActivityRecorder.shared.resumeInterruptedRecordingIfNeeded()
+                    // La grabación programada tiene su propio dueño del sensor.
+                    if store.state.activeSession == nil {
+                        LiveActivityRecorder.shared.resumeInterruptedRecordingIfNeeded()
+                    }
                     LaunchTiming.mark("hydrate.done→bootstrap")
                     store.bootstrap()
                     wireSubscriptionGates()
