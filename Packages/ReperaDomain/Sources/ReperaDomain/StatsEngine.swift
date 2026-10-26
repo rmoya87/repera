@@ -27,11 +27,10 @@ public enum StatsEngine {
             )
         }
     }
-    /// Única regla para TODAS las métricas: si la sesión terminó, sus
-    /// ejercicios prescritos se consideran aceptados sin exigir cada check.
-    /// Recupera históricos y los nuevos; nunca incluye planes pendientes.
-    /// Los valores anotados prevalecen y una serie solo de calentamiento
-    /// no se convierte en carga. Tampoco se inventa un RIR real.
+    /// Regla única: al terminar y guardar, los valores visibles de los inputs
+    /// (reps, kg y RIR cuando se haya indicado) se aceptan como ejecutados.
+    /// No exige checks. Los registros individuales explícitos tienen prioridad.
+    /// No convierte calentamientos en series de trabajo ni inventa valores nil.
     public static func confirmedWorkSets(
         _ exercise: SessionExercise, in workout: WorkoutSession
     ) -> [LoggedSet] {
@@ -43,15 +42,9 @@ public enum StatsEngine {
         // Un calentamiento registrado sin series de trabajo NO confirma
         // automáticamente las cargas prescritas para ese ejercicio.
         if !exercise.loggedSets.isEmpty { return [] }
-        // El check era solo una ayuda de registro, no un requisito para
-        // reconocer ejercicios de una sesión finalizada (anteriores y futuras).
-        guard workout.phase == .finished || workout.finishedAt != nil else { return [] }
-        return effectiveWorkSets(exercise, in: workout).map { prescribed in
-            var set = prescribed
-            set.rir = nil
-            set.toFailure = false
-            return set
-        }
+        // Una sesión terminada acepta lo que quedó en los inputs; preservar
+        // también el RIR introducido. Si estaba vacío sigue siendo nil.
+        return effectiveWorkSets(exercise, in: workout)
     }
 
     /// Volumen consistente entre Resumen, Heatmap y Equilibrio muscular.
