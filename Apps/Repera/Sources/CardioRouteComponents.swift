@@ -148,7 +148,7 @@ struct CardioAltitudeChart: View {
                 .foregroundStyle(OG.accent)
             Spacer(minLength: 6)
             if let point = pickedAltitude {
-                Text(String(format: "%.0f m · %.2f km", point.altitudeMeters, point.distanceKm))
+                Text("\(ReperaNumberFormat.decimal(point.altitudeMeters, maximumFractionDigits: 0)) m · \(ReperaNumberFormat.decimal(point.distanceKm)) km")
                     .foregroundStyle(OG.accent)
                     .contentTransition(.numericText())
             } else if result.profile.count >= 2 {
@@ -312,7 +312,7 @@ struct CardioSplitsView: View {
     }
 
     private func decimal(_ number: Double) -> String {
-        String(format: "%.1f", number).replacingOccurrences(of: ".", with: ",")
+        ReperaNumberFormat.decimal(number)
     }
 
     private var healthMovementMeters: Double? {
@@ -414,7 +414,7 @@ struct CardioSplitsView: View {
                     SessionSportMetricTile(
                         title: healthStats?.movementUsesTimeWindow == true
                             ? "Pasos en horario" : "Pasos",
-                        value: stepsCount.formatted(),
+                        value: ReperaNumberFormat.integer(stepsCount),
                         unit: "pasos", tint: OG.accent
                     )
                 }
@@ -439,7 +439,7 @@ struct CardioSplitsView: View {
                             Text(Self.clock(split.seconds))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text(cycling
-                                 ? String(format: "%.1f", 3600 / max(1, split.seconds))
+                                 ? ReperaNumberFormat.decimal(3600 / max(1, split.seconds))
                                  : "\(Self.clock(split.seconds))/km")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text(split.averageBpm.map { "\(Int($0.rounded())) LPM" } ?? "—")
@@ -458,7 +458,7 @@ struct CardioSplitsView: View {
                         SessionSportMetricTile(
                             title: healthStats.movementUsesTimeWindow
                                 ? "Pasos en horario" : "Pasos",
-                            value: steps.formatted(), unit: "pasos", tint: OG.accent
+                            value: ReperaNumberFormat.integer(steps), unit: "pasos", tint: OG.accent
                         )
                     }
                     if let meters = healthStats.movementDistanceMeters, meters > 0 {
@@ -524,7 +524,7 @@ struct RouteWeatherStrip: View {
                 weatherStat(
                     symbol: symbol,
                     title: "Tiempo",
-                    value: temperatureC.map { String(format: "%.0f °C", $0) },
+                    value: temperatureC.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0)) °C" },
                     loading: isLoading
                 )
                 Divider().frame(height: 36).padding(.horizontal, 4)
@@ -537,7 +537,7 @@ struct RouteWeatherStrip: View {
                 Divider().frame(height: 36).padding(.horizontal, 4)
                 weatherStat(
                     symbol: "wind", title: "Viento",
-                    value: windKmh.map { String(format: "%.0f km/h", $0) },
+                    value: windKmh.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0)) km/h" },
                     loading: isLoading
                 )
             }
