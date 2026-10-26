@@ -36,6 +36,9 @@ public enum StatsEngine {
     ) -> [LoggedSet] {
         let actual = exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
         if !actual.isEmpty { return actual }
+        // Un calentamiento registrado sin series de trabajo NO confirma
+        // automáticamente las cargas prescritas para ese ejercicio.
+        if !exercise.loggedSets.isEmpty { return [] }
         guard exercise.isCompleted else { return [] }
         return effectiveWorkSets(exercise, in: workout).map { prescribed in
             var set = prescribed
