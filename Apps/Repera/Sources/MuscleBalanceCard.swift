@@ -201,6 +201,6 @@ struct MuscleBalanceCard: View {
     }
 
     private func formatSets(_ v: Double) -> String {
-        String(format: v == floor(v) ? "%.0f" : "%.1f", v)
+        ReperaNumberFormat.decimal(v)
     }
 }
