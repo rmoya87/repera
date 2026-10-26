@@ -2,6 +2,17 @@
 
 ## Validación integral de registros y sincronización (26/10/2026)
 
+## Validación física pendiente: Comenzar, audio y autenticación (26/10/2026)
+
+- [ ] Caducar JWT con refresh token válido: debe renovarse solo al regresar del segundo plano y al pulsar sincronización. Revocar refresh token: abrir Bienvenido sin perder JSON/iCloud. Simular modo avión con credenciales previas: permitir acceder al histórico offline sin logout. Reintentar al recuperar red.
+- [ ] Escuchar Spotify/Apple Music con el iPhone bloqueado, iniciar Caminata en Comenzar y superar 1 km: pausar/interrumpir el audio de la otra aplicación, locutar «Kilómetro 1 completado» y tiempo/velocidad, reanudar el audio externo al terminar; no debe mostrarse aviso push de km.
+- [ ] Probar Comenzar con ruta terrestre y acuática: los colores comienzan en azul y verde respectivamente, pasan por amarillo, naranja y rojo. Tocar el mapa en resumen y detalle: abrir pantalla completa, desplazar y pellizcar para zoom, cerrar por X.
+- [ ] En resumen de caminata con 1,11 km/15:35 comprobar los tiles iniciales, mapa inmediato sin título Recorrido registrado y Parciales con ritmo/velocidad medios antes de lista. Valores siempre calculados con la distancia y tiempo real (no desde un parcial incompleto).
+- [ ] Guardar dos sesiones para el 26 de octubre desde Comenzar e Inicio. Ver en Inicio/Historial/Progreso dos UUID distintos, carga muscular, minutos cardio y progreso del deporte; no confundir marcas de ruta con récords e1RM.
+- [ ] Revisar el icono nativo de Repera que muestra iOS en avisos generales tras actualizar la aplicación desde TestFlight; no existe un icono configurable por cada UNNotification.
+
+
+
 - [ ] Progreso: CrossFit, boxeo, elíptica, raqueta y equipo cuentan minutos de cardio registrados; yoga, movilidad, Pilates y core no se convierten falsamente en cardio.
 
 
