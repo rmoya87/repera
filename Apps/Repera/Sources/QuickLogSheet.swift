@@ -60,7 +60,7 @@ struct QuickLogSheet: View {
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 OGSwipeDeleteButton(
                                     systemImage: "trash",
-                                    accessibilityLabel: "Eliminar serie \\(index)"
+                                    accessibilityLabel: "Eliminar serie \(index)"
                                 ) {
                                     rows.removeAll { $0.id == row.id }
                                 }
@@ -133,7 +133,7 @@ struct QuickLogSheet: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     // El número identificador precede al título de la serie.
-                    Text("\\(index)")
+                    Text("\(index)")
                         .font(.system(size: 15, weight: .semibold).monospacedDigit())
                         .foregroundStyle(OG.label)
                         .frame(width: 32, height: 32)
@@ -160,7 +160,7 @@ struct QuickLogSheet: View {
 
     private func loadMetric(_ row: Binding<DraftSet>) -> some View {
         if loadField == .deficitCm {
-            metricRow("Déficit (cm)", value: "\\(row.wrappedValue.deficitCm)") {
+            metricRow("Déficit (cm)", value: "\(row.wrappedValue.deficitCm)") {
                 row.wrappedValue.deficitCm = parseInt($0, cap: 60)
             }
         } else {
@@ -177,13 +177,13 @@ struct QuickLogSheet: View {
 
     private func durationMetric(_ row: Binding<DraftSet>) -> some View {
         metricRow(isMobility ? "Duración (s)" : "Tiempo (s)",
-                  value: "\\(row.wrappedValue.durationSeconds)") {
+                  value: "\(row.wrappedValue.durationSeconds)") {
             row.wrappedValue.durationSeconds = parseInt($0, cap: 86_400)
         }
     }
 
     private func quantityMetric(_ row: Binding<DraftSet>) -> some View {
-        metricRow(quantityLabel, value: "\\(row.wrappedValue.reps)") {
+        metricRow(quantityLabel, value: "\(row.wrappedValue.reps)") {
             row.wrappedValue.reps = parseInt($0, cap: style.quantityCap)
         }
     }
