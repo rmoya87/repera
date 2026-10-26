@@ -3,7 +3,6 @@ import SwiftUI
 import UIKit
 
 private enum DayPlusRoute: Hashable {
-    case favorites
     case timer
 }
 
@@ -42,6 +41,8 @@ struct DayPlusSheet: View {
     /// Día del calendario al que se asigna el entreno suelto.
     var targetDate: Date = Calendar.current.startOfDay(for: Date())
     var onStartedWorkout: () -> Void
+    /// El host cierra esta modal y abre Favoritos como página push independiente.
+    var onOpenFavorites: () -> Void = {}
     /// Tras escanear: el caller cierra el sheet y abre la página de revisión.
     var onBoardReady: (BoardScanReviewPayload) -> Void = { _ in }
 
@@ -58,6 +59,7 @@ struct DayPlusSheet: View {
     private var targetWeekday: Int { CalendarHelpers.isoWeekday(for: targetDate) }
     private var dayName: String { CalendarHelpers.weekdayName(targetWeekday) }
     private var dayStart: Date { Calendar.current.startOfDay(for: targetDate) }
+    private var isPushed: Bool { !path.isEmpty }
 
     private var favoritesSubtitle: String {
         let workouts = store.favoriteRoutines.count
@@ -77,11 +79,6 @@ struct DayPlusSheet: View {
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: DayPlusRoute.self) { route in
                     switch route {
-                    case .favorites:
-                        FavoritesHubView(onOpenedWorkout: {
-                            dismiss()
-                            onStartedWorkout()
-                        })
                     case .timer:
                         StandaloneTimerView(embedsNavigation: false)
                     }
@@ -134,13 +131,13 @@ struct DayPlusSheet: View {
                     .tint(OG.accent)
                 }
         }
-        // Un único tamaño estable: evita el cambio de detent y el repintado
-        // de media pantalla al navegar a Favoritos y regresar.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(OG.bg)
-        .presentationDetents([.large])
-        .presentationDragIndicator(.hidden)
-        .ogSheetCorners()
+        // «Añadir entreno» vuelve a ser una modal compacta por altura real.
+        // Favoritos se navega fuera de la sheet, por tanto no modifica su detent.
+        // El temporizador sí puede ampliar la sheet mientras siga dentro.
+        .ogFittedSheet(
+            expanded: isPushed,
+            freezeHeight: showLibraryPicker || showCameraPicker
+        )
     }
 
     /// Menú con tamaño intrínseco (sin List) para que el sheet ajuste el alto.
@@ -166,7 +163,7 @@ struct DayPlusSheet: View {
                     )
                 }
                 menuDivider
-                NavigationLink(value: DayPlusRoute.favorites) {
+                Button(action: onOpenFavorites) {
                     menuLabel(
                         title: "Favoritos",
                         subtitle: favoritesSubtitle,
@@ -231,7 +228,7 @@ struct DayPlusSheet: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .ogFittedHeight()
     }
 
     private var menuDivider: some View {

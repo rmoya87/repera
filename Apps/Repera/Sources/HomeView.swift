@@ -80,6 +80,13 @@ struct HomeView: View {
     /// Pasos reales de Salud del día seleccionado; nil si no hay lecturas disponibles.
     @State private var selectedDaySteps: Int?
     @State private var showCreatePlanForDay = false
+    /// Favoritos no vive dentro de la sheet: cerrar primero y después empujar
+    /// una página real en el NavigationStack de Inicio.
+    @State private var pendingFavoritesAfterSheetDismiss = false
+    @State private var showsFavoritesPage = false
+    /// El botón Volver de Favoritos debe recuperar la sheet compacta, no
+    /// volver a montar un NavigationStack dentro de una sheet expandida.
+    @State private var restoresAddSheetAfterFavorites = false
     /// Revisión de pizarra como página (fuera del sheet «Añadir entreno»).
     @State private var boardReviewPayload: BoardScanReviewPayload?
     @State private var workoutPendingDelete: WorkoutSession?
@@ -415,12 +422,23 @@ struct HomeView: View {
                     await refineTodayMetricsInBackground()
                 }
             }
-            .sheet(isPresented: $showCreatePlanForDay) {
+            .sheet(isPresented: $showCreatePlanForDay, onDismiss: {
+                // No presentar NavigationDestination desde una sheet visible:
+                // UIKit acabaría mostrando Favoritos dentro de la propia modal.
+                guard pendingFavoritesAfterSheetDismiss else { return }
+                pendingFavoritesAfterSheetDismiss = false
+                restoresAddSheetAfterFavorites = true
+                showsFavoritesPage = true
+            }) {
                 DayPlusSheet(
                     targetDate: selectedDay,
                     onStartedWorkout: {
                         showCreatePlanForDay = false
                         onOpenWorkout()
+                    },
+                    onOpenFavorites: {
+                        pendingFavoritesAfterSheetDismiss = true
+                        showCreatePlanForDay = false
                     },
                     onBoardReady: { payload in
                         showCreatePlanForDay = false
@@ -431,6 +449,30 @@ struct HomeView: View {
                         }
                     }
                 )
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { showsFavoritesPage },
+                set: { isPresented in
+                    guard showsFavoritesPage != isPresented else { return }
+                    showsFavoritesPage = isPresented
+                    if !isPresented && restoresAddSheetAfterFavorites {
+                        restoresAddSheetAfterFavorites = false
+                        // Esperar al siguiente ciclo de MainActor antes de volver
+                        // a presentar la sheet: evita competir con la animación
+                        // nativa de pop y el repintado de media pantalla.
+                        Task { @MainActor in
+                            await Task.yield()
+                            guard !showsFavoritesPage && !showCreatePlanForDay else { return }
+                            showCreatePlanForDay = true
+                        }
+                    }
+                }
+            )) {
+                FavoritesHubView(onOpenedWorkout: {
+                    restoresAddSheetAfterFavorites = false
+                    showsFavoritesPage = false
+                    onOpenWorkout()
+                })
             }
             .navigationDestination(item: $boardReviewPayload) { payload in
                 BoardImportReviewView(
