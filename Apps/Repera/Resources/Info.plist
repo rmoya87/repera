@@ -63,8 +63,6 @@
 	<string>Repera registra la ruta y la distancia durante un entreno, incluso al bloquear el iPhone.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Repera continúa registrando el recorrido de tu entrenamiento con el iPhone bloqueado.</string>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Repera muestra la canción de Apple Music que ya escuchas y permite controlar su reproducción durante el entrenamiento.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Repera lee fotos de pizarras o pantallas para importar el entrenamiento.</string>
 	<key>NSSupportsLiveActivities</key>
