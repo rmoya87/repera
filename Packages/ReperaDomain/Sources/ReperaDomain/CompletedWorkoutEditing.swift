@@ -4,6 +4,90 @@ import Foundation
 /// Los sets registrados son la fuente de verdad: nunca se convierten objetivos
 /// pendientes en repeticiones realizadas por el mero hecho de guardar.
 public enum CompletedWorkoutEditing {
+    public enum ScoreField: Sendable {
+        case reps, rounds, minutes, seconds
+    }
+
+    /// El editor necesita mostrar también los resultados WOD antiguos que
+    /// se representaban como una única serie en el primer movimiento.
+    /// Inferir el valor para editar NO escribe ni duplica series.
+    public static func editableScore(
+        for block: RoutineBlock, in session: WorkoutSession
+    ) -> WODBlockResult? {
+        guard let format = block.wodFormat,
+              format.resultCapture != .perMovementSets else { return nil }
+        if let saved = session.wodResults.first(where: {
+            $0.id == block.id && ($0.format == nil || $0.format == format)
+        }) {
+            return saved
+        }
+        guard format.resultCapture == .totalReps,
+              let first = session.exercises.first(where: { $0.blockId == block.id }),
+              first.loggedSets.count == 1,
+              let set = first.loggedSets.first,
+              set.weightKg == nil, set.deficitCm == nil else { return nil }
+        return WODBlockResult(
+            id: block.id, format: format, totalReps: set.reps,
+            roundsCompleted: (format == .amrap || format == .deathBy) ? 0 : nil,
+            wodTemplateId: block.wodTemplateId
+        )
+    }
+
+    public static func scoreValue(
+        for block: RoutineBlock, in session: WorkoutSession,
+        field: ScoreField
+    ) -> Int {
+        let result = editableScore(for: block, in: session)
+        switch field {
+        case .reps: return result?.totalReps ?? 0
+        case .rounds: return result?.roundsCompleted ?? 0
+        case .minutes: return max(0, result?.elapsedSeconds ?? 0) / 60
+        case .seconds: return max(0, result?.elapsedSeconds ?? 0) % 60
+        }
+    }
+
+    /// Actualizar una marca COMPLETADA sin tocar la prescripción, los sets
+    /// registrados, los UUID de Salud o los demás bloques del entrenamiento.
+    /// También permite crear el primer resultado de un AMRAP histórico.
+    public static func changingScore(
+        in session: WorkoutSession, for block: RoutineBlock,
+        field: ScoreField, value: Int
+    ) -> WorkoutSession {
+        guard let format = block.wodFormat,
+              format.resultCapture != .perMovementSets else { return session }
+        switch field {
+        case .reps, .rounds:
+            guard format.resultCapture == .totalReps else { return session }
+        case .minutes, .seconds:
+            guard format.resultCapture == .elapsedTime else { return session }
+        }
+        var updated = session
+        var result = editableScore(for: block, in: session) ?? WODBlockResult(
+            id: block.id, format: format,
+            totalReps: format.resultCapture == .totalReps ? 0 : nil,
+            elapsedSeconds: format.resultCapture == .elapsedTime ? 0 : nil,
+            roundsCompleted: (format == .amrap || format == .deathBy) ? 0 : nil,
+            wodTemplateId: block.wodTemplateId
+        )
+        result.format = format
+        switch field {
+        case .reps:
+            result.totalReps = min(5000, max(0, value))
+        case .rounds:
+            guard format == .amrap || format == .deathBy else { return session }
+            result.roundsCompleted = min(200, max(0, value))
+        case .minutes:
+            let seconds = max(0, result.elapsedSeconds ?? 0)
+            result.elapsedSeconds = min(180, max(0, value)) * 60 + seconds % 60
+        case .seconds:
+            let seconds = max(0, result.elapsedSeconds ?? 0)
+            result.elapsedSeconds = seconds / 60 * 60 + min(59, max(0, value))
+        }
+        updated.wodResults.removeAll { $0.id == block.id }
+        updated.wodResults.append(result)
+        return updated
+    }
+
     public static func routine(from session: WorkoutSession, sourceRoutine: Routine? = nil) -> Routine {
         let sources = session.routineBlocks ?? sourceRoutine?.blocks ?? []
         var remaining = session.exercises
