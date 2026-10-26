@@ -96,7 +96,6 @@ struct HomeView: View {
     /// Day-keyed buckets — rebuilt off the critical body path (no full-array filter per paint).
     @State private var workoutsByDayKey: [String: [WorkoutSession]] = [:]
     @State private var healthByDayKey: [String: [HealthKitStore.ExternalActivity]] = [:]
-    @State private var healthActiveDayKeys: Set<String> = []
     @State private var kcalByDayKey: [String: Double] = [:]
     @State private var healthMinutesByDayKey: [String: Double] = [:]
     @State private var prCountBySessionId: [UUID: Int] = [:]
@@ -637,6 +636,11 @@ struct HomeView: View {
 
     private func calendarDayColumn(_ day: DayCell, side: CGFloat) -> some View {
         let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
+        // No fiarse del hasWorkout precalculado de DayCell: puede quedarse
+        // obsoleto cuando cambian las sesiones o las lecturas de Salud.
+        // El punto debe reflejar exactamente los datos que pinta la tarjeta
+        // del día seleccionado, incluso antes de reconstruir el carrusel.
+        let hasCompletedWorkout = hasCompletedWorkoutOnDay(day.iso)
         return VStack(spacing: 2) {
             Text(day.lbl)
                 .font(.system(size: 11, weight: .medium))
@@ -648,7 +652,7 @@ struct HomeView: View {
                 .foregroundStyle(selected ? OG.onAccent : OG.label)
             // Solo marcar entrenamientos finalizados (Repera o Apple Salud).
             // La selección cambia el color del punto, nunca su visibilidad.
-            if day.hasWorkout {
+            if hasCompletedWorkout {
                 Circle()
                     .fill(selected ? OG.onAccent : OG.accent)
                     .frame(width: 4, height: 4)
@@ -1395,10 +1399,8 @@ struct HomeView: View {
 
         var healthMap: [String: [HealthKitStore.ExternalActivity]] = [:]
         var minutes: [String: Double] = [:]
-        var keys = Set<String>()
         for activity in health.recentExternalActivities {
             let key = dayKey(activity.start)
-            keys.insert(key)
             healthMap[key, default: []].append(activity)
             minutes[key, default: 0] += max(0, activity.durationMinutes)
         }
@@ -1413,9 +1415,16 @@ struct HomeView: View {
 
         workoutsByDayKey = workouts
         healthByDayKey = healthMap
-        healthActiveDayKeys = keys
         kcalByDayKey = kcals
         healthMinutesByDayKey = minutes.filter { $0.value > 0 }
+    }
+
+    /// Fuente única del punto y de la tarjeta del día: únicamente las
+    /// sesiones terminadas de Repera y las actividades completadas de Salud.
+    /// Ni la fecha seleccionada ni una rutina programada aportan un punto.
+    private func hasCompletedWorkoutOnDay(_ key: String) -> Bool {
+        !(workoutsByDayKey[key]?.isEmpty ?? true)
+            || !(healthByDayKey[key]?.isEmpty ?? true)
     }
 
     private func rebuildWeekChrome() {
@@ -1592,11 +1601,6 @@ struct HomeView: View {
             ? ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]
             : ["DO", "LU", "MA", "MI", "JU", "VI", "SA"]
 
-        // Solo finalizados: el bucket Repera excluye sesiones en curso.
-        // Health contiene actividades completadas, no entrenos planificados.
-        var workoutDays = Set(workoutsByDayKey.keys)
-        workoutDays.formUnion(healthActiveDayKeys)
-
         // Un solo pase de rutinas → keys de plan de la semana visible.
         var planKeys = Set<String>()
         let weekDates: [Date] = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
@@ -1622,7 +1626,7 @@ struct HomeView: View {
                 date: dayStart,
                 lbl: labels[i],
                 num: calendar.component(.day, from: d),
-                hasWorkout: workoutDays.contains(key),
+                hasWorkout: hasCompletedWorkoutOnDay(key),
                 hasPlan: planKeys.contains(key)
             )
         }
