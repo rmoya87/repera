@@ -420,6 +420,12 @@ struct ProgressCaloriesChartCard: View {
     private var total: Double { prepared.caloriesTotal }
 
     private var hasData: Bool { points.contains { $0.value > 0 } }
+    private var dailyAverage: Double? { prepared.caloriesDailyAverage }
+    private var previousAverage: Double? { prepared.previousCaloriesDailyAverage }
+    private var averageChange: Double? {
+        guard let dailyAverage, let previousAverage, previousAverage > 0 else { return nil }
+        return (dailyAverage / previousAverage - 1) * 100
+    }
 
     private var yMax: Double {
         let peak = points.map(\.value).max() ?? 1
@@ -530,18 +536,52 @@ struct ProgressCaloriesChartCard: View {
                             }
                         }
                         .chartLegend(.hidden)
-                        .frame(height: 190)
+                        .frame(height: 210)
                         .frame(maxWidth: .infinity)
                     } else {
                         ProgressEmptyChart(
                             message: "Sin kcal de Salud en \(range.title.lowercased()).",
-                            height: 190,
+                            height: 210,
                             yRange: 0.0...600.0
                         )
                     }
+                    HStack(spacing: 8) {
+                        calorieStat(
+                            title: "Media/día",
+                            value: dailyAverage.map { "\(Int($0.rounded()).formatted()) kcal" } ?? "—"
+                        )
+                        calorieStat(
+                            title: "Periodo ant.",
+                            value: previousAverage.map { "\(Int($0.rounded()).formatted()) kcal" } ?? "—"
+                        )
+                        calorieStat(
+                            title: "Variación",
+                            value: averageChange.map {
+                                "\($0 >= 0 ? "+" : "")\(Int($0.rounded())) %"
+                            } ?? "—"
+                        )
+                    }
+                    .padding(.top, 2)
                 }
             }
         }
+    }
+
+    private func calorieStat(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(OG.label3)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 6)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -729,27 +769,31 @@ struct ProgressWeightChartCard: View {
                         }
                         .frame(height: 210)
 
-                        if let latest, let goal = goalKg, let delta = deltaVsGoal {
-                            HStack(spacing: 12) {
-                                weightStat(
-                                    label: "Actual",
-                                    value: "\(latest.weightKg.formatted(.number.precision(.fractionLength(1)))) kg"
-                                )
-                                weightStat(
-                                    label: "Objetivo",
-                                    value: "\(goal.formatted(.number.precision(.fractionLength(1)))) kg"
-                                )
-                                weightStat(
-                                    label: "Δ",
-                                    value: {
-                                        let sign = delta > 0 ? "+" : ""
-                                        return "\(sign)\(delta.formatted(.number.precision(.fractionLength(1)))) kg"
-                                    }(),
-                                    valueColor: deltaColor
-                                )
-                            }
-                            .padding(.top, 2)
-                        }
+                    }
+                    // Peso conserva la misma fila de estadísticas que Calorías,
+                    // incluso sin objetivo configurado o sin lecturas.
+                    HStack(spacing: 8) {
+                        weightStat(
+                            label: "Actual",
+                            value: latest.map {
+                                "\($0.weightKg.formatted(.number.precision(.fractionLength(1)))) kg"
+                            } ?? "—"
+                        )
+                        weightStat(
+                            label: "Objetivo",
+                            value: goalKg.map {
+                                "\($0.formatted(.number.precision(.fractionLength(1)))) kg"
+                            } ?? "—"
+                        )
+                        weightStat(
+                            label: "Δ",
+                            value: deltaVsGoal.map {
+                                "\($0 > 0 ? "+" : "")\($0.formatted(.number.precision(.fractionLength(1)))) kg"
+                            } ?? "—",
+                            valueColor: deltaColor
+                        )
+                    }
+                    .padding(.top, 2)
                     }
                 }
             }
