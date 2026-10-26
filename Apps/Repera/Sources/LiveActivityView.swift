@@ -1640,14 +1640,20 @@ struct LiveActivityView: View {
                                 navigationDirectionsBanner
                             }
                             mapStatusMessages
-                            // Indicaciones y métricas comparten una única
-                            // columna izquierda; el centro del mapa queda libre.
+                            // Dos anclajes independientes en la MISMA columna:
+                            // avisos arriba y métricas al pie, con mapa visible
+                            // entre ambos. Spacer requiere una altura explícita
+                            // para no dejar las métricas justo bajo el aviso.
+                            Spacer(minLength: 12)
                             if recorder.phase == .recording || recorder.phase == .paused {
                                 mapMetricStrip
                             }
-                            Spacer(minLength: 0)
                         }
-                        .frame(width: min(390, max(260, geometry.size.width * 0.42)))
+                        .frame(
+                            width: min(390, max(260, geometry.size.width * 0.42)),
+                            height: max(0, geometry.size.height - 18),
+                            alignment: .topLeading
+                        )
                         Spacer(minLength: 0)
                         mapHeader
                             .frame(width: 44, alignment: .trailing)
