@@ -169,22 +169,14 @@ struct StatsView: View {
                     schedulePrepare(reason: "no-health")
                     return
                 }
-                let fetchDays = isPro
-                    ? ProgressTimeRange.days360.healthFetchDayCount
-                    : ProgressTimeRange.week.healthFetchDayCount
-                ProgressLog.info("Progreso appear → refresh HK \(fetchDays)d")
-                let linked = Set(store.state.workouts.compactMap(\.healthKitWorkoutUUID))
-                let sessions = store.state.workouts
-                await Task.yield()
-                await health.refreshRecentExternalActivities(
-                    excludingUUIDs: linked,
-                    overlappingSessions: sessions,
-                    days: fetchDays
-                )
-                schedulePrepare(reason: "hk-ready")
+                // Cargar solo la cobertura de Salud necesaria para este
+                // filtro. Los 360 días pedirían 730 días con el periodo previo;
+                // nunca ejecutar esa consulta al abrir la semana por defecto.
+                await refreshHealthForSelectedRange(reason: "hk-ready")
             }
             .onChange(of: model.range) { _, _ in
                 schedulePrepare(reason: "range")
+                Task { await refreshHealthForSelectedRange(reason: "hk-range") }
             }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 // A medianoche cambia el tramo comparable sin cambiar syncRevision.
@@ -218,6 +210,24 @@ struct StatsView: View {
                 }
             }
             }
+        }
+    }
+
+    @MainActor
+    private func refreshHealthForSelectedRange(reason: String) async {
+        guard health.isAvailable else { return }
+        let days = model.range.healthFetchDayCount
+        let linked = Set(store.state.workouts.compactMap(\.healthKitWorkoutUUID))
+        let sessions = store.state.workouts
+        ProgressLog.info("Progreso → refresh HK \(days)d")
+        await Task.yield()
+        await health.refreshRecentExternalActivities(
+            excludingUUIDs: linked,
+            overlappingSessions: sessions,
+            days: days
+        )
+        if !Task.isCancelled {
+            schedulePrepare(reason: reason)
         }
     }
 
