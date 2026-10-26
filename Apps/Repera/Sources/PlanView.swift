@@ -133,14 +133,14 @@ struct PlanView: View {
                 }
             }
         } label: {
-            Image(systemName: "ellipsis")
+            Image(systemName: "doc.on.doc")
                 .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
                 .foregroundStyle(OG.label)
                 .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
                 .contentShape(Circle())
                 .glassEffect(.regular.interactive(), in: .circle)
         }
-        .accessibilityLabel("Más opciones")
+        .accessibilityLabel("Copiar semana o gestionar programación")
     }
 
     /// iPhone: título, semana compacta y menú ⋯ comparten una sola fila.
@@ -188,7 +188,8 @@ struct PlanView: View {
         .glassEffect(.regular, in: .capsule)
         .padding(.horizontal, OG.pad)
         .padding(.top, 4)
-        .padding(.bottom, 4)
+        // Separación visual breve, igual que la búsqueda sobre el catálogo.
+        .padding(.bottom, 12)
         .frame(maxWidth: OG.contentColumnMaxWidth)
         .frame(maxWidth: .infinity, alignment: .center)
     }
