@@ -1212,17 +1212,22 @@ final class ReperaStore: NSObject {
         mutateActive { $0.selectExercise(at: index) }
     }
 
-    /// Guarda cada edición en la sesión persistida (local/iCloud/Watch)
-    /// antes de pasar a otro ejercicio o finalizar. No convierte borradores
-    /// en `loggedSets` ni reescribe otras sesiones o plantillas.
+    /// Persiste directamente los valores introducidos durante Play. La
+    /// prescripción sirve de punto de partida; cuando se edita, la misma
+    /// transacción actualiza también el resultado sin ningún check por serie.
     func updateActiveExerciseDraft(
-        id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?
+        id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?,
+        performedSets: [LoggedSet]? = nil
     ) {
         guard let active = state.activeSession else { return }
         var controller = SessionController(session: active)
-        guard controller.updateExerciseDraft(
+        let changedPlan = controller.updateExerciseDraft(
             id: id, plannedSets: plannedSets, quantityUnit: quantityUnit
-        ) else { return }
+        )
+        let changedResults = performedSets.map {
+            controller.replaceRecordedSets(exerciseID: id, sets: $0)
+        } ?? false
+        guard changedPlan || changedResults else { return }
         state.activeSession = controller.session
         persist()
         pushActiveToWatch()
