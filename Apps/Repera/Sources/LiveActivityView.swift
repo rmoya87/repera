@@ -183,6 +183,13 @@ enum LiveSport: String, CaseIterable, Identifiable {
     }
 
     var isCycling: Bool { self == .cycling || self == .mountainBike || self == .gravel }
+    var isWaterSport: Bool {
+        switch self {
+        case .surfing, .swimming, .windsurfing, .kitesurfing,
+             .kayaking, .rowing, .canoeing, .sailing: true
+        default: false
+        }
+    }
 
     var displaysSpeed: Bool {
         switch self {
@@ -797,7 +804,9 @@ final class LiveActivityRecorder: NSObject {
     /// Solo se toca el audio de otras apps cuando la locución está habilitada.
     @discardableResult
     private func speakNavigation(_ message: String) -> Bool {
-        guard spokenGuidanceEnabled, !speechSynthesizer.isSpeaking else { return false }
+        // La indicación del kilómetro se encola también si acabamos de
+        // anunciar un giro GPX. Nunca sustituirla por una notificación.
+        guard spokenGuidanceEnabled else { return false }
         let audio = AVAudioSession.sharedInstance()
         do {
             try audio.setCategory(
@@ -1350,9 +1359,10 @@ final class LiveActivityRecorder: NSObject {
         identifier: String, title: String, body: String,
         fallbackWhenSpeechFailed: Bool = false
     ) {
-        // No duplicar avisos hablados. Si falla la locución en segundo plano,
-        // permitir solo el aviso visual (jamás interrumpir el audio de otra app).
-        guard (!spokenGuidanceEnabled || fallbackWhenSpeechFailed),
+        // Con voz activa, los kilómetros y giros se anuncian solo por audio;
+        // nunca reemplazarlos por una notificación con icono de la app.
+        // Si el usuario desactiva la voz, el aviso visual es opcional.
+        guard !spokenGuidanceEnabled,
               UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = title
@@ -1478,6 +1488,8 @@ struct LiveActivityView: View {
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
+    @State private var showFullScreenRoute = false
+    @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
@@ -1549,6 +1561,30 @@ struct LiveActivityView: View {
             }
         }
         .tint(OG.accent)
+        .fullScreenCover(isPresented: $showFullScreenRoute) {
+            NavigationStack {
+                HealthWorkoutRouteMap(
+                    points: fullScreenRoutePoints,
+                    isInteractive: true,
+                    isWaterSport: recorder.sport.isWaterSport
+                )
+                .ignoresSafeArea(edges: .bottom)
+                .navigationTitle("Recorrido")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showFullScreenRoute = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .accessibilityLabel("Cerrar mapa")
+                    }
+                }
+            }
+            .tint(OG.accent)
+        }
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
@@ -1608,7 +1644,7 @@ struct LiveActivityView: View {
             } else {
                 output.append(LiveColoredMapSegment(
                     id: sample.index, coordinates: [sample.start, sample.end],
-                    color: Self.traceColor(Double(bucket) / 5)
+                    color: Self.traceColor(Double(bucket) / 5, water: recorder.sport.isWaterSport)
                 ))
             }
             previousIndex = sample.index
@@ -1617,16 +1653,23 @@ struct LiveActivityView: View {
         return output
     }
 
-    /// Misma escala que el mapa de los entrenamientos guardados:
-    /// verde = más lento, amarillo = intermedio, rojo = más rápido.
-    private static func traceColor(_ fraction: Double) -> Color {
+    /// Ruta terrestre: azul → amarillo → naranja → rojo.
+    /// Agua: verde → amarillo → naranja → rojo.
+    private static func traceColor(_ fraction: Double, water: Bool) -> Color {
         let t = min(1, max(0, fraction))
-        if t < 0.5 {
-            let u = t * 2
-            return Color(red: 0.2 + 0.8 * u, green: 0.82, blue: 0.2 * (1 - u))
-        }
-        let u = (t - 0.5) * 2
-        return Color(red: 1, green: 0.82 * (1 - u) + 0.27 * u, blue: 0.23 * u)
+        let stops: [(r: Double, g: Double, b: Double)] = [
+            water ? (0.08, 0.72, 0.31) : (0.06, 0.39, 0.98),
+            (0.98, 0.82, 0.12), (1.0, 0.49, 0.07), (0.92, 0.14, 0.12)
+        ]
+        let scaled = t * 3
+        let index = min(2, Int(scaled))
+        let mix = scaled - Double(index)
+        let a = stops[index], b = stops[index + 1]
+        return Color(
+            red: a.r + (b.r - a.r) * mix,
+            green: a.g + (b.g - a.g) * mix,
+            blue: a.b + (b.b - a.b) * mix
+        )
     }
 
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
@@ -2395,23 +2438,6 @@ struct LiveActivityView: View {
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(OG.label2)
                         }
-                        if recorder.sport.usesGPS,
-                           let distance = session.recordedDistanceMeters, distance > 0,
-                           recorder.durationSeconds > 0 {
-                            let km = distance / 1000
-                            let speed = km / (recorder.durationSeconds / 3600)
-                            HStack(spacing: 8) {
-                                Label(String(format: "%.1f km/h de media", speed),
-                                      systemImage: "speedometer")
-                                Spacer()
-                                if !recorder.sport.displaysSpeed {
-                                    let sec = Int(recorder.durationSeconds / km)
-                                    Text(String(format: "%d:%02d min/km", sec / 60, sec % 60))
-                                }
-                            }
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
-                        }
                     }
                     .ogCardListRow(top: 4, bottom: 4)
                 } header: {
@@ -2440,12 +2466,20 @@ struct LiveActivityView: View {
                             longitude: route.first?.longitude,
                             workoutDate: session.startedAt ?? .now
                         ) {
-                            HealthWorkoutRouteMap(points: route, isInteractive: false)
+                            Button {
+                                fullScreenRoutePoints = route
+                                showFullScreenRoute = true
+                            } label: {
+                                HealthWorkoutRouteMap(
+                                    points: route,
+                                    isInteractive: false,
+                                    isWaterSport: recorder.sport.isWaterSport
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Abrir recorrido a pantalla completa")
                         }
                         .ogCardListRow()
-                    } header: {
-                        Text(isRecordedRoute ? "Recorrido registrado" : "Ruta seleccionada")
-                            .foregroundStyle(OG.accent).textCase(nil)
                     }
                     if isRecordedRoute {
                         Section {
@@ -2453,7 +2487,9 @@ struct LiveActivityView: View {
                                 routePoints: route,
                                 heartRate: previewHealthExtras?.heartRateSeries ?? [],
                                 cycling: recorder.sport.displaysSpeed,
-                                activeKilometerSeconds: session.liveKilometerSplitsSeconds
+                                activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                totalActiveSeconds: session.activeDurationSeconds,
+                                totalDistanceMeters: session.recordedDistanceMeters
                             )
                             .ogCardListRow()
                         } header: {
