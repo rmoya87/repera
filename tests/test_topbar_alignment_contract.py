@@ -59,11 +59,15 @@ class TopBarAlignmentContractTests(unittest.TestCase):
                   ".padding(.bottom, OG.topBarBottomInset)"):
             self.assertIn(p, section)
         library = read("LibraryView.swift")
-        root = library.split('Text("Ejercicios")', 1)[1].split("HStack(spacing: 9)", 1)[0]
+        root = library.split("private var exerciseActionHeader: some View {", 1)[1].split(
+            "private var exerciseSearchField:", 1
+        )[0]
         for p in (".padding(.horizontal, OG.topBarHorizontalInset)",
                   ".padding(.top, OG.topBarTopInset)",
                   ".padding(.bottom, OG.topBarBottomInset)"):
             self.assertIn(p, root)
+        self.assertIn("HStack(alignment: .center, spacing: 16)", root)
+        self.assertIn('Text("Ejercicios")', root)
 
     def test_sheet_headers_do_not_add_hidden_extra_top_padding(self):
         sections = (
@@ -92,18 +96,28 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         )[0]
         self.assertIn("VStack(spacing: 16)", map_header)
 
-    def test_exercises_in_compact_mode_use_native_ios_toolbar(self):
+    def test_exercises_iphone_and_duo_share_inline_title_actions(self):
         library = read("LibraryView.swift")
-        self.assertNotIn("ToolbarItem(placement: .topBarLeading)", library)
+        self.assertIn("private var usesCompactExerciseHeader: Bool", library)
+        self.assertIn("!isExpandedLayout && filterMode != .wods && filterMode != .sports", library)
+        self.assertIn("private var hasCustomExerciseHeader: Bool", library)
+        self.assertIn("usesSplitExerciseLayout || usesCompactExerciseHeader", library)
+        header = library.split("private var exerciseActionHeader: some View {", 1)[1].split(
+            "private var exerciseSearchField:", 1
+        )[0]
+        self.assertLess(header.index('Text("Ejercicios")'),
+                        header.index('systemName: "line.3.horizontal.decrease"'))
+        self.assertLess(header.index('systemName: "line.3.horizontal.decrease"'),
+                        header.index('systemName: "plus"'))
+        self.assertIn("appliesGlass: true", header)
+        self.assertIn("exerciseActionHeader\n                            exerciseSearchField", library)
+        self.assertIn("if usesCompactExerciseHeader {", library)
+        self.assertIn("exerciseActionHeader\n                        exerciseSearchField", library)
+        self.assertIn(".safeAreaInset(edge: .top, spacing: 0)", library)
+        self.assertIn(".toolbar(hasCustomExerciseHeader ? .hidden : .visible", library)
+        self.assertIn("enabled: !hasCustomExerciseHeader", library)
         self.assertGreaterEqual(library.count("ToolbarItem(placement: .topBarTrailing)"), 2)
         self.assertIn(".navigationBarTitleDisplayMode(.large)", library)
-        self.assertIn(".toolbar(usesSplitExerciseLayout ? .hidden : .visible", library)
-        duo = library.split("} else if usesSplitExerciseLayout {", 1)[1].split(
-            "HStack(spacing: 9)", 1
-        )[0]
-        self.assertIn(".padding(.top, OG.topBarTopInset)", duo)
-        self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", duo)
-        self.assertIn("HStack(spacing: 16)", duo)
 
     def test_native_toolbar_is_not_forced_into_manual_custom_geometry(self):
         theme = read("Theme.swift")
