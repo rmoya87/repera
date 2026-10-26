@@ -86,7 +86,7 @@ public enum MuscleMapEngine {
             for entry in workout.exercises {
                 // La movilidad no representa volumen de fuerza ni fatiga muscular.
                 guard entry.exercise.sportTag != "Movilidad" else { continue }
-                let hardSets = entry.loggedSets.reduce(0.0) { partial, set in
+                let hardSets = StatsEngine.confirmedWorkSets(entry, in: workout).reduce(0.0) { partial, set in
                     guard set.reps > 0 else { return partial }
                     if hardOnly {
                         // Solo fuerza «dura» (RIR); cardio/máquina no entra en este filtro.
