@@ -1,8 +1,8 @@
 import ReperaDomain
 import SwiftUI
 
-/// Registro rápido sin crear una rutina. Reutiliza los steppers y el teclado
-/// numérico de Repera empleados en la edición de entrenamientos programados.
+/// Registro rápido sin crear una rutina. Campos numéricos adaptados al ejercicio
+/// y eliminación de series por swipe nativo, igual que otros registros.
 struct QuickLogSheet: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -26,7 +26,6 @@ struct QuickLogSheet: View {
     private var loadField: ExerciseLoadField { exercise.loadField }
     private var isMobility: Bool { exercise.isMobility }
     private var isHold: Bool { exercise.isMobilityHold }
-    private var weightStep: Double { max(0.25, store.state.settings.weightIncrementKg) }
     private var canSave: Bool {
         rows.contains { $0.reps > 0 && (!isHold || $0.durationSeconds > 0) }
     }
@@ -38,70 +37,71 @@ struct QuickLogSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    if style == .machineWork && exercise.allowsCalorieOrDistanceToggle {
-                        OGCard(padding: 14, verticalPadding: 12) {
-                            Picker("Unidad", selection: $quantityUnit) {
-                                Text("Cal").tag(ExerciseQuantityUnit.calories)
-                                Text("Metros").tag(ExerciseQuantityUnit.meters)
-                            }
-                            .pickerStyle(.segmented)
+            List {
+                if style == .machineWork && exercise.allowsCalorieOrDistanceToggle {
+                    Section {
+                        Picker("Unidad", selection: $quantityUnit) {
+                            Text("Cal").tag(ExerciseQuantityUnit.calories)
+                            Text("Metros").tag(ExerciseQuantityUnit.meters)
                         }
+                        .pickerStyle(.segmented)
                     }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        OGCardSectionTitle(title: exercise.name)
-                        ForEach($rows) { $row in
-                            let index = (rows.firstIndex(where: { $0.id == row.id }) ?? 0) + 1
-                            setCard($row, index: index)
-                        }
-
-                        Button {
-                            let last = rows.last
-                            rows.append(DraftSet(
-                                reps: last?.reps ?? defaultReps,
-                                weightKg: last?.weightKg ?? defaultWeight,
-                                deficitCm: last?.deficitCm ?? 0,
-                                durationSeconds: last?.durationSeconds ?? defaultDurationSeconds
-                            ))
-                        } label: {
-                            Label("Añadir serie", systemImage: "plus")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: OG.radiusCard)
-                                .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
-                        }
-                    }
-
-                    OGCard(padding: 14, verticalPadding: 12) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Toggle("Añadir nota", isOn: $includeNotes)
-                                .tint(OG.accent)
-                            if includeNotes {
-                                TextField("Cómo te sentiste, carga…", text: $notes, axis: .vertical)
-                                    .lineLimit(2...4)
-                                    .padding(10)
-                                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
-                            }
-                        }
-                    }
-                    guidance
                 }
-                .padding(.horizontal, OG.pad)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
-                .ogReadableColumn()
+
+                Section {
+                    ForEach($rows) { $row in
+                        let index = (rows.firstIndex(where: { $0.id == row.id }) ?? 0) + 1
+                        setCard($row, index: index)
+                            .listRowInsets(EdgeInsets(
+                                top: 5, leading: OG.pad, bottom: 5, trailing: OG.pad
+                            ))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                OGSwipeDeleteButton(
+                                    systemImage: "trash",
+                                    accessibilityLabel: "Eliminar serie \\(index)"
+                                ) {
+                                    rows.removeAll { $0.id == row.id }
+                                }
+                            }
+                    }
+                } header: {
+                    OGCardSectionTitle(title: exercise.name)
+                        .textCase(nil)
+                }
+
+                Section {
+                    Button {
+                        let last = rows.last
+                        rows.append(DraftSet(
+                            reps: last?.reps ?? defaultReps,
+                            weightKg: last?.weightKg ?? defaultWeight,
+                            deficitCm: last?.deficitCm ?? 0,
+                            durationSeconds: last?.durationSeconds ?? defaultDurationSeconds
+                        ))
+                    } label: {
+                        Label("Añadir serie", systemImage: "plus")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Section {
+                    Toggle("Añadir nota", isOn: $includeNotes)
+                        .tint(OG.accent)
+                    if includeNotes {
+                        TextField("Cómo te sentiste, carga…", text: $notes, axis: .vertical)
+                            .lineLimit(2...4)
+                    }
+                }
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
-            // El lienzo no es una tarjeta opaca: deja visible Liquid Glass
-            // del sheet. Solo los controles y las filas usan OG.surface.
             .background(Color.clear)
             .navigationTitle("Apuntar ejercicio")
             .navigationBarTitleDisplayMode(.inline)
@@ -129,167 +129,91 @@ struct QuickLogSheet: View {
     }
 
     private func setCard(_ row: Binding<DraftSet>, index: Int) -> some View {
-        OGCard(padding: 12, verticalPadding: 12) {
+        OGCard(padding: 14, verticalPadding: 12) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Serie \(index)")
+                HStack(spacing: 10) {
+                    // El número identificador precede al título de la serie.
+                    Text("\\(index)")
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                        .frame(width: 32, height: 32)
+                        .background(OG.surface2, in: Circle())
+                    Text("Serie")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(OG.label)
-                    Spacer()
-                    Button(role: .destructive) {
-                        rows.removeAll { $0.id == row.wrappedValue.id }
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                            .frame(width: 36, height: 32)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Eliminar serie \(index)")
+                    Spacer(minLength: 0)
                 }
-                HStack(alignment: .top, spacing: 8) {
-                    if style == .loadAndReps {
-                        loadMetric(row)
-                    }
-                    if style == .repsAndTime || style == .machineWork {
-                        durationMetric(row)
-                    }
-                    if !isHold {
-                        quantityMetric(row)
-                    }
+
+                // Cada estilo solo solicita valores que tienen sentido para él.
+                if style == .loadAndReps {
+                    loadMetric(row)
                 }
-                .frame(maxWidth: .infinity)
+                if style == .repsAndTime || style == .machineWork {
+                    durationMetric(row)
+                }
+                if !isHold {
+                    quantityMetric(row)
+                }
             }
         }
     }
 
-    /// OGRepeatStepper admite − / + y edición al pulsar el valor mediante
-    /// OGNumericTextField: mismo teclado Repera 4×4 que Entreno programado.
     private func loadMetric(_ row: Binding<DraftSet>) -> some View {
-        metricColumn(
-            title: Exercise.loadStepperTitle(
-                name: exercise.name, equipment: exercise.equipment
-            )
-        ) {
-            if loadField == .deficitCm {
-                OGRepeatStepper(
-                    display: "\(row.wrappedValue.deficitCm)",
-                    compact: true,
-                    keyboard: .numberPad,
-                    onMinus: {
-                        row.wrappedValue.deficitCm = max(0, row.wrappedValue.deficitCm - 1)
-                    },
-                    onPlus: {
-                        row.wrappedValue.deficitCm = min(60, row.wrappedValue.deficitCm + 1)
-                    },
-                    onCommitText: {
-                        row.wrappedValue.deficitCm = parseInt($0, cap: 60)
-                    }
-                )
-            } else {
-                OGRepeatStepper(
-                    display: String(format: "%g", row.wrappedValue.weightKg),
-                    compact: true,
-                    keyboard: .decimalPad,
-                    onMinus: {
-                        row.wrappedValue.weightKg = roundWeight(row.wrappedValue.weightKg - weightStep)
-                    },
-                    onPlus: {
-                        row.wrappedValue.weightKg = roundWeight(row.wrappedValue.weightKg + weightStep)
-                    },
-                    onCommitText: {
-                        let number = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0
-                        row.wrappedValue.weightKg = min(1500, max(0, number))
-                    }
-                )
+        if loadField == .deficitCm {
+            metricRow("Déficit (cm)", value: "\\(row.wrappedValue.deficitCm)") {
+                row.wrappedValue.deficitCm = parseInt($0, cap: 60)
+            }
+        } else {
+            metricRow(
+                Exercise.loadStepperTitle(name: exercise.name, equipment: exercise.equipment),
+                value: String(format: "%g", row.wrappedValue.weightKg),
+                allowsDecimal: true
+            ) {
+                let value = Double($0.replacingOccurrences(of: ",", with: ".")) ?? 0
+                row.wrappedValue.weightKg = roundWeight(value)
             }
         }
     }
 
     private func durationMetric(_ row: Binding<DraftSet>) -> some View {
-        metricColumn(title: isMobility ? "Duración (s)" : "Tiempo (s)") {
-            OGRepeatStepper(
-                display: "\(row.wrappedValue.durationSeconds)",
-                compact: true,
-                keyboard: .numberPad,
-                onMinus: {
-                    row.wrappedValue.durationSeconds = max(0, row.wrappedValue.durationSeconds - 5)
-                },
-                onPlus: {
-                    row.wrappedValue.durationSeconds = min(86_400, row.wrappedValue.durationSeconds + 5)
-                },
-                onCommitText: {
-                    row.wrappedValue.durationSeconds = parseInt($0, cap: 86_400)
-                }
-            )
+        metricRow(isMobility ? "Duración (s)" : "Tiempo (s)",
+                  value: "\\(row.wrappedValue.durationSeconds)") {
+            row.wrappedValue.durationSeconds = parseInt($0, cap: 86_400)
         }
     }
 
     private func quantityMetric(_ row: Binding<DraftSet>) -> some View {
-        metricColumn(title: quantityLabel) {
-            OGRepeatStepper(
-                display: "\(row.wrappedValue.reps)",
-                compact: true,
-                keyboard: .numberPad,
-                onMinus: {
-                    row.wrappedValue.reps = max(0, row.wrappedValue.reps - quantityStep)
-                },
-                onPlus: {
-                    row.wrappedValue.reps = min(style.quantityCap, row.wrappedValue.reps + quantityStep)
-                },
-                onCommitText: {
-                    row.wrappedValue.reps = parseInt($0, cap: style.quantityCap)
-                }
-            )
+        metricRow(quantityLabel, value: "\\(row.wrappedValue.reps)") {
+            row.wrappedValue.reps = parseInt($0, cap: style.quantityCap)
         }
     }
 
-    private func metricColumn<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
+    private func metricRow(
+        _ title: String,
+        value: String,
+        allowsDecimal: Bool = false,
+        onUpdate: @escaping (String) -> Void
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 12) {
             Text(title)
-                .font(.caption.weight(.medium))
+                .font(.subheadline)
                 .foregroundStyle(OG.label2)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            content()
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 6)
+            QuickLogNumberField(
+                display: value,
+                allowsDecimal: allowsDecimal,
+                onUpdate: onUpdate
+            )
+            .frame(width: 120)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private var guidance: some View {
-        switch style {
-        case .repsAndTime:
-            Text(isMobility
-                 ? (isHold ? "Registra la duración real de cada mantenimiento." :
-                    "Registra repeticiones y segundos de cada secuencia.")
-                 : "Comba: repeticiones y tiempo por serie.")
-        case .machineWork:
-            Text("Registra el tiempo y \(quantityLabel.lowercased()) por serie.")
-        case .repsOnly:
-            Text("Registra las repeticiones de cada serie.")
-        case .loadAndReps:
-            Text(loadField == .deficitCm
-                 ? "Registra déficit en cm y repeticiones por serie."
-                 : "Ajusta peso y repeticiones de cada serie.")
-        }
+        .frame(minHeight: 46)
     }
 
     private var quantityLabel: String {
         if style == .machineWork { return quantityUnit.shortLabel }
         return exercise.quantityFieldLabel
-    }
-
-    private var quantityStep: Int {
-        switch style {
-        case .machineWork where quantityUnit == .meters: return 50
-        case .machineWork where quantityUnit == .calories: return 1
-        case .repsAndTime: return 5
-        default: return 1
-        }
     }
 
     private var defaultWeight: Double {
@@ -358,5 +282,51 @@ struct QuickLogSheet: View {
             notes: includeNotes ? notes : nil
         )
         dismiss()
+    }
+}
+
+/// Campo independiente para evitar que el modelo reintroduzca el cero en cada
+/// tecla. Los cambios se guardan también antes de cerrar el teclado Repera 4×4.
+private struct QuickLogNumberField: View {
+    let display: String
+    var allowsDecimal: Bool = false
+    var onUpdate: (String) -> Void
+
+    @State private var draft: String
+    @State private var isEditing = false
+
+    init(display: String, allowsDecimal: Bool = false, onUpdate: @escaping (String) -> Void) {
+        self.display = display
+        self.allowsDecimal = allowsDecimal
+        self.onUpdate = onUpdate
+        _draft = State(initialValue: display)
+    }
+
+    var body: some View {
+        OGNumericTextField(
+            text: $draft,
+            allowsDecimal: allowsDecimal,
+            textAlignment: .center,
+            fontSize: 19,
+            autoFocus: false,
+            onFocused: { isEditing = true },
+            onFocusLost: { commit() },
+            onCommit: { commit() }
+        )
+        .frame(height: 44)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .onChange(of: draft) { _, updated in
+            onUpdate(updated)
+        }
+        .onChange(of: display) { _, updated in
+            if !isEditing && draft != updated {
+                draft = updated
+            }
+        }
+    }
+
+    private func commit() {
+        onUpdate(draft)
+        isEditing = false
     }
 }
