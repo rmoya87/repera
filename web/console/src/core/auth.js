@@ -347,6 +347,24 @@ export class ReperaAuthAPI {
   return this.#authorized('business_pass_offers?select=id,name',{method:'POST',prefer:'return=representation',
    body:{org_id:orgId,name,kind,credits,validity_days:validityDays,price_cents:priceCents,currency:'EUR',is_active:true}});
  }
+ async issueOfflinePass({orgId,clientId,offerId,requestId=globalThis.crypto?.randomUUID?.()}){
+  if(![orgId,clientId,offerId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))
+   throw Error('Cliente, bono o solicitud no válidos');
+  return this.#authorized('rpc/business_issue_offline_pass',{method:'POST',body:{
+   p_org:orgId,p_client:clientId,p_offer:offerId,p_request:requestId}});
+ }
+ async recordTrainerAttendance({orgId,clientId,passId,occurrenceId=null,note='',requestId=globalThis.crypto?.randomUUID?.()}){
+  if(![orgId,clientId,passId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||
+     occurrenceId&&!/^[0-9a-f-]{36}$/i.test(occurrenceId)||String(note).length>1000)
+    throw Error('Datos de sesión no válidos');
+  return this.#authorized('rpc/business_record_trainer_attendance',{method:'POST',body:{
+   p_org:orgId,p_client:clientId,p_pass:passId,p_occurrence:occurrenceId,
+   p_note:String(note),p_request:requestId}});
+ }
+ async trainerAttendance(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('business_trainer_attendance?select=id,org_id,client_id,pass_id,booking_id,occurrence_id,performed_at,note&org_id=eq.'+orgId+'&order=performed_at.desc&limit=200');
+ }
  async changeServicePassOffer({id,isActive}){
   if(!/^[0-9a-f-]{36}$/i.test(id||'')||typeof isActive!=='boolean')throw Error('Oferta inválida');
   return this.#authorized('business_pass_offers?id=eq.'+id,{method:'PATCH',prefer:'return=representation',body:{is_active:isActive}});
