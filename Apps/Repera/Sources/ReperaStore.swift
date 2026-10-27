@@ -2371,7 +2371,9 @@ final class ReperaStore: NSObject {
 
     /// Conteo barato para gates freemium (sin sort ni arrays intermedios).
     var libraryRoutineCount: Int {
-        state.routines.reduce(into: 0) { if $1.isLibraryRoutine { $0 += 1 } }
+        state.routines.reduce(into: state.favoriteSportActivities.count) {
+            if $1.isLibraryRoutine { $0 += 1 }
+        }
     }
 
     var customExerciseCount: Int {
@@ -2493,6 +2495,9 @@ final class ReperaStore: NSObject {
 
     /// El favorito de un entreno completado se mantiene tras cerrar y reabrir el detalle.
     func isWorkoutFavorite(_ id: UUID) -> Bool {
+        if state.favoriteSportActivities.contains(where: { $0.sourceWorkoutId == id }) {
+            return true
+        }
         guard let session = state.workouts.first(where: { $0.id == id }) else { return false }
         if let favoriteId = session.favoriteRoutineId {
             return state.routines.contains { $0.id == favoriteId && $0.isFavorite }
@@ -2515,6 +2520,35 @@ final class ReperaStore: NSObject {
             return false
         }
         let session = state.workouts[workoutIndex]
+        // Comenzar registra deportes sin ejercicios de fuerza. La estrella
+        // guarda un acceso reutilizable al deporte, nunca una rutina vacía.
+        if let existingIndex = state.favoriteSportActivities.firstIndex(where: {
+            $0.sourceWorkoutId == session.id
+        }) {
+            state.favoriteSportActivities.remove(at: existingIndex)
+            persist()
+            return true
+        }
+        if session.exercises.isEmpty,
+           (session.routineBlocks?.allSatisfy {
+               $0.exercises.isEmpty && $0.movements.isEmpty
+           } ?? true),
+           let sportID = session.liveSportID, !sportID.isEmpty {
+            var policy = featureAccess?() ?? FeatureAccessPolicy()
+            policy.libraryRoutineCount = libraryRoutineCount
+            let decision = policy.canCreateLibraryRoutine(isNew: true)
+            guard decision.allowed else {
+                lastAccessDenial = decision
+                return false
+            }
+            state.favoriteSportActivities.append(FavoriteSportActivity(
+                sourceWorkoutId: session.id,
+                sportID: sportID,
+                title: session.title.isEmpty ? "Mi actividad" : session.title
+            ))
+            persist()
+            return true
+        }
         if let favoriteId = session.favoriteRoutineId,
            let existing = state.routines.first(where: { $0.id == favoriteId }) {
             return setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite)
@@ -2536,7 +2570,11 @@ final class ReperaStore: NSObject {
         // Algunas versiones antiguas guardaban el resultado sin su snapshot;
         // recuperar la estructura solo cuando sigue existiendo el plan original.
         let originalPlan = session.routineId.flatMap { id in
-            state.routines.first(where: { $0.id == id && !$0.blocks.isEmpty })
+            state.routines.first(where: { plan in
+                plan.id == id && plan.blocks.contains {
+                    !$0.exercises.isEmpty || !$0.movements.isEmpty
+                }
+            })
         }
         guard hasReusableBlocks || !session.exercises.isEmpty || originalPlan != nil else {
             lastFavoriteSaveError = session.liveSportID != nil
@@ -2565,6 +2603,13 @@ final class ReperaStore: NSObject {
         state.workouts[workoutIndex].favoriteRoutineId = template.id
         persist()
         return true
+    }
+
+    /// Quitar un deporte favorito sin borrar su entrenamiento histórico.
+    func removeFavoriteSportActivity(_ id: UUID) {
+        guard let index = state.favoriteSportActivities.firstIndex(where: { $0.id == id }) else { return }
+        state.favoriteSportActivities.remove(at: index)
+        persist()
     }
 
     /// Marca la rutina de la sesión activa como favorita, o crea plantilla desde la sesión.
