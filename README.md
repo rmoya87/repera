@@ -1,5 +1,14 @@
 # Repera
 
+## Repera Business: actividad por calendario y operativa de entrenador — 27/10/2026
+
+La administración web muestra cada Atleta con fila pulsable, buscador limpio, calendario de días entrenados y fichas maquetadas con las imágenes exactas de ejercicios del catálogo Repera, bloques y series/resultados útiles. Su acceso se controla por rol administrador y se registra. En centros, `status` operativo y `registration_status` de alta se muestran por separado.
+
+Las solicitudes de vinculación enviadas por iOS pueden llegar al centro: portada con bandeja, Aceptar/Rechazar y refresco manual, sin enlazar un atleta hasta que el responsable lo autorice. Entrenamientos incluye publicación individual y masiva de plantillas a varios deportistas y fechas, con vista previa, validación de límites y prevención de duplicados. La vista delegada de soporte sigue usando el JWT real del administrador, sin suplantar al propietario.
+
+Migraciones `20261027181000_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas en Supabase Repera. CI y prueba E2E de roles distintos requieren verificación; una fusión a main no equivale a desplegar IONOS.
+
+
 ## Administración global renovada (27/10/2026)
 
 El favicon de la consola Business es el mismo PNG binario del icono nativo de iOS, copiado en web/assets/repera-app-icon.png. El menú lateral comienza directamente con las secciones y se pliega a iconos, con preferencia local. El acceso a Auditoría se ha retirado de la navegación, aunque los eventos siguen guardándose en Supabase.
