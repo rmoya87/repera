@@ -85,6 +85,30 @@ struct BusinessPass: Decodable, Identifiable {
         case validUntil = "valid_until"
     }
 }
+struct BusinessPassOffer: Decodable, Identifiable {
+    let id: UUID
+    let orgId: UUID
+    let name: String
+    let kind: String
+    let credits: Int
+    let validityDays: Int
+    let priceCents: Int
+    let currency: String
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, kind, credits, currency
+        case orgId = "org_id"
+        case validityDays = "validity_days"
+        case priceCents = "price_cents"
+        case isActive = "is_active"
+    }
+
+    var localizedPrice: String {
+        (Double(priceCents) / 100).formatted(.currency(code: currency))
+    }
+}
+
 struct BusinessAvailability: Decodable {
     let occurrenceId: UUID
     let reserved: Int
@@ -207,6 +231,7 @@ final class BusinessDataStore {
     private(set) var invitations: [BusinessInvitation] = []
     private(set) var occurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
+    private(set) var passOffers: [BusinessPassOffer] = []
     private(set) var bookings: [BusinessBooking] = []
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
@@ -232,6 +257,7 @@ final class BusinessDataStore {
         invitations = []
         occurrences = []
         passes = []
+        passOffers = []
         bookings = []
         availability = [:]
         trainingSessions = []
@@ -277,6 +303,10 @@ final class BusinessDataStore {
                 .from("service_passes")
                 .select("id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status")
                 .execute().value
+            let fetchedOffers: [BusinessPassOffer] = try await client
+                .from("business_pass_offers")
+                .select("id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active")
+                .execute().value
             let fetchedBookings: [BusinessBooking] = try await client
                 .from("service_bookings")
                 .select("id,org_id,client_id,occurrence_id,status")
@@ -314,6 +344,9 @@ final class BusinessDataStore {
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
+            passOffers = fetchedOffers.filter {
+                $0.isActive && athleteCenterIds.contains($0.orgId)
+            }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
@@ -358,6 +391,10 @@ final class BusinessDataStore {
 
     func passesForOrg(_ orgId: UUID) -> [BusinessPass] {
         passes.filter { $0.orgId == orgId }
+    }
+
+    func offersForOrg(_ orgId: UUID) -> [BusinessPassOffer] {
+        passOffers.filter { $0.orgId == orgId }
     }
 
     func searchDirectory(query: String) async {
