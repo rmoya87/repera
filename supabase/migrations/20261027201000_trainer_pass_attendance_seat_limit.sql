@@ -157,7 +157,7 @@ begin
  if not found or (v_booking is not null and not exists(select 1 from public.service_bookings b where b.id=v_booking and b.pass_id=p_pass))
   or v_pass.kind<>'appointment' or v_pass.status<>'active'
   or (v_booking is null and v_pass.remaining_credits<1)
-  or v_pass.valid_from>now() or v_pass.valid_until<now()
+  or (v_booking is null and (v_pass.valid_from>now() or v_pass.valid_until<now()))
  then raise exception 'INSUFFICIENT_PASS' using errcode='22023';end if;
  insert into public.business_trainer_attendance(
   org_id,client_id,pass_id,booking_id,occurrence_id,request_id,recorded_by,note
