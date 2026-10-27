@@ -25,4 +25,10 @@ class RecoveryLayoutTest {
   val unusual=listOf(dev.repera.domain.RecoverySleepNight(day,2.0,0.0,0.0))
   assertTrue(2.0 in sleepChartBounds(unusual).first..sleepChartBounds(unusual).second)
  }
+ @Test fun physiologyHeightUsesLatestExtraVitalsAndColumn() {
+  assertEquals(128f,physiologyChartHeightDp(600f,false,false),0.001f)
+  assertEquals(227f,physiologyChartHeightDp(492f,true,false),0.001f)
+  assertEquals(162f,physiologyChartHeightDp(492f,true,true),0.001f)
+  assertEquals(128f,physiologyChartHeightDp(300f,true,true),0.001f)
+ }
 }

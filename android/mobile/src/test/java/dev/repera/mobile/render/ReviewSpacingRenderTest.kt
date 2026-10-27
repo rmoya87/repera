@@ -255,4 +255,13 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithTag("recovery_sleep_chart").performClick()
         composeRule.onNodeWithText("25 oct 2026 · 6,7 h").assertExists()
     }
+ @Test fun physiologyPreviewShowsOrdinalDaysAndCurved128Plot() {
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("physiology_fixture")) {
+            dev.repera.mobile.RecoveryPhysiologyPreviewCard(LocalDate.of(2026,10,27))
+        }}}
+        composeRule.onNodeWithText("1").assertExists()
+        val chart=composeRule.onNodeWithTag("physiology_preview_curve").captureToImage().asAndroidBitmap()
+        org.junit.Assert.assertEquals(128,chart.height)
+        save(composeRule.onNodeWithTag("physiology_fixture").captureToImage().asAndroidBitmap(),"physiology-preview-ordinal.png")
+    }
 }

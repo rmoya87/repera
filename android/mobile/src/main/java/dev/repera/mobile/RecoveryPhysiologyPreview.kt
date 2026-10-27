@@ -10,6 +10,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.platform.testTag
 import dev.repera.domain.ProgressDayPoint
 import java.time.LocalDate
 
@@ -21,13 +26,13 @@ internal object RecoveryPhysiologyPreview {
 }
 
 @Composable
-internal fun RecoveryPhysiologyPreviewCard(today:LocalDate) {
+internal fun RecoveryPhysiologyPreviewCard(today:LocalDate,chartHeight:Dp=128.dp) {
     Card(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de constantes fisiológicas, datos ficticios."}) {
         Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Constantes · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
             Text("No son tus datos de Salud",style=MaterialTheme.typography.bodySmall)
             Text("Variabilidad cardíaca (VFC) · 58 ms",style=MaterialTheme.typography.titleSmall)
-            DayPointLineChart(RecoveryPhysiologyPreview.hrv.mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()} ms"},interactive=false)
+            PhysiologyPreviewCurve(chartHeight)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 PhysiologyPreviewBars("Pulso en reposo","lpm",RecoveryPhysiologyPreview.resting,Modifier.weight(1f))
                 PhysiologyPreviewBars("Respiración","rpm",RecoveryPhysiologyPreview.breathing,Modifier.weight(1f))
@@ -54,4 +59,20 @@ private fun PhysiologyPreviewBars(title:String,unit:String,values:List<Double>,m
             }
         }
     }
+}
+
+/** Preview day ordinal1..7/domain0..8, never calendar dates or owner samples. */
+@Composable internal fun PhysiologyPreviewCurve(height:Dp) {
+ val accent=MaterialTheme.colorScheme.primary
+ val values=RecoveryPhysiologyPreview.hrv
+ Column(Modifier.fillMaxWidth().semantics {contentDescription="VFC de ejemplo: días 1 a 7, datos ficticios"}) {
+  Canvas(Modifier.fillMaxWidth().height(height).testTag("physiology_preview_curve")) {
+   val low=values.min()-2.0;val span=values.max()+2.0-low
+   val points=values.mapIndexed {i,v ->ReadinessCurve.Point((i+1)/8f*size.width,size.height-((v-low)/span*size.height).toFloat())}
+   val path=Path();path.moveTo(points.first().x,points.first().y)
+   ReadinessCurve.segments(points).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+   clipRect {drawPath(path,accent,style=Stroke(2.dp.toPx()))}
+  }
+  Row(Modifier.fillMaxWidth()) {listOf("1","3","5","7").forEach {Text(it,Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.labelSmall)}}
+ }
 }

@@ -21,6 +21,9 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  val columns=adaptiveCardColumns(maxWidth.value,outerHorizontalPaddingDp)
  val readinessHeight=readinessChartHeightDp((maxWidth.value-16f*(columns-1))/columns,columns>1).dp
  val sleepHeight=sleepChartHeightDp((maxWidth.value-16f*(columns-1))/columns,columns>1).dp
+ val latestForHeight=recovery.vitals.maxByOrNull {it.day}
+ val additionalVitals=latestForHeight?.let {it.oxygenSaturationPercent!=null || it.wristTemperatureCelsius!=null || it.heartRateRecoveryBpm!=null} ?: false
+ val physiologyHeight=physiologyChartHeightDp((maxWidth.value-16f*(columns-1))/columns,columns>1,additionalVitals).dp
  val cards=mutableListOf<@Composable ()->Unit>()
  cards.add {TrainingReadinessCard(recovery)}
  cards.add {
@@ -101,7 +104,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
    Text(Math.round(v).toString()+" lpm",style=MaterialTheme.typography.titleLarge)}}
   Text("Solo datos registrados. Un dato ausente no significa normalidad. No es un diagnóstico.",style=MaterialTheme.typography.bodySmall)
  }}
- } else RecoveryPhysiologyPreviewCard(today)
+ } else RecoveryPhysiologyPreviewCard(today,physiologyHeight)
  }
  if(recovery.menstrualDays.isNotEmpty()) cards.add {CycleHistoryCard(recovery,monday)}
   Column(Modifier.fillMaxWidth().testTag("recovery_columns_$columns"),verticalArrangement=Arrangement.spacedBy(16.dp)) {

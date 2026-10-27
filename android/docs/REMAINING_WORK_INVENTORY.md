@@ -392,3 +392,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Nuevofixture360datosirregulares+1000full inspeccionados,curva/grid/labels
  enteros;focalizados7tests verdes. Mobilecompleta+assemblepost299pendientes.
  Domain504/93yWear8/1siguen checkpoints previos.735/70abiertas,sincierres.
+
+## Preview fisiologia 23:05
+- HealthRecoverypreview810-858/height560:VFCFree usa diasordinal1..7/eje0..8,
+ CatmullRom sin marcadorfinalestatico,128dp oDUO max128/columna-(330extra
+ vitals/265sinextra). Datosficticiosfijos,NOdiascalendarinventados.
+- DominioYAndroid explicito min-2/max+2 para margen,noautodomainSwift.
+ Formulaaltura conectada SOLOpreview enestaunidad,vitalesPro100dp aunGAP.
+-2tests(formula4casos+render128),PNGs360/1000inspeccionadossinrecortes.
+ Post299mobileTODAS651/163XML+assemble75sverde;post300completa/assemble
+ pendientes. Domain504/93Wear8/1siguen checkpoints anteriores.
