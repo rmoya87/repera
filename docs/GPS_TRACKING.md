@@ -1,6 +1,6 @@
 # Seguimiento GPS deportivo unificado — Repera iOS
 
-Última actualización: 2026-10-25
+Última actualización: 2026-10-27
 Estado: implementación integrada en `main` (PR #75); compilación iOS/watchOS y contratos de arquitectura verificados, **validación funcional con iPhone físico pendiente**.
 
 Esta es la referencia técnica para GPS, rutas, Apple Salud, actividad en directo y entrenamientos libres/programados. La descripción de producto está en [FEATURES.md](FEATURES.md) y el contexto general en [ARCHITECTURE.md](ARCHITECTURE.md). La fuente de verdad definitiva es el código.
