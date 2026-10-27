@@ -12,6 +12,9 @@ class ProgressTilesModelTest {
   assertEquals(-3,ProgressTilesModel.minutesDelta(40.0,43.4))
   assertNull(ProgressTilesModel.deltaLabel(0)); assertNull(ProgressTilesModel.deltaLabel(null))
   assertEquals("+2",ProgressTilesModel.deltaLabel(2)); assertEquals("-1",ProgressTilesModel.deltaLabel(-1))
+  // Apple 79b34354: delta de tiempo en minutos con unidad ′.
+  assertEquals("+89′",ProgressTilesModel.deltaLabel(89,"′")); assertEquals("-2′",ProgressTilesModel.deltaLabel(-2,"′"))
+  assertNull(ProgressTilesModel.deltaLabel(0,"′"))
  }
  @Test fun mobilityDurationUsesSecondsBelowAMinute() {
   assertEquals("45 s",ProgressTilesModel.mobilityDuration(45))
@@ -33,5 +36,7 @@ class ProgressTilesModelTest {
         assertEquals(null, ProgressTilesModel.tiles(1, 45.0, null, null, 0, 0, true)[1].delta)
         // Agrupación española desde 1.000 (ReperaNumberFormat.integer).
         assertEquals("1.234′", ProgressTilesModel.tiles(9, 1234.4, null, null, 0, 0, true)[1].value)
+        // Apple 79b34354: solo la tile de tiempo lleva unidad de delta.
+        assertEquals(listOf("", "′", ""), pro.map { it.deltaUnit })
     }
 }
