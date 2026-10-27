@@ -445,6 +445,9 @@ struct WorkoutDetailView: View {
             libraryRoutines: store.libraryRoutineCount,
             customExercises: store.customExerciseCount
         )
+        // La suscripción verificada es la fuente de verdad de esta acción.
+        // No utilizar una política heredada de un lanzamiento anterior.
+        store.featureAccess = { [subscriptions] in subscriptions.policy }
         if store.toggleWorkoutFavorite(sessionId) {
             draft = store.state.workouts.first(where: { $0.id == sessionId })
             return
@@ -462,9 +465,10 @@ struct WorkoutDetailView: View {
                 decision.paywallContext, feature: .unlimitedRoutines
             )
         } else {
-            favoriteSaveError = subscriptions.snapshot.status == .unknown && !subscriptions.isPro
-                ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
-                : "Este entrenamiento no tiene ejercicios reutilizables o no se ha podido guardar el favorito. Inténtalo de nuevo."
+            favoriteSaveError = store.lastFavoriteSaveError
+                ?? (subscriptions.snapshot.status == .unknown && !subscriptions.isPro
+                    ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
+                    : "No se ha podido guardar la plantilla. Inténtalo de nuevo.")
         }
     }
 
