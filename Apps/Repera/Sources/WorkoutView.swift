@@ -1580,6 +1580,9 @@ struct WorkoutView: View {
             .disabled(manualRoundMinutes == 0 && manualRoundSeconds == 0)
             .opacity(manualRoundMinutes == 0 && manualRoundSeconds == 0 ? 0.5 : 1)
         }
+        // Intrinsic vertical size: the sheet must fit these rows, not the
+        // other way round. UIKit numeric fields already have exact 48 pt.
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 24)
         .padding(.top, 30)
         .padding(.bottom, 22)
@@ -1607,6 +1610,7 @@ struct WorkoutView: View {
             }
             .frame(maxWidth: 184)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
