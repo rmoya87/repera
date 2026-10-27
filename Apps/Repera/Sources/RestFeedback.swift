@@ -9,10 +9,10 @@ enum RestFeedback {
     private static var releaseAudioTask: Task<Void, Never>?
     private static var currentToneID = UUID()
 
-    // Frecuencia intencionadamente grave y cálida; el aviso final se
-    // diferencia SOLO por duración, nunca por otro sonido del sistema.
+    // Tono medio (Do5), menos grave que el anterior Sol4 (392 Hz).
+    // Los avisos usan la misma nota: solo cambia la duración.
     private static let shortTone = makeTone(duration: 0.16)
-    private static let completedTone = makeTone(duration: 0.82)
+    private static let completedTone = makeTone(duration: 0.49)
 
     static func tick(remaining: Int, sound: Bool, haptic: Bool) {
         guard remaining > 0, remaining <= 3 else { return }
@@ -26,7 +26,7 @@ enum RestFeedback {
         if haptic {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
-        if sound { playTone(completedTone, duration: 0.82) }
+        if sound { playTone(completedTone, duration: 0.49) }
     }
 
     static func intervalBeep(sound: Bool, haptic: Bool) {
@@ -109,8 +109,8 @@ enum RestFeedback {
             let attack = min(1, seconds / 0.012)
             let release = min(1, (duration - seconds) / 0.075)
             let envelope = max(0, min(attack, release))
-            let base = sin(2 * Double.pi * 392 * seconds)
-            let overtone = 0.16 * sin(2 * Double.pi * 784 * seconds)
+            let base = sin(2 * Double.pi * 523.25 * seconds)
+            let overtone = 0.16 * sin(2 * Double.pi * 1046.5 * seconds)
             let value = Int16((max(-1, min(1, (base + overtone) * envelope * 0.55)) * 32767).rounded())
             appendLE(UInt16(bitPattern: value))
         }
