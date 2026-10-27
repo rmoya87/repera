@@ -34,10 +34,8 @@ internal class WodTimerService : Service() {
             if (!ticking) return
             val specData = lastSpec
             val key=lastStoreKey
-            if(key==null || !serviceIdentityCurrent(key.third,identityRevision)) {stopSelf();return}
-            val state = lastStoreKey?.let { (sessionId, index, user) ->
-                WodTimerStore(this@WodTimerService, user).read(sessionId, index)
-            }
+            if(key==null || !serviceIdentityCurrent(key.owner,identityRevision)) {stopSelf();return}
+            val state = key.read(this@WodTimerService)
             if (specData == null || state == null || !state.running) {
                 stopSelf()
                 return
@@ -46,7 +44,7 @@ internal class WodTimerService : Service() {
             updateNotification(specData.title, face.primarySeconds, face.label)
             val restLabel = face.label?.takeIf { it.startsWith("Descanso") }
             if (restLabel != null && restLabel != lastRestLabel) {
-                val settings=trainingSettingsForAccount(this@WodTimerService,lastStoreKey?.third)
+                val settings=trainingSettingsForAccount(this@WodTimerService,lastStoreKey?.owner)
                 RestNotifier.notifyRest(this@WodTimerService, restLabel, face.primarySeconds,settings.restSoundEnabled,settings.restHapticEnabled)
             } else if (restLabel == null && lastRestLabel != null) {
                 RestNotifier.cancel(this@WodTimerService)
@@ -63,7 +61,7 @@ internal class WodTimerService : Service() {
         return sessions.identityRevision()==revision && sessions.load()?.uniqueId==owner
     }
     private var lastSpec: ServiceSpec? = null
-    private var lastStoreKey: Triple<String, Int, String>? = null
+    private var lastStoreKey: WodServiceBinding? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -97,7 +95,7 @@ internal class WodTimerService : Service() {
         )
         lastSpec = ServiceSpec(spec,
             intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "Entrenamiento" })
-        lastStoreKey = Triple(sessionId, intent.getIntExtra(EXTRA_BLOCK_INDEX, 0), user)
+        lastStoreKey = WodServiceBinding(sessionId, intent.getIntExtra(EXTRA_BLOCK_INDEX, 0), user, intent.getStringExtra(EXTRA_BLOCK_ID))
         startForegroundWithNotification(lastSpec!!.title, 0, null)
         if (!ticking) {
             ticking = true
@@ -161,6 +159,7 @@ internal class WodTimerService : Service() {
         private const val EXTRA_IDENTITY_REVISION="identityRevision"
         private const val EXTRA_SESSION_ID = "sessionId"
         private const val EXTRA_BLOCK_INDEX = "blockIndex"
+        private const val EXTRA_BLOCK_ID = "blockId"
         private const val EXTRA_GOOGLE_USER = "googleUser"
         private const val EXTRA_FORMAT = "format"
         private const val EXTRA_TITLE = "title"
@@ -192,6 +191,7 @@ internal class WodTimerService : Service() {
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_SESSION_ID, active.id)
                 .putExtra(EXTRA_BLOCK_INDEX, active.index)
+                .putExtra(EXTRA_BLOCK_ID, active.navigationEntries.firstOrNull {it.index==active.index}?.blockId)
                 .putExtra(EXTRA_GOOGLE_USER, googleUser)
                 .putExtra(EXTRA_FORMAT, wod.format)
                 .putExtra(EXTRA_TITLE, active.title)
@@ -206,4 +206,11 @@ internal class WodTimerService : Service() {
             else context.startService(intent)
         }
     }
+}
+
+/** Original stable block binding, shared by every service tick. Legacy null IDs
+ * retain the existing store policy rather than silently invalidating old data. */
+internal data class WodServiceBinding(val sessionId:String,val index:Int,val owner:String,val blockId:String?) {
+    fun read(context:Context):WodTimerState =
+        WodTimerStore(context,owner).read(sessionId,index,blockId)
 }

@@ -114,3 +114,11 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Test Compose desmonta/remonta y cambia pending manteniendo edicion manual
   activa. No acredita persistencia de texto manual al navegar ni Activity real.
   70/735 siguen abiertas; runtime no sustituido por JVM.
+
+## Servicio WOD 19:40
+- WodTimerService conserva binding owner/session/index/blockId del intent y lo
+  usa en cada tick. Antes omitia blockId pese a la guarda en MainActivity.
+  Slot reemplazado devuelve reloj no-running y detiene servicio.
+- 2tests binding con store real local/doble monotonic cubren bloque nuevo y
+  aislamiento cuenta/sesion. Sin iniciar servicio ni permisos/sensores.
+  No cambia politica legacy sin blockId, no valida ejecucion background real.
