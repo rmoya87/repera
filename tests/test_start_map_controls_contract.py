@@ -99,6 +99,30 @@ class StartMapControlsContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("mapMetricStrip", metrics)
 
+    def test_metrics_before_play_uses_the_same_bottom_controls_as_map(self):
+        live = read_swift("LiveActivityView.swift")
+        metrics = live.split("private var metricsView: some View", 1)[1].split(
+            "private var metricsTrailingActions: some View", 1
+        )[0]
+        map_view = live.split("private var mapView: some View", 1)[1].split(
+            "private var mapStatusMessages: some View", 1
+        )[0]
+
+        self.assertEqual(metrics.count("bottomControls"), 1)
+        self.assertIn("if recorder.phase == .idle {", metrics)
+        # Los valores a pantalla completa preceden la barra inferior.
+        self.assertGreater(metrics.index("bottomControls"), metrics.index('Text("Distancia (km)")'))
+        self.assertGreater(metrics.index("bottomControls"), metrics.index("Spacer(minLength: 12)"))
+        self.assertIn(".frame(maxWidth: 570)", metrics)
+        self.assertIn(".frame(maxWidth: .infinity)", metrics)
+        self.assertIn(".padding(.horizontal, 14)", metrics)
+        self.assertIn(".padding(.bottom, 10)", metrics)
+        self.assertNotIn(".frame(maxWidth: 360, alignment: .leading)", metrics)
+        self.assertNotIn(".padding(.top, 10)", metrics)
+        self.assertIn("metricsTrailingActions", metrics)
+        self.assertIn("bottomControls", map_view)
+        self.assertIn(".frame(maxWidth: 570)", map_view)
+
     def test_play_does_not_change_selection_and_choice_is_remembered(self):
         live = read_swift("LiveActivityView.swift")
         self.assertIn(
