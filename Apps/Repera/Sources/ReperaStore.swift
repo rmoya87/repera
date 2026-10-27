@@ -2400,6 +2400,7 @@ final class ReperaStore: NSObject {
     /// encendida cuando el favorito no se ha guardado realmente.
     @discardableResult
     func setRoutineFavorite(_ id: UUID, isFavorite: Bool) -> Bool {
+        lastAccessDenial = nil
         guard let index = state.routines.firstIndex(where: { $0.id == id }) else { return false }
         let source = state.routines[index]
 
@@ -2455,6 +2456,7 @@ final class ReperaStore: NSObject {
     /// nil significa rechazo de acceso, no un favorito guardado.
     @discardableResult
     func saveAsFavorite(_ routine: Routine, title: String? = nil) -> Routine? {
+        lastAccessDenial = nil
         if let source = state.routines.first(where: { $0.id == routine.id }) {
             if source.scheduledDate != nil {
                 guard setRoutineFavorite(source.id, isFavorite: true),
@@ -2546,6 +2548,7 @@ final class ReperaStore: NSObject {
 
     @discardableResult
     func saveActiveSessionAsFavorite() -> Routine? {
+        lastAccessDenial = nil
         guard let session = state.activeSession else { return nil }
         let saved: Routine
         if let favoriteId = session.favoriteRoutineId,
