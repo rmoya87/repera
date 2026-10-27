@@ -666,6 +666,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun routeFromIntent(intent: android.content.Intent?): String? {
         val uri = intent?.data ?: return null
         if (uri.scheme != "repera") return null
+        if(intent.hasExtra("plannedSession")) {
+            val sessions=SessionStore(this)
+            val owner=sessions.load()?.uniqueId
+            if(owner!=intent.getStringExtra("plannedOwner") || sessions.identityRevision()!=intent.getStringExtra("plannedRevision")) return "inicio"
+            val activeId=owner?.let {runCatching {LocalSnapshotStore(this,it).read()?.let {b ->org.json.JSONObject(String(b,Charsets.UTF_8)).optJSONObject("activeSession")?.optString("id")}}.getOrNull()}
+            if(activeId!=intent.getStringExtra("plannedSession")) return "inicio"
+        }
         return LiveNavigationTarget.route(uri.host)
     }
 
@@ -1461,6 +1468,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 LiveActivityRuntime.stopAll()
                 LiveActivityService.stop(this@MainActivity)
                 sessionStore.clearIfCurrent(storedRevision,stored.uniqueId,stored.userId)
+                PlannedWorkoutNotification.cancel(this@MainActivity)
                 aiPlansRealtime.stop()
                 verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
@@ -1856,6 +1864,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             )
         }
         activeWorkout = active
+        bytes?.let {runCatching {PlannedWorkoutNotification.refresh(this@MainActivity,id,org.json.JSONObject(String(it,Charsets.UTF_8)))}}
         refreshWodTimer()
         resumeDeferredMirrorSyncIfNeeded()
         // Local persistence is the source of truth. A missing/disconnected watch
@@ -2038,6 +2047,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     private fun signOut() {
+        PlannedWorkoutNotification.cancel(this)
         if (busy) return
         busy = true
         lifecycleScope.launch {

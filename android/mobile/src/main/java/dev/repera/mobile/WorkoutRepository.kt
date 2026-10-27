@@ -2974,6 +2974,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             "El historial cambió durante esta acción. No se sobrescribió; vuelve a intentarlo."
         }
         loadedStates[state]=replacement
+        // Notification failure never turns an already durable training save into failure.
+        runCatching {PlannedWorkoutNotification.refresh(context,googleId,state)}
     }
 
     private fun copyIfPresent(source: JSONObject, target: JSONObject, vararg keys: String) {

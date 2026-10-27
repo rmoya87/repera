@@ -191,3 +191,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Render LiveSetRows360claro inspeccionado; test prueba que solo tap explicito
  cambia unidad20reps->20metros sin convertir cantidad ni16kg. Duracion
  heredada LOAD_DISTANCE se conserva, diferencia con estilo Apple registrada.
+
+## Estado programado lockscreen 20:28
+-2e9d26fc/b6b7921b: notificacion ongoing con chronometer nativo, titulo,
+ ejercicio, progreso y series desde activeSession persistido iniciado.
+ Refresco tras guardado durable/reload y cancel al terminar/descarte/logout.
+ Verifica owner/revision/snapshot aun vigente antes de efecto; tap solo abre
+ sesion original bajo login original, otro estado va Inicio.
+-3tests modelo/builder, no permisos ni notify real. Sin captura lockscreen,
+ sin FGS nuevo/polling; no acredita plataforma/proceso muerto/metricas outdoor.
