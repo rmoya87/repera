@@ -2417,15 +2417,6 @@ struct LiveActivityView: View {
     private var metricsView: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             VStack(spacing: 0) {
-                if recorder.phase == .idle {
-                    // En vista Métricas los controles de Comenzar se colocan
-                    // arriba y alineados a la izquierda, no a pie de pantalla.
-                    bottomControls
-                        .frame(maxWidth: 360, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.top, 10)
-                }
                 GeometryReader { header in
                     HStack(spacing: 6) {
                         Image(systemName: recorder.sport.symbol)
@@ -2536,6 +2527,16 @@ struct LiveActivityView: View {
                     .padding(.horizontal, 28)
                 }
                 Spacer(minLength: 12)
+                if recorder.phase == .idle {
+                    // La misma barra inferior que en Mapa antes de iniciar:
+                    // actividad, Play y ruta. Alineada al pie dentro del
+                    // área segura, sin desplazar las acciones de la cabecera.
+                    bottomControls
+                        .frame(maxWidth: 570)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 10)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
