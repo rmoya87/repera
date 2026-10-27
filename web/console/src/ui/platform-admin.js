@@ -158,7 +158,7 @@ function athletesPage(athletes,filter){
  list.map(a=>`<tr><td><div class="pa-identity">${photo(a.avatar_url,a.name)}
  <div><strong>${esc(a.name)}</strong>${a.platform_role==='platform_admin'?'<small>Administrador de plataforma</small>':''}</div></div></td>
  <td>${esc(a.email||'—')}</td><td>${validNumber(a.center_count)?validNumber(a.center_count):'<span class="pa-muted">Sin centro</span>'}</td>
- <td>${statusPill(a.confirmed?'active':'pending')}</td><td>${date(a.created_at)}</td></tr>`).join('')):
+ <td>${a.confirmed?'<span class="pa-pill good">Verificado</span>':'<span class="pa-pill">Sin verificar</span>'}</td><td>${date(a.created_at)}</td></tr>`).join('')):
  empty('No hay atletas con esos filtros','La lista incluye cuentas autenticadas incluso sin centros vinculados.')}</section>`;
 }
 function planForm(plan,newPlan=false){
