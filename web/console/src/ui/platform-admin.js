@@ -234,9 +234,13 @@ function athleteDetail(person,detail,workouts=[],busy=false,activity={},section=
  if(section==='exercises'){
   const day=activity.day||workouts[0]?.started_at?.slice(0,10)||'';
   const canSchedule=linked.length>0;
+  const planned=(rows.professional_sessions||[]).filter(s=>s.status==='scheduled');
+  const daysMap=new Map((activity.days||[]).map(d=>[d.day,Number(d.count)||0]));
+  planned.forEach(s=>daysMap.set(s.scheduled_date,(daysMap.get(s.scheduled_date)||0)+1));
+  const daysWithPlans=[...daysMap].map(([day,count])=>({day,count}));
   body=`<div class="pa-athlete-training-grid">
- ${renderAthleteActivity({month:activity.month,days:activity.days,selectedDay:day,
-  workouts:activity.workouts??workouts,loading:activity.loading,
+ ${renderAthleteActivity({month:activity.month,days:daysWithPlans,selectedDay:day,
+  workouts:activity.workouts??workouts,plannedSessions:planned.filter(s=>s.scheduled_date===day),loading:activity.loading,
   canPlan:canSchedule,athleteId:person.id})}
  </div>
  ${renderAthleteInsights(workouts,rows.workout_count,{showGuidance:false})}`;
