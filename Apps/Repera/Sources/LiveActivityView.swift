@@ -546,7 +546,8 @@ final class LiveRoutesStore {
     func requestICloudSynchronization() {
         cloudSyncTask?.cancel()
         cloudSyncTask = Task { @MainActor [weak self] in
-            await self?.synchronizeWithICloud()
+            guard let self else { return }
+            await self.synchronizeWithICloud()
         }
     }
 
