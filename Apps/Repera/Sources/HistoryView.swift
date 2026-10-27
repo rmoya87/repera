@@ -1020,7 +1020,7 @@ struct WorkoutDetailView: View {
     }
 
     private func detailExerciseId(for exercise: Exercise) -> UUID {
-        store.resolvedCatalogExercise(id: exercise.id)?.id ?? exercise.id
+        store.historicalDisplayExercise(exercise).id
     }
 
     private var detailRowChevron: some View {
@@ -1049,8 +1049,7 @@ struct WorkoutDetailView: View {
             }
             ForEach(Array(rows.enumerated()), id: \.element.0) { offset, pair in
                 let exercise = pair.1
-                let display = store.resolvedCatalogExercise(id: exercise.exercise.id)
-                    ?? exercise.exercise
+                let display = store.historicalDisplayExercise(exercise.exercise)
                 if offset > 0 {
                     Divider().overlay(OG.surface3).padding(.leading, 52)
                 }
@@ -1067,8 +1066,8 @@ struct WorkoutDetailView: View {
                             Text(exercise.prescriptionSummaryLine)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(OG.label2)
-                            if !exercise.loggedSets.isEmpty {
-                                Text("Registrado · " + exercise.loggedSets.map(\.displaySummaryLine).joined(separator: " · "))
+                            if let summary = WODHistoryPresentation.recordedSummary(for: exercise) {
+                                Text(summary)
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(OG.accent)
                                     .lineLimit(2)
@@ -1167,8 +1166,7 @@ struct WorkoutDetailView: View {
         showsOuterPadding: Bool
     ) -> some View {
         let visibleSets = visibleLoggedSets(for: exercise, hideScoreArtifact: hideScoreArtifact)
-        let catalogExercise = store.resolvedCatalogExercise(id: exercise.exercise.id)
-            ?? exercise.exercise
+        let catalogExercise = store.historicalDisplayExercise(exercise.exercise)
         return VStack(alignment: .leading, spacing: 12) {
             Button {
                 if let highlightSessionId {

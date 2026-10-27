@@ -1705,6 +1705,49 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     }
 }
 
+/// Pantalla de resultados WOD. La identidad histórica puede ser un alias
+/// antiguo y las series registradas pueden coincidir con la prescripción.
+public enum WODHistoryPresentation {
+    /// Aliases inequívocos. Deliberadamente no aplica equivalencias difusas a
+    /// otros ejercicios que el usuario haya elegido manualmente.
+    public static func officialName(for rawName: String) -> String? {
+        let name = rawName.lowercased()
+            .folding(options: [.caseInsensitive, .diacriticInsensitive],
+                     locale: Locale(identifier: "en_US_POSIX"))
+            .replacingOccurrences(of: #"[^a-z0-9]+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        switch name {
+        case "btt", "bt t", "burpee to target", "burpees to target":
+            return "Burpee to target"
+        case "t2b", "t 2 b", "ttb", "toes to bar", "toes to bars":
+            return "Toes to bar"
+        default:
+            return nil
+        }
+    }
+
+    /// Evita repetir «10 @ 9 kg» como «9×10» si hay una única serie
+    /// efectivamente anotada que coincide exactamente con la prescripción.
+    /// Nunca modifica o elimina las series, solo el resumen visual.
+    public static func recordedSummary(for entry: SessionExercise) -> String? {
+        guard !entry.loggedSets.isEmpty else { return nil }
+        if entry.loggedSets.count == 1,
+           entry.plannedSets.count == 1,
+           let recorded = entry.loggedSets.first,
+           let prescribed = entry.plannedSets.first,
+           recorded.reps == prescribed.targetReps,
+           recorded.weightKg == prescribed.targetWeightKg,
+           recorded.deficitCm == nil,
+           recorded.durationSeconds == nil,
+           recorded.drops.isEmpty, recorded.clusters.isEmpty,
+           recorded.rir == nil, !recorded.toFailure,
+           recorded.quantityUnit == nil || recorded.quantityUnit == .reps {
+            return "Registrado"
+        }
+        return "Registrado · " + entry.loggedSets.map(\.displaySummaryLine).joined(separator: " · ")
+    }
+}
+
 public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var exercise: Exercise

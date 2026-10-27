@@ -437,10 +437,11 @@ final class ReperaStore: NSObject {
     /// el mismo UUID aún presente en state.exercises). El id no debe prevalecer
     /// ante el nombre oficial en estos dos alias inequívocos.
     private func officialHistoricalWODExercise(for snapshot: Exercise) -> Exercise? {
-        let name = CrossFitGlossary.normalize(
-            CrossFitGlossary.resolveCatalogName(snapshot.name)
-        )
-        guard name == "burpee to target" || name == "toes to bar" else { return nil }
+        guard let officialName = WODHistoryPresentation.officialName(for: snapshot.name)
+            ?? WODHistoryPresentation.officialName(
+                for: CrossFitGlossary.resolveCatalogName(snapshot.name)
+            ) else { return nil }
+        let name = CrossFitGlossary.normalize(officialName)
         if let official = state.exercises.first(where: {
             !$0.isCustom && !$0.isCatalogArchived
                 && CrossFitGlossary.normalize($0.name) == name
@@ -452,6 +453,16 @@ final class ReperaStore: NSObject {
         return Catalog.seed().first {
             !$0.isCustom && CrossFitGlossary.normalize($0.name) == name
         }
+    }
+
+    /// Resuelve siempre desde el snapshot visible, incluso si el UUID fue
+    /// reutilizado o está presente en el catálogo local con otro nombre.
+    /// Esto evita que una copia de sesión «BTt» vuelva a pintarse como custom
+    /// aun cuando el usuario ya tenga los alias correctos en Supabase.
+    func historicalDisplayExercise(_ snapshot: Exercise) -> Exercise {
+        officialHistoricalWODExercise(for: snapshot)
+            ?? resolvedCatalogExercise(id: snapshot.id)
+            ?? snapshot
     }
 
     /// Resuelve un ID de sesión contra el catálogo, incluso si existe una
