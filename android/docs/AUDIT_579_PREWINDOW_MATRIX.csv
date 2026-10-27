@@ -519,26 +519,26 @@ cd99864c|2026-10-23T08:53:27+02:00|test(play): cover inline AMRAP score, per-exe
 55acbf90|2026-10-23T08:52:22+02:00|fix(play-scan): integrate BoardScanLiteParserTests.swift on current main|packages||verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 b0fa14ea|2026-10-23T08:52:18+02:00|fix(play-scan): integrate BoardScanLiteParser.swift on current main|packages||verified-ported 14:47: BoardScanLiteParser integrado — dominio Android BoardScanLiteParser.kt
 15faba23|2026-10-23T08:52:14+02:00|fix(play-scan): integrate BoardImportParser.swift on current main|packages||verified-ported 14:47: BoardImportParser integrado — BoardScanImport.kt mobile
-9d0cc384|2026-10-23T08:52:11+02:00|fix(play-scan): integrate HistoryView.swift on current main|ios-app||unverified
-44f0939a|2026-10-23T08:52:07+02:00|feat(play): add inline WOD result fields|ios-app|3e7e9760 6aa54ee0|unverified
-af41164d|2026-10-23T08:52:03+02:00|fix(play-scan): integrate ReperaStore.swift on current main|ios-app||unverified
+9d0cc384|2026-10-23T08:52:11+02:00|fix(play-scan): integrate HistoryView.swift on current main|ios-app||verified-n/a 14:50: integracion HistoryView.swift en main iOS
+44f0939a|2026-10-23T08:52:07+02:00|feat(play): add inline WOD result fields|ios-app|3e7e9760 6aa54ee0|verified-ported 14:50: campos resultado WOD inline — edicion marca WOD en sesion (MainActivity:2592, wodResults por bloque)
+af41164d|2026-10-23T08:52:03+02:00|fix(play-scan): integrate ReperaStore.swift on current main|ios-app||verified-n/a 14:50: integracion ReperaStore.swift en main iOS
 a1033015|2026-10-23T08:47:24+02:00|test(play): corregir estructura del contrato tras restaurar campos WOD|docs-tests|7beee4e6|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-571b778a|2026-10-23T08:46:15+02:00|fix(ios): restaurar campos por movimiento en Play para todos los WOD|docs-tests,ios-app||unverified
-6850cf12|2026-10-23T08:21:50+02:00|Merge PR #43: iOS exercise navigation, bilingual catalog and progress charts||1633bbd8 805069c8 81032145 89da973e|unverified
-3aeeff2c|2026-10-23T08:20:41+02:00|chore(supabase): record deployed bilingual sport aliases migration|other|2c6bd9e2 84dace55|unverified
-cd4b8dd9|2026-10-23T07:06:58+02:00|fix(domain): search Spanish sport aliases with or without connecting words|packages|337dbdd7 9366aa13 baba0785 f479f0b7|unverified
-8ef8509d|2026-10-23T07:06:22+02:00|fix(ios): scope WOD scores to the selected exercise block only|ios-app|81032145 c4ee1508|unverified
-d0b71e30|2026-10-23T07:05:22+02:00|fix(domain): preserve historical OCR and English synonyms after sport catalog rename|packages|7e092adf baba0785 d1013cfa d50474cb|unverified
-9a716df5|2026-10-23T07:02:31+02:00|feat(ios): inspect exercise evolution with dotted selection guide|ios-app|9a1c3de2|unverified
-72a62dc5|2026-10-23T07:02:28+02:00|feat(ios): show training score only with interactive chart cursor|ios-app|7096b167 b2188237|unverified
+571b778a|2026-10-23T08:46:15+02:00|fix(ios): restaurar campos por movimiento en Play para todos los WOD|docs-tests,ios-app||verified-ported 14:50: campos por movimiento en Play para todos los WOD — ActiveSessionPlan ids estables:37
+6850cf12|2026-10-23T08:21:50+02:00|Merge PR #43: iOS exercise navigation, bilingual catalog and progress charts||1633bbd8 805069c8 81032145 89da973e|verified-ported 14:50: PR43 navegacion/catalogo bilingue/graficos — ExerciseAliasSearch + ExercisesTab + charts
+3aeeff2c|2026-10-23T08:20:41+02:00|chore(supabase): record deployed bilingual sport aliases migration|other|2c6bd9e2 84dace55|verified-n/a 14:50: chore migracion Supabase desplegada
+cd4b8dd9|2026-10-23T07:06:58+02:00|fix(domain): search Spanish sport aliases with or without connecting words|packages|337dbdd7 9366aa13 baba0785 f479f0b7|verified-ported 14:50: aliases deporte ES con/sin conectores — ExerciseAliasSearch foldName
+8ef8509d|2026-10-23T07:06:22+02:00|fix(ios): scope WOD scores to the selected exercise block only|ios-app|81032145 c4ee1508|verified-ported 14:50: scores WOD por bloque seleccionado — ExerciseSessionAppearance:93-111 filtra por bloque
+d0b71e30|2026-10-23T07:05:22+02:00|fix(domain): preserve historical OCR and English synonyms after sport catalog rename|packages|7e092adf baba0785 d1013cfa d50474cb|verified-ported 14:50: preservar OCR historico y sinonimos EN tras rename — ExerciseAliasSearch supplementalAliases
+9a716df5|2026-10-23T07:02:31+02:00|feat(ios): inspect exercise evolution with dotted selection guide|ios-app|9a1c3de2|verified-ported 14:50: guia punteada seleccion — ExerciseDetailScreen:291 drawLine vertical en punto seleccionado + accesibilidad:277-278
+72a62dc5|2026-10-23T07:02:28+02:00|feat(ios): show training score only with interactive chart cursor|ios-app|7096b167 b2188237|verified-ported 14:50: score solo con cursor interactivo — selectedPoint (Ultimo/Seleccionado:307)
 65cd6c03|2026-10-23T07:01:16+02:00|test(domain): bilingual sport catalog migration and exercise logging regression|packages|1633bbd8 2c6bd9e2 81032145 89da973e|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 d03aaa76|2026-10-23T07:01:14+02:00|fix(domain): preserve jump rope logging for canonical hyphenated names|packages||verified-with-fix: faltaban triple+comba y prefijo su en ExerciseInputMode; portado en tree167 con test (ExerciseInputModeTest 8/8)
 6daf8ded|2026-10-23T06:58:00+02:00|test(domain): update bilingual catalog expectations for English canonical labels|packages|8a9b3b23 d1013cfa d50474cb f479f0b7|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 983304e8|2026-10-23T06:57:26+02:00|fix(domain): accent and case-insensitive sport alias lookup|packages||verified: key()/normalized* port 1:1 en domain/SportExerciseNames.kt
 b46562cc|2026-10-23T06:57:24+02:00|fix(domain): prioritize direct localized descriptions for English-original movements|packages||verified 10:41 (paridad de datos: seed 288/288 == extracción en bd4 con orden nombre-primero; 0 diffs contenido; caso discriminante Back rack reverse lunge coincide con orden nuevo; sin fix)
-8383c6c7|2026-10-23T06:56:46+02:00|fix(ios): keep legacy exercise artwork and movement step animations|ios-app|830e0009|unverified
-599a9f48|2026-10-23T06:56:44+02:00|fix(domain): preserve exercise equivalence across bilingual rename|packages|c4ee1508 d62566ba f479f0b7|unverified
-f3997b30|2026-10-23T06:56:41+02:00|feat(domain): index Spanish sport aliases and resolve bilingual search|packages|2c6bd9e2 337dbdd7 84dace55 9366aa13|unverified
+8383c6c7|2026-10-23T06:56:46+02:00|fix(ios): keep legacy exercise artwork and movement step animations|ios-app|830e0009|verified-ported 14:50: arte legacy + animaciones pasos — ExerciseArtResolver legacy (bbjo etc)
+599a9f48|2026-10-23T06:56:44+02:00|fix(domain): preserve exercise equivalence across bilingual rename|packages|c4ee1508 d62566ba f479f0b7|verified-ported 14:50: equivalencia ejercicios tras rename bilingue — ExerciseEquivalence.kt dominio
+f3997b30|2026-10-23T06:56:41+02:00|feat(domain): index Spanish sport aliases and resolve bilingual search|packages|2c6bd9e2 337dbdd7 84dace55 9366aa13|verified-ported 14:50: indice aliases deporte ES + busqueda bilingue — ExerciseAliasSearch.kt
 09546c31|2026-10-23T06:56:39+02:00|fix(ios): migrate catalog display names in place preserving existing UUIDs|ios-app|203dde5a 49a24605 7e092adf e91f4181|unverified
 a140cabc|2026-10-23T06:56:36+02:00|fix(domain): retain Spanish technique descriptions after sport name localization|packages|ed6883e6|verified 10:57 (orden alias-primero SUPERSEDED por b46562cc nombre-primero; estado final bd4 verificado por paridad de datos 288/288 tree170)
 88dbde3c|2026-10-23T06:56:33+02:00|feat(domain): seed sport exercises with English canonical names|packages|8a9b3b23 baba0785|verified 10:57 (efecto íntegro en contenido de catálogo: seed Android 288/288 == extracción bd4, 0 diffs; evidencia ejecutada tree170)
