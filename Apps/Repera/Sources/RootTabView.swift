@@ -15,6 +15,7 @@ struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
     @State private var tab: AppTab = .home
     @State private var showStartHub = false
+    @State private var sportFavoriteOpenError: String?
     @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
@@ -84,9 +85,32 @@ struct RootTabView: View {
                 onOpenedWorkout: {
                     showStartHub = false
                     openWorkout()
+                },
+                onOpenSport: { sportID in
+                    guard let sport = LiveSport(rawValue: sportID) else {
+                        sportFavoriteOpenError = "No se reconoce el deporte de este favorito."
+                        return
+                    }
+                    guard LiveActivityRecorder.shared.phase == .idle,
+                          !LiveActivityRecorder.shared.isStartCountingDown else {
+                        sportFavoriteOpenError = "Termina o descarta la actividad actual antes de iniciar otra."
+                        return
+                    }
+                    LiveActivityRecorder.shared.choose(sport)
+                    showStartHub = false
+                    flowPath = []
+                    tab = .start
                 }
             )
             .ogSheetChrome(detents: [.large])
+        }
+        .alert("No se ha podido abrir la actividad", isPresented: Binding(
+            get: { sportFavoriteOpenError != nil },
+            set: { if !$0 { sportFavoriteOpenError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { sportFavoriteOpenError = nil }
+        } message: {
+            Text(sportFavoriteOpenError ?? "")
         }
         // Push/Pop should feel immediate; the former 320ms overlay animation
         // made switching sections look like an application reload.
