@@ -14,6 +14,12 @@ enum ExerciseArt {
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
+        // Respaldo de arte si el ejercicio histórico conserva caracteres OCR
+        // visualmente equivalentes a BTT/T2B.
+        if let official = WODHistoryPresentation.officialName(for: name),
+           let image = acceptedHero(nameMap[official]) {
+            return image
+        }
         // Algunas pizarras escriben burpee box jump over(s), BBJO o
         // burpee over box: comparten una ilustración existente y validada.
         let normalizedName = CrossFitGlossary.normalize(name)

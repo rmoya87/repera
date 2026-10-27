@@ -1737,6 +1737,11 @@ public enum CrossFitGlossary {
 
     /// Nombre canónico para matching de catálogo.
     public static func canonicalName(for raw: String) -> String {
+        // BTt/BTT y variantes OCR se resuelven antes de consultar el glosario,
+        // incluso si aún no se ha descargado el catálogo de Supabase.
+        if let known = WODHistoryPresentation.officialName(for: raw) {
+            return known
+        }
         // Antes de quitar ruido (DB/ALT…): compuestos con equipo (`db hang snatch` → Snatch mancuerna).
         let rawNorm = normalize(raw)
         if let exact = aliases[rawNorm] { return exact }

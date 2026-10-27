@@ -1708,29 +1708,37 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
 /// Pantalla de resultados WOD. La identidad histórica puede ser un alias
 /// antiguo y las series registradas pueden coincidir con la prescripción.
 public enum WODHistoryPresentation {
-    /// Aliases inequívocos. Deliberadamente no aplica equivalencias difusas a
-    /// otros ejercicios que el usuario haya elegido manualmente.
+    /// Nombres de WOD sin distinción de mayúsculas ni grafías de OCR.
+    /// Solo se resuelven abreviaturas inequívocas, nunca nombres parecidos.
     public static func officialName(for rawName: String) -> String? {
-        // OCR puede insertar Unicode de otros alfabetos con aspecto idéntico
-        // (p. ej. la T cirílica en «BTт»). Transliterar antes de comprobar
-        // equivalencias evita dejar iconos genéricos en sesiones antiguas.
-        let latin = rawName.applyingTransform(.toLatin, reverse: false) ?? rawName
-        let name = latin.lowercased()
+        let compatibility = rawName.precomposedStringWithCompatibilityMapping
+        // «BTt» puede contener una B cirílica (В) o una T griega (Τ).
+        // La transliteración genérica transforma В en V, y «ВΤt» ya no
+        // coincide con BTT. Corregir parecidos visuales ANTES de transliterar.
+        let lookalikes: [Character: Character] = [
+            "В": "B", "в": "b", "Β": "B", "Ᏼ": "B", "ʙ": "b",
+            "Т": "T", "т": "t", "Τ": "T", "τ": "t", "ᴛ": "t"
+        ]
+        let visual = String(compatibility.map { lookalikes[$0] ?? $0 })
+        let latin = visual.applyingTransform(.toLatin, reverse: false) ?? visual
+        let normalized = latin.lowercased()
             .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
                      locale: Locale(identifier: "en_US_POSIX"))
             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        switch name {
-        case "btt", "bt t", "burpee to target", "burpees to target":
-            return "Burpee to target"
-        case "t2b", "t 2 b", "ttb", "toes to bar", "toes to bars":
-            return "Toes to bar"
-        default:
-            return nil
+        // Compactar únicamente abreviaturas; no hacer búsqueda difusa.
+        let compact = normalized.replacingOccurrences(of: " ", with: "")
+        switch compact {
+        case "btt": return "Burpee to target"
+        case "t2b", "ttb": return "Toes to bar"
+        default: break
+        }
+        switch normalized {
+        case "burpee to target", "burpees to target": return "Burpee to target"
+        case "toes to bar", "toes to bars": return "Toes to bar"
+        default: return nil
         }
     }
-
-
 }
 
 public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {

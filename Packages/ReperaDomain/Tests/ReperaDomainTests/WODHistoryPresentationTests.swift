@@ -13,6 +13,14 @@ final class WODHistoryPresentationTests: XCTestCase {
         XCTAssertEqual(WODHistoryPresentation.officialName(for: "BTт"), "Burpee to target")
         XCTAssertEqual(WODHistoryPresentation.officialName(for: "Ｔ２Ｂ"), "Toes to bar")
         XCTAssertNil(WODHistoryPresentation.officialName(for: "Wall ball"))
+        for raw in ["btt", "BTT", "BTt", "B T t", "ＢＴＴ", "𝐁𝐓𝐭",
+                    "ВΤt", "ΒТτ", "B\u{200B}Tt", "Ᏼᴛᴛ"] {
+            XCTAssertEqual(
+                WODHistoryPresentation.officialName(for: raw),
+                "Burpee to target", "Fallo al resolver el alias \(raw)"
+            )
+            XCTAssertEqual(CrossFitGlossary.canonicalName(for: raw), "Burpee to target")
+        }
     }
 
     func testHistoricalAMRAPRetainsOriginalRecordedSets() {
