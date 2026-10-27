@@ -29,7 +29,15 @@ export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],se
   <button type="button" class="connected-secondary" data-action="reject-enrollment" data-id="${esc(r.id)}">Rechazar</button>
  </div></article>`).join('')}</div>`:
  '<div class="business-inbox-empty">No tienes solicitudes pendientes. Las peticiones que envíen desde la app aparecerán aquí automáticamente al actualizar el panel.</div>'}`):'';
- return `${stats}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
+ const quick=manager?`<section class="business-quick-actions" aria-label="Acciones frecuentes del centro">
+  <button type="button" data-workspace="planning"><span class="business-quick-icon" aria-hidden="true">＋</span>
+  <strong>Planificar entrenamientos</strong><small>Un día, semana o varias fechas</small></button>
+  <button type="button" data-workspace="clients"><span class="business-quick-icon" aria-hidden="true">♧</span>
+  <strong>Gestionar deportistas</strong><small>Solicitudes, perfiles y bonos</small></button>
+  <button type="button" data-workspace="services"><span class="business-quick-icon" aria-hidden="true">▦</span>
+  <strong>Clases y reservas</strong><small>Horarios, grupos y aforo</small></button>
+ </section>`:'';
+ return `${stats}${quick}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${o.kind==='appointment'?'Cita 1:1':'Clase grupal'} · ${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length}/${o.capacity} plazas</small><span class="business-tile-arrow">Ver detalle →</span></button>`).join(''):'<p>No hay próximas clases programadas.</p>'}</div>`)}`;
 }
 export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',escapeHTML=esc}){
