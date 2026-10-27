@@ -266,6 +266,7 @@ internal fun ExercisesTab(
         return
     }
     val listContent: @Composable ((String)->Unit)->Unit = {openExercise ->
+    ReadableColumn {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -523,6 +524,7 @@ Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
+    }
     }
     }
     androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxSize()) {

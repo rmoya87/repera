@@ -89,6 +89,7 @@ internal fun ExerciseDetailScreen(
         ExerciseArtImages.carouselStems(context, entry.name, isMobility, aliases,
             captionCount = entry.instructions.count { it.isNotBlank() })
     }
+    ReadableColumn {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -185,6 +186,7 @@ internal fun ExerciseDetailScreen(
                     style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
     }
 }
 

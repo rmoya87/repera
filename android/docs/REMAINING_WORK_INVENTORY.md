@@ -22,10 +22,12 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
      (conexiones + tokens tras scroll). Acreditan la previsualizacion JVM de esos
      fixtures/tamanos concretos; NO todos los tamanos/temas ni runtime de dispositivo.
      Diffs de glifos verificados por comparacion PROGRAMATICA exhaustiva 9/9 (no muestreo).
-3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 507/507 en 123 suites XML real)
+3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 512/512 en 125 suites XML real)
 
 ## Grupos de gaps principales (pre+post)
-- Onboarding AI unificado: PORTADO completo (f68d77ff + Desconectar 14:51 + d61c5d52 espaciado 15:11); pendiente solo validacion runtime global
+- Onboarding AI unificado: IMPLEMENTACION COMPLETADA (f68d77ff + Desconectar 14:51 + d61c5d52 espaciado 15:11) CON DEPENDENCIAS EXPLICITAS:
+  tarjeta revocada completa sin acreditar visualmente, flujo proveedor verificado->dialogo
+  sin acreditar en app, revision visual del espaciado 6dp nuevo, y validacion runtime global
 - Zonas FC + anillo intensidad Cardio Progreso (661e65f4/9947c212 — bloqueo decision usuario)
 - Paisaje/dos paneles (calendario 7 dias, secciones, safe areas)
 - Wear fino: Sincronizar+mascota, flecha en descanso, EMOM/Tabata al terminar reloj, frescura planificacion
