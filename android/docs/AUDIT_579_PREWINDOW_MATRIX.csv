@@ -50,7 +50,7 @@ e9feae2b|2026-10-25T13:37:57+01:00|refactor(comenzar): require GPS sport for spl
 06cd21d4|2026-10-25T13:32:03+01:00|feat(iOS): completar navegación GPX orientativa y parciales activos en Comenzar (#67)||0eb1b201 7766e5e9|unverified
 63229c13|2026-10-25T13:18:31+01:00|fix(swift): keep file-private LiveKmSplit storage encapsulated to satisfy access control|ios-app|78f2c432|unverified
 4ab1d8f9|2026-10-25T13:14:52+01:00|style(map): show current km, meters and live partial pace while following GPS route|ios-app|42777649 74f37c40|unverified
-bcb9f677|2026-10-25T13:13:38+01:00|fix(gpx): detect turns across 30m track windows even on dense imported GPS routes|ios-app||verified: detect 1:1 en domain/LiveGPX.kt (ventanas 30m, guard 20m, 52 grados, dedup 55m) = baseline bd4
+bcb9f677|2026-10-25T13:13:38+01:00|fix(gpx): detect turns across 30m track windows even on dense imported GPS routes|ios-app||verified: capa DETECCION 30m 1:1 en domain/LiveGPX.kt; capa ANUNCIO (20m wording, 120/70/250) 1:1 en LiveRouteGuidance.kt; reconciliado 10:23
 0eb0cdb6|2026-10-25T13:13:01+01:00|fix(cardio): show live partial pace for running and km/h for cycling|ios-app|9956477c|unverified
 f30b6232|2026-10-25T13:11:53+01:00|test(domain): check pause-adjusted per-km split roundtrip and legacy workout decoding|packages|2e02be93 40c61fc9|verified: test Apple; equivalente Android LiveSportHistoryTest + LiveActivitySnapshotStore roundtrip
 db9ab550|2026-10-25T13:10:19+01:00|fix(history): always render recorded per-km splits on live GPS activities even without HealthKit HR|ios-app|1633bbd8 7b50ea61 830e0009 83f12d74|unverified

@@ -175,3 +175,18 @@ Matriz actualizada: 7/579 verified, resto unverified.
   estaban cubiertas; Apple conserva guiones y por eso lista ambas). Test nuevo
   jumpRopeCoversTripleAndSuPrefixLikeApple. ExerciseInputModeTest 8/8; domain COMPLETO 386/386 REAL.
 Matriz: 10 verified + 1 verified-with-fix / 579.
+
+## Reconciliación 20m vs 30m (10:23 CET, petición main)
+
+Son CAPAS DISTINTAS, ambas portadas correctamente contra bd4d7637:
+1. DETECCIÓN de giro (LiveRouteTurn.detect, LiveActivityView.swift): ventana de rumbo a ~30m a
+   cada lado del vértice, exige ≥20m disponibles por lado, umbral 52°, dedup 55m → Android
+   domain/LiveGPX.kt detect: idéntico constante a constante. bcb9f677 (30m en rutas densas) es ESTA
+   capa; 30m es la regla vigente del baseline.
+2. ANUNCIOS hablados (updateUpcomingTurn): se dispara a ≤120m (ciclismo) / ≤70m (resto), redondeo
+   10m, "Sigue el recorrido" >250m, fuera de ruta ≥55m, lookahead +8m, dedup por routeIndex, y el
+   WORDING "Ahora, <dir>." solo a ≤20m ("En unos N metros" el resto) → Android
+   domain/LiveRouteGuidance.kt + LiveSpokenPhrases.turn: idéntico, incluido "cambia de sentido" >145°.
+   El 20m de tree132 es este umbral de wording, no el de detección. Sin contradicción ni regresión.
+Residual abierto (menor): Apple calcula followingTurnMeters/Symbol (preview del SEGUNDO giro en UI);
+el Cue Android no lo expone. Anotado, sin portar aún.
