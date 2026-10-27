@@ -15,9 +15,10 @@ let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminA
 adminAccount={},adminEditPlan='',adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[],
 adminSelectedAthlete='',adminCenterDetail=null,adminAthleteDetail=null,adminAthleteWorkouts=[],
 adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWorkouts=null,adminActivityLoading=false,
+adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -95,6 +96,7 @@ function enhanceWorkspace(own){
    athleteData:adminAthleteDetail,athleteWorkouts:adminAthleteWorkouts,collapsed:adminNavCollapsed,
    activityMonth:adminActivityMonth,activityDays:adminActivityDays,
    activityDay:adminActivityDay,activityDayWorkouts:adminActivityWorkouts,activityLoading:adminActivityLoading,
+   athleteSection:adminAthleteSection,centerSection:adminCenterSection,
    settings:adminSettings,account:adminAccount,editingPlan:adminEditPlan,
    filter:adminFilter,busy,error,notice,email:user.email||''});
   return;
@@ -116,7 +118,7 @@ function enhanceWorkspace(own){
  const ownInvites=pendingInvites.filter(i=>i.email===(user.email||'').trim().toLowerCase());
  const own=new Map(memberships.filter(m=>m.user_id===user.id&&m.status==='active').map(m=>[m.organization_id,m.role]));
  if(delegation)own.set(delegation.org_id,'admin');
- app.innerHTML=`<div class="connected-page ${delegation?'is-delegated':''}">${common}<main class="connected-workspace"><div class="connected-heading"><div><span class="connected-tag">SESIÓN AUTENTICADA · SUPABASE REPERA</span><h1>Mis organizaciones</h1><p>${escapeHTML(user.email||'Cuenta Repera')} · ${platformRole==='platform_admin'?'Administrador de plataforma · ':''}Solo se muestran negocios autorizados por la base de datos.</p></div><button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Cerrar sesión</button></div>${message()}${ownInvites.length?`<section class="connected-card" style="margin-bottom:22px"><h2>Invitaciones para ti</h2><p>Solo se vinculará tu cuenta con el profesional al aceptarla. No se compartirán tus datos privados de entrenamientos.</p>${ownInvites.map(i=>`<article class="connected-org"><div><strong>Organización ${escapeHTML(i.organization_id.slice(0,8))}</strong><small>Invitación para ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div><button class="connected-primary" data-action="accept-invitation" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Aceptar</button></article>`).join('')}</section>`:''}<section data-workspace-section="overview" class="connected-grid connected-onboarding-grid"><div class="connected-card"><h2>Espacios de trabajo</h2>${organizations.length?organizations.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(kindLabel[o.kind]||o.kind)} · ${escapeHTML(roleLabel[own.get(o.id)]||'Miembro')}</small><code>${escapeHTML(o.slug)}</code></div>${['owner','admin'].includes(own.get(o.id))?`<div class="connected-org-brand">${o.avatar_url?`<img class="connected-org-avatar" src="${escapeHTML(o.avatar_url)}" alt="" loading="lazy">`:`<span class="connected-org-avatar placeholder">${escapeHTML((o.name||'R').slice(0,1).toUpperCase())}</span>`}<form data-connected="rename" class="connected-inline"><input type="hidden" name="id" value="${escapeHTML(o.id)}"><label>Nombre<input name="name" value="${escapeHTML(o.name)}" maxlength="120" required></label><label>${o.kind==='personal_trainer'?'Foto del entrenador':'Logotipo del gimnasio'}<input name="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Eslogan<input name="tagline" value="${escapeHTML(o.tagline||'')}" maxlength="160"></label><label class="connected-check"><input type="checkbox" name="discoverable" ${o.is_discoverable!==false?'checked':''}> Visible para deportistas</label><button class="connected-secondary" ${busy?'disabled':''}>Guardar</button></form></div>`:''}</article>`).join(''):'<p class="connected-empty">Todavía no perteneces a ninguna organización. Crea tu primera empresa para comenzar.</p>'}</div><div class="connected-card">${renderOrganizationCreateForm(planCatalog,(()=>{try{return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY)||'null')||{};}catch{return {};}})())}</div></section><section class="connected-card" data-workspace-section="clients" style="margin-top:22px"><h2>Clientes reales</h2><label class="connected-field">Organización<select id="connected-org-select"><option value="">Selecciona una organización</option>${organizations.map(o=>`<option value="${escapeHTML(o.id)}" ${selectedOrg===o.id?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select></label>${selectedOrg?`<div style="margin-top:20px">${clients.length?clients.map(c=>`<article class="connected-org"><div><strong>${escapeHTML(c.name)}</strong><small>${escapeHTML(c.email)} · ${escapeHTML(c.status)}</small></div></article>`).join(''):'<p>Sin clientes registrados en esta organización.</p>'}${['owner','admin'].includes(own.get(selectedOrg))?`<form data-connected="client">${field('Nombre del cliente','name','text','minlength="2" maxlength="120"')}${field('Correo electrónico','email','email')}<button class="connected-primary">Añadir cliente potencial</button></form>`:''}</div>`:''}</section>${selectedOrg&&["owner","admin"].includes(own.get(selectedOrg))?`<section class="connected-card" data-workspace-section="team" style="margin-top:22px"><h2>Invitar a mi organización</h2><p>La persona debe registrarse con el mismo correo verificado. Podrá aceptar la invitación al iniciar sesión. Aún no se envían correos automáticos.</p><form data-connected="invite">${field('Correo del invitado','email','email')}<label class="connected-field">Perfil<select name="role"><option value="athlete">Deportista</option><option value="coach">Entrenador</option><option value="reception">Recepción</option><option value="admin">Administrador</option></select></label><button class="connected-primary" ${busy?'disabled':''}>Crear invitación</button></form>${pendingInvites.filter(i=>i.organization_id===selectedOrg).length?`<p>Invitaciones pendientes: ${pendingInvites.filter(i=>i.organization_id===selectedOrg).length}</p>`:''}</section>`:''}${renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:planningClientId})}<div data-workspace-section="services">${renderServicesPanel({selectedOrg,role:own.get(selectedOrg),occurrences,passes,bookings,clients,memberships,busy,escapeHTML})}</div><section class="connected-next"><h2>Próximos módulos</h2><p>Asignación operativa de entrenadores, planes publicados, compra de bonos y reservas desde las apps móviles aún no están conectados. No se muestran datos ficticios en este espacio autenticado.</p></section></main></div>`;
+ app.innerHTML=`<div class="connected-page ${delegation?'is-delegated':''}">${common}<main class="connected-workspace"><div class="connected-heading"><div><span class="connected-tag">SESIÓN AUTENTICADA · SUPABASE REPERA</span><h1>Mis organizaciones</h1><p>${escapeHTML(user.email||'Cuenta Repera')} · ${platformRole==='platform_admin'?'Administrador de plataforma · ':''}Solo se muestran negocios autorizados por la base de datos.</p></div><button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Cerrar sesión</button></div>${message()}${ownInvites.length?`<section class="connected-card" style="margin-bottom:22px"><h2>Invitaciones para ti</h2><p>Solo se vinculará tu cuenta con el profesional al aceptarla. No se compartirán tus datos privados de entrenamientos.</p>${ownInvites.map(i=>`<article class="connected-org"><div><strong>Organización ${escapeHTML(i.organization_id.slice(0,8))}</strong><small>Invitación para ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div><button class="connected-primary" data-action="accept-invitation" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Aceptar</button></article>`).join('')}</section>`:''}<section data-workspace-section="overview" class="connected-grid connected-onboarding-grid"><div class="connected-card"><h2>Espacios de trabajo</h2>${organizations.length?organizations.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(kindLabel[o.kind]||o.kind)} · ${escapeHTML(roleLabel[own.get(o.id)]||'Miembro')}</small><code>${escapeHTML(o.slug)}</code></div>${['owner','admin'].includes(own.get(o.id))?`<div class="connected-org-brand">${o.avatar_url?`<img class="connected-org-avatar" src="${escapeHTML(o.avatar_url)}" alt="" loading="lazy">`:`<span class="connected-org-avatar placeholder">${escapeHTML((o.name||'R').slice(0,1).toUpperCase())}</span>`}<form data-connected="rename" class="connected-inline"><input type="hidden" name="id" value="${escapeHTML(o.id)}"><label>Nombre<input name="name" value="${escapeHTML(o.name)}" maxlength="120" required></label><label>${o.kind==='personal_trainer'?'Foto del entrenador':'Logotipo del gimnasio'}<input name="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Eslogan<input name="tagline" value="${escapeHTML(o.tagline||'')}" maxlength="160"></label><label class="connected-check"><input type="checkbox" name="discoverable" ${o.is_discoverable!==false?'checked':''}> Visible para deportistas</label><button class="connected-secondary" ${busy?'disabled':''}>Guardar</button></form></div>`:''}</article>`).join(''):'<p class="connected-empty">Todavía no perteneces a ninguna organización. Crea tu primera empresa para comenzar.</p>'}</div><div class="connected-card">${renderOrganizationCreateForm(planCatalog,(()=>{try{return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY)||'null')||{};}catch{return {};}})())}</div></section><section class="connected-card" data-workspace-section="clients" style="margin-top:22px"><h2>Clientes reales</h2><label class="connected-field">Organización<select id="connected-org-select"><option value="">Selecciona una organización</option>${organizations.map(o=>`<option value="${escapeHTML(o.id)}" ${selectedOrg===o.id?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select></label>${selectedOrg?`<div style="margin-top:20px">${clients.length?clients.map(c=>`<article class="connected-org"><div><strong>${escapeHTML(c.name)}</strong><small>${escapeHTML(c.email)} · ${escapeHTML(c.status)}</small></div></article>`).join(''):'<p>Sin clientes registrados en esta organización.</p>'}${['owner','admin'].includes(own.get(selectedOrg))?`<form data-connected="client">${field('Nombre del cliente','name','text','minlength="2" maxlength="120"')}${field('Correo electrónico','email','email')}<button class="connected-primary">Añadir cliente potencial</button></form>`:''}</div>`:''}</section>${selectedOrg&&["owner","admin"].includes(own.get(selectedOrg))?`<section class="connected-card" data-workspace-section="team" style="margin-top:22px"><h2>Invitar a mi organización</h2><p>La persona debe registrarse con el mismo correo verificado. Podrá aceptar la invitación al iniciar sesión. Aún no se envían correos automáticos.</p><form data-connected="invite">${field('Correo del invitado','email','email')}<label class="connected-field">Perfil<select name="role"><option value="athlete">Deportista</option><option value="coach">Entrenador</option><option value="reception">Recepción</option><option value="admin">Administrador</option></select></label><button class="connected-primary" ${busy?'disabled':''}>Crear invitación</button></form>${pendingInvites.filter(i=>i.organization_id===selectedOrg).length?`<p>Invitaciones pendientes: ${pendingInvites.filter(i=>i.organization_id===selectedOrg).length}</p>`:''}</section>`:''}${renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:planningClientId,preferredDate:planningSelectedDay})}<div data-workspace-section="services">${renderServicesPanel({selectedOrg,role:own.get(selectedOrg),occurrences,passes,bookings,clients,memberships,busy,escapeHTML})}</div><section class="connected-next"><h2>Próximos módulos</h2><p>Asignación operativa de entrenadores, planes publicados, compra de bonos y reservas desde las apps móviles aún no están conectados. No se muestran datos ficticios en este espacio autenticado.</p></section></main></div>`;
  enhanceWorkspace(own);
  if(delegation){
   const org=organizations.find(o=>o.id===delegation.org_id);
@@ -241,13 +243,30 @@ app.addEventListener('click',async event=>{
  const platformButton=event.target.closest('[data-admin-action]');
  if(platformButton){
   const command=platformButton.dataset.adminAction;
+  if(command==='center-section'){adminCenterSection=platformButton.dataset.section||'data';render();return;}
+  if(command==='athlete-section'){adminAthleteSection=platformButton.dataset.section||'exercises';render();return;}
+  if(command==='schedule-athlete'&&!busy){
+   const profile=adminAthleteDetail;
+   const c=(profile?.client_profiles||[]).find(c=>c.center_id&&c.id&&c.status==='active');
+   if(!c){error='Este atleta no está vinculado a un centro activo. Debe aceptar una invitación antes de planificar.';render();return;}
+   busy=true;error=notice='';render();
+   try{
+    await auth.platformAdminDelegate({orgId:c.center_id,reason:'Planificación deportiva desde ficha de atleta'});
+    selectedOrg=c.center_id;planningClientId=c.id;planningSelectedDay=platformButton.dataset.day||'';
+    activeTab='planning';adminSelectedAthlete='';adminAthleteDetail=null;
+    await reload();
+    notice='Planifica los entrenamientos de '+(profile?.account?.name||'este atleta')+'.';
+   }catch(e){error=e.message||'No se pudo abrir la planificación';}
+   finally{busy=false;render();}
+   return;
+  }
   if(command==='toggle-sidebar'){
    adminNavCollapsed=!adminNavCollapsed;
    try{localStorage.setItem('repera.admin.nav.collapsed',adminNavCollapsed?'1':'0');}catch{}
    render();return;
   }
   if(command==='view-org'){
-   adminSelectedOrg=platformButton.dataset.id;adminSelectedAthlete='';adminAthleteDetail=null;
+   adminSelectedOrg=platformButton.dataset.id;adminCenterSection='data';adminSelectedAthlete='';adminAthleteDetail=null;
    adminAthleteWorkouts=[];adminCenterDetail=null;adminTab='centers';error=notice='';render();
    try{adminCenterDetail=await auth.platformAdminCenterDetail(adminSelectedOrg);}
    catch(e){error=e.message||'No se pudieron cargar los datos del centro';}
@@ -255,7 +274,7 @@ app.addEventListener('click',async event=>{
   }
   if(command==='back-org'){adminSelectedOrg='';adminCenterDetail=null;render();return;}
   if(command==='view-athlete'){
-   adminSelectedAthlete=platformButton.dataset.id;adminSelectedOrg='';adminCenterDetail=null;
+   adminSelectedAthlete=platformButton.dataset.id;adminAthleteSection='exercises';adminSelectedOrg='';adminCenterDetail=null;
    adminAthleteDetail=null;adminAthleteWorkouts=[];adminActivityDays=[];
    adminActivityDay='';adminActivityWorkouts=null;adminTab='athletes';error=notice='';render();
    try{
@@ -408,7 +427,7 @@ app.addEventListener('click',async event=>{
  if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
 app.addEventListener('keydown',event=>{
- const athleteRow=event.target.closest('tr.pa-athlete-row[data-admin-action="view-athlete"]');
+ const athleteRow=event.target.closest('tr.pa-athlete-row[data-admin-action]');
  if(athleteRow&&(event.key==='Enter'||event.key===' ')){
   event.preventDefault();athleteRow.click();
  }
@@ -511,6 +530,11 @@ app.addEventListener('submit',async event=>{
     adminSelectedOrg='';selectedOrg=values.get('org_id');activeTab='overview';
     notice='Acceso delegado iniciado. Las acciones mantienen tu identidad de administrador.';
    }
+   if(action==='center-visibility'){
+    await auth.platformAdminSetVisibility({orgId:values.get('org_id'),
+     visible:values.get('discoverable')==='true'});
+    notice='Visibilidad actualizada; la situación del propietario no ha cambiado.';
+   }
    if(action==='platform-settings'){
     await auth.platformAdminSaveSettings(Object.fromEntries(values.entries()));
     notice='Configuración de plataforma guardada.';
@@ -537,7 +561,7 @@ app.addEventListener('submit',async event=>{
     return;
    }
    await reload();
-   if(action==='status'&&adminSelectedOrg)adminCenterDetail=await auth.platformAdminCenterDetail(adminSelectedOrg);
+   if(['status','center-visibility'].includes(action)&&adminSelectedOrg)adminCenterDetail=await auth.platformAdminCenterDetail(adminSelectedOrg);
   }catch(e){error=e.message||'No se pudo completar la operación';}
   finally{busy=false;render();}
   return;
