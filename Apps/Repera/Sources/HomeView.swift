@@ -735,6 +735,10 @@ struct HomeView: View {
                 let spacing = isExpandedLayout && visibleDays > 1
                     ? max(4, (geo.size.width - CGFloat(visibleDays) * side) / CGFloat(visibleDays - 1))
                     : CGFloat(4)
+                // Enseñar solo el extremo derecho del día anterior. Su
+                // recorte no debe alterar el ancho de cada casilla ni la
+                // posición inicial que restaura scrollPosition.
+                let leadingPeek = side * 0.7
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: spacing) {
                         ForEach(cachedCalendarDays, id: \.iso) { day in
@@ -752,8 +756,14 @@ struct HomeView: View {
                 .scrollIndicators(.hidden)
                 .scrollTargetBehavior(.viewAligned)
                 .scrollPosition(id: $calendarScrollID, anchor: .leading)
+                // El scroll comienza 70 % de casilla antes del borde visible.
+                // Se amplía su viewport lo mismo para no dejar un hueco a la
+                // derecha y se recorta al ancho real del calendario.
+                .frame(width: geo.size.width + leadingPeek, alignment: .leading)
+                .offset(x: -leadingPeek)
             }
             .frame(height: weekCarouselHeight)
+            .clipped()
             // SOLO los días son edge-to-edge. Se elimina el antiguo ancho
             // fijo de 7 días, el centrado y los 16 pt de padding exterior.
             // La geometría calcula las celdas con TODO el ancho real,
@@ -765,6 +775,7 @@ struct HomeView: View {
 
     private func calendarDayColumn(_ day: DayCell, side: CGFloat) -> some View {
         let selected = calendar.isDate(day.date, inSameDayAs: selectedDay)
+        let isToday = calendar.isDateInToday(day.date)
         // No fiarse del hasWorkout precalculado de DayCell: puede quedarse
         // obsoleto cuando cambian las sesiones o las lecturas de Salud.
         // El punto debe reflejar exactamente los datos que pinta la tarjeta
@@ -800,7 +811,10 @@ struct HomeView: View {
         .overlay {
             if !selected {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                    .strokeBorder(
+                        isToday ? OG.accent : OG.surface3.opacity(0.75),
+                        lineWidth: isToday ? 1.5 : 0.7
+                    )
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
@@ -1693,8 +1707,9 @@ struct HomeView: View {
         cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
             makeWeekDays(offset: offset, lookup: lookup)
         }
-        // En la primera apertura mostrar AYER a la izquierda y HOY
-        // como segundo día, manteniendo hoy seleccionado. No volver a
+        // En la primera apertura posicionar AYER como objetivo del scroll;
+        // el viewport muestra solo su parte final y HOY queda como primera
+        // casilla completa. No volver a
         // reposicionar al regenerar métricas o deslizar el carrusel.
         if calendarScrollID == nil {
             let firstVisibleDate = calendar.date(byAdding: .day, value: -1, to: selectedDay)
