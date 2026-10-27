@@ -1,3 +1,4 @@
+import {renderAthleteInsights} from './athlete-insights.js';
 import {renderAthleteActivity} from './athlete-activity.js';
 import {navIcon} from './nav-icons.js';
 
@@ -212,63 +213,77 @@ function athletesPage(athletes,filter){
  <td>${a.confirmed?'<span class="pa-pill good">Verificado</span>':'<span class="pa-pill">Sin verificar</span>'}</td><td>${date(a.created_at)}</td></tr>`).join('')):
  empty('No hay atletas con esos filtros','La lista incluye cuentas autenticadas incluso sin centros vinculados.')}</section>`;
 }
-function athleteDetail(person,detail,workouts=[],busy=false,activity={}){
- const a=detail?.account||person;const rows=detail||{};
- return `${heading('Ficha de atleta','Cuenta, actividad y relaciones con centros',button('Volver a atletas','back-athletes'))}
- <div class="pa-panel pa-center-hero"><div class="pa-identity">${photo(a.avatar_url,a.name,'large')}
- <div><h2>${esc(a.name||'Atleta')}</h2><p>${esc(a.email||'—')} · ${esc(a.role==='platform_admin'?'Administrador Repera':'Atleta')}</p></div></div></div>
- ${!detail?'<section class="pa-panel"><h2>Cargando ficha desde Supabase...</h2></section>':`
- <div class="pa-metrics pa-center-metrics">
- ${stat('Entrenamientos',rows.workout_count||0)}
- ${stat('Reservas',rows.booking_count||0)}
- ${stat('Sesiones profesionales',rows.training_count||0)}
- ${stat('Centros vinculados',(rows.memberships||[]).length)}</div>
- ${renderAthleteActivity({month:activity.month,days:activity.days,
-  selectedDay:activity.day||workouts[0]?.started_at?.slice(0,10)||'',
+function athleteDetail(person,detail,workouts=[],busy=false,activity={},section='exercises'){
+ const a=detail?.account||person,rows=detail||{};
+ const linked=Array.isArray(rows.client_profiles)?rows.client_profiles:[];
+ const actions=`<div class="pa-athlete-actions">
+ <button type="button" class="pa-button primary" data-admin-action="schedule-athlete" data-id="${esc(person.id)}">
+ Añadir plan de entreno</button>
+ ${!linked.length?'<span class="pa-muted">Primero vincula al atleta a un centro para asignarle entrenamientos.</span>':''}</div>`;
+ const header=`<div class="pa-athlete-hero pa-panel"><div class="pa-identity">
+ ${photo(a.avatar_url,a.name,'large')}
+ <div><h1>${esc(a.name||'Atleta')}</h1><p>${esc(a.email||'—')}</p></div></div>${actions}</div>`;
+ const nav=`<nav class="pa-detail-tabs" aria-label="Ficha de atleta">
+ ${[['exercises','Ejercicios'],['data','Datos'],['access','Acceso'],['bookings','Reservas']].map(([id,title])=>
+ `<button type="button" data-admin-action="athlete-section" data-section="${id}"
+ aria-current="${section===id?'page':'false'}" class="${section===id?'active':''}">${title}</button>`).join('')}</nav>`;
+ if(!detail)return header+nav+'<section class="pa-panel">Cargando la información de Supabase...</section>';
+ let body='';
+ if(section==='exercises'){
+  const day=activity.day||workouts[0]?.started_at?.slice(0,10)||'';
+  const canSchedule=linked.length>0;
+  body=`<div class="pa-athlete-training-grid">
+ ${renderAthleteActivity({month:activity.month,days:activity.days,selectedDay:day,
   workouts:activity.workouts??workouts,loading:activity.loading})}
- <div class="pa-layout">
- <section class="pa-panel"><h2>Identidad y cuenta</h2>
- ${details([['Nombre',a.name],['Correo',a.email],['Rol',a.role==='platform_admin'?'Administrador de plataforma':a.role||'Atleta'],
- ['Creación de cuenta',stamp(a.created_at)],['Última modificación del perfil',stamp(a.profile_updated_at)],
- ['Correo confirmado',stamp(a.email_confirmed_at)]])}</section>
- <section class="pa-panel"><h2>Accesos y autenticación</h2>
- ${details([['Último inicio de sesión',stamp(a.last_sign_in_at)],
- ['Proveedores de acceso',(rows.providers||[]).join(', ')||'Sin proveedores registrados'],
- ['Email verificado',!!a.email_confirmed_at]])}
- <p class="pa-muted">Por seguridad no se exponen contraseñas, sesiones, tokens, IP ni credenciales de terceros.</p>
+ </div>
+ <div class="pa-add-day">${canSchedule?
+ `<button type="button" class="pa-button" data-admin-action="schedule-athlete"
+ data-id="${esc(person.id)}" data-day="${esc(day)}">+ Añadir entrenamiento ${day?'el '+date(day):''}</button>`:
+ '<span class="pa-muted">El atleta necesita aceptar su vinculación a un centro para recibir entrenamientos.</span>'}</div>
+ ${renderAthleteInsights(workouts,rows.workout_count)}`;
+ }
+ if(section==='data'){
+  body=`<div class="pa-layout"><section class="pa-panel"><h2>Identidad y cuenta</h2>
+ ${details([['Nombre',a.name],['Correo',a.email],['Alta',stamp(a.created_at)],
+ ['Última actualización',stamp(a.profile_updated_at)],
+ ['Estado del correo',a.email_confirmed_at?'Verificado':'Sin verificar'],
+ ['Rol de plataforma',a.role==='platform_admin'?'Administrador':a.role||'Atleta']])}</section>
+ <section class="pa-panel"><h2>Centros y permisos</h2>
+ ${rows.memberships?.length?table(['Centro','Rol','Estado'],rows.memberships.map(m=>
+ `<tr><td>${esc(m.center_name)}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td></tr>`).join('')):
+ empty('Sin centros vinculados','Puede utilizar Repera sin entrenador.')}
  </section></div>
- <div class="pa-layout"><section class="pa-panel"><h2>Centros y roles</h2>
- ${rows.memberships?.length?table(['Centro','Rol','Estado','Acción'],rows.memberships.map(m=>`<tr>
- <td>${esc(m.center_name)}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td>
- <td>${button('Abrir centro','view-org',`data-id="${esc(m.center_id)}"`)}</td></tr>`).join('')):
- empty('Sin centros asociados','Este atleta puede utilizar Repera de forma independiente.')}</section>
- <section class="pa-panel"><h2>Fichas en centros</h2>
- ${rows.client_profiles?.length?table(['Centro','Ficha','Estado'],rows.client_profiles.map(c=>`<tr>
- <td>${esc(c.center_name)}</td><td>${esc(c.name)}</td><td>${statusPill(c.status)}</td></tr>`).join('')):
- empty('Sin fichas de clientes','Ningún centro tiene asociada su cuenta.')}</section></div>
- <div class="pa-layout"><section class="pa-panel"><h2>Perfil de entrenamiento</h2>
- ${rows.training_profile?details([['Objetivo',rows.training_profile.primary_goal],
- ['Nivel',rows.training_profile.experience_level],
- ['Días de entrenamiento/semana',rows.training_profile.training_days_per_week],
- ['Duración por sesión (min)',rows.training_profile.session_minutes],
- ['Coaching habilitado',rows.training_profile.coaching_enabled],
- ['Última actualización',stamp(rows.training_profile.updated_at)]]):
- empty('Sin perfil de entrenamiento','El atleta no ha configurado este apartado.')}</section>
- <section class="pa-panel"><h2>Programas (${formatListing(rows.programs)})</h2>
- ${rows.programs?.length?table(['Programa','Inicio','Estado'],rows.programs.map(p=>`<tr>
- <td>${esc(p.title)}</td><td>${date(p.start_date)}</td><td>${statusPill(p.status)}</td></tr>`).join('')):
- empty('Sin programas','No hay programas guardados.')}</section></div>
- <div class="pa-layout">
+ <div class="pa-layout"><section class="pa-panel"><h2>Fichas de cliente</h2>
+ ${linked.length?table(['Centro','Nombre','Estado'],linked.map(c=>
+ `<tr><td>${esc(c.center_name)}</td><td>${esc(c.name)}</td><td>${statusPill(c.status)}</td></tr>`).join('')):
+ empty('Sin fichas','Ningún centro tiene una ficha asociada.')}</section>
+ <section class="pa-panel"><h2>Preferencias de entrenamiento</h2>
+ ${rows.training_profile?details([
+ ['Objetivo',rows.training_profile.primary_goal],['Experiencia declarada',rows.training_profile.experience_level],
+ ['Días por semana',rows.training_profile.training_days_per_week],
+ ['Duración habitual',rows.training_profile.session_minutes],
+ ['Entrenamiento asistido',rows.training_profile.coaching_enabled]]):
+ empty('Sin preferencias','Todavía no ha configurado sus preferencias.')}</section></div>`;
+ }
+ if(section==='access'){
+  body=`<section class="pa-panel"><h2>Acceso</h2>
+ ${details([['Último inicio de sesión',stamp(a.last_sign_in_at)],
+ ['Cuenta creada',stamp(a.created_at)],['Correo verificado',!!a.email_confirmed_at],
+ ['Métodos de acceso',(rows.providers||[]).join(', ')||'No disponibles']])}
+ <p class="pa-muted">No se exponen contraseñas, tokens, dispositivos privados ni direcciones IP.</p></section>`;
+ }
+ if(section==='bookings'){
+  body=`<div class="pa-layout"><section class="pa-panel"><h2>Reservas recientes</h2>
+ ${rows.reservations?.length?table(['Centro','Fecha','Estado'],rows.reservations.map(b=>
+ `<tr><td>${esc(b.center_name)}</td><td>${stamp(b.booked_at)}</td><td>${statusPill(b.status)}</td></tr>`).join('')):
+ empty('Sin reservas','No hay reservas asociadas a este atleta.')}</section>
  <section class="pa-panel"><h2>Sesiones profesionales recientes</h2>
- ${rows.professional_sessions?.length?table(['Sesión','Centro','Fecha','Estado'],rows.professional_sessions.map(t=>`<tr>
- <td>${esc(t.title)}</td><td>${esc(t.center_name)}</td><td>${date(t.scheduled_date)}</td><td>${statusPill(t.status)}</td></tr>`).join('')):
- empty('Sin sesiones profesionales','No existen sesiones asignadas.')}</section>
- <section class="pa-panel"><h2>Reservas recientes</h2>
- ${rows.reservations?.length?table(['Centro','Fecha','Estado'],rows.reservations.map(t=>`<tr>
- <td>${esc(t.center_name)}</td><td>${stamp(t.booked_at)}</td><td>${statusPill(t.status)}</td></tr>`).join('')):
- empty('Sin reservas','No constan reservas asociadas.')}</section></div>
- <p class="pa-muted">Los entrenamientos del calendario muestran solo información útil para el deportista. Los identificadores internos y ajustes técnicos no se presentan.</p>`}
- `;
+ ${rows.professional_sessions?.length?table(['Sesión','Centro','Fecha','Estado'],rows.professional_sessions.map(t=>
+ `<tr><td>${esc(t.title)}</td><td>${esc(t.center_name)}</td><td>${date(t.scheduled_date)}</td>
+ <td>${statusPill(t.status)}</td></tr>`).join('')):
+ empty('Sin sesiones','No hay sesiones profesionales asignadas.')}</section></div>`;
+ }
+ return header+nav+body;
 }
 function planForm(plan,newPlan=false){
  const p=plan||{},key=esc(p.plan_key||''),audience=p.audience||'personal_trainer';
@@ -378,6 +393,7 @@ export function renderPlatformAdmin({
  tab='home',orgs=[],athletes=[],finance={},pending=[],history=[],plans=[],
  selectedOrg='',selectedAthlete='',centerDetail=null,athleteData=null,athleteWorkouts=[],
  activityMonth='',activityDays=[],activityDay='',activityDayWorkouts=null,activityLoading=false,
+ athleteSection='exercises',centerSection='data',
  collapsed=false,filter={},settings={},account={},editingPlan='',busy=false,error='',notice='',email=''
 }={}) {
  const o=orgs.find(o=>o.id===selectedOrg);
@@ -390,7 +406,7 @@ export function renderPlatformAdmin({
  if(a)body=athleteDetail(a,athleteData,athleteWorkouts,busy,{
   month:activityMonth,days:activityDays,day:activityDay,
   workouts:activityDayWorkouts,loading:activityLoading
- });
+ },athleteSection);
  else if(o)body=organizationDetail(o,{plans,detail:centerDetail});
  else if(tab==='home')body=overview(orgs,finance,history);
  else if(tab==='centers')body=directory(orgs,filter);
