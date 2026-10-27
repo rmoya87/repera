@@ -323,6 +323,21 @@ extension OGPageHeader where Leading == EmptyView {
     }
 }
 
+/// Título grande de segunda línea: pertenece al contenido, no a la barra fija.
+/// Mantiene el tamaño durante todo el scroll y desaparece por la parte superior.
+struct OGScrollablePageTitle: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.largeTitle.weight(.bold))
+            .foregroundStyle(OG.label)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// Una única columna centrada para tarjetas y listas en paisaje.
 /// En retrato, 790 pt supera el ancho del iPhone y no restringe nada.
 private struct OGReadableColumnModifier: ViewModifier {
@@ -439,6 +454,24 @@ extension View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar(.visible, for: .navigationBar)
             .ogTransparentNav()
+    }
+
+    /// Barra de la subpágina: solo retroceso y acciones, nunca un título
+    /// contraíble. El título se dibuja en el primer elemento de List/Form/ScrollView.
+    func ogScrollingTitleNav() -> some View {
+        self
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.visible, for: .navigationBar)
+            .ogTransparentNav()
+    }
+
+    /// Cabecera grande como fila sin superficie propia de List o Form.
+    func ogScrollingTitleListRow() -> some View {
+        self
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 8, leading: OG.pad, bottom: 0, trailing: OG.pad))
     }
 
     /// Título arriba del todo (sin franja vacía). Acciones opcionales a la derecha, misma fila.

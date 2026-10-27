@@ -900,6 +900,7 @@ private struct ProgressAllExercisesView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Progreso por ejercicio").ogScrollingTitleListRow()
             ForEach(exercises) { ex in
                 NavigationLink {
                     ExerciseProgressView(exerciseId: ex.id)
@@ -919,7 +920,7 @@ private struct ProgressAllExercisesView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Progreso por ejercicio")
+        .ogScrollingTitleNav()
     }
 }
 
@@ -929,6 +930,7 @@ private struct ProgressAllRecordsView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Récords (e1RM)").ogScrollingTitleListRow()
             ForEach(records) { pr in
                 Button {
                     selectedExerciseID = pr.exerciseId
@@ -960,7 +962,7 @@ private struct ProgressAllRecordsView: View {
         .navigationDestination(item: $selectedExerciseID) { id in
             ExerciseDetailView(exerciseId: id)
         }
-        .ogPinnedTransparentNav("Récords (e1RM)")
+        .ogScrollingTitleNav()
     }
 }
 

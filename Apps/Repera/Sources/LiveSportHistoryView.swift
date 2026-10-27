@@ -132,6 +132,7 @@ struct LiveSportHistoryView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle(sport.title).ogScrollingTitleListRow()
             Section("Resumen") {
                 HStack(spacing: 8) {
                     tile("Actividades", value: "\(sessions.count)")
@@ -248,7 +249,7 @@ struct LiveSportHistoryView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .ogPinnedTransparentNav(sport.title)
+        .ogScrollingTitleNav()
         .alert("No se pudo guardar la ruta", isPresented: Binding(
             get: { favoriteError != nil },
             set: { if !$0 { favoriteError = nil } }
@@ -366,6 +367,7 @@ struct LiveRouteEvolutionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                OGScrollablePageTitle(route?.title ?? "Evolución de ruta")
                 if let route, route.points.count >= 2 {
                     Map(position: $position) {
                         MapPolyline(coordinates: route.points.map {
@@ -460,7 +462,7 @@ struct LiveRouteEvolutionView: View {
             .ogReadableColumn()
         }
         .background(OG.bg.ignoresSafeArea())
-        .ogPinnedTransparentNav(route?.title ?? "Evolución de ruta")
+        .ogScrollingTitleNav()
     }
 
     private func summary(_ name: String, value: String) -> some View {

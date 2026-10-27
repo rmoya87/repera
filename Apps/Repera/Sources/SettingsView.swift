@@ -30,6 +30,7 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var store = store
         Form {
+            OGScrollablePageTitle("Ajustes").ogScrollingTitleListRow()
             Section {
                 HStack(spacing: 12) {
                     Button {
@@ -545,7 +546,7 @@ struct SettingsView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .ogPinnedTransparentNav("Ajustes")
+        .ogScrollingTitleNav()
         .alert("Restaurar compras", isPresented: Binding(
             get: { restoreMessage != nil },
             set: { if !$0 { restoreMessage = nil } }
@@ -714,6 +715,7 @@ struct RotationPlanEditor: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Rotación").ogScrollingTitleListRow()
             Section {
                 if orderedIds.isEmpty {
                     Text("Añade rutinas de Diario → Rutinas para armar la cola.")
@@ -754,7 +756,7 @@ struct RotationPlanEditor: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Rotación")
+        .ogScrollingTitleNav()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 EditButton()
@@ -805,6 +807,7 @@ struct HealthGoalsView: View {
 
     var body: some View {
         Form {
+            OGScrollablePageTitle("Objetivos").ogScrollingTitleListRow()
             Section {
                 goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
                 goalRow("Calorías activas", icon: "flame", field: .energy, next: .minutes, text: $energy, unit: "kcal")
@@ -832,7 +835,7 @@ struct HealthGoalsView: View {
 
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Objetivos")
+        .ogScrollingTitleNav()
         .onAppear(perform: loadOnce)
         .onChange(of: steps) { _, text in persistInt(text, range: 100...100_000, keyPath: \.dailyStepsGoal) }
         .onChange(of: energy) { _, text in persistInt(text, range: 10...10_000, keyPath: \.dailyActiveEnergyGoalKcal) }

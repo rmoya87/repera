@@ -7,6 +7,7 @@ struct BodyWeightListView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Peso corporal").ogScrollingTitleListRow()
             Section {
                 HStack {
                     OGNumericTextField(
@@ -60,7 +61,7 @@ struct BodyWeightListView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Peso corporal")
+        .ogScrollingTitleNav()
 
     }
 }

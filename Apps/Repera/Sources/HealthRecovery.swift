@@ -449,6 +449,7 @@ struct ConnectedHealthSettingsView: View {
 
     var body: some View {
         Form {
+            OGScrollablePageTitle("Salud conectada").ogScrollingTitleListRow()
             Section {
                 Button {
                     Task { await manageHealthPermissions() }
@@ -485,7 +486,7 @@ struct ConnectedHealthSettingsView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Salud conectada")
+        .ogScrollingTitleNav()
         .alert("Permisos de Apple Salud", isPresented: $showHealthPermissionsHelp) {
             Button("Entendido", role: .cancel) {}
         } message: {

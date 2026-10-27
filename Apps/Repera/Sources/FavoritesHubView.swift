@@ -16,6 +16,7 @@ struct FavoritesHubView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Favoritos").ogScrollingTitleListRow()
             if !hasAnyFavorite {
                 Section {
                     VStack(spacing: 12) {
@@ -131,7 +132,7 @@ struct FavoritesHubView: View {
         .ogListChrome()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OG.bg.ignoresSafeArea())
-        .ogPinnedTransparentNav("Favoritos")
+        .ogScrollingTitleNav()
         .navigationBarBackButtonHidden(false)
         .navigationDestination(item: $editing) { routine in
             DayEditorView(
