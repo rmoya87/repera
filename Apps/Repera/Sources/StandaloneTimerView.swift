@@ -99,7 +99,8 @@ struct StandaloneTimerConfig: Equatable, Codable, Hashable {
 }
 
 /// Entrada con el mismo teclado numérico de Repera que la tabla de series.
-private struct TimerNumericInput: View {
+/// Campo numérico compartido entre el temporizador libre y su configuración en Play.
+struct TimerNumericInput: View {
     @Binding private var value: Int
     let range: ClosedRange<Int>
     let label: String
@@ -133,7 +134,9 @@ private struct TimerNumericInput: View {
                 onCommit: { commit() }
             )
             .frame(maxWidth: .infinity, minHeight: 48)
-            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
+            // Mismo teclado personalizado de Repera, con superficie
+            // Liquid Glass también en la configuración por rondas.
+            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
             .accessibilityLabel(label)
         }
         .frame(maxWidth: .infinity)

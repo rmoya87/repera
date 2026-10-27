@@ -46,21 +46,55 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
             "private func startBlockClock(", 1
         )[0]
-        self.assertIn('Text("Duración de cada ronda")', sheet)
-        self.assertIn("Stepper(value: $manualRoundMinutes, in: 0...120)", sheet)
-        self.assertIn("Stepper(value: $manualRoundSeconds, in: 0...55, step: 5)", sheet)
+        self.assertIn('Text("Configurar temporizador")', sheet)
+        self.assertIn('title: "Trabajar por ronda"', sheet)
+        self.assertIn('title: "Descansar entre rondas"', sheet)
+        self.assertIn("minutes: $manualRoundMinutes", sheet)
+        self.assertIn("seconds: $manualRoundSeconds", sheet)
+        self.assertIn("minutes: $manualRoundRestMinutes", sheet)
+        self.assertIn("seconds: $manualRoundRestSeconds", sheet)
         self.assertIn(".disabled(manualRoundMinutes == 0 && manualRoundSeconds == 0)", sheet)
         self.assertIn("current.id == setup.exerciseID", sheet)
         self.assertIn("manualRoundMinutes * 60 + manualRoundSeconds", sheet)
-        self.assertIn("Stepper(value: $manualRoundRestSeconds, in: 0...600, step: 5)", sheet)
-        self.assertIn('Text("Descanso entre rondas")', sheet)
+        self.assertIn("manualRoundTimeRow(", sheet)
+        self.assertIn("TimerNumericInput(label:", sheet)
+        self.assertIn("range: 0...59", sheet)
+        self.assertNotIn("Stepper(", sheet)
         self.assertIn("confirmedManualRoundStart = ConfirmedManualRoundStart(", sheet)
-        self.assertIn("restSeconds: manualRoundRestSeconds", sheet)
+        self.assertIn("restSeconds: manualRoundRestMinutes * 60 + manualRoundRestSeconds", sheet)
         self.assertIn("manualRoundSetup = nil", sheet)
         self.assertNotIn("startBlockClock(for: current, manualRoundSeconds: seconds", sheet)
         # Todas las entradas del reloj (botón por bloque, selector y automático)
         # usan el mismo gate; solo el gate dispara configure directamente.
         self.assertGreaterEqual(PLAY.count("requestBlockClockStart(for: current)"), 4)
+
+    def test_setup_uses_shared_numeric_inputs_liquid_glass_and_fits_content(self):
+        sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
+            "private func startBlockClock(", 1
+        )[0]
+        self.assertIn(".ogFittedHeight()", sheet)
+        self.assertIn(".ogFittedSheet()", sheet)
+        self.assertNotIn(".presentationDetents([.height(", sheet)
+        self.assertNotIn(".presentationBackground(OG.surface)", sheet)
+        self.assertNotIn("Spacer(minLength: 0)", sheet)
+        self.assertNotIn(".buttonStyle(.borderedProminent)", sheet)
+        self.assertIn(".foregroundStyle(.black)", sheet)
+        self.assertIn(".background(OG.accent, in: Capsule())", sheet)
+        self.assertIn('Text("Iniciar temporizador")', sheet)
+        self.assertIn("TimerNumericInput(label: \"MIN\"", sheet)
+        self.assertIn("TimerNumericInput(label: \"SEG\"", sheet)
+
+        timer = (IOS / "StandaloneTimerView.swift").read_text(encoding="utf-8")
+        numeric = timer.split("struct TimerNumericInput: View {", 1)[1].split(
+            "struct StandaloneTimerView: View {", 1
+        )[0]
+        self.assertIn("OGNumericTextField(", numeric)
+        self.assertIn(
+            ".glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))",
+            numeric,
+        )
+        self.assertNotIn("private struct TimerNumericInput", timer)
+        self.assertIn("TimerNumericInput(label:", timer)
 
     def test_prescribed_intervals_are_not_overridden_by_setup(self):
         configured = PLAY.split("private func startBlockClock(", 1)[1].split(
@@ -128,7 +162,9 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
             "private func manualRoundDurationSheet(", 1
         )[0]
         self.assertIn("current.blockIntervalSeconds != 60 || current.wodFormat == .strength", request)
-        self.assertIn("manualRoundRestSeconds = max(0, current.blockRestBetweenRoundsSeconds ?? 0)", request)
+        self.assertIn("let rest = max(0, current.blockRestBetweenRoundsSeconds ?? 0)", request)
+        self.assertIn("manualRoundRestMinutes = rest / 60", request)
+        self.assertIn("manualRoundRestSeconds = rest % 60", request)
         configured = PLAY.split("private func startBlockClock(", 1)[1].split(
             "private func metaPill(", 1
         )[0]
