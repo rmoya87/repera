@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -1736,6 +1739,7 @@ internal fun BenchmarkWodPicker(
  *  nativo de la ruta es un sub-gap pendiente de componente. */
 @Composable
 internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>, showComputedSplits: Boolean = true, waterSport: Boolean = false) {
+    var fullScreenRoute by rememberSaveable { mutableStateOf(false) }
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
             dev.repera.domain.CardioRouteAnalysis.Sample(
@@ -1748,11 +1752,26 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Ruta", style = MaterialTheme.typography.titleMedium)
-        // Mapa nativo con la polilínea coloreada por velocidad (paridad
-        // HealthWorkoutRouteMap iOS; no interactivo en el detalle, como iOS).
-        RouteMapView(points = points, isInteractive = false, waterSport = waterSport,
-            modifier = Modifier.fillMaxWidth().height(180.dp)
-                .clip(RoundedCornerShape(10.dp)))
+        // Apple fafe016a: el preview no recibe gestos, pero una superficie
+        // tactil independiente captura TODA la tarjeta y abre el mapa a
+        // pantalla completa (WorkoutMapTapTarget).
+        Box {
+            RouteMapView(points = points, isInteractive = false, waterSport = waterSport,
+                modifier = Modifier.fillMaxWidth().height(180.dp)
+                    .clip(RoundedCornerShape(10.dp)))
+            Box(modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { fullScreenRoute = true }
+                .semantics { contentDescription = "Ampliar recorrido" })
+        }
+        if (fullScreenRoute) {
+            Dialog(onDismissRequest = { fullScreenRoute = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)) {
+                RouteMapView(points = points, isInteractive = true, waterSport = waterSport,
+                    modifier = Modifier.fillMaxSize())
+            }
+        }
         // Solo los recorridos ya guardados muestran su escala de color (Apple c04c7dd9).
         RouteSpeedLegend(water = waterSport)
         if (points.any { it.isEstimated == true }) {
