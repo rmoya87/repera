@@ -1,5 +1,7 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+- El segundo ledger `business_client_payments` no admite escrituras desde el navegador; solo un backend con verificación de firma del proveedor podrá registrar transacciones. Se definieron políticas explícitas de denegación para las tablas administrativas; wrappers públicos siguen sujetos al guard de administrador. El CSV añade neutralización de prefijos de fórmula.
+
 La administración global no usa `service_role` en el navegador. `private.is_repera_platform_admin()` valida `profiles.role` más email confirmado de la cuenta raíz. El listado de negocio y el histórico administrativo se exponen por wrappers SQL `SECURITY INVOKER` cuyo destino es una función privada de privilegios restringidos.
 
 La delegación exige organización existente, motivo de 12–300 caracteres, duración máxima de 30 minutos, un ámbito activo por administrador y registro de entrada/salida. Reutiliza `auth.uid()` del administrador: **no** falsifica el JWT del propietario, y `private.has_org_role` comprueba la delegación en cada consulta. Las políticas basadas únicamente en rol de deportista quedan excluidas; las operaciones individuales deben seguir comprobando consentimiento. Las modificaciones de negocio realizadas bajo delegación mantienen actor real en `created_by` y datos de auditoría existentes donde la operación ya la incorpora.
