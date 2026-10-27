@@ -10,24 +10,17 @@ enum WorkoutFlowRoute: Hashable {
 }
 
 /// Menú principal: Inicio · Comenzar · Progreso · Ejercicios.
-/// Las herramientas de Crear y el centro profesional siguen disponibles sin ocupar la pestaña.
+/// Las herramientas de Crear y los centros profesionales permanecen en sus secciones, no en el mapa de Comenzar.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
-    @Environment(BusinessDataStore.self) private var businessData
     @State private var tab: AppTab = .home
     @State private var showStartHub = false
-    @State private var showCenter = false
     @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
 
     enum AppTab: Hashable {
-        case home, center, stats, exercises
-    }
-
-    /// Gimnasio/entrenador vinculado o invitación pendiente → pestaña Center; si no, Crear.
-    private var showsCenterTab: Bool {
-        !businessData.centers.isEmpty || !businessData.invitations.isEmpty
+        case home, start, stats, exercises
     }
 
     var body: some View {
@@ -42,7 +35,7 @@ struct RootTabView: View {
                     )
                 }
 
-                SwiftUI.Tab("Comenzar", systemImage: "livephoto.play", value: AppTab.center) {
+                SwiftUI.Tab("Comenzar", systemImage: "livephoto.play", value: AppTab.start) {
                     LiveActivityView(
                         onSaved: { date in
                             homeFocusDay = date
@@ -51,8 +44,7 @@ struct RootTabView: View {
                             // evento de refresco (fuera de la grabación activa).
                             store.requestExerciseCatalogRefresh()
                         },
-                        onOpenWorkout: openWorkout,
-                        onOpenCenter: showsCenterTab ? { showCenter = true } : nil
+                        onOpenWorkout: openWorkout
                     )
                 }
 
@@ -86,9 +78,6 @@ struct RootTabView: View {
                 .zIndex(1)
             }
         }
-        .sheet(isPresented: $showCenter) {
-            NavigationStack { CenterView() }
-        }
         .sheet(isPresented: $showStartHub) {
             // The former Crear tab remains available from Inicio, without losing tools.
             StartHubSheet(
@@ -112,7 +101,7 @@ struct RootTabView: View {
             if store.state.activeSession != nil {
                 flowPath = [.workout]
             } else if LiveActivityRecorder.shared.isActive {
-                tab = .center
+                tab = .start
             }
         }
         .onOpenURL { url in
@@ -120,7 +109,7 @@ struct RootTabView: View {
             switch url.host {
             case "live":
                 flowPath = []
-                tab = .center
+                tab = .start
             case "workout":
                 if store.hasActiveSession {
                     openWorkout()
