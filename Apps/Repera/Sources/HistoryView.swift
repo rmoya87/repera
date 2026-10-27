@@ -613,7 +613,7 @@ struct WorkoutDetailView: View {
                     // coordenadas. No dibujar un trazado inventado.
                     Section {
                         VStack(alignment: .leading, spacing: 10) {
-                            Label("Recorrido pendiente", systemImage: "map")
+                            Label("Recorrido no disponible", systemImage: "map")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(OG.label)
                             Text("La distancia está guardada, pero todavía no están disponibles los puntos del recorrido. Comprueba que iCloud esté activado y sincronizado en tus dispositivos.")
