@@ -11,8 +11,9 @@ import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescripti
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[];
-let adminFilter={search:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
+let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminAthletes=[],adminSettings={},
+adminAccount={},adminEditPlan='',adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[];
+let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
 let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
@@ -82,8 +83,9 @@ function enhanceWorkspace(own){
  root.querySelectorAll('[data-workspace-section]').forEach(el=>{el.style.display=el.dataset.workspaceSection===activeTab?'':'none';});
 }function render(){
  if(user&&platformRole==='platform_admin'&&!delegation&&view!=='password'){
-  app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,finance:adminFinances,
+  app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,athletes:adminAthletes,finance:adminFinances,
    pending:adminPending,history:adminHistory,plans:planCatalog,selectedOrg:adminSelectedOrg,
+   settings:adminSettings,account:adminAccount,editingPlan:adminEditPlan,
    filter:adminFilter,busy,error,notice,email:user.email||''});
   return;
  }
@@ -135,11 +137,14 @@ async function reload(){
  // A broken business query must never hide the administrator's global console.
  const profile=await auth.myProfile();
  platformRole=profile?.role||null;
+ adminAccount={...(profile||{}),avatar_url:profile?.avatar_url||user?.user_metadata?.avatar_url||null,
+  display_name:profile?.display_name||user?.user_metadata?.name||''};
  planCatalog=await auth.businessPlans();
  if(platformRole==='platform_admin'){
-  [delegation,adminDirectory,adminFinances,adminPending,adminHistory]=await Promise.all([
-   auth.platformAdminCurrentDelegation(),auth.platformAdminDirectory(),
-   auth.platformAdminFinances(),auth.platformAdminPending(),auth.platformAdminHistory()]);
+  [delegation,adminDirectory,adminAthletes,adminFinances,adminPending,adminHistory,adminSettings]=await Promise.all([
+   auth.platformAdminCurrentDelegation(),auth.platformAdminDirectory(),auth.platformAdminAthletes(),
+   auth.platformAdminFinances(),auth.platformAdminPending(),auth.platformAdminHistory(),
+   auth.platformAdminSettings()]);
   platformOrgs=[];
   if(!delegation){
    organizations=[];memberships=[];invitations=[];selectedOrg=null;
@@ -149,7 +154,7 @@ async function reload(){
   delegation=null;
   // Only the verified owner claims a prepared business, never a platform operator.
   await auth.claimPlatformProvisioning();
-  adminDirectory=[];adminFinances={payments:[],client_payments:[],intents:[]};
+  adminDirectory=[];adminAthletes=[];adminSettings={};adminFinances={payments:[],client_payments:[],intents:[]};
   adminPending=[];adminHistory=[];platformOrgs=[];
  }
  const [orgs,members,invites]=await Promise.all([
