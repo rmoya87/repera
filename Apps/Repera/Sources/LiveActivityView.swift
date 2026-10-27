@@ -1749,7 +1749,6 @@ struct LiveActivityView: View {
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
-    var onOpenCenter: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
@@ -2150,7 +2149,7 @@ struct LiveActivityView: View {
                     ) { finishAndShowSave() }
                 }
                 mapCircleButton(
-                    navigationMapEnabled ? "map" : "cube.transparent",
+                    navigationMapEnabled ? "map" : "view.3d",
                     label: navigationMapEnabled ? "Cambiar a vista 2D" : "Cambiar a modo navegador"
                 ) {
                     navigationMapEnabled.toggle()
@@ -2171,9 +2170,6 @@ struct LiveActivityView: View {
                     mapCircleButton("chart.bar.xaxis", label: "Ver métricas") {
                         showingMetrics = true
                     }
-                }
-                if recorder.phase == .idle, let onOpenCenter {
-                    mapCircleButton("building.2", label: "Mi centro", action: onOpenCenter)
                 }
                 if showGuidanceToggle {
                     mapCircleButton(
