@@ -30,6 +30,38 @@ final class SessionControllerTests: XCTestCase {
         XCTAssertFalse(session.exercises[0].exercise.isCustom)
         XCTAssertFalse(session.exercises[1].exercise.isCustom)
     }
+    func testSavedFavoritePreservesIndividualRepsAndKilosWhenPlayingAgain() throws {
+        let squat = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        let prescription = [
+            PlannedSet(targetReps: 8, targetWeightKg: 60),
+            PlannedSet(targetReps: 6, targetWeightKg: 65),
+            PlannedSet(targetReps: 4, targetWeightKg: 70)
+        ]
+        let template = Routine(
+            title: "Fuerza favorita",
+            blocks: [.strength(
+                title: "Fuerza",
+                exercises: [RoutineExercise(
+                    exerciseId: squat.id, plannedSets: prescription
+                )]
+            )],
+            progression: .off,
+            isFavorite: true
+        )
+        let restored = try JSONDecoder().decode(
+            Routine.self, from: JSONEncoder().encode(template)
+        )
+        let session = SessionController.from(routine: restored, exercises: [squat])
+        XCTAssertEqual(session.exercises.count, 1)
+        XCTAssertEqual(session.exercises[0].plannedSets, prescription)
+        XCTAssertEqual(
+            session.routineBlocks?.first?.exercises.first?.plannedSets, prescription
+        )
+        XCTAssertEqual(session.exercises[0].loggedSets.count, 0)
+        XCTAssertEqual(session.exercises[0].nextWorkSetPrescription?.targetReps, 8)
+        XCTAssertEqual(session.exercises[0].nextWorkSetPrescription?.targetWeightKg, 60)
+    }
+
     func testEditedPlaySetsPersistAfterFinishAndCodableRoundTrip() throws {
         let lift = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
         let entry = RoutineExercise(
