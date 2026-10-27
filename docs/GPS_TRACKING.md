@@ -61,13 +61,23 @@ Evitar dos desarrollos paralelos: `Comenzar` (sesión libre) y `Play` (entrenami
 - Ni la actividad en directo ni la app garantizan reconstrucción de rutas en periodos sin callbacks. Si el usuario fuerza el cierre o iOS termina el proceso pueden perderse puntos y la continuidad de la ruta.
 - Las voces internas de Siri no se exponen directamente a apps de terceros: las indicaciones utilizan voces españolas disponibles mediante `AVSpeechSynthesizer`.
 
+## Avisos de kilómetro y audio en segundo plano (27/10/2026)
+
+- **Comenzar → actividades con GPS:** al superar cada kilómetro GPS aceptado se calcula el tiempo activo exacto del tramo interpolando la muestra del cruce, sin contar pausas. La locución anuncia el número de kilómetro, su tiempo y velocidad media en km/h, **también para Caminata y Senderismo**; desde el km 2 añade velocidad media acumulada hasta ese punto. Los números se leen en español. No se inventa frecuencia cardíaca ni calorías no medidas.
+- El formateo independiente de SwiftUI es `ReperaDomain/KilometerVoiceAnnouncement.swift`; `LiveActivityRecorder.reportKilometer` reproduce el mensaje a través de `AVSpeechSynthesizer` en cuanto recibe el cruce de Core Location. Si el GPS entrega muestras por lotes con la pantalla bloqueada, usa los tiempos del cruce y no el momento en que el usuario reabre la app.
+- `UIBackgroundModes = [location, audio]` en el Info.plist **real y en project.yml**; el grabador GPS permanece fuera de la jerarquía SwiftUI. La sesión `AVAudioSession(.playback, .spokenAudio)` permanece activa hasta terminar todas las frases encoladas; solo se libera cuando no hay pendientes, al silenciar la guía o al pausar/finalizar. Los demás reproductores pueden quedar temporalmente interrumpidos durante la locución.
+- Si activar el audio falla se registra el error; en segundo plano se intenta un aviso visual *solo como respaldo* cuando ya está autorizado, sin prometer que sustituye al audio. El interruptor de voz del usuario se sigue respetando.
+- **Límite iOS:** no hay locución garantizada cuando el usuario fuerza el cierre de la app, se pierde permiso de ubicación, el sistema deja de entregar GPS o interrumpe el audio por llamadas u otras causas. Los permisos/configuración no prueban por sí solos el resultado en un iPhone real.
+
 ## Validación y pruebas de regresión
 
-Prueba automática: `tests/test_unified_gps_contract.py`, invocada desde `.github/workflows/ios27-ci.yml`. Verifica que no se reintroduzca otro `CLLocationManager` en `Comenzar`, el único odómetro compartido, la preservación de precisiones y la asociación de rutas con el workout exacto. Son **contratos de código**, no sustituyen tests de sensores ni de ciclo de vida real.
+Pruebas automáticas: `tests/test_unified_gps_contract.py`, `tests/test_kilometer_voice_background_contract.py` y `Packages/ReperaDomain/Tests/ReperaDomainTests/KilometerVoiceAnnouncementTests.swift` (tests Swift del formato), además del flujo invocado desde `.github/workflows/ios27-ci.yml`. Verifica que no se reintroduzca otro `CLLocationManager` en `Comenzar`, el único odómetro compartido, la preservación de precisiones y la asociación de rutas con el workout exacto. Son **contratos de código**, no sustituyen tests de sensores ni de ciclo de vida real.
 
 Checklist manual imprescindible para dar la función por validada en producción:
 
 - [ ] Caminar/correr con pantalla encendida, bloqueada, Dynamic Island y otra app en primer plano; comprobar que la distancia acumulada es coherente y que no depende de reabrir Repera.
+- [ ] Caminata: cruzar km 1 y km 2 escuchando por voz el tiempo y velocidad media de cada tramo; con pantalla bloqueada, auriculares Bluetooth y música externa; comprobar que no se corta la segunda frase ni se duplican avisos.
+- [ ] Comprobar locuciones al recibir GPS por lotes, al pausar y reanudar y con el control de voz silenciado. Probar también una llamada/uso de Siri durante la locución.
 - [ ] Repetir en `Play` programado exterior; confirmar coincidencia de mapa, detalle histórico, Live Activity y Salud.
 - [ ] Repetir con fuerza/CrossFit y ergómetros interiores: no debe capturar una ruta exterior por error.
 - [ ] Pausar, reanudar y terminar ambos flujos; no conectar segmentos separados ni sumar movimientos de la pausa.
