@@ -249,6 +249,19 @@ export class ReperaAuthAPI {
  async invitations(){
   return this.#authorized('organization_invitations?select=id,organization_id,email,invited_role,expires_at,accepted_at,cancelled_at,created_at&order=created_at.desc');
  }
+ async sendOwnerRegistrationEmail(provisioningId){
+  if(!/^[0-9a-f-]{36}$/i.test(provisioningId||''))throw Error('Alta de centro inválida');
+  const token=await this.token();if(!token)throw Error('Inicia sesión');
+  try{
+   const result=await this.#request('/functions/v1/repera-business-invite',{
+    method:'POST',token,body:{provisioningId}});
+   return {sent:result?.sent===true};
+  }catch(e){
+   if(e.status===503)return {sent:false,reason:'Proveedor de correo pendiente de configurar'};
+   if(e.status===502)return {sent:false,reason:'El proveedor no ha confirmado el envío'};
+   throw e;
+  }
+ }
  async sendInvitationEmail(invitationId){
   if(!/^[0-9a-f-]{36}$/i.test(invitationId||''))throw Error('Invitación inválida');
   const token=await this.token();if(!token)throw Error('Inicia sesión');
