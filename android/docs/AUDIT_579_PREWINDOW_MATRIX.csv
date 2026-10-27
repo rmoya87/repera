@@ -263,23 +263,23 @@ a8b1fa2d|2026-10-24T20:05:45+02:00|fix(iOS): use identical sign-in icon frames a
 920b8b67|2026-10-24T19:49:47+02:00|fix(art): WGS f2 en linea grafica plana (misma figura/camara que f1/f3)|ios-app||verified-ported 14:05: art_mv_wgs_2 MD5 identico Apple (f733e045)
 1075577b|2026-10-24T19:48:34+02:00|feat(ai): guiar la conexión de Claude con instrucciones y OAuth público|docs-tests,ios-app,other||in-progress 14:05: OAuth publico Claude con instrucciones — GAP: sin OAuth/instrucciones en AIAccessScreen Android
 396f9baf|2026-10-24T19:47:41+02:00|fix(art): WGS f2 con codo al empeine (fase 2 visible, alineada con caption)|ios-app|884f606b b337e5b9 bae24174|verified-ported 14:05: art_mv_wgs_2 MD5 identico Apple (f733e045)
-3f48e581|2026-10-24T19:47:18+02:00|fix(iOS): resolve Google packages before opening generated Xcode project|docs-tests,other||unverified
-6239bd8a|2026-10-24T19:44:15+02:00|fix(art): fase de salto visible en Burpee Broad Jump + captions de fase para WGS e Inchworm|ios-app,packages|884f606b b337e5b9 bae24174|unverified
-00c194a0|2026-10-24T19:38:37+02:00|docs(art): regenerar auditoría con los stems de movilidad/HYROX|docs-tests|0d108eb9 43cfc37f 715b8ec2 7d220949|unverified
-e42686c5|2026-10-24T19:37:39+02:00|feat(art): fotogramas carrusel tanda 4 (80 frames: cadera, tobillo/pie, isquios, muñeca/codo, globales y HYROX) - completa los 113 fotogramas|ios-app||unverified
-602b9f59|2026-10-24T19:33:31+02:00|feat(iOS): integrate official Google Sign-In SDK and promotional welcome|docs-tests,ios-app,other||unverified
+3f48e581|2026-10-24T19:47:18+02:00|fix(iOS): resolve Google packages before opening generated Xcode project|docs-tests,other||verified-n/a 14:10: resolucion paquetes Google/Xcode iOS
+6239bd8a|2026-10-24T19:44:15+02:00|fix(art): fase de salto visible en Burpee Broad Jump + captions de fase para WGS e Inchworm|ios-app,packages|884f606b b337e5b9 bae24174|verified-ported 14:10: art_hx_bbj_3 MD5 OK; captions de fase WGS/inchworm presentes verbatim en catalog_seed.json (Worlds Greatest Stretch instructions)
+00c194a0|2026-10-24T19:38:37+02:00|docs(art): regenerar auditoría con los stems de movilidad/HYROX|docs-tests|0d108eb9 43cfc37f 715b8ec2 7d220949|verified-n/a 14:10: docs auditoria arte regenerada (documentacion)
+e42686c5|2026-10-24T19:37:39+02:00|feat(art): fotogramas carrusel tanda 4 (80 frames: cadera, tobillo/pie, isquios, muñeca/codo, globales y HYROX) - completa los 113 fotogramas|ios-app||verified-ported 14:10: 80 frames tanda 4 — muestra MD5 OK (bbj_1, 9090_1, cat_cow_1, bear_sit...)
+602b9f59|2026-10-24T19:33:31+02:00|feat(iOS): integrate official Google Sign-In SDK and promotional welcome|docs-tests,ios-app,other||verified-n/a 14:10: SDK oficial Google Sign-In iOS + welcome promo; Android usa su propio flujo Google sign-in (OnboardingScreen)
 363044ff|2026-10-24T19:24:15+02:00|docs: registrar activación OAuth y requisitos de publicación|docs-tests||verified-n/a 10:46 (solo docs: docs/OAUTH_CONNECTIONS.md; sin delta de comportamiento)
 f063ead9|2026-10-24T19:14:41+02:00|docs: registrar publicación web de consentimiento en IONOS|docs-tests||verified-n/a 10:46 (solo docs: docs/OAUTH_CONNECTIONS.md; sin delta de comportamiento)
 43b6c870|2026-10-24T19:00:40+02:00|docs: registrar despliegue del backend OAuth y pendientes|docs-tests|0d108eb9 3faa2ce9 900bd803|verified-n/a 10:46 (solo docs: docs/OAUTH_CONNECTIONS.md; sin delta de comportamiento)
-08551cb1|2026-10-24T18:45:18+02:00|fix(iOS): map Dorsales to existing back muscle glyph|ios-app||unverified
-1da10df0|2026-10-24T18:41:34+02:00|feat(ai): add guided assistant connections and isolated OAuth authorization|docs-tests,ios-app,other||unverified
-5099d9f1|2026-10-24T14:38:46+02:00|fix(iOS): show the Cardio heart icon in muscle chips|ios-app|9956477c f035f27f|unverified
-49febc33|2026-10-24T14:23:20+02:00|feat(iOS): nine legible body-part glyphs for muscle chips|ios-app||unverified
-a0503d94|2026-10-24T13:19:08+02:00|feat(exercises): compact muscle glyphs and multiple disciplines|ios-app,packages||unverified
-3b3792df|2026-10-24T13:00:47+02:00|fix(iOS): make ExerciseCategorySymbols visible in existing Xcode targets|ios-app||unverified
-fdbd3558|2026-10-24T12:58:14+02:00|fix(exercises): audit required gear and align SF Symbols|docs-tests,ios-app,packages||unverified
-ba610d13|2026-10-24T00:40:38+02:00|feat(art): fotogramas carrusel tanda 3 (33 frames: hombro, escápula, columna/torácica)|ios-app||unverified
-140bf762|2026-10-24T00:37:10+02:00|feat(art): ilustraciones de movilidad tanda 2 (30 heroes: resto movilidad + 2 HYROX)|ios-app||unverified
+08551cb1|2026-10-24T18:45:18+02:00|fix(iOS): map Dorsales to existing back muscle glyph|ios-app||in-progress 14:10: glyph Dorsales->espalda — GAP: ExerciseDetailScreen Android muestra muscleGroup texto sin glifos corporales
+1da10df0|2026-10-24T18:41:34+02:00|feat(ai): add guided assistant connections and isolated OAuth authorization|docs-tests,ios-app,other||in-progress 14:10: asistentes guiados + OAuth aislado — GAP onboarding AI Android (cluster 280c54b0/1075577b)
+5099d9f1|2026-10-24T14:38:46+02:00|fix(iOS): show the Cardio heart icon in muscle chips|ios-app|9956477c f035f27f|in-progress 14:10: icono corazon Cardio en chips — GAP glifos Android
+49febc33|2026-10-24T14:23:20+02:00|feat(iOS): nine legible body-part glyphs for muscle chips|ios-app||in-progress 14:10: 9 glifos corporales legibles — GAP glifos Android
+a0503d94|2026-10-24T13:19:08+02:00|feat(exercises): compact muscle glyphs and multiple disciplines|ios-app,packages||partial 14:10: glifos compactos + multidisciplina — disciplineTags portado (ExerciseDisciplineTagsTest); glifos UI = gap
+3b3792df|2026-10-24T13:00:47+02:00|fix(iOS): make ExerciseCategorySymbols visible in existing Xcode targets|ios-app||in-progress 14:10: visibilidad ExerciseCategorySymbols — ligado al gap glifos Android
+fdbd3558|2026-10-24T12:58:14+02:00|fix(exercises): audit required gear and align SF Symbols|docs-tests,ios-app,packages||in-progress 14:10: auditoria gear + SF Symbols — dominio portado; simbolos UI = gap glifos Android
+ba610d13|2026-10-24T00:40:38+02:00|feat(art): fotogramas carrusel tanda 3 (33 frames: hombro, escápula, columna/torácica)|ios-app||verified-ported 14:10: 33 frames tanda 3 — muestra MD5 OK (cat_cow_1, band_er)
+140bf762|2026-10-24T00:37:10+02:00|feat(art): ilustraciones de movilidad tanda 2 (30 heroes: resto movilidad + 2 HYROX)|ios-app||verified-ported 14:10: 30 heroes tanda 2 — muestra MD5 OK (hx_bbj, sb_lunge, bear_sit)
 1ed11c0a|2026-10-23T19:49:47+02:00|feat(art): ilustraciones de movilidad tanda 1 (54 heroes) + alta de arte en fichas de movilidad|ios-app,packages|98195355 afbe56a4|unverified
 9923b217|2026-10-23T19:45:26+02:00|Merge PR #51: material-aware sorting, opaque modal and bilingual exercise aliases||2c6bd9e2 84dace55 f479f0b7|unverified
 f0552eda|2026-10-23T19:44:49+02:00|chore(db): remove obsolete migration filename|other||unverified
