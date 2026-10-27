@@ -77,6 +77,8 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertNotIn(".presentationDetents([.height(", sheet)
         self.assertNotIn(".presentationBackground(OG.surface)", sheet)
         self.assertNotIn("Spacer(minLength: 0)", sheet)
+        self.assertIn(".fixedSize(horizontal: false, vertical: true)", sheet)
+        self.assertIn('private func manualRoundTimeRow(', sheet)
         self.assertNotIn(".buttonStyle(.borderedProminent)", sheet)
         self.assertIn(".foregroundStyle(.black)", sheet)
         self.assertIn(".background(OG.accent, in: Capsule())", sheet)
@@ -93,6 +95,8 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
             ".glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))",
             numeric,
         )
+        self.assertIn(".frame(height: 48)", numeric)
+        self.assertNotIn(".frame(maxWidth: .infinity, minHeight: 48)", numeric)
         self.assertNotIn("private struct TimerNumericInput", timer)
         self.assertIn("TimerNumericInput(label:", timer)
 
