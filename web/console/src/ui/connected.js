@@ -18,7 +18,7 @@ adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWork
 adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,clientSection='training',selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,clientSection='training',selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -74,7 +74,25 @@ function enhanceWorkspace(own){
  // its workspace as Repera support; we never label this account as the future trainer.
  if(delegation&&!members.some(m=>m.user_id===user.id))members.unshift({user_id:user.id,label:'Administrador Repera · soporte'});
  attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,selectedGroup:selectedGroupId,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
- attach('bonos',`<section class="connected-card"><h2>Bonos y tarifas</h2><p>Bonos reales de cortesía y saldos verificados en Supabase. Los cobros y renovaciones de pago siguen pendientes de integración.</p>${passes.map(p=>`<article class="connected-org"><strong>${escapeHTML(clients.find(c=>c.id===p.client_id)?.name||'Cliente')} · ${p.kind==='class'?'Clase':'Cita'}</strong><small>${p.remaining_credits} de ${p.total_credits} disponibles</small></article>`).join('')||'<p>No hay bonos todavía.</p>'}</section>`);
+ attach('bonos',`<section class="connected-card"><h2>Bonos y tarifas</h2>
+ <p>Define las tarifas que verán los deportistas vinculados en la app. Publicar un bono no equivale a un cobro: la compra se activará cuando la pasarela esté configurada y confirme el pago.</p>
+ <h3>Tarifas publicadas</h3>
+ ${offers.length?offers.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)} · ${o.kind==='class'?'Clases':'Entrenamiento personal'}</strong>
+ <small>${Number(o.credits)} sesiones · ${Number(o.validity_days)} días · ${(Number(o.price_cents)/100).toLocaleString('es-ES',{style:'currency',currency:'EUR'})} · ${o.is_active?'Visible':'Desactivado'}</small></div>
+ ${manager?`<button type="button" class="connected-secondary" data-action="toggle-pass-offer" data-id="${escapeHTML(o.id)}" data-active="${o.is_active?'true':'false'}">${o.is_active?'Desactivar':'Activar'}</button>`:''}
+ </article>`).join(''):'<p>No hay tarifas configuradas.</p>'}
+ ${manager?`<h3>Crear bono</h3><form data-connected="create-pass-offer" class="connected-plan-editor">
+ <label class="connected-field">Nombre del bono<input name="name" type="text" minlength="2" maxlength="120" placeholder="Bono 10 entrenamientos" required></label>
+ <div class="connected-form-grid">
+ <label class="connected-field">Tipo<select name="kind"><option value="appointment">Entrenador personal</option><option value="class">Clases</option></select></label>
+ <label class="connected-field">Número de sesiones<input name="credits" type="number" min="1" max="1000" value="10" required></label>
+ <label class="connected-field">Validez (días)<input name="validityDays" type="number" min="1" max="730" value="90" required></label>
+ <label class="connected-field">Precio (€)<input name="price" type="number" min="0" max="100000" step="0.01" required></label></div>
+ <button class="connected-primary" type="submit" ${busy?'disabled':''}>Publicar bono</button></form>`:''}
+ <h3>Bonos asignados</h3>
+ ${passes.map(p=>`<article class="connected-org"><strong>${escapeHTML(clients.find(c=>c.id===p.client_id)?.name||'Cliente')} · ${p.kind==='class'?'Clase':'Cita'}</strong><small>${p.remaining_credits} de ${p.total_credits} disponibles</small></article>`).join('')||'<p>No hay bonos asignados.</p>'}
+ <p class="connected-hint">Los bonos de cortesía no generan ingresos. No se simulan cobros reales.</p>
+ </section>`);
  attach('billing',`<section class="connected-card"><h2>Facturación</h2><p>La pasarela de pago y la facturación legal todavía no están habilitadas. No se muestran cobros simulados como reales.</p></section>`);
  attach('platform',`<section class="connected-card"><h2>Administración Repera</h2><p>Resumen de organizaciones de la plataforma. No permite acceder al historial privado de los deportistas ni suplantar cuentas.</p><div class="table-scroll"><table><thead><tr><th>Organización</th><th>Tipo</th><th>Clientes</th><th>Prueba finaliza</th></tr></thead><tbody>${platformOrgs.map(o=>`<tr><td>${escapeHTML(o.name)}</td><td>${escapeHTML(o.kind)}</td><td>${Number(o.client_count||0)}</td><td>${escapeHTML(o.trial_ends_at?.slice(0,10)||'—')}</td></tr>`).join('')||'<tr><td colspan="4">No hay organizaciones</td></tr>'}</tbody></table></div></section>${platformRole==='platform_admin'?renderPlanAdministration(planCatalog):''}`);
  attach('analytics',`<section class="connected-card"><h2>Analíticas del negocio</h2><div class="business-stats"><div class="business-stat"><span>Clientes</span><strong>${clients.length}</strong></div><div class="business-stat"><span>Reservas activas</span><strong>${bookings.filter(b=>b.status==='booked').length}</strong></div><div class="business-stat"><span>Sesiones programadas</span><strong>${occurrences.filter(o=>o.status==='active').length}</strong></div></div><p>Las métricas deportivas personales solo estarán disponibles con consentimiento y sincronización del atleta.</p></section>`);
@@ -194,14 +212,15 @@ async function finalizePendingRegistration(){
  }catch{sessionStorage.removeItem(PENDING_REGISTRATION_KEY);}
 }
 async function loadSelectedOrg(){
- if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
+ if(!selectedOrg){clients=[];occurrences=[];passes=[];offers=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
  const role=delegation?'admin':
   memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role;
  const manager=['owner','admin'].includes(role);
- [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
+ [clients,occurrences,passes,offers,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
   auth.clients(selectedOrg,{basic:!manager}),
   auth.serviceOccurrences(selectedOrg),
   auth.servicePasses(selectedOrg),
+  auth.servicePassOffers(selectedOrg),
   auth.serviceBookings(selectedOrg),
   auth.professionalSessions(selectedOrg),
   ['owner','admin','coach'].includes(role)?auth.workoutTemplates(selectedOrg):Promise.resolve([]),
@@ -764,6 +783,10 @@ app.addEventListener('submit',async event=>{
   if(action==='create-group'){
    await auth.addGroup({orgId:selectedOrg,name:data.get('name'),description:data.get('description'),userId:user.id});
    await loadSelectedOrg();notice='Grupo creado.';
+  }
+  if(action==='create-pass-offer'){
+    await auth.createServicePassOffer({orgId:selectedOrg,name:data.get('name'),kind:data.get('kind'),credits:Number(data.get('credits')),validityDays:Number(data.get('validityDays')),priceCents:Math.round(Number(data.get('price'))*100)});
+    await loadSelectedOrg();notice='Bono publicado en el catálogo. La compra sigue pendiente de activar la pasarela de pago.';
   }
   if(action==='courtesy-pass'){
    await auth.grantCourtesyPass({orgId:selectedOrg,clientId:data.get('client'),kind:data.get('kind'),credits:Number(data.get('credits')),validUntil:data.get('until')+'T23:59:59'});
