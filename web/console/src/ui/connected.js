@@ -255,6 +255,17 @@ app.addEventListener('click',async event=>{
  const platformButton=event.target.closest('[data-admin-action]');
  if(platformButton){
   const command=platformButton.dataset.adminAction;
+  if(command==='email-owner'&&!busy){
+   busy=true;error=notice='';render();
+   try{
+    const delivery=await auth.sendOwnerRegistrationEmail(platformButton.dataset.id);
+    notice=delivery.sent?'Correo de registro enviado. El propietario debe aceptar con su cuenta verificada.':
+     'No se ha enviado el correo: '+(delivery.reason||'Entrega no confirmada')+
+     '. La solicitud sigue pendiente de aceptación.';
+   }catch(e){error=e.message||'No se pudo preparar el correo del propietario';}
+   finally{busy=false;render();}
+   return;
+  }
   if(command==='center-section'){adminCenterSection=platformButton.dataset.section||'data';render();return;}
   if(command==='athlete-section'){adminAthleteSection=platformButton.dataset.section||'exercises';render();return;}
   if(command==='schedule-athlete'&&!busy){
