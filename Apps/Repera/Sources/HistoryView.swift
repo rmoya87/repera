@@ -296,6 +296,7 @@ struct WorkoutDetailView: View {
     @State private var showCompletedEditor = false
     @State private var showDeleteConfirm = false
     @State private var favoriteSaveError: String?
+    @State private var isSavingFavorite = false
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
@@ -432,6 +433,39 @@ struct WorkoutDetailView: View {
             showsSpeedLegend: true,
             onClose: { showFullScreenRoute = false }
         )
+    }
+
+    /// Un problema al guardar o al leer la sesión nunca debe solicitar pago.
+    private func toggleHistoricalFavorite() async {
+        guard !isSavingFavorite else { return }
+        isSavingFavorite = true
+        defer { isSavingFavorite = false }
+        favoriteSaveError = nil
+        subscriptions.syncCounts(
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount
+        )
+        if store.toggleWorkoutFavorite(sessionId) {
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
+            return
+        }
+        if store.lastAccessDenial != nil {
+            await subscriptions.refreshEntitlementsForFeatureAction()
+            if store.toggleWorkoutFavorite(sessionId) {
+                draft = store.state.workouts.first(where: { $0.id == sessionId })
+                return
+            }
+        }
+        if let decision = store.lastAccessDenial, !decision.allowed,
+           !subscriptions.policy.isPro, subscriptions.status != .unknown {
+            subscriptions.presentPaywall(
+                decision.paywallContext, feature: .unlimitedRoutines
+            )
+        } else {
+            favoriteSaveError = subscriptions.status == .unknown && !subscriptions.isPro
+                ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
+                : "Este entrenamiento no tiene ejercicios reutilizables o no se ha podido guardar el favorito. Inténtalo de nuevo."
+        }
     }
 
     private func loadDraft() {
@@ -827,23 +861,14 @@ struct WorkoutDetailView: View {
             } else {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        guard store.toggleWorkoutFavorite(sessionId) else {
-                            if let decision = store.lastAccessDenial, !decision.allowed {
-                                subscriptions.presentPaywall(
-                                    decision.paywallContext, feature: .unlimitedRoutines
-                                )
-                            } else {
-                                favoriteSaveError = "Este entrenamiento no tiene ejercicios reutilizables o no se ha podido guardar la plantilla. Comprueba sus ejercicios y vuelve a intentarlo."
-                            }
-                            return
-                        }
-                        draft = store.state.workouts.first(where: { $0.id == sessionId })
+                        Task { await toggleHistoricalFavorite() }
                     } label: {
                         Image(systemName: store.isWorkoutFavorite(sessionId) ? "star.fill" : "star")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(store.isWorkoutFavorite(sessionId) ? OG.yellow : OG.label)
                     }
                     .accessibilityLabel(store.isWorkoutFavorite(sessionId) ? "Quitar de favoritos" : "Guardar en favoritos")
+                    .disabled(isSavingFavorite)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
