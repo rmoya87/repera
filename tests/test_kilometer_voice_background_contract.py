@@ -125,6 +125,25 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertLess(paused.index("finishAndShowSave()"), paused.index("recorder.resume()"))
         self.assertNotIn('"flag.checkered"', actions.split("if showGuidanceToggle", 1)[0])
 
+    def test_finish_button_uses_visible_charcoal_liquid_glass_in_dark_mode(self):
+        # Flag mantiene su icono blanco pero recibe una superficie carbón
+        # visible frente al mapa oscuro y al fondo nocturno de Métricas.
+        button = LIVE.split("private func sessionMapButton(", 1)[1].split(
+            "private func metricsCircleButton(", 1
+        )[0]
+        self.assertIn('symbol == "flag.checkered" && colorScheme == .dark', button)
+        self.assertIn(".background(OG.surface2, in: Circle())", button)
+        self.assertIn(
+            ".glassEffect(.regular.tint(OG.surface2).interactive(), in: .circle)",
+            button,
+        )
+        self.assertIn(".background(background, in: Circle())", button)
+        self.assertIn(".foregroundStyle(foreground)", button)
+        self.assertIn(".frame(width: 44, height: 44)", button)
+        # En mapa y Métricas se comparte el mismo componente.
+        self.assertEqual(LIVE.count('"flag.checkered", label: "Finalizar y guardar"'), 2)
+        self.assertEqual(LIVE.count("background: .black, foreground: .white"), 2)
+
     def test_three_seconds_countdown_reuses_timer_sound_before_gps_starts(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
         timer = (ROOT / "Apps/Repera/Sources/StandaloneTimerView.swift").read_text(encoding="utf-8")
