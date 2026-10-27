@@ -238,6 +238,39 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
             self.assertLess(component.index("Text(title)" if component is home else "Text(label)"),
                             component.index("Text(value)"))
 
+    def test_map_weather_icons_at_left_legal_mark_and_route_camera_air(self):
+        weather = swift("CardioRouteComponents.swift")
+        strip = weather.split("struct RouteWeatherStrip: View {", 1)[1].split(
+            "/// Mapa + franja de clima", 1
+        )[0]
+        stat = strip.split("private func weatherStat(", 1)[1].split(
+            "private func loadWeather()", 1
+        )[0]
+        self.assertIn("HStack(alignment: .center, spacing: 7)", stat)
+        self.assertIn("VStack(alignment: .leading, spacing: 3)", stat)
+        self.assertLess(stat.index("Image(systemName: symbol)"),
+                        stat.index("VStack(alignment: .leading, spacing: 3)"))
+        self.assertIn(".font(.system(size: 35, weight: .regular))", stat)
+        self.assertIn(".frame(width: 39, height: 43", stat)
+        self.assertNotIn('Link("Apple Weather"', strip)
+        self.assertIn("attribution.squareMarkURL", strip)
+        self.assertIn("attribution.legalPageURL", strip)
+        self.assertIn("Link(destination: attributionURL)", strip)
+        self.assertLess(strip.index("HStack(alignment: .center, spacing: 0)"),
+                        strip.index("if hasWeather, let attributionURL"))
+
+        # El historial comparte el mapa con Comenzar y HealthKit.
+        history = swift("HistoryView.swift").split(
+            "struct HealthWorkoutRouteMap: View {", 1
+        )[1]
+        camera = history.split("private var cameraPosition: MapCameraPosition {", 1)[1].split(
+            "private var modes: MapInteractionModes", 1
+        )[0]
+        self.assertIn("points.filter { Self.valid($0.latitude, $0.longitude) }", camera)
+        self.assertIn("isInteractive ? 1.5 : 1.95", camera)
+        self.assertIn("(maxLat - minLat) * paddingFactor", camera)
+        self.assertIn("(maxLon - minLon) * paddingFactor", camera)
+
     def test_all_key_metric_tiles_are_centered(self):
         summary = swift("RegisterSessionChrome.swift").split(
             "struct WorkoutSummaryTile: View {", 1
