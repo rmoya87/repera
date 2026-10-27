@@ -272,6 +272,13 @@ El auditor estructural **no puede aprobar** similitud del personaje, ejecución 
 El campo histórico `supersetGroup` permanece en el formato Codable para abrir copias antiguas, pero se ignora al decodificar y no debe utilizarse para nuevas planificaciones.
 
 
+### Plantillas favoritas independientes de la planificación (27/10/2026)
+
+- `Routine` en `ReperaDomain/Models.swift` guarda `favoriteTemplateId: UUID?` **solo como vínculo opcional** del entrenamiento fechado a una plantilla sin fecha, compatible al decodificar ficheros previos sin esa clave. La fuente de verdad está en `ReperaStore.state.routines`, persistida por `LocalStore` / iCloud.
+- `ReperaStore.setRoutineFavorite` clona el contenido prescrito con IDs propios antes de activar el favorito en el día. `saveRoutine` aplica las restricciones de Biblioteca Gratis; el rechazo nunca genera un estado de favorito falso. `favoriteRoutines` oculta la fila del día cuando existe una plantilla vinculada, evitando duplicados.
+- `PlanView.DayEditorView` y `SessionPreviewView` gestionan el guardado y sus errores; `WorkoutView` conserva `activeSession.routineId` y registra la nueva plantilla en `favoriteRoutineId` para no perder la identidad del origen. `FavoritesHubView` permite reutilizar la plantilla mediante `assignRoutine(_:toDate:)` desde el calendario, manteniendo el inicio inmediato desde Crear general.
+- El borrado del calendario respeta las plantillas vinculadas. Los favoritos fechados antiguos sin `favoriteTemplateId` siguen visibles y se tratan con la política histórica. **Validar en dispositivo** creación/edición, desconexión/iCloud, paywall y reutilización. Ver `docs/FEATURES.md` y tests de contrato.
+
 ### Motor GPS único para Comenzar y Play (iOS 27)
 
 **Referencia técnica, secuencia completa y matriz de validación:** [GPS_TRACKING.md](GPS_TRACKING.md).
