@@ -62,7 +62,12 @@ internal fun QuickNumericField(initial:String,label:String,enabled:Boolean,decim
  // claro en modo dia, sin alterar el resto del tema.
  val inputSurface = if (androidx.compose.foundation.isSystemInDarkTheme())
      androidx.compose.ui.graphics.Color(0xFF0A0A0C) else androidx.compose.ui.graphics.Color(0xFFF2F5F3)
- OutlinedTextField(text,{value ->text=value;onChange(value)},label={Text(label)},enabled=enabled,singleLine=true,
+ OutlinedTextField(text,{value ->
+  // Apple b2bb19eb: coma visible, maximo 2 decimales y pegado normalizado en
+  // campos decimales; solo digitos en enteros. Edicion rechazada = sin cambio.
+  val accepted=if(decimal) dev.repera.domain.ReperaNumberFormat.keypadDecimal(text,value)
+      else dev.repera.domain.ReperaNumberFormat.keypadInteger(text,value)
+  if(accepted!=text){text=accepted;onChange(accepted)}},label={Text(label)},enabled=enabled,singleLine=true,
   colors=androidx.compose.material3.OutlinedTextFieldDefaults.colors(
       focusedContainerColor=inputSurface,unfocusedContainerColor=inputSurface,
       disabledContainerColor=inputSurface),

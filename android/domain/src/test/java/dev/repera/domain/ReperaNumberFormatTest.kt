@@ -42,4 +42,36 @@ class ReperaNumberFormatTest {
         assertEquals("1.234,57", ReperaNumberFormat.decimal(recorded))
         assertEquals(1234.56789, recorded, 0.0) // solo cambia la presentación
     }
+
+    @Test fun keypadTypedDotInsertsComma() {
+        assertEquals("24,", ReperaNumberFormat.keypadDecimal("24", "24."))
+        assertEquals("24,5", ReperaNumberFormat.keypadDecimal("24,", "24,5"))
+    }
+
+    @Test fun keypadCapsTwoDecimalsAndSingleComma() {
+        assertEquals("24,56", ReperaNumberFormat.keypadDecimal("24,56", "24,567"))
+        assertEquals("24,5", ReperaNumberFormat.keypadDecimal("24,5", "24,5,"))
+        assertEquals("24,5", ReperaNumberFormat.keypadDecimal("24,5", "24,5."))
+    }
+
+    @Test fun keypadPasteNormalizesBothFormats() {
+        assertEquals("1.234,56", ReperaNumberFormat.keypadDecimal("", "1234.56"))
+        assertEquals("1.234,56", ReperaNumberFormat.keypadDecimal("", "1.234,56"))
+        assertEquals("1,5", ReperaNumberFormat.keypadDecimal("", "1.5"))
+    }
+
+    @Test fun keypadRejectsNonNumericAndKeepsThousands() {
+        assertEquals("24", ReperaNumberFormat.keypadDecimal("24", "24a"))
+        assertEquals("24", ReperaNumberFormat.keypadDecimal("24", "-24"))
+        // Los puntos de millares ya formateados se conservan al editar.
+        assertEquals("1.234,56", ReperaNumberFormat.keypadDecimal("1.234,5", "1.234,56"))
+        assertEquals("", ReperaNumberFormat.keypadDecimal("24", ""))
+    }
+
+    @Test fun keypadIntegerDigitsOnly() {
+        assertEquals("123", ReperaNumberFormat.keypadInteger("12", "123"))
+        assertEquals("12", ReperaNumberFormat.keypadInteger("12", "12a"))
+        assertEquals("12", ReperaNumberFormat.keypadInteger("12", "12,5"))
+        assertEquals("", ReperaNumberFormat.keypadInteger("12", ""))
+    }
 }

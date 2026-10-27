@@ -51,4 +51,41 @@ object ReperaNumberFormat {
     }
 
     private val THOUSANDS_DOTTED = Regex("^[+-]?[0-9]{1,3}(\\.[0-9]{3})+$")
+
+    /**
+     * Apple b2bb19eb (OGNumericTextField.shouldChangeCharacters): edicion de un
+     * campo decimal de teclado. El punto tecleado inserta la coma visible; una
+     * sola coma y maximo dos decimales (ediciones que lo rompen se rechazan
+     * devolviendo [previous]); el pegado admite «1.234,56» y el formato
+     * heredado «1234.56» y se normaliza al formato visible. Los puntos de
+     * millares ya presentes en un texto formateado se conservan.
+     */
+    fun keypadDecimal(previous: String, proposed: String): String {
+        if (proposed.isEmpty()) return proposed
+        // Aislar lo insertado por prefijo/sufijo comun (pegar vs teclear).
+        var pre = 0
+        while (pre < previous.length && pre < proposed.length &&
+            previous[pre] == proposed[pre]) pre++
+        var suf = 0
+        while (suf < previous.length - pre && suf < proposed.length - pre &&
+            previous[previous.length - 1 - suf] == proposed[proposed.length - 1 - suf]) suf++
+        val inserted = proposed.substring(pre, proposed.length - suf)
+        if (inserted.length > 1) {
+            parse(inserted)?.let {
+                return previous.substring(0, pre) + decimal(it) +
+                    previous.substring(previous.length - suf)
+            }
+        }
+        val rebuilt = previous.substring(0, pre) + inserted.replace('.', ',') +
+            previous.substring(previous.length - suf)
+        if (rebuilt.count { it == ',' } > 1) return previous
+        if (rebuilt.any { !it.isDigit() && it != ',' && it != '.' }) return previous
+        val comma = rebuilt.indexOf(',')
+        if (comma >= 0 && rebuilt.length - comma - 1 > 2) return previous
+        return rebuilt
+    }
+
+    /** Campos enteros: solo digitos; cualquier otra edicion se rechaza. */
+    fun keypadInteger(previous: String, proposed: String): String =
+        if (proposed.isEmpty() || proposed.all { it.isDigit() }) proposed else previous
 }
