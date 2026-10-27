@@ -86,6 +86,16 @@ final class SubscriptionManager {
         await refresh(reason: "launch")
     }
 
+    /// Una acción bloqueada por una cuota consulta los derechos actuales antes
+    /// de solicitar otra compra. Es una comprobación explícita, sin cooldown.
+    func refreshEntitlementsForFeatureAction() async {
+        if !didStart {
+            await start()
+        } else {
+            await refresh(reason: "feature-gate")
+        }
+    }
+
     func refreshOnForeground() async {
         // Evita tormenta de customerInfo al volver de background varias veces.
         if let last = lastForegroundRefreshAt, Date().timeIntervalSince(last) < 30 {
@@ -127,6 +137,11 @@ final class SubscriptionManager {
     }
 
     func presentPaywall(_ context: PaywallContext, feature: ReperaFeature? = nil) {
+        // Nunca pedir que pague de nuevo a un usuario con Pro o con
+        // acceso incluido en su centro. Proteger también llamadas erróneas
+        // de vistas que confunden fallo de guardado con límite comercial.
+        guard !policy.isPro else { return }
+        if let feature, policy.canAccess(feature) { return }
         if let feature, !policy.canAccess(feature) {
             MonetizationAnalytics.track(.premiumFeatureTapped, feature: feature, context: context)
         }
