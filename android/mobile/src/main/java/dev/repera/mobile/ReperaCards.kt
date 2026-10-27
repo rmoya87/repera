@@ -1427,7 +1427,10 @@ internal fun WorkoutHistoryCard(
                 if (exercise != null) {
                     // Abrir la ficha con contexto de sesión (tarjeta «Esta
                     // sesión», paridad iOS al tocar un movimiento del registro).
-                    Text(exercise.name, style = MaterialTheme.typography.titleMedium,
+                    // Apple 49de3076: snapshots antiguos BTt/T2B se muestran con
+                    // el nombre oficial (alias inequivocos, nunca nombres parecidos).
+                    Text(dev.repera.domain.WODHistoryPresentation.officialName(exercise.name) ?: exercise.name,
+                        style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.clickable(enabled = !busy) {
                             if (exercise.catalogExerciseId.isNotBlank())
                                 onOpenExerciseFromSession(exercise.catalogExerciseId,
