@@ -339,7 +339,7 @@ struct DayEditorView: View {
                         RoutineExercise(
                             exerciseId: exercise.id,
                             plannedSets: sets,
-                            quantityUnit: style == .machineWork || exercise.supportsWeightedRepsOrMeters
+                            quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
                                 ? exercise.defaultQuantityUnit : nil
                         )
                     )
@@ -1193,13 +1193,13 @@ struct DayEditorView: View {
                     }
                 }
 
-                if ex.supportsWeightedRepsOrMeters
+                if ex.supportsRepsOrMeters
                     || (ex.loggingStyle == .machineWork && ex.allowsCalorieOrDistanceToggle) {
                     Picker("Unidad", selection: Binding(
                         get: { routine.blocks[index].exercises[exIndex].quantityUnit ?? ex.defaultQuantityUnit },
                         set: { routine.blocks[index].exercises[exIndex].quantityUnit = $0 }
                     )) {
-                        if ex.supportsWeightedRepsOrMeters {
+                        if ex.supportsRepsOrMeters {
                             Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
                         } else {
                             Text("Calorías").tag(ExerciseQuantityUnit.calories)
@@ -1217,7 +1217,7 @@ struct DayEditorView: View {
                             : ex.quantityFieldLabel)),
                     secondTitle: ex.isMobility ? (ex.isMobilityHold ? nil : "Reps")
                         : (ex.loggingStyle == .loadAndReps
-                            ? (ex.supportsWeightedRepsOrMeters
+                            ? (ex.supportsRepsOrMeters
                                 ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
                     showsRIR: ex.loggingStyle.usesRIR
                 )
@@ -1230,7 +1230,7 @@ struct DayEditorView: View {
                         set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
                         weightStep: weightStep,
                         exerciseStyle: ex.loggingStyle,
-                        quantityCap: ex.supportsWeightedRepsOrMeters && item.quantityUnit == .meters ? 100_000 : nil,
+                        quantityCap: ex.supportsRepsOrMeters && item.quantityUnit == .meters ? 100_000 : nil,
                         isMobility: ex.isMobility,
                         isMobilityHold: ex.isMobilityHold,
                         previous: {
@@ -1685,8 +1685,8 @@ private struct InlineWODMovementSets: View {
     }
 
     private var isWeightedDistance: Bool {
-        Exercise.supportsWeightedRepsOrMeters(name: movement.name)
-            || Exercise.supportsWeightedRepsOrMeters(
+        Exercise.supportsRepsOrMeters(name: movement.name)
+            || Exercise.supportsRepsOrMeters(
                 name: CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
             )
     }
@@ -1920,8 +1920,8 @@ struct WODMovementEditor: View {
     }
 
     private var isWeightedDistance: Bool {
-        Exercise.supportsWeightedRepsOrMeters(name: movement.name)
-            || Exercise.supportsWeightedRepsOrMeters(
+        Exercise.supportsRepsOrMeters(name: movement.name)
+            || Exercise.supportsRepsOrMeters(
                 name: CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
             )
     }
@@ -2285,13 +2285,13 @@ struct RoutineExerciseEditor: View {
 
             Section {
                 if let exercise,
-                   exercise.supportsWeightedRepsOrMeters
+                   exercise.supportsRepsOrMeters
                     || (exercise.loggingStyle == .machineWork && exercise.allowsCalorieOrDistanceToggle) {
                     Picker("Unidad", selection: Binding(
                         get: { item.quantityUnit ?? exercise.defaultQuantityUnit },
                         set: { item.quantityUnit = $0 }
                     )) {
-                        if exercise.supportsWeightedRepsOrMeters {
+                        if exercise.supportsRepsOrMeters {
                             Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
                         } else {
                             Text("Calorías").tag(ExerciseQuantityUnit.calories)
@@ -2309,7 +2309,7 @@ struct RoutineExerciseEditor: View {
                     secondTitle: exercise?.isMobility == true
                         ? (exercise?.isMobilityHold == true ? nil : "Reps")
                         : (exercise?.loggingStyle == .loadAndReps
-                            ? (exercise?.supportsWeightedRepsOrMeters == true
+                            ? (exercise?.supportsRepsOrMeters == true
                                 ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
                     showsRIR: exercise?.loggingStyle.usesRIR ?? false
                 )
@@ -2322,7 +2322,7 @@ struct RoutineExerciseEditor: View {
                         set: binding(for: index),
                         weightStep: weightStep,
                         exerciseStyle: exercise?.loggingStyle ?? .loadAndReps,
-                        quantityCap: exercise?.supportsWeightedRepsOrMeters == true && item.quantityUnit == .meters
+                        quantityCap: exercise?.supportsRepsOrMeters == true && item.quantityUnit == .meters
                             ? 100_000 : nil,
                         isMobility: exercise?.isMobility ?? false,
                         isMobilityHold: exercise?.isMobilityHold ?? false,

@@ -1249,7 +1249,7 @@ struct WorkoutDetailView: View {
 
     private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
         let style = exercise.loggingStyle
-        let qty = exercise.supportsWeightedRepsOrMeters ? "Reps / m" : exercise.quantityFieldLabel
+        let qty = exercise.supportsRepsOrMeters ? "Reps / m" : exercise.quantityFieldLabel
         return HStack(spacing: 8) {
             Color.clear.frame(width: 28)
             switch style {
@@ -1329,7 +1329,7 @@ struct WorkoutDetailView: View {
         let style = exercise.loggingStyle
         let loadField = exercise.loadField
         let unit = set.quantityUnit ?? exercise.defaultQuantityUnit
-        let maxReps = exercise.supportsWeightedRepsOrMeters && unit == .meters
+        let maxReps = exercise.supportsRepsOrMeters && unit == .meters
             ? 100_000 : style.quantityCap
         let qtyStep: Int = {
             if style == .machineWork, unit == .meters {
@@ -1339,7 +1339,7 @@ struct WorkoutDetailView: View {
             return 1
         }()
         return VStack(alignment: .leading, spacing: 8) {
-            if exercise.supportsWeightedRepsOrMeters {
+            if exercise.supportsRepsOrMeters {
                 Picker("Unidad de la serie", selection: Binding(
                     get: { unit },
                     set: { selected in

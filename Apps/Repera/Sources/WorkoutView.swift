@@ -714,7 +714,7 @@ struct WorkoutView: View {
 
     private func setsBoard(_ current: SessionExercise) -> some View {
         let style = current.exercise.loggingStyle
-        let qtyLabel = style == .machineWork || current.exercise.supportsWeightedRepsOrMeters
+        let qtyLabel = style == .machineWork || current.exercise.supportsRepsOrMeters
             ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
         let loadLabel = current.exercise.loadField == .deficitCm
             ? "Déficit cm"
@@ -751,7 +751,7 @@ struct WorkoutView: View {
 
     private func liveSetRow(index: Int, row: LiveSetRow, current: SessionExercise) -> some View {
         let style = current.exercise.loggingStyle
-        let qtyLabel = style == .machineWork || current.exercise.supportsWeightedRepsOrMeters
+        let qtyLabel = style == .machineWork || current.exercise.supportsRepsOrMeters
             ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
         let previous = store.cachedLastWorkingSession(for: current.exercise.id)?.sets
         let previousSet = (previous?.indices.contains(index) == true) ? previous?[index] : nil
@@ -769,7 +769,7 @@ struct WorkoutView: View {
 
         return VStack(alignment: .leading, spacing: 6) {
             if index == 0,
-               current.exercise.supportsWeightedRepsOrMeters
+               current.exercise.supportsRepsOrMeters
                    || (style == .machineWork && current.exercise.allowsCalorieOrDistanceToggle) {
                 Picker("Unidad", selection: Binding(
                     get: { liveQuantityUnit },
@@ -778,7 +778,7 @@ struct WorkoutView: View {
                         noteLiveDraftEdited()
                     }
                 )) {
-                    if current.exercise.supportsWeightedRepsOrMeters {
+                    if current.exercise.supportsRepsOrMeters {
                         Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
                     } else {
                         Text("Cal").tag(ExerciseQuantityUnit.calories)
@@ -876,7 +876,7 @@ struct WorkoutView: View {
             guard row.reps > 0 else { return nil }
             let recordedWeight = entry.exercise.loadField == .weightKg ? row.weightKg : nil
             let recordedDeficit = entry.exercise.loadField == .deficitCm ? row.deficitCm : nil
-            let unit = style == .machineWork || entry.exercise.supportsWeightedRepsOrMeters
+            let unit = style == .machineWork || entry.exercise.supportsRepsOrMeters
                 ? liveQuantityUnit : (entry.quantityUnit ?? entry.exercise.defaultQuantityUnit)
             var result = existingByID[row.id] ?? LoggedSet(
                 id: row.id, reps: row.reps, quantityUnit: unit
@@ -892,7 +892,7 @@ struct WorkoutView: View {
         }
         store.updateActiveExerciseDraft(
             id: id, plannedSets: revised,
-            quantityUnit: style == .machineWork || entry.exercise.supportsWeightedRepsOrMeters
+            quantityUnit: style == .machineWork || entry.exercise.supportsRepsOrMeters
                 ? liveQuantityUnit : entry.quantityUnit,
             performedSets: recorded
         )
@@ -1284,7 +1284,7 @@ struct WorkoutView: View {
             let weight = target?.targetWeightKg.map { "\(ReperaNumberFormat.decimal($0)) kg" } ?? "PC"
             return "\(format.displayName) · \(amount) \(quantity) · \(weight)"
         }
-        if current.exercise.supportsWeightedRepsOrMeters && unit == .meters {
+        if current.exercise.supportsRepsOrMeters && unit == .meters {
             let sets = current.plannedSets.map { set in
                 let weight = set.targetWeightKg.map { " · \(ReperaNumberFormat.decimal($0)) kg" } ?? ""
                 return "\(set.targetReps) m\(weight)"

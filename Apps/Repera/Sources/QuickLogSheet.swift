@@ -38,11 +38,11 @@ struct QuickLogSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if exercise.supportsWeightedRepsOrMeters
+                if exercise.supportsRepsOrMeters
                     || (style == .machineWork && exercise.allowsCalorieOrDistanceToggle) {
                     Section {
                         Picker("Unidad", selection: $quantityUnit) {
-                            if exercise.supportsWeightedRepsOrMeters {
+                            if exercise.supportsRepsOrMeters {
                                 Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
                             } else {
                                 Text("Cal").tag(ExerciseQuantityUnit.calories)
@@ -189,7 +189,7 @@ struct QuickLogSheet: View {
 
     private func quantityMetric(_ row: Binding<DraftSet>) -> some View {
         metricRow(quantityLabel, value: "\(row.wrappedValue.reps)") {
-            row.wrappedValue.reps = parseInt($0, cap: exercise.supportsWeightedRepsOrMeters && quantityUnit == .meters ? 100_000 : style.quantityCap)
+            row.wrappedValue.reps = parseInt($0, cap: exercise.supportsRepsOrMeters && quantityUnit == .meters ? 100_000 : style.quantityCap)
         }
     }
 
@@ -217,7 +217,7 @@ struct QuickLogSheet: View {
     }
 
     private var quantityLabel: String {
-        if style == .machineWork || exercise.supportsWeightedRepsOrMeters {
+        if style == .machineWork || exercise.supportsRepsOrMeters {
             return quantityUnit.shortLabel
         }
         return exercise.quantityFieldLabel
@@ -229,7 +229,7 @@ struct QuickLogSheet: View {
     }
 
     private var defaultReps: Int {
-        if exercise.supportsWeightedRepsOrMeters && quantityUnit == .meters { return 20 }
+        if exercise.supportsRepsOrMeters && quantityUnit == .meters { return 20 }
         if style == .machineWork { return quantityUnit == .meters ? 500 : 15 }
         if isHold { return 1 }
         if isMobility { return store.cachedHistory(for: exercise.id).lastReps ?? 8 }
@@ -280,7 +280,7 @@ struct QuickLogSheet: View {
                     weightKg: weight,
                     deficitCm: deficit,
                     durationSeconds: style.usesDuration ? row.durationSeconds : nil,
-                    quantityUnit: style == .machineWork || exercise.supportsWeightedRepsOrMeters
+                    quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
                         ? quantityUnit : nil
                 )
             }

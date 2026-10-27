@@ -153,7 +153,7 @@ struct OGRoutineBlockCard: View {
 
     private func strengthDetail(_ item: RoutineExercise) -> String {
         let exercise = resolvedStrengthExercise(item)
-        guard exercise.supportsWeightedRepsOrMeters && item.quantityUnit == .meters else {
+        guard exercise.supportsRepsOrMeters && item.quantityUnit == .meters else {
             return item.plannedSets.compactSummary
         }
         return item.plannedSets.map { set in
