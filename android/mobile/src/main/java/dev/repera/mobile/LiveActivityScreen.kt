@@ -251,6 +251,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     } else {
                         Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())) + " · %.2f km".format(state.distanceMeters/1000),
                             style=MaterialTheme.typography.titleLarge)
+                        // Apple 4ab1d8f9/0eb0cdb6/052f17f4: km actual, metros y ritmo
+                        // parcial en vivo tambien en el HUD del mapa (min/km o km/h).
+                        if (state.activeKilometerMeters >= 40) {
+                            val split = state.currentSplitSeconds(System.currentTimeMillis())
+                            val current = if (state.sport.displaysSpeed && split > 0)
+                                "${ReperaNumberFormat.decimal(state.activeKilometerMeters / split * 3.6)} km/h"
+                            else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
+                            Text("Km ${state.activeKilometer} · $current")
+                        }
                         FlowRow {
                             Button(onClick={showingMetrics=true}) {Text("Ver métricas")}
                             if(state.phase==LiveActivityState.Phase.RECORDING) TextButton(onClick={runtime.pause()}) {Text("Pausar")}
