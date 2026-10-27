@@ -402,3 +402,17 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -2tests(formula4casos+render128),PNGs360/1000inspeccionadossinrecortes.
  Post299mobileTODAS651/163XML+assemble75sverde;post300completa/assemble
  pendientes. Domain504/93Wear8/1siguen checkpoints anteriores.
+
+## VFC observada 23:19
+- Post300mobile653/163XML,0fallos/errores/omitidos,4lotes70/77/62/62s.
+- HealthRecovery930-994:VFCProlineal128dp/formulaDUO/latestextrafull,
+ sinmarcador estatico,niconseleccion;regladiscontinua3/4dp yfecha/valor
+ alseleccionar,muestrafinalvisible y<2 axes0..100sinlineainventada.
+- Renders360(no/single/multiple) y1000(162dp) inspeccionados. Focalizados
+ verdes79s+interaccion2tests46s. Ensayo previo falló captura de nodo fusionado:
+ corregido useUnmergedTree,no problema de producto. Compilacion inicial
+ excedio120s;no se contabiliza comosuiteverde.
+- SoloVFC;resto constantes aun chartslineales100dp(no barras98Apple),
+ ticks aproximadosAndroid,noSwiftautomatico. No cierres ni validacionnativa.
+- AssembleDebug alcanzado dentrocomandointerrumpido;separadoverdependiente.
+ Mobilecompletapost301pendiente;domain504/93Wear8/1anteriores.

@@ -72,8 +72,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   Text("Constantes · ${range.title}",style=MaterialTheme.typography.titleMedium)
   val hrv=vitals.mapNotNull {it.hrvMilliseconds?.let {v ->ProgressDayPoint(it.day,v)}}
   val rest=vitals.mapNotNull {it.restingHeartRateBpm?.let {v ->ProgressDayPoint(it.day,v)}}
-  Text("VFC (RMSSD)",style=MaterialTheme.typography.titleSmall)
-  if(hrv.size<2) Text(if(hrv.isEmpty()) "Sin mediciones de VFC en el periodo" else "Una medición de VFC; aún no hay tendencia") else DayPointLineChart(hrv,valueFormat={"${formatWeight(it)} ms"})
+  RecoveryVitalTrend(hrv,physiologyHeight)
   Text("RMSSD de Health Connect no equivale a SDNN de Apple Salud.",style=MaterialTheme.typography.bodySmall)
   Text("Pulso en reposo",style=MaterialTheme.typography.titleSmall)
   if(rest.isEmpty()) Text("Sin mediciones de pulso en reposo en el periodo") else DayPointLineChart(rest,valueFormat={"${formatWeight(it)} ppm"})

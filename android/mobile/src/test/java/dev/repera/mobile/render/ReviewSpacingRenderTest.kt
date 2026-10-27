@@ -264,4 +264,27 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertEquals(128,chart.height)
         save(composeRule.onNodeWithTag("physiology_fixture").captureToImage().asAndroidBitmap(),"physiology-preview-ordinal.png")
     }
+ @Test fun physiologyObservedLinearAndEmptyAxes() {
+        val today=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("physiology_observed_fixture")) {
+            androidx.compose.foundation.layout.Column {
+                dev.repera.mobile.RecoveryVitalTrend(listOf(45.0,62.0,49.0).mapIndexed {i,v ->dev.repera.domain.ProgressDayPoint(today.minusDays((2-i).toLong()),v)})
+                dev.repera.mobile.RecoveryVitalTrend(listOf(dev.repera.domain.ProgressDayPoint(today,51.0)))
+                dev.repera.mobile.RecoveryVitalTrend(emptyList())
+            }
+        }}}
+        composeRule.onNodeWithText("51 ms").assertExists()
+        val plot=composeRule.onNodeWithTag("physiology_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap()
+        org.junit.Assert.assertEquals(128,plot.height)
+        save(composeRule.onNodeWithTag("physiology_observed_fixture").captureToImage().asAndroidBitmap(),"physiology-observed-linear-empty.png")
+        composeRule.onNodeWithTag("physiology_observed_plot",useUnmergedTree=true).performClick()
+        composeRule.onNodeWithText("26 oct 2026: 62 ms",useUnmergedTree=true).assertExists()
+    }
+ @Test @Config(sdk=[35],qualifiers="w1000dp-h1400dp") fun physiologyObservedExpandedHeight() {
+        composeRule.setContent {MaterialTheme {Surface(Modifier.testTag("physiology_observed_expanded")) {
+            dev.repera.mobile.RecoveryVitalTrend(listOf(45.0,62.0,49.0).mapIndexed {i,v ->dev.repera.domain.ProgressDayPoint(LocalDate.of(2026,10,21+i),v)},dev.repera.mobile.physiologyChartHeightDp(492f,true,true).dp)
+        }}}
+        org.junit.Assert.assertEquals(162,composeRule.onNodeWithTag("physiology_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
+        save(composeRule.onNodeWithTag("physiology_observed_expanded").captureToImage().asAndroidBitmap(),"physiology-observed-expanded.png")
+    }
 }

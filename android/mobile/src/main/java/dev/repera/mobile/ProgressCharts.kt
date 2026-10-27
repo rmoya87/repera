@@ -408,6 +408,7 @@ internal fun DayPointLineChart(
     weightStyle:Boolean=false,
     weightPreview:Boolean=false,
     readinessGradient:Boolean=true,
+    physiologyStyle:Boolean=false,
     chartHeight:androidx.compose.ui.unit.Dp?=null
 ) {
     if (points.isEmpty()) return
@@ -476,6 +477,7 @@ internal fun DayPointLineChart(
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(plotHeight)
+                .testTag(if(physiologyStyle) "physiology_observed_plot" else "day_point_plot")
                 .pointerInput(points,interactive,insetPlot) {
                     if(!interactive) return@pointerInput
                     detectTapGestures { offset ->
@@ -535,18 +537,25 @@ internal fun DayPointLineChart(
                     curve.moveTo(observed.first().x,observed.first().y)
                     ReadinessCurve.segments(observed).forEach {c ->curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
                     clipRect {drawPath(curve,color=line,style=Stroke(width=2.25.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))}
-                } else drawPath(path, color = line, style = Stroke(width = 4f))
-                drawCircle(color = line, radius = 6f,
+                } else {
+                    if(physiologyStyle) {
+                        val grid= line.copy(alpha=0.12f)
+                        listOf(0f,0.5f,1f).forEach {f ->drawLine(grid,Offset(f*size.width,0f),Offset(f*size.width,size.height),0.5.dp.toPx())}
+                    }
+                    if(physiologyStyle) clipRect {drawPath(path,color=line,style=Stroke(width=2.dp.toPx()))}
+                    else drawPath(path,color=line,style=Stroke(width=4f))
+                }
+                if(!physiologyStyle) drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))
                 selected?.let { i ->
                     drawLine(
                         color = line.copy(alpha = 0.5f),
                         start = Offset(x(i), 0f),
                         end = Offset(x(i), size.height),
-                        strokeWidth = 2f,
-                        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f,6f))
+                        strokeWidth = if(physiologyStyle) 1.dp.toPx() else 2f,
+                        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(if(physiologyStyle) floatArrayOf(3.dp.toPx(),4.dp.toPx()) else floatArrayOf(6f,6f))
                     )
-                    drawCircle(color = line, radius = 8f,
+                    if(!physiologyStyle) drawCircle(color = line, radius = 8f,
                         center = Offset(x(i), y(points[i].value)))
                 }
             }
