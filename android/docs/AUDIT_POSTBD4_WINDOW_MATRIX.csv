@@ -97,7 +97,7 @@ ca7b1ae2|2026-10-26T22:20:23+01:00|Prioritize official catalog exercises in ligh
 6efd1cec|2026-10-26T22:20:48+01:00|Test mixed-case BTT and T2B repair over same-name legacy custom exercises|tests||unverified
 3684a6ec|2026-10-26T22:21:03+01:00|Regression test lite board scanner with BTT/T2B duplicate legacy custom matches|tests||unverified
 d3e87b65|2026-10-26T22:21:16+01:00|Test full board scanner chooses official BTT and T2B instead of provisional copies|tests||unverified
-e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise thumbnails in workout preview|ios-app||unverified
+e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise thumbnails in workout preview|ios-app||verified-ported 13:15: 4 entradas alias-art anadidas a ExerciseArtData; WIP sin validar build
 220fe294|2026-10-26T22:26:26+01:00|Persist remote exercise aliases in Exercise model with backwards-compatible decoding|domain||verified-ported 11:53 (searchAliases persistidas: ExerciseEntry.searchAliases + PublishedCatalogAliases JSON, decode ausente→[] como Apple)
 61185bba|2026-10-26T22:26:36+01:00|Apply Supabase catalog alias arrays to persisted offline Exercise entries|ios-app||verified-ported 13:14 por lectura: PublishedCatalogAliases.merge aplica remote.aliases??[] a entradas persistidas (RemoteExerciseCatalogWorker) = exacto
 6552bd80|2026-10-26T22:26:47+01:00|Preserve Supabase alias metadata when enriching local exercises from bundled seed|ios-app||verified-n/a 13:14: catalog_seed.json Android es respaldo de solo lectura (asset), nunca hidrata estado persistido; no puede borrar alias editoriales
