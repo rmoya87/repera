@@ -1453,6 +1453,7 @@ final class ReperaStore: NSObject {
             plannedSets: sets.map {
                 PlannedSet(targetReps: $0.reps, targetWeightKg: $0.weightKg)
             },
+            quantityUnit: sets.first?.quantityUnit,
             loggedSets: sets,
             completedReps: sets.filter { !$0.isWarmup }.reduce(0) { $0 + $1.reps },
             isCompleted: true

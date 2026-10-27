@@ -1277,10 +1277,19 @@ struct WorkoutView: View {
     }
 
     private func exerciseMetaLine(_ current: SessionExercise, target: PlannedSet?) -> String {
+        let unit = current.quantityUnit ?? current.exercise.defaultQuantityUnit
         if let format = current.wodFormat {
-            let reps = target?.targetReps ?? 0
+            let amount = target?.targetReps ?? 0
+            let quantity = unit == .reps ? "reps" : unit.shortLabel
             let weight = target?.targetWeightKg.map { "\(ReperaNumberFormat.decimal($0)) kg" } ?? "PC"
-            return "\(format.displayName) · \(reps) reps · \(weight)"
+            return "\(format.displayName) · \(amount) \(quantity) · \(weight)"
+        }
+        if current.exercise.supportsWeightedRepsOrMeters && unit == .meters {
+            let sets = current.plannedSets.map { set in
+                let weight = set.targetWeightKg.map { " · \(ReperaNumberFormat.decimal($0)) kg" } ?? ""
+                return "\(set.targetReps) m\(weight)"
+            }.joined(separator: " / ")
+            return "\(current.exercise.muscleGroup) · \(sets)"
         }
         return "\(current.exercise.muscleGroup) · \(current.plannedSets.compactSummary)"
     }
