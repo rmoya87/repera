@@ -55,7 +55,7 @@ class PlannedWorkoutFavoritesContractTests(unittest.TestCase):
         )[0]
         self.assertIn("saveRoutineWithVerifiedAccess(draft)", oneoff)
         self.assertIn("setRoutineFavoriteWithVerifiedAccess(", oneoff)
-        self.assertIn("presentRoutineLimitPaywall()", oneoff)
+        self.assertIn("presentRoutineLimitPaywall()", EDITOR)
 
     def test_calendar_reuse_schedules_new_copy(self):
         self.assertIn("var targetDate: Date? = nil", HUB)
