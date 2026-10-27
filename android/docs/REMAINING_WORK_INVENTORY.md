@@ -17,9 +17,11 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
      (glifos 20x20, tarjeta "Musculos y equipo", iconos chips biblioteca, onboarding AI)
      NO esta visualmente validado: 0-diff de coordenadas y assemble no acreditan pixeles.
      Via intermedia honesta EN MARCHA: Robolectric 4.17 graficos nativos + ui-test-junit4
-     anadidos como testImplementation; MuscleGlyphRenderTest rasteriza los 11 glifos a
-     PNGs revisables (mobile/build/reports/render/). Acredita render JVM, NUNCA runtime
-     de dispositivo. Extensible al resto de UI portada por fuente (tarjeta, chips, AI).
+     como testImplementation. Renders inspeccionables en mobile/build/reports/render/:
+     12 glifos (MuscleGlyphRenderTest), tarjeta Musculos y equipo, AIAccessScreen
+     (conexiones + tokens tras scroll). Acreditan la previsualizacion JVM de esos
+     fixtures/tamanos concretos; NO todos los tamanos/temas ni runtime de dispositivo.
+     Diffs de glifos verificados por comparacion PROGRAMATICA exhaustiva 9/9 (no muestreo).
 3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 507/507 en 123 suites XML real)
 
 ## Grupos de gaps principales (pre+post)

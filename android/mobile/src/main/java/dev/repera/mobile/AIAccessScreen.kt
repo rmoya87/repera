@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -259,7 +260,8 @@ fun AIAccessScreen(
         ) { Text(if (busy) "Creando acceso…" else "Crear token") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-        Text("Mis conexiones", style = MaterialTheme.typography.titleMedium)
+        Text("Mis conexiones", style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.testTag("ai_tokens_header"))
         when {
             tokens == null -> CircularProgressIndicator()
             tokens.isEmpty() -> Text("No tienes tokens de IA creados.",
