@@ -599,10 +599,10 @@ struct RouteWeatherStrip: View {
         HStack(alignment: .center, spacing: 7) {
             Image(systemName: symbol)
                 // La altura visual del SF Symbol equivale a título y cifra juntos.
-                .font(.system(size: 28, weight: .regular))
+                .font(.system(size: 35, weight: .regular))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(OG.label2)
-                .frame(width: 33, height: 41, alignment: .center)
+                .frame(width: 39, height: 43, alignment: .center)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
