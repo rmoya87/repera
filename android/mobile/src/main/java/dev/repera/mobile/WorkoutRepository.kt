@@ -1062,7 +1062,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val catalog=state.getJSONArray("exercises")
         val exercise=(0 until catalog.length()).map {catalog.getJSONObject(it)}.firstOrNull {it.optString("id")==exerciseId} ?: error("Ejercicio no encontrado")
         val mode=inputMode(exercise);val unit=rows.firstOrNull()?.unit ?: error("Añade una serie")
-        val normalized=QuickLogRows.validate(rows,mode,ExerciseInput.defaultQuantityUnit(exercise.getString("name"),exercise.optString("equipment")),ExerciseInput.supportsCaloriesAndMeters(exercise.getString("name"),exercise.optString("equipment")),isMobilityHold(exercise),ExerciseInput.supportsWeightedRepsOrMeters(exercise.getString("name")))
+        val normalized=QuickLogRows.validate(rows,mode,ExerciseInput.defaultQuantityUnit(exercise.getString("name"),exercise.optString("equipment")),ExerciseInput.supportsCaloriesAndMeters(exercise.getString("name"),exercise.optString("equipment")),isMobilityHold(exercise),ExerciseInput.supportsRepsOrMeters(exercise.getString("name")))
         val now=Instant.now();val logged=JSONArray();val planned=JSONArray()
         normalized.forEach {row ->
             val set=JSONObject().put("id",UUID.randomUUID().toString()).put("reps",row.quantity)
@@ -1224,12 +1224,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             ?: ExerciseInput.defaultQuantityUnit(
                 movement.getString("name"), movement.optString("equipment"))
         if (inputMode == ExerciseInputMode.LOAD_DISTANCE) {
-            // Apple 1d1edc8b: los transportes con carga alternan reps/metros.
-            check(unit == "meters" || ExerciseInput.supportsWeightedRepsOrMeters(
+            // Apple 1d1edc8b/f7109bd7: los recorridos alternan reps/metros.
+            check(unit == "meters" || ExerciseInput.supportsRepsOrMeters(
                 movement.getString("name")) && unit == "reps") {
                 "Este transporte se registra en metros" }
         } else if (inputMode == ExerciseInputMode.MACHINE_WORK) {
-            check(unit == "meters" || unit == "calories")
+            // f7109bd7: burpee broad jump (reps/m sin lastre) tambien alterna.
+            check(unit == "meters" || unit == "calories" ||
+                ExerciseInput.supportsRepsOrMeters(movement.getString("name")) && unit == "reps")
             if (!ExerciseInput.supportsCaloriesAndMeters(
                     movement.getString("name"), movement.optString("equipment"))) {
                 check(unit == ExerciseInput.defaultQuantityUnit(
@@ -1991,7 +1993,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (deficitCm == null) original.remove("deficitCm") else original.put("deficitCm", deficitCm)
         if (quantityUnit != null) {
             if (inputMode(movement) == ExerciseInputMode.LOAD_DISTANCE) {
-                check(quantityUnit == "meters" || ExerciseInput.supportsWeightedRepsOrMeters(
+                check(quantityUnit == "meters" || ExerciseInput.supportsRepsOrMeters(
                     movement.getString("name")) && quantityUnit == "reps")
             } else if (inputMode(movement) == ExerciseInputMode.MACHINE_WORK) {
                 check(quantityUnit in setOf("calories", "meters"))

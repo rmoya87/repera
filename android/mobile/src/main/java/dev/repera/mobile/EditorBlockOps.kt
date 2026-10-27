@@ -160,6 +160,14 @@ object EditorBlockOps {
         val default = if (dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(name, equipment))
             dev.repera.domain.AppleCardioUnits.defaultQuantityUnit(name, equipment)
         else dev.repera.domain.ExerciseInput.defaultQuantityUnit(name, equipment)
+        // Apple f7109bd7 (SessionController:314): la unidad prescrita reps/m de un
+        // recorrido (supportsRepsOrMeters) se conserva al montar la sesion.
+        if (dev.repera.domain.ExerciseInput.supportsRepsOrMeters(name)) {
+            if (requested == "reps" || requested == "meters") return requested
+            val fromJsonD = original?.optString("quantityUnit")?.takeIf { it == "reps" || it == "meters" }
+            if (fromJsonD != null) return fromJsonD
+            return default
+        }
         if (!dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(name, equipment)) return default
         if (requested == "calories" || requested == "meters") return requested
         val fromJson = original?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" }
