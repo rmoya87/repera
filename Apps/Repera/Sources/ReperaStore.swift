@@ -2471,29 +2471,40 @@ final class ReperaStore: NSObject {
         return false
     }
 
-    /// Marca o desmarca entrenos registrados sin modificar la programación original.
-    /// Las sesiones sueltas conservan el ID de su plantilla favorita para no duplicarla.
-    func toggleWorkoutFavorite(_ id: UUID) {
-        guard let workoutIndex = state.workouts.firstIndex(where: { $0.id == id }) else { return }
+    /// Cada favorito de un entreno completado es una plantilla independiente
+    /// de su plan de origen. Devuelve false si el límite Gratis impide guardarla
+    /// o si no existen ejercicios reutilizables; la vista muestra el motivo.
+    @discardableResult
+    func toggleWorkoutFavorite(_ id: UUID) -> Bool {
+        lastAccessDenial = nil
+        guard let workoutIndex = state.workouts.firstIndex(where: { $0.id == id }) else { return false }
         let session = state.workouts[workoutIndex]
         if let favoriteId = session.favoriteRoutineId,
            let existing = state.routines.first(where: { $0.id == favoriteId }) {
-            _ = setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite)
-            return
+            return setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite)
         }
+
+        // Compatibilidad de históricos antiguos que apuntaban directamente a
+        // una plantilla ya favorita, antes de existir favoriteRoutineId.
         if let routineId = session.routineId,
-           let existing = state.routines.first(where: { $0.id == routineId }) {
-            guard setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite) else { return }
-            if let linked = state.routines.first(where: { $0.id == routineId })?.favoriteTemplateId {
-                state.workouts[workoutIndex].favoriteRoutineId = linked
-                persist()
-            }
-            return
+           let original = state.routines.first(where: { $0.id == routineId }),
+           original.isFavorite {
+            return setRoutineFavorite(original.id, isFavorite: false)
         }
+
+        // Tras reinstalar, el plan original puede no existir en el JSON
+        // recuperado. Nunca depender de routineId para crear el favorito.
+        let hasReusableBlocks = session.routineBlocks?.contains {
+            !$0.exercises.isEmpty || !$0.movements.isEmpty
+        } ?? false
+        guard hasReusableBlocks || !session.exercises.isEmpty else { return false }
+
         let template = Self.favoriteTemplate(from: session)
-        guard saveRoutine(template) else { return }
+        guard saveRoutine(template) else { return false }
+        // Solo vincular la estrella si la plantilla se guardó de verdad.
         state.workouts[workoutIndex].favoriteRoutineId = template.id
         persist()
+        return true
     }
 
     /// Marca la rutina de la sesión activa como favorita, o crea plantilla desde la sesión.
@@ -2534,6 +2545,35 @@ final class ReperaStore: NSObject {
     }
 
     private static func favoriteTemplate(from session: WorkoutSession) -> Routine {
+        // El snapshot del día ejecutado conserva todos los bloques, descansos,
+        // porcentajes, repeticiones y kg. Nunca leer la plantilla actual del
+        // calendario: puede haberse editado o desaparecido al reinstalar.
+        if let snapshot = session.routineBlocks,
+           snapshot.contains(where: { !$0.exercises.isEmpty || !$0.movements.isEmpty }) {
+            return Routine(
+                title: session.title.isEmpty ? "Favorito" : session.title,
+                blocks: snapshot.map { $0.duplicatingContent() },
+                progression: .off,
+                isFavorite: true
+            )
+        }
+
+        // Históricos sin snapshot: reconstruir de la sesión guardada y usar
+        // las series realmente anotadas en apuntes libres sin prescripción.
+        func prescription(for item: SessionExercise) -> [PlannedSet] {
+            if !item.plannedSets.isEmpty {
+                return item.plannedSets.map { $0.duplicatingContent() }
+            }
+            return item.loggedSets.filter { $0.phase == .work }.map {
+                PlannedSet(
+                    targetReps: $0.reps,
+                    targetWeightKg: $0.weightKg,
+                    targetDurationSeconds: $0.durationSeconds,
+                    targetRir: $0.rir
+                )
+            }
+        }
+
         var order: [UUID] = []
         var groups: [UUID: [SessionExercise]] = [:]
         var meta: [UUID: SessionExercise] = [:]
@@ -2552,28 +2592,28 @@ final class ReperaStore: NSObject {
                 let exercises = items.map {
                     RoutineExercise(
                         exerciseId: $0.exercise.id,
-                        plannedSets: $0.plannedSets.isEmpty
-                            ? [PlannedSet(targetReps: 8, targetWeightKg: nil)]
-                            : $0.plannedSets,
+                        plannedSets: prescription(for: $0),
+                        quantityUnit: $0.quantityUnit,
+                        restSeconds: $0.restSeconds,
                         supersetGroup: nil
                     )
                 }
                 return RoutineBlock(
-                    id: sample.blockId ?? UUID(),
                     title: sample.blockHeader ?? "Bloque",
                     kind: .strength,
                     exercises: exercises
                 )
             }
-            let movements = items.map {
-                WODMovement(
-                    exerciseId: $0.exercise.id,
-                    name: $0.exercise.name,
-                    reps: $0.plannedSets.first?.targetReps
+            let movements = items.map { item -> WODMovement in
+                let sets = prescription(for: item)
+                return WODMovement(
+                    exerciseId: item.exercise.id,
+                    name: item.exercise.name,
+                    reps: sets.first?.targetReps,
+                    explicitPlannedSets: sets.isEmpty ? nil : sets
                 )
             }
             return RoutineBlock(
-                id: sample.blockId ?? UUID(),
                 title: sample.blockHeader ?? sample.wodFormat?.displayName ?? "WOD",
                 kind: .wod,
                 movements: movements,
@@ -2582,7 +2622,8 @@ final class ReperaStore: NSObject {
                 emomIntervalSeconds: sample.blockIntervalSeconds,
                 rounds: sample.blockRounds,
                 workSeconds: sample.blockWorkSeconds,
-                restSeconds: sample.blockRestSeconds
+                restSeconds: sample.blockRestSeconds,
+                restBetweenRoundsSeconds: sample.blockRestBetweenRoundsSeconds
             )
         }
         return Routine(
