@@ -1299,13 +1299,12 @@ internal object WeekCalendarGeometry {
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
     Card(modifier = Modifier.fillMaxWidth().testTag("week_calendar_card")) {
-        Column(modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
                 "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
                 style = MaterialTheme.typography.titleSmall,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().let { m ->
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 12.dp).let { m ->
                     // Apple weekSelector: tocar la etiqueta vuelve a la semana actual.
                     if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
                 })
@@ -1326,7 +1325,10 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
                     val targetPx = with(density) { ((side + spacing) * 7).toPx() }.toInt()
                     scrollState.scrollTo(targetPx)
                 }
-                Row(modifier = Modifier.fillMaxWidth()
+                // Solo los dias van edge-to-edge (comentario Apple en el
+                // corte); la etiqueta conserva margen. Padding inferior para
+                // que el borde de la tarjeta no corte las celdas.
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                         .horizontalScroll(scrollState)
                         .testTag(if (expanded) "week_strip_expanded" else "week_strip_compact"),
                     horizontalArrangement = Arrangement.spacedBy(spacing)) {

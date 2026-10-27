@@ -1,0 +1,125 @@
+Current URL: https://github.com/rmoya87/repera/commit/ff94e6ad82d919fc3940b18cd504adb2681031e6.patch
+
+From ff94e6ad82d919fc3940b18cd504adb2681031e6 Mon Sep 17 00:00:00 2001
+From: rmoya87 <rmoya87@gmail.com>
+Date: Tue, 27 Oct 2026 09:52:31 +0100
+Subject: [PATCH] Normalize case and OCR confusables for BTT aliases across
+ scanner and history
+
+---
+ Apps/Repera/Sources/ExerciseArt.swift         |  6 +++
+ .../ReperaDomain/BoardImportParser.swift      |  5 +++
+ .../Sources/ReperaDomain/Models.swift         | 40 +++++++++++--------
+ .../WODHistoryPresentationTests.swift         |  8 ++++
+ 4 files changed, 43 insertions(+), 16 deletions(-)
+
+diff --git a/Apps/Repera/Sources/ExerciseArt.swift b/Apps/Repera/Sources/ExerciseArt.swift
+index 6c95eece..dbe3e6a1 100644
+--- a/Apps/Repera/Sources/ExerciseArt.swift
++++ b/Apps/Repera/Sources/ExerciseArt.swift
+@@ -14,6 +14,12 @@ enum ExerciseArt {
+     }
+ 
+     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
++        // Respaldo de arte si el ejercicio histórico conserva caracteres OCR
++        // visualmente equivalentes a BTT/T2B.
++        if let official = WODHistoryPresentation.officialName(for: name),
++           let image = acceptedHero(nameMap[official]) {
++            return image
++        }
+         // Algunas pizarras escriben burpee box jump over(s), BBJO o
+         // burpee over box: comparten una ilustración existente y validada.
+         let normalizedName = CrossFitGlossary.normalize(name)
+diff --git a/Packages/ReperaDomain/Sources/ReperaDomain/BoardImportParser.swift b/Packages/ReperaDomain/Sources/ReperaDomain/BoardImportParser.swift
+index b2b69f48..3ba4b577 100644
+--- a/Packages/ReperaDomain/Sources/ReperaDomain/BoardImportParser.swift
++++ b/Packages/ReperaDomain/Sources/ReperaDomain/BoardImportParser.swift
+@@ -1737,6 +1737,11 @@ public enum CrossFitGlossary {
+ 
+     /// Nombre canónico para matching de catálogo.
+     public static func canonicalName(for raw: String) -> String {
++        // BTt/BTT y variantes OCR se resuelven antes de consultar el glosario,
++        // incluso si aún no se ha descargado el catálogo de Supabase.
++        if let known = WODHistoryPresentation.officialName(for: raw) {
++            return known
++        }
+         // Antes de quitar ruido (DB/ALT…): compuestos con equipo (`db hang snatch` → Snatch mancuerna).
+         let rawNorm = normalize(raw)
+         if let exact = aliases[rawNorm] { return exact }
+diff --git a/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift b/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift
+index 38788172..e71b3fb4 100644
+--- a/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift
++++ b/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift
+@@ -1708,29 +1708,37 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
+ /// Pantalla de resultados WOD. La identidad histórica puede ser un alias
+ /// antiguo y las series registradas pueden coincidir con la prescripción.
+ public enum WODHistoryPresentation {
+-    /// Aliases inequívocos. Deliberadamente no aplica equivalencias difusas a
+-    /// otros ejercicios que el usuario haya elegido manualmente.
++    /// Nombres de WOD sin distinción de mayúsculas ni grafías de OCR.
++    /// Solo se resuelven abreviaturas inequívocas, nunca nombres parecidos.
+     public static func officialName(for rawName: String) -> String? {
+-        // OCR puede insertar Unicode de otros alfabetos con aspecto idéntico
+-        // (p. ej. la T cirílica en «BTт»). Transliterar antes de comprobar
+-        // equivalencias evita dejar iconos genéricos en sesiones antiguas.
+-        let latin = rawName.applyingTransform(.toLatin, reverse: false) ?? rawName
+-        let name = latin.lowercased()
++        let compatibility = rawName.precomposedStringWithCompatibilityMapping
++        // «BTt» puede contener una B cirílica (В) o una T griega (Τ).
++        // La transliteración genérica transforma В en V, y «ВΤt» ya no
++        // coincide con BTT. Corregir parecidos visuales ANTES de transliterar.
++        let lookalikes: [Character: Character] = [
++            "В": "B", "в": "b", "Β": "B", "Ᏼ": "B", "ʙ": "b",
++            "Т": "T", "т": "t", "Τ": "T", "τ": "t", "ᴛ": "t"
++        ]
++        let visual = String(compatibility.map { lookalikes[$0] ?? $0 })
++        let latin = visual.applyingTransform(.toLatin, reverse: false) ?? visual
++        let normalized = latin.lowercased()
+             .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                      locale: Locale(identifier: "en_US_POSIX"))
+             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: " ", options: .regularExpression)
+             .trimmingCharacters(in: .whitespacesAndNewlines)
+-        switch name {
+-        case "btt", "bt t", "burpee to target", "burpees to target":
+-            return "Burpee to target"
+-        case "t2b", "t 2 b", "ttb", "toes to bar", "toes to bars":
+-            return "Toes to bar"
+-        default:
+-            return nil
++        // Compactar únicamente abreviaturas; no hacer búsqueda difusa.
++        let compact = normalized.replacingOccurrences(of: " ", with: "")
++        switch compact {
++        case "btt": return "Burpee to target"
++        case "t2b", "ttb": return "Toes to bar"
++        default: break
++        }
++        switch normalized {
++        case "burpee to target", "burpees to target": return "Burpee to target"
++        case "toes to bar", "toes to bars": return "Toes to bar"
++        default: return nil
+         }
+     }
+-
+-
+ }
+ 
+ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
+diff --git a/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift b/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift
+index d1d9ab05..8c1ab5f9 100644
+--- a/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift
++++ b/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift
+@@ -13,6 +13,14 @@ final class WODHistoryPresentationTests: XCTestCase {
+         XCTAssertEqual(WODHistoryPresentation.officialName(for: "BTт"), "Burpee to target")
+         XCTAssertEqual(WODHistoryPresentation.officialName(for: "Ｔ２Ｂ"), "Toes to bar")
+         XCTAssertNil(WODHistoryPresentation.officialName(for: "Wall ball"))
++        for raw in ["btt", "BTT", "BTt", "B T t", "ＢＴＴ", "𝐁𝐓𝐭",
++                    "ВΤt", "ΒТτ", "B\u{200B}Tt", "Ᏼᴛᴛ"] {
++            XCTAssertEqual(
++                WODHistoryPresentation.officialName(for: raw),
++                "Burpee to target", "Fallo al resolver el alias \(raw)"
++            )
++            XCTAssertEqual(CrossFitGlossary.canonicalName(for: raw), "Burpee to target")
++        }
+     }
+ 
+     func testHistoricalAMRAPRetainsOriginalRecordedSets() {
