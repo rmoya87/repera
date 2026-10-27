@@ -276,11 +276,7 @@ internal fun ProgressTab(
                 }}
             }
             if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
-            if(!pro) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
-                Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
-                Text("Datos ficticios. Objetivo de ejemplo:74kg")
-                DayPointLineChart(ProgressPreview.weight(today),goal=74.0,interactive=false)
-            }}}
+            if(!pro) item {WeightPreviewCard(today)}
             }
             if(topic=="Entreno") {
             if (snapshot.heatmapTime.isNotEmpty()) {
@@ -445,3 +441,15 @@ internal fun WeightStatTiles(latestKg: Double?, goalKg: Double?) {
 
 internal fun formatWeight(value: Double): String =
     dev.repera.domain.ReperaNumberFormat.decimal(value)
+
+/** Same weight summary surface for Free, with explicitly fictitious points. */
+@Composable
+internal fun WeightPreviewCard(today:LocalDate) {
+    val points=ProgressPreview.weight(today)
+    Card(Modifier.fillMaxWidth(),colors=androidx.compose.material3.CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
+        Text("Datos ficticios. Objetivo de ejemplo: 74 kg")
+        DayPointLineChart(points,goal=74.0,interactive=false)
+        WeightStatTiles(points.lastOrNull()?.value,74.0)
+    }}
+}

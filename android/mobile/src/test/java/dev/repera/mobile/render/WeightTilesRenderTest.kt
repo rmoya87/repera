@@ -47,4 +47,18 @@ class WeightTilesRenderTest {
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/weight-tiles.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
  }
+ @Test fun freePreviewUsesSameTilesWithExplicitExampleLabel() {
+  rule.setContent {MaterialTheme {Surface(Modifier.testTag("preview-root")) {
+   dev.repera.mobile.WeightPreviewCard(java.time.LocalDate.of(2026,10,27))
+  }}}
+  rule.onNodeWithText("Peso corporal · ejemplo").assertExists()
+  rule.onNodeWithText("Datos ficticios. Objetivo de ejemplo: 74 kg").assertExists()
+  rule.onNodeWithText("Actual").assertExists()
+  rule.onNodeWithText("Objetivo").assertExists()
+  rule.onNodeWithText("Δ").assertExists()
+  val bmp=rule.onNodeWithTag("preview-root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/weight-preview.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+ }
+
 }

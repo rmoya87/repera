@@ -170,3 +170,9 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Borrador permite quitar cluster antes de guardar, conserva resto con su
   descanso individual y renumera. Captura360claro tras quitar inspeccionada.
   No implica editar registros historicos ni persistir borrador al navegar.
+
+## Preview Peso 20:08
+-08790a22: preview Free omitia tiles que el corte conserva. Extraida
+ WeightPreviewCard con aviso ficticio explicito y Actual/Objetivo/Delta
+ derivadas del mismo fixture. Fondo surface distingue tiles surfaceVariant.
+ Render360claro inspeccionado; no acredita todas las curvas/margenes previews.
