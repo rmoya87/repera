@@ -11,7 +11,8 @@ import dev.repera.domain.WorkoutRoutePoint
  */
 internal object RouteMapModel {
 
-    data class Segment(val a: WorkoutRoutePoint, val b: WorkoutRoutePoint, val argb: Long)
+    data class Segment(val a: WorkoutRoutePoint, val b: WorkoutRoutePoint, val argb: Long,
+                       val estimated: Boolean = false)
     data class Camera(val centerLat: Double, val centerLon: Double,
                       val spanLat: Double, val spanLon: Double)
 
@@ -32,7 +33,10 @@ internal object RouteMapModel {
         val minS = valid.minOrNull() ?: 0.0
         val maxS = maxOf(valid.maxOrNull() ?: 1.0,minS+0.1)
         return speeds.mapIndexedNotNull { i,speed ->
-            speed?.let { Segment(points[i],points[i+1],speedColor(it,minS,maxS,water)) }
+            // Trazo estimado tras un cierre: discontinuo y rotulado, nunca
+            // presentado como medicion GPS (Apple 303453ff/9f62c49a).
+            val est = points[i].isEstimated == true || points[i+1].isEstimated == true
+            speed?.let { Segment(points[i],points[i+1],speedColor(it,minS,maxS,water),est) }
         }
     }
 

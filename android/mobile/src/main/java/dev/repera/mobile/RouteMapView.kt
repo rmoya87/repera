@@ -197,7 +197,9 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
     } else RouteMapModel.segments(rendered,water)
     // Una colección y una capa: no crear miles de capas por cada muestra
     // ni reconstruir un árbol de estilos entero al llegar un punto GPS.
-    val features = segments.map { seg ->
+    val solid = segments.filter { !it.estimated }
+    val dashed = segments.filter { it.estimated }
+    fun featuresOf(list: List<RouteMapModel.Segment>) = list.map { seg ->
         val coords = org.json.JSONArray()
             .put(org.json.JSONArray().put(seg.a.longitude).put(seg.a.latitude))
             .put(org.json.JSONArray().put(seg.b.longitude).put(seg.b.latitude))
@@ -206,10 +208,20 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
             .put("properties", JSONObject().put("color", "#%06X".format(seg.argb and 0xFFFFFF)))
             .put("geometry", JSONObject().put("type", "LineString").put("coordinates", coords)).toString())
     }
-    style.addSource(GeoJsonSource("route-src", org.maplibre.geojson.FeatureCollection.fromFeatures(features)))
-    style.addLayer(LineLayer("route-line", "route-src").withProperties(
-        PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
-        PropertyFactory.lineCap("round")))
+    if (solid.isNotEmpty() || dashed.isEmpty()) {
+        style.addSource(GeoJsonSource("route-src", org.maplibre.geojson.FeatureCollection.fromFeatures(featuresOf(solid))))
+        style.addLayer(LineLayer("route-line", "route-src").withProperties(
+            PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
+            PropertyFactory.lineCap("round")))
+    }
+    if (dashed.isNotEmpty()) {
+        // Tramos estimados: discontinuos, nunca como medicion GPS (Apple 9f62c49a).
+        style.addSource(GeoJsonSource("route-src-est", org.maplibre.geojson.FeatureCollection.fromFeatures(featuresOf(dashed))))
+        style.addLayer(LineLayer("route-line-est", "route-src-est").withProperties(
+            PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
+            PropertyFactory.lineCap("round"),
+            PropertyFactory.lineDasharray(arrayOf(2.0f, 2.0f))))
+    }
     // Inicio (acento) y fin (rojo), círculos con borde blanco como iOS.
     listOfNotNull(
         points.firstOrNull()?.let { it to "#2FA86B" },
@@ -267,7 +279,9 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
                     (((p.longitude - minLon) / spanLon).toFloat()) * size.width,
                     (1f - ((p.latitude - minLat) / spanLat).toFloat()) * size.height)
                 segments.forEach { seg ->
-                    drawLine(Color(seg.argb), xy(seg.a), xy(seg.b), strokeWidth = 8f)
+                    drawLine(Color(seg.argb), xy(seg.a), xy(seg.b), strokeWidth = 8f,
+                        pathEffect = if (seg.estimated) androidx.compose.ui.graphics.PathEffect
+                            .dashPathEffect(floatArrayOf(16f, 16f)) else null)
                 }
             }
         }
