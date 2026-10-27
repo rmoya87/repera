@@ -148,3 +148,17 @@ cap heatmap 76, Live restructure, requiresReauthentication, edit-save health re-
    Nota main 10:11: la matriz 579 es índice heurístico, no cobertura; "313 leídos" = diffs de ventana
    revisados estáticamente, no commits verificados; al resolver hallazgos manda baseline bd4d7637
    sobre reglas antiguas supersedidas (giros GPX 30m, no 20m).
+
+## tree166 — Primeras 7 filas 579 verificadas (27oct 10:18 CET)
+
+Verificación real (diff Apple leído + árbol Android comparado, baseline bd4d7637):
+- 92fe968b 1RM nunca desde metros/kcal: guard peso>0+reps>0+no movilidad+terminado idéntico en
+  domain/StatsEngine.personalRecords.
+- 983304e8 / 9b81af37 / 48e1289b / e512a743 SportExerciseNames: key() diacríticos+case,
+  aliasKey() puntuación->espacio, supplementalAliases 75/75 claves Y valores idénticos al baseline,
+  canonicalName/spanishAlias/englishAliasForSpanish estructura 1:1.
+- eabc3cd2 / f30b6232 splits km con pausas: liveKilometerSplitsSeconds en modelo, persistencia
+  (WorkoutRepository:138, LiveActivitySnapshotStore), UI (ExercisesTab, ReperaCards,
+  LiveActivityScreen) y cómputo con reloj activo (pausedSeconds excluidos, interpolación de cruce
+  de km) en domain/LiveActivityState.receive; tests LiveSportHistoryTest + roundtrip snapshot.
+Matriz actualizada: 7/579 verified, resto unverified.

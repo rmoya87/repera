@@ -52,11 +52,11 @@ e9feae2b|2026-10-25T13:37:57+01:00|refactor(comenzar): require GPS sport for spl
 4ab1d8f9|2026-10-25T13:14:52+01:00|style(map): show current km, meters and live partial pace while following GPS route|ios-app|42777649 74f37c40|unverified
 bcb9f677|2026-10-25T13:13:38+01:00|fix(gpx): detect turns across 30m track windows even on dense imported GPS routes|ios-app||unverified
 0eb0cdb6|2026-10-25T13:13:01+01:00|fix(cardio): show live partial pace for running and km/h for cycling|ios-app|9956477c|unverified
-f30b6232|2026-10-25T13:11:53+01:00|test(domain): check pause-adjusted per-km split roundtrip and legacy workout decoding|packages|2e02be93 40c61fc9|unverified
+f30b6232|2026-10-25T13:11:53+01:00|test(domain): check pause-adjusted per-km split roundtrip and legacy workout decoding|packages|2e02be93 40c61fc9|verified: test Apple; equivalente Android LiveSportHistoryTest + LiveActivitySnapshotStore roundtrip
 db9ab550|2026-10-25T13:10:19+01:00|fix(history): always render recorded per-km splits on live GPS activities even without HealthKit HR|ios-app|1633bbd8 7b50ea61 830e0009 83f12d74|unverified
 8757a009|2026-10-25T13:09:39+01:00|feat(cardio): use verified active-time km splits in shared Health/Workout split component|ios-app|2e02be93 3b2e81e3 5fb7c51d 62c85083|unverified
 6590649c|2026-10-25T13:09:16+01:00|feat(ui): show next GPX turn and each km report during activity, live split pace and review splits|ios-app|eae7198a|unverified
-eabc3cd2|2026-10-25T13:08:54+01:00|feat(domain): store pause-adjusted per-km splits on completed GPS sessions backward compatibly|packages||unverified
+eabc3cd2|2026-10-25T13:08:54+01:00|feat(domain): store pause-adjusted per-km splits on completed GPS sessions backward compatibly|packages||verified: liveKilometerSplitsSeconds modelo+persistencia+UI+test; splits con reloj activo (pausas excluidas) en domain/LiveActivityState.receive
 bad2a244|2026-10-25T13:08:02+01:00|feat(cardio): active kilometer pace, real 1km split reports, GPX-turn proximity cues and lock-screen local alerts|ios-app|ed3232d9|unverified
 e9d0fd3e|2026-10-25T13:07:04+01:00|feat(live): persist active kilometer splits and GPX-derived upcoming turn guidance|ios-app|2e02be93|unverified
 1352283d|2026-10-25T13:00:17+01:00|feat(iOS): navigator GPS background and HealthKit route parity for Comenzar (#66)|||unverified
@@ -307,9 +307,9 @@ ff0de466|2026-10-23T19:28:33+02:00|test(web): keep historic IDs while asserting 
 0c77ab50|2026-10-23T19:28:30+02:00|feat(web): display all 48 Olympic lifts in English with stable catalog IDs and ES/acronym aliases|other|f479f0b7|unverified
 c6c15718|2026-10-23T19:28:02+02:00|fix(search): case-insensitive alias lookup for existing English gymnastic and CrossFit exercise names|packages|8a9b3b23 cc92d12c f479f0b7|unverified
 e7261834|2026-10-23T19:27:05+02:00|feat(search): use shared aliases for iOS search, ranked results and board-scanner resolution|packages||unverified
-9b81af37|2026-10-23T19:26:59+02:00|fix(search): normalize punctuation and diacritics in acronym lookup (C&J, T2B, etc)|packages||unverified
+9b81af37|2026-10-23T19:26:59+02:00|fix(search): normalize punctuation and diacritics in acronym lookup (C&J, T2B, etc)|packages||verified: aliasKey() puntuacion->espacio port 1:1 en domain/SportExerciseNames.kt
 c5e444f8|2026-10-23T19:26:31+02:00|fix(search): remove cross-exercise aliases and align rower/gymnastics canonical names|packages|1b0cc874 8a9b3b23 cc92d12c|unverified
-48e1289b|2026-10-23T19:26:13+02:00|feat(search): add Olympic and CrossFit acronyms, bilingual naming variants and safe canonical alias resolver|packages||unverified
+48e1289b|2026-10-23T19:26:13+02:00|feat(search): add Olympic and CrossFit acronyms, bilingual naming variants and safe canonical alias resolver|packages||verified: supplementalAliases 75/75 claves y valores identicos a bd4d7637
 b4905ea1|2026-10-23T19:24:51+02:00|feat(ios): opaque workout-style exercise modal, alphabetic facets, outline icons and equipment ordering|ios-app|1633bbd8|unverified
 b9e3dc50|2026-10-23T18:41:24+02:00|Merge PR #50: ordenación y filtros nativos, catálogo ampliado de halterofilia|||unverified
 d35eefe8|2026-10-23T18:38:28+02:00|test(domain): update bilingual sport catalog count after eight added variants|packages|baba0785 d1013cfa d50474cb f479f0b7|unverified
@@ -327,7 +327,7 @@ af4746ab|2026-10-23T18:33:15+02:00|chore(db): align migration filename with appl
 4f6cda4a|2026-10-23T18:29:13+02:00|test(web): expect 288 unique exercises after weightlifting audit|other|b2188237|unverified
 b9ee0f4d|2026-10-23T18:29:10+02:00|feat(web): sync eight new lifting exercises into the shared catalog|other|39b19908 805069c8 88df7bf8 baba0785|unverified
 b2bc2160|2026-10-23T18:28:25+02:00|feat(catalog): bilingual display aliases for lifting derivatives|packages|2c6bd9e2 84dace55 f479f0b7|unverified
-e512a743|2026-10-23T18:28:21+02:00|feat(search): support English naming for new Olympic lifting variants|packages||unverified
+e512a743|2026-10-23T18:28:21+02:00|feat(search): support English naming for new Olympic lifting variants|packages||verified: aliases EN incluidos en valores verificados 75/75
 c56ebc7f|2026-10-23T18:27:49+02:00|feat(i18n): add complete Spanish technique notes and safety cues for 8 weightlifting drills|packages||unverified
 7ae04430|2026-10-23T18:26:33+02:00|feat(catalog): add 8 missing Olympic lifting derivatives and technical accessories|packages||unverified
 fa50fc69|2026-10-23T18:25:40+02:00|feat(ios): separate native exercise sorting and discipline filters, replace Deporte with Halterofilia|ios-app|6c247d43 81032145 baba0785|unverified
@@ -372,7 +372,7 @@ d10bd81e|2026-10-23T15:39:21+02:00|docs: explain unit-safe cardio evolution and 
 35be5a8d|2026-10-23T15:37:32+02:00|feat(mobility): display prescribed hold seconds and repetitions in plan summaries|packages|94cbd2d8 cf34f03c|unverified
 ab708883|2026-10-23T15:37:30+02:00|test(domain): verify HYROX distance records and separate cardio unit histories|packages|2366f80e 2e02be93 312d4ddf 343b6892|unverified
 f7cfc9f8|2026-10-23T15:36:54+02:00|feat(mobility): show recorded duration and session frequency in native Progress UI|ios-app|2366f80e 35a997ba 49bb3e23 7096b167|unverified
-92fe968b|2026-10-23T15:36:45+02:00|fix(stats): never infer one-rep max from metres or calories|packages||unverified
+92fe968b|2026-10-23T15:36:45+02:00|fix(stats): never infer one-rep max from metres or calories|packages||verified: guard peso>0+reps>0 identico en domain/StatsEngine.personalRecords (bd4 baseline)
 44b6515b|2026-10-23T15:36:34+02:00|feat(mobility): aggregate recorded mobility session count and time in Progress snapshot|ios-app|03c6b869 701d8505 9bf1b3cb acf504b5|unverified
 4b5f1b84|2026-10-23T15:35:16+02:00|fix(mobility-art): avoid misleading strength illustrations and use mobility placeholder until visual QA|ios-app|acf504b5|unverified
 f28a693c|2026-10-23T15:34:02+02:00|fix(mcp): include cardio records in coach performance and HYROX catalog discovery|other|7e092adf 89da973e 9956477c baba0785|unverified
@@ -534,7 +534,7 @@ d0b71e30|2026-10-23T07:05:22+02:00|fix(domain): preserve historical OCR and Engl
 65cd6c03|2026-10-23T07:01:16+02:00|test(domain): bilingual sport catalog migration and exercise logging regression|packages|1633bbd8 2c6bd9e2 81032145 89da973e|unverified
 d03aaa76|2026-10-23T07:01:14+02:00|fix(domain): preserve jump rope logging for canonical hyphenated names|packages||unverified
 6daf8ded|2026-10-23T06:58:00+02:00|test(domain): update bilingual catalog expectations for English canonical labels|packages|8a9b3b23 d1013cfa d50474cb f479f0b7|unverified
-983304e8|2026-10-23T06:57:26+02:00|fix(domain): accent and case-insensitive sport alias lookup|packages||unverified
+983304e8|2026-10-23T06:57:26+02:00|fix(domain): accent and case-insensitive sport alias lookup|packages||verified: key()/normalized* port 1:1 en domain/SportExerciseNames.kt
 b46562cc|2026-10-23T06:57:24+02:00|fix(domain): prioritize direct localized descriptions for English-original movements|packages||unverified
 8383c6c7|2026-10-23T06:56:46+02:00|fix(ios): keep legacy exercise artwork and movement step animations|ios-app|830e0009|unverified
 599a9f48|2026-10-23T06:56:44+02:00|fix(domain): preserve exercise equivalence across bilingual rename|packages|c4ee1508 d62566ba f479f0b7|unverified
