@@ -249,6 +249,19 @@ export class ReperaAuthAPI {
  async invitations(){
   return this.#authorized('organization_invitations?select=id,organization_id,email,invited_role,expires_at,accepted_at,cancelled_at,created_at&order=created_at.desc');
  }
+ async sendInvitationEmail(invitationId){
+  if(!/^[0-9a-f-]{36}$/i.test(invitationId||''))throw Error('Invitación inválida');
+  const token=await this.token();if(!token)throw Error('Inicia sesión');
+  try{
+   const result=await this.#request('/functions/v1/repera-business-invite',{
+    method:'POST',token,body:{invitationId}});
+   return {sent:result?.sent===true};
+  }catch(e){
+   if(e.status===503)return {sent:false,reason:'Proveedor de correo transaccional sin configurar'};
+   if(e.status===502)return {sent:false,reason:'El proveedor de correo no ha confirmado la entrega'};
+   throw e;
+  }
+ }
  async issueInvitation({orgId,email,role}){
   email=String(email||'').trim().toLowerCase();
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!['admin','coach','reception','athlete'].includes(role))throw Error('Invitación inválida');
