@@ -1606,11 +1606,18 @@ struct WorkoutView: View {
             Spacer(minLength: 4)
             HStack(spacing: 8) {
                 TimerNumericInput(label: "MIN", value: minutes, range: 0...maxMinutes)
+                    .frame(width: 84, height: 64, alignment: .top)
+                    .clipped()
                 TimerNumericInput(label: "SEG", value: seconds, range: 0...59)
+                    .frame(width: 84, height: 64, alignment: .top)
+                    .clipped()
             }
-            .frame(maxWidth: 184)
+            .frame(width: 176, height: 64, alignment: .top)
         }
-        .fixedSize(horizontal: false, vertical: true)
+        // Cota cerrada para TODA la fila, no solo la UITextField interior.
+        // Evita que un campo estirado fuerce un detent de pantalla completa.
+        .frame(height: 72, alignment: .center)
+        .clipped()
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
