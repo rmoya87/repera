@@ -99,6 +99,8 @@ struct HomeView: View {
     @State private var routinePendingDelete: Routine?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
     @State private var openWorkoutId: UUID?
+    @State private var openProfessionalSessionId: UUID?
+    @State private var openBusinessBookingId: UUID?
     @State private var openHealthActivityId: UUID?
     /// Day-keyed buckets — rebuilt off the critical body path (no full-array filter per paint).
     @State private var workoutsByDayKey: [String: [WorkoutSession]] = [:]
@@ -174,61 +176,23 @@ struct HomeView: View {
         )
     }
 
-    /// Professional plan read from Supabase, projected as real editable-style blocks.
-    /// Never overwrites the athlete's local routines, results or HealthKit history.
-    @ViewBuilder
-    private var professionalSessionsForSelectedDay: some View {
-        let selected = BusinessDataStore.localDayKey(selectedDay)
-        let published = businessData.trainingSessions.filter { $0.scheduledDate == selected }
-        if !published.isEmpty {
-            OGCardSectionTitle(title: "Planificado por tu entrenador")
-            ForEach(published) { session in
-                BusinessProfessionalSessionCard(
-                    session: session,
-                    centerName: businessData.centerName(session.orgId),
-                    compact: true
-                )
-            }
+    /// Appointments and trainer plans share the normal day's workout section.
+    /// A reservation with a published plan has ONE card, using that plan in detail.
+    private var selectedDayBusinessBookings: [BusinessBooking] {
+        businessData.bookings.filter { booking in
+            guard booking.status == "booked",
+                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
+                  let date = BusinessDataStore.date(occurrence.startsAt) else { return false }
+            return calendar.isDate(date, inSameDayAs: selectedDay)
         }
     }
 
-    /// Confirmed external reservations live beside local workouts, without modifying ReperaStore.
-    @ViewBuilder
-    private var confirmedBusinessBookingsCard: some View {
-        let todayBookings = businessData.bookings.filter { booking in
-            guard booking.status == "booked",
-                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
-                  let begins = BusinessDataStore.date(occurrence.startsAt) else { return false }
-            return Calendar.current.isDate(begins, inSameDayAs: selectedDay)
-        }
-        if !todayBookings.isEmpty {
-            OGCardSectionTitle(title: "Reservas confirmadas")
-            OGCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(todayBookings) { booking in
-                        if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: occurrence.kind == "class" ? "figure.group" : "person.crop.circle")
-                                    .foregroundStyle(OG.accent)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(occurrence.title).font(.headline)
-                                    Text(businessData.centerName(occurrence.orgId))
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label2)
-                                    if let start = BusinessDataStore.date(occurrence.startsAt) {
-                                        Text(start.formatted(date: .omitted, time: .shortened))
-                                            .font(.footnote)
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                }
-                                Spacer()
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(OG.accent)
-                            }
-                        }
-                    }
-                }
-            }
+    private var selectedDayProfessionalSessions: [BusinessProfessionalTrainingSession] {
+        let day = BusinessDataStore.localDayKey(selectedDay)
+        let reserved = Set(selectedDayBusinessBookings.map(\\.occurrenceId))
+        return businessData.trainingSessions.filter {
+            $0.scheduledDate == day &&
+                ($0.sourceOccurrenceId == nil || !reserved.contains($0.sourceOccurrenceId!))
         }
     }
 
@@ -269,10 +233,6 @@ struct HomeView: View {
                             RecoveryHomeCard()
                                 .padding(.horizontal, OG.pad)
                         }
-                        professionalSessionsForSelectedDay
-                            .padding(.horizontal, OG.pad)
-                        confirmedBusinessBookingsCard
-                            .padding(.horizontal, OG.pad)
                     }
                     .padding(.top, 12)
                     .padding(.bottom, 28)
@@ -291,7 +251,10 @@ struct HomeView: View {
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
             }
-            .refreshable { await businessData.refresh() }
+            .refreshable { await businessData.refresh(); rebuildWeekChrome() }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("repera.professionalPlansChanged"))) { _ in
+                rebuildWeekChrome()
+            }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
@@ -524,6 +487,25 @@ struct HomeView: View {
             )) {
                 if let id = openWorkoutId {
                     WorkoutDetailView(sessionId: id)
+                }
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { openProfessionalSessionId != nil },
+                set: { if !$0 { openProfessionalSessionId = nil } }
+            )) {
+                if let id = openProfessionalSessionId,
+                   let session = businessData.trainingSessions.first(where: { $0.id == id }) {
+                    BusinessProfessionalSessionDetailView(session: session)
+                }
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { openBusinessBookingId != nil },
+                set: { if !$0 { openBusinessBookingId = nil } }
+            )) {
+                if let id = openBusinessBookingId,
+                   let booking = businessData.bookings.first(where: { $0.id == id }),
+                   let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
+                    BusinessBookedOccurrenceDetailView(booking: booking, occurrence: occurrence)
                 }
             }
             .navigationDestination(isPresented: Binding(
@@ -959,6 +941,8 @@ struct HomeView: View {
         let hasActive = isToday && store.hasActiveSession
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
         let planned = plannedRoutinesForSelectedDay
+        let businessBookings = selectedDayBusinessBookings
+        let professionalPlans = selectedDayProfessionalSessions
 
         VStack(spacing: 6) {
             if hasActive {
@@ -989,7 +973,34 @@ struct HomeView: View {
                 plannedDayCard(routine)
                     .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
             }
-            if !hasActive && workouts.isEmpty && planned.isEmpty && !hasCompletedActivity {
+            // Published professional plans and confirmed bookings have the same
+            // card hierarchy as private workouts; no extra sections below Activity.
+            ForEach(professionalPlans) { session in
+                businessDayCard(
+                    title: session.title,
+                    label: "Entreno " + businessData.centerName(session.orgId),
+                    time: session.scheduledTimeMinutes.map { SpanishDate.time(minutesFromMidnight: $0) },
+                    symbol: "figure.strengthtraining.traditional",
+                    summary: session.prescription?.blocks.count.map { "\\($0) bloq." } ?? "Entrenador",
+                    action: { openProfessionalSessionId = session.id }
+                )
+                .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+            }
+            ForEach(businessBookings) { booking in
+                if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
+                    businessDayCard(
+                        title: occurrence.title,
+                        label: (occurrence.kind == "class" ? "Clase " : "Entreno ") + businessData.centerName(occurrence.orgId),
+                        time: BusinessDataStore.date(occurrence.startsAt).map(SpanishDate.time),
+                        symbol: occurrence.kind == "class" ? "figure.group" : "person.crop.circle",
+                        summary: occurrence.kind == "class" ? "Reserva confirmada" : "Cita confirmada",
+                        action: { openBusinessBookingId = booking.id }
+                    )
+                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+                }
+            }
+            if !hasActive && workouts.isEmpty && planned.isEmpty
+                && businessBookings.isEmpty && professionalPlans.isEmpty && !hasCompletedActivity {
                 emptyWorkoutCard
             }
 
@@ -1006,6 +1017,59 @@ struct HomeView: View {
             }
         }
         .swipeActionsContainer()
+    }
+
+    /// A read-only, tappable professional card in the native daily workout design.
+    private func businessDayCard(
+        title: String,
+        label: String,
+        time: String?,
+        symbol: String,
+        summary: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .top, spacing: 12) {
+                    OGRegisterLeadingIcon(systemName: symbol, tint: OG.label2)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: time))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label3)
+                            .tracking(0.3)
+                        Text(title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        Text(label + (time.map { " · " + $0 } ?? ""))
+                            .font(.system(size: 12))
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(OG.label3)
+                }
+                .padding(.horizontal, Self.registerCardPad)
+                HStack(spacing: 7) {
+                    OGRegisterChip(text: summary, icon: "calendar")
+                }
+                .padding(.leading, Self.chipsTitleLeading)
+                .frame(height: 24, alignment: .center)
+            }
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .center)
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Toca para ver el detalle del entrenamiento o reserva")
     }
 
     /// Usa la misma retícula del registro real (44 pt de icono, título y banda
@@ -1712,6 +1776,13 @@ struct HomeView: View {
             }
         }
 
+        let remotePlanDays = Set(businessData.trainingSessions.map(\\.scheduledDate))
+        let remoteBookingDays = Set(businessData.bookings.compactMap { booking -> String? in
+            guard booking.status == "booked",
+                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
+                  let date = BusinessDataStore.date(occurrence.startsAt) else { return nil }
+            return BusinessDataStore.localDayKey(date)
+        })
         return weekDates.enumerated().map { i, d in
             let dayStart = calendar.startOfDay(for: d)
             let key = dayKey(dayStart)
@@ -1721,7 +1792,9 @@ struct HomeView: View {
                 lbl: labels[i],
                 num: calendar.component(.day, from: d),
                 hasWorkout: hasCompletedWorkoutOnDay(key),
-                hasPlan: planKeys.contains(key)
+                hasPlan: planKeys.contains(key) ||
+                    remotePlanDays.contains(BusinessDataStore.localDayKey(d)) ||
+                    remoteBookingDays.contains(BusinessDataStore.localDayKey(d))
             )
         }
     }
