@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import dev.repera.domain.LiveActivityState
+import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.LiveSport
 import dev.repera.domain.LiveSportHistory
 import kotlinx.coroutines.delay
@@ -312,7 +313,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(route.title, style = MaterialTheme.typography.titleSmall)
-                                Text("%.2f km · %s".format(route.distanceKm, route.sportTitle))
+                                Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}")
                                 if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false, plannedRoute = true,
                                     modifier = Modifier.fillMaxWidth().height(110.dp))
                                 Row {
@@ -354,11 +355,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         } else {
             Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())),style=MaterialTheme.typography.displayMedium)
             if(state.sport.usesGPS) {
-                Text("%.2f km".format(state.distanceMeters/1000),style=MaterialTheme.typography.headlineSmall)
+                Text("${ReperaNumberFormat.decimal(state.distanceMeters/1000)} km",style=MaterialTheme.typography.headlineSmall)
                 val now = System.currentTimeMillis()
                 if (state.sport.displaysSpeed) {
-                    state.averageSpeedKmh(now)?.let { Text("%.1f km/h de media".format(it)) }
-                    state.currentSpeedMps?.let { Text("%.1f km/h".format(it * 3.6)) }
+                    state.averageSpeedKmh(now)?.let { Text("${ReperaNumberFormat.decimal(it)} km/h de media") }
+                    state.currentSpeedMps?.let { Text("${ReperaNumberFormat.decimal(it * 3.6)} km/h") }
                 } else {
                     val speed = state.currentSpeedMps
                     if (speed != null && speed > 0.5) Text("${LiveSportHistory.formatDuration(1000 / speed)} min/km")
@@ -369,7 +370,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 if (state.activeKilometerMeters >= 40) {
                     val split = state.currentSplitSeconds(now)
                     val current = if (state.sport.displaysSpeed && split > 0)
-                        "%.1f km/h".format(state.activeKilometerMeters / split * 3.6)
+                        "${ReperaNumberFormat.decimal(state.activeKilometerMeters / split * 3.6)} km/h"
                     else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
                     Text("Km ${state.activeKilometer} · $current")
                 }

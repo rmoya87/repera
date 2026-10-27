@@ -1704,7 +1704,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text("Distancia", style = MaterialTheme.typography.bodyMedium)
-            Text("%.2f km".format(analysis.distanceMeters / 1000),
+            Text(dev.repera.domain.ReperaNumberFormat.decimal(analysis.distanceMeters / 1000) + " km",
                 style = MaterialTheme.typography.bodyMedium)
         }
         if (analysis.ascentMeters > 0 || analysis.descentMeters > 0) {
@@ -1735,8 +1735,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    if (picked != null) "%.0f m · %.2f km".format(
-                        picked.altitudeMeters, picked.distanceKm)
+                    if (picked != null) "${dev.repera.domain.ReperaNumberFormat.decimal(picked.altitudeMeters, maximumFractionDigits = 0)} m · ${dev.repera.domain.ReperaNumberFormat.decimal(picked.distanceKm)} km"
                     else "↑ ${analysis.ascentMeters.toInt()} m",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (picked != null) MaterialTheme.colorScheme.primary
@@ -1903,14 +1902,13 @@ internal fun loadGuideShortDate(epochMillis: Long): String {
         .atZone(java.time.ZoneId.systemDefault()).format(fmt)
 }
 
-/** kg con 0-1 decimales (iOS fractionLength(0...1)). */
+/** kg con formato español recortado (ReperaNumberFormat.decimal, 7bbf1a17). */
 internal fun loadGuideKgLabel(kg: Double): String =
-    if (kg % 1.0 == 0.0) kg.toInt().toString() else "%.1f".format(java.util.Locale.US, kg)
+    dev.repera.domain.ReperaNumberFormat.decimal(kg)
 
-/** %g recortado como C/Swift (aprendizaje: Java %g conserva ceros). */
+/** decimal recortado (sustituye al %g recortado manual, 7bbf1a17). */
 internal fun loadGuideG(v: Double): String =
-    if (v % 1.0 == 0.0) v.toInt().toString() else "%.2f".format(java.util.Locale.US, v)
-        .trimEnd('0').trimEnd('.')
+    dev.repera.domain.ReperaNumberFormat.decimal(v)
 
 internal fun loadGuideCaption(guide: LoadGuide): String {
     val rir = "RIR " + loadGuideG(guide.effectiveRir) +

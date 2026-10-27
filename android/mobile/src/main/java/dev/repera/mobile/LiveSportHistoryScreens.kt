@@ -78,7 +78,7 @@ internal fun LiveSportHistoryScreen(
                         SportSummaryTile("Actividades", "${summary.activityCount}", Modifier.weight(1f))
                         SportSummaryTile("Tiempo", LiveSportHistory.formatDuration(summary.totalDurationSeconds), Modifier.weight(1f))
                         when {
-                            sport.usesGPS -> SportSummaryTile("Distancia", "%.1f km".format(summary.totalKilometers), Modifier.weight(1f))
+                            sport.usesGPS -> SportSummaryTile("Distancia", dev.repera.domain.ReperaNumberFormat.decimal(summary.totalKilometers) + " km", Modifier.weight(1f))
                             summary.measuredEnergyKcal != null -> SportSummaryTile("Energía medida", "${summary.measuredEnergyKcal!!.roundToInt()} kcal", Modifier.weight(1f))
                             summary.measuredHeartRateBpm != null -> SportSummaryTile("Pulso medio", "${summary.measuredHeartRateBpm!!.roundToInt()} lpm", Modifier.weight(1f))
                         }
@@ -96,7 +96,7 @@ internal fun LiveSportHistoryScreen(
                     Text("Mejores marcas · ${sport.title}", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         records.longestDistanceMeters?.takeIf { sport.usesGPS }?.let {
-                            SportSummaryTile("Mayor distancia", "%.2f km".format(it / 1000), Modifier.weight(1f)) }
+                            SportSummaryTile("Mayor distancia", dev.repera.domain.ReperaNumberFormat.decimal(it / 1000) + " km", Modifier.weight(1f)) }
                         records.fastestRecordedKilometerSeconds?.takeIf { sport.usesGPS }?.let {
                             SportSummaryTile("Mejor km", LiveSportHistory.formatDuration(it), Modifier.weight(1f)) }
                         records.longestActiveSeconds?.let {
@@ -129,7 +129,7 @@ internal fun LiveSportHistoryScreen(
                     }
                     val metrics = buildList {
                         add(LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
-                        session.recordedDistanceMeters?.takeIf { it > 0 }?.let { add("%.2f km".format(it / 1000)) }
+                        session.recordedDistanceMeters?.takeIf { it > 0 }?.let { add(dev.repera.domain.ReperaNumberFormat.decimal(it / 1000) + " km") }
                         session.averageHeartRateBpm?.takeIf { it > 0 }?.let { add("${it.roundToInt()} lpm") }
                         session.activeEnergyKcal?.takeIf { it > 0 }?.let { add("${it.roundToInt()} kcal") }
                     }

@@ -316,8 +316,8 @@ private fun formatPointValue(metric: ExerciseProgressMetric,
                              p: ExerciseProgressPoint): String = when (metric) {
     ExerciseProgressMetric.TOP_SET ->
         "${p.value} kg × ${p.reps ?: "?"}"
-    ExerciseProgressMetric.ESTIMATED_ONE_RM -> "%.1f kg".format(p.value)
-    ExerciseProgressMetric.EFFORT -> "RIR %.1f".format(p.value)
+    ExerciseProgressMetric.ESTIMATED_ONE_RM -> "${dev.repera.domain.ReperaNumberFormat.decimal(p.value)} kg"
+    ExerciseProgressMetric.EFFORT -> "RIR ${dev.repera.domain.ReperaNumberFormat.decimal(p.value)}"
     ExerciseProgressMetric.BEST_HOLD, ExerciseProgressMetric.DURATION ->
         "${p.value.toInt()} s"
     else -> "${p.value.toInt()} ${p.quantityUnit ?: "reps"}"

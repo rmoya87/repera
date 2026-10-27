@@ -74,9 +74,9 @@ internal class LiveActivityService : Service() {
             add(LiveSportHistory.formatDuration(r.state.durationSeconds(System.currentTimeMillis())))
 
             if(r.state.sport.usesGPS) {
-                add("%.2f km".format(r.state.distanceMeters/1000))
+                add(dev.repera.domain.ReperaNumberFormat.decimal(r.state.distanceMeters/1000) + " km")
                 r.state.averageSpeedKmh(System.currentTimeMillis())?.takeIf { it > 0.1 }?.let { speed ->
-                    add(if (r.state.sport.displaysSpeed) "%.1f km/h".format(speed)
+                    add(if (r.state.sport.displaysSpeed) dev.repera.domain.ReperaNumberFormat.decimal(speed) + " km/h"
                         else LiveSportHistory.formatDuration(3600 / speed) + " min/km")
                 }
             }

@@ -18,9 +18,9 @@ internal fun SuggestedExerciseLoadCard(tested:Double?,estimated:Double?,incremen
         Text("Carga sugerida",style=MaterialTheme.typography.titleMedium)
         if(oneRM!=null && oneRM>0) {
             val kg=dev.repera.domain.LoadSuggestion.weightKg(oneRM,percent.toDouble(),increment)
-            Text("${percent.toInt()}% $source · ${String.format(java.util.Locale.getDefault(),"%.1f",kg)} kg",modifier=Modifier.testTag("suggested_load_value"))
+            Text("${percent.toInt()}% $source · ${dev.repera.domain.ReperaNumberFormat.decimal(kg)} kg",modifier=Modifier.testTag("suggested_load_value"))
             Slider(percent,{percent=it},valueRange=50f..95f,steps=8,modifier=Modifier.testTag("suggested_load_percent"))
-            Text("Pasos de 5% · sobre $source ${String.format(java.util.Locale.getDefault(),"%.1f",oneRM)} kg",style=MaterialTheme.typography.bodySmall)
+            Text("Pasos de 5% · sobre $source ${dev.repera.domain.ReperaNumberFormat.decimal(oneRM)} kg",style=MaterialTheme.typography.bodySmall)
         } else Text("Fija el Tope 1RM en Evolución (o entrena con peso) para calcular kg.")
     }}
 }
@@ -29,7 +29,7 @@ internal fun TestedOneRMEditor(tested:Double?,busy:Boolean,onSave:(Double?)->Uni
     var editing by remember {mutableStateOf(false)}
     var draft by remember(tested) {mutableStateOf(tested?.toString().orEmpty())}
     TextButton(enabled=!busy,onClick={draft=tested?.toString().orEmpty();editing=true},modifier=Modifier.testTag("tested_onerm_edit")) {
-        Text("Tope 1RM · ${tested?.let {String.format(java.util.Locale.getDefault(),"%.1f kg",it)} ?: "—"}")
+        Text("Tope 1RM · ${tested?.let {dev.repera.domain.ReperaNumberFormat.decimal(it) + " kg"} ?: "—"}")
     }
     val parsed=draft.replace(',','.').toDoubleOrNull()?.takeIf {it.isFinite() && it>0}
     if(editing) AlertDialog(onDismissRequest={editing=false},title={Text("Tope 1RM")},

@@ -34,8 +34,6 @@ import androidx.compose.ui.unit.sp
 import dev.repera.domain.MuscleLoadEngine
 import dev.repera.domain.MuscleMapEngine
 import dev.repera.domain.MuscleTaxonomy
-import java.util.Locale
-import kotlin.math.floor
 import kotlin.math.max
 
 /**
@@ -202,5 +200,4 @@ private fun BarsSection(
 }
 
 private fun formatSets(v: Double): String =
-    if (v == floor(v)) String.format(Locale.US, "%.0f", v)
-    else String.format(Locale.US, "%.1f", v)
+    dev.repera.domain.ReperaNumberFormat.decimal(v)

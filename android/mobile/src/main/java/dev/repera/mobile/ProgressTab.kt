@@ -417,7 +417,7 @@ internal fun ProgressTab(
 
 
 private fun formatVolume(volumeKg: Double): String = when {
-    volumeKg >= 1000 -> "%.1f t".format(volumeKg / 1000)
+    volumeKg >= 1000 -> "${dev.repera.domain.ReperaNumberFormat.decimal(volumeKg / 1000)} t"
     else -> "${volumeKg.toInt()} kg"
 }
 
@@ -435,4 +435,4 @@ private fun WeightStatTiles(latestKg: Double?, goalKg: Double?) {
 }
 
 internal fun formatWeight(value: Double): String =
-    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+    dev.repera.domain.ReperaNumberFormat.decimal(value)

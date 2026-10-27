@@ -38,7 +38,7 @@ internal fun BodyWeightHistoryScreen(entries:List<BodyWeightHistoryEntry>,busy:B
                         Text(entry.day.format(reperaDayFormatter))
                         Text(if(entry.source=="health") "Salud" else "Propio",style=MaterialTheme.typography.bodySmall)
                     }
-                    Text("${java.lang.String.format(java.util.Locale.getDefault(),"%.1f",entry.kg)} kg")
+                    Text("${dev.repera.domain.ReperaNumberFormat.decimal(entry.kg)} kg")
                     TextButton(enabled=!busy,onClick={pendingDelete=entry},modifier=Modifier.testTag("delete_weight_${entry.id}")) {Text("Borrar")}
                 }
             }
