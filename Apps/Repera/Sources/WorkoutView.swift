@@ -1146,13 +1146,13 @@ struct WorkoutView: View {
         noteLiveDraftEdited()
     }
 
-    /// Tarjeta compacta: toda la zona informativa reabre el reloj.
-    /// Pausar/Continuar queda junto a Terminar, sin acción de apertura aparte.
-    /// redundante. El tiempo y la ronda siguen a la vista durante el registro.
+    /// Los controles compactos comparten semántica visual con Comenzar:
+    /// amarillo al pausar, verde al continuar, bandera negra al finalizar.
+    /// El cristal permite reconocer el reloj sobre el resto de Play.
     private var minimizedTimerDock: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { context in
             let clock = store.workoutClock
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button {
                     clock.showClock()
                 } label: {
@@ -1177,42 +1177,51 @@ struct WorkoutView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Ver reloj completo")
+                .accessibilityLabel("Abrir reloj completo")
 
                 Button {
                     clock.handlePrimary()
                 } label: {
                     Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(minWidth: 40, minHeight: 40)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(width: 44, height: 44)
+                        .background(clock.isRunning ? OG.yellow : OG.accent, in: Circle())
                 }
-                .buttonStyle(.bordered)
-                .tint(OG.label)
+                .buttonStyle(.plain)
                 .accessibilityLabel(clock.primaryTitle + " temporizador")
 
                 Button {
                     clock.finishByUser()
                 } label: {
-                    Text("Terminar")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(minHeight: 40)
+                    let flag = Image(systemName: "flag.checkered")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                    if colorScheme == .dark {
+                        // Igual que Finalizar en Comenzar, visible en fondo negro.
+                        flag
+                            .background(OG.surface2, in: Circle())
+                            .glassEffect(.regular.tint(OG.surface2).interactive(), in: .circle)
+                    } else {
+                        flag.background(.black, in: Circle())
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(OG.accent)
+                .buttonStyle(.plain)
                 .disabled(!clock.canFinishByUser)
                 .accessibilityLabel("Terminar temporizador")
             }
             .padding(12)
             .background {
-                // También abre el reloj al tocar los márgenes de la tarjeta.
-                // Los botones visibles de Pausa y Terminar capturan sus propios taps.
                 Button { clock.showClock() } label: {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(OG.surface)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.clear)
+                        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityHidden(true)
             }
+            .glassEffect(.regular, in: .rect(cornerRadius: 18))
         }
     }
 
