@@ -1728,9 +1728,9 @@ struct LiveActivityView: View {
     @State private var importing = false
     @State private var importAfterRouteSheet = false
     @State private var showDiscard = false
-    /// Vista inicial: mapa para exteriores. Al iniciar, métricas a primer plano.
-    /// El botón flotante permite volver al mapa sin pestañas ni controles segmentados.
-    @State private var showingMetrics = false
+    /// La persona elige Mapa o Métricas incluso antes de pulsar Play.
+    /// Conservar la elección entre sesiones: iniciar/pausar no cambia la pantalla.
+    @AppStorage("repera.live.preferredDisplay.metrics") private var showingMetrics = false
     @State private var routeError: String?
     @State private var title = ""
     @State private var notes = ""
@@ -1741,6 +1741,9 @@ struct LiveActivityView: View {
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     @Namespace private var routeZoomNamespace
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+    /// La cámara visible existe incluso mientras el GPS obtiene su primer punto.
+    /// Permite aplicar la inclinación 3D inmediatamente, sin esperar al pin.
+    @State private var lastVisibleMapCamera: MapCamera?
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
     /// Preferencia persistente del mapa de Comenzar: primera apertura plana (2D).
@@ -1781,7 +1784,8 @@ struct LiveActivityView: View {
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
                     recorder.choose(sport)
-                    showingMetrics = false
+                    // La preferencia Mapa/Métricas pertenece al usuario,
+                    // no a la actividad que acaba de elegir.
                     position = .userLocation(fallback: .automatic)
                     mapIsCentered = true
                 }
@@ -1817,7 +1821,6 @@ struct LiveActivityView: View {
                         recorder.discard()
                         title = ""
                         notes = ""
-                        showingMetrics = false
                         mapIsCentered = true
                     },
                     onCancel: { showDiscard = false }
@@ -1825,14 +1828,6 @@ struct LiveActivityView: View {
             }
         }
         .tint(OG.accent)
-        .onChange(of: recorder.phase) { previous, next in
-            // Al terminar la cuenta, cambiar a Métricas como antes al iniciar.
-            if previous == .idle && next == .recording {
-                // Con GPX seleccionado iniciar en modo navegador, no ocultar
-                // los giros cambiando automáticamente a Métricas.
-                showingMetrics = recorder.sport.usesGPS && recorder.chosenRoute == nil
-            }
-        }
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
@@ -1957,7 +1952,10 @@ struct LiveActivityView: View {
                 }
             }
             .mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))
-            .onMapCameraChange(frequency: .onEnd) { context in
+            .onMapCameraChange(frequency: .continuous) { context in
+                // Capturar cámara también antes del primer GPS, sin obligar
+                // a seleccionar una coordenada fija como fallback.
+                lastVisibleMapCamera = context.camera
                 guard let user = recorder.currentCoordinate else { return }
                 let center = context.camera.centerCoordinate
                 let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
@@ -2150,13 +2148,9 @@ struct LiveActivityView: View {
                 }
                 mapCircleButton(
                     navigationMapEnabled ? "map" : "view.3d",
-                    label: navigationMapEnabled ? "Cambiar a vista 2D" : "Cambiar a modo navegador"
+                    label: navigationMapEnabled ? "Cambiar a vista 2D" : "Cambiar a vista 3D"
                 ) {
-                    navigationMapEnabled.toggle()
-                    if let user = recorder.currentCoordinate {
-                        mapIsCentered = true
-                        center3DMap(on: user)
-                    }
+                    toggleNavigationMapMode()
                 }
                 if !mapIsCentered, recorder.currentCoordinate != nil {
                     mapCircleButton("location.fill", label: "Centrar en mi posición") {
@@ -2166,7 +2160,9 @@ struct LiveActivityView: View {
                         }
                     }
                 }
-                if recorder.phase == .recording || recorder.phase == .paused {
+                // Disponible también ANTES de iniciar la actividad:
+                // Play conserva la pantalla que haya elegido el usuario.
+                if recorder.sport.usesGPS {
                     mapCircleButton("chart.bar.xaxis", label: "Ver métricas") {
                         showingMetrics = true
                     }
@@ -2181,6 +2177,26 @@ struct LiveActivityView: View {
                 }
             }
         }
+    }
+
+    /// Al pulsar 3D usar el último encuadre de MapKit si el GPS aún
+    /// no ha entregado una posición. Nunca limitarse a cambiar el relieve:
+    /// es la inclinación de la cámara lo que hace visible la perspectiva.
+    private func toggleNavigationMapMode() {
+        navigationMapEnabled.toggle()
+        mapIsCentered = true
+        if let user = recorder.currentCoordinate {
+            center3DMap(on: user)
+        } else if let camera = lastVisibleMapCamera {
+            position = .camera(MapCamera(
+                centerCoordinate: camera.centerCoordinate,
+                distance: navigationMapEnabled ? min(camera.distance, 500) : max(camera.distance, 450),
+                heading: navigationMapEnabled ? camera.heading : 0,
+                pitch: navigationMapEnabled ? 67 : 0
+            ))
+        }
+        // Si todavía no hay cámara ni ubicación, la elección queda guardada.
+        // El próximo GPS aplicará center3DMap con pitch 67 automáticamente.
     }
 
     /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
@@ -2951,7 +2967,6 @@ struct LiveActivityView: View {
             notes = ""
             savedWorkoutID = nil
             isSavingRecordedActivity = false
-            showingMetrics = false
             onSaved(day)
         }
     }
