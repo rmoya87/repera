@@ -1124,7 +1124,7 @@ struct WorkoutView: View {
     }
 
     /// Tarjeta compacta: toda la zona informativa reabre el reloj.
-    /// Pausar/Continuar queda junto a Terminar, sin un botón "Ver reloj"
+    /// Pausar/Continuar queda junto a Terminar, sin acción de apertura aparte.
     /// redundante. El tiempo y la ronda siguen a la vista durante el registro.
     private var minimizedTimerDock: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { context in
