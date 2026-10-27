@@ -61,4 +61,13 @@ class ProgressTimeRangeTest {
         assertEquals(190, ProgressTimeRange.DAYS_90.healthFetchDayCount)
         assertEquals(730, ProgressTimeRange.DAYS_360.healthFetchDayCount)
     }
+
+    @Test fun healthFetchWideningOnlyGrows() {
+        // Apple 479d8407: 730d solo cuando el rango 360d lo pide.
+        assertEquals(null, ProgressTimeRange.healthFetchWidening(370, ProgressTimeRange.WEEK))
+        assertEquals(null, ProgressTimeRange.healthFetchWidening(370, ProgressTimeRange.DAYS_180))
+        assertEquals(730, ProgressTimeRange.healthFetchWidening(370, ProgressTimeRange.DAYS_360))
+        assertEquals(null, ProgressTimeRange.healthFetchWidening(730, ProgressTimeRange.DAYS_360))
+        assertEquals(16, ProgressTimeRange.healthFetchWidening(0, ProgressTimeRange.WEEK))
+    }
 }

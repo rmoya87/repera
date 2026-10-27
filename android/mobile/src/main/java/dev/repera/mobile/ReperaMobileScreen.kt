@@ -84,6 +84,7 @@ fun ReperaMobileScreen(
     onHealthConnect: () -> Unit,
     onPrivateSleepChanged:(Boolean)->Unit = {},
     onPrivateCycleChanged:(Boolean)->Unit = {},
+    onProgressRangeChange:(String)->Unit = {},
     externalHealthDetail:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail? = {null},
     activeWorkout: ActiveWorkout?,
     wodTimer: WodTimerState?,

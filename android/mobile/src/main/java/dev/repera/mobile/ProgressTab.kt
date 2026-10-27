@@ -97,6 +97,7 @@ internal fun ProgressTab(
     onHealthConnect: () -> Unit = {},
     onOpenExercise:(String)->Unit = {},
     onOpenSports:()->Unit = {},
+    onProgressRangeChange:(String)->Unit = {},
     modifier: Modifier = Modifier,
     accountId: String = ""
 ) {
@@ -107,6 +108,9 @@ internal fun ProgressTab(
     val pro=subscriptions?.isPro ?: true
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     LaunchedEffect(pro) {if(!pro) selectedRange=ProgressTimeRange.WEEK.wire}
+    // Apple 479d8407: la cobertura de Salud sigue al rango elegido (tambien al
+    // aparecer la pestana); MainActivity solo amplia la ventana si hace falta.
+    LaunchedEffect(selectedRange) { onProgressRangeChange(selectedRange) }
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)

@@ -111,6 +111,15 @@ enum class ProgressTimeRange(val wire: String) {
     }
 
     companion object {
+        /**
+         * Apple 479d8407: la lectura de Salud se amplia bajo demanda solo cuando
+         * el rango elegido necesita mas dias de los ya cargados (360d pide 730
+         * con el periodo previo); nunca se vuelve a leer para un rango menor.
+         * Devuelve los dias a cargar o null si la cobertura actual ya basta.
+         */
+        fun healthFetchWidening(loadedDays: Int, range: ProgressTimeRange): Int? =
+            range.healthFetchDayCount.takeIf { it > loadedDays }
+
         fun fromWire(wire: String): ProgressTimeRange? = entries.firstOrNull { it.wire == wire }
 
         /** Zona horaria por defecto del dispositivo (para llamadas con fechas). */
