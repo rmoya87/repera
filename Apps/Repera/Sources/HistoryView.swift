@@ -2615,12 +2615,19 @@ struct HealthWorkoutRouteMap: View {
         guard let minLat = lats.min(), let maxLat = lats.max(),
               let minLon = lons.min(), let maxLon = lons.max()
         else { return .automatic }
+        let latitudeRange = maxLat - minLat
+        let longitudeRange = maxLon - minLon
+        // En una tarjeta muy ancha/baja MapKit reajusta la región y puede
+        // acercar el punto más septentrional al borde superior, cortando
+        // unos píxeles del halo de velocidad. Conceder más aire vertical
+        // solo a la vista previa, sin alterar geometría ni datos GPS.
+        let preview = !isInteractive
         let center = CLLocationCoordinate2D(
-            latitude: (minLat + maxLat) / 2,
+            latitude: (minLat + maxLat) / 2 + (preview ? latitudeRange * 0.05 : 0),
             longitude: (minLon + maxLon) / 2
         )
-        let latDelta = Swift.max((maxLat - minLat) * 1.5, 0.008)
-        let lonDelta = Swift.max((maxLon - minLon) * 1.5, 0.008)
+        let latDelta = Swift.max(latitudeRange * (preview ? 2.15 : 1.65), 0.008)
+        let lonDelta = Swift.max(longitudeRange * (preview ? 1.85 : 1.65), 0.008)
         return .region(
             MKCoordinateRegion(
                 center: center,
