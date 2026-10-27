@@ -95,6 +95,10 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('clients?select=id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
+ async clientAvatars(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('rpc/business_client_avatars',{method:'POST',body:{p_org:orgId}});
+ }
  async addClient({orgId,name,email,userId}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Revisa los datos del cliente');
