@@ -445,24 +445,24 @@ fab3b207|2026-10-23T13:01:24+02:00|test(wod): conservar formulario compacto de r
 84abd630|2026-10-23T12:59:32+02:00|test(home): proteger gris de safe areas en horizontal y calendario compacto|docs-tests||verified-n/a 14:33: tests layout XCTest iOS
 bfc79130|2026-10-23T12:58:41+02:00|fix(home): evitar franjas blancas en safe areas laterales del gris inferior|ios-app||partial 14:33: franjas blancas safe areas — GAP abierto paisaje Android
 ccec6474|2026-10-23T12:57:14+02:00|test(layout): proteger siete días completos y márgenes de 16 pt en paisaje|docs-tests|40a36b5a 63d43595|verified-n/a 14:33: tests layout XCTest iOS
-fb96456c|2026-10-23T12:55:53+02:00|fix(layout): alinear listas con Progreso y contener calendario apaisado|ios-app|40a36b5a|unverified
-a584a6b1|2026-10-23T12:46:34+02:00|test(layout): proteger márgenes apaisados y esquinas de secciones agrupadas|docs-tests|40a36b5a|unverified
-8f807f62|2026-10-23T12:43:45+02:00|fix(layout): conservar secciones agrupadas redondeadas al rotar iPhone|ios-app||unverified
-3cb110cc|2026-10-23T12:37:33+02:00|test(docs): proteger ancho LED para rondas, miniatura y acción Liquid Glass|docs-tests||unverified
-75943b66|2026-10-23T12:36:19+02:00|fix(ios): usar sobrecargas SwiftUI válidas para ancho y centrado de ejercicio|ios-app||unverified
-1764dd59|2026-10-23T12:35:55+02:00|fix(ios): ajustar LED de intervalos al ancho y centrar ejercicio; temporizador glass|ios-app||unverified
-6f986435|2026-10-23T12:24:41+02:00|test(timer): proteger maquetación adaptativa y acceso seguro a audio|docs-tests||unverified
-510ca2a4|2026-10-23T12:22:36+02:00|fix(timer): reanudar cuenta previa sin consumir tiempo del bloque|ios-app|b7aaec33|unverified
-4eece72f|2026-10-23T12:21:40+02:00|fix(timer): retirar Saltar de llamadas y permitir pausar cuenta previa|ios-app|b7aaec33|unverified
-5773b297|2026-10-23T12:21:00+02:00|feat(ios): reloj grande adaptable, ejercicio tras tiempo y controles anclados|ios-app|e3be2135|unverified
+fb96456c|2026-10-23T12:55:53+02:00|fix(layout): alinear listas con Progreso y contener calendario apaisado|ios-app|40a36b5a|partial 14:36: layout paisaje/calendario — GAP abierto paisaje Android
+a584a6b1|2026-10-23T12:46:34+02:00|test(layout): proteger márgenes apaisados y esquinas de secciones agrupadas|docs-tests|40a36b5a|verified-n/a 14:36: tests layout XCTest iOS
+8f807f62|2026-10-23T12:43:45+02:00|fix(layout): conservar secciones agrupadas redondeadas al rotar iPhone|ios-app||partial 14:36: secciones redondeadas al rotar — GAP abierto paisaje Android
+3cb110cc|2026-10-23T12:37:33+02:00|test(docs): proteger ancho LED para rondas, miniatura y acción Liquid Glass|docs-tests||verified-n/a 14:36: tests docs/layout XCTest iOS
+75943b66|2026-10-23T12:36:19+02:00|fix(ios): usar sobrecargas SwiftUI válidas para ancho y centrado de ejercicio|ios-app||verified-n/a 14:36: sobrecargas SwiftUI
+1764dd59|2026-10-23T12:35:55+02:00|fix(ios): ajustar LED de intervalos al ancho y centrar ejercicio; temporizador glass|ios-app||partial 14:36: LED intervalos a ancho + ejercicio centrado — verificar SevenSegmentClock Android en paisaje (GAP paisaje)
+6f986435|2026-10-23T12:24:41+02:00|test(timer): proteger maquetación adaptativa y acceso seguro a audio|docs-tests||verified-n/a 14:36: tests timer XCTest iOS
+510ca2a4|2026-10-23T12:22:36+02:00|fix(timer): reanudar cuenta previa sin consumir tiempo del bloque|ios-app|b7aaec33|verified-ported 14:36: reanudar cuenta previa sin consumir bloque — StandaloneTimerScreen anclado a reloj de pared (preCountdownEndMs/phaseStartMs), tick no consume tiempo
+4eece72f|2026-10-23T12:21:40+02:00|fix(timer): retirar Saltar de llamadas y permitir pausar cuenta previa|ios-app|b7aaec33|verified-ported 14:36: pausa cuenta previa — pausedDisplaySeconds en StandaloneTimerScreen:119,124; Pausar/Continuar:622
+5773b297|2026-10-23T12:21:00+02:00|feat(ios): reloj grande adaptable, ejercicio tras tiempo y controles anclados|ios-app|e3be2135|verified-ported 14:36: reloj grande adaptable + ejercicio tras tiempo — SevenSegmentClock.kt + fases work/rest; controles presentes (WodClockScreen)
 8c234437|2026-10-23T12:16:25+02:00|test(play): exigir clusters sin Stepper sin prohibir control de reps/peso|docs-tests||verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 df76e246|2026-10-23T12:15:27+02:00|fix(catalog): completar técnica y descripciones ES de siete ejercicios nuevos|packages||verified 10:57 (efecto íntegro en contenido de catálogo: seed Android 288/288 == extracción bd4, 0 diffs; evidencia ejecutada tree170)
 c7f040c6|2026-10-23T12:14:12+02:00|test(watch): alinear final de intervalos con etiqueta corta Finalizado|docs-tests|7beee4e6|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-327435d1|2026-10-23T12:12:41+02:00|style(ios): preservar gris bajo topbars transparentes de formularios y ejercicios|ios-app||unverified
+327435d1|2026-10-23T12:12:41+02:00|style(ios): preservar gris bajo topbars transparentes de formularios y ejercicios|ios-app||verified-n/a 14:36: gris bajo topbars SwiftUI
 afc7f410|2026-10-23T12:11:16+02:00|test(home): actualizar etiquetas de los tiles reales Pasos Calorías Tiempo|docs-tests|7beee4e6 ba8c05fd|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-f2d710ac|2026-10-23T12:10:21+02:00|test(ios): proteger cabeceras transparentes y temporizador numérico|docs-tests||unverified
-d27bfcf7|2026-10-23T12:09:19+02:00|fix(progress): aplicar transparencia tras el modificador nativo del topbar|ios-app||unverified
-ab0a1b38|2026-10-23T12:08:51+02:00|fix(ios): topbar transparente como Diario y teclado numérico en Temporizador|ios-app||unverified
+f2d710ac|2026-10-23T12:10:21+02:00|test(ios): proteger cabeceras transparentes y temporizador numérico|docs-tests||verified-n/a 14:36: tests XCTest iOS
+d27bfcf7|2026-10-23T12:09:19+02:00|fix(progress): aplicar transparencia tras el modificador nativo del topbar|ios-app||verified-n/a 14:36: transparencia topbar nativa iOS
+ab0a1b38|2026-10-23T12:08:51+02:00|fix(ios): topbar transparente como Diario y teclado numérico en Temporizador|ios-app||verified-n/a 14:36: topbar transparente SwiftUI + teclado numerico iOS
 13f73a8e|2026-10-23T12:04:09+02:00|test(progress): alinear contrato de zonas con tarjeta Cardio nativa actual|docs-tests|2366f80e 51e96612 7096b167 7beee4e6|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 10624285|2026-10-23T12:02:52+02:00|test(domain): actualizar contratos de WOD id y navegación sin superseries|packages||verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 5a47ad39|2026-10-23T12:02:04+02:00|ci(ios): permitir compilar RevenueCat con Xcode 27 y corregir contrato de fecha|docs-tests,other||unverified
