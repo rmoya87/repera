@@ -177,6 +177,7 @@ struct AIAccessView: View {
 
     var body: some View {
         Form {
+            OGScrollablePageTitle("Conecta tu IA").ogScrollingTitleListRow()
             connectionSection
             Section {
                 DisclosureGroup("Conexión manual", isExpanded: $showManualAccess) {
@@ -271,7 +272,7 @@ struct AIAccessView: View {
             await refreshProviders()
             await changeRequests.refresh(store:store)
         }
-        .ogPinnedTransparentNav("Conecta tu IA")
+        .ogScrollingTitleNav()
         .sheet(isPresented: $showInstructions) {
             NavigationStack {
                 Form {
@@ -287,6 +288,7 @@ struct AIAccessView: View {
                 }
                 .navigationTitle("Instrucciones")
                 .navigationBarTitleDisplayMode(.inline)
+                .ogTransparentNav()
                 .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cerrar") { showInstructions = false } } }
             }
         }

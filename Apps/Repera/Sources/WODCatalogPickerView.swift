@@ -26,6 +26,7 @@ struct WODCatalogPickerView: View {
 
     private var pickerContent: some View {
         List {
+                OGScrollablePageTitle("Elegir WOD").ogScrollingTitleListRow()
                 ForEach(templates) { template in
                     Button {
                         selected = template
@@ -62,7 +63,7 @@ struct WODCatalogPickerView: View {
             }
             .ogListChrome()
             .searchable(text: $query, prompt: "Buscar WOD")
-            .ogPinnedTransparentNav("Elegir WOD")
+            .ogScrollingTitleNav()
             .toolbar {
                 if embedsNavigationStack {
                     ToolbarItem(placement: .cancellationAction) {
@@ -100,6 +101,7 @@ struct WODTemplateDetailView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle(template.name).ogScrollingTitleListRow()
             Section {
                 LabeledContent("Formato", value: template.formatLabel)
                 if let cap = template.timeCapMinutes {
@@ -196,7 +198,7 @@ struct WODTemplateDetailView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav(template.name)
+        .ogScrollingTitleNav()
         .toolbar {
             if showSessionActions {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -11,6 +11,7 @@ struct FindCenterTrainerView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Buscar centro o entrenador").ogScrollingTitleListRow()
             if !businessAuth.isConnected {
                 Section {
                     Label("No se han podido cargar los centros.", systemImage: "wifi.exclamationmark")
@@ -121,7 +122,7 @@ struct FindCenterTrainerView: View {
                 await businessData.searchDirectory(query: value)
             }
         }
-        .ogPinnedTransparentNav("Buscar centro o entrenador")
+        .ogScrollingTitleNav()
         .task {
             await restoreAndLoadDirectory()
         }

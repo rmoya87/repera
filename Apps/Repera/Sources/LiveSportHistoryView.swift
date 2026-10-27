@@ -24,6 +24,7 @@ struct LiveSportsCatalogView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Deportes").ogScrollingTitleListRow()
             if visibleSports.isEmpty {
                 ContentUnavailableView(
                     "Sin actividades deportivas",
@@ -57,6 +58,7 @@ struct LiveSportsCatalogView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
+        .ogScrollingTitleNav()
     }
 
     private func activitySummary(for sport: LiveSport, sessions: [WorkoutSession]) -> String {

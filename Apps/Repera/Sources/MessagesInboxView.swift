@@ -15,6 +15,7 @@ struct MessagesInboxView: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Mensajes").ogScrollingTitleListRow()
             if !businessAuth.isConnected || linked.isEmpty {
                 Section {
                     Text(
@@ -63,7 +64,7 @@ struct MessagesInboxView: View {
                 }
             }
         }
-        .ogPinnedTransparentNav("Mensajes")
+        .ogScrollingTitleNav()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if !linked.isEmpty {

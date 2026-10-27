@@ -332,6 +332,7 @@ struct BoardImportReviewView: View {
 
     private var reviewContent: some View {
         List {
+            OGScrollablePageTitle("Añadir entreno").ogScrollingTitleListRow()
             if !blocks.isEmpty {
                 Section {
                     OGRoutineBlocksList(blocks: blocks, showsChevron: true) { _ in
@@ -357,7 +358,7 @@ struct BoardImportReviewView: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Añadir entreno")
+        .ogScrollingTitleNav()
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .cancellationAction) {

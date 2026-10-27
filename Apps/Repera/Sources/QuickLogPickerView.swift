@@ -11,6 +11,7 @@ struct QuickLogPickerView: View {
         ExerciseCatalogSearchList(
             exercises: store.state.exercises,
             prompt: "Buscar ejercicio",
+            pageTitle: "Apuntar ejercicio",
             onPick: { exercise in
                 store.startQuickLog(exerciseId: exercise.id)
                 onOpenedWorkout()
@@ -22,7 +23,7 @@ struct QuickLogPickerView: View {
                 Text("Un ejercicio, sin montar rutina. Entra directo a apuntar ejercicio.")
             }
         )
-        .ogPinnedTransparentNav("Apuntar ejercicio")
+        .ogScrollingTitleNav()
         .ogDiaryTransparentNav()
     }
 }

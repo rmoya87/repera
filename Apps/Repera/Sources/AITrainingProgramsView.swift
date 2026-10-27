@@ -39,6 +39,7 @@ struct AITrainingProgramsView: View {
     }
     var body: some View {
         List {
+            OGScrollablePageTitle("Programas IA").ogScrollingTitleListRow()
             if isLoading && programs.isEmpty { ProgressView("Cargando programas…") }
             if !isLoading && programs.isEmpty {
                 ContentUnavailableView("No hay programas de IA",
@@ -78,9 +79,7 @@ struct AITrainingProgramsView: View {
                 Text(errorMessage).font(.footnote).foregroundStyle(.red)
             }
         }
-        .navigationTitle("Programas IA")
-        .navigationBarTitleDisplayMode(.large)
-        .ogTransparentNav()
+        .ogScrollingTitleNav()
         .toolbar {
             ToolbarItem(placement:.topBarTrailing) {
                 Button { Task { await reload() } } label: {
