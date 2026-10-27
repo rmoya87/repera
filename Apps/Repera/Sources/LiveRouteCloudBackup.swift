@@ -3,12 +3,12 @@ import Foundation
 /// iCloud Documents is already enabled for Repera (iCloud.com.app.repera).
 /// This is a second, route-specific backup: the main workout JSON does not
 /// contain imported GPX files or standalone favorite flags.
-struct LiveRouteCloudArchive: Codable {
+struct LiveRouteCloudArchive: Codable, Sendable {
     var routes: [LiveSavedRoute]
     var deletedIDs: [UUID]
 }
 
-enum LiveRouteCloudRead {
+enum LiveRouteCloudRead: Sendable {
     case unavailable
     case ready(LiveRouteCloudArchive)
 }
