@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-27 (verificación de Pro al guardar Favoritos)
+Última actualización: 2026-10-28 (favoritos de actividades y recuperación de plantillas)
 
 ## 1. Arquitectura
 
@@ -35,7 +35,7 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | Entrenamientos / series / RIR / WOD registro | ✓ | ✓ |
 | Catálogo, timers, Watch, Salud, iCloud, export/import | ✓ | ✓ |
 | Historial general de sesiones | ✓ | ✓ |
-| Rutinas reutilizables (`scheduledDate == nil`) | máx. **3** | ilimitadas |
+| Rutinas reutilizables y actividades deportivas favoritas | máx. **3** en total | ilimitadas |
 | Ejercicios `isCustom` | máx. **5** | ilimitados |
 | Escáner pizarra (éxito → revisión usable) | **4**/mes UTC | ilimitados |
 | Evolución / historial completo por ejercicio | última sesión + PR + teaser | completo |
@@ -45,7 +45,7 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | `ProgressionEngine.applySuggestions` al empezar | off | on |
 | %→kg / 1RM básico / discos | ✓ | ✓ |
 
-Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea crear por encima del límite.
+Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea crear por encima del límite. Las actividades favoritas de Comenzar se cuentan junto con las rutinas reutilizables y se sincronizan con el estado personal de iCloud.
 
 ## 3. Identificadores comerciales
 
