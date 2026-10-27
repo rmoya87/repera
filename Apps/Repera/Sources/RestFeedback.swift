@@ -42,8 +42,8 @@ enum RestFeedback {
         tonePlayer?.stop()
         let audio = AVAudioSession.sharedInstance()
         do {
-            // Al contrario que AudioServicesPlaySystemSound, es un sonido
-            // propio, estable y audible también con la pantalla bloqueada.
+            // Reproducir siempre el archivo PCM propio, con timbre estable
+            // y categoría de audio apta para pantalla bloqueada.
             try audio.setCategory(.playback, mode: .default, options: [.duckOthers])
             try audio.setActive(true)
             let player = try AVAudioPlayer(data: data)
