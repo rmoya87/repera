@@ -1099,18 +1099,17 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = Date()
         phase = .paused
         if sport.usesGPS { stopGPS(clear: false) }
-        // Priorizar el aviso de pausa sobre un parcial o giro en curso.
+        // Silenciar cualquier locución de GPS pendiente al pausar.
+        // La pausa no reproduce voz ni sonido.
         stopGuidanceAudio()
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
-        _ = speakNavigation(LiveSessionVoiceAnnouncement.paused)
     }
 
     func resume() {
         guard phase == .paused else { return }
-        // Pulsaciones rápidas de pausa/reanudar no deben reproducir avisos
-        // antiguos cuando el entrenamiento ya se ha reanudado.
+        // Cancelar indicaciones antiguas: reanudar no emite voz ni sonido.
         stopGuidanceAudio()
         if let pausedAt { pausedSeconds += Date().timeIntervalSince(pausedAt) }
         pausedAt = nil
@@ -1119,7 +1118,6 @@ final class LiveActivityRecorder: NSObject {
         if sport.usesGPS { startGPS() }
         persistSnapshot()
         updateLiveActivity()
-        _ = speakNavigation(LiveSessionVoiceAnnouncement.resumed)
     }
 
     var durationSeconds: TimeInterval { duration(at: Date()) }
@@ -2299,18 +2297,22 @@ struct LiveActivityView: View {
                         }
                         // Mantener la misma altura aunque cambie el subtítulo.
                         .frame(height: 60, alignment: .center)
-                        // Anchura reservada, independiente de la fase. En pantallas
-                        // anchas, las acciones empiezan aquí, a la IZQUIERDA,
-                        // en vez de irse al extremo derecho del encabezado.
-                        .frame(width: min(110, max(68, header.size.width - 248)),
-                               alignment: .leading)
+                        // El nombre mantiene el mismo ancho en ambos estados.
+                        // Reservamos siempre 200 pt para las cuatro posiciones.
+                        .frame(
+                            width: min(110, max(58, header.size.width - 248)),
+                            alignment: .leading
+                        )
+                        Spacer(minLength: 0)
+                        // Misma alineación derecha que el primer botón de Mapa,
+                        // respetando exactamente el margen horizontal de Mapa.
                         metricsTrailingActions
                             .fixedSize(horizontal: true, vertical: false)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .frame(height: 68)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, OG.topBarHorizontalInset)
                 .padding(.top, 14)
 
                 Spacer(minLength: 16)
@@ -2378,9 +2380,10 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Cuatro posiciones de 44 pt que no cambian al pausar/reanudar.
-    /// Reservar el hueco de Finalizar durante la grabación evita que Audio,
-    /// Mapa y Pausa/Play se desplacen y cambien el ajuste del nombre del deporte.
+    /// Cuatro posiciones fijas de 44 pt alineadas a la derecha. El último
+    /// botón es SIEMPRE Pausa/Reanudar, en la misma columna que la primera
+    /// acción de Mapa. Finalizar ocupa su hueco a la izquierda al pausar,
+    /// sin mover Audio, Mapa ni Pausa/Reanudar.
     private var metricsTrailingActions: some View {
         HStack(spacing: 8) {
             if showGuidanceToggle {
@@ -2399,6 +2402,17 @@ struct LiveActivityView: View {
             } else {
                 metricsActionPlaceholder
             }
+            // Finalizar aparece junto a Reanudar, sin alterar ninguna
+            // posición cuando se pasa de grabando a pausado.
+            if recorder.phase == .paused {
+                sessionMapButton(
+                    "flag.checkered", label: "Finalizar y guardar",
+                    background: .black, foreground: .white
+                ) { finishAndShowSave() }
+            } else {
+                metricsActionPlaceholder
+            }
+            // Extremo derecho: idéntico eje X al botón superior en Mapa.
             if recorder.phase == .recording {
                 sessionMapButton(
                     "pause.fill", label: "Pausar grabación",
@@ -2409,14 +2423,6 @@ struct LiveActivityView: View {
                     "play.fill", label: "Reanudar grabación",
                     background: OG.accent, foreground: .black
                 ) { recorder.resume() }
-            } else {
-                metricsActionPlaceholder
-            }
-            if recorder.phase == .paused {
-                sessionMapButton(
-                    "flag.checkered", label: "Finalizar y guardar",
-                    background: .black, foreground: .white
-                ) { finishAndShowSave() }
             } else {
                 metricsActionPlaceholder
             }
