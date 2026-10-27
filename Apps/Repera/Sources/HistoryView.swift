@@ -1066,12 +1066,6 @@ struct WorkoutDetailView: View {
                             Text(exercise.prescriptionSummaryLine)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(OG.label2)
-                            if let summary = WODHistoryPresentation.recordedSummary(for: exercise) {
-                                Text(summary)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(OG.accent)
-                                    .lineLimit(2)
-                            }
                             if let adapted = exercise.adjustedSummaryLine {
                                 Text(adapted)
                                     .font(.system(size: 13, weight: .semibold))

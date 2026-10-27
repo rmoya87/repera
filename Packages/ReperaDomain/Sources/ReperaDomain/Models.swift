@@ -1726,26 +1726,7 @@ public enum WODHistoryPresentation {
         }
     }
 
-    /// Evita repetir «10 @ 9 kg» como «9×10» si hay una única serie
-    /// efectivamente anotada que coincide exactamente con la prescripción.
-    /// Nunca modifica o elimina las series, solo el resumen visual.
-    public static func recordedSummary(for entry: SessionExercise) -> String? {
-        guard !entry.loggedSets.isEmpty else { return nil }
-        if entry.loggedSets.count == 1,
-           entry.plannedSets.count == 1,
-           let recorded = entry.loggedSets.first,
-           let prescribed = entry.plannedSets.first,
-           recorded.reps == prescribed.targetReps,
-           recorded.weightKg == prescribed.targetWeightKg,
-           recorded.deficitCm == nil,
-           recorded.durationSeconds == nil,
-           recorded.drops.isEmpty, recorded.clusters.isEmpty,
-           recorded.rir == nil, !recorded.toFailure,
-           recorded.quantityUnit == nil || recorded.quantityUnit == .reps {
-            return "Registrado"
-        }
-        return "Registrado · " + entry.loggedSets.map(\.displaySummaryLine).joined(separator: " · ")
-    }
+
 }
 
 public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {

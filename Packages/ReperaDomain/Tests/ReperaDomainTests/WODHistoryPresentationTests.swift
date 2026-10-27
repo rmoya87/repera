@@ -12,41 +12,20 @@ final class WODHistoryPresentationTests: XCTestCase {
         XCTAssertNil(WODHistoryPresentation.officialName(for: "Wall ball"))
     }
 
-    func testAMRAPLogIsNotRepeatedIfIdenticalToPrescription() {
+    func testHistoricalAMRAPRetainsOriginalRecordedSets() {
+        // La pantalla ya no repite «Registrado», pero la serie real sigue
+        // disponible para la edición, la analítica y la sincronización.
         let exercise = Exercise(name: "Wall ball", muscleGroup: "Piernas")
+        let set = LoggedSet(reps: 10, weightKg: 9)
         let entry = SessionExercise(
             exercise: exercise,
             plannedSets: [PlannedSet(targetReps: 10, targetWeightKg: 9)],
-            loggedSets: [LoggedSet(reps: 10, weightKg: 9)]
+            loggedSets: [set]
         )
-        XCTAssertEqual(WODHistoryPresentation.recordedSummary(for: entry), "Registrado")
         XCTAssertEqual(entry.loggedSets.count, 1)
         XCTAssertEqual(entry.loggedSets[0].reps, 10)
         XCTAssertEqual(entry.loggedSets[0].weightKg, 9)
+        XCTAssertEqual(entry.loggedSets[0].id, set.id)
     }
 
-    func testDifferentOrMultipleLoggedSetsRemainVisible() {
-        let exercise = Exercise(name: "Wall ball", muscleGroup: "Piernas")
-        let changed = SessionExercise(
-            exercise: exercise,
-            plannedSets: [PlannedSet(targetReps: 10, targetWeightKg: 9)],
-            loggedSets: [LoggedSet(reps: 12, weightKg: 9)]
-        )
-        XCTAssertEqual(WODHistoryPresentation.recordedSummary(for: changed), "Registrado · 9×12")
-        let multiple = SessionExercise(
-            exercise: exercise,
-            plannedSets: [PlannedSet(targetReps: 10, targetWeightKg: 9)],
-            loggedSets: [LoggedSet(reps: 10, weightKg: 9), LoggedSet(reps: 10, weightKg: 9)]
-        )
-        XCTAssertNotEqual(WODHistoryPresentation.recordedSummary(for: multiple), "Registrado")
-    }
-
-    func testUnrecordedWODMovementHasNoRegisteredMarker() {
-        let exercise = Exercise(name: "BTt", muscleGroup: "Custom", isCustom: true)
-        let entry = SessionExercise(
-            exercise: exercise,
-            plannedSets: [PlannedSet(targetReps: 6)]
-        )
-        XCTAssertNil(WODHistoryPresentation.recordedSummary(for: entry))
-    }
 }
