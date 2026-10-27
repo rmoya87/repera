@@ -404,7 +404,9 @@ internal fun DayPointLineChart(
     goal:Double? = null,
     bounds:ClosedFloatingPointRange<Double>? = null,
     interactive:Boolean=true,
-    readinessStyle:Boolean=false
+    readinessStyle:Boolean=false,
+    weightStyle:Boolean=false,
+    weightPreview:Boolean=false
 ) {
     if (points.isEmpty()) return
     // Apple HealthRecovery.vitalChart: one observed sample is not a trend.
@@ -421,7 +423,12 @@ internal fun DayPointLineChart(
     var selected by remember(points) { mutableStateOf<Int?>(null) }
     val minV = bounds?.start ?: minOf(points.minOf { it.value },goal ?: Double.POSITIVE_INFINITY)
     val maxV = bounds?.endInclusive ?: maxOf(points.maxOf { it.value },goal ?: Double.NEGATIVE_INFINITY)
-    val span = (maxV - minV).coerceAtLeast(1e-9)
+    val padding=if(weightStyle) maxOf(if(weightPreview) 1.6 else 1.2,(maxV-minV)*(if(weightPreview) 0.35 else 0.22)) else 0.0
+    val axisMin=minV-padding
+    val axisMax=maxV+padding
+    val span = (axisMax - axisMin).coerceAtLeast(1e-9)
+    val plotHeight=if(weightStyle) 210.dp else 100.dp
+    val insetPlot=readinessStyle || weightStyle
     val firstDay = points.first().day
     val midDay = DayChartPositions.midpoint(points)
     val lastDay = points.last().day
@@ -429,7 +436,7 @@ internal fun DayPointLineChart(
         .ofPattern("d MMM", java.util.Locale("es", "ES"))
     val description = "Gráfica de ${firstDay.format(reperaDayFormatter)} a " +
         "${lastDay.format(reperaDayFormatter)}; " +
-        "valores entre ${valueFormat(minV)} y ${valueFormat(maxV)}; " +
+        "valores entre ${valueFormat(axisMin)} y ${valueFormat(axisMax)}; " +
         "último punto ${valueFormat(points.last().value)}"
     Column(modifier = modifier.fillMaxWidth()
         .testTag("day_point_line_chart")
@@ -452,46 +459,46 @@ internal fun DayPointLineChart(
             Column(
                 modifier = Modifier
                     .width(52.dp)
-                    .height(124.dp)
+                    .height(plotHeight+24.dp)
                     .padding(end = 4.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(valueFormat(maxV),
+                Text(valueFormat(axisMax),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, softWrap = false)
-                Text(valueFormat(minV),
+                Text(valueFormat(axisMin),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, softWrap = false)
             }
             Column(modifier = Modifier.weight(1f)) {
             Canvas(modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
-                .pointerInput(points,interactive,readinessStyle) {
+                .height(plotHeight)
+                .pointerInput(points,interactive,insetPlot) {
                     if(!interactive) return@pointerInput
                     detectTapGestures { offset ->
-                        val idx = DayChartPositions.nearest(points,if(readinessStyle)
+                        val idx = DayChartPositions.nearest(points,if(insetPlot)
                             (offset.x-8.dp.toPx())/(size.width-16.dp.toPx()).coerceAtLeast(1f)
                             else offset.x / size.width)
                         selected = if (selected == idx) null else idx
                     }
                 }
-                .pointerInput(points,interactive,readinessStyle) {
+                .pointerInput(points,interactive,insetPlot) {
                     if(!interactive) return@pointerInput
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
-                        val idx = DayChartPositions.nearest(points,if(readinessStyle)
+                        val idx = DayChartPositions.nearest(points,if(insetPlot)
                             (change.position.x-8.dp.toPx())/(size.width-16.dp.toPx()).coerceAtLeast(1f)
                             else change.position.x / size.width)
                         selected = idx
                     }
                 }) {
                 fun x(i: Int):Float {
-                    val inset=if(readinessStyle) 8.dp.toPx() else 0f
+                    val inset=if(insetPlot) 8.dp.toPx() else 0f
                     return inset+DayChartPositions.fraction(points,i)*(size.width-2*inset).coerceAtLeast(0f)
                 }
                 fun y(v: Double) =
-                    size.height - ((v - minV) / span * size.height * 0.85f)
+                    size.height - ((v - axisMin) / span * size.height * 0.85f)
                         .toFloat() - size.height * 0.075f
                 val path = Path()
                 points.forEachIndexed { i, p ->
@@ -520,6 +527,12 @@ internal fun DayPointLineChart(
                             cap=androidx.compose.ui.graphics.StrokeCap.Round,
                             join=androidx.compose.ui.graphics.StrokeJoin.Round))
                     }
+                } else if(weightStyle) {
+                    val curve=Path()
+                    val observed=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
+                    curve.moveTo(observed.first().x,observed.first().y)
+                    ReadinessCurve.segments(observed).forEach {c ->curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+                    clipRect {drawPath(curve,color=line,style=Stroke(width=2.25.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))}
                 } else drawPath(path, color = line, style = Stroke(width = 4f))
                 drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))

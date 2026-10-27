@@ -345,7 +345,7 @@ internal fun ProgressTab(
                                     style = MaterialTheme.typography.bodyMedium)
                             }
                             WeightStatTiles(last.value, overview?.healthGoals?.weightKg)
-                            DayPointLineChart(snapshot.weightPoints,goal=overview?.healthGoals?.weightKg)
+                            DayPointLineChart(snapshot.weightPoints,goal=overview?.healthGoals?.weightKg,weightStyle=true)
                             val weightScope=remember(accountId) {org.json.JSONArray(listOf(accountId,"progress-weight-input")).toString()}
                             val weightSaver=remember(weightScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(weightScope,it)},restore={restoreScopedEditorValue(weightScope,it)})}
                             var weightInput by rememberSaveable(accountId,stateSaver=weightSaver) { mutableStateOf("") }
@@ -449,7 +449,7 @@ internal fun WeightPreviewCard(today:LocalDate) {
     Card(Modifier.fillMaxWidth(),colors=androidx.compose.material3.CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
         Text("Datos ficticios. Objetivo de ejemplo: 74 kg")
-        DayPointLineChart(points,goal=74.0,interactive=false)
+        DayPointLineChart(points,goal=74.0,interactive=false,weightStyle=true,weightPreview=true)
         WeightStatTiles(points.lastOrNull()?.value,74.0)
     }}
 }
