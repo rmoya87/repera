@@ -1,4 +1,4 @@
-import {renderAthleteInsights} from './athlete-insights.js';
+import {renderAthleteInsights,renderAthleteGuidance} from './athlete-insights.js';
 import {renderAthleteActivity} from './athlete-activity.js';
 import {navIcon} from './nav-icons.js';
 
@@ -221,13 +221,10 @@ function athletesPage(athletes,filter){
 function athleteDetail(person,detail,workouts=[],busy=false,activity={},section='exercises'){
  const a=detail?.account||person,rows=detail||{};
  const linked=Array.isArray(rows.client_profiles)?rows.client_profiles:[];
- const actions=`<div class="pa-athlete-actions">
- <button type="button" class="pa-button primary" data-admin-action="schedule-athlete" data-id="${esc(person.id)}">
- Añadir plan de entreno</button>
- ${!linked.length?'<span class="pa-muted">Primero vincula al atleta a un centro para asignarle entrenamientos.</span>':''}</div>`;
  const header=`<div class="pa-athlete-hero pa-panel"><div class="pa-identity">
  ${photo(a.avatar_url,a.name,'large')}
- <div><h1>${esc(a.name||'Atleta')}</h1><p>${esc(a.email||'—')}</p></div></div>${actions}</div>`;
+ <div><h1>${esc(a.name||'Atleta')}</h1><p>${esc(a.email||'—')}</p></div></div>
+ <div class="pa-athlete-hero-guidance">${renderAthleteGuidance(workouts,rows.workout_count)}</div></div>`;
  const nav=`<nav class="pa-detail-tabs" aria-label="Ficha de atleta">
  ${[['exercises','Ejercicios'],['data','Datos'],['access','Acceso'],['bookings','Reservas']].map(([id,title])=>
  `<button type="button" data-admin-action="athlete-section" data-section="${id}"
@@ -237,12 +234,16 @@ function athleteDetail(person,detail,workouts=[],busy=false,activity={},section=
  if(section==='exercises'){
   const day=activity.day||workouts[0]?.started_at?.slice(0,10)||'';
   const canSchedule=linked.length>0;
+  const planned=(rows.professional_sessions||[]).filter(s=>s.status==='scheduled');
+  const daysMap=new Map((activity.days||[]).map(d=>[d.day,Number(d.count)||0]));
+  planned.forEach(s=>daysMap.set(s.scheduled_date,(daysMap.get(s.scheduled_date)||0)+1));
+  const daysWithPlans=[...daysMap].map(([day,count])=>({day,count}));
   body=`<div class="pa-athlete-training-grid">
- ${renderAthleteActivity({month:activity.month,days:activity.days,selectedDay:day,
-  workouts:activity.workouts??workouts,loading:activity.loading,
+ ${renderAthleteActivity({month:activity.month,days:daysWithPlans,selectedDay:day,
+  workouts:activity.workouts??workouts,plannedSessions:planned.filter(s=>s.scheduled_date===day),loading:activity.loading,
   canPlan:canSchedule,athleteId:person.id})}
  </div>
- ${renderAthleteInsights(workouts,rows.workout_count)}`;
+ ${renderAthleteInsights(workouts,rows.workout_count,{showGuidance:false})}`;
  }
  if(section==='data'){
   body=`<div class="pa-layout"><section class="pa-panel"><h2>Identidad y cuenta</h2>
