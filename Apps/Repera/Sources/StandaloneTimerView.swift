@@ -130,10 +130,10 @@ struct TimerNumericInput: View {
                 ),
                 allowsDecimal: false,
                 autoFocus: false,
+                onFocusLost: { commit() },
                 // El componente UIKit debe ofrecer 48 pt a la negociación
                 // del tamaño antes de que el sheet calcule su detent.
                 compactIntrinsicHeight: 48,
-                onFocusLost: { commit() },
                 onCommit: { commit() }
             )
             // El alto debe coincidir con el formulario Temporizador (48 pt).
