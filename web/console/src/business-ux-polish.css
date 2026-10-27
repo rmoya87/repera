@@ -319,3 +319,82 @@
 @media(max-width:960px){.business-client-add{grid-template-columns:1fr 1fr}.business-client-add button{grid-column:1/-1}}
 @media(max-width:650px){.business-client-add{grid-template-columns:1fr}.business-client-add button{grid-column:auto}
 .business-client-summary{grid-template-columns:110px minmax(0,1fr)}}
+
+
+/* 2026-10-27 · entrenador: calendario, mapa nativo y bonos presenciales */
+.pa-shell .pa-athlete-training-grid{grid-template-columns:minmax(330px,.95fr) minmax(0,1.05fr);align-items:start}
+.pa-shell .pa-athlete-training-grid>.pa-panel{height:auto;min-height:0;align-self:start}
+.pa-shell .pa-workout-exercises{display:grid;grid-template-columns:minmax(0,1fr)}
+.pa-shell .pa-athlete-insights{align-items:start}
+.pa-shell .pa-athlete-insights>.pa-panel{height:auto}
+.pa-shell .pa-athlete-insights>.pa-panel:last-child{grid-column:auto}
+.pa-shell .pa-athlete-hero-guidance{flex:1 1 310px;max-width:530px}
+.pa-shell .pa-athlete-hero{align-items:flex-start}
+.pa-coaching-inline{display:grid;gap:3px}
+.pa-coaching-inline details{font-size:12px;line-height:1.5}
+.pa-coaching-inline summary{cursor:pointer;color:#287242;font-weight:750}
+.pa-coaching-inline ul{margin:6px 0 3px;padding-left:20px}
+.pa-muscle-views{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;align-items:center;justify-items:center}
+.pa-muscle-views figure{margin:0;text-align:center;width:100%;max-width:190px}
+.pa-muscle-views svg{display:block;width:100%;height:235px;max-height:235px}
+.pa-muscle-views figcaption{font-size:11px;color:#718375}
+.pa-muscle-legend{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:11px auto}
+.pa-muscle-legend span,.pa-muscle-rank span{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:#566b5d}
+.pa-muscle-legend i,.pa-muscle-rank i{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.pa-muscle-rank{display:flex;flex-wrap:wrap;gap:8px 13px;margin:8px 0}
+.pa-planned-record>.pa-record-body{display:grid;gap:8px}
+.pa-planned-record .pa-exercise-card{min-width:0}
+.pa-planned-record .pa-exercise-prescribed{font-size:11px}
+.trainer-client-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 0 16px;flex-wrap:wrap}
+.trainer-client-actions p{max-width:650px;font-size:13px}
+.trainer-client-grid{display:grid;grid-template-columns:minmax(300px,.95fr) minmax(0,1.05fr);gap:18px;align-items:start}
+.trainer-client-grid>.pa-panel{background:#fff;border:1px solid #dce9df;border-radius:14px;padding:20px;min-width:0;height:auto!important;align-self:start}
+.trainer-client-grid h2{font-size:17px}
+.trainer-client-grid .pa-activity-heading{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between}
+.trainer-client-grid .pa-calendar-actions{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.trainer-client-grid .pa-activity-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.trainer-client-grid .pa-activity-day{min-height:40px;display:grid;place-items:center;padding:6px;border-radius:9px}
+.trainer-client-grid .pa-activity-right-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.trainer-client-grid .pa-activity-workouts{max-height:none}
+.trainer-client-grid .pa-workout-exercises{display:grid;grid-template-columns:minmax(0,1fr)!important;gap:11px}
+.trainer-client-grid .pa-record-body{display:grid;gap:11px}
+.trainer-client-grid .pa-workout-block{display:grid;gap:10px}
+.trainer-client-grid .pa-button.primary{border:0;background:#17713b;color:#fff;border-radius:11px;padding:9px 14px;cursor:pointer}
+.trainer-client-grid .pa-activity-day.selected{outline:2px solid #237a43}
+.trainer-client-grid .pa-activity-day.has-activity .pa-activity-dot{display:block!important}
+.business-360 .pa-athlete-insights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
+.business-360 .pa-athlete-insights>.pa-panel{background:#fff;border:1px solid #dce9df;border-radius:14px;padding:18px;min-width:0}
+.business-360 .pa-record-list article{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #e9f0ea;padding:10px 0}
+.business-360 .pa-e1rm{text-align:right;white-space:nowrap}
+.business-360 .pa-e1rm strong{display:block;color:#237d43}
+.business-profile-header{align-items:flex-start;flex-wrap:wrap}
+.business-profile-orientation{max-width:490px;flex:1 1 270px;margin-left:auto;padding:12px;border:1px solid #e6eee7;border-radius:14px;background:#fbfdfa}
+.business-profile-orientation .pa-coaching-score{display:flex;align-items:center;gap:12px}
+.business-profile-orientation .pa-coaching-score>strong{font-size:27px;color:#1f8645}
+.business-profile-orientation .pa-coaching-score>strong small{font-size:12px}
+.business-profile-orientation .pa-coaching-score div{display:grid;font-size:12px}
+.business-profile-orientation .pa-insight-stats{display:flex;gap:6px;flex-wrap:wrap}
+.business-profile-orientation .pa-insight-stats span{background:#e9f6ec;padding:4px 8px;border-radius:99px;font-size:10px}
+.trainer-attendance-history{margin-top:18px}
+.trainer-attendance-history .business-attendance-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.trainer-pass-dashboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+.trainer-pass-dashboard>.connected-card{margin:0!important;min-width:0}
+.trainer-pass-dashboard .business-form{display:grid;gap:12px;margin-top:15px}
+.trainer-pass-dashboard .trainer-verify{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#496552;line-height:1.5}
+.trainer-pass-dashboard .trainer-verify input{flex-shrink:0;margin-top:3px}
+.trainer-pass-dashboard .trainer-seats{display:flex;gap:6px;flex-direction:column;background:#eef8f1;padding:13px;border-radius:13px;margin:15px 0}
+.trainer-pass-dashboard .trainer-seats strong{font-size:20px;color:#1b7440}
+.trainer-pass-dashboard .trainer-seats span{font-size:12px;color:#52705d}
+.trainer-pass-dashboard .trainer-expander{margin:15px 0}
+.trainer-pass-dashboard .trainer-expander summary{cursor:pointer;color:#217944;font-weight:750}
+.trainer-pass-dashboard .trainer-form-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.business-client-editor{margin-top:20px;scroll-margin-top:16px}
+.business-client-editor .planning-split.planning-embedded{display:block!important}
+.business-client-editor .planning-split.planning-embedded>.planning-composer{width:100%;max-width:none}
+.business-client-editor .planning-quick-templates{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+@media(max-width:1060px){.trainer-client-grid,.trainer-pass-dashboard{grid-template-columns:1fr}
+ .business-360 .pa-athlete-insights{grid-template-columns:1fr}}
+@media(max-width:760px){.pa-shell .pa-athlete-training-grid{grid-template-columns:1fr}
+ .pa-muscle-views svg{height:190px}
+ .trainer-pass-dashboard .trainer-form-cols{grid-template-columns:1fr}
+ .trainer-attendance-history .business-attendance-rows{grid-template-columns:1fr}}
