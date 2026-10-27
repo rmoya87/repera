@@ -139,22 +139,22 @@ bc615068|2026-10-25T10:23:06+01:00|feat(navigation): reopen live or planned sess
 246dae59|2026-10-25T10:21:47+01:00|build: include shared workout Live Activity schema in app and widget targets|other|2e02be93 8ba1693b eae7198a|verified-n/a 13:53: schema compartido app/widget targets; build iOS
 4e3da82d|2026-10-25T10:21:44+01:00|feat(widget): register workout activity alongside rest countdown|ios-app|eae7198a|partial 13:53: workout activity junto a rest countdown (widget iOS, GAP superficie)
 dc72a2b1|2026-10-25T10:21:41+01:00|fix(widget): keep timer as Text for reusable metric rendering|ios-app||verified-n/a 13:53: detalle de render del timer en widget iOS
-0b0bc902|2026-10-25T10:20:59+01:00|feat(activitykit): lifecycle coordinator for live and planned training sessions|ios-app|8e27b8d5|unverified
-b6b7921b|2026-10-25T10:19:54+01:00|feat(widget): Repera lock screen and Dynamic Island for all workouts|ios-app||unverified
-cc300f9f|2026-10-25T10:19:51+01:00|feat(live-activity): shared typed training status for lock screen and Dynamic Island|ios-app|252f17bd 42e42f8c eae7198a|unverified
-ef981ea2|2026-10-25T09:54:30+01:00|fix(live): harden HealthKitStore.swift for background and simultaneous sessions|ios-app||unverified
-d7e2b191|2026-10-25T09:54:27+01:00|fix(live): harden LiveActivityView.swift for background and simultaneous sessions|ios-app||unverified
-19f9d69a|2026-10-25T09:54:25+01:00|fix(live): harden HomeView.swift for background and simultaneous sessions|ios-app||unverified
-24a5d7e1|2026-10-25T09:52:01+01:00|refine(live): show speed for surf/ski/golf and center GPS map on user|ios-app||unverified
+0b0bc902|2026-10-25T10:20:59+01:00|feat(activitykit): lifecycle coordinator for live and planned training sessions|ios-app|8e27b8d5|partial 13:55: coordinador lifecycle ActivityKit (GAP widgets); lifecycle Android cubierto por LiveActivityRuntime + servicio foreground + checkpoints
+b6b7921b|2026-10-25T10:19:54+01:00|feat(widget): Repera lock screen and Dynamic Island for all workouts|ios-app||partial 13:55: lock screen + Dynamic Island para todos los entrenos (GAP widgets, incluye entrenos de gimnasio — GAP real de superficie en Android)
+cc300f9f|2026-10-25T10:19:51+01:00|feat(live-activity): shared typed training status for lock screen and Dynamic Island|ios-app|252f17bd 42e42f8c eae7198a|partial 13:55: estado tipado compartido para widgets iOS (GAP superficie)
+ef981ea2|2026-10-25T09:54:30+01:00|fix(live): harden HealthKitStore.swift for background and simultaneous sessions|ios-app||verified-n/a 13:55 con invariantes: HealthKitStore background/sesiones simultaneas; Android: un solo odometro GPS ("Otro entrenamiento ya esta utilizando el GPS"), escrituras atomicas temp+rename, sin proceso que abortar
+d7e2b191|2026-10-25T09:54:27+01:00|fix(live): harden LiveActivityView.swift for background and simultaneous sessions|ios-app||verified-n/a 13:55 con invariantes: LiveActivityView background; Android runtime sobrevive background via servicio + snapshot/restore
+19f9d69a|2026-10-25T09:54:25+01:00|fix(live): harden HomeView.swift for background and simultaneous sessions|ios-app||verified-n/a 13:55 con invariantes: HomeView background; Android estado persistido en LocalSnapshotStore
+24a5d7e1|2026-10-25T09:52:01+01:00|refine(live): show speed for surf/ski/golf and center GPS map on user|ios-app||verified-ported 13:55: displaysSpeed incluye surf/ski/golf y resto — lista IDENTICA a Apple live main (verificado); mapa centrado en usuario (cameraCenter)
 d83f8244|2026-10-25T09:51:14+01:00|test(domain): verify live workout distance, active duration, and legacy JSON compatibility|packages|2366f80e 2e02be93 343b6892 3b2e81e3|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-599a36ec|2026-10-25T09:50:13+01:00|fix(live): send only value-type GPS fixes across Swift 6 concurrency boundary|ios-app||unverified
+599a36ec|2026-10-25T09:50:13+01:00|fix(live): send only value-type GPS fixes across Swift 6 concurrency boundary|ios-app||verified-n/a 13:55 con invariante: fixes GPS value-type — Kotlin data class Fix inmutable (LiveGPSOdometer.Fix)
 0b7fc847|2026-10-25T09:49:31+01:00|docs: document live sports, GPS lifecycle and Home integration|docs-tests|89da973e|verified-n/a 10:46 (solo docs: docs/LIVE_ACTIVITIES.md; sin delta de comportamiento)
-27cbfada|2026-10-25T09:46:46+01:00|fix(navigation): keep chosen Progress SF Symbol gauge|ios-app||unverified
-e8a13c81|2026-10-25T09:46:43+01:00|fix(home): focus the recorded start day when returning from Live|ios-app||unverified
-3f84691a|2026-10-25T09:45:27+01:00|fix(live): provide center access and tick map timer continuously|ios-app||unverified
-610a305e|2026-10-25T09:44:11+01:00|feat(live): integrate project.yml with sport recording and Home|other||unverified
-f328705b|2026-10-25T09:44:08+01:00|feat(live): integrate HistoryView.swift with sport recording and Home|ios-app||unverified
-c803ada1|2026-10-25T09:44:06+01:00|feat(live): integrate HomeView.swift with sport recording and Home|ios-app||unverified
+27cbfada|2026-10-25T09:46:46+01:00|fix(navigation): keep chosen Progress SF Symbol gauge|ios-app||verified-n/a 13:55: simbolo SF gauge de Progreso; iconos Material (chrome)
+e8a13c81|2026-10-25T09:46:43+01:00|fix(home): focus the recorded start day when returning from Live|ios-app||verified-ported 13:55: volver de Comenzar enfoca el dia de inicio grabado (onSavedDay(savedDay) → selectedDay)
+3f84691a|2026-10-25T09:45:27+01:00|fix(live): provide center access and tick map timer continuously|ios-app||verified-ported 13:55: acceso a Center existe (onOpenCenter); tick continuo del cronometro implementado este run (1Hz RECORDING)
+610a305e|2026-10-25T09:44:11+01:00|feat(live): integrate project.yml with sport recording and Home|other||verified-n/a 13:55: integracion project.yml; build iOS
+f328705b|2026-10-25T09:44:08+01:00|feat(live): integrate HistoryView.swift with sport recording and Home|ios-app||verified-ported 13:55: historial integrado con grabacion deportiva (LiveSportHistoryScreens + tarjetas con ruta/parciales)
+c803ada1|2026-10-25T09:44:06+01:00|feat(live): integrate HomeView.swift with sport recording and Home|ios-app||verified-ported 13:55: Home integrado con Comenzar (estado activo + continuacion; HomeTab)
 24b70c8b|2026-10-25T09:44:03+01:00|feat(live): integrate RootTabView.swift with sport recording and Home|ios-app||unverified
 384d5c4d|2026-10-25T09:44:00+01:00|feat(live): integrate HealthKitStore.swift with sport recording and Home|ios-app||unverified
 a82b0d55|2026-10-25T09:43:58+01:00|feat(live): integrate ReperaStore.swift with sport recording and Home|ios-app||unverified
