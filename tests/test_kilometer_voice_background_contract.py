@@ -101,7 +101,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn(".frame(height: 60, alignment: .center)", header)
         self.assertIn(".lineLimit(1).minimumScaleFactor(0.7)", header)
         self.assertIn("GeometryReader { header in", header)
-        self.assertIn("width: min(112, max(44, header.size.width - 234))", header)
+        self.assertIn("width: min(112, max(44, header.size.width - 240))", header)
         self.assertIn("Spacer(minLength: 0)", header)
         self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", header)
         self.assertIn(".frame(maxWidth: .infinity, alignment: .trailing)", header)
