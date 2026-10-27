@@ -124,8 +124,11 @@ data class WODMovement(
             calories?.let { parts.add("$it cal") }
             parts.add(name.uppercase())
             weightMaleKg?.let { male ->
-                val female = weightFemaleKg?.let { fmt(it) } ?: "-"
-                parts.add("${fmt(male)}/$female")
+                // Apple 4c9a5d10 (WODMovement.summaryLine): par H/M o carga
+                // unica, siempre con sufijo kg.
+                weightFemaleKg?.let { female ->
+                    parts.add("${fmt(male)}/${fmt(female)} kg")
+                } ?: parts.add("${fmt(male)} kg")
             }
             var line = parts.joinToString(" ")
             if (!scaleAlternative.isNullOrEmpty()) line += " / $scaleAlternative"

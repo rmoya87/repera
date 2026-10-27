@@ -41,4 +41,29 @@ class BoardScanSingleLoadTest {
         assertEquals(24.0, m.weightMaleKg!!, 1e-9)
         assertEquals(16.0, m.weightFemaleKg!!, 1e-9)
     }
+
+    @Test fun fullScannerKeepsDistanceAndSingleLoad() {
+        // Equivalente Android de testFullBoardParserAlsoKeepsDistanceAndSingleLoad
+        // (Apple 4c9a5d10): BoardScanLiteParser es la superficie de escaneo
+        // Android; el BoardImportParser completo sigue ausente (gap 88db5bb7).
+        val ms = moves("""AMRAP 10'
+            |20 m SLED PUSH 100kg
+            |15 m FARMER CARRY 2x24kg""".trimMargin())
+        assertEquals(2, ms.size)
+        assertEquals(20, ms[0].distanceMeters)
+        assertEquals(100.0, ms[0].weightMaleKg!!, 1e-9)
+        assertEquals(15, ms[1].distanceMeters)
+        assertEquals(24.0, ms[1].weightMaleKg!!, 1e-9)
+    }
+
+    @Test fun movementSummaryShowsKgSuffix() {
+        // Apple 4c9a5d10 WODMovement.summaryLine: carga con sufijo kg siempre.
+        val pair = WODMovement(name = "FARMER CARRY", distanceMeters = 20,
+            weightMaleKg = 24.0, weightFemaleKg = 16.0)
+        assertTrue(pair.summaryLine.contains("24/16 kg"))
+        val single = WODMovement(name = "SLED PUSH", distanceMeters = 15,
+            weightMaleKg = 100.0)
+        assertTrue(single.summaryLine.contains("100 kg"))
+        assertFalse(single.summaryLine.contains("/"))
+    }
 }

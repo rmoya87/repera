@@ -63,4 +63,20 @@ class WalkingLungeQuantityTest {
             isMachineQuantity = true, durationSeconds = 120)
         assertEquals(2.0, unloaded.fatigueSetEquivalent, 1e-9)
     }
+
+    @Test fun loadedDistanceNameVariantsFromScans() {
+        // Apple f25f8d90: variantes de nombre (prefijos OCR, plurales,
+        // apostrofes) reconocidas desde scans y alias de catalogo.
+        val meters = listOf("Yoke carry", "Sled push", "Sled pull",
+            "Sled drag", "Farmer's carry", "Sandbag carry")
+        for (name in meters) {
+            assertTrue(name, ExerciseInput.supportsWeightedRepsOrMeters(name))
+            assertEquals(name, "meters", ExerciseInput.defaultQuantityUnit(name, null))
+        }
+        assertTrue(ExerciseInput.supportsWeightedRepsOrMeters("DB Walking Lunges"))
+        assertEquals("reps", ExerciseInput.defaultQuantityUnit("DB Walking Lunges", null))
+        assertTrue(ExerciseInput.supportsWeightedRepsOrMeters("Heavy sled push"))
+        // Sentadillas normales NO activan metros.
+        assertFalse(ExerciseInput.supportsWeightedRepsOrMeters("Back squat"))
+    }
 }

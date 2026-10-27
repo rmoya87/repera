@@ -580,6 +580,14 @@ private fun EntryEditorRow(
     onDown: (() -> Unit)? = null
 ) {
     val isRest = entry.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
+    // Apple 4c9a5d10: la etiqueta de cantidad de un recorrido (reps/m) es el
+    // shortLabel de la unidad elegida, no «Reps»/«Cantidad» fijo.
+    fun shortUnitLabel(u:String?):String = when(u) {"meters"->"m";"calories"->"cal";else->"reps"}
+    val entryUnit:String? = if (weightedRepsOrMeters)
+        entry.unit ?: entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+            ?.optString("quantityUnit")?.takeIf { it == "reps" || it == "meters" || it == "calories" }
+            ?: dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
+    else null
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("⠿", modifier = handle.testTag("plan_entry_drag").padding(8.dp))
@@ -610,7 +618,8 @@ private fun EntryEditorRow(
             OutlinedTextField(
                 value = entry.quantity,
                 onValueChange = { entry.quantity = it },
-                label = { Text(if (isStrength) "Reps" else "Cantidad") },
+                label = { Text(if (isStrength) "Reps"
+                    else if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "Cantidad") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f)
@@ -709,7 +718,8 @@ private fun EntryEditorRow(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("KG", style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f))
-                    Text("Reps", style = MaterialTheme.typography.labelSmall,
+                    Text(if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "Reps",
+                        style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f))
                     Text("RIR", style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f))
