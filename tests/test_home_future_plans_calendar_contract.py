@@ -25,6 +25,32 @@ class FuturePlannedWorkoutsCalendarTests(unittest.TestCase):
         # A plan in the past without completed activity is not shown as done.
         self.assertNotIn("if hasCompletedWorkout || day.hasPlan", cell)
 
+    def test_today_stays_green_when_another_day_is_selected(self):
+        cell = self.home.split("private func calendarDayColumn(", 1)[1].split(
+            "private var dayWorkoutSection:", 1
+        )[0]
+        self.assertIn("let isToday = calendar.isDateInToday(day.date)", cell)
+        self.assertIn("if !selected {", cell)
+        self.assertIn("isToday ? OG.accent : OG.surface3.opacity(0.75)", cell)
+        self.assertIn("lineWidth: isToday ? 1.5 : 0.7", cell)
+        # La fecha seleccionada sigue rellena de verde, incluso si es hoy.
+        self.assertIn("selected ? OG.accent : OG.surface", cell)
+
+    def test_calendar_peeks_previous_day_tail_without_adding_outer_padding(self):
+        selector = self.home.split("private var weekSelectorCard: some View {", 1)[1].split(
+            "private func calendarDayColumn(", 1
+        )[0]
+        self.assertIn("let leadingPeek = side * 0.7", selector)
+        self.assertIn(".frame(width: geo.size.width + leadingPeek, alignment: .leading)", selector)
+        self.assertIn(".offset(x: -leadingPeek)", selector)
+        self.assertIn(".clipped()", selector)
+        self.assertIn(".scrollPosition(id: $calendarScrollID, anchor: .leading)", selector)
+        self.assertNotIn(".padding(.leading, OG.pad)", selector)
+        startup = self.home.split("private func rebuildWeekChrome()", 1)[1].split(
+            "private func rebuildStreakChrome()", 1
+        )[0]
+        self.assertIn("value: -1, to: selectedDay", startup)
+
     def test_local_coach_and_booked_classes_are_all_indexed(self):
         lookup = self.home.split("private func makeCalendarDayLookup()", 1)[1].split(
             "private func makeWeekDays(", 1
