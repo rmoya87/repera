@@ -317,3 +317,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  RelojOCR22:02 ynumericospuros no crean movimientos.3tests nuevos,domain499
  /499,93XMLcompleta22:11verde. Completo sigueGAP(complex/otrasrutas).
 - Mobilepost290TODAS647/162XML+assemble69sverde.Mobilepostestaunidadpendiente.
+
+## Checkpoint parser 22:18
+- Post291mobileTODAS647/162XML4lotes72/80/63/62s,0fallos,sin faltantes,
+ assemble54sverde;domain499/93XMLcompleta22:11. Estado vigente posterior a
+ notas previas pendientes. Matrices735/70abiertas;88db5bb7/c6f89c28 anotadas
+ con subsets realmente portados,sin reclasificar ni cerrar parser completo.
+- Full todavia difiere:default3x8 no inferido,complexmultisegment en fallback,
+ percent/setsrange enfallback,otros headers/matching yvalidacion nativa.
+- Recuperacion289 desdeclon65338db7+gitam hasta289 arbol942c373cc29c9eb22a984790419df040bf272bfb
+ exacto;Wearassemble47s21:57nuevo packageverde. Wear8/1tests21:20.
