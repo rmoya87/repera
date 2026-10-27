@@ -349,6 +349,7 @@ struct WorkoutView: View {
             libraryRoutines: store.libraryRoutineCount,
             customExercises: store.customExerciseCount
         )
+        store.featureAccess = { [subscriptions] in subscriptions.policy }
         guard store.saveActiveSessionAsFavorite() != nil else {
             // Solo refrescar en caso de denegación comercial, nunca si falta
             // una sesión o hay otro fallo de persistencia.
