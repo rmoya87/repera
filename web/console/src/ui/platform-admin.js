@@ -134,7 +134,8 @@ function overview(orgs,financial,history){
 function directory(orgs,filter){
  const needle=String(filter.search||'').trim().toLocaleLowerCase('es-ES');
  let list=orgs.filter(o=>(!needle||[o.name,o.email,o.slug].some(s=>String(s||'').toLocaleLowerCase('es-ES').includes(needle)))
-   &&(!filter.status||filter.status==='all'||o.status===filter.status)
+   &&(!filter.status||filter.status==='all'||
+   (filter.status==='pending'?o.registration_status==='pending':o.status===filter.status))
    &&(!filter.kind||filter.kind==='all'||(filter.kind==='gym'?o.kind!=='personal_trainer':o.kind==='personal_trainer')));
  return `${heading('Centros','Gimnasios, centros deportivos y entrenadores personales en un solo listado.',button('Añadir centro','go-provision'))}
  <section class="pa-panel"><div class="pa-filters">
