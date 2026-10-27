@@ -85,6 +85,26 @@ class ReviewSpacingRenderTest {
     }
 
     @Test
+    fun readinessMultidayCurve() {
+        val today=LocalDate.of(2026,10,27)
+        composeRule.setContent {
+            MaterialTheme(colorScheme=reperaColorScheme(false)) {
+                Surface(Modifier.testTag("readiness_curve_fixture")) {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.material3.Text("Recuperación · ejemplo de prueba")
+                        dev.repera.mobile.DayPointLineChart(
+                            listOf(2.0,4.0,7.0,9.0,6.0,3.0,8.0).mapIndexed {i,v ->
+                                dev.repera.domain.ProgressDayPoint(today.minusDays((6-i).toLong()),v)
+                            },valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,readinessStyle=true)
+                    }
+                }
+            }
+        }
+        save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
+            "readiness-multiday-curve.png")
+    }
+
+    @Test
     fun importedActivityIcons() {
         composeRule.setContent {
             MaterialTheme(colorScheme = reperaColorScheme(false)) {

@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.horizontalScroll
@@ -402,7 +403,8 @@ internal fun DayPointLineChart(
     valueFormat: (Double) -> String = { formatWeight(it) },
     goal:Double? = null,
     bounds:ClosedFloatingPointRange<Double>? = null,
-    interactive:Boolean=true
+    interactive:Boolean=true,
+    readinessStyle:Boolean=false
 ) {
     if (points.isEmpty()) return
     // Apple HealthRecovery.vitalChart: one observed sample is not a trend.
@@ -465,22 +467,29 @@ internal fun DayPointLineChart(
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
-                .pointerInput(points,interactive) {
+                .pointerInput(points,interactive,readinessStyle) {
                     if(!interactive) return@pointerInput
                     detectTapGestures { offset ->
-                        val idx = DayChartPositions.nearest(points,offset.x / size.width)
+                        val idx = DayChartPositions.nearest(points,if(readinessStyle)
+                            (offset.x-8.dp.toPx())/(size.width-16.dp.toPx()).coerceAtLeast(1f)
+                            else offset.x / size.width)
                         selected = if (selected == idx) null else idx
                     }
                 }
-                .pointerInput(points,interactive) {
+                .pointerInput(points,interactive,readinessStyle) {
                     if(!interactive) return@pointerInput
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
-                        val idx = DayChartPositions.nearest(points,change.position.x / size.width)
+                        val idx = DayChartPositions.nearest(points,if(readinessStyle)
+                            (change.position.x-8.dp.toPx())/(size.width-16.dp.toPx()).coerceAtLeast(1f)
+                            else change.position.x / size.width)
                         selected = idx
                     }
                 }) {
-                fun x(i: Int) = DayChartPositions.fraction(points,i)*size.width
+                fun x(i: Int):Float {
+                    val inset=if(readinessStyle) 8.dp.toPx() else 0f
+                    return inset+DayChartPositions.fraction(points,i)*(size.width-2*inset).coerceAtLeast(0f)
+                }
                 fun y(v: Double) =
                     size.height - ((v - minV) / span * size.height * 0.85f)
                         .toFloat() - size.height * 0.075f
@@ -493,7 +502,25 @@ internal fun DayPointLineChart(
                     drawLine(color=line.copy(alpha=0.55f),start=Offset(0f,y(target)),end=Offset(size.width,y(target)),
                         strokeWidth=2f,pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f,8f)))
                 }
-                drawPath(path, color = line, style = Stroke(width = 4f))
+                if(readinessStyle) {
+                    val curve=Path()
+                    val observed=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
+                    curve.moveTo(observed.first().x,observed.first().y)
+                    ReadinessCurve.segments(observed).forEach {c ->
+                        curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)
+                    }
+                    // Gradient is anchored to the score axis, not sample order.
+                    val brush=androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0f to line,0.16f to line,
+                        0.28f to Color(0xFFFFCC00),0.40f to Color(0xFFFFCC00),
+                        0.60f to Color(0xFFFF3B30),1f to Color(0xFFFF3B30),
+                        startY=y(10.0),endY=y(0.0))
+                    clipRect {
+                        drawPath(curve,brush=brush,style=Stroke(width=3.dp.toPx(),
+                            cap=androidx.compose.ui.graphics.StrokeCap.Round,
+                            join=androidx.compose.ui.graphics.StrokeJoin.Round))
+                    }
+                } else drawPath(path, color = line, style = Stroke(width = 4f))
                 drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))
                 selected?.let { i ->

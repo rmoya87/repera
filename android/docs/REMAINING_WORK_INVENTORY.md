@@ -100,3 +100,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
   especifica de readiness, por defecto lineal/paleta actual. No cambiar otras
   series. Conservar seleccion por distancia calendario, bounds0..10 y estado
   sin tendencia de una muestra. Render fixture multidia explicito antes de cierre.
+
+## Readiness 19:15
+- CatmullRom y gradiente por valor PORTADOS (readinessStyle opt-in); render multidia
+  fixture explicito360claro inspeccionado. Suite mobile611/611(150XML).
+  b73d77dc sigue verified-partial por dispositivo;70/735abiertas.
