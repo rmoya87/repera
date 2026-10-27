@@ -77,14 +77,14 @@ class StartMapControlsContractTests(unittest.TestCase):
 
         self.assertEqual(
             len(re.findall(
-                r"if recorder\\.phase == \\.recording \\|\\| recorder\\.phase == \\.paused"
-                r" \\{\\s+mapMetricStrip",
+                r"if recorder\.phase == \.recording \|\| recorder\.phase == \.paused"
+                r" \{\s+mapMetricStrip",
                 map_view,
             )),
             2,
         )
         self.assertNotIn(
-            "Spacer(minLength: 0)\\n                        mapMetricStrip",
+            "Spacer(minLength: 0)\n                        mapMetricStrip",
             map_view,
         )
         # La barra inferior de elegir actividad / Play / GPX sigue en idle.
