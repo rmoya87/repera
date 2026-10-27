@@ -1,24 +1,33 @@
-# Inventario de trabajo restante (27 oct 20:19 CET)
+# Inventario de trabajo restante (27 oct 21:21 CET)
 
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
 Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (579 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Estado vigente (recuento directo 27oct20:19 CET)
+## Estado vigente (recuento directo 27oct21:21 CET)
 -735 filas SHA validas:579prewindow+156postwindow.
 -70 abiertas:50prewindow+20postwindow. Abierta = campo6 comienza partial,
  verified-partial o in-progress. Cambiar partial a verified-partial no cierra.
-- Mobile632/632(160XML) ejecutada completa20:18. Domain485/485(92XML) y
- Wear8/8(1XML) ejecutadas19:48. Cero fallos/errores por modulo.
-- Assemble mobile ejecutado verde269;270 solo agrega test. Wear assemble
- verde UP-TO-DATE19:48, no se presenta como compilacion nueva.
-- Readiness curva Catmull-Rom+gradiente por valor YA portadas (tree251/252);
- b73d77dc permanece abierta por runtime. No inferir pendiente desde notas viejas.
-- Cambios256..270: pendingEnd hasta guardado; bindings servicios por identidad;
- peso tiles/previews; filtros opacos/reset; rest-pause individual; reps/metros
- Play con pruebas de filas/clasico/correccion. Ver notas y matrices para limites.
-- Runtime dispositivo, zonas FC decision, parser completo, meteo ruta,
- Live status entrenos planificados y rama Diario siguen abiertos.
-- Ninguna nota historica posterior sustituye este recuento ni la matriz viva.
+- Mobile645/645(162XML) ejecutadas TODAS en4lotes+clase faltante21:06..21:14,
+ cero fallos/errores. XML consolidados:repera280-mobile-xml.tar.gz. Monolitica
+ no cerro120s;un intento AIAccessRenderTest fallo CalledFromWrongThread,
+ aislado y despues en lote verde. No se presenta monolitica verde.
+- Domain485/485(92XML) yWear8/8(1XML) REEJECUTADAS21:20 (2tasks test ejecutadas,
+ no cache/up-to-date),0fallos/errores por modulo.
+- Assemble mobile280 ejecutado verde21:15 (112s). Wear assemble anterior
+ verde UP-TO-DATE19:48,no se presenta como compilacion nueva.
+- HEAD implementacion280=0f5bb404;backup280-full recuperado mediante git am
+ en clon limpio65338db7:arbol96a20bcdb590b173f7d50185e230a0341eb46255
+ IDENTICO al original. Backup260commits --binary, no net diff.
+- Ultimos cambios271..280: inventario reconciliado;WOD unidades explicitas;
+ notificacion programados273/274;Peso210/CatmullRom/vacio275/276;
+ readiness220/previewplano277 yDUO205..270278;preview ejercicio eje sesiones
+195/CatmullRom279;sueno night-sky/area/220yDUO280. Renders inspeccionados.
+- Runtime dispositivo,zonas FC decision,parser completo,meteo ruta,rama Diario
+ siguen abiertos. Planned lockscreen YA implementado273/274, NO es ausencia
+ de superficie;outdoor metricas y validacion nativa quedan abiertos.
+- Cursores readiness y vacio YA portados;no inferir pendiente desde notas viejas.
+ Graficas reales ejercicio/cardio/kcal y fisiologia aun difieren del corte.
+- Ninguna nota historica sustituye este recuento ni la matriz viva.
   No push hasta condicion original y cierre real.
 
 ## Dependencias de validacion (bloquean cierre)
@@ -51,9 +60,9 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (579 filas) + AUDIT_POSTBD4_WINDOW_MATRI
   frescura planificacion = 1d333b42 verified-ported 15:35. ABIERTO real: 44713457
   captura de series WOD por movimiento YA portada; sigue diferencia sin reloj
   de bloque activo (44713457) + validacion visual estilo botones (0f528156/604b1293)
-- Cursores interactivos graficas recuperacion (b73d77dc/42f02b82)
+- Cursores interactivos graficas recuperacion IMPLEMENTADOS (b73d77dc/42f02b82), runtime pendiente
 - Estilos parciales a verificar en runtime (margenes, miniaturas, previews)
-- Gaps post-window ya conocidos: widgets/LiveActivities, Health-ruta upload, fullscreen map, tap targets/overlay, Health Connect por rango, tiles resumen
+- Grupos post-window (no lista de ausencias actuales): widgets/notificacion, Health-ruta, fullscreen map, tap targets/overlay, Health Connect por rango, tiles resumen. Ver cada matriz: varias superficies YA portadas con runtime abierto.
 
 ## Evidencia N/A
 Cada fila n/a de las matrices lleva su razon (mecanica iOS nativa, superficie web/MCP/db compartida,
