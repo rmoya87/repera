@@ -56,6 +56,10 @@
 
 ## Tabs
 
+### Edición desde Inicio con deslizamiento (27/10/2026)
+- Las tarjetas de entrenamientos **personales** del calendario permiten deslizar **de izquierda a derecha** para revelar el lápiz blanco en círculo azul. Un entreno planificado abre `DayEditorView` con `.oneOff(isNew: false)` y conserva el UUID/fecha de su programación; una sesión propia completada abre el mismo editor de resultados que la ficha Historial, conservando su identidad, resultados y asociación HealthKit. Al guardar no se crea un segundo registro. El swipe contrario mantiene Eliminar en rojo.
+- La edición se ofrece exclusivamente a rutinas locales del usuario y a sus sesiones ya registradas en `ReperaStore`; los planes y reservas publicados por entrenador personal o gimnasio se representan mediante `businessDayCard` desde `BusinessDataStore`, son de **solo lectura**, no reciben `onEdit` ni acceso al editor local. Las actividades externas de Apple Salud tampoco reciben el gesto de edición. El host de swipe conserva el gesto horizontal fuera del carrusel de chips y permite apertura a izquierda solo si existe acción autorizada.
+
 ### Favoritos de entrenamientos planificados (27/10/2026)
 - En **Inicio → Añadir entreno → Favoritos**, deslizar un entreno **de izquierda a derecha** revela un lápiz circular con acción **azul** que abre `DayEditorView` en modo `.favorite(isNew: false)`. El guardado sobrescribe el **mismo ID de plantilla**, con sus bloques y prescripciones actualizados, para reutilizarla posteriormente. Deslizar de derecha a izquierda conserva únicamente **Eliminar** en rojo; no se borra ni se ejecuta el entrenamiento al editar.
 

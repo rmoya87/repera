@@ -179,6 +179,37 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn("VStack(alignment: .leading, spacing: 0)", swipe)
         self.assertIn(".padding(.top, 0)", home)
 
+    def test_home_leading_edit_swipe_is_limited_to_personal_workouts(self):
+        home = swift("HomeView.swift")
+        swipe = swift("RegisterSwipeRevealCard.swift")
+        planned = home.split("private func plannedDayCard(", 1)[1].split(
+            "private func dayWorkoutCard(", 1
+        )[0]
+        completed = home.split("private func dayWorkoutCard(", 1)[1].split(
+            "private func healthActivityCard(", 1
+        )[0]
+        professional = home.split("private func businessDayCard(", 1)[1].split(
+            "private var emptyWorkoutCard:", 1
+        )[0]
+        health = home.split("private func healthActivityCard(", 1)[1].split(
+            "private func registerCardWithChipsOverlay", 1
+        )[0]
+        self.assertIn("onEdit: { editOwnPlannedRoutine(routine) }", planned)
+        self.assertIn("onEdit: { editOwnCompletedWorkout(session) }", completed)
+        self.assertIn("saved.scheduledDate != nil", home)
+        self.assertIn("editingOwnRoutine = saved", home)
+        self.assertIn("mode: .oneOff(isNew: false)", home)
+        self.assertIn("CompletedWorkoutEditing.routine(", home)
+        self.assertIn("CompletedWorkoutEditing.applying(", home)
+        self.assertIn("store.saveWorkout(updated)", home)
+        self.assertNotIn("onEdit:", professional)
+        self.assertNotIn("onEdit:", health)
+        self.assertIn("onEdit: (() -> Void)? = nil", swipe)
+        self.assertIn("allowsLeading: onEdit != nil", swipe)
+        self.assertIn('Image(systemName: "pencil")', swipe)
+        self.assertIn("Circle().fill(OG.blue)", swipe)
+        self.assertIn("Circle().fill(OG.red)", swipe)
+
     def test_home_day_workouts_are_oldest_first(self):
         home = swift("HomeView.swift")
         rebuild = home.split("private func rebuildDayBuckets() {", 1)[1].split(

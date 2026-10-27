@@ -8,11 +8,14 @@ import UIKit
 struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     var onOpen: () -> Void
     var onDelete: () -> Void
+    /// Ausente para tarjetas de Salud o entidades externas de solo lectura.
+    var onEdit: (() -> Void)?
     var deleteAccessibilityLabel: String
     /// Color de tarjeta configurable sin alterar el estilo usado en otras pantallas.
     private let cardBackground: Color
     private let minimumCardHeight: CGFloat
     @State private var isDeleteRevealed = false
+    @State private var isEditRevealed = false
     private let title: () -> Title
     private let chips: () -> Chips
 
@@ -22,6 +25,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     init(
         onOpen: @escaping () -> Void,
         onDelete: @escaping () -> Void,
+        onEdit: (() -> Void)? = nil,
         deleteAccessibilityLabel: String = "Eliminar",
         cardBackground: Color = OG.surface2,
         minimumCardHeight: CGFloat = 0,
@@ -30,6 +34,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     ) {
         self.onOpen = onOpen
         self.onDelete = onDelete
+        self.onEdit = onEdit
         self.deleteAccessibilityLabel = deleteAccessibilityLabel
         self.cardBackground = cardBackground
         self.minimumCardHeight = minimumCardHeight
@@ -38,18 +43,30 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
+        ZStack {
             deleteControl
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .opacity(isDeleteRevealed ? 1 : 0)
                 .allowsHitTesting(isDeleteRevealed)
                 .accessibilityHidden(!isDeleteRevealed)
+            if let onEdit {
+                editControl(onEdit)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .opacity(isEditRevealed ? 1 : 0)
+                    .allowsHitTesting(isEditRevealed)
+                    .accessibilityHidden(!isEditRevealed)
+            }
 
             SmoothSwipeCardHost(
                 revealWidth: revealWidth,
                 chipsBandHeight: chipsBandHeight,
                 onOpen: onOpen,
                 onDelete: onDelete,
-                onRevealChange: { isDeleteRevealed = $0 }
+                onEdit: onEdit,
+                onRevealChange: { deleteRevealed, editRevealed in
+                    isDeleteRevealed = deleteRevealed
+                    isEditRevealed = editRevealed
+                }
             ) {
                 VStack(alignment: .leading, spacing: 0) {
                     title()
@@ -68,6 +85,19 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                 }
             }
         }
+    }
+
+    private func editControl(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "pencil")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(OG.blue))
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 8)
+        .accessibilityLabel("Editar entreno propio")
     }
 
     private var deleteControl: some View {
@@ -112,11 +142,19 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     var chipsBandHeight: CGFloat
     var onOpen: () -> Void
     var onDelete: () -> Void
-    var onRevealChange: @MainActor (Bool) -> Void
+    var onEdit: (() -> Void)?
+    var onRevealChange: @MainActor (Bool, Bool) -> Void
     @ViewBuilder var content: () -> Content
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(revealWidth: revealWidth, chipsBandHeight: chipsBandHeight, onOpen: onOpen, onDelete: onDelete, onRevealChange: onRevealChange)
+        Coordinator(
+            revealWidth: revealWidth,
+            chipsBandHeight: chipsBandHeight,
+            onOpen: onOpen,
+            onDelete: onDelete,
+            onEdit: onEdit,
+            onRevealChange: onRevealChange
+        )
     }
 
     func makeUIView(context: Context) -> SwipeCardContainerView {
@@ -155,6 +193,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         context.coordinator.chipsBandHeight = chipsBandHeight
         context.coordinator.onOpen = onOpen
         context.coordinator.onDelete = onDelete
+        context.coordinator.onEdit = onEdit
         context.coordinator.onRevealChange = onRevealChange
         // Crítico: no recrear el árbol SwiftUI a mitad del swipe (causa temblor).
         guard !context.coordinator.isDragging else { return }
@@ -180,8 +219,10 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         var chipsBandHeight: CGFloat
         var onOpen: () -> Void
         var onDelete: () -> Void
-        var onRevealChange: @MainActor (Bool) -> Void
+        var onEdit: (() -> Void)?
+        var onRevealChange: @MainActor (Bool, Bool) -> Void
         private var deleteRevealed = false
+        private var editRevealed = false
 
         var host: UIHostingController<Content>?
         weak var cardView: UIView?
@@ -192,11 +233,17 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         private var currentX: CGFloat = 0
         private var lockedHorizontal: Bool?
 
-        init(revealWidth: CGFloat, chipsBandHeight: CGFloat, onOpen: @escaping () -> Void, onDelete: @escaping () -> Void, onRevealChange: @escaping @MainActor (Bool) -> Void) {
+        init(
+            revealWidth: CGFloat, chipsBandHeight: CGFloat,
+            onOpen: @escaping () -> Void, onDelete: @escaping () -> Void,
+            onEdit: (() -> Void)?,
+            onRevealChange: @escaping @MainActor (Bool, Bool) -> Void
+        ) {
             self.revealWidth = revealWidth
             self.chipsBandHeight = chipsBandHeight
             self.onOpen = onOpen
             self.onDelete = onDelete
+            self.onEdit = onEdit
             self.onRevealChange = onRevealChange
         }
 
@@ -221,12 +268,13 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
             // El UIHostingController ocupa también la zona revelada y bloquea
             // el botón SwiftUI de debajo. Entregar la pulsación desde UIKit.
             if currentX < -1 {
-                if point.x >= view.bounds.width - revealWidth {
-                    settle(to: 0)
-                    onDelete()
-                } else {
-                    settle(to: 0)
-                }
+                let isDeleteTap = point.x >= view.bounds.width - revealWidth
+                settle(to: 0)
+                if isDeleteTap { onDelete() }
+            } else if currentX > 1 {
+                let isEditTap = point.x <= revealWidth
+                settle(to: 0)
+                if isEditTap { onEdit?() }
             } else {
                 onOpen()
             }
@@ -264,7 +312,8 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
                 let next = SwipeRevealMath.clampedOffset(
                     start: startX,
                     translation: translation.x,
-                    revealWidth: revealWidth
+                    revealWidth: revealWidth,
+                    allowsLeading: onEdit != nil
                 )
                 applyX(next, animated: false)
 
@@ -285,12 +334,13 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
                 }
                 let velocityX = pan.velocity(in: view).x
                 let projected = currentX + velocityX * 0.18
-                let open = SwipeRevealMath.shouldOpen(
+                let target = SwipeRevealMath.settledOffset(
                     projected: projected,
                     current: currentX,
-                    revealWidth: revealWidth
+                    revealWidth: revealWidth,
+                    allowsLeading: onEdit != nil
                 )
-                settle(to: open ? -revealWidth : 0)
+                settle(to: target)
 
             default:
                 break
@@ -328,9 +378,13 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         private func applyX(_ x: CGFloat, animated: Bool) {
             currentX = x
             let shouldReveal = x < -1
-            if shouldReveal != deleteRevealed {
+            let shouldRevealEdit = x > 1 && onEdit != nil
+            if shouldReveal != deleteRevealed || shouldRevealEdit != editRevealed {
                 deleteRevealed = shouldReveal
-                MainActor.assumeIsolated { onRevealChange(shouldReveal) }
+                editRevealed = shouldRevealEdit
+                MainActor.assumeIsolated {
+                    onRevealChange(shouldReveal, shouldRevealEdit)
+                }
             }
             let transform = CGAffineTransform(translationX: x, y: 0)
             guard let cardView else { return }

@@ -97,6 +97,9 @@ struct HomeView: View {
     @State private var boardReviewPayload: BoardScanReviewPayload?
     @State private var workoutPendingDelete: WorkoutSession?
     @State private var routinePendingDelete: Routine?
+    /// Solo rutinas personales persistidas; prescripciones profesionales no se editan.
+    @State private var editingOwnRoutine: Routine?
+    @State private var editingOwnSessionID: UUID?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
     @State private var openWorkoutId: UUID?
     @State private var openProfessionalSessionId: UUID?
@@ -495,6 +498,46 @@ struct HomeView: View {
                     if started {
                         onOpenWorkout()
                     }
+                }
+            }
+            .navigationDestination(item: $editingOwnRoutine) { routine in
+                DayEditorView(
+                    routine: routine,
+                    mode: .oneOff(isNew: false),
+                    onClose: { editingOwnRoutine = nil },
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
+                )
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { editingOwnSessionID != nil },
+                set: { if !$0 { editingOwnSessionID = nil } }
+            )) {
+                if let id = editingOwnSessionID,
+                   let session = store.state.workouts.first(where: { $0.id == id }) {
+                    DayEditorView(
+                        routine: CompletedWorkoutEditing.routine(
+                            from: session,
+                            sourceRoutine: session.routineId.flatMap { routineId in
+                                store.state.routines.first(where: { $0.id == routineId })
+                            }
+                        ),
+                        mode: .session,
+                        onClose: { editingOwnSessionID = nil },
+                        onApplyCompleted: { routine, details in
+                            let updated = CompletedWorkoutEditing.applying(
+                                routine, to: details, catalog: store.state.exercises
+                            )
+                            store.saveWorkout(updated)
+                            rebuildDayBuckets()
+                            rebuildWeekChrome()
+                            rebuildStreakChrome()
+                            prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                        },
+                        completedSession: session,
+                        embedsNavigationStack: false,
+                        usesPageCloseHeader: true
+                    )
                 }
             }
             .navigationDestination(isPresented: Binding(
@@ -1161,13 +1204,27 @@ struct HomeView: View {
         .accessibilityHint("Abre el menú para crear o importar un entrenamiento para el día seleccionado")
     }
 
-    /// Entreno planificado del día (aún sin sesión hecha): mismo swipe de borrar que los registros.
+    /// La autorización de edición se basa en el tipo/fuente del registro:
+    /// entrenos propios del store, nunca prescripciones de BusinessDataStore.
+    private func editOwnPlannedRoutine(_ routine: Routine) {
+        guard let saved = store.state.routines.first(where: { $0.id == routine.id }),
+              saved.scheduledDate != nil else { return }
+        editingOwnRoutine = saved
+    }
+
+    private func editOwnCompletedWorkout(_ session: WorkoutSession) {
+        guard store.state.workouts.contains(where: { $0.id == session.id }) else { return }
+        editingOwnSessionID = session.id
+    }
+
+    /// Entreno planificado del día (aún sin sesión hecha): edición solo local.
     private func plannedDayCard(_ routine: Routine) -> some View {
         return registerCardWithChipsOverlay(
             open: { onStartRoutine(routine) },
-            accessibilityHint: "Toca para abrir el entreno. Desliza para borrarlo de este día.",
+            accessibilityHint: "Toca para abrir. Desliza a la derecha para editar o a la izquierda para borrar.",
             deleteLabel: "Borrar entreno del día",
             onDelete: { routinePendingDelete = routine },
+            onEdit: { editOwnPlannedRoutine(routine) },
             title: {
                 HStack(alignment: .top, spacing: 12) {
                     // Pendiente: icono de fuerza gris, incluso si ya hay
@@ -1216,6 +1273,7 @@ struct HomeView: View {
             accessibilityHint: "Toca para ver el detalle del entreno",
             deleteLabel: "Eliminar registro de entreno",
             onDelete: { workoutPendingDelete = session },
+            onEdit: { editOwnCompletedWorkout(session) },
             title: {
                 HStack(alignment: .top, spacing: 12) {
                     // Completado: mismo símbolo que un plan gris, en verde.
@@ -1299,12 +1357,14 @@ struct HomeView: View {
         accessibilityHint: String,
         deleteLabel: String,
         onDelete: @escaping () -> Void,
+        onEdit: (() -> Void)? = nil,
         @ViewBuilder title: @escaping () -> Title,
         @ViewBuilder chips: @escaping () -> some View
     ) -> some View {
         RegisterSwipeRevealCard(
             onOpen: open,
             onDelete: onDelete,
+            onEdit: onEdit,
             deleteAccessibilityLabel: deleteLabel,
             cardBackground: OG.surface,
             minimumCardHeight: singleWorkoutMinHeight,

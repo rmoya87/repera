@@ -157,6 +157,10 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `PaywallView` / `ProTeaserCard` | UI comercial Liquid Glass |
 | Detalle | [MONETIZATION.md](MONETIZATION.md) |
 
+## Swipe bidireccional de Inicio (27/10/2026)
+- `RegisterSwipeRevealCard` y su coordinador UIKit admiten `onEdit` opcional (revelado positivo, botón azul) y mantienen `onDelete` (negativo, rojo). `SwipeRevealMath` aplica umbrales simétricos y limita el desplazamiento positivo cuando la tarjeta no dispone de editor. El host preserva el bloqueo temporal del carrusel de chips y las animaciones de desplazamiento.
+- `HomeView` separa entrenos planificados propios (`state.routines`) y resultados propios (`state.workouts`) de las prescripciones de `BusinessDataStore`. Solo los dos primeros abren edición de `DayEditorView`, reutilizando `CompletedWorkoutEditing` para resultados. Las fichas de entrenador/gimnasio y de Apple Salud carecen de `onEdit`.
+
 ## Navegación (tabs)
 
 `RootTabView`: **Inicio · Diario · Crear|Center · Progreso · Ejercicios**. La pestaña central es **Crear** (`StartHubSheet`) salvo vínculo/invitación a gimnasio o entrenador, cuando pasa a **Center**. El + de Inicio sigue abriendo Crear en hoja. `CenterView` divide **Clases / Citas** con datos reales de Supabase.

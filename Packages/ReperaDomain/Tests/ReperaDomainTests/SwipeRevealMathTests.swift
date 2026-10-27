@@ -12,6 +12,32 @@ final class SwipeRevealMathTests: XCTestCase {
         XCTAssertEqual(SwipeRevealMath.clampedOffset(start: -20, translation: 30, revealWidth: reveal), 0)
     }
 
+    func testLeadingSwipeOnlyWhenEditable() {
+        let width: CGFloat = 72
+        XCTAssertEqual(SwipeRevealMath.clampedOffset(
+            start: 0, translation: 42, revealWidth: width, allowsLeading: true
+        ), 42)
+        XCTAssertEqual(SwipeRevealMath.clampedOffset(
+            start: 0, translation: 100, revealWidth: width, allowsLeading: true
+        ), width)
+        XCTAssertEqual(SwipeRevealMath.settledOffset(
+            projected: 48, current: 30, revealWidth: width, allowsLeading: true
+        ), width)
+
+        XCTAssertEqual(SwipeRevealMath.clampedOffset(
+            start: 0, translation: 60, revealWidth: width
+        ), 0)
+        XCTAssertEqual(SwipeRevealMath.settledOffset(
+            projected: 60, current: 40, revealWidth: width, allowsLeading: false
+        ), 0)
+        XCTAssertEqual(SwipeRevealMath.settledOffset(
+            projected: -48, current: -30, revealWidth: width, allowsLeading: true
+        ), -width)
+        XCTAssertEqual(SwipeRevealMath.settledOffset(
+            projected: -48, current: -30, revealWidth: width, allowsLeading: false
+        ), -width)
+    }
+
     func testSwipeDoesNotBeginOnChipsBand() {
         let height: CGFloat = 120
         let band: CGFloat = 48
