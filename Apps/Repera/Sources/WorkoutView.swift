@@ -1180,18 +1180,6 @@ struct WorkoutView: View {
                 .accessibilityLabel("Abrir reloj completo")
 
                 Button {
-                    clock.handlePrimary()
-                } label: {
-                    Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.black)
-                        .frame(width: 44, height: 44)
-                        .background(clock.isRunning ? OG.yellow : OG.accent, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(clock.primaryTitle + " temporizador")
-
-                Button {
                     clock.finishByUser()
                 } label: {
                     let flag = Image(systemName: "flag.checkered")
@@ -1210,6 +1198,18 @@ struct WorkoutView: View {
                 .buttonStyle(.plain)
                 .disabled(!clock.canFinishByUser)
                 .accessibilityLabel("Terminar temporizador")
+
+                Button {
+                    clock.handlePrimary()
+                } label: {
+                    Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(width: 44, height: 44)
+                        .background(clock.isRunning ? OG.yellow : OG.accent, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(clock.primaryTitle + " temporizador")
             }
             .padding(12)
             .background {
