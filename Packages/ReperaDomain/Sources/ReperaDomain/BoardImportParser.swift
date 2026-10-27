@@ -1520,10 +1520,18 @@ public enum CrossFitGlossary {
         if let match = catalog.first(where: {
             !$0.isCustom && !$0.isCatalogArchived && normalize($0.name) == normalize(canonical)
         }) { return match }
-        // No devolver la ficha temporal con nombre «BTt» o «T2B» para
-        // abreviaturas conocidas: impide que la UI muestre un icono genérico
-        // y bloquea la reparación hacia la entrada oficial del catálogo.
-        if isKnownAbbreviation { return nil }
+        // El catálogo editorial remoto se sincroniza de forma asíncrona y
+        // puede no estar hidratado (o faltar un UUID antiguo del entrenamiento).
+        // Para estas abreviaturas inequívocas usar la ficha oficial incluida
+        // en la app COMO ÚLTIMO RECURSO. No depender de un login de negocio,
+        // una descarga o del momento en que SwiftUI monta el List.
+        // Catalog.seed() es una caché de proceso, no genera UUID nuevos
+        // en cada lectura. La vista reparará después el enlace persistido.
+        if isKnownAbbreviation {
+            return Catalog.seed().first {
+                !$0.isCustom && normalize($0.name) == normalize(canonical)
+            }
+        }
         if let assigned { return assigned }
         return catalog.first(where: {
             ExerciseEquivalence.sameName($0.name, canonical)

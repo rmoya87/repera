@@ -60,6 +60,32 @@ struct OGRoutineBlockCard: View {
         .padding(OG.pad)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .task(id: "\(block.id.uuidString)-\(store.catalogEpoch)") {
+            guard block.kind == .wod else { return }
+            let officialNames: Set<String> = ["burpee to target", "toes to bar"]
+            let missing = Set(block.movements.compactMap { move -> String? in
+                guard !move.isRest else { return nil }
+                let name = CrossFitGlossary.normalize(
+                    CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
+                )
+                guard officialNames.contains(name) else { return nil }
+                let inLocalStore = store.state.exercises.contains {
+                    !$0.isCustom && !$0.isCatalogArchived
+                        && CrossFitGlossary.normalize($0.name) == name
+                }
+                return inLocalStore ? nil : name
+            })
+            guard !missing.isEmpty else { return }
+            // El listado y la miniatura no esperan a esta reparación:
+            // el resolver ya puede usar el catálogo oficial empaquetado.
+            let packaged = await Task.detached(priority: .utility) {
+                Catalog.seed().filter {
+                    missing.contains(CrossFitGlossary.normalize($0.name))
+                }
+            }.value
+            guard !Task.isCancelled else { return }
+            store.restoreMissingOfficialWODExercises(packaged)
+        }
     }
 
     private var blockHeader: String {
@@ -72,11 +98,17 @@ struct OGRoutineBlockCard: View {
     @ViewBuilder
     private func linkedExerciseRow(_ exercise: Exercise, detail: String) -> some View {
         if opensExerciseDetail,
-           let catalog = store.resolvedCatalogExercise(id: exercise.id) {
+           let catalog = store.resolvedCatalogExercise(id: exercise.id)
+               ?? (exercise.isCustom ? nil : exercise) {
             if let onOpenExercise {
                 // En una card con varias filas, varios NavigationLink podían
                 // activarse de golpe. El padre abre SOLO el ejercicio pulsado.
                 Button {
+                    // Reconciliar primero el catálogo por si el usuario pulsa
+                    // la fila antes de terminar la hidratación asíncrona.
+                    if store.resolvedCatalogExercise(id: catalog.id) == nil {
+                        store.restoreMissingOfficialWODExercises([catalog])
+                    }
                     onOpenExercise(catalog.id)
                 } label: {
                     HStack(spacing: 8) {

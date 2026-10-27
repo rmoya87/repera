@@ -15,12 +15,28 @@ final class AbbreviatedWODCatalogTests: XCTestCase {
         }
     }
 
-    func testProvisionalAbbreviationsAreNotAcceptedAsOfficialCatalogMatches() {
-        for raw in ["btt", "T2B"] {
+    func testOfficialOfflineFallbackWhenOnlyAProvisionalExerciseExists() {
+        for (raw, official) in [("BTt", "Burpee to target"), ("T2B", "Toes to bar")] {
             let provisional = Exercise(name: raw, muscleGroup: "WOD", isCustom: true)
             let movement = WODMovement(exerciseId: provisional.id, name: raw, reps: 6)
-            XCTAssertNil(CrossFitGlossary.catalogExercise(for: movement, in: [provisional]))
+            let resolved = CrossFitGlossary.catalogExercise(for: movement, in: [provisional])
+            XCTAssertEqual(resolved?.name, official)
+            XCTAssertEqual(resolved?.isCustom, false)
+            XCTAssertNotEqual(resolved?.id, provisional.id)
         }
+    }
+
+    func testOfficialRemoteAliasHasPriorityOverOfflineFallback() {
+        let official = Exercise(
+            name: "Burpee to target", muscleGroup: "Cardio",
+            isCustom: false, searchAliases: ["BTt"]
+        )
+        let provisional = Exercise(name: "BTt", muscleGroup: "WOD", isCustom: true)
+        let movement = WODMovement(exerciseId: provisional.id, name: "BTt", reps: 6)
+        XCTAssertEqual(
+            CrossFitGlossary.catalogExercise(for: movement, in: [provisional, official])?.id,
+            official.id
+        )
     }
 
     func testPreservesOtherCustomMovementsWithoutFalseReplacements() {

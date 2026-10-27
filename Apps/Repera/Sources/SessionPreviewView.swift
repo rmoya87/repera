@@ -108,8 +108,16 @@ struct SessionPreviewView: View {
                         CrossFitGlossary.resolveCatalogName(move.name, notes: move.notes)
                     )
                     guard known.contains(key) else { return nil }
+                    // El resolver ya incorpora un fallback empaquetado:
+                    // comprobar la presencia REAL de su UUID en el Store
+                    // para no omitir la reparación persistente.
                     let match = CrossFitGlossary.catalogExercise(for: move, in: store.state.exercises)
-                    return match?.isCustom == false ? nil : key
+                    guard let match,
+                          store.state.exercises.contains(where: {
+                              $0.id == match.id && !$0.isCustom && !$0.isCatalogArchived
+                          })
+                    else { return key }
+                    return nil
                 })
             guard !missing.isEmpty else { return }
             let packaged = await Task.detached(priority: .utility) {
