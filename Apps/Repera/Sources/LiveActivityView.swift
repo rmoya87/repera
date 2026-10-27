@@ -2550,12 +2550,6 @@ struct LiveActivityView: View {
     /// Finalizar aparece a su izquierda al pausar, sin mover los tres botones.
     private var metricsTrailingActions: some View {
         HStack(spacing: 6) {
-            if recorder.phase == .paused {
-                sessionMapButton(
-                    "flag.checkered", label: "Finalizar y guardar",
-                    background: .black, foreground: .white
-                ) { finishAndShowSave() }
-            }
             if showGuidanceToggle {
                 metricsCircleButton(
                     guidanceSymbol, label: guidanceAccessibilityLabel
@@ -2574,6 +2568,12 @@ struct LiveActivityView: View {
                     background: OG.yellow, foreground: .black
                 ) { recorder.pause() }
             } else if recorder.phase == .paused {
+                // Durante la pausa: Audio · Mapa · Finalizar · Play.
+                // Los dos botones de acción quedan juntos en el extremo derecho.
+                sessionMapButton(
+                    "flag.checkered", label: "Finalizar y guardar",
+                    background: .black, foreground: .white
+                ) { finishAndShowSave() }
                 sessionMapButton(
                     "play.fill", label: "Reanudar grabación",
                     background: OG.accent, foreground: .black
