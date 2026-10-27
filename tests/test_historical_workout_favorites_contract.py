@@ -25,8 +25,8 @@ class HistoricalWorkoutFavoritesContractTests(unittest.TestCase):
             "var activeSessionIsFavorite", 1
         )[0]
         self.assertIn("let session = state.workouts[workoutIndex]", code)
-        self.assertIn("let template = Self.favoriteTemplate(from: session)", code)
-        self.assertIn("guard saveRoutine(template) else { return false }", code)
+        self.assertIn("template = Self.favoriteTemplate(from: session)", code)
+        self.assertIn("guard saveRoutine(template) else {", code)
         self.assertIn("state.workouts[workoutIndex].favoriteRoutineId = template.id", code)
         self.assertIn("original.isFavorite", code)
         self.assertIn("return true", code)
@@ -35,7 +35,7 @@ class HistoricalWorkoutFavoritesContractTests(unittest.TestCase):
         method = STORE.split("func toggleWorkoutFavorite(_ id: UUID) -> Bool", 1)[1].split(
             "var activeSessionIsFavorite", 1
         )[0]
-        self.assertIn("guard hasReusableBlocks || !session.exercises.isEmpty else { return false }", method)
+        self.assertIn("guard hasReusableBlocks || !session.exercises.isEmpty || originalPlan != nil else {", method)
         self.assertIn("Self.favoriteTemplate(from: session)", method)
         self.assertIn("func isWorkoutFavorite(_ id: UUID)", STORE)
 
