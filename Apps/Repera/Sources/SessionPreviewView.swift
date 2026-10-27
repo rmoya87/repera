@@ -54,7 +54,7 @@ struct SessionPreviewView: View {
             VStack(alignment: .leading, spacing: 8) {
                 OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
                 if active == nil, !dayLabel.isEmpty {
-                    Text("Entreno · \\(dayLabel)")
+                    Text("Entreno · \(dayLabel)")
                         .font(.system(size: 15))
                         .foregroundStyle(OG.label2)
                 }
@@ -240,7 +240,7 @@ struct SessionPreviewView: View {
         guard let started = store.state.activeSession,
               started.routineId == routine.id else {
             startFailureMessage = HealthKitStore.shared.lastError
-                ?? "No se ha podido iniciar «\\(routine.title)». Comprueba que no haya otra actividad activa y vuelve a intentarlo."
+                ?? "No se ha podido iniciar «\(routine.title)». Comprueba que no haya otra actividad activa y vuelve a intentarlo."
             return
         }
         onStart()
