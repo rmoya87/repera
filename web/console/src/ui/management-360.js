@@ -1,3 +1,4 @@
+import {renderSharedAthleteSessions} from './athlete-activity.js';
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -82,8 +83,7 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  note('Aún no hay entrenamientos planificados.')}</div>
  <div class="business-detail-panel"><h3>Actividad compartida</h3>
  ${sharedHistory.length?`<p>${sharedHistory.length} sesiones compartidas con este centro.</p>
- ${sharedHistory.slice(0,30).map(h=>`<article class="business-line">
- <strong>${esc(h.title)}</strong><small>${dateTime(h.started_at)}</small></article>`).join('')}`:
+ ${renderSharedAthleteSessions(sharedHistory)}`:
  note('Solo se muestran actividades autorizadas por el atleta. El resto de su historial personal permanece privado.')}</div></div>`;
  }
  if(clientSection==='data'){
