@@ -141,9 +141,9 @@ struct TimerNumericInput: View {
             // toda la propuesta vertical del sheet de altura adaptable.
             .frame(height: 48)
             .frame(maxWidth: .infinity)
-            // Mismo teclado personalizado de Repera, con superficie
-            // Liquid Glass también en la configuración por rondas.
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
+            // Mismo fondo que el campo Reps del entrenamiento.
+            // El sheet mantiene Liquid Glass, pero no cada input numérico.
+            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
             .accessibilityLabel(label)
         }
         // Incluye etiqueta y campo dentro de la misma geometría cerrada:
