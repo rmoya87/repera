@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -46,6 +47,32 @@ internal fun ProgressExerciseTrendPreview(today:java.time.LocalDate) {
  Card(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de evolución por ejercicio, datos simulados."}) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Evolución por ejercicio",style=MaterialTheme.typography.titleMedium);Text("Ejemplo",style=MaterialTheme.typography.labelMedium)}
   Text("Evolución de carga · datos ficticios",style=MaterialTheme.typography.bodySmall)
-  DayPointLineChart(weights.mapIndexed {i,w ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),w)},bounds=35.0..65.0,interactive=false)
+  ExerciseTrendPreviewChart(weights)
  }}
+}
+
+/** StatsView freeExerciseTrendPreview: session axis0..8 (not calendar dates), y35..65. */
+@Composable
+internal fun ExerciseTrendPreviewChart(weights:List<Double>) {
+ val accent=MaterialTheme.colorScheme.primary
+ val grid=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.18f)
+ Column(Modifier.fillMaxWidth().semantics {contentDescription="Sesiones 1, 3, 5, 7; peso de 35 a 65 kg; ejemplo ficticio"}) {
+  androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(195.dp).then(Modifier.semantics {contentDescription="Gráfica de ejemplo por sesión, altura 195"})) {
+   fun x(session:Float)=session/8f*size.width
+   fun y(value:Double)=size.height-((value-35.0)/30.0*size.height).toFloat()
+   listOf(1f,3f,5f,7f).forEach {v ->drawLine(grid,androidx.compose.ui.geometry.Offset(x(v),0f),androidx.compose.ui.geometry.Offset(x(v),size.height),1.dp.toPx())}
+   val samples=weights.mapIndexed {i,v ->ReadinessCurve.Point(x(i+1f),y(v))}
+   if(samples.isNotEmpty()) {
+    val curve=androidx.compose.ui.graphics.Path()
+    curve.moveTo(samples.first().x,samples.first().y)
+    ReadinessCurve.segments(samples).forEach {c ->curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+    clipRect {drawPath(curve,accent,style=androidx.compose.ui.graphics.drawscope.Stroke(2.5.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round))}
+   }
+  }
+  Box(Modifier.fillMaxWidth().height(22.dp)) {
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.Start) {
+    listOf("1","3","5","7").forEach {Text(it,modifier=Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.labelSmall)}
+   }
+  }
+ }
 }

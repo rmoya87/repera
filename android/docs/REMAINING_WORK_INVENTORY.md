@@ -214,3 +214,10 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  Se aplica a curva real,preview y ejes vacios. No añade padding de relleno.
 - Prueba pura portrait y clamp inferior/intermedio/superior;fixture1000dp
  Free en dos columnas inspeccionada sin cortes. No implica validacion nativa.
+
+## Preview ejercicio 20:52
+- StatsView481-526 corte: Free preview evolucion ahora sesiones1..7 (eje0..8),
+ no7fechas inventadas. Ticks1/3/5/7 con grid,dominio35..65,195dp,
+ CatmullRom2.5dp redondo y clip; mismos pesos ficticios. Sin interaccion.
+- Captura360dp clara inspeccionada, curva/grid/ticks alineados sin cortes.
+ No altera grafica real de ejercicio ni acredita validacion de dispositivo.

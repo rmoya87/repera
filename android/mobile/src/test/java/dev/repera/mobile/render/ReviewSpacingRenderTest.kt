@@ -235,4 +235,12 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithTag("recovery_columns_2").assertExists()
         save(composeRule.onNodeWithTag("recovery_expanded_fixture").captureToImage().asAndroidBitmap(),"recovery-expanded-height.png")
     }
+ @Test fun exercisePreviewUsesSessionsNotDates() {
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("exercise_preview_fixture")) {
+            dev.repera.mobile.ProgressExerciseTrendPreview(LocalDate.of(2026,10,27))
+        }}}
+        composeRule.onNodeWithText("1").assertExists()
+        composeRule.onNodeWithText("7").assertExists()
+        save(composeRule.onNodeWithTag("exercise_preview_fixture").captureToImage().asAndroidBitmap(),"exercise-preview-sessions.png")
+    }
 }
