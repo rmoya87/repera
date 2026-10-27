@@ -83,20 +83,18 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("store.saveWorkout(session)", save)
         self.assertIn("Rutas sincronizadas con iCloud", self.live)
 
-    def test_home_load_route_switches_to_start_and_opens_library_without_play(self):
-        self.assertIn("var onLoadRoutes: () -> Void", self.home)
-        self.assertIn('Text("Cargar ruta")', self.home)
-        self.assertIn("Button(action: onLoadRoutes)", self.home)
-        self.assertIn("routePickerRequest &+= 1", self.root)
-        self.assertIn("tab = .start", self.root)
-        self.assertIn("routeLibraryOpenRequest: routePickerRequest", self.root)
-        self.assertIn("openRequestedRouteLibrary()", self.live)
-        self.assertIn("handledRouteLibraryOpenRequest = routeLibraryOpenRequest", self.live)
+    def test_route_library_is_only_available_from_comenzar(self):
+        self.assertNotIn("var onLoadRoutes:", self.home)
+        self.assertNotIn('Text("Cargar ruta")', self.home)
+        self.assertNotIn("Button(action: onLoadRoutes)", self.home)
+        self.assertNotIn("routePickerRequest", self.root)
+        self.assertNotIn("routeLibraryOpenRequest", self.live)
+        self.assertNotIn("openRequestedRouteLibrary()", self.live)
+        # The original Comenzar button, picker, route selection and
+        # explicit Play action remain available.
+        self.assertIn('Text(recorder.chosenRoute == nil ? "Cargar ruta" : "Ruta elegida")', self.live)
         self.assertIn("routePicker = true", self.live)
-        self.assertIn("recorder.phase == .idle", self.live)
-        # The selection prepares the course; starting remains an explicit Play.
         self.assertIn("recorder.selectRoute(selected)", self.live)
-        self.assertIn("let sport = LiveSport(rawValue: raw), sport.usesGPS", self.live)
         self.assertIn("if !recorder.sport.usesGPS { recorder.choose(.walking) }", self.live)
 
     def test_home_calendar_uses_one_planning_index_not_105_queries(self):
