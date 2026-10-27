@@ -260,7 +260,7 @@ internal fun ProgressTab(
             val charts=if(pro) overview?.chartsByRange?.get(selectedRange) else ProgressPreview.charts(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
             item {
                 if(!pro) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
-                if(charts!=null) ProgressChartsCard(charts,showEmpty=true)
+                if(charts!=null) ProgressChartsCard(charts,showEmpty=true,preview=!pro)
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
             if(healthPrompt!=ProgressHealthPromptKind.NONE) item {

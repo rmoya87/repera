@@ -452,3 +452,17 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  assemble39sverde. Cardio/kcal yautoejes/ticksaproximados aunpendientes;
  runtime735/70abierto,domain504/93Wear8/1anteriores,nopush.
 - Sin cambios ejecutables304;la validacion303no sepresentacomoejecucion304.
+
+## Revision graficos, avance kcal 23:47
+- Mismobloque revisionconstantes/graficos:subhueco kcalantespendiente
+ ahora area naranjaFF9F0A gradiente.32/.02+CatmullRom2.25dpredondo210dp.
+ No barras96dp;dominioY0..max(1,peak*1.18real/1.28preview),dominioX
+ periodoelegido ypreviewprimer/ultimodia+-0.5dia. Tap/drag/accesibilidad.
+- Vacio/allzeroaxes0..600210dp sinfabricarmuestras. Valorespreparados
+ sin cambios;flagpreviewexplicitdesdeProgresoFree,noinferencia porvalor.
+- TickYAndroid0/mitad/max yXprimer/ultimo son aproximaciontodavia:
+ tickDatesgranularidadSwift/greedylabels/gridcompleto/tarjetastats noportados.
+ Cardio96dp/banda aunpendiente,no tocarzonasFC/intensidaddecisionusuario.
+-4focalizados/2XMLverdes65s(3nuevos),PNG360preview yvacioinspeccionados.
+ Compilacion72s. Completa305pendiente;ultima303659/163XMLassemble39s.
+ Sin cambioestadosmatriz735/70,nativopendiente,no push.

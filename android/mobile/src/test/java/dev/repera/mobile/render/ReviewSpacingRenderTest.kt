@@ -303,4 +303,23 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("24 oct 2026: 13 resp/min").assertExists()
         save(composeRule.onNodeWithTag("physiology_bars_fixture").captureToImage().asAndroidBitmap(),"physiology-bars-selected.png")
     }
+ @Test fun caloriesCurveAndSelection() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("calories_fixture")) {
+            dev.repera.mobile.ProgressCaloriesPlot(dev.repera.mobile.ProgressPreview.charts(day,true),preview=true,today=day)
+        }}}
+        org.junit.Assert.assertEquals(210,composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
+        save(composeRule.onNodeWithTag("calories_fixture").captureToImage().asAndroidBitmap(),"calories-preview-curve.png")
+        composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()
+        composeRule.onNodeWithText("24 oct 2026: 721 kcal",useUnmergedTree=true).assertExists()
+    }
+ @Test fun caloriesEmptyKeepsAxesWithoutFabricatedSamples() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("calories_empty_fixture")) {
+            dev.repera.mobile.ProgressCaloriesPlot(dev.repera.mobile.ProgressPreview.charts(day,true).copy(calories=emptyList(),caloriesTotal=0.0),today=day)
+        }}}
+        org.junit.Assert.assertEquals(210,composeRule.onNodeWithTag("empty_health_chart_axes",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
+        composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).assertDoesNotExist()
+        save(composeRule.onNodeWithTag("calories_empty_fixture").captureToImage().asAndroidBitmap(),"calories-empty-axes.png")
+    }
 }

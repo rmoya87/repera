@@ -49,14 +49,14 @@ import dev.repera.domain.ProgressPreparedCharts
 /** Gráficas de Progreso (pulso y calorías) a partir de las series
  *  preparadas por ProgressChartBuilder. Sin librerías externas. */
 @Composable
-internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean=false) {
+internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean=false,preview:Boolean=false) {
     if (!showEmpty && charts.calories.isEmpty() && charts.heartRate.isEmpty()) return
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text("Actividad y pulso", style = MaterialTheme.typography.titleLarge)
             if(showEmpty && charts.calories.isEmpty()) {
                 Text("Calorías activas · sin mediciones en el periodo")
-                EmptyHealthChartAxes(0.0,1000.0)
+                ProgressCaloriesPlot(charts,preview)
             }
             if(showEmpty && charts.heartRate.isEmpty()) {
                 Text("Frecuencia cardíaca · sin mediciones en el periodo")
@@ -71,30 +71,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
                     " · Variación " + dev.repera.domain.CalorieAverageStats.changeLabel(
                         dev.repera.domain.CalorieAverageStats.change(charts.caloriesDailyAverage, charts.previousCaloriesDailyAverage)),
                     style = MaterialTheme.typography.bodySmall)
-                val color = MaterialTheme.colorScheme.primary
-                val values = charts.calories.map { it.value }
-                Canvas(modifier = Modifier
-                    .fillMaxWidth()
-                    .height(96.dp)
-                    .padding(top = 8.dp)) {
-                    val maxV = (values.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
-                    val firstDay=charts.calories.first().day
-                    val lastDay=charts.calories.last().day
-                    val span=(lastDay.toEpochDay()-firstDay.toEpochDay()).coerceAtLeast(0)
-                    val smallestGap=charts.calories.zipWithNext {a,b ->(b.day.toEpochDay()-a.day.toEpochDay()).coerceAtLeast(1)}.minOrNull() ?: 1
-                    val barWidth=if(span==0L) size.width/3 else size.width*(smallestGap.toFloat()/(span+smallestGap))
-                    values.forEachIndexed { i, v ->
-                        val h = (v / maxV * size.height).toFloat()
-                        val center=barWidth/2+DayChartPositions.dateFraction(firstDay,lastDay,charts.calories[i].day)*(size.width-barWidth)
-                        drawRect(
-                            color = color,
-                            topLeft = Offset(center-barWidth*0.35f,
-                                size.height - h),
-                            size = androidx.compose.ui.geometry.Size(
-                                barWidth * 0.7f, h)
-                        )
-                    }
-                }
+                ProgressCaloriesPlot(charts,preview)
             }
             if (charts.heartRate.isNotEmpty()) {
                 Text("Frecuencia cardíaca" +
