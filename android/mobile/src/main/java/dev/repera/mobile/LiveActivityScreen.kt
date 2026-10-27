@@ -15,6 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.Whatshot
 import dev.repera.domain.LiveActivityState
 import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.LiveSport
@@ -429,6 +433,22 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             }
             if(state.phase!=LiveActivityState.Phase.REVIEW) Button(onClick={runtime.finish();LiveActivityService.stop(context)},modifier=Modifier.testTag("live_finish")) {Text("Finalizar")}
             else {
+                // Apple 1b5d4eea (LiveActivityView reviewTiles): metricas de la
+                // revision en fichas icono+etiqueta+valor, sin contenedor exterior.
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    WorkoutSummaryTile("Tiempo activo",
+                        LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),
+                        Icons.Outlined.AccessTime, Modifier.weight(1f))
+                    if (state.sport.usesGPS) {
+                        WorkoutSummaryTile("Distancia",
+                            ReperaNumberFormat.decimal(state.distanceMeters / 1000) + " km",
+                            Icons.Outlined.Route, Modifier.weight(1f))
+                    }
+                    WorkoutSummaryTile("Energía",
+                        previewHealth?.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }
+                            ?.let { "%.0f kcal".format(it) } ?: "—",
+                        Icons.Outlined.Whatshot, Modifier.weight(1f))
+                }
                 previewHealth?.let { sample ->
                     val heart = sample.averageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }
                     val energy = sample.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }

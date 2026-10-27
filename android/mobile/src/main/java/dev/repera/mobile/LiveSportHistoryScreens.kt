@@ -13,9 +13,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Whatshot
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.repera.domain.LiveSport
 import dev.repera.domain.LiveSportHistory
 import java.time.Instant
@@ -75,12 +86,12 @@ internal fun LiveSportHistoryScreen(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Resumen", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SportSummaryTile("Actividades", "${summary.activityCount}", Modifier.weight(1f))
-                        SportSummaryTile("Tiempo", LiveSportHistory.formatDuration(summary.totalDurationSeconds), Modifier.weight(1f))
+                        WorkoutSummaryTile("Actividades", "${summary.activityCount}", sport.materialIcon, Modifier.weight(1f))
+                        WorkoutSummaryTile("Tiempo", LiveSportHistory.formatDuration(summary.totalDurationSeconds), Icons.Outlined.AccessTime, Modifier.weight(1f))
                         when {
-                            sport.usesGPS -> SportSummaryTile("Distancia", dev.repera.domain.ReperaNumberFormat.decimal(summary.totalKilometers) + " km", Modifier.weight(1f))
-                            summary.measuredEnergyKcal != null -> SportSummaryTile("Energía medida", "${summary.measuredEnergyKcal!!.roundToInt()} kcal", Modifier.weight(1f))
-                            summary.measuredHeartRateBpm != null -> SportSummaryTile("Pulso medio", "${summary.measuredHeartRateBpm!!.roundToInt()} lpm", Modifier.weight(1f))
+                            sport.usesGPS -> WorkoutSummaryTile("Distancia", dev.repera.domain.ReperaNumberFormat.decimal(summary.totalKilometers) + " km", Icons.Outlined.Route, Modifier.weight(1f))
+                            summary.measuredEnergyKcal != null -> WorkoutSummaryTile("Energía medida", "${summary.measuredEnergyKcal!!.roundToInt()} kcal", Icons.Outlined.Whatshot, Modifier.weight(1f))
+                            summary.measuredHeartRateBpm != null -> WorkoutSummaryTile("Pulso medio", "${summary.measuredHeartRateBpm!!.roundToInt()} lpm", Icons.Outlined.FavoriteBorder, Modifier.weight(1f))
                         }
                     }
                     summary.measuredHeartRateBpm?.takeIf { sport.usesGPS || summary.measuredEnergyKcal != null }?.let {
@@ -96,11 +107,11 @@ internal fun LiveSportHistoryScreen(
                     Text("Mejores marcas · ${sport.title}", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         records.longestDistanceMeters?.takeIf { sport.usesGPS }?.let {
-                            SportSummaryTile("Mayor distancia", dev.repera.domain.ReperaNumberFormat.decimal(it / 1000) + " km", Modifier.weight(1f)) }
+                            WorkoutSummaryTile("Mayor distancia", dev.repera.domain.ReperaNumberFormat.decimal(it / 1000) + " km", Icons.Outlined.Route, Modifier.weight(1f)) }
                         records.fastestRecordedKilometerSeconds?.takeIf { sport.usesGPS }?.let {
-                            SportSummaryTile("Mejor km", LiveSportHistory.formatDuration(it), Modifier.weight(1f)) }
+                            WorkoutSummaryTile("Mejor km", LiveSportHistory.formatDuration(it), Icons.Outlined.Timer, Modifier.weight(1f)) }
                         records.longestActiveSeconds?.let {
-                            SportSummaryTile("Mayor duración", LiveSportHistory.formatDuration(it), Modifier.weight(1f)) }
+                            WorkoutSummaryTile("Mayor duración", LiveSportHistory.formatDuration(it), Icons.Outlined.AccessTime, Modifier.weight(1f)) }
                     }
                     Text("Marcas basadas en actividades guardadas de este deporte. No representan récords de fuerza.", style = MaterialTheme.typography.bodySmall)
                 }
@@ -164,11 +175,22 @@ private fun SaveRouteSwipeRow(id:String,enabled:Boolean,onSave:()->Unit,content:
     }
 }
 
+// Apple 1b5d4eea/056cba8b/025828b5 (WorkoutSummaryTile): icono+etiqueta en
+// fila centrada y valor centrado debajo, altura intrinseca (sin minimo fijo).
 @Composable
-private fun SportSummaryTile(title: String, value: String, modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(value, style = MaterialTheme.typography.titleMedium)
-        Text(title, style = MaterialTheme.typography.labelSmall)
+internal fun WorkoutSummaryTile(title: String, value: String, icon: ImageVector, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth())
     }
 }
 
