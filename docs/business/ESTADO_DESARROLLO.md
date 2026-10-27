@@ -1,5 +1,15 @@
 ## Administración global de Repera — 27/10/2026
 
+## Fichas de atleta y centro; invitaciones de alumnos — 27/10/2026
+
+- Admin Atleta: cabecera solo imagen/nombre/email; pestañas **Ejercicios / Datos / Acceso / Reservas**; calendario + entrenamiento en dos columnas. Series de carga realmente registradas -> máximas y e1RM (Epley para 1–10 reps); mapa esquemático de grupos de ejercicios registrados; valoración orientativa de consistencia de datos, no acreditación de entrenamiento profesional. Sin Programa redundante. Permite abrir planificación del centro para un atleta vinculado y prellenar fecha desde el calendario. Atletas independientes deben aceptar centro antes de la planificación por un entrenador.
+- Admin Centros: fila completa seleccionable, sin columna Acción; pestañas Datos/Equipo/Clientes/Facturación; estado operativo separado de aceptación de propietario. Formulario de visibilidad `platform_admin_set_visibility` validado contra la búsqueda real de app en una transacción revertida; un centro suspendido no puede publicarse. Acción para reenviar instrucciones de registro (no concede rol owner automáticamente).
+- Profesional delegado: cabecera grande oculta; identidad/logo y ajustes/cierre de sesión fijos al pie del menú lateral.
+- Clientes: listado de tabla, ficha simplificada por Entrenamientos/Datos/Reservas. Historial solo por `get_shared_athlete_results`, que valida usuario vinculado, consentimiento y permisos, maquetado en los bloques/series de la app.
+- Invitaciones: alta de cliente crea ficha pending, prepara invitación y solicita email; ya registrados o nuevos deben verificar correo y aceptar para vincularse. Endpoint seguro Resend desplegado, con plantillas HTML y enlaces opcionales iOS/Android. Sin proveedor/remitente/URL de portal configurados, se muestra envío no confirmado; no se inventan emails entregados.
+- Migraciones aplicadas 20261027184500/185000/185500. Nuevo código y pruebas. Faltan verificación visual E2E y entrega transaccional real con secretos/cuentas disponibles.
+
+
 ## Rediseño de Atletas y experiencia del centro — 27/10/2026
 
 - **Atletas**: la fila completa del directorio abre la ficha con ratón o teclado; buscador accesible sin etiqueta redundante ni contador lateral. Ficha 360 reorganizada con calendario mensual y marcador de días entrenados; al elegir un día muestra entrenamientos reales, bloques, ejercicios, series realizadas, repeticiones/carga/RIR/tiempo y resultados WOD. No se muestran IDs internos, `blockId`, `muscleGroup`, `isFavorite` ni JSON crudo. La imagen del ejercicio solo aparece si tiene correspondencia exacta con el catálogo de iOS, evitando fotos incorrectas. Consultas paginadas y por fecha, con auditoría.
