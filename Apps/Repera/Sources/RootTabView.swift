@@ -171,7 +171,12 @@ struct RootTabView: View {
             if let routine = resolvePreviewRoutine(id: routineId) {
                 DayEditorView(
                     routine: routine,
-                    mode: routine.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                    // Una copia planificada se edita SOLO en su día; la
+                    // plantilla de Favoritos conserva su ID y se edita
+                    // como favorito, no como una planificación nueva.
+                    mode: routine.isOneOff
+                        ? .oneOff(isNew: false)
+                        : (routine.isFavorite ? .favorite(isNew: false) : .plan(isNew: false)),
                     onClose: { if !flowPath.isEmpty { flowPath.removeLast() } },
                     embedsNavigationStack: false,
                     usesPageCloseHeader: true
