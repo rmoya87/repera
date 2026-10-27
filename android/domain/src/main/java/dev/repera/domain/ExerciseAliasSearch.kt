@@ -15,7 +15,7 @@ object ExerciseAliasSearch {
         .trim()
         .replace(Regex("\\s+"), " ")
 
-    fun score(query: String, exerciseName: String, aliases: Map<String, String>): Int {
+    fun score(query: String, exerciseName: String, aliases: Map<String, String>, extraTerms: String = ""): Int {
         val search = normalize(query)
         if (search.isBlank()) return 1
         val name = normalize(exerciseName)
@@ -39,6 +39,14 @@ object ExerciseAliasSearch {
         } ?: -1
         if (bestAlias >= 0) return bestAlias
         val tokens = search.split(" ").filter { it.isNotEmpty() }
-        return if (tokens.all { name.contains(it) }) 50 else -1
+        if (tokens.all { name.contains(it) }) return 50
+        // Apple (live main) ExerciseSearch: disciplineTags joined into the meta field
+        // (perTokenInMeta, below every name/alias weight). Android carries the HYROX
+        // discipline on ExerciseEntry.hyroxTraining; call sites pass it here.
+        if (extraTerms.isNotBlank()) {
+            val extra = normalize(extraTerms)
+            if (tokens.all { extra.contains(it) }) return 40
+        }
+        return -1
     }
 }

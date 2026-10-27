@@ -399,7 +399,7 @@ ea4f47a5|2026-10-23T15:22:01+02:00|feat(catalog): bilingual HYROX movement names
 2b1382f5|2026-10-23T15:14:03+02:00|feat(ios): show additive sport chips on exercise detail|ios-app|830e0009 cb6bef67|unverified
 b7428a37|2026-10-23T15:14:00+02:00|feat(ios): HYROX library filter and shared sport sections|ios-app|1a15ed98 968f1d66 b2188237|unverified
 e327d676|2026-10-23T15:13:57+02:00|feat(ios): HYROX discipline in exercise picker|ios-app|89da973e|unverified
-9f89e59f|2026-10-23T15:13:19+02:00|feat(search): index secondary HYROX discipline|packages||unverified (retirado marcado prematuro 10:25: indexa disciplineTags en ExerciseSearch, NO lo cubre el fix del filtro)
+9f89e59f|2026-10-23T15:13:19+02:00|feat(search): index secondary HYROX discipline|packages||verified-with-fix tree169 (discipline extraTerms en ExerciseAliasSearch.score; call sites pasan hyroxTraining)
 e350a23d|2026-10-23T15:13:14+02:00|feat(domain): expose additive HYROX discipline tags|packages||verified-with-fix: conjunto HYROX incompleto (faltaban 16 equivalencias ES/plurales); portado en tree168 con test (ExerciseCatalogFiltersTest 2/2)
 26a03d2b|2026-10-23T15:13:11+02:00|feat(catalog): add HYROX tags and missing stations|packages|1a15ed98 7e092adf 89da973e baba0785|unverified
 c795768e|2026-10-23T15:12:09+02:00|docs(mobility): link exercise inventory and add verification checklist|docs-tests|6097fb92 6c247d43 89da973e acf504b5|unverified

@@ -74,7 +74,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
                 listOf("Alfabético","Músculo").forEach {mode ->FilterChip(selected=sort==mode,onClick={sort=mode},label={Text(mode)})}
             }}
             if(matches.isEmpty() && query.isNotBlank()) {
-                val fallback=exercises.map {it to dev.repera.domain.ExerciseAliasSearch.score(query,it.name,aliases)}
+                val fallback=exercises.map {it to dev.repera.domain.ExerciseAliasSearch.score(query,it.name,aliases,if(it.hyroxTraining) "hyrox" else "")}
                     .filter {it.second>=0}.sortedByDescending {it.second}.map {it.first}
                 item {Text("Ejercicios",style=MaterialTheme.typography.titleLarge)}
                 if(fallback.isEmpty()) item {Text("Sin ejercicios coincidentes")}

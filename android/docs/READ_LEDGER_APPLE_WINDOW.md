@@ -196,3 +196,10 @@ el Cue Android no lo expone. Anotado, sin portar aún.
 - Test REAL (XML, post-fix): mobile FULL 462/462, 0 failures/errors/skipped (baseline 460 + 2 nuevos).
 - Matrix: e350a23d, 96284a58 → verified-with-fix (tree168).
 - HALLAZGO ABIERTO 9f89e59f (Apple): indexa `disciplineTags.joined(" ")` en el campo "sport" de ExerciseSearch → buscar "hyrox" por texto devuelve todos los ejercicios HYROX. Android NO tiene concepto disciplineTags; `ExerciseAliasSearch.score(query, name, aliases)` solo puntúa nombre+aliases y los call sites (ExercisesTab, ReperaCards, WodLibraryScreen) solo pasan `name`. Buscar "hyrox" por texto en Android no devuelve nada (solo funciona el chip de filtro). NO arreglado: requiere decisión de diseño (dónde compone Android el documento de búsqueda; cómo alimentar disciplina sin alterar ranking). Fila 9f89e59f revertida a unverified con nota. Candidato a subir como gap en reporte final.
+
+## tree169 (10:33) — búsqueda por disciplina HYROX (port 9f89e59f, instrucción del padre 10:28:09 verificada en chat_events)
+- Apple 9f89e59f: ExerciseSearch indexa disciplineTags.joined(" ") en el campo meta (perTokenInMeta=120, por debajo de todo peso de nombre/alias).
+- Android no tiene disciplineTags pero ExerciseEntry.hyroxTraining ya existe (poblado desde ExerciseCatalogFilters.isHyroxTrainingMovement, mismo matchingNames de Apple). Port: ExerciseAliasSearch.score gana param opcional extraTerms (default "" → comportamiento idéntico); si todos los tokens de la query normalizada están en normalize(extraTerms) → 40 (por debajo de 50 tokens-en-nombre y de todo match de nombre/alias, igual que Apple meta<nombre). Call sites reales actualizados: ExercisesTab, ReperaCards, WodLibraryScreen pasan "hyrox" cuando entry.hyroxTraining.
+- Ranking conservado para consultas no disciplina: param por defecto y tests de regresión (defaultUnchanged -1, wrongDiscipline -1, name match > discipline match).
+- Tests REALES XML: domain 388/388 (386+2 nuevos), mobile 462/462 REAL XML.
+- Matrix: 9f89e59f → verified-with-fix (tree169).
