@@ -1,5 +1,7 @@
 # Repera
 
+**Pagos**: también existe `business_client_payments` para futuros cobros B2C, separado del ledger B2B y sin webhook configurado; consultar `20261027131000_platform_client_payment_ledger.sql`.
+
 ## Repera Business: administrador global (2026-10-27)
 
 La consola Business autenticada incorpora un panel independiente de plataforma (gimnasios, entrenadores, clientes agregados, fichas y configuraciones públicas, alta diferida de negocios, auditoría, pagos B2B y acceso delegado temporal de 30 minutos). El frontend está en `web/console/src/ui/platform-admin.js`; el backend se rige por `supabase/migrations/20261027120000_platform_admin_console.sql`. La delegación no comparte credenciales ni tokens con el propietario y conserva restricciones sobre datos privados.
