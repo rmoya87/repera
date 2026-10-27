@@ -41,11 +41,15 @@ class LoginComenzarProgressContracts(unittest.TestCase):
             "private func updateUpcomingTurn(", 1
         )[0]
         self.assertIn("speakNavigation(message)", km)
-        self.assertNotIn("notifyDuringBackground(", km)
+        # Solo se recurre a una notificación cuando iOS no activa el audio;
+        # un aviso correcto nunca genera un duplicado visual.
+        self.assertIn("if spokenGuidanceEnabled && !didSpeak", km)
+        self.assertIn("fallbackWhenSpeechFailed: true", km)
         self.assertIn("setCategory(", source)
         self.assertIn(".playback, mode: .spokenAudio", source)
-        self.assertIn("guard spokenGuidanceEnabled else", source)
-        self.assertIn("!self.speechSynthesizer.isSpeaking", source)
+        self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", source)
+        self.assertIn("pendingGuidanceUtterances", source)
+        self.assertIn("finishGuidanceUtterance(id)", source)
 
     def test_recaps_show_average_tiles_and_expand_routes(self):
         live = text(IOS / "LiveActivityView.swift")
