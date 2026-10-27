@@ -68,7 +68,7 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         # usan el mismo gate; solo el gate dispara configure directamente.
         self.assertGreaterEqual(PLAY.count("requestBlockClockStart(for: current)"), 4)
 
-    def test_setup_uses_shared_numeric_inputs_liquid_glass_and_fits_content(self):
+    def test_setup_uses_shared_reps_style_numeric_inputs_and_glass_sheet(self):
         sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
             "private func startBlockClock(", 1
         )[0]
