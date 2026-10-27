@@ -196,3 +196,9 @@ Secciones home: hero, pilares, cómo funciona, para quién, funciones, Watch, co
 ## Consentimiento de asistentes · 2026-10-24
 
 Última actualización: 2026-10-24. `pack-ionos.sh` incluye `ai/` para `https://repera.app/ai/`. Usa login Apple/Google con la cuenta de Repera y consentimiento explícito, sin claves manuales. Requiere desplegar el backend y configurar OAuth antes de habilitar los botones; no está publicado automáticamente. Procedimiento: [OAUTH_CONNECTIONS.md](../docs/OAUTH_CONNECTIONS.md).
+
+### Ajustes finales de invitaciones y centros
+
+Los enlaces de email abren `/console/?invitation=<uuid>` y permiten crear una **cuenta de deportista** (correo y contraseña), verificarla y aceptar la invitación sin crear empresa. Los atletas vinculados no acceden al área fiscal, facturación ni consultas administrativas de centros; para entrenadores y recepción la consola pide fichas con campos básicos, sin descargar teléfono ni notas internas. El enlace de verificación conserva el identificador de invitación.
+
+Búsqueda móvil: desde la migración `20261027190000_discoverable_center_excludes_suspended.sql`, un centro suspendido queda oculto aunque conserve `is_discoverable=true`; la consulta privilegiada reside en esquema privado y la RPC pública es `SECURITY INVOKER`. Verificar entrega de emails reales una vez configurado Resend.
