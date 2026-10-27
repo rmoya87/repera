@@ -1527,7 +1527,9 @@ public enum CrossFitGlossary {
             return remoteMatch
         }
         if let assigned, !assigned.isCustom,
-           (!isKnownAbbreviation || ExerciseEquivalence.sameName(assigned.name, canonical)) {
+           (!isKnownAbbreviation || normalize(assigned.name) == normalize(canonical)) {
+            // En abreviaturas antiguas no basta sameName(): un alias puede
+            // considerar equivalente «BTt» aunque sea la ficha equivocada.
             return assigned
         }
         if let match = catalog.first(where: {
