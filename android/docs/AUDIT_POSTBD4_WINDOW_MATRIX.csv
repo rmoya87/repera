@@ -111,9 +111,9 @@ de1a6f0e|2026-10-26T22:30:04+01:00|Test Supabase-driven aliases for OCR, search 
 67311dbf|2026-10-26T22:30:11+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 d38719b2|2026-10-26T22:30:14+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 83253491|2026-10-26T22:32:52+01:00|Ensure exact official exercise names outrank conflicting server aliases|domain||verified-partial 11:24 (precedencia nombre oficial exacto sobre alias: ya en catalogIndex tree173 (alias no pisa canónico); parte catalogExercise pendiente)
-7dff0470|2026-10-26T23:12:39+01:00|Set Repera TestFlight version to 1.0 (39) after build 38 upload|other||unverified
-3eb312a1|2026-10-26T23:12:51+01:00|Protect TestFlight build number from stale Xcode scheme pre-action settings|other||unverified
-087455df|2026-10-26T23:13:06+01:00|Test version sync rejects stale TestFlight 38 and preserves newer builds|other||unverified
+7dff0470|2026-10-26T23:12:39+01:00|Set Repera TestFlight version to 1.0 (39) after build 38 upload|other||verified-n/a 13:16: version/build TestFlight iOS; sin contraparte Android
+3eb312a1|2026-10-26T23:12:51+01:00|Protect TestFlight build number from stale Xcode scheme pre-action settings|other||verified-n/a 13:16: scripts/sync_versions.py es Xcode-only (Version.xcconfig/xcodegen); sin contraparte Android
+087455df|2026-10-26T23:13:06+01:00|Test version sync rejects stale TestFlight 38 and preserves newer builds|other||verified-n/a 13:16: tests del script de versiones Xcode; sin contraparte Android
 c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout favorites with stable push navigation|ios-app+domain||verified-partial+GAP 12:08 17a0fb87: capa de datos favoritos persistentes (WorkoutFavoriteSupport + delegados repository, 6 tests REAL 13/13 lote ligero; límite conservador abierto: sin plantilla vacía); GAP/decisión pendiente: reestructura UI (eliminar pestaña Diario, StartHub, Home, botón favorito en historial) requiere validación UI bloqueada
 5206065e|2026-10-26T23:30:01+01:00|Keep add-workout page top aligned and test workout favorite persistence|ios-app+tests||unverified
 7825652f|2026-10-26T23:31:14+01:00|Remove obsolete Diario copy from shared workout editor|ios-app||verified-ported 13:13 (rama diario-removal): unica referencia de copy a Diario actualizada; editor Android sin otras referencias
