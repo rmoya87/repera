@@ -32,7 +32,7 @@ class RouteMapLayersContractTest {
         val stroke = src.indexOf("fun strokeLayers")
         assertTrue(backdrop in 1 until stroke)
         // La recomposicion retira backdrop, capas de trazo y estimadas (sin duplicados).
-        assertTrue(src.contains("\"route-line-est-halo\""))
+        assertTrue(src.contains("route-line-est-halo-"))
         assertTrue(src.contains("\"route-backdrop-src\""))
     }
 }

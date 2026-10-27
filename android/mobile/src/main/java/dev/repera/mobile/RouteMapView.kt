@@ -107,10 +107,14 @@ internal fun RouteMapView(
         val map = loadedMap ?: return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
-                listOf("route-line","route-line-halo","route-line-edge","route-line-core",
-                    "route-line-est","route-line-est-halo","route-line-est-edge","route-line-est-core",
-                    "route-backdrop").forEach { style.removeLayer(it) }
+                listOf("route-line","route-line-est","route-backdrop").forEach { style.removeLayer(it) }
+                for (i in 0..24) {
+                    listOf("route-line-halo-$i","route-line-edge-$i","route-line-core-$i",
+                        "route-line-est-halo-$i","route-line-est-edge-$i","route-line-est-core-$i")
+                        .forEach { style.removeLayer(it) }
+                }
                 listOf("route-src","route-src-est","route-backdrop-src").forEach { style.removeSource(it) }
+                for (i in 0..24) { style.removeSource("route-src-$i");style.removeSource("route-src-est-$i") }
                 for (i in 0..1) {
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
@@ -272,28 +276,73 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
     // Trazo: halo/edge/core (anchos 4/2.25/1.4 y opacidades 0.23/0.75/1.0,
     // valores Apple). Tramos estimados discontinuos en las 3 capas con el
     // dash absoluto de Apple (4pt -> dasharray relativa por ancho).
-    fun strokeLayers(src: String, base: String, dashed_: Boolean) {
+    fun strokeLayers(src: String, base: String, dashed_: Boolean, gradient: Expression? = null) {
         val widths = floatArrayOf(4f, 2.25f, 1.4f)
         val opacities = floatArrayOf(0.23f, 0.75f, 1f)
         val names = arrayOf("halo", "edge", "core")
         for (i in 0..2) {
             val props = mutableListOf(
-                PropertyFactory.lineColor(Expression.get("color")),
+                if (gradient != null) PropertyFactory.lineGradient(gradient)
+                else PropertyFactory.lineColor(Expression.get("color")),
                 PropertyFactory.lineWidth(widths[i]),
                 PropertyFactory.lineOpacity(opacities[i]),
-                PropertyFactory.lineCap("round"))
+                PropertyFactory.lineCap("round"),
+                PropertyFactory.lineJoin("round"))
+            // lineMetrics no esta expuesto en PropertyFactory (android-sdk
+            // 13.7.1): propiedad de layout cruda, requerida por lineGradient.
+            if (gradient != null) props.add(org.maplibre.android.style.layers.PropertyValue("line-metrics", true))
             if (dashed_) props.add(PropertyFactory.lineDasharray(
                 arrayOf(4f / widths[i], 4f / widths[i])))
             style.addLayer(LineLayer("$base-${names[i]}", src).withProperties(*props.toTypedArray()))
         }
     }
-    if (solid.isNotEmpty() || dashed.isEmpty()) {
+    // Apple 9d4037b8: distancia por tramo para paradas del gradiente.
+    fun segmentMeters(a: dev.repera.domain.WorkoutRoutePoint, b: dev.repera.domain.WorkoutRoutePoint): Double {
+        val r = 6371000.0
+        val dLat = Math.toRadians(b.latitude - a.latitude)
+        val dLon = Math.toRadians(b.longitude - a.longitude)
+        val h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(a.latitude)) * Math.cos(Math.toRadians(b.latitude)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        return 2 * r * Math.asin(Math.sqrt(h).coerceAtMost(1.0))
+    }
+    if (plannedRoute && (solid.isNotEmpty() || dashed.isEmpty())) {
         style.addSource(GeoJsonSource("route-src", org.maplibre.geojson.FeatureCollection.fromFeatures(featuresOf(solid))))
-        if (plannedRoute) {
-            style.addLayer(LineLayer("route-line", "route-src").withProperties(
-                PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
-                PropertyFactory.lineCap("round")))
-        } else strokeLayers("route-src", "route-line", dashed_ = false)
+        style.addLayer(LineLayer("route-line", "route-src").withProperties(
+            PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
+            PropertyFactory.lineCap("round")))
+    } else if (solid.isNotEmpty()) {
+        // Apple 9d4037b8: polilinea UNICA por tramo continuo con gradiente
+        // conectado por distancia (lineMetrics+lineGradient) en las 3 capas;
+        // las esquinas se suavizan con join/cap round. Los enlaces estimados
+        // siguen discontinuos por tramo (capa aparte).
+        val runs = mutableListOf(mutableListOf<RouteMapModel.Segment>())
+        solid.forEach { seg ->
+            if (runs.last().isNotEmpty() && runs.last().last().b !== seg.a) runs.add(mutableListOf())
+            runs.last().add(seg)
+        }
+        runs.forEachIndexed { ri, run ->
+            val coords = org.json.JSONArray()
+            coords.put(org.json.JSONArray().put(run.first().a.longitude).put(run.first().a.latitude))
+            run.forEach { coords.put(org.json.JSONArray().put(it.b.longitude).put(it.b.latitude)) }
+            val feature = org.maplibre.geojson.Feature.fromJson(JSONObject()
+                .put("type", "Feature")
+                .put("geometry", JSONObject().put("type", "LineString").put("coordinates", coords)).toString())
+            style.addSource(GeoJsonSource("route-src-$ri", feature))
+            val dists = run.map { segmentMeters(it.a, it.b) }
+            val total = dists.sum().coerceAtLeast(1e-9)
+            val stops = mutableListOf<org.maplibre.android.style.expressions.Expression.Stop>()
+            var acc = 0.0
+            stops.add(Expression.stop(0.0, Expression.color(run.first().argb.toInt())))
+            run.forEachIndexed { i, seg ->
+                acc = (acc + dists[i] / total).coerceAtMost(1.0)
+                stops.add(Expression.stop(acc, Expression.color(seg.argb.toInt())))
+            }
+            val gradient = Expression.interpolate(Expression.linear(), Expression.lineProgress(),
+                *stops.toTypedArray())
+            strokeLayers("route-src-$ri", "route-line-$ri",
+                dashed_ = false, gradient = gradient)
+        }
     }
     if (dashed.isNotEmpty()) {
         // Tramos estimados: discontinuos, nunca como medicion GPS (Apple 9f62c49a).
@@ -303,7 +352,18 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
                 PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
                 PropertyFactory.lineCap("round"),
                 PropertyFactory.lineDasharray(arrayOf(2.0f, 2.0f))))
-        } else strokeLayers("route-src-est", "route-line-est", dashed_ = true)
+        } else {
+            val runs = mutableListOf(mutableListOf<RouteMapModel.Segment>())
+            dashed.forEach { seg ->
+                if (runs.last().isNotEmpty() && runs.last().last().b !== seg.a) runs.add(mutableListOf())
+                runs.last().add(seg)
+            }
+            runs.forEachIndexed { ri, run ->
+                val fc = org.maplibre.geojson.FeatureCollection.fromFeatures(featuresOf(run))
+                style.addSource(GeoJsonSource("route-src-est-$ri", fc))
+                strokeLayers("route-src-est-$ri", "route-line-est-$ri", dashed_ = true)
+            }
+        }
     }
     // Inicio (acento) y fin (rojo), círculos con borde blanco como iOS.
     listOfNotNull(
