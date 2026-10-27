@@ -60,9 +60,16 @@ internal class WodTimerStore(
     @Synchronized fun update(sessionId: String, index: Int, action: String, blockId: String? = null): WodTimerState {
         require(action in setOf("start", "pause", "reset", "finish"))
         val key = "$sessionId:$index"
-        val current = read(sessionId, index)
+        val sameSlot = preferences.getString("key", null) == key &&
+            (blockId == null || preferences.getString("blockId", null) == null ||
+                preferences.getString("blockId", null) == blockId)
+        val current = read(sessionId, index, blockId)
         val edit = preferences.edit().putString("key", key)
+        // New binding must not inherit pending completion or another block's ID.
+        // Existing legacy reads without a block ID remain unchanged (no migration).
+        if (!sameSlot) edit.remove("pendingEndReason").remove("pendingElapsedSeconds")
         if (blockId != null) edit.putString("blockId", blockId)
+        else if (!sameSlot) edit.remove("blockId")
         when (action) {
             "reset" -> edit.putLong("elapsedMs", 0).putBoolean("running", false)
                 .putLong("startAtUptimeMs", 0)
@@ -84,7 +91,7 @@ internal class WodTimerStore(
                 .putInt("pendingElapsedSeconds", current.elapsedSeconds)
         }
         check(edit.commit()) { "No se pudo guardar el cronómetro" }
-        return read(sessionId, index)
+        return read(sessionId, index, blockId)
     }
 
     /** Consume una unica vez el fin pendiente de ESTE bloque (Apple
@@ -93,7 +100,9 @@ internal class WodTimerStore(
         val state = read(sessionId, index, blockId)
         val reason = state.pendingEndReason ?: return null
         val elapsed = state.pendingElapsedSeconds
-        preferences.edit().remove("pendingEndReason").remove("pendingElapsedSeconds").apply()
+        check(preferences.edit().remove("pendingEndReason").remove("pendingElapsedSeconds").commit()) {
+            "No se pudo confirmar el fin del cronómetro"
+        }
         return reason to elapsed
     }
 }

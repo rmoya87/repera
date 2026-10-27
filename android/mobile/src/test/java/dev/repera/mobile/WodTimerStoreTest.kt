@@ -138,4 +138,38 @@ class WodTimerStoreTest {
         assertEquals(null, other.pendingEndReason)
         assertEquals(0, other.pendingElapsedSeconds)
     }
+
+    @Test fun updateSamePositionNewBlockDoesNotInheritClock() {
+        store().update("s1",0,"start","b1")
+        uptime+=40_000
+        val next=store().update("s1",0,"start","b2")
+        assertEquals(0,next.elapsedSeconds)
+        assertTrue(next.running)
+    }
+    @Test fun newSessionPauseDoesNotInheritPendingEndOrBlockId() {
+        store().update("s1",0,"start","b1")
+        uptime+=12_000
+        store().update("s1",0,"finish","b1")
+        val next=store().update("s2",0,"pause")
+        assertEquals(0,next.elapsedSeconds)
+        assertEquals(null,next.pendingEndReason)
+        // no stale b1 ID attached to the newly bound legacy slot
+        assertEquals(next,store().read("s2",0,"b2"))
+    }
+    @Test fun wrongBlockConsumeCannotClearOriginalPendingEnd() {
+        store().update("s1",0,"start","b1")
+        uptime+=12_000
+        store().update("s1",0,"finish","b1")
+        assertEquals(null,store().consumePendingEnd("s1",0,"b2"))
+        assertEquals("userFinished",store().read("s1",0,"b1").pendingEndReason)
+    }
+    @Test fun pendingEndNeverCrossesAccount() {
+        store().update("s1",0,"start","b1")
+        uptime+=12_000
+        store().update("s1",0,"finish","b1")
+        val other=WodTimerStore(ApplicationProvider.getApplicationContext(),"other-user") {uptime}
+        assertEquals(null,other.read("s1",0,"b1").pendingEndReason)
+        assertEquals(null,other.consumePendingEnd("s1",0,"b1"))
+        assertEquals("userFinished",store().read("s1",0,"b1").pendingEndReason)
+    }
 }
