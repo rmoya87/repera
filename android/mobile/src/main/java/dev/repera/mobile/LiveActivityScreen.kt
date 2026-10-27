@@ -398,9 +398,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 val chosenRoutePoints = routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty()
                 val previewRecorded = state.points.size >= 2
                 val previewPoints = if (previewRecorded) state.points else chosenRoutePoints
-                if(previewPoints.size>=2) RouteMapView(previewPoints,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),waterSport=state.sport.isWaterSport,
-                    plannedRoute=!previewRecorded,
-                    plannedPoints=if (previewRecorded) chosenRoutePoints else emptyList(),onMapRendered=onMapRendered)
+                // Apple 1c729659: preview sin gestos + superficie tactil dedicada
+                // que abre el recorrido a pantalla completa.
+                if(previewPoints.size>=2) RouteMapTapTarget(label = "Abrir recorrido a pantalla completa",
+                    modifier = Modifier.fillMaxWidth().height(220.dp)) { interactive, mapModifier ->
+                    RouteMapView(previewPoints,isInteractive=interactive,modifier=mapModifier,waterSport=state.sport.isWaterSport,
+                        plannedRoute=!previewRecorded,
+                        plannedPoints=if (previewRecorded) chosenRoutePoints else emptyList(),onMapRendered=onMapRendered)
+                }
                 // Apple (live main) e9feae2b: resumen de parciales en el HUD solo con GPS
                 // y fase recording/paused (en REVIEW se muestra en el bloque de guardado).
                 if (state.phase == LiveActivityState.Phase.RECORDING || state.phase == LiveActivityState.Phase.PAUSED) {
