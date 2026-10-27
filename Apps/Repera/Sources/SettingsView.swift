@@ -145,7 +145,7 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(OG.red)
                     } else if let syncedAt = workoutSync.lastSyncAt {
-                        Text("Última sincronización con Supabase: \(syncedAt.formatted(date: .abbreviated, time: .shortened)) · \(workoutSync.mirroredCount) registros remotos")
+                        Text(syncedAt.formatted(date: .numeric, time: .shortened))
                             .font(.caption)
                             .foregroundStyle(OG.label2)
                     } else {
