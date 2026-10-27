@@ -46,6 +46,7 @@ struct WorkoutView: View {
     @State private var manualRoundSetup: ManualRoundSetup?
     @State private var manualRoundMinutes = 1
     @State private var manualRoundSeconds = 0
+    @State private var manualRoundRestMinutes = 0
     @State private var manualRoundRestSeconds = 0
     @State private var confirmedManualRoundStart: ConfirmedManualRoundStart?
     /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
@@ -1495,7 +1496,9 @@ struct WorkoutView: View {
         }
         manualRoundMinutes = 1
         manualRoundSeconds = 0
-        manualRoundRestSeconds = max(0, current.blockRestBetweenRoundsSeconds ?? 0)
+        let rest = max(0, current.blockRestBetweenRoundsSeconds ?? 0)
+        manualRoundRestMinutes = rest / 60
+        manualRoundRestSeconds = rest % 60
         manualRoundSetup = ManualRoundSetup(
             exerciseID: current.id,
             rounds: prescribedRoundCount(for: current)
@@ -1512,38 +1515,44 @@ struct WorkoutView: View {
         return max(1, current.blockRounds ?? planned)
     }
 
+    /// Reutiliza los mismos campos y teclado del temporizador de Crear.
+    /// Ni un Stepper ni una altura fija: es una sheet Liquid Glass ajustada
+    /// a la geometría de su contenido mediante los modificadores OG.
     private func manualRoundDurationSheet(for setup: ManualRoundSetup) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Duración de cada ronda")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(OG.label)
-            Text("Bloque libre · \(setup.rounds) ronda\(setup.rounds == 1 ? "" : "s")")
-                .font(.subheadline)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Configurar temporizador")
+                    .font(.system(size: 21, weight: .bold))
+                    .foregroundStyle(OG.label)
+                Text("Bloque libre · \(setup.rounds) ronda\(setup.rounds == 1 ? "" : "s")")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 0) {
+                manualRoundTimeRow(
+                    title: "Trabajar por ronda",
+                    minutes: $manualRoundMinutes,
+                    seconds: $manualRoundSeconds,
+                    maxMinutes: 120
+                )
+                Divider()
+                    .overlay(OG.surface3)
+                    .padding(.vertical, 9)
+                manualRoundTimeRow(
+                    title: "Descansar entre rondas",
+                    minutes: $manualRoundRestMinutes,
+                    seconds: $manualRoundRestSeconds,
+                    maxMinutes: 10
+                )
+            }
+
+            Text("Deja el descanso en 0:00 si quieres pasar directamente a la siguiente ronda.")
+                .font(.caption)
                 .foregroundStyle(OG.label2)
-            Stepper(value: $manualRoundMinutes, in: 0...120) {
-                HStack {
-                    Text("Minutos")
-                    Spacer()
-                    Text("\(manualRoundMinutes)")
-                        .monospacedDigit()
-                }
-            }
-            Stepper(value: $manualRoundSeconds, in: 0...55, step: 5) {
-                HStack {
-                    Text("Segundos")
-                    Spacer()
-                    Text("\(manualRoundSeconds)")
-                        .monospacedDigit()
-                }
-            }
-            Stepper(value: $manualRoundRestSeconds, in: 0...600, step: 5) {
-                HStack {
-                    Text("Descanso entre rondas")
-                    Spacer()
-                    Text(manualRoundRestSeconds == 0 ? "Sin descanso" : "\(manualRoundRestSeconds) s")
-                        .monospacedDigit()
-                }
-            }
+                .fixedSize(horizontal: false, vertical: true)
+
             Button {
                 guard let current = store.state.activeSession?.currentExercise,
                       current.id == setup.exerciseID else {
@@ -1555,25 +1564,49 @@ struct WorkoutView: View {
                 confirmedManualRoundStart = ConfirmedManualRoundStart(
                     exerciseID: current.id,
                     durationSeconds: seconds,
-                    restSeconds: manualRoundRestSeconds,
+                    restSeconds: manualRoundRestMinutes * 60 + manualRoundRestSeconds,
                     rounds: setup.rounds
                 )
                 manualRoundSetup = nil
             } label: {
                 Text("Iniciar temporizador")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .font(.system(size: 17, weight: .bold))
+                    // El botón verde siempre lleva negro, también en modo noche.
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(OG.accent, in: Capsule())
             }
-            .buttonStyle(.borderedProminent)
-            .tint(OG.accent)
+            .buttonStyle(.plain)
             .disabled(manualRoundMinutes == 0 && manualRoundSeconds == 0)
-            Spacer(minLength: 0)
+            .opacity(manualRoundMinutes == 0 && manualRoundSeconds == 0 ? 0.5 : 1)
         }
-        .padding(24)
-        .presentationDetents([.height(435)])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(26)
-        .presentationBackground(OG.surface)
+        .padding(.horizontal, 24)
+        .padding(.top, 30)
+        .padding(.bottom, 22)
+        .ogFittedHeight()
+        .ogFittedSheet()
+    }
+
+    /// Mismo layout que el formulario de intervalos de Crear:
+    /// dos valores editables, teclado propio, sin botones +/-.
+    private func manualRoundTimeRow(
+        title: String,
+        minutes: Binding<Int>,
+        seconds: Binding<Int>,
+        maxMinutes: Int
+    ) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(OG.label)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            HStack(spacing: 8) {
+                TimerNumericInput(label: "MIN", value: minutes, range: 0...maxMinutes)
+                TimerNumericInput(label: "SEG", value: seconds, range: 0...59)
+            }
+            .frame(maxWidth: 184)
+        }
     }
 
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
