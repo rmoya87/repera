@@ -37,6 +37,9 @@ class StartMapControlsContractTests(unittest.TestCase):
     def test_3d_uses_real_camera_even_before_first_gps_fix(self):
         live = read_swift("LiveActivityView.swift")
         self.assertIn("lastVisibleMapCamera = context.camera", live)
+        self.assertIn("if navigationMapEnabled && !hasAppliedStored3DCamera", live)
+        self.assertIn("hasAppliedStored3DCamera = false", live)
+        self.assertIn("private func applyNavigationPitch(to camera: MapCamera)", live)
         self.assertIn("private func toggleNavigationMapMode()", live)
         self.assertIn("navigationMapEnabled.toggle()", live)
         self.assertIn("else if let camera = lastVisibleMapCamera", live)
