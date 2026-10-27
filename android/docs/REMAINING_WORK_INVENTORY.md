@@ -364,3 +364,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Paridadparcial explicita:axes/grid,empty<2 ytarjeta interior aun difieren;
  unamuestra conserva punto sin tendencia,noafirmarFullchart. Mobilefocalizado
  verde;completa+assemblepostestaunidadpendientes. Sin cambiardatoshistoricos.
+
+## Evolucion sin tendencia 22:46
+- ExerciseProgressView.chartBlock corte:count<2 conserva ejes220dp con
+ chartYDomain ymensaje cero/una muestra;NO linea nipunto de tendencia.
+ Ultimo valor/fecha real siguen visibles aparte,datoshistoricos intactos.
+- Focalizados4/4render verdes tras actualizar expectativa texto viejo a
+ mensaje delcorte. Captura1000singleinspeccionada,ejes ytexto sinrecortes.
+- Mobilepost296TODAS649/163XML4lotes+assemble74sverdes;postestaunidad
+ completa+assemblependientes. Restoaxes/grid/cardinterior/runtimeabiertos.

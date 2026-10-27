@@ -321,9 +321,16 @@ internal fun ExerciseEvolutionSection(
                         label = { Text(r.title) })
                 }
             }
-            if (points.isEmpty()) {
-                Text("Todavía no hay sesiones registradas con esta métrica.",
-                    style = MaterialTheme.typography.bodyMedium)
+            if (points.size<2) {
+                val (low,high)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
+                Column(Modifier.testTag("exercise_evolution_empty")) {
+                    EmptyHealthChartAxes(low,high,220.dp)
+                    Text(if(points.isEmpty()) "Aún no hay valores registrados." else "Haz al menos 2 sesiones para ver la tendencia.",style=MaterialTheme.typography.bodyMedium)
+                    points.singleOrNull()?.let {point ->
+                        Text("Último: ${formatPointValue(selectedMetric,point)}",style=MaterialTheme.typography.bodySmall)
+                        Text(java.time.Instant.ofEpochMilli(point.epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter),style=MaterialTheme.typography.bodySmall)
+                    }
+                }
             } else {
                 val line = MaterialTheme.colorScheme.primary
                 val ceilingColor=MaterialTheme.colorScheme.onSurfaceVariant

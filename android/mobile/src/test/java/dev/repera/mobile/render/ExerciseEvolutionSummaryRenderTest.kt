@@ -117,7 +117,18 @@ class ExerciseEvolutionSummaryRenderTest {
             }
         }
         composeRule.onNodeWithText("Máx.").assertIsDisplayed()
-        composeRule.onNodeWithText("Todavía no hay sesiones registradas con esta métrica.")
+        composeRule.onNodeWithText("Aún no hay valores registrados.")
             .assertIsDisplayed()
+    }
+    @Test fun singleObservationHasEmptyTrendAxesNotFabricatedLine() {
+        composeRule.setContent {MaterialTheme {Surface(Modifier.testTag("single_evo_fixture")) {
+            ExerciseEvolutionSection(entry=ExerciseEntry("e1","Press banca",true,true),exerciseSeries={_,_,_ ->listOf(ExerciseProgressPoint(1_700_000_000_000L,80.0,80.0,10))},
+                testedOneRM=null,onSetTestedOneRM={},busy=false)
+        }}}
+        composeRule.onNodeWithText("Haz al menos 2 sesiones para ver la tendencia.").assertExists()
+        composeRule.onNodeWithTag("exercise_evolution_chart").assertDoesNotExist()
+        val bmp=composeRule.onNodeWithTag("single_evo_fixture").captureToImage().asAndroidBitmap()
+        File("build/reports/render").mkdirs()
+        FileOutputStream("build/reports/render/exercise-evolution-single.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
     }
 }
