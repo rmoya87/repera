@@ -273,3 +273,16 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  multiplicar ysin truncar input fuera rango.2tests nuevos,domain491/491,
 93XMLcompleta21:38verde. Parser completo sigue GAP. Validacion mobile tras
  esta unidad pendiente;ultimo645/162XMLyassemble post282 ya verdes.
+
+## Cabeceras explicitas OCR 21:47
+- Subconjunto detectFormatHeader del corte500-632: esquema SOLO en linea
+21-15-9,PARTNER WOD/YGIG ySTRENGTH/tecnica exactos separan bloques sin crear
+ movimiento con nombre de cabecera. 4-3-3-2 PUSH PRESS NO separa bloque.
+- STRENGTH con todas lineas setsxreps ycatalogo usa conversion acotada282;
+ conserva titulo de cabecera. Sin coincidencia queda WOD strength revisable.
+- Mas conservador queFull:tokens exactos en partner/strength,no contains
+ general;ladder conserva titulo,NO propaga reps del titulo a movimientos.
+ Completo sigue GAP(secciones,footnotes,rondas,otras rutas/resolucion).
+- 2tests adicionales:4bloques+no falso header por repwave. Domain493/493,
+93XMLcompleta21:47verde. Mobilepost287TODAS645/162en4lotes+assembleverde;
+ mobile postesta unidad pendiente. No runtime/dispositivo acreditado.

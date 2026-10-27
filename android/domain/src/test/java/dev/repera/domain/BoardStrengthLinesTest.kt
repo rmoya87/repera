@@ -46,4 +46,22 @@ class BoardStrengthLinesTest {
   val extreme=BoardScanLiteParser.parse("E999999999999MOM 10'\n5 POWER CLEAN")
   assertTrue(extreme.blocks.isNotEmpty())
  }
+ @Test fun extendedExplicitHeadersSplitWithoutFabricatingMovements() {
+  val result=BoardScanLiteParser.parse("STRENGTH\n5x2 BACK SQUAT @7\n21-15-9\nTHRUSTER 40/30\nPULL-UP\nE2MOM 10'\n5 POWER CLEAN\nPARTNER WOD\n100 CAL ROW",listOf(squat))
+  assertEquals(4,result.blocks.size)
+  assertEquals(RoutineBlockKind.STRENGTH,result.blocks[0].kind)
+  assertEquals("STRENGTH",result.blocks[0].title)
+  assertEquals(5,result.blocks[0].exercises.single().plannedSets.size)
+  assertEquals(WODFormat.LADDER,result.blocks[1].wodFormat)
+  assertEquals(2,result.blocks[1].movements.size)
+  assertEquals(WODFormat.EMOM,result.blocks[2].wodFormat)
+  assertEquals(WODFormat.PARTNER,result.blocks[3].wodFormat)
+  assertEquals(1,result.blocks[3].movements.size)
+ }
+ @Test fun movementWaveIsNotASeparateLadderHeader() {
+  val result=BoardScanLiteParser.parse("EMOM 12'\n4-3-3-2 PUSH PRESS\n5 PULL UPS")
+  assertEquals(1,result.blocks.size)
+  assertEquals(WODFormat.EMOM,result.blocks.single().wodFormat)
+  assertEquals(2,result.blocks.single().movements.size)
+ }
 }

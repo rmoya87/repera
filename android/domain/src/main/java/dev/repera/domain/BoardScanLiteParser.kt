@@ -37,7 +37,8 @@ object BoardScanLiteParser {
 
         fun flush() {
             val cur = current ?: return
-            val orphanStrength=if(cur.header=="Añadir entreno") BoardStrengthLines.block(cur.body,catalog) else null
+            val orphanStrength=if(cur.header=="Añadir entreno" || cur.format==WODFormat.STRENGTH)
+                BoardStrengthLines.block(cur.body,catalog)?.also {it.title=cur.header} else null
             val structured = orphanStrength ?: structuredIntervalComplex(
                 cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog, searchAliases
             ) ?: structuredStrength(
@@ -289,6 +290,14 @@ object BoardScanLiteParser {
             if(minutes !in 1..(Int.MAX_VALUE/60) || total<=0) return null
             return Header(line,WODFormat.EMOM,total,interval=minutes*60)
         }
+        // Explicit full-parser headers only. Do not mistake a movement's
+        // rep wave (4-3-3-2 PUSH PRESS) for a ladder section.
+        if(Regex("^\\d+(?:\\s*[-–]\\s*\\d+){2,}\\s*(?:FOR\\s+TIME|WOD)?$").matches(upper) || upper=="21 15 9")
+            return Header(line,WODFormat.LADDER,null)
+        if(upper in setOf("PARTNER WOD","PARTNER","YOU GO I GO","YGIG","YDIG"))
+            return Header(line,WODFormat.PARTNER,null)
+        if(upper in setOf("STRENGTH","FUERZA","TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN"))
+            return Header(line,WODFormat.STRENGTH,null)
         if (upper.startsWith("EMOM")) {
             val mins = firstInt(upper) ?: 10
             return Header(line, WODFormat.EMOM, mins)
