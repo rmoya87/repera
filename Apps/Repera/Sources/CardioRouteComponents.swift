@@ -541,29 +541,28 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            // La atribución exigida por WeatherKit sigue accesible como marca
-            // oficial compacta en el extremo derecho, sin la línea de texto
-            // «Apple Weather» que antes desplazaba los indicadores.
-            .overlay(alignment: .bottomTrailing) {
-                if hasWeather, let attributionURL {
+            // La atribución legal de WeatherKit no ocupa ninguna columna
+            // meteorológica ni puede tapar las cifras en iPhone compacto.
+            if hasWeather, let attributionURL {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
                     Link(destination: attributionURL) {
                         if let attributionMarkURL {
                             AsyncImage(url: attributionMarkURL) { image in
                                 image.resizable().scaledToFit()
                             } placeholder: {
                                 Text("Weather")
-                                    .font(.system(size: 8, weight: .medium))
+                                    .font(.system(size: 9, weight: .medium))
                                     .foregroundStyle(OG.label3)
                             }
-                            .frame(width: 24, height: 21)
+                            .frame(width: 26, height: 23)
                         } else {
                             Text("Weather")
-                                .font(.system(size: 8, weight: .medium))
+                                .font(.system(size: 9, weight: .medium))
                                 .foregroundStyle(OG.label3)
                         }
                     }
                     .accessibilityLabel("Fuentes y atribución legal de Apple Weather")
-                    .padding(.trailing, 1)
                 }
             }
             if !hasWeather {
