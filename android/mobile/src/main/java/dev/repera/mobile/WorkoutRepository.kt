@@ -1320,7 +1320,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         weightKg: Double? = null,
         rir: Double? = null, toFailure: Boolean = false
     ): ActiveWorkout {
-        require(clusters.size in 2..8) { "El rest-pause necesita al menos 2 mini-series" }
+        require(clusters.size in 1..8) { "El rest-pause necesita al menos 1 mini-serie" }
         clusters.forEach { (reps, rest) ->
             require(reps in 1..10000) { "Repeticiones de mini-serie inválidas" }
             require(rest in 1..600) { "Descanso de mini-serie inválido" }

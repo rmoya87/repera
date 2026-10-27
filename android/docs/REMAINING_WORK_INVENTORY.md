@@ -155,3 +155,11 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  8reps/15s luego5reps/20s,31s rechazada. No caja dentro de caja.
 - Diferencia ABIERTA: repositorio Android mantiene requisito2..8clusters,
   Apple puede guardar1; no se cambio validacion persistente en esta unidad.
+
+## Rest-pause 20:02
+- Diferencia minimo2 resuelta: permite1cluster. Guardado suma las reps de
+  clusters y ya no exige rellenar campo base independiente. Test Compose de
+  ActiveWorkoutCard recorre seleccion->8reps/15s->Anadir->Registrar con base
+  vacia y verifica callback. Test repositorio almacena8reps y15s sin inventar.
+- Tope previo Android8clusters sigue diferencia respecto Apple sin max explicito.
+  No cambia ni reescribe registros antiguos.

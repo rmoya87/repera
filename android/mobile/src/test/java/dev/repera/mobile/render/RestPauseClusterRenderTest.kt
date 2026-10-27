@@ -3,6 +3,8 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.*
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -47,4 +49,18 @@ class RestPauseClusterRenderTest {
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/restpause-clusters.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
  }
+ @Test fun singleClusterCanSaveWithoutUnrelatedBaseReps() {
+  var saved:List<Pair<Int,Int>>?=null
+  val active=ActiveWorkout("fixture","Prueba",0,1,"Back squat",0,null,null,allowsWeight=true,sets=emptyList())
+  rule.setContent {MaterialTheme {Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+   ActiveWorkoutCard(active,false,onLogSet={_,_,_,_,_,_,_,_->},onReviseSet={_,_,_,_,_,_->},onDeleteSet={},onNext={},onFinish={},
+    onLogRestPauseSet={c,_,_,_->saved=c})
+  }}}
+  rule.onNodeWithText("Rest-pause").performScrollTo().performClick()
+  rule.onNodeWithText("REPS").performScrollTo().performTextReplacement("8")
+  rule.onNodeWithText("Añadir cluster").performScrollTo().performClick()
+  rule.onNodeWithText("Registrar serie").performScrollTo().assertIsEnabled().performClick()
+  rule.runOnIdle {assertEquals(listOf(8 to 15),saved)}
+ }
+
 }

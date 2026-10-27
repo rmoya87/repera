@@ -175,7 +175,7 @@ internal fun ActiveWorkoutCard(
     val parsedRir = rirText.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
     val parsedQuantity = quantity.toIntOrNull()
     val parsedWeight = weight.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
-    val valid = parsedQuantity != null && parsedQuantity >= 0 &&
+    val valid = ((technique=="restpause" && !warmup && !active.durationInput && pendingClusters.isNotEmpty()) || (parsedQuantity != null && parsedQuantity >= 0)) &&
         (!active.allowsWeight || weight.isBlank() ||
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
         (!active.allowsDeficit || deficit.isBlank() ||
@@ -437,21 +437,21 @@ internal fun ActiveWorkoutCard(
                 "dropset" -> parsedDrops.isNotEmpty() && parsedDrops.size <= 5 &&
                     parsedDrops.all { it.first in 1..10000 &&
                         (it.second == null || it.second!! >= 0) }
-                "restpause" -> parsedClusters.size in 2..8 &&
+                "restpause" -> parsedClusters.size in 1..8 &&
                     parsedClusters.all { it.first in 1..10000 && it.second in 5..30 }
                 else -> true
             }
             Button(
                 onClick = {
-                    if (parsedQuantity != null) when (effectiveTechnique) {
+                    if (effectiveTechnique=="restpause") {
+                        onLogRestPauseSet(parsedClusters,
+                            if(active.allowsWeight) parsedWeight else null,
+                            if(toFailure) 0.0 else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)},toFailure)
+                    } else if (parsedQuantity != null) when (effectiveTechnique) {
                         "dropset" -> onLogDropSet(
                             parsedQuantity,
                             if (active.allowsWeight) parsedWeight else null,
                             parsedDrops,
-                            if(toFailure) 0.0 else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)}, toFailure)
-                        "restpause" -> onLogRestPauseSet(
-                            parsedClusters,
-                            if (active.allowsWeight) parsedWeight else null,
                             if(toFailure) 0.0 else parsedRir?.let {dev.repera.domain.Effort.toRIR(it,effortUnit)}, toFailure)
                         else -> onLogSet(
                             parsedQuantity,
