@@ -270,13 +270,15 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     // En paisaje la safe area lateral pertenece al gris de
                     // Progreso/Actividad; el blanco solo es calendario + entreno.
-                    .background(OG.bg.ignoresSafeArea(edges: .horizontal))
+                    .background(OG.bg.ignoresSafeArea(edges: [.horizontal, .bottom]))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // El gris agrupado debe ocupar el viewport entero y la zona
-            // inferior segura, incluso si no hay tarjetas más abajo.
-            .background(OG.bg.ignoresSafeArea(edges: .bottom))
+            // Durante una recarga o navegación, el ScrollView aún no ha
+            // compuesto sus tarjetas. Su fondo no puede ser negro mientras
+            // la topbar y el calendario usan OG.surface.
+            // La sección Progreso/Actividad pinta OG.bg hasta abajo.
+            .background(OG.surface.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
