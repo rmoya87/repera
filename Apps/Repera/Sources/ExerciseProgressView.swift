@@ -14,16 +14,16 @@ struct ExerciseProgressView: View {
             VStack(alignment: .leading, spacing: 14) {
                 OGScrollablePageTitle(store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio")
                 Group {
-                if subscriptions.isPro {
-                    ExerciseEvolutionPanel(exerciseId: exerciseId)
-                } else {
-                    VStack(alignment: .leading, spacing: 12) {
-                        FreeExerciseSummaryCard(exerciseId: exerciseId)
-                        freeExerciseEvolutionPreview
+                    if subscriptions.isPro {
+                        ExerciseEvolutionPanel(exerciseId: exerciseId)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            FreeExerciseSummaryCard(exerciseId: exerciseId)
+                            freeExerciseEvolutionPreview
+                        }
                     }
                 }
             }
-                }
             .padding(.horizontal, OG.pad)
             .padding(.top, 8)
             .padding(.bottom, 28)
