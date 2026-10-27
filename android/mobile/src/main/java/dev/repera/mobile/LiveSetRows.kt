@@ -66,7 +66,7 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
     Text("Serie ${i+1}",style=MaterialTheme.typography.titleSmall)
     QuickNumericField(row.reps.toString(),when(unit) {"calories"->"Calorías";"meters"->"Metros";else->if(active.durationInput&&!active.mobility) "Veces" else "Repeticiones"},true) {v ->rows[i]=LiveRowEdit.reps(rows[i],v,active.quantityCap);touch()}
     if(active.allowsDeficit) QuickNumericField((row.deficitCm?:0).toString(),"Déficit HSPU (cm)",true) {v ->rows[i]=LiveRowEdit.deficit(rows[i],v);touch()}
-    else if(active.allowsWeight) QuickNumericField(row.weightKg?.toString().orEmpty(),"Peso (kg)",true,decimal=true) {v ->rows[i]=LiveRowEdit.weight(rows[i],v);touch()}
+    else if(active.allowsWeight) QuickNumericField(row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),"Peso (kg)",true,decimal=true) {v ->rows[i]=LiveRowEdit.weight(rows[i],v);touch()}
     if(active.durationInput) QuickNumericField((row.durationSeconds?:0).toString(),"Duración (segundos)",true) {v ->rows[i]=LiveRowEdit.duration(rows[i],v);touch()}
     else QuickNumericField(row.rir?.let {Effort.fromRIR(it,effortUnit).toString()}.orEmpty(),if(effortUnit=="rpe") "RPE (0–10)" else "RIR",true,decimal=true) {v ->rows[i]=LiveRowEdit.effort(rows[i],v,effortUnit);touch()}
     TextButton(onClick={rows.removeAt(i);touch()}) {Text("Eliminar serie ${i+1}")}

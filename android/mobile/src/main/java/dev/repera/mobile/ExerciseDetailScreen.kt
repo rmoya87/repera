@@ -315,7 +315,7 @@ internal fun ExerciseEvolutionSection(
 private fun formatPointValue(metric: ExerciseProgressMetric,
                              p: ExerciseProgressPoint): String = when (metric) {
     ExerciseProgressMetric.TOP_SET ->
-        "${p.value} kg × ${p.reps ?: "?"}"
+        "${dev.repera.domain.ReperaNumberFormat.decimal(p.value)} kg × ${p.reps ?: "?"}"
     ExerciseProgressMetric.ESTIMATED_ONE_RM -> "${dev.repera.domain.ReperaNumberFormat.decimal(p.value)} kg"
     ExerciseProgressMetric.EFFORT -> "RIR ${dev.repera.domain.ReperaNumberFormat.decimal(p.value)}"
     ExerciseProgressMetric.BEST_HOLD, ExerciseProgressMetric.DURATION ->

@@ -12,7 +12,8 @@ class SessionSportMetricsTest {
         assertEquals("5:05", SessionSportMetrics.averagePace(1525.0, 5_000.0))
         assertNull(SessionSportMetrics.averageSpeedKmh(null, 10_000.0))
         assertNull(SessionSportMetrics.averagePace(3600.0, 0.0))
-        assertEquals("10,0", SessionSportMetrics.decimal(10.0))
+        // Apple decimal: recorta ceros -> "10"
+        assertEquals("10", SessionSportMetrics.decimal(10.0))
     }
 
     @Test fun maxSpeedPrefersRecordedThenFiltersSamples() {
@@ -44,6 +45,6 @@ class SessionSportMetricsTest {
         assertEquals(listOf(1, 4), r.map { it.kilometer })
         assertEquals(SessionSportMetrics.SplitRow(1, "5:00", "5:00/km", "150 LPM"), r[0])
         assertEquals("—", r[1].bpm)
-        assertEquals("12.0", SessionSportMetrics.splitRows(listOf(300.0), true, emptyMap())[0].rateOrSpeed)
+        assertEquals("12", SessionSportMetrics.splitRows(listOf(300.0), true, emptyMap())[0].rateOrSpeed)
     }
 }

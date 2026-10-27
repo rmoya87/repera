@@ -5,7 +5,7 @@ package dev.repera.domain
 object SessionSportMetrics {
     data class Tiles(val averageSpeedKmh: Double?, val maxSpeedKmh: Double?, val averagePace: String?, val distanceKm: Double?)
 
-    fun decimal(value: Double): String = "%.1f".format(java.util.Locale.ROOT, value).replace('.', ',')
+    fun decimal(value: Double): String = ReperaNumberFormat.decimal(value)
 
     fun averageSpeedKmh(activeSeconds: Double?, meters: Double?): Double? {
         if (activeSeconds == null || activeSeconds <= 0 || meters == null || meters <= 0) return null
@@ -59,7 +59,7 @@ object SessionSportMetrics {
     fun splitRows(seconds: List<Double>, speed: Boolean, bpmByKm: Map<Int, Double>): List<SplitRow> =
         seconds.mapIndexedNotNull { i, s ->
             if (!s.isFinite() || s <= 0) null else SplitRow(i + 1, clock(s),
-                if (speed) "%.1f".format(java.util.Locale.ROOT, 3600 / maxOf(1.0, s)) else clock(s) + "/km",
+                if (speed) ReperaNumberFormat.decimal(3600 / maxOf(1.0, s)) else clock(s) + "/km",
                 bpmByKm[i + 1]?.let { "${Math.round(it).toInt()} LPM" } ?: "—")
         }
 }

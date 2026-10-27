@@ -315,8 +315,8 @@ fun AIAccessScreen(
 private fun setChangeLabel(change: JSONObject): String {
     val parts = mutableListOf<String>()
     if (change.has("reps")) parts.add("${change.getInt("reps")} reps")
-    if (change.has("weightKg")) parts.add("${change.getDouble("weightKg")} kg")
-    if (change.has("rir")) parts.add("RIR ${change.getDouble("rir")}")
+    if (change.has("weightKg")) parts.add("${dev.repera.domain.ReperaNumberFormat.decimal(change.getDouble("weightKg"))} kg")
+    if (change.has("rir")) parts.add("RIR ${dev.repera.domain.ReperaNumberFormat.decimal(change.getDouble("rir"))}")
     if (change.optBoolean("clearWeight")) parts.add("sin peso")
     if (change.optBoolean("clearRir")) parts.add("sin RIR")
     return change.getString("loggedSetId").take(8) + ": " +

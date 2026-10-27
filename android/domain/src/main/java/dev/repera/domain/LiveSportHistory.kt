@@ -74,7 +74,7 @@ object LiveSportHistory {
         val own = sessionsOf(sport, sessions)
         return if (sport.usesGPS) {
             val km = own.sumOf { maxOf(0.0, it.recordedDistanceMeters ?: 0.0) } / 1000.0
-            "${own.size} actividades · %.1f km".format(km)
+            "${own.size} actividades · ${ReperaNumberFormat.decimal(km)} km"
         } else {
             val total = own.sumOf { maxOf(0.0, it.activeDurationSeconds ?: 0.0) }
             "${own.size} actividades · ${formatDuration(total)}"

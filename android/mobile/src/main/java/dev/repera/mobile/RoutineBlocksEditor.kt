@@ -238,7 +238,10 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
     val invalidMovementInputs=androidx.compose.runtime.mutableStateMapOf<String,Boolean>()
     fun movementText(key:String):String = rawMovementInputs[key] ?: sourceJson?.let {raw ->
         val o=JSONObject(raw)
-        if(o.has(key) && !o.isNull(key)) o.get(key).toString() else ""
+        if(o.has(key) && !o.isNull(key)) {
+            val v=o.get(key)
+            if(v is Number) dev.repera.domain.ReperaNumberFormat.decimal(v.toDouble()) else v.toString()
+        } else ""
     }.orEmpty()
     fun durationText(index:Int,hold:Boolean):String = rawMovementInputs["duration:$index"] ?: (plannedSets[index].targetDurationSeconds ?: if(hold) 30 else 60).toString()
     fun setDurationText(index:Int,text:String) {
@@ -260,7 +263,7 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
     }
     fun setMovementText(key:String,text:String,numeric:Boolean) {
         rawMovementInputs[key]=text
-        val number=if(numeric && text.isNotBlank()) text.replace(',','.').toDoubleOrNull()?.takeIf {it.isFinite() && it>=0} else null
+        val number=if(numeric && text.isNotBlank()) dev.repera.domain.ReperaNumberFormat.parse(text)?.takeIf {it.isFinite() && it>=0} else null
         val invalid=numeric && text.isNotBlank() && number==null
         invalidMovementInputs[key]=invalid
         if(invalid) return

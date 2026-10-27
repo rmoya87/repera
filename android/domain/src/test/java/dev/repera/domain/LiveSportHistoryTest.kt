@@ -49,7 +49,8 @@ class LiveSportHistoryTest {
         assertEquals(2, s.activityCount)
         assertEquals(8.7, s.totalKilometers, 0.001)
         assertEquals(3000.0, s.totalDurationSeconds, 0.001)
-        assertEquals("2 actividades · 8.7 km",
+        // Apple ReperaNumberFormat.decimal: coma española, ceros recortados
+        assertEquals("2 actividades · 8,7 km",
             LiveSportHistory.activitySummaryLine(LiveSport.RUNNING, sessions))
     }
 

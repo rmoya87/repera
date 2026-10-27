@@ -117,7 +117,7 @@ fun SessionPreviewSheet(
                                     append(" — ${entry.quantity}")
                                 }
                                 entry.weightKg?.let { w ->
-                                    append(" @ ${if (w % 1.0 == 0.0) w.toInt() else w} kg")
+                                    append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(w)} kg")
                                 }
                             }
                             Text("· $detail", style = MaterialTheme.typography.bodyMedium)

@@ -37,4 +37,4 @@ import org.json.JSONArray
     } }
 }
 
-private fun professionalNumber(value:Double):String = java.text.NumberFormat.getNumberInstance(java.util.Locale("es")).apply {maximumFractionDigits=2}.format(value)
+private fun professionalNumber(value:Double):String = dev.repera.domain.ReperaNumberFormat.decimal(value)
