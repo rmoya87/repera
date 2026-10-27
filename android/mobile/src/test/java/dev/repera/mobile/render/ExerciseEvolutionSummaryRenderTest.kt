@@ -14,6 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import dev.repera.domain.ExerciseHistorySummary
 import dev.repera.mobile.ExerciseEntry
 import dev.repera.mobile.ExerciseEvolutionSection
+import dev.repera.mobile.ExerciseProgressMetric
+import dev.repera.mobile.ExerciseProgressPoint
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,7 +43,15 @@ class ExerciseEvolutionSummaryRenderTest {
                 Surface(Modifier.testTag("evowrap")) {
                     ExerciseEvolutionSection(
                         entry = entry,
-                        exerciseSeries = { _, _, _ -> emptyList() },
+                        exerciseSeries = { _, metric, _ ->
+                            // Coherente con summary: 14 sesiones, top set 100 kg.
+                            if (metric == ExerciseProgressMetric.TOP_SET)
+                                listOf(
+                                    ExerciseProgressPoint(1_700_000_000_000L, 80.0, 80.0, 10),
+                                    ExerciseProgressPoint(1_700_500_000_000L, 90.0, 90.0, 8),
+                                    ExerciseProgressPoint(1_701_000_000_000L, 100.0, 100.0, 6))
+                            else emptyList()
+                        },
                         testedOneRM = null, onSetTestedOneRM = {}, busy = false,
                         summary = ExerciseHistorySummary(timesPerformed = 14,
                             maxWeightKg = 100.0, estimatedOneRM = 112.5,
@@ -49,6 +59,7 @@ class ExerciseEvolutionSummaryRenderTest {
                 }
             }
         }
+        composeRule.onNodeWithTag("exercise_evolution_chart").assertIsDisplayed()
         composeRule.onNodeWithText("Máx.").assertIsDisplayed()
         composeRule.onNodeWithText("e1RM").assertIsDisplayed()
         composeRule.onNodeWithText("Reps máx.").assertIsDisplayed()
@@ -80,5 +91,29 @@ class ExerciseEvolutionSummaryRenderTest {
         composeRule.onNodeWithText("1:15").assertIsDisplayed()
         composeRule.onNodeWithText("Sesiones").assertIsDisplayed()
         composeRule.onNodeWithText("Último tiempo").assertIsDisplayed()
+    }
+
+    @Test
+    fun summaryWithDataButEmptyMetricFilterIsRealState() {
+        // La gráfica filtra por metrica+rango; el resumen cubre todo el
+        // historial. Con datos solo en otra metrica/periodo, tiles visibles
+        // y mensaje de vacio a la vez es un estado real posible por filtro.
+        val entry = ExerciseEntry("e1", "Press banca", true, true)
+        composeRule.setContent {
+            MaterialTheme {
+                ExerciseEvolutionSection(
+                    entry = entry,
+                    exerciseSeries = { _, metric, _ ->
+                        if (metric == ExerciseProgressMetric.TOP_SET) emptyList()
+                        else listOf(ExerciseProgressPoint(1_700_000_000_000L, 1.0))
+                    },
+                    testedOneRM = null, onSetTestedOneRM = {}, busy = false,
+                    summary = ExerciseHistorySummary(timesPerformed = 14,
+                        maxWeightKg = 100.0))
+            }
+        }
+        composeRule.onNodeWithText("Máx.").assertIsDisplayed()
+        composeRule.onNodeWithText("Todavía no hay sesiones registradas con esta métrica.")
+            .assertIsDisplayed()
     }
 }
