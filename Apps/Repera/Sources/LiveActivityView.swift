@@ -566,9 +566,33 @@ final class LiveRoutesStore {
             }
         }
         let read = await LiveRouteCloudBackup.shared.read()
-        guard case .ready(let remote) = read else {
+        let remote: LiveRouteCloudArchive
+        switch read {
+        case .ready(let existing):
+            remote = existing
+        case .unavailable:
             iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
             return
+        case .missing:
+            // A newly installed phone can see the iCloud directory before
+            // the route document metadata arrives. Never replace a missing
+            // cloud document with an empty first-install local archive.
+            guard !routes.isEmpty || !deletedIDs.isEmpty else {
+                iCloudRouteStatus = "Esperando rutas de iCloud…"
+                return
+            }
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            let retry = await LiveRouteCloudBackup.shared.read()
+            switch retry {
+            case .ready(let existing):
+                remote = existing
+            case .missing:
+                remote = LiveRouteCloudArchive(routes: [], deletedIDs: [])
+            case .unavailable:
+                iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
+                return
+            }
         }
 
         let erased = deletedIDs.union(remote.deletedIDs)
