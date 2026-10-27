@@ -2298,11 +2298,23 @@ struct LiveActivityView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
+            let icon = Image(systemName: symbol)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(foreground)
                 .frame(width: 44, height: 44)
-                .background(background, in: Circle())
+            if symbol == "flag.checkered" && colorScheme == .dark {
+                // El negro puro desaparece sobre el mapa en modo noche.
+                // El mismo gris carbón de las superficies vacías mantiene
+                // visible el círculo, con Liquid Glass como el resto del topbar.
+                icon
+                    .background(OG.surface2, in: Circle())
+                    .glassEffect(.regular.tint(OG.surface2).interactive(), in: .circle)
+            } else {
+                // En modo claro Finalizar continúa negro; Play y Pausa
+                // conservan sus colores sólidos originales.
+                icon
+                    .background(background, in: Circle())
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
