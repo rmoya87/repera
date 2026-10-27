@@ -302,7 +302,7 @@ export class ReperaAuthAPI {
  }
  async professionalSessions(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
+  return this.#authorized('professional_training_sessions?select=id,org_id,client_id,coach_user_id,scheduled_date,scheduled_time_minutes,source_occurrence_id,title,instructions,prescription,status&org_id=eq.'+orgId+'&order=scheduled_date.asc&limit=200');
  }
  async publishProfessionalSession({orgId,clientId,date,title,instructions='',prescription,requestId=globalThis.crypto?.randomUUID?.()}){
   title=String(title||'').trim();instructions=String(instructions||'');
@@ -310,6 +310,12 @@ export class ReperaAuthAPI {
     ||title.length>120||instructions.length>10000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date||''))
       throw Error('Planificación inválida');
   return this.#authorized('rpc/publish_professional_session_v2',{method:'POST',body:{p_org:orgId,p_client:clientId,p_day:date,p_title:title,p_instructions:instructions,p_request:requestId,p_prescription:prescription}});
+ }
+ async setProfessionalSessionTime(sessionId,hhmm){
+  if(!/^[0-9a-f-]{36}$/i.test(sessionId||''))throw Error('Sesión inválida');
+  if(hhmm!==''&&!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(hhmm||''))throw Error('Hora no válida');
+  const minutes=hhmm===''?null:Number(hhmm.slice(0,2))*60+Number(hhmm.slice(3,5));
+  return this.#authorized('rpc/set_professional_session_time',{method:'POST',body:{p_session:sessionId,p_minutes:minutes}});
  }
  async assignCoachClient({orgId,clientId,coachId}){
   if(![orgId,clientId,coachId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Asignación inválida');
