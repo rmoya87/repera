@@ -153,6 +153,6 @@ export function renderPlatformAdmin({tab='home',orgs=[],finance={},pending=[],hi
 export function paymentCSV(orgs,finance,filter={}){
  const names=new Map(orgs.map(o=>[o.id,o.name]));
  const data=filteredPayments(finance,filter);
- const csv=x=>{const raw=String(x??'');const safe=/^\\s*[=+@-]/.test(raw)?"'"+raw:raw;return '"'+safe.replace(/"/g,'""')+'"';};
+ const csv=x=>{const raw=String(x??'');const safe=/^\s*[=+@-]/.test(raw)?"'"+raw:raw;return '"'+safe.replace(/"/g,'""')+'"';};
  return [['Fecha','Negocio','Importe_centimos','Divisa','Estado','Proveedor'].join(';'),...data.map(p=>[p.created_at,names.get(p.org_id)||'',p.amount_cents,p.currency,p.status,p.provider].map(csv).join(';'))].join('\r\n');
 }
