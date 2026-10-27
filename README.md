@@ -83,6 +83,7 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha, filtro Movilidad con 82 movimientos bilingües ES/EN; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series editables sin check por serie, borrado por swipe, WOD/temporizadores, RIR/RPE, menú ⋯ y Live Activity |
+| **Comenzar (iOS)** | Cuenta atrás 3/2/1 con tono medio de 523,25 Hz (0,16 s), mismo tono sostenido de 0,49 s al llegar a cero y finalizar, pausa/reanudación silenciosas, voz de parciales/giros configurable y mapa 2D/3D persistente. **Pendiente:** audio y UI verificados en iPhone real/TestFlight; [checklist](docs/GPS_TRACKING.md) |
 | **Pizarra** | OCR lite; Gratis 4 escaneos/mes; Pro ilimitados |
 | **Onboarding** | Apple o Google con identidad Supabase verificada → permisos → Gratis/Pro |
 | **Ajustes** | Cuenta Apple/Google, estado/reintento manual de la copia de entrenos en Supabase, Pro/iCloud, Salud, peso, export/import |
