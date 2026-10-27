@@ -1044,7 +1044,25 @@ struct OGNumericTextField: UIViewRepresentable {
     var nextFocusIdentifier: String? = nil
     var onFocused: () -> Void = {}
     var onFocusLost: (() -> Void)? = nil
+    /// Al configurar minutos/segundos en una sheet, UIKit debe declarar la
+    /// misma altura que la retícula compacta. Nil conserva el layout actual
+    /// del registro de series y el resto de la aplicación.
+    var compactIntrinsicHeight: CGFloat? = nil
     var onCommit: () -> Void
+
+    /// La altura de un UIViewRepresentable no siempre se deduce del
+    /// `.frame(height:)` exterior cuando una sheet con detent medido
+    /// propone su altura disponible. Dar a UIKit una medida intrínseca
+    /// estable evita que el teclado numérico se estire con la modal.
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView: UITextField,
+        context: Context
+    ) -> CGSize? {
+        guard let compactIntrinsicHeight else { return nil }
+        let width = proposal.width ?? max(1, uiView.intrinsicContentSize.width)
+        return CGSize(width: max(1, width), height: compactIntrinsicHeight)
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(

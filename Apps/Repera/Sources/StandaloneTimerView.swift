@@ -130,6 +130,9 @@ struct TimerNumericInput: View {
                 ),
                 allowsDecimal: false,
                 autoFocus: false,
+                // El componente UIKit debe ofrecer 48 pt a la negociación
+                // del tamaño antes de que el sheet calcule su detent.
+                compactIntrinsicHeight: 48,
                 onFocusLost: { commit() },
                 onCommit: { commit() }
             )
@@ -138,12 +141,16 @@ struct TimerNumericInput: View {
             // toda la propuesta vertical del sheet de altura adaptable.
             .frame(height: 48)
             .frame(maxWidth: .infinity)
-            // Mismo teclado personalizado de Repera, con superficie
-            // Liquid Glass también en la configuración por rondas.
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
+            // Mismo fondo que el campo Reps del entrenamiento.
+            // El sheet mantiene Liquid Glass, pero no cada input numérico.
+            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))
             .accessibilityLabel(label)
         }
+        // Incluye etiqueta y campo dentro de la misma geometría cerrada:
+        // ni el VStack ni la superficie glass pueden expandirse con el sheet.
+        .frame(height: 64, alignment: .top)
         .frame(maxWidth: .infinity)
+        .clipped()
     }
 
     private func commit() {

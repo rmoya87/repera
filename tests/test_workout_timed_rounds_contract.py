@@ -68,7 +68,7 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         # usan el mismo gate; solo el gate dispara configure directamente.
         self.assertGreaterEqual(PLAY.count("requestBlockClockStart(for: current)"), 4)
 
-    def test_setup_uses_shared_numeric_inputs_liquid_glass_and_fits_content(self):
+    def test_setup_uses_shared_reps_style_numeric_inputs_and_glass_sheet(self):
         sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
             "private func startBlockClock(", 1
         )[0]
@@ -92,13 +92,66 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         )[0]
         self.assertIn("OGNumericTextField(", numeric)
         self.assertIn(
-            ".glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))",
+            ".background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))",
             numeric,
         )
+        self.assertNotIn(".glassEffect(", numeric)
         self.assertIn(".frame(height: 48)", numeric)
+        self.assertIn("compactIntrinsicHeight: 48", numeric)
+        self.assertIn(".frame(height: 64, alignment: .top)", numeric)
+        self.assertIn(".clipped()", numeric)
         self.assertNotIn(".frame(maxWidth: .infinity, minHeight: 48)", numeric)
         self.assertNotIn("private struct TimerNumericInput", timer)
         self.assertIn("TimerNumericInput(label:", timer)
+
+    def test_round_fields_cannot_force_fullscreen_sheet_via_uikit_layout(self):
+        play = PLAY.split("private func manualRoundTimeRow(", 1)[1].split(
+            "/// Reloj a pantalla completa", 1
+        )[0]
+        self.assertIn(".frame(width: 84, height: 64, alignment: .top)", play)
+        self.assertIn(".frame(width: 176, height: 64, alignment: .top)", play)
+        self.assertIn(".frame(height: 72, alignment: .center)", play)
+        self.assertGreaterEqual(play.count(".clipped()"), 3)
+        self.assertNotIn(".frame(maxWidth: 184)", play)
+
+        theme = (IOS / "Theme.swift").read_text(encoding="utf-8")
+        field = theme.split("struct OGNumericTextField: UIViewRepresentable {", 1)[1].split(
+            "private func configure(", 1
+        )[0]
+        self.assertIn("var compactIntrinsicHeight: CGFloat? = nil", field)
+        self.assertIn("func sizeThatFits(", field)
+        self.assertIn("guard let compactIntrinsicHeight else { return nil }", field)
+        self.assertIn("height: compactIntrinsicHeight", field)
+        # No altera los demás campos de series que no solicitan altura
+        # intrínseca específica.
+        self.assertIn("guard let compactIntrinsicHeight else { return nil }", field)
+
+    def test_round_setup_matches_compact_modal_spacing_and_workout_reps_input(self):
+        sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
+            "private func startBlockClock(", 1
+        )[0]
+        self.assertIn("VStack(alignment: .leading, spacing: 12)", sheet)
+        self.assertIn(".font(.system(size: 20, weight: .bold))", sheet)
+        self.assertIn(".padding(.horizontal, OG.pad)", sheet)
+        self.assertIn(".padding(.top, 12)", sheet)
+        self.assertIn(".padding(.bottom, 4)", sheet)
+        self.assertNotIn(".padding(.bottom, 22)", sheet)
+        self.assertNotIn(".padding(.top, 30)", sheet)
+        self.assertIn(".ogFittedSheet()", sheet)
+        timer = (IOS / "StandaloneTimerView.swift").read_text(encoding="utf-8")
+        numeric = timer.split("struct TimerNumericInput: View {", 1)[1].split(
+            "struct StandaloneTimerView: View {", 1
+        )[0]
+        self.assertIn(
+            ".background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))",
+            numeric,
+        )
+        self.assertNotIn(".glassEffect(", numeric)
+        # Igual que los campos de Reps dentro de WorkoutView.
+        self.assertIn(
+            ".background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))",
+            PLAY,
+        )
 
     def test_prescribed_intervals_are_not_overridden_by_setup(self):
         configured = PLAY.split("private func startBlockClock(", 1)[1].split(
