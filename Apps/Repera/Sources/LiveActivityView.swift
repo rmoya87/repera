@@ -298,7 +298,7 @@ enum LiveSport: String, CaseIterable, Identifiable {
     }
 }
 
-struct LiveSavedRoute: Identifiable, Codable {
+struct LiveSavedRoute: Identifiable, Codable, Sendable, Equatable {
     var id: UUID
     var title: String
     var points: [WorkoutRoutePoint]
@@ -306,6 +306,8 @@ struct LiveSavedRoute: Identifiable, Codable {
     var sportID: String?
     var isFavorite: Bool
     var createdAt: Date
+    /// Updated metadata provides a stable conflict order for cloud favorites.
+    var modifiedAt: Date
 
     init(
         id: UUID = UUID(), title: String, points: [WorkoutRoutePoint],
@@ -317,10 +319,11 @@ struct LiveSavedRoute: Identifiable, Codable {
         self.sportID = sportID
         self.isFavorite = isFavorite
         self.createdAt = createdAt
+        self.modifiedAt = createdAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, points, sportID, isFavorite, createdAt
+        case id, title, points, sportID, isFavorite, createdAt, modifiedAt
     }
 
     /// Los GPX y las rutas de versiones anteriores carecen de favorito/fecha.
@@ -333,6 +336,7 @@ struct LiveSavedRoute: Identifiable, Codable {
         sportID = try values.decodeIfPresent(String.self, forKey: .sportID)
         isFavorite = try values.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         createdAt = try values.decodeIfPresent(Date.self, forKey: .createdAt) ?? .distantPast
+        modifiedAt = try values.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
     }
 
     var distanceKm: Double {
@@ -356,6 +360,12 @@ struct LiveSavedRoute: Identifiable, Codable {
 final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
+    private(set) var iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
+    @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var isCloudSynchronizationRunning = false
+    @ObservationIgnored private var cloudSyncRequestedAgain = false
+    @ObservationIgnored private var hadRouteFileAtLaunch = false
+    @ObservationIgnored private var didEditRouteLocally = false
 
     /// Lo más reciente primero; el orden anterior se conserva al migrar sin fecha.
     var latestRoutes: [LiveSavedRoute] {
@@ -402,6 +412,7 @@ final class LiveRoutesStore {
     }()
 
     private init() {
+        hadRouteFileAtLaunch = FileManager.default.fileExists(atPath: storageURL.path)
         if let data = try? Data(contentsOf: storageURL),
            let saved = try? JSONDecoder().decode([LiveSavedRoute].self, from: data) {
             routes = saved
@@ -456,6 +467,7 @@ final class LiveRoutesStore {
         let previous = routes
         routes[index].title = cleanName
         routes[index].sportID = sportID
+        routes[index].modifiedAt = .now
         do {
             try persist()
         } catch {
@@ -469,6 +481,7 @@ final class LiveRoutesStore {
         guard let index = routes.firstIndex(where: { $0.id == id }) else { return }
         let previous = routes
         routes[index].isFavorite = favorite
+        routes[index].modifiedAt = .now
         do {
             try persist()
         } catch {
@@ -497,7 +510,7 @@ final class LiveRoutesStore {
         let previous = routes
         routes.append(contentsOf: recovered)
         do {
-            try persist()
+            try persist(markUserAction: false)
         } catch {
             routes = previous
         }
@@ -518,13 +531,132 @@ final class LiveRoutesStore {
         }
     }
 
-    private func persist() throws {
+    private func persist(
+        scheduleCloud: Bool = true, markUserAction: Bool = true
+    ) throws {
         let folder = storageURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true
         )
         let data = try JSONEncoder().encode(routes)
         try data.write(to: storageURL, options: .atomic)
+        if scheduleCloud {
+            if markUserAction { didEditRouteLocally = true }
+            iCloudRouteStatus = "Sincronizando rutas con iCloud…"
+            requestICloudSynchronization()
+        }
+    }
+
+    /// Merge before upload: an iCloud file still downloading must never be
+    /// replaced by an empty first-install local library.
+    func requestICloudSynchronization() {
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.synchronizeWithICloud()
+        }
+    }
+
+    func synchronizeWithICloud() async {
+        // If a star or a fresh GPS route is saved while another iCloud
+        // download is pending, replay once afterward to avoid losing it.
+        if isCloudSynchronizationRunning {
+            cloudSyncRequestedAgain = true
+            return
+        }
+        isCloudSynchronizationRunning = true
+        defer {
+            isCloudSynchronizationRunning = false
+            if cloudSyncRequestedAgain {
+                cloudSyncRequestedAgain = false
+                requestICloudSynchronization()
+            }
+        }
+        let read = await LiveRouteCloudBackup.shared.read()
+        let remote: LiveRouteCloudArchive
+        switch read {
+        case .ready(let existing):
+            remote = existing
+        case .unavailable:
+            iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
+            return
+        case .missing:
+            // A newly installed phone can see the iCloud directory before
+            // the route document metadata arrives. Never replace a missing
+            // cloud document with an empty first-install local archive.
+            guard (!routes.isEmpty || !deletedIDs.isEmpty)
+                && (hadRouteFileAtLaunch || didEditRouteLocally) else {
+                // Recovering GPS points from the main iCloud workout state
+                // on a fresh install is NOT a user-created route archive:
+                // do not let it replace imported GPX that is still downloading.
+                iCloudRouteStatus = "Esperando rutas de iCloud…"
+                return
+            }
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            let retry = await LiveRouteCloudBackup.shared.read()
+            switch retry {
+            case .ready(let existing):
+                remote = existing
+            case .missing:
+                remote = LiveRouteCloudArchive(routes: [], deletedIDs: [])
+            case .unavailable:
+                iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
+                return
+            }
+        }
+
+        let erased = deletedIDs.union(remote.deletedIDs)
+        var merged: [UUID: LiveSavedRoute] = [:]
+        for route in remote.routes + routes where !erased.contains(route.id) {
+            if let existing = merged[route.id] {
+                if route.modifiedAt > existing.modifiedAt {
+                    merged[route.id] = route
+                } else if route.modifiedAt == existing.modifiedAt,
+                          route.isFavorite && !existing.isFavorite {
+                    // Older archives may lack modifiedAt; preserve stars.
+                    merged[route.id] = route
+                }
+            } else {
+                merged[route.id] = route
+            }
+        }
+        let newRoutes = merged.values.sorted {
+            if $0.createdAt == $1.createdAt {
+                return $0.id.uuidString < $1.id.uuidString
+            }
+            return $0.createdAt > $1.createdAt
+        }
+        // A route may contain thousands of GPS coordinates. Avoid encoding
+        // and writing the entire archive on every foreground switch.
+        if newRoutes != routes {
+            let previous = routes
+            routes = newRoutes
+            do {
+                try persist(scheduleCloud: false)
+            } catch {
+                routes = previous
+                return
+            }
+        }
+        let oldDeleted = deletedIDs
+        if erased != oldDeleted {
+            UserDefaults.standard.set(erased.map(\.uuidString), forKey: deletedRoutesKey)
+        }
+        let remoteAlreadyMatches = remote.routes == newRoutes
+            && Set(remote.deletedIDs) == erased
+        let backedUp: Bool
+        if remoteAlreadyMatches {
+            backedUp = true
+        } else {
+            let archive = LiveRouteCloudArchive(
+                routes: newRoutes, deletedIDs: Array(erased)
+            )
+            backedUp = await LiveRouteCloudBackup.shared.write(archive)
+        }
+        iCloudRouteStatus = backedUp
+            ? "Rutas sincronizadas con iCloud"
+            : "Rutas guardadas localmente · iCloud pendiente"
     }
 }
 
@@ -1753,6 +1885,9 @@ struct LiveActivityView: View {
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
+    /// Raised by Inicio when its Cargar ruta action is tapped.
+    var routeLibraryOpenRequest: Int = 0
+    @State private var handledRouteLibraryOpenRequest = 0
 
     var body: some View {
         NavigationStack {
@@ -1833,15 +1968,21 @@ struct LiveActivityView: View {
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
+                routes.requestICloudSynchronization()
             } else {
                 recorder.checkpoint()
             }
         }
         .task(id: store.workoutsEpoch) {
             routes.recoverFromSessions(store.state.workouts)
+            await routes.synchronizeWithICloud()
+        }
+        .onChange(of: routeLibraryOpenRequest) { _, _ in
+            openRequestedRouteLibrary()
         }
         .onAppear {
             if scenePhase == .active { recorder.refreshWhenActive() }
+            openRequestedRouteLibrary()
         }
     }
 
@@ -2699,6 +2840,13 @@ struct LiveActivityView: View {
         .foregroundStyle(OG.label)
     }
 
+    private func openRequestedRouteLibrary() {
+        guard routeLibraryOpenRequest > handledRouteLibraryOpenRequest,
+              recorder.phase == .idle else { return }
+        handledRouteLibraryOpenRequest = routeLibraryOpenRequest
+        routePicker = true
+    }
+
     private func importResult(_ result: Result<URL, Error>) {
         switch result {
         case .success(let url):
@@ -2713,6 +2861,10 @@ struct LiveActivityView: View {
                 let data = try Data(contentsOf: url)
                 try routes.addGPX(data: data, name: url.deletingPathExtension().lastPathComponent)
                 guard let route = routes.routes.first else { return }
+                // GPX is spatial data. If entered from Home with a
+                // non-GPS sport selected, prepare walking rather than
+                // hiding the map and starting a non-GPS workout.
+                if !recorder.sport.usesGPS { recorder.choose(.walking) }
                 recorder.selectRoute(route)
                 position = route3DPosition(route.points)
                 mapIsCentered = false
@@ -3017,6 +3169,14 @@ struct LiveActivityView: View {
                 routePicker = false
             },
             onUseRoute: { selected in
+                // A route opened from Inicio may not match the currently
+                // selected non-GPS sport in Comenzar.
+                if let raw = selected.sportID,
+                   let sport = LiveSport(rawValue: raw), sport.usesGPS {
+                    recorder.choose(sport)
+                } else if !recorder.sport.usesGPS {
+                    recorder.choose(.walking)
+                }
                 recorder.selectRoute(selected)
                 position = route3DPosition(selected.points)
                 mapIsCentered = false
@@ -3148,9 +3308,14 @@ private struct LiveRouteLibraryPickerView: View {
             List {
                 Section {
                     HStack {
-                        Text("Mis rutas")
-                            .font(.system(size: 31, weight: .bold))
-                            .foregroundStyle(OG.label)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Mis rutas")
+                                .font(.system(size: 31, weight: .bold))
+                                .foregroundStyle(OG.label)
+                            Text(routes.iCloudRouteStatus)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
                         Spacer()
                         Button(action: onClose) {
                             Image(systemName: "xmark")
@@ -3224,6 +3389,8 @@ private struct LiveRouteLibraryPickerView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
+            .task { await routes.synchronizeWithICloud() }
+            .refreshable { await routes.synchronizeWithICloud() }
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)

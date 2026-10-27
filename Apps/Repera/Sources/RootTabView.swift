@@ -18,6 +18,9 @@ struct RootTabView: View {
     @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
+    /// Request token: opening the route library from Inicio switches to
+    /// Comenzar without auto-starting GPS or opening a duplicate sheet.
+    @State private var routePickerRequest = 0
 
     enum AppTab: Hashable {
         case home, start, stats, exercises
@@ -31,7 +34,12 @@ struct RootTabView: View {
                         onOpenWorkout: openWorkout,
                         focusDay: homeFocusDay,
                         onStart: openTodayPreview,
-                        onStartRoutine: openRoutinePreview
+                        onStartRoutine: openRoutinePreview,
+                        onLoadRoutes: {
+                            flowPath = []
+                            routePickerRequest &+= 1
+                            tab = .start
+                        }
                     )
                 }
 
@@ -44,7 +52,8 @@ struct RootTabView: View {
                             // evento de refresco (fuera de la grabación activa).
                             store.requestExerciseCatalogRefresh()
                         },
-                        onOpenWorkout: openWorkout
+                        onOpenWorkout: openWorkout,
+                        routeLibraryOpenRequest: routePickerRequest
                     )
                 }
 
@@ -88,12 +97,25 @@ struct RootTabView: View {
             )
             .ogSheetChrome(detents: [.large])
         }
-        .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
+        // Push/Pop should feel immediate; the former 320ms overlay animation
+        // made switching sections look like an application reload.
+        .animation(.easeOut(duration: 0.18), value: flowPath.isEmpty)
         .tint(OG.accent)
         .onChange(of: tab) { _, newTab in
             // Solo al entrar en Ejercicios, no mientras permanece abierta.
             // El refresco es incremental y evita peticiones sucesivas en <60 s.
             if newTab == .exercises { store.requestExerciseCatalogRefresh() }
+        }
+        .task(id: store.isHydrated) {
+            // The route archive contains imported GPX and favorite flags
+            // not included in ReperaStore's regular workout iCloud snapshot.
+            // Migrate/download it without delaying the first Home frame.
+            await LiveRoutesStore.shared.synchronizeWithICloud()
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didBecomeActiveNotification
+        )) { _ in
+            LiveRoutesStore.shared.requestICloudSynchronization()
         }
         .task {
             // Nuevo proceso: volver a la pantalla real de grabación.

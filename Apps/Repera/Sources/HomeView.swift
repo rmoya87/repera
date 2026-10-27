@@ -70,6 +70,8 @@ struct HomeView: View {
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
+    /// Cargar una ruta siempre lleva a Comenzar; nunca arranca GPS sin Play.
+    var onLoadRoutes: () -> Void = {}
 
     /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
@@ -199,17 +201,29 @@ struct HomeView: View {
         }
     }
 
-    private var businessCalendarSignature: String {
-        let training = businessData.trainingSessions.map {
-            "\($0.id.uuidString):\($0.scheduledDate):\($0.status)"
+    private var businessCalendarSignature: Int {
+        // Avoid allocating, sorting and joining large strings on every
+        // render when a day has several local or professional workouts.
+        var hasher = Hasher()
+        hasher.combine(businessData.trainingSessions.count)
+        for entry in businessData.trainingSessions {
+            hasher.combine(entry.id)
+            hasher.combine(entry.scheduledDate)
+            hasher.combine(entry.status)
         }
-        let reservations = businessData.bookings.map {
-            "\($0.id.uuidString):\($0.occurrenceId.uuidString):\($0.status)"
+        hasher.combine(businessData.bookings.count)
+        for booking in businessData.bookings {
+            hasher.combine(booking.id)
+            hasher.combine(booking.occurrenceId)
+            hasher.combine(booking.status)
         }
-        let occurrences = businessData.occurrences.map {
-            "\($0.id.uuidString):\($0.startsAt):\($0.status)"
+        hasher.combine(businessData.occurrences.count)
+        for occurrence in businessData.occurrences {
+            hasher.combine(occurrence.id)
+            hasher.combine(occurrence.startsAt)
+            hasher.combine(occurrence.status)
         }
-        return (training + reservations + occurrences).sorted().joined(separator: "|")
+        return hasher.finalize()
     }
 
     var body: some View {
@@ -256,13 +270,15 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     // En paisaje la safe area lateral pertenece al gris de
                     // Progreso/Actividad; el blanco solo es calendario + entreno.
-                    .background(OG.bg.ignoresSafeArea(edges: .horizontal))
+                    .background(OG.bg.ignoresSafeArea(edges: [.horizontal, .bottom]))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // El gris agrupado debe ocupar el viewport entero y la zona
-            // inferior segura, incluso si no hay tarjetas más abajo.
-            .background(OG.bg.ignoresSafeArea(edges: .bottom))
+            // Durante una recarga o navegación, el ScrollView aún no ha
+            // compuesto sus tarjetas. Su fondo no puede ser negro mientras
+            // la topbar y el calendario usan OG.surface.
+            // La sección Progreso/Actividad pinta OG.bg hasta abajo.
+            .background(OG.surface.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
@@ -325,17 +341,10 @@ struct HomeView: View {
             // Fondo independiente del topbar: el blanco continúa visualmente
             // desde la zona segura superior hasta calendario + entreno.
             // El componente de navegación y sus controles no se modifican.
-            .background(alignment: .top) {
-                // Cubrir también todo el margen superior derecho del DUO:
-                // una franja fija de 160 pt no alcanzaba el safe area horizontal.
-                OG.bg.ignoresSafeArea()
-                    .overlay(alignment: .top) {
-                        OG.surface
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 360, alignment: .top)
-                            .ignoresSafeArea(edges: [.top, .horizontal])
-                    }
-            }
+            // Do not reveal the system's black background between a topbar
+            // refresh and re-layout of the calendar cards. The content below
+            // still paints its own grouped OG.bg surface.
+            .background(OG.surface.ignoresSafeArea())
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
                 if let focusDay, focusDay != lastAppliedFocusDay {
@@ -382,13 +391,23 @@ struct HomeView: View {
                     Task(priority: .utility) { await refreshProgressiveHealthIfNeeded() }
                 }
             }
-            .task(id: "\(store.workoutsEpoch)-\(health.healthDataRevision)") {
+            // Personal-record calculations depend on the workout history,
+            // not on every HealthKit authorization/sample callback.
+            .task(id: store.workoutsEpoch) {
                 rebuildDayBuckets()
                 rebuildWeekChrome()
                 await Task.yield()
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
+            }
+            .task(id: health.healthDataRevision) {
+                // Health changes update calories/minutes and the day dots,
+                // but should never repeat personal-record analysis.
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+                await Task.yield()
+                rebuildStreakChrome()
             }
             .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
                 let requestedDay = selectedDay
@@ -1003,7 +1022,7 @@ struct HomeView: View {
         let businessBookings = selectedDayBusinessBookings
         let professionalPlans = selectedDayProfessionalSessions
 
-        VStack(spacing: 6) {
+        LazyVStack(spacing: 6) {
             if hasActive {
                 Button(action: onStart) {
                     dayActionRowContent
@@ -1073,6 +1092,23 @@ struct HomeView: View {
             if !hasActive {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
+                Button(action: onLoadRoutes) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Cargar ruta")
+                            .font(.system(size: 15, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(OG.label)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 48)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Abre Mis rutas en Comenzar para elegir y preparar el recorrido")
             }
         }
         .swipeActionsContainer()
@@ -1652,9 +1688,12 @@ struct HomeView: View {
     }
 
     private func rebuildWeekChrome() {
-        cachedWeekDays = makeWeekDays(offset: weekOffset)
+        // One indexed pass for every planned/remote day, not 105 passes
+        // scanning all routines and joining every booking on every week.
+        let lookup = makeCalendarDayLookup()
+        cachedWeekDays = makeWeekDays(offset: weekOffset, lookup: lookup)
         cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
-            makeWeekDays(offset: offset)
+            makeWeekDays(offset: offset, lookup: lookup)
         }
         // En la primera apertura mostrar AYER a la izquierda y HOY
         // como segundo día, manteniendo hoy seleccionado. No volver a
@@ -1828,7 +1867,35 @@ struct HomeView: View {
         return SpanishDate.monthHeadline(from: center, to: center, calendar: calendar)
     }
 
-    private func makeWeekDays(offset: Int) -> [DayCell] {
+    private struct CalendarDayLookup {
+        var planned: Set<String>
+        var trainerPlans: Set<String>
+        var bookings: Set<String>
+    }
+
+    private func makeCalendarDayLookup() -> CalendarDayLookup {
+        let planned = Set(store.state.routines.compactMap { $0.scheduledDate }.map(dayKey))
+        let professional = Set(businessData.trainingSessions.map(\.scheduledDate))
+        var startsByOccurrence: [UUID: String] = [:]
+        startsByOccurrence.reserveCapacity(businessData.occurrences.count)
+        for occurrence in businessData.occurrences {
+            if let date = BusinessDataStore.date(occurrence.startsAt) {
+                startsByOccurrence[occurrence.id] = BusinessDataStore.localDayKey(date)
+            }
+        }
+        let bookings = Set(businessData.bookings.compactMap { booking -> String? in
+            guard booking.status == "booked" else { return nil }
+            return startsByOccurrence[booking.occurrenceId]
+        })
+        return CalendarDayLookup(
+            planned: planned, trainerPlans: professional, bookings: bookings
+        )
+    }
+
+    private func makeWeekDays(
+        offset: Int, lookup: CalendarDayLookup? = nil
+    ) -> [DayCell] {
+        let indexed = lookup ?? makeCalendarDayLookup()
         let today = Date()
         let weekday = calendar.component(.weekday, from: today)
         let startOffset = store.state.settings.weekStartsOn == .monday
@@ -1842,23 +1909,9 @@ struct HomeView: View {
             ? ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]
             : ["DO", "LU", "MA", "MI", "JU", "VI", "SA"]
 
-        // Un solo pase de rutinas → keys de plan de la semana visible.
-        var planKeys = Set<String>()
-        let weekDates: [Date] = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        for routine in store.state.routines {
-            guard let scheduled = routine.scheduledDate else { continue }
-            if weekDates.contains(where: { calendar.isDate($0, inSameDayAs: scheduled) }) {
-                planKeys.insert(dayKey(scheduled))
-            }
+        let weekDates: [Date] = (0..<7).compactMap {
+            calendar.date(byAdding: .day, value: $0, to: start)
         }
-
-        let remotePlanDays = Set(businessData.trainingSessions.map(\.scheduledDate))
-        let remoteBookingDays = Set(businessData.bookings.compactMap { booking -> String? in
-            guard booking.status == "booked",
-                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
-                  let date = BusinessDataStore.date(occurrence.startsAt) else { return nil }
-            return BusinessDataStore.localDayKey(date)
-        })
         return weekDates.enumerated().map { i, d in
             let dayStart = calendar.startOfDay(for: d)
             let key = dayKey(dayStart)
@@ -1868,9 +1921,9 @@ struct HomeView: View {
                 lbl: labels[i],
                 num: calendar.component(.day, from: d),
                 hasWorkout: hasCompletedWorkoutOnDay(key),
-                hasPlan: planKeys.contains(key) ||
-                    remotePlanDays.contains(BusinessDataStore.localDayKey(d)) ||
-                    remoteBookingDays.contains(BusinessDataStore.localDayKey(d))
+                hasPlan: indexed.planned.contains(key) ||
+                    indexed.trainerPlans.contains(BusinessDataStore.localDayKey(d)) ||
+                    indexed.bookings.contains(BusinessDataStore.localDayKey(d))
             )
         }
     }

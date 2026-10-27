@@ -46,7 +46,8 @@ class NavigationBackgroundContractTests(unittest.TestCase):
         home = read("HomeView.swift")
         self.assertIn('.ogFixedTopBar("repera"', home)
         self.assertNotIn(".ogTransparentNav()", home)
-        self.assertIn(".background(OG.surface)", home)
+        self.assertIn(".background(OG.surface.ignoresSafeArea())", home)
+        self.assertNotIn(".frame(height: 360, alignment: .top)", home)
 
     def test_inline_navigation_and_manual_titles_do_not_turn_white(self):
         self.assertIn(".ogTransparentNav()", read("WorkoutView.swift"))
