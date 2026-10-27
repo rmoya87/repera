@@ -43,11 +43,11 @@ enum class ProgressTimeRange(val wire: String) {
     val healthFetchDayCount: Int
         get() = when (this) {
             TODAY -> 7
-            WEEK -> 14
-            MONTH -> 45
-            DAYS_90 -> 100
-            DAYS_180 -> 190
-            DAYS_360 -> 370
+            WEEK -> 16
+            MONTH -> 70
+            DAYS_90 -> 190
+            DAYS_180 -> 370
+            DAYS_360 -> 730
         }
 
     /** Inicio inclusivo del rango (siempre acotado). */
@@ -70,14 +70,27 @@ enum class ProgressTimeRange(val wire: String) {
         return !date.isBefore(startDate(now, weekStartsOnMonday))
     }
 
-    /** Ventana del periodo anterior (misma duración, desplazada hacia atrás). */
+    /** Periodo comparable (602e9c39): en semana y mes solo los días transcurridos,
+     *  nunca todo el periodo anterior si el actual aún no ha concluido; el fin es
+     *  EXCLUSIVO. Los periodos móviles (90/180/360 días) comparan ventanas completas. */
     fun previousPeriodBounds(now: LocalDate = LocalDate.now(),
                              weekStartsOnMonday: Boolean = true): Pair<LocalDate, LocalDate> {
         val start = startDate(now, weekStartsOnMonday)
         return when (this) {
             TODAY -> now.minusDays(1) to now
-            WEEK -> start.minusDays(7) to start
-            MONTH -> start.minusMonths(1) to start
+            WEEK -> {
+                val elapsedDays = maxOf(1, java.time.temporal.ChronoUnit.DAYS.between(start, now).toInt() + 1)
+                val prevStart = start.minusDays(7)
+                val comparableEnd = prevStart.plusDays(minOf(7, elapsedDays).toLong())
+                prevStart to minOf(comparableEnd, start)
+            }
+            MONTH -> {
+                val elapsedDays = maxOf(1, java.time.temporal.ChronoUnit.DAYS.between(start, now).toInt() + 1)
+                val prevStart = start.minusMonths(1)
+                // Si el mes anterior es más corto, se limita a su último día.
+                val comparableEnd = prevStart.plusDays(elapsedDays.toLong())
+                prevStart to minOf(comparableEnd, start)
+            }
             DAYS_90 -> start.minusDays(90) to start
             DAYS_180 -> start.minusDays(180) to start
             DAYS_360 -> start.minusDays(360) to start

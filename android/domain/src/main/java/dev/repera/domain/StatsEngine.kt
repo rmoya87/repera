@@ -86,7 +86,9 @@ data class ProgressHealthSummary(
     val totalKcal: Double,
     val averageCardioMinutes: Double?,
     val volumeKg: Double,
-    val sessionCount: Int
+    val sessionCount: Int,
+    /** Duración real acumulada (602e9c39); no multiplicar la media por sesiones sin duración. */
+    val totalMinutes: Double = 0.0
 )
 
 data class PersonalRecord(
@@ -484,7 +486,8 @@ object StatsEngine {
             totalKcal = kcal,
             averageCardioMinutes = if (cardioMinutes.isEmpty()) null else cardioMinutes.average(),
             volumeKg = volume,
-            sessionCount = filteredW.size + filteredE.size
+            sessionCount = filteredW.size + filteredE.size,
+            totalMinutes = minutes.sum()
         )
     }
 

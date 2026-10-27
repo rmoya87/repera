@@ -41,9 +41,10 @@ class ProgressTimeRangeTest {
     }
 
     @Test fun previousPeriodWindows() {
-        assertEquals(LocalDate.of(2026, 10, 12) to LocalDate.of(2026, 10, 19),
+        // 602e9c39: solo los días transcurridos son comparables (sábado: lun-sáb previo).
+        assertEquals(LocalDate.of(2026, 10, 12) to LocalDate.of(2026, 10, 18),
             ProgressTimeRange.WEEK.previousPeriodBounds(now))
-        assertEquals(LocalDate.of(2026, 9, 1) to LocalDate.of(2026, 10, 1),
+        assertEquals(LocalDate.of(2026, 9, 1) to LocalDate.of(2026, 9, 25),
             ProgressTimeRange.MONTH.previousPeriodBounds(now))
         assertEquals(LocalDate.of(2026, 10, 23) to LocalDate.of(2026, 10, 24),
             ProgressTimeRange.TODAY.previousPeriodBounds(now))
@@ -55,9 +56,9 @@ class ProgressTimeRangeTest {
 
     @Test fun healthFetchMarginsMatchIos() {
         assertEquals(7, ProgressTimeRange.TODAY.healthFetchDayCount)
-        assertEquals(14, ProgressTimeRange.WEEK.healthFetchDayCount)
-        assertEquals(45, ProgressTimeRange.MONTH.healthFetchDayCount)
-        assertEquals(100, ProgressTimeRange.DAYS_90.healthFetchDayCount)
-        assertEquals(370, ProgressTimeRange.DAYS_360.healthFetchDayCount)
+        assertEquals(16, ProgressTimeRange.WEEK.healthFetchDayCount)
+        assertEquals(70, ProgressTimeRange.MONTH.healthFetchDayCount)
+        assertEquals(190, ProgressTimeRange.DAYS_90.healthFetchDayCount)
+        assertEquals(730, ProgressTimeRange.DAYS_360.healthFetchDayCount)
     }
 }

@@ -192,8 +192,8 @@ internal fun ProgressTab(
         if (snapshot != null) {
             if(topic=="Entreno") {
             item {
-                val tiles=ProgressTilesModel.tiles(snapshot.summary.sessionCount,snapshot.summary.averageMinutes,snapshot.previousSummary?.sessionCount,
-                    snapshot.previousSummary?.averageMinutes,snapshot.streak,snapshot.previousStreak,pro)
+                val tiles=ProgressTilesModel.tiles(snapshot.summary.sessionCount,snapshot.summary.totalMinutes,snapshot.previousSummary?.sessionCount,
+                    snapshot.previousSummary?.totalMinutes,snapshot.streak,snapshot.previousStreak,pro)
                 // Apple OGAdaptiveMetricLayout(minimumItemWidth: 96): columns follow the available width, and the
                 // minimum scales with the font so large text wraps to fewer columns instead of clipping.
                 BoxWithConstraints(Modifier.fillMaxWidth()) {

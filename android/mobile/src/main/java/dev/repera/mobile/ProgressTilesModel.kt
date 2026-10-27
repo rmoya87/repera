@@ -29,14 +29,17 @@ internal object ProgressTilesModel {
 
     data class Tile(val label: String, val value: String, val delta: Int?)
 
-    /** Apple tilesGrid (Pro) / freeTilesGrid (Free): Entrenos, Tiempo (medio), Racha. */
-    fun tiles(sessions: Int, average: Double?, previousSessions: Int?, previousAverage: Double?,
+    /** Apple tilesGrid / freeTilesGrid tras 602e9c39: Entrenos, Tiempo TOTAL, Racha.
+     *  El tiempo es totalMinutes acumulado real (no media × sesiones), con delta
+     *  frente al periodo comparable en ambos niveles. */
+    fun tiles(sessions: Int, totalMinutes: Double, previousSessions: Int?, previousTotalMinutes: Double?,
               streak: Int, previousStreak: Int, pro: Boolean): List<Tile> {
-        val time = if (pro) minutesLabel(average)
-            else if (average != null && sessions > 0) "${roundHalfAway(average * sessions)}′" else "—"
+        val total = roundHalfAway(totalMinutes)
+        val time = "${dev.repera.domain.ReperaNumberFormat.integer(total)}′"
+        val timeDelta = previousTotalMinutes?.let { total - roundHalfAway(it) }
         return listOf(
-            Tile("Entrenos", "$sessions", if (pro) previousSessions?.let { sessions - it } else null),
-            Tile(if (pro) "Tiempo medio" else "Tiempo", time, if (pro) minutesDelta(average, previousAverage) else null),
+            Tile("Entrenos", "$sessions", previousSessions?.let { sessions - it }),
+            Tile("Tiempo", time, timeDelta),
             Tile("Racha", "$streak", streak - previousStreak))
     }
 }

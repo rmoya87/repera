@@ -19,16 +19,19 @@ class ProgressTilesModelTest {
   assertEquals("12 min 5 s",ProgressTilesModel.mobilityDuration(725))
  }
 
-    @Test fun tilesProAndFree() {
-        val pro = ProgressTilesModel.tiles(5, 40.5, 3, 38.0, 4, 6, true)
-        assertEquals(listOf("Entrenos", "Tiempo medio", "Racha"), pro.map { it.label })
-        assertEquals(listOf("5", "41′", "4"), pro.map { it.value })
-        assertEquals(listOf<Int?>(2, 3, -2), pro.map { it.delta })
-        val free = ProgressTilesModel.tiles(5, 40.5, 3, 38.0, 4, 6, false)
+    @Test fun tilesShowRealTotalMinutesWithDeltaInBothTiers() {
+        // 602e9c39: Tiempo total real (nunca media × sesiones), delta en ambos niveles.
+        val pro = ProgressTilesModel.tiles(5, 202.5, 3, 114.0, 4, 6, true)
+        assertEquals(listOf("Entrenos", "Tiempo", "Racha"), pro.map { it.label })
+        assertEquals(listOf("5", "203′", "4"), pro.map { it.value })
+        assertEquals(listOf<Int?>(2, 89, -2), pro.map { it.delta })
+        val free = ProgressTilesModel.tiles(5, 202.5, 3, 114.0, 4, 6, false)
         assertEquals(listOf("5", "203′", "4"), free.map { it.value })
         assertEquals("Tiempo", free[1].label)
-        assertEquals(listOf<Int?>(null, null, -2), free.map { it.delta })
-        assertEquals("—", ProgressTilesModel.tiles(0, null, null, null, 0, 0, false)[1].value)
-        assertEquals(null, ProgressTilesModel.tiles(1, null, null, null, 0, 0, true)[1].delta)
+        assertEquals(listOf<Int?>(2, 89, -2), free.map { it.delta })
+        assertEquals("0′", ProgressTilesModel.tiles(0, 0.0, null, null, 0, 0, false)[1].value)
+        assertEquals(null, ProgressTilesModel.tiles(1, 45.0, null, null, 0, 0, true)[1].delta)
+        // Agrupación española desde 1.000 (ReperaNumberFormat.integer).
+        assertEquals("1.234′", ProgressTilesModel.tiles(9, 1234.4, null, null, 0, 0, true)[1].value)
     }
 }
