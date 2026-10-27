@@ -80,7 +80,7 @@ function trainerDialogMarkup({manager,members}){
   title='Registrar sesión presencial';
   const c=clients.find(x=>x.id===selectedClientId);
   const eligible=passes.filter(p=>p.client_id===selectedClientId&&p.kind==='appointment'&&
-   p.status==='active'&&new Date(p.valid_until)>new Date()&&p.remaining_credits>0);
+   p.status==='active'&&(new Date(p.valid_until)>new Date()&&p.remaining_credits>0||bookings.some(b=>b.pass_id===p.id&&b.status==='booked')));
   inner=c?`<p class="connected-hint">La sesión se registra en el momento de realizarla, incluso si no preparaste un entrenamiento. Se descontará un crédito del bono elegido.</p>
   <form class="business-form" data-connected="trainer-attendance"><input name="client" type="hidden" value="${escapeHTML(c.id)}">
   <label class="connected-field">Bono de ${escapeHTML(c.name)}<select name="pass" required>${eligible.map(p=>`<option value="${escapeHTML(p.id)}">${p.remaining_credits} de ${p.total_credits} sesiones restantes · hasta ${escapeHTML(new Date(p.valid_until).toLocaleDateString('es-ES'))}</option>`).join('')}</select></label>
@@ -159,7 +159,7 @@ function enhanceWorkspace(own){
  // its workspace as Repera support; we never label this account as the future trainer.
  if(delegation&&!members.some(m=>m.user_id===user.id))members.unshift({user_id:user.id,label:'Administrador Repera · soporte'});
  if(!trainer)attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,selectedGroup:selectedGroupId,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
- if(trainer){attach('bonos',renderTrainerPassPanel({clients,passes,offers,attendance,occurrences,seat,manager,busy}));}
+ if(trainer){attach('bonos',renderTrainerPassPanel({clients,passes,offers,attendance,bookings,occurrences,seat,manager,busy}));}
  else attach('bonos',`<section class="connected-card"><h2>Bonos y tarifas</h2>
  <p>Define las tarifas que verán los deportistas vinculados en la app. Publicar un bono no equivale a un cobro: la compra se activará cuando la pasarela esté configurada y confirme el pago.</p>
  <h3>Tarifas publicadas</h3>
