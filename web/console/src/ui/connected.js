@@ -76,6 +76,18 @@ function trainerDialogMarkup({manager,members}){
    orgId:selectedOrg,role:manager?'owner':(memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role||'athlete'),
    sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,
    clientId:selectedClientId,bulkOnly:true}));
+ }else if(businessDialog==='trainer-session'){
+  title='Registrar sesión presencial';
+  const c=clients.find(x=>x.id===selectedClientId);
+  const eligible=passes.filter(p=>p.client_id===selectedClientId&&p.kind==='appointment'&&
+   p.status==='active'&&new Date(p.valid_until)>new Date()&&p.remaining_credits>0);
+  inner=c?`<p class="connected-hint">La sesión se registra en el momento de realizarla, incluso si no preparaste un entrenamiento. Se descontará un crédito del bono elegido.</p>
+  <form class="business-form" data-connected="trainer-attendance"><input name="client" type="hidden" value="${escapeHTML(c.id)}">
+  <label class="connected-field">Bono de ${escapeHTML(c.name)}<select name="pass" required>${eligible.map(p=>`<option value="${escapeHTML(p.id)}">${p.remaining_credits} de ${p.total_credits} sesiones restantes · hasta ${escapeHTML(new Date(p.valid_until).toLocaleDateString('es-ES'))}</option>`).join('')}</select></label>
+  <label class="connected-field">Cita de agenda (opcional)<select name="occurrence"><option value="">Sin cita previa</option>${occurrences.filter(o=>o.kind==='appointment'&&o.status==='active').map(o=>`<option value="${escapeHTML(o.id)}">${escapeHTML(o.title)} · ${escapeHTML(new Date(o.starts_at).toLocaleDateString('es-ES'))}</option>`).join('')}</select></label>
+  <label class="connected-field">Notas<textarea name="note" rows="2" maxlength="1000"></textarea></label>
+  <button class="connected-primary" type="submit" ${eligible.length?'':'disabled'}>Confirmar sesión realizada</button>
+  ${eligible.length?'':'<p>No hay saldo disponible. Asigna un bono desde Bonos y tarifas.</p>'}</form>`:'<p>Cliente no encontrado.</p>';
  }else if(businessDialog==='new-appointment'){
   title='Nueva cita o grupo';
   inner=`<form data-connected="service-occurrence" class="business-form">
@@ -524,6 +536,7 @@ app.addEventListener('click',async event=>{
  const trainer=trainerActive();
  const setting=event.target.closest('[data-settings-section]');if(setting){settingsSection=setting.dataset.settingsSection==='plan'?'plan':'profile';render();return;}
  if(action==='close-business-dialog'||trainer&&(action==='back-classes'||action==='back-groups')){businessDialog='';selectedClassId=null;selectedGroupId=null;render();return;}
+ if(action==='trainer-session'&&trainer){selectedClientId=actionable.dataset.id;businessDialog='trainer-session';render();return;}
  if(action==='new-date-appointment'&&trainer){dialogDay=actionable.dataset.day;businessDialog='new-appointment';render();return;}
  if(action==='calendar-today'){calendarMonth='';render();return;}
  if(action==='bulk-mode'){bulkMode=actionable.dataset.mode==='template'?'template':'custom';render();return;}
@@ -548,7 +561,7 @@ app.addEventListener('click',async event=>{
   calendarMonth=first.toLocaleDateString('sv-SE').slice(0,7);render();return;
  }
  if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else activeTab='services';render();return;}
- if(action==='plan-client'){planningClientId=actionable.dataset.id;selectedClientId=planningClientId;clientSection='training';activeTab=trainer?'clients':'planning';clientEditorOpen=trainer;planningSelectedDay=actionable.dataset.day||trainerActivityDay||'';selectedTemplateId=null;editingSessionId=null;setWorkspaceRoute();render();return;}
+ if(action==='plan-client'){planningClientId=actionable.dataset.id;selectedClientId=planningClientId;clientSection='training';activeTab=trainer?'clients':'planning';clientEditorOpen=trainer;planningSelectedDay=actionable.dataset.day||trainerActivityDay||'';selectedTemplateId=null;editingSessionId=null;setWorkspaceRoute();render();if(trainer)app.querySelector('#client-workout-editor')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='services';classMode='list';notice='Selecciona una clase para inscribir a este deportista con un bono válido.';render();return;}
  if(action==='refresh-enrollments'&&!busy&&selectedOrg){
   busy=true;error='';render();
@@ -624,7 +637,7 @@ app.addEventListener('click',async event=>{
  }
  if(action==='new-workout'){selectedTemplateId=null;editingSessionId=null;render();return;}
  if(action==='use-template'){selectedTemplateId=actionable.dataset.id;editingSessionId=null;clientEditorOpen=trainer;clientSection='training';activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();return;}
- if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;clientEditorOpen=trainer;const session=professionalSessions.find(s=>s.id===editingSessionId);if(trainer&&session){selectedClientId=session.client_id;planningClientId=selectedClientId;clientSection='training';}activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();return;}
+ if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;clientEditorOpen=trainer;const session=professionalSessions.find(s=>s.id===editingSessionId);if(trainer&&session){selectedClientId=session.client_id;planningClientId=selectedClientId;clientSection='training';}activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();if(trainer)app.querySelector('#client-workout-editor')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(action==='accept-invitation'&&!busy){busy=true;error=notice='';render();try{await auth.acceptInvitation(actionable.dataset.id);await reload();notice='Invitación aceptada. Tu relación con el profesional ya consta en Supabase.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
@@ -930,7 +943,7 @@ app.addEventListener('submit',async event=>{
   if(action==='trainer-attendance'){
    await auth.recordTrainerAttendance({orgId:selectedOrg,clientId:data.get('client'),
      passId:data.get('pass'),occurrenceId:data.get('occurrence')||null,note:data.get('note')||''});
-   await loadSelectedOrg();notice='Sesión realizada registrada. Se ha descontado un crédito solo si no había reserva ya descontada.';
+   await loadSelectedOrg();businessDialog='';notice='Sesión realizada registrada. Se ha descontado un crédito solo si no había reserva ya descontada.';
   }
   if(action==='create-pass-offer'){
     await auth.createServicePassOffer({orgId:selectedOrg,name:data.get('name'),kind:data.get('kind'),credits:Number(data.get('credits')),validityDays:Number(data.get('validityDays')),priceCents:Math.round(Number(data.get('price'))*100)});
