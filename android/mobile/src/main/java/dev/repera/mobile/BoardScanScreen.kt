@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import dev.repera.domain.BoardScanLiteParser
+import dev.repera.domain.SportExerciseNames
 import dev.repera.domain.CatalogExercise
 import dev.repera.domain.RoutineBlock
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +92,10 @@ internal fun BoardScanScreen(
             try {
                 val text = BoardScanOcr.recognize(context, uri)
                 val catalog = (overview?.exerciseEntries ?: emptyList())
-                    .map { CatalogExercise(it.id, it.name) }
+                    .map {
+                        CatalogExercise(it.id, it.name,
+                            SportExerciseNames.searchAliases(it.name), it.isCustom)
+                    }
                 val aliases = ExerciseSearchAssets.load(context)
                 val parsed = withContext(Dispatchers.Default) {
                     BoardScanLiteParser.parse(ocrText = text, catalog = catalog,

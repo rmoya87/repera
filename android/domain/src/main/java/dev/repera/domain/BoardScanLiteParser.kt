@@ -154,8 +154,7 @@ object BoardScanLiteParser {
 
         // Match catálogo por nombre canónico.
         if (catalog.isNotEmpty()) {
-            val index = mutableMapOf<String, CatalogExercise>()
-            for (ex in catalog) index.putIfAbsent(norm(ex.name), ex)
+            val index = catalogIndex(catalog)
             outBlocks = outBlocks.map { block ->
                 block.movements = block.movements.map { move ->
                     if (move.isRest) return@map move
@@ -357,8 +356,7 @@ object BoardScanLiteParser {
             rounds == null || rounds !in 2..30 ||
             lines.size < 2) return null
 
-        val index = mutableMapOf<String, CatalogExercise>()
-        for (ex in catalog) index.putIfAbsent(norm(ex.name), ex)
+        val index = catalogIndex(catalog)
         val rir = rpeMidpointRIR(header)
         val items = mutableListOf<RoutineExercise>()
         for (line in lines) {
@@ -513,4 +511,23 @@ object BoardScanLiteParser {
     }
 
     private fun norm(s: String): String = CrossFitGlossary.normalize(s)
+
+    /** Apple (live main) BoardScanLiteParser.catalogIndex: nombres oficiales
+     * primero, fichas custom solo si la clave está libre, y alias publicados
+     * sin pisar nombres canónicos (un alias sí puede desplazar a un custom). */
+    private fun catalogIndex(catalog: List<CatalogExercise>): Map<String, CatalogExercise> {
+        val index = mutableMapOf<String, CatalogExercise>()
+        for (ex in catalog) if (!ex.isCustom) index[norm(ex.name)] = ex
+        for (ex in catalog) if (ex.isCustom) index.putIfAbsent(norm(ex.name), ex)
+        for (ex in catalog) {
+            if (ex.isCustom) continue
+            for (alias in ex.searchAliases) {
+                val key = norm(alias)
+                if (key.isEmpty()) continue
+                val current = index[key]
+                if (current == null || current.isCustom) index[key] = ex
+            }
+        }
+        return index
+    }
 }

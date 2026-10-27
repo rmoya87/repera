@@ -226,7 +226,13 @@ data class RoutineBlock(
 }
 
 /** Ejercicio de catálogo para matching del escáner (desde catalog_seed.json). */
-data class CatalogExercise(val id: String, val name: String)
+data class CatalogExercise(
+    val id: String,
+    val name: String,
+    /** Apple (live main) Exercise.searchAliases: alias publicados para matching. */
+    val searchAliases: List<String> = emptyList(),
+    val isCustom: Boolean = false
+)
 
 /** Línea detectada en una pizarra / TV (OCR). Port de BoardImportLine. */
 data class BoardImportLine(

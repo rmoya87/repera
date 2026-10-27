@@ -35,7 +35,12 @@ class BoardScanLiteParserTest {
             val array = JSONArray(text)
             catalog = (0 until array.length()).map {
                 val o = array.getJSONObject(it)
-                CatalogExercise(id = o.getString("id"), name = o.getString("name"))
+                CatalogExercise(
+                    id = o.getString("id"),
+                    name = o.getString("name"),
+                    searchAliases = SportExerciseNames.searchAliases(o.getString("name")),
+                    isCustom = o.optBoolean("isCustom", false)
+                )
             }
         }
     }
