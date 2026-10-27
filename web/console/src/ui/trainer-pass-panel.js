@@ -57,7 +57,6 @@ export function renderTrainerPassPanel({clients=[],passes=[],offers=[],attendanc
  <p>Puedes registrar una sesión en el momento de comenzar, aunque no hubiera entrenamiento planificado.
  Se descuenta un crédito de su bono activo. Si ya existía reserva con crédito descontado, únicamente se registra la asistencia.</p>
  ${manager&&selectablePasses.length?`<form class="business-form" data-connected="trainer-attendance">
- <label class="connected-field">Cliente<select name="client" required>${linked.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>
  <label class="connected-field">Bono disponible<select name="pass" required>${selectablePasses.map(p=>`<option value="${esc(p.id)}" data-client-id="${esc(p.client_id)}">${esc(clients.find(c=>c.id===p.client_id)?.name||'Atleta')} — ${p.remaining_credits} sesiones disponibles</option>`).join('')}</select></label>
  <label class="connected-field">Cita de agenda (opcional)<select name="occurrence"><option value="">Sin cita previa · sesión realizada ahora</option>${trainerOcc.map(o=>`<option value="${esc(o.id)}">${esc(o.title)} · ${day(o.starts_at)}</option>`).join('')}</select></label>
  <label class="connected-field">Notas de sesión<textarea name="note" rows="2" maxlength="1000" placeholder="Sesión de técnica y fuerza"></textarea></label>
