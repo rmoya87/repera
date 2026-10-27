@@ -18,11 +18,11 @@ const tabs=[
 ];
 const button=(label,action,more='')=>`<button type="button" class="pa-button" data-admin-action="${action}" ${more}>${label}</button>`;
 const stat=(label,value,help='')=>`<article class="pa-stat"><small>${esc(label)}</small><strong>${esc(value)}</strong><span>${esc(help)}</span></article>`;
-const label=(v)=>v==='active'?'Activo':v==='suspended'?'Suspendido':v==='paid'?'Pagado':v==='failed'?'Fallido':v==='pending'?'Pendiente':v==='refunded'?'Reembolsado':v;
+const label=(v)=>v==='active'?'Activo':v==='suspended'?'Suspendido':v==='paid'?'Pagado':v==='failed'?'Fallido':v==='pending'?'Pendiente de registro':v==='claimed'?'Registrado':v==='refunded'?'Reembolsado':v;
 function statusPill(status){return `<span class="pa-pill ${status==='active'||status==='paid'?'good':status==='suspended'||status==='failed'?'bad':''}">${esc(label(status||'active'))}</span>`;}
 const empty=(title,text)=>`<div class="pa-empty"><strong>${esc(title)}</strong><p>${esc(text)}</p></div>`;
 const table=(heads,rows)=>`<div class="pa-table-wrap"><table class="pa-table"><thead><tr>${heads.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${heads.length}">Sin registros</td></tr>`}</tbody></table></div>`;
-const orgRow=o=>`<tr><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.public_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
+const orgRow=o=>`<tr><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.owner_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
 const orgTable=orgs=>table(['Centro','Tipo','Clientes','Activos','Plan','Estado','Alta','Acción'],orgs.map(orgRow).join(''));
 function heading(title,description,action=''){return `<div class="pa-heading"><div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 const field=(name,title,value='',type='text',extra='')=>`<label class="pa-field"><span>${title}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
@@ -46,11 +46,11 @@ function organizationDetail(o,opts){
  <div class="pa-metrics">${stat('Clientes registrados',o.client_count||0)}${stat('Clientes activos',o.active_clients||0)}${stat('Miembros del equipo',o.member_count||0)}${stat('Sesiones registradas',o.sessions||0)}</div>
  <div class="pa-layout">
  <section class="pa-panel"><div class="pa-identity pa-detail-identity">${photo(o.avatar_url,o.name,'large')}<h2>Perfil y configuración</h2></div>
- <dl class="pa-details"><dt>Nombre comercial</dt><dd>${esc(o.name)}</dd><dt>Identificador</dt><dd>${esc(o.slug)}</dd><dt>Actividad</dt><dd>${esc(type(o.kind))}</dd><dt>Correo público</dt><dd>${esc(o.email||'—')}</dd><dt>Teléfono</dt><dd>${esc(o.phone||'—')}</dd><dt>Web</dt><dd>${esc(o.website||'—')}</dd><dt>Dirección</dt><dd>${esc(o.address||'—')}</dd><dt>Zona horaria</dt><dd>${esc(o.timezone||'Europe/Madrid')}</dd><dt>Descripción</dt><dd>${esc(o.description||'—')}</dd></dl>
+ <dl class="pa-details"><dt>Nombre comercial</dt><dd>${esc(o.name)}</dd><dt>Registro</dt><dd>${esc(o.registration_status==='pending'?'Pendiente de aceptación del propietario':'Completado')}</dd><dt>Correo del propietario</dt><dd>${esc(o.owner_email||'—')}</dd><dt>Identificador</dt><dd>${esc(o.slug)}</dd><dt>Actividad</dt><dd>${esc(type(o.kind))}</dd><dt>Correo público</dt><dd>${esc(o.email||'—')}</dd><dt>Teléfono</dt><dd>${esc(o.phone||'—')}</dd><dt>Web</dt><dd>${esc(o.website||'—')}</dd><dt>Dirección</dt><dd>${esc(o.address||'—')}</dd><dt>Zona horaria</dt><dd>${esc(o.timezone||'Europe/Madrid')}</dd><dt>Descripción</dt><dd>${esc(o.description||'—')}</dd></dl>
  <p class="pa-muted">Para editar todos los ajustes del negocio utiliza el acceso delegado y el menú Configuración. Los datos fiscales privados no se exponen en el listado global.</p>
  </section>
  <section class="pa-panel"><h2>Suscripción y situación</h2>
- <div class="pa-inline"><strong>${statusPill(o.status)}</strong><span>${esc(o.status_reason||'')}</span></div>
+ <div class="pa-inline"><strong>${statusPill(o.status)}</strong><span>${esc(o.status_reason||'')}</span></div>${o.registration_status==='pending'?'<p class="pa-muted">Puedes gestionar o suspender este centro y acceder temporalmente como administrador. Su propietario todavía debe verificar la cuenta y aceptar el negocio.</p>':''}
  <dl class="pa-details"><dt>Plan</dt><dd>${esc(plans.find(p=>p.plan_key===o.paid_plan)?.title||o.paid_plan||'Sin suscripción confirmada')}</dd><dt>Fin de prueba</dt><dd>${date(o.trial_ends_at)}</dd><dt>Pagado hasta</dt><dd>${date(o.paid_until)}</dd><dt>Última reserva</dt><dd>${date(o.last_activity)}</dd></dl>
  <p class="pa-muted">Los cambios de plan y su renovación requieren confirmación del proveedor de pago. No se activa una suscripción desde el panel.</p>
  <form data-admin-form="status" class="pa-form"><input type="hidden" name="org_id" value="${esc(o.id)}">
@@ -59,10 +59,10 @@ function organizationDetail(o,opts){
  <button type="submit" class="pa-button ${suspend?'':'danger'}">${suspend?'Reactivar negocio':'Suspender negocio'}</button></form>
  </section></div>
  <section class="pa-panel"><h2>Gestionar como este negocio</h2>
- <p>Acceso temporal de 30 minutos, con motivo obligatorio y registro de entrada y salida. Se mantienen las restricciones sobre datos privados del deportista.</p>
+ <p>Verás la aplicación desde el contexto de administración de este centro, incluso si está pendiente de registro. No se usan las credenciales del propietario. Acceso temporal de 30 minutos, con motivo y auditoría.</p>
  <form data-admin-form="delegate" class="pa-form pa-delegate-form"><input type="hidden" name="org_id" value="${esc(o.id)}">
  <label class="pa-field"><span>Motivo del acceso delegado</span><textarea name="reason" required minlength="12" maxlength="300" rows="2" placeholder="Por ejemplo: revisar un problema de reservas comunicado por el propietario"></textarea></label>
- <button class="pa-button primary" type="submit">Acceder como administrador del negocio</button></form></section>
+ <button class="pa-button primary" type="submit">Entrar en el centro (modo administrador)</button></form></section>
  `;
 }
 function overview(orgs,financial,history){
@@ -97,6 +97,7 @@ function directory(orgs,filter){
  <label class="pa-field"><span>Estado</span><select data-admin-filter="status">
  <option value="all" ${filter.status==='all'?'selected':''}>Todos</option>
  <option value="active" ${filter.status==='active'?'selected':''}>Activos</option>
+ <option value="pending" ${filter.status==='pending'?'selected':''}>Pendientes de registro</option>
  <option value="suspended" ${filter.status==='suspended'?'selected':''}>Suspendidos</option></select></label>
  <span class="pa-filter-count">${list.length} resultados</span></div>
  ${list.length?orgTable(list):empty('No hay centros con esos filtros','Prueba otra búsqueda o añade un centro nuevo.')}</section>`;
@@ -107,7 +108,7 @@ function paymentsPage(orgs,finance,filter){
  const b2c=filter.paymentScope==='b2c';
  const names=new Map(orgs.map(o=>[o.id,o.name]));
  return `${heading('Pagos globales','Consulta separada de suscripciones a Repera (B2B) y cobros de los negocios a sus clientes (B2C). Solo movimientos verificados por backend.',button('Exportar CSV','export-payments'))}
- <div class="pa-metrics">${stat('Cobrado en EUR y verificado',euros(currencyTotal(rows)))}${stat('Pagos confirmados',rows.filter(p=>p.status==='paid').length)}
+ <div class="pa-metrics pa-payments-metrics">${stat('Cobrado en EUR y verificado',euros(currencyTotal(rows)))}${stat('Pagos confirmados',rows.filter(p=>p.status==='paid').length)}
  ${stat('Fallidos',rows.filter(p=>p.status==='failed').length)}${stat('Solicitudes de plan B2B',intents.length,'No equivalen a cobros')}</div>
  <section class="pa-panel"><div class="pa-filters"><label class="pa-field"><span>Tipo de operación</span><select data-admin-filter="paymentScope"><option value="b2b" ${!b2c?'selected':''}>Suscripciones a Repera · B2B</option><option value="b2c" ${b2c?'selected':''}>Cobros de negocios · B2C</option></select></label><label class="pa-field"><span>Organización</span><select data-admin-filter="org"><option value="all">Todas las organizaciones</option>${orgs.map(o=>`<option value="${esc(o.id)}" ${filter.org===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></label>
  <label class="pa-field"><span>Estado de cobro</span><select data-admin-filter="paymentStatus">${['all','paid','pending','failed','refunded','partially_refunded'].map(s=>`<option value="${s}" ${filter.paymentStatus===s?'selected':''}>${s==='all'?'Todos':esc(label(s))}</option>`).join('')}</select></label>
@@ -136,7 +137,7 @@ function provisioning(pending,plans){
  <p class="pa-muted">Se prepara la ficha. El propietario debe confirmar su correo e iniciar sesión para activarla. Los planes no generan cobros automáticamente.</p>
  <button type="submit" class="pa-button primary">Preparar alta</button></form></section>
  <section class="pa-panel"><h2>Altas preparadas</h2>
- ${pending.length?pending.map(p=>`<div class="pa-event pa-pending-event"><div class="pa-identity">${photo(p.avatar_url,p.name)}<div><strong>${esc(p.name)}</strong><small>${esc(p.email)} · ${esc(type(p.kind))}</small></div></div>${statusPill(p.status)}</div>`).join(''):empty('Aún no hay altas','Los centros creados aparecerán aquí hasta que el propietario complete su registro.')}</section></div>`;
+ ${pending.length?pending.map(p=>`<div class="pa-event pa-pending-event"><div class="pa-identity">${photo(p.avatar_url,p.name)}<div><strong>${esc(p.name)}</strong><small>${esc(p.email)} · ${esc(type(p.kind))}</small></div></div><div class="pa-actions">${statusPill(p.status)}${p.claimed_org_id?button('Abrir centro','view-org',`data-id="${esc(p.claimed_org_id)}"`):''}</div></div>`).join(''):empty('Aún no hay altas','Los centros creados aparecerán aquí hasta que el propietario complete su registro.')}</section></div>`;
 }
 function support(orgs,pending){
  return `${heading('Soporte y operaciones','Punto de entrada para incidencias, acceso delegado y altas pendientes.')}
@@ -279,11 +280,7 @@ export function renderPlatformAdmin({
  <span class="pa-account-copy"><strong>${esc(displayName)}</strong><small>${esc(email)}</small><small>Cuenta de plataforma</small></span>
  ${navIcon('settings')}</button>
  <button type="button" class="pa-sidebar-logout" data-action="logout">Cerrar sesión</button></div></aside>
- <div class="pa-main"><header class="pa-top">
- <div><span>Repera</span> / ${esc(o?o.name:(headings[tab]||'Inicio'))}</div>
- <div class="pa-top-right">${button('Añadir centro','go-provision')}</div>
- </header>
- <main class="pa-content" id="platform-main">
+ <div class="pa-main"><main class="pa-content" id="platform-main">
  ${error?`<div role="alert" class="pa-error">${esc(error)}</div>`:''}
  ${notice?`<div role="status" class="pa-notice">${esc(notice)}</div>`:''}
  ${body}</main></div></div>`;

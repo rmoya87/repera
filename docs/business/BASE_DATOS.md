@@ -1,5 +1,14 @@
 ## Administración global (2026-10-27)
 
+## Materialización temprana de centros pendientes (2026-10-27)
+
+`private.platform_admin_provision` inserta `platform_org_provisioning` y llama `private.platform_admin_materialize_pending` con validación de administrador. El UUID del tenant real aparece en `claimed_org_id` aunque `status='pending'`, por compatibilidad con la estructura existente. El directorio `private.platform_admin_directory()` une ambas tablas y obtiene estado operativo real (`active`/`suspended`) junto con registro (`pending`/`claimed`). Los registros pendientes se muestran como `status='pending'` mientras no estén suspendidos.
+
+Al insertar el centro, el trigger existente crea la membresía del creador; se elimina atómicamente y ningún usuario adquiere propiedad hasta su posterior registro confirmado. `private.claim_platform_provisioning` no duplica la organización: conserva ID, crea membresía owner con la identidad verificada y reinicia prueba de 7 días. Las imágenes previamente cargadas quedan asociadas al tenant.
+
+Se migró la prealta histórica «Alicia». Antes de la aceptación no se muestran esos centros en búsquedas públicas ni se publica el correo del propietario. Migraciones aplicadas: `20261027153000_materialize_pending_centers.sql` y `20261027154500_pending_centers_email_privacy.sql`.
+
+
 ## Directorio de atletas y perfil de centro (2026-10-27)
 
 El directorio `public.platform_admin_athletes()` es un wrapper `SECURITY INVOKER` que delega en `private.platform_admin_athletes()`, condicionado a `private.is_repera_platform_admin()`. Incluye usuarios de `auth.users` aunque no tengan membresías; nombre público y avatar de `profiles` u OAuth para presentación, correo verificado, fecha de alta y agregados de vinculación. No expone historiales personales ni datos HealthKit. El campo `profiles.role` (enum) se convierte a texto al construir JSON; corrección aplicada en `20261027143004_fix_athlete_role_text.sql`.

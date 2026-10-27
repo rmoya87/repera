@@ -76,3 +76,29 @@
 .pa-shell .pa-sidebar-bottom{display:block;margin:0;border-top:1px solid #e4eee7;padding:8px 0}
 .pa-shell .pa-sidebar-logout{display:none}.pa-shell .pa-account-entry{justify-content:start}
 }
+
+/* 2026-10-27: avatar geometry and four payment tiles */
+.pa-shell .pa-photo,.pa-shell .pa-photo.large,.pa-shell .pa-photo-fallback,
+.pa-shell .pa-account-thumb .pa-photo,.pa-shell .pa-brand-upload-preview,
+.pa-shell .pa-brand-preview .pa-photo{
+ border-radius:50%!important;
+ aspect-ratio:1/1;
+}
+.pa-shell .pa-photo{overflow:hidden}
+.pa-shell .pa-payments-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+.pa-shell .pa-payments-metrics .pa-stat{min-width:0}
+.pa-shell .pa-main{min-width:0}
+.pa-shell .pa-content{padding-top:32px}
+@media(max-width:1080px){
+ .pa-shell .pa-payments-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+ .pa-shell .pa-payments-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .pa-shell .pa-payments-metrics .pa-stat{padding:12px}
+}
+
+/* Brand images in the delegated business workspace use the same circular shape. */
+.business-profile-preview,
+.connected-org-avatar,
+.business-avatar,
+.business-avatar img{border-radius:50%!important;object-fit:cover}
