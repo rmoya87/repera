@@ -91,3 +91,45 @@ test('Política: operador no se convierte en propietario ni se envía email sin 
  assert.match(edge,/EMAIL_PROVIDER_NOT_CONFIGURED/);
  assert.match(edge,/auth\/v1\/user/);
 });
+
+test('El enlace de email abre alta separada para deportistas sin crear centros',()=>{
+ const ui=readFileSync(new URL('../src/ui/connected.js',import.meta.url),'utf8');
+ assert.match(ui,/data-view="join"/);
+ assert.match(ui,/if\(action==='join'\)/);
+ assert.match(ui,/Esta cuenta no crea un gimnasio/);
+ assert.match(ui,/location\.pathname\+location\.search/);
+ assert.match(ui,/Aceptar y vincularme/);
+ // A linked athlete cannot fetch billing or fiscal APIs merely by having a membership.
+ assert.match(ui,/if\(!professionalIds\.size\)selectedOrg=null/);
+ assert.match(ui,/legalProfile=manager\?await auth\.legalProfile\(selectedOrg\):null/);
+});
+
+test('Los entrenadores consultan fichas básicas sin notas internas ni teléfono',async()=>{
+ const calls=[],storage=new Map();
+ const fetcher=async(url,options)=>{
+  calls.push({url,options});
+  let result=[];
+  if(url.includes('grant_type=password'))
+   result={access_token:'jwt-private',refresh_token:'r-private',expires_in:3600};
+  if(url.endsWith('/auth/v1/user')&&options.method==='GET')
+   result={id:uid,email:'coach@example.org'};
+  return {ok:true,status:200,text:async()=>JSON.stringify(result)};
+ };
+ const api=new ReperaAuthAPI({publishableKey:'sb_publishable_test',fetcher,
+  storage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}});
+ await api.signIn('coach@example.org','password');
+ await api.clients(org,{basic:true});
+ const scope=calls.find(x=>x.url.includes('/clients?select='));
+ assert.match(scope.url,/clients\?select=id,org_id,user_id,name,email,avatar_url,status,created_at/);
+ assert.doesNotMatch(scope.url,/phone|notes/);
+ assert.equal(scope.options.headers.Authorization,'Bearer jwt-private');
+});
+
+test('La búsqueda de centros oculta suspendidos y limita ejecución por rol',()=>{
+ const migration=readFileSync(new URL('../../../supabase/migrations/20261027190000_discoverable_center_excludes_suspended.sql',import.meta.url),'utf8');
+ assert.match(migration,/not exists\s*\(/i);
+ assert.match(migration,/controls\.status='suspended'/);
+ assert.match(migration,/security invoker/);
+ assert.match(migration,/auth\.uid\(\) is not null/);
+ assert.match(migration,/revoke all on function public\.search_discoverable_organizations\(text\) from public,anon/);
+});
