@@ -2275,11 +2275,11 @@ struct LiveActivityView: View {
                         .padding(.top, 10)
                 }
                 GeometryReader { header in
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Image(systemName: recorder.sport.symbol)
                             .font(.title2.weight(.medium))
                             .foregroundStyle(OG.accent)
-                            .frame(width: 32)
+                            .frame(width: 28)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(recorder.sport.title)
                                 .font(.headline)
@@ -2297,10 +2297,11 @@ struct LiveActivityView: View {
                         }
                         // Mantener la misma altura aunque cambie el subtítulo.
                         .frame(height: 60, alignment: .center)
-                        // El nombre mantiene el mismo ancho en ambos estados.
-                        // Reservamos siempre 200 pt para las cuatro posiciones.
+                        // El nombre conserva el mismo ancho en ambos estados.
+                        // Las cuatro acciones ocupan 194 pt (4 × 44 + 3 × 6),
+                        // sin desbordar en dispositivos compactos.
                         .frame(
-                            width: min(110, max(58, header.size.width - 248)),
+                            width: min(112, max(44, header.size.width - 234)),
                             alignment: .leading
                         )
                         Spacer(minLength: 0)
@@ -2385,7 +2386,7 @@ struct LiveActivityView: View {
     /// acción de Mapa. Finalizar ocupa su hueco a la izquierda al pausar,
     /// sin mover Audio, Mapa ni Pausa/Reanudar.
     private var metricsTrailingActions: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             if showGuidanceToggle {
                 metricsCircleButton(
                     guidanceSymbol, label: guidanceAccessibilityLabel
