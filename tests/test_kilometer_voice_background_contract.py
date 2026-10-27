@@ -33,17 +33,19 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("finishGuidanceUtterance(id)", LIVE)
         self.assertIn("private func stopGuidanceAudio()", LIVE)
 
-    def test_transition_speech_is_exclusively_pause_and_resume(self):
-        state = (ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/LiveSessionVoiceAnnouncement.swift").read_text(encoding="utf-8")
-        self.assertNotIn("Entrenamiento iniciado.", state)
-        self.assertNotIn("Entrenamiento finalizado.", state)
-        self.assertIn("Entrenamiento pausado.", state)
-        self.assertIn("Entrenamiento reanudado.", state)
+    def test_pause_and_resume_are_completely_silent(self):
+        # Al pausar o reanudar solo cambia el estado, sin voz ni pitidos.
+        for name, next_name in [("pause", "resume"), ("resume", "var durationSeconds")]:
+            body = LIVE.split(f"func {name}() {{", 1)[1].split(next_name, 1)[0]
+            self.assertNotIn("speakNavigation(", body)
+            self.assertNotIn("RestFeedback.tick(", body)
+            self.assertNotIn("RestFeedback.restComplete(", body)
+            self.assertIn("stopGuidanceAudio()", body)
+        self.assertNotIn("LiveSessionVoiceAnnouncement", LIVE)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
-        self.assertNotIn("LiveSessionVoiceAnnouncement.started(", LIVE)
-        self.assertNotIn("LiveSessionVoiceAnnouncement.finished", LIVE)
-        self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.paused)", LIVE)
-        self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.resumed)", LIVE)
+        # Se conservan los anuncios de navegación GPS y parciales.
+        self.assertIn("let didSpeak = speakNavigation(message)", LIVE)
+        self.assertIn("let didSpeak = speakNavigation(spokenTurn)", LIVE)
 
     def test_start_and_finish_announcements_are_not_lifecycle_duplicates(self):
         # Solo se habla al pulsar los botones, no al recuperar el GPS,
@@ -93,22 +95,25 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         header = LIVE.split("private var metricsView: some View", 1)[1].split(
             "private var metricsTrailingActions: some View", 1
         )[0]
-        self.assertIn(".frame(width: 32)", header)
+        self.assertIn(".frame(width: 28)", header)
         self.assertIn(".lineLimit(2)", header)
         self.assertIn(".minimumScaleFactor(0.7)", header)
         self.assertIn(".frame(height: 60, alignment: .center)", header)
         self.assertIn(".lineLimit(1).minimumScaleFactor(0.7)", header)
         self.assertIn("GeometryReader { header in", header)
-        self.assertIn("width: min(110, max(68, header.size.width - 248))", header)
-        self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", header)
+        self.assertIn("width: min(112, max(44, header.size.width - 234))", header)
+        self.assertIn("Spacer(minLength: 0)", header)
+        self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", header)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .trailing)", header)
         self.assertIn(".fixedSize(horizontal: true, vertical: false)", header)
         actions = LIVE.split("private var metricsTrailingActions: some View", 1)[1].split(
             "private var selectionCircleBackground: Color", 1
         )[0]
-        self.assertIn("HStack(spacing: 8)", actions)
+        self.assertIn("HStack(spacing: 6)", actions)
         self.assertEqual(actions.count("metricsActionPlaceholder\n"), 4)
         self.assertIn("if recorder.phase == .recording {", actions)
         self.assertEqual(actions.count("if recorder.phase == .paused {"), 2)
+        self.assertLess(actions.index('"flag.checkered"'), actions.index('"pause.fill"'))
         self.assertIn("Color.clear", actions)
         self.assertIn(".frame(width: 44, height: 44)", actions)
         self.assertIn(".accessibilityHidden(true)", actions)
