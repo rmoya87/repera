@@ -25,6 +25,8 @@ struct WorkoutView: View {
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var editingRoutine: Routine?
     @State private var notesDraft = ""
+    @State private var favoriteSaveError: String?
+    @State private var isSavingFavorite = false
     /// Filas editables: escribir es guardar; no hay check de confirmación por serie.
     @State private var liveSets: [LiveSetRow] = []
     /// Los borradores pertenecen al ejercicio, no a la fila que se reutiliza al navegar.
@@ -169,20 +171,14 @@ struct WorkoutView: View {
                         Label("Editar entreno", systemImage: "pencil")
                     }
                     Button {
-                        guard store.saveActiveSessionAsFavorite() != nil else {
-                            let decision = store.lastAccessDenial
-                                ?? subscriptions.canCreateLibraryRoutine(isNew: true)
-                            subscriptions.presentPaywall(
-                                decision.paywallContext, feature: .unlimitedRoutines
-                            )
-                            return
-                        }
+                        Task { await saveCurrentWorkoutFavorite() }
                     } label: {
                         Label(
                             activeIsFavorite ? "En favoritos" : "Favorito",
                             systemImage: activeIsFavorite ? "star.fill" : "star"
                         )
                     }
+                    .disabled(isSavingFavorite)
                     Divider()
                     Button(role: .destructive) {
                         store.workoutClock.stop()
@@ -271,6 +267,14 @@ struct WorkoutView: View {
                 usesPageCloseHeader: true
             )
         }
+        .alert("No se ha podido guardar el favorito", isPresented: Binding(
+            get: { favoriteSaveError != nil },
+            set: { if !$0 { favoriteSaveError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
+        } message: {
+            Text(favoriteSaveError ?? "")
+        }
         .onAppear {
             // Restore the last recorded exercise and its live countdown after
             // iOS unexpectedly killed the process. No timer reset on reopen.
@@ -330,6 +334,39 @@ struct WorkoutView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             store.workoutClock.syncFromWallClock()
+        }
+    }
+
+    /// El fallo al crear una plantilla no equivale a falta de suscripción.
+    /// Primero preservar los cambios de Play y comprobar derechos reales.
+    private func saveCurrentWorkoutFavorite() async {
+        guard !isSavingFavorite else { return }
+        isSavingFavorite = true
+        defer { isSavingFavorite = false }
+        favoriteSaveError = nil
+        persistActiveLiveDraft()
+        subscriptions.syncCounts(
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount
+        )
+        guard store.saveActiveSessionAsFavorite() != nil else {
+            // Solo refrescar en caso de denegación comercial, nunca si falta
+            // una sesión o hay otro fallo de persistencia.
+            if store.lastAccessDenial != nil {
+                await subscriptions.refreshEntitlementsForFeatureAction()
+                if store.saveActiveSessionAsFavorite() != nil { return }
+            }
+            if let decision = store.lastAccessDenial, !decision.allowed,
+               !subscriptions.policy.isPro, subscriptions.status != .unknown {
+                subscriptions.presentPaywall(
+                    decision.paywallContext, feature: .unlimitedRoutines
+                )
+            } else {
+                favoriteSaveError = subscriptions.status == .unknown && !subscriptions.isPro
+                    ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
+                    : "No se ha podido guardar este entrenamiento como favorito. Inténtalo de nuevo."
+            }
+            return
         }
     }
 
