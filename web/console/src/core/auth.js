@@ -187,6 +187,11 @@ export class ReperaAuthAPI {
   return this.#authorized('rpc/platform_admin_provision',{method:'POST',
    body:{p_name:n,p_kind:kind,p_email:address,p_plan:plan||null}});
  }
+ async platformAdminSetVisibility({orgId,visible}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||typeof visible!=='boolean')throw Error('Visibilidad inválida');
+  return this.#authorized('rpc/platform_admin_set_visibility',{method:'POST',
+   body:{p_org:orgId,p_visible:visible}});
+ }
  async platformAdminSetStatus({orgId,status,reason}){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!['active','suspended'].includes(status)||String(reason||'').trim().length<8)
    throw Error('Indica un estado y un motivo válido');
