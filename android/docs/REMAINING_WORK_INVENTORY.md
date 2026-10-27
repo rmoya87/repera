@@ -3,10 +3,11 @@
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
 Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Contadores
-- Pre-window: 54 partial + 31 in-progress = 85
+## Contadores (reconciliado 15:15 CET)
+- Pre-window: 54 partial + 26 in-progress = 80
 - Post-window: 20 partial + 14 in-progress = 34
-- TOTAL abierto: 119 filas + dependencias de validacion
+- TOTAL abierto: 114 filas + dependencias de validacion
+- Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado)
 
 ## Dependencias de validacion (bloquean cierre)
 1. compile/build mobile+wear COMPLETO (bloqueado por limite 120s por llamada) — REQUISITO antes de integrar/push
@@ -20,9 +21,6 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
 - Paisaje/dos paneles (calendario 7 dias, secciones, safe areas)
 - Wear fino: Sincronizar+mascota, flecha en descanso, EMOM/Tabata al terminar reloj, frescura planificacion
 - Cursores interactivos graficas recuperacion (b73d77dc/42f02b82)
-- compactSummary con segundos hold en planes (35be5a8d) — EN IMPLEMENTACION
-- Auth cache post-logout (21e26ff2/06884b8c/c3d2f246)
-- Chips disciplina ficha ejercicio (2b1382f5)
 - Estilos parciales a verificar en runtime (margenes, miniaturas, previews)
 - Gaps post-window ya conocidos: widgets/LiveActivities, Health-ruta upload, fullscreen map, tap targets/overlay, Health Connect por rango, tiles resumen
 
