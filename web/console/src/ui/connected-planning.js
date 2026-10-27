@@ -3,7 +3,7 @@ import {renderMainProfessionalPlanning} from './connected-planning-main.js';
 const dateToday=()=>new Date().toLocaleDateString('sv-SE');
 export function renderProfessionalPlanning(props) {
  if(Object.prototype.hasOwnProperty.call(props,'draft'))return renderMainProfessionalPlanning(props);
- const {orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null}=props;
+ const {orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null,preferredDate=''}=props;
  if(!orgId)return '';
  const canEdit=['owner','admin','coach'].includes(role),manager=['owner','admin'].includes(role);
  const linked=clients.filter(c=>c.user_id&&c.status==='active');
@@ -12,7 +12,7 @@ export function renderProfessionalPlanning(props) {
  const currentSession=sessions.find(s=>s.id===sessionId),selectedTemplate=templates.find(t=>t.id===templateId);
  const prescription=currentSession?.prescription||selectedTemplate?.prescription||emptyPrescription();
  const sessionTitle=currentSession?.title||selectedTemplate?.name||'';
- const sessionDay=currentSession?.scheduled_date||dateToday();
+ const sessionDay=currentSession?.scheduled_date||preferredDate||dateToday();
  const recipeSummary=s=>{
   const blocks=s.prescription?.blocks||[];
   return `<div class="recipe-summary">${blocks.length?blocks.map(b=>`<span class="recipe-tag">${escapeHTML(b.title||b.kind)} · ${((b.exercises||[]).length+(b.movements||[]).length)} ejercicios</span>`).join(''):'<span class="recipe-tag">Solo instrucciones</span>'}</div>`;
