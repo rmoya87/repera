@@ -25,11 +25,37 @@ import androidx.compose.ui.platform.testTag
  val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
  var routeRead by remember(entry.id) {mutableStateOf<ExternalRouteRead?>(null)}
  LaunchedEffect(entry.id) {routeRead=runCatching {effectiveRouteReader(entry.id)}.getOrNull()}
+ // Guardia de identidad: la ruta consentida solo se pinta si el registro que
+ // la pidio sigue siendo el mostrado; si la hoja cambio de entrada (o se
+ // recompuso con otra sesion) mientras el sistema mostraba el dialogo, la ruta
+ // se descarta, nunca se pinta sobre otra sesion.
+ var consentRequestedFor by remember(entry.id) {mutableStateOf<String?>(null)}
  val consentLauncher=androidx.activity.compose.rememberLauncherForActivityResult(
   androidx.health.connect.client.contracts.ExerciseRouteRequestContract()) { route:androidx.health.connect.client.records.ExerciseRoute? ->
-  route?.let {routeRead=ExternalRouteRead.Points(it.toWorkoutRoutePoints())}
+  // Cancelar NO es error: sin ruta nueva se conserva el estado previo (el
+  // boton sigue disponible); nunca se sustituye por una ruta anterior.
+  if(route!=null && consentRequestedFor==entry.id) {
+   routeRead=ExternalRouteRead.Points(route.toWorkoutRoutePoints())
+  }
+  consentRequestedFor=null
  }
  ModalBottomSheet(onDismissRequest=onClose) {
+  ExternalHealthDetailColumn(entry,detail,loading,routeRead,
+   onConsentLaunch ?: {id:String -> consentLauncher.launch(id)},
+   consentRequestedFor,{consentRequestedFor=it},onClose)
+ }
+}
+
+/** Contenido de la hoja, separado del Modal para renders/tests headless. */
+@Composable internal fun ExternalHealthDetailColumn(
+ entry:ExternalHealthHistoryEntry,
+ detail:ExternalHealthDetail?,
+ loading:Boolean,
+ routeRead:ExternalRouteRead?,
+ onConsentLaunch:(String)->Unit,
+ consentRequestedFor:String?,
+ onConsentRequested:(String)->Unit,
+ onClose:()->Unit) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
    Text(entry.title,style=MaterialTheme.typography.titleLarge)
    Text(Instant.ofEpochMilli(entry.startMillis).atZone(ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter))
@@ -55,7 +81,8 @@ import androidx.compose.ui.platform.testTag
     }
     ExternalRouteSheetModel.State.ConsentNeeded -> {
      TextButton(modifier=Modifier.testTag("external_route_consent"),
-      onClick={(onConsentLaunch ?: {id:String -> consentLauncher.launch(id)})(entry.id)}) {
+      onClick={onConsentRequested(entry.id)
+       ;onConsentLaunch(entry.id)}) {
       Text("Ver recorrido GPS (permiso de Salud por sesión)")
      }
     }
@@ -64,5 +91,4 @@ import androidx.compose.ui.platform.testTag
    TextButton(onClick=onClose) {Text("Cerrar")}
    Spacer(Modifier.height(20.dp))
   }
- }
 }

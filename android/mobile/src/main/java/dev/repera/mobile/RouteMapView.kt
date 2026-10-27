@@ -131,12 +131,19 @@ internal fun RouteMapView(
             .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
             .bearing(camera.bearing).tilt(camera.pitch).build()))
     }
-    // MapLibre nativo puede faltar (ABI sin .so, emulador, Robolectric):
-    // degradar al Canvas en lugar de abortar la composicion.
+    // SOLO ausencia de enlace nativo de MapLibre (ABI sin .so, Robolectric)
+    // degrada al Canvas. Cualquier otro error de configuracion/inicializacion
+    // sigue propagando: el fallback no debe ocultar fallos reales.
     val mapContext = androidx.compose.ui.platform.LocalContext.current
     val nativeAvailable = remember {
-        runCatching { org.maplibre.android.MapLibre.getInstance(mapContext); true }
-            .getOrDefault(false)
+        try {
+            org.maplibre.android.MapLibre.getInstance(mapContext)
+            true
+        } catch (e: UnsatisfiedLinkError) {
+            false
+        } catch (e: NoClassDefFoundError) {
+            false
+        }
     }
     if (failed || !nativeAvailable) {
         RouteMapFallback(points, modifier, plannedRoute,plannedPoints,waterSport)
