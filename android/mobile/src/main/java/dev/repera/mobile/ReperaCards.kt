@@ -1239,73 +1239,134 @@ internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
         .withLocale(java.util.Locale("es", "ES"))
 
 @Composable
+private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasCompleted: Boolean, modifier: Modifier, onSelect: (LocalDate) -> Unit) {
+    // Celda propia (no FilterChip): el padding interno del chip
+    // envolvía los números de dos cifras ("1/9" en vez de 19).
+    // Letra 11sp sobre número 17sp como calendarDayColumn (iOS).
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .background(
+                if (isSelected) brandGreen.copy(alpha = 0.18f)
+                else androidx.compose.ui.graphics.Color.Transparent
+            )
+            .clickable { onSelect(day) }
+            .semantics(mergeDescendants = true) {
+                if (hasCompleted) stateDescription = "Entrenamiento completado"
+            }
+            .padding(vertical = 8.dp)
+    ) {
+        Text(label, fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, softWrap = false)
+        Text("${day.dayOfMonth}", fontSize = 17.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1, softWrap = false)
+        // Apple HomeView (6ac9f0e4/b75ecbcb): punto SOLO si hay entreno finalizado (Repera o Salud);
+        // seleccionar no cambia su visibilidad y el hueco se reserva siempre.
+        Box(Modifier.padding(top = 2.dp).size(4.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .background(if (hasCompleted) brandGreen else androidx.compose.ui.graphics.Color.Transparent))
+    }
+}
+
+/** Geometria de la tira semanal, calcada de HomeView.weekSelectorCard en el
+ *  corte Apple 0a640da8 (las formulas anteriores de ancho fijo de 7 dias,
+ *  centrado y padding exterior fueron retiradas por Apple: comentario
+ *  "SOLO los días son edge-to-edge..." en weekSelectorCard). */
+internal object WeekCalendarGeometry {
+    const val PREFERRED_SIDE_DP = 64f  // weekCarouselHeight 72 - 8
+    const val GAP_DP = 4f
+    const val EXTRA_DP = 12f
+    const val EXPANDED_MIN_WIDTH_DP = 620f
+    fun isExpanded(widthDp: Float): Boolean = widthDp >= EXPANDED_MIN_WIDTH_DP
+    fun visibleDays(widthDp: Float): Int =
+        if (!isExpanded(widthDp)) 7
+        else maxOf(7, ((widthDp + GAP_DP) / (PREFERRED_SIDE_DP + EXTRA_DP)).toInt())
+    fun sideDp(widthDp: Float): Float {
+        val n = visibleDays(widthDp)
+        return minOf(PREFERRED_SIDE_DP, maxOf(1f, (widthDp - GAP_DP * (n - 1)) / n))
+    }
+    fun spacingDp(widthDp: Float): Float {
+        val n = visibleDays(widthDp)
+        return if (isExpanded(widthDp) && n > 1)
+            maxOf(GAP_DP, (widthDp - PREFERRED_SIDE_DP * n) / (n - 1))
+        else GAP_DP
+    }
+}
+
+@Composable
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
-    // Apple fb96456c/5058f75f calendarVisibleWidth = 7*(72-8) + 6*4 = 472pt:
-    // en paisaje la tira queda centrada y limitada a sus siete dias, sin
-    // celdas estiradas; en retrato 472dp supera el ancho y no restringe.
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-    Card(modifier = Modifier.widthIn(max = 472.dp).fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { onSelect(selected.minusWeeks(1)) }) {
-                    Text("‹ Semana")
-                }
-                Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
-                    "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 12.dp).let { m ->
-                        // Apple PlanView weekSelector: tocar la etiqueta vuelve a la semana actual.
-                        if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
-                    })
-                TextButton(onClick = { onSelect(selected.plusWeeks(1)) }) {
-                    Text("Semana ›")
-                }
-            }
-            // Los 7 días siempre visibles (sin scroll): el día de hoy nunca
-            // queda escondido al final de la semana.
-            Row(modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val days = if(monday) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("D","L","M","X","J","V","S")
-                repeat(7) { index ->
-                    val day = weekStart.plusDays(index.toLong())
-                    // Celda propia (no FilterChip): el padding interno del chip
-                    // envolvía los números de dos cifras ("1/9" en vez de 19).
-                    // Letra 11sp sobre número 17sp como calendarDayColumn (iOS).
-                    val isSelected = day == selected
-                    // Apple HomeView (6ac9f0e4/b75ecbcb): punto SOLO si hay entreno finalizado (Repera o Salud);
-                    // seleccionar no cambia su visibilidad y el hueco se reserva siempre.
-                    val hasCompleted = day in completedDays
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                            .background(
-                                if (isSelected) brandGreen.copy(alpha = 0.18f)
-                                else androidx.compose.ui.graphics.Color.Transparent
-                            )
-                            .clickable { onSelect(day) }
-                            .semantics(mergeDescendants = true) {
-                                if (hasCompleted) stateDescription = "Entrenamiento completado"
-                            }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Text(days[index], fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, softWrap = false)
-                        Text("${day.dayOfMonth}", fontSize = 17.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 1, softWrap = false)
-                        Box(Modifier.padding(top = 2.dp).size(4.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(if (hasCompleted) brandGreen else androidx.compose.ui.graphics.Color.Transparent))
+            val days = if(monday) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("D","L","M","X","J","V","S")
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val expanded = WeekCalendarGeometry.isExpanded(maxWidth.value)
+                if (!expanded) {
+                    Row(modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        TextButton(onClick = { onSelect(selected.minusWeeks(1)) }) {
+                            Text("‹ Semana")
+                        }
+                        Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
+                            "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 12.dp).let { m ->
+                                // Apple PlanView weekSelector: tocar la etiqueta vuelve a la semana actual.
+                                if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
+                            })
+                        TextButton(onClick = { onSelect(selected.plusWeeks(1)) }) {
+                            Text("Semana ›")
+                        }
+                    }
+                    // Compacto: los 7 días siempre visibles (sin scroll), como
+                    // visibleDays=7 del corte Apple.
+                    Row(modifier = Modifier.fillMaxWidth().testTag("week_strip_compact"),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        repeat(7) { index ->
+                            val day = weekStart.plusDays(index.toLong())
+                            WeekDayCell(day, days[index], day == selected, day in completedDays,
+                                Modifier.weight(1f), onSelect)
+                        }
+                    }
+                } else {
+                    // Expandido (>=620, paridad isExpandedLayout): carrusel
+                    // horizontal edge-to-edge con MAS de 7 dias visibles
+                    // (Apple retiro el ancho fijo/centrado antiguo). Los
+                    // botones de semana se sustituyen por el propio scroll.
+                    Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
+                        "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.fillMaxWidth().let { m ->
+                            if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
+                        },
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    val spacing = WeekCalendarGeometry.spacingDp(maxWidth.value).dp
+                    val side = WeekCalendarGeometry.sideDp(maxWidth.value).dp
+                    val scrollState = androidx.compose.foundation.rememberScrollState()
+                    // Anclar el scroll para que la semana seleccionada quede
+                    // visible (la ventana empieza 7 dias antes de weekStart).
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    LaunchedEffect(weekStart, maxWidth) {
+                        val targetPx = with(density) { ((side + spacing) * 7).toPx() }.toInt()
+                        scrollState.scrollTo(targetPx)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth()
+                            .horizontalScroll(scrollState)
+                            .testTag("week_strip_expanded"),
+                        horizontalArrangement = Arrangement.spacedBy(spacing)) {
+                        for (offset in -7..13) {
+                            val day = weekStart.plusDays(offset.toLong())
+                            val label = days[((day.dayOfWeek.value - (if(monday) 1 else 0) % 7 + 7) % 7)]
+                            WeekDayCell(day, label, day == selected, day in completedDays,
+                                Modifier.width(side), onSelect)
+                        }
                     }
                 }
             }
         }
-    }
     }
 }
 

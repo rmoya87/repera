@@ -119,11 +119,10 @@ internal fun ProgressTab(
     var shownTopic by remember {mutableStateOf(topic)}
     LaunchedEffect(topic) {if(topic!=shownTopic) {shownTopic=topic;dragListState.scrollToItem(0)}}
     ProvideLazyDragAutoScroll(dragListState) {
-    ReadableColumn {
     LazyColumn(
         state = dragListState,
         modifier = modifier.fillMaxSize().then(Modifier.testTag("progress_list")),
-        contentPadding = groupedListContentPadding(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Progreso", style = MaterialTheme.typography.headlineMedium) }
@@ -412,7 +411,6 @@ internal fun ProgressTab(
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
-    }
     }
     }
 }

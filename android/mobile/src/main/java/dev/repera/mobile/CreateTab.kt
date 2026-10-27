@@ -86,9 +86,10 @@ internal fun CreateTab(
     val context = LocalContext.current
     val subscriptions = LocalSubscriptions.current
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
+    ReadableColumn {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = groupedListContentPadding(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Crear", style = MaterialTheme.typography.headlineMedium) }
@@ -157,5 +158,6 @@ internal fun CreateTab(
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
+    }
     }
 }

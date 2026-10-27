@@ -22,17 +22,19 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
      (conexiones + tokens tras scroll). Acreditan la previsualizacion JVM de esos
      fixtures/tamanos concretos; NO todos los tamanos/temas ni runtime de dispositivo.
      Diffs de glifos verificados por comparacion PROGRAMATICA exhaustiva 9/9 (no muestreo).
-3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 512/512 en 125 suites XML real)
+3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 521/521 en 128 suites XML real)
 
 ## Grupos de gaps principales (pre+post)
 - Onboarding AI unificado: IMPLEMENTACION COMPLETADA (f68d77ff + Desconectar 14:51 + d61c5d52 espaciado 15:11) CON DEPENDENCIAS EXPLICITAS:
   tarjeta revocada completa sin acreditar visualmente, flujo proveedor verificado->dialogo
   sin acreditar en app, revision visual del espaciado 6dp nuevo, y validacion runtime global
 - Zonas FC + anillo intensidad Cardio Progreso (661e65f4/9947c212 — bloqueo decision usuario)
-- Paisaje/dos paneles: columna 790 (b2b5121b), calendario 472 (fb96456c/5058f75f),
-  margenes paisaje listas (8f807f62/fb96456c/3045fb76) y safe areas (bfc79130 n/a
-  con evidencia) CERRADOS 15:28; queda 96efb7b6: PlanView dos columnas sin
-  counterpart (Android sin tab Plan) -> lote decisiones usuario
+- Paisaje/dos paneles CERRADO 15:40 verificando contra el corte 0a640da8 (varias
+  filas cambiaron tras su commit original): columna 790 solo en listas agrupadas,
+  Home/Progreso full-width expandido, calendario carrusel >7 dias en expandido
+  (cap 472 revertido: Apple lo retiro), margenes 16 uniformes (Apple retiro el
+  +16 paisaje), 96efb7b6 cerrado (PlanView eliminado por Apple en c5aae1cc).
+  Pendiente de este grupo: verificacion visual de pantallas/insets en dispositivo
 - Wear fino: Sincronizar+mascota, flecha en descanso, EMOM/Tabata al terminar reloj, frescura planificacion
 - Cursores interactivos graficas recuperacion (b73d77dc/42f02b82)
 - Estilos parciales a verificar en runtime (margenes, miniaturas, previews)

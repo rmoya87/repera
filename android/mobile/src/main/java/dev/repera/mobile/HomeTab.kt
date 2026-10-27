@@ -133,7 +133,6 @@ internal fun HomeTab(
     val selectedWeekCount=(0L..6L).sumOf {overview?.dayWorkoutCounts?.get(weekStart.plusDays(it)) ?: 0}
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     ProvideLazyDragAutoScroll(dragListState) {
-    ReadableColumn {
     LazyColumn(
         state = dragListState,
         modifier = modifier.fillMaxSize(),
@@ -340,7 +339,6 @@ internal fun HomeTab(
         item {
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
-    }
     }
     }
 }
