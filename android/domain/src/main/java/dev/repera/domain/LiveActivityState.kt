@@ -15,7 +15,10 @@ class LiveActivityState {
         val savedMillis: Long, val selectedRouteID: String?,
         val splitsSeconds: List<Double> = emptyList(),
         val lastBoundarySeconds: Double = 0.0,
-        val gpsSessionID: String
+        val gpsSessionID: String,
+        /** Metros totales extrapolados en huecos sin GPS (Apple 63905025:
+         *  estimatedRecoveryMeters). Distinto de la distancia medida. */
+        val estimatedRecoveryMeters: Double = 0.0
     )
     var phase = Phase.IDLE; private set
     var sport = LiveSport.RUNNING; private set
@@ -37,6 +40,9 @@ class LiveActivityState {
     /** True tras restaurar una grabación interrumpida por cierre del proceso;
      *  el runtime reinicia el GPS con bridging y lo limpia. (Apple ca3c0383) */
     var needsInterruptedGPSRecovery = false; private set
+    /** Total extrapolado sobre huecos no grabados, explicitamente distinto
+     *  de la distancia medida (Apple 63905025 estimatedRecoveryMeters). */
+    var estimatedRecoveryMeters = 0.0; private set
     val hasElevationSamples: Boolean get() = elevationReference != null
 
     fun choose(sport: LiveSport) {
@@ -73,9 +79,12 @@ class LiveActivityState {
     /** Solo actualizaciones del odómetro ya filtrado; no aceptar regresiones,
      * NaN, ni sesiones antiguas que entreguen callbacks después de descartar. */
     fun receive(sessionID: String, point: WorkoutRoutePoint, totalDistanceMeters: Double,
-        bridgedPoints: List<WorkoutRoutePoint> = emptyList()): Boolean {
+        bridgedPoints: List<WorkoutRoutePoint> = emptyList(),
+        bridgedDistanceMeters: Double = 0.0): Boolean {
         if (phase != Phase.RECORDING || !sport.usesGPS || sessionID != gpsSessionID) return false
         if (!totalDistanceMeters.isFinite() || totalDistanceMeters < distanceMeters) return false
+        if (bridgedPoints.isNotEmpty() && bridgedDistanceMeters.isFinite() && bridgedDistanceMeters > 0)
+            estimatedRecoveryMeters += bridgedDistanceMeters
         val before = distanceMeters
         distanceMeters = totalDistanceMeters
         val active = durationSeconds(point.recordedAtEpochMs)
@@ -109,7 +118,8 @@ class LiveActivityState {
     }
     fun snapshot(nowMillis: Long): Snapshot? = startedMillis?.takeIf { phase != Phase.IDLE }?.let {
         Snapshot(sport.id, phase, it, pausedMillis, pausedSeconds, distanceMeters,
-            points.toList(), nowMillis, selectedRouteID, splitsSeconds.toList(), lastBoundarySeconds, gpsSessionID)
+            points.toList(), nowMillis, selectedRouteID, splitsSeconds.toList(), lastBoundarySeconds, gpsSessionID,
+            estimatedRecoveryMeters)
     }
     /** Restauración segura. Apple (ca3c0383): si el proceso murió grabando y el
      *  snapshot tiene <= 2 h, la sesión vuelve a GRABAR y el GPS se reinicia con
@@ -124,6 +134,7 @@ class LiveActivityState {
         points = snapshot.points.toList(); splitsSeconds = snapshot.splitsSeconds.toList()
         lastBoundarySeconds = snapshot.lastBoundarySeconds; selectedRouteID = snapshot.selectedRouteID
         gpsSessionID = snapshot.gpsSessionID
+        estimatedRecoveryMeters = snapshot.estimatedRecoveryMeters
         val ageMillis = nowMillis - snapshot.savedMillis
         needsInterruptedGPSRecovery = snapshot.phase == Phase.RECORDING &&
             ageMillis >= 0 && ageMillis <= 2 * 60 * 60 * 1000
@@ -161,5 +172,6 @@ class LiveActivityState {
         distanceMeters = 0.0; points = emptyList(); splitsSeconds = emptyList()
         elevationGainMeters = 0.0; elevationLossMeters = 0.0; elevationReference = null
         currentSpeedMps = null; lastBoundarySeconds = 0.0; previousFixActiveSeconds = null
+        estimatedRecoveryMeters = 0.0
     }
 }

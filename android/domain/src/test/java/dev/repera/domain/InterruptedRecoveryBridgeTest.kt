@@ -91,4 +91,24 @@ class InterruptedRecoveryBridgeTest {
         assertNull(s.points[2].isEstimated)
         assertEquals(250.0, s.distanceMeters, 0.001)
     }
+
+    @Test fun estimatedRecoveryMetersAccumulatesAndSurvivesSnapshot() {
+        // Apple 63905025: total extrapolado sobre huecos, distinto de lo medido.
+        val s = LiveActivityState()
+        s.restore(snapshot(LiveActivityState.Phase.RECORDING, t0 + 600_000), t0 + 610_000)
+        val bridged = listOf(WorkoutRoutePoint(1, 40.5005, -3.9, t0 + 630_000, isEstimated = true))
+        val real = WorkoutRoutePoint(2, 40.501, -3.9, t0 + 660_000)
+        assertTrue(s.receive("gps-1", real, 250.0, bridged, bridgedDistanceMeters = 150.0))
+        assertEquals(150.0, s.estimatedRecoveryMeters, 0.001)
+        // Un fix sin bridging no suma nada.
+        val next = WorkoutRoutePoint(3, 40.5015, -3.9, t0 + 690_000)
+        assertTrue(s.receive("gps-1", next, 300.0))
+        assertEquals(150.0, s.estimatedRecoveryMeters, 0.001)
+        // Sobrevive al snapshot/restore.
+        val snap = s.snapshot(t0 + 700_000)!!
+        assertEquals(150.0, snap.estimatedRecoveryMeters, 0.001)
+        val r = LiveActivityState()
+        assertTrue(r.restore(snap, t0 + 700_000))
+        assertEquals(150.0, r.estimatedRecoveryMeters, 0.001)
+    }
 }

@@ -44,7 +44,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     val updates = revisions.asStateFlow()
     private val location = LiveLocationSource(app) { update ->
         val splitCount = state.splitsSeconds.size
-        if (state.receive(update.sessionID,update.point,update.distanceMeters,update.bridgedPoints)) {
+        if (state.receive(update.sessionID,update.point,update.distanceMeters,update.bridgedPoints,update.bridgedDistanceMeters)) {
             if (state.splitsSeconds.size > splitCount) {
                 val km = state.splitsSeconds.size
                 val seconds = state.splitsSeconds.last()

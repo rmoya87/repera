@@ -41,6 +41,7 @@ internal class LiveActivitySnapshotStore(private val file: File) {
         .put("distanceMeters",s.distanceMeters).put("savedMillis",s.savedMillis)
         .put("selectedRouteID",s.selectedRouteID ?: JSONObject.NULL).put("gpsSessionID",s.gpsSessionID)
         .put("splitsSeconds",JSONArray(s.splitsSeconds)).put("lastBoundarySeconds",s.lastBoundarySeconds)
+        .put("estimatedRecoveryMeters",s.estimatedRecoveryMeters)
         .put("points",JSONArray(s.points.map { p -> JSONObject().put("id",p.id)
             .put("latitude",p.latitude).put("longitude",p.longitude).put("recordedAtEpochMs",p.recordedAtEpochMs)
             .put("speedMps",p.speedMps ?: JSONObject.NULL).put("altitudeMeters",p.altitudeMeters ?: JSONObject.NULL)
@@ -58,6 +59,7 @@ internal class LiveActivitySnapshotStore(private val file: File) {
                     p.getLong("recordedAtEpochMs"),measured("speedMps"),measured("altitudeMeters"),
                     measured("horizontalAccuracyMeters"),measured("verticalAccuracyMeters")) },
             j.getLong("savedMillis"),j.optString("selectedRouteID").takeIf { it.isNotBlank() && it!="null" },
-            (0 until splits.length()).map { splits.getDouble(it) },j.optDouble("lastBoundarySeconds",0.0),j.getString("gpsSessionID"))
+            (0 until splits.length()).map { splits.getDouble(it) },j.optDouble("lastBoundarySeconds",0.0),j.getString("gpsSessionID"),
+            j.optDouble("estimatedRecoveryMeters",0.0).takeIf { it.isFinite() && it >= 0 } ?: 0.0)
     }
 }
