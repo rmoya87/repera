@@ -35,7 +35,7 @@ struct OGRoutineBlockCard: View {
                 ForEach(block.exercises) { item in
                     linkedExerciseRow(
                         resolvedStrengthExercise(item),
-                        detail: item.plannedSets.compactSummary
+                        detail: strengthDetail(item)
                     )
                 }
             } else {
@@ -151,6 +151,17 @@ struct OGRoutineBlockCard: View {
         }
     }
 
+    private func strengthDetail(_ item: RoutineExercise) -> String {
+        let exercise = resolvedStrengthExercise(item)
+        guard exercise.supportsWeightedRepsOrMeters && item.quantityUnit == .meters else {
+            return item.plannedSets.compactSummary
+        }
+        return item.plannedSets.map { set in
+            let kg = set.targetWeightKg.map { " · \(ReperaNumberFormat.decimal($0)) kg" } ?? ""
+            return "\(set.targetReps) m\(kg)"
+        }.joined(separator: " / ")
+    }
+
     private func resolvedStrengthExercise(_ item: RoutineExercise) -> Exercise {
         if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
             return ex
@@ -177,7 +188,12 @@ struct OGRoutineBlockCard: View {
 
     private func moveDetail(_ move: WODMovement) -> String {
         if let scheme = move.repScheme, !scheme.isEmpty {
-            var parts = [scheme.map(String.init).joined(separator: "-")]
+            let amount = scheme.map(String.init).joined(separator: "-")
+            var parts = [amount + (move.prescribedQuantityUnit == .meters ? " m" : "")]
+            if Exercise.supportsWeightedRepsOrMeters(name: move.name),
+               let kg = move.weightMaleKg {
+                parts.append("\(ReperaNumberFormat.decimal(kg)) kg")
+            }
             if let eq = move.notes, !eq.isEmpty { parts.append(eq) }
             return parts.joined(separator: " · ")
         }
