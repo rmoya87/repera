@@ -73,7 +73,7 @@ b4b8f8b8|2026-10-26T20:03:40+01:00|Center Progress metric tiles and show aligned
 79b34354|2026-10-26T20:10:30+01:00|Show time comparison deltas in minutes and localize numeric deltas|ios-app||unverified
 b3047779|2026-10-26T20:12:23+01:00|Remove redundant try from nonthrowing local persistence checkpoint|ios-app||unverified
 d5c263d3|2026-10-26T20:39:20+01:00|Fix compact workout route stroke and bridge safe GPS gaps using linked GPX; compact WeatherKit attribution|ios-app||unverified
-1c9afcd0|2026-10-26T20:41:56+01:00|Keep linked GPX visual gap guidance in enlarged post-workout map|ios-app||unverified
+1c9afcd0|2026-10-26T20:41:56+01:00|Keep linked GPX visual gap guidance in enlarged post-workout map|ios-app||verified-n/a 13:15: WorkoutMapZoomDestination (mapa ampliado en directo) no existe en Android; el mapa en linea ya pasa plannedPoints (ruta GPX enlazada) como referencia
 e048d814|2026-10-26T21:16:52+01:00|Refine route map strokes and GPS continuity; recognize T2B/BTT; simplify weather attribution|ios-app+domain+tests||verified-partial 11:53 (seed BTT + aliases SEN t2bs/t 2 b/btt/burpee a diana portados, REAL XML 2/2; mapa explícito parser BTT cubierto por rutas alias; PENDIENTE route strokes/GPS continuity/weather attribution, ios-app por evaluar)
 505dd6a6|2026-10-26T21:21:48+01:00|Fix workout preview title placement inside native top bar beside close button|ios-app||verified-n/a 13:12: topbar nativo iOS; sin contraparte Android
 6993e330|2026-10-26T21:33:09+01:00|Add shared catalog resolution for legacy BTT/T2B WOD movement ids|domain||in-progress 11:24 (catalogExercise: reconciliación en display de WODs con ids provisionales; cadena con 88db5bb7/83253491/154fd42b; Android tiene ExerciseEquivalence pero falta análisis de llamante en history)
@@ -105,7 +105,7 @@ e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise 
 88db5bb7|2026-10-26T22:27:25+01:00|Resolve OCR and existing WOD movements using persisted Supabase aliases|domain||verified-partial 11:24 (alias persistidos en matching: Lite ya portado tree173 vía SEN.searchAliases; parte catalogExercise pendiente con 6993e330)
 7081dc4a|2026-10-26T22:27:40+01:00|Use dynamic Supabase aliases in all lightweight board scanner paths|domain||verified-ported 11:53 (catalogIndex Android idéntico al final de Apple + archived; única diferencia: customs archivadas también excluidas, más conservador)
 846b75a6|2026-10-26T22:28:03+01:00|Distinguish scheduled days from completed workouts in Diary indicators|ios-app||superseded-n/a 13:15: Apple elimino la UI Diario en c5aae1cc (26oct 23:26, posterior); indicadores desaparecidos en Apple; Android rama diario-removal alineada
-b74ad790|2026-10-26T22:28:54+01:00|Increase GPS heatmap contrast using session speed range and reduced smoothing|ios-app||unverified
+b74ad790|2026-10-26T22:28:54+01:00|Increase GPS heatmap contrast using session speed range and reduced smoothing|ios-app||verified-ported 13:15 6ce45e4d: escala percentil 5/95 (>=20 muestras, spread>=0.12), suavizado vecinos+-1 peso2/1, pow 0.72 y nuevas paradas; runner ligero 16/16 OK; WIP sin validar build
 de1a6f0e|2026-10-26T22:30:04+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 4dde4f78|2026-10-26T22:30:07+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 67311dbf|2026-10-26T22:30:11+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
@@ -117,7 +117,7 @@ d38719b2|2026-10-26T22:30:14+01:00|Test Supabase-driven aliases for OCR, search 
 c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout favorites with stable push navigation|ios-app+domain||verified-partial+GAP 12:08 17a0fb87: capa de datos favoritos persistentes (WorkoutFavoriteSupport + delegados repository, 6 tests REAL 13/13 lote ligero; límite conservador abierto: sin plantilla vacía); GAP/decisión pendiente: reestructura UI (eliminar pestaña Diario, StartHub, Home, botón favorito en historial) requiere validación UI bloqueada
 5206065e|2026-10-26T23:30:01+01:00|Keep add-workout page top aligned and test workout favorite persistence|ios-app+tests||unverified
 7825652f|2026-10-26T23:31:14+01:00|Remove obsolete Diario copy from shared workout editor|ios-app||verified-ported 13:13 (rama diario-removal): unica referencia de copy a Diario actualizada; editor Android sin otras referencias
-c04c7dd9|2026-10-26T23:32:49+01:00|feat(iOS): show color-speed legend on saved workout route maps|ios-app||unverified
+c04c7dd9|2026-10-26T23:32:49+01:00|feat(iOS): show color-speed legend on saved workout route maps|ios-app||verified-ported 13:15 6ce45e4d: RouteSpeedLegend (25 muestras, misma speedColor) solo en mapas guardados (CardioRouteSection); WIP sin validar build
 103c85da|2026-10-26T23:34:41+01:00|Restore compact add-workout sheet and push Favorites as a separate page|ios-app||unverified
 4d9d39a2|2026-10-26T23:39:57+01:00|Unify add workout destinations as push pages and restore compact bottom sheet|ios-app||unverified
 b4b6dbaf|2026-10-26T23:46:26+01:00|Keep workout navigation chrome stable and recover BTT/T2B catalog links|ios-app+domain+tests||in-progress 11:24 (vistas iOS sin contraparte; parser +6 líneas por revisar con clúster catalogExercise)
@@ -125,7 +125,7 @@ a6e22d02|2026-10-26T23:47:26+01:00|style(iOS): match standalone timer segmented 
 7a14cd0d|2026-10-26T23:47:44+01:00|docs: document timer mode selector parity with Progress|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
 a112c75b|2026-10-26T23:49:15+01:00|style(iOS): remove timer configuration heading and align first rows|ios-app||unverified
 c77599d5|2026-10-26T23:49:27+01:00|docs: record compact timer configuration layout|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
-a5e2a2c8|2026-10-27T06:38:00+01:00|fix(ios): keep top navigation transparent and align route speed legend|ios-app||unverified
+a5e2a2c8|2026-10-27T06:38:00+01:00|fix(ios): keep top navigation transparent and align route speed legend|ios-app||verified-n/a 13:15: topbar transparente iOS sin contraparte Android; alineacion de leyenda cubierta por el port c04c7dd9
 85c7124c|2026-10-27T06:39:19+01:00|Resolve BTT and T2B from bundled catalog before remote hydration and repair saved WOD links|ios-app+domain+tests||in-progress 11:24 (resolución bundled-first + repair de enlaces guardados: requiere análisis de llamante Android en history)
 33068e86|2026-10-27T06:41:12+01:00|refactor(ios): render large subpage titles in scrollable content|ios-app||unverified
 8f3941de|2026-10-27T06:41:43+01:00|Prioritize canonical BTT/T2B records over legacy mislabeled catalog entries|domain+tests||in-progress 11:24 (priorización canónica BTT/T2B en reconciliación; con clúster catalogExercise)
