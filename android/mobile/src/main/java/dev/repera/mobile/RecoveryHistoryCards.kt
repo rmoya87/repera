@@ -75,6 +75,21 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   Text("Temperatura de muñeca durante sueño registrado",style=MaterialTheme.typography.titleSmall)
   if(wrist.isEmpty()) Text("Sin mediciones absolutas de muñeca durante sueño en el periodo") else DayPointLineChart(wrist,valueFormat={"${formatWeight(it)} °C"})
   Text("Solo muñeca con referencia absoluta y coincidencia con sueño observado. No es temperatura corporal central ni equivale al sensor de Apple Watch.",style=MaterialTheme.typography.bodySmall)
+  // Apple 188624cc (physiologyContent): tiles del ÚLTIMO día registrado,
+  // independientes del rango de las gráficas; ausente = no se pinta.
+  val latest=recovery.vitals.maxByOrNull {it.day}
+  if(latest!=null&&(latest.oxygenSaturationPercent!=null||latest.wristTemperatureCelsius!=null))
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+    latest.oxygenSaturationPercent?.let {v ->Column(Modifier.weight(1f).testTag("recovery_tile_spo2")) {
+     Text("Oxígeno en sangre",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Text(dev.repera.domain.ReperaNumberFormat.decimal(v,maximumFractionDigits=0)+" %",style=MaterialTheme.typography.titleLarge)}}
+    latest.wristTemperatureCelsius?.let {v ->Column(Modifier.weight(1f).testTag("recovery_tile_temp")) {
+     Text("T nocturna",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Text(dev.repera.domain.ReperaNumberFormat.decimal(v,maximumFractionDigits=1)+" °C",style=MaterialTheme.typography.titleLarge)}}
+   }
+  latest?.heartRateRecoveryBpm?.let {v ->Column(Modifier.fillMaxWidth().testTag("recovery_tile_hr_recovery")) {
+   Text("Recuperación cardíaca 1 min",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Text(Math.round(v).toString()+" lpm",style=MaterialTheme.typography.titleLarge)}}
   Text("Solo datos registrados. Un dato ausente no significa normalidad. No es un diagnóstico.",style=MaterialTheme.typography.bodySmall)
  }}
  } else RecoveryPhysiologyPreviewCard(today)
