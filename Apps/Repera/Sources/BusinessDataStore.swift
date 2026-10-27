@@ -85,6 +85,30 @@ struct BusinessPass: Decodable, Identifiable {
         case validUntil = "valid_until"
     }
 }
+struct BusinessPassOffer: Decodable, Identifiable {
+    let id: UUID
+    let orgId: UUID
+    let name: String
+    let kind: String
+    let credits: Int
+    let validityDays: Int
+    let priceCents: Int
+    let currency: String
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, kind, credits, currency
+        case orgId = "org_id"
+        case validityDays = "validity_days"
+        case priceCents = "price_cents"
+        case isActive = "is_active"
+    }
+
+    var localizedPrice: String {
+        (Double(priceCents) / 100).formatted(.currency(code: currency))
+    }
+}
+
 struct BusinessAvailability: Decodable {
     let occurrenceId: UUID
     let reserved: Int
@@ -149,6 +173,8 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let clientId: UUID
     let coachUserId: UUID
     let scheduledDate: String  // yyyy-MM-dd, date-only (never UTC-shifted)
+    let scheduledTimeMinutes: Int?
+    let sourceOccurrenceId: UUID?
     let title: String
     let instructions: String
     let status: String
@@ -160,6 +186,8 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
         case clientId = "client_id"
         case coachUserId = "coach_user_id"
         case scheduledDate = "scheduled_date"
+        case scheduledTimeMinutes = "scheduled_time_minutes"
+        case sourceOccurrenceId = "source_occurrence_id"
     }
 }
 
@@ -183,11 +211,13 @@ private struct BusinessClientLink: Decodable {
     let id: UUID
     let orgId: UUID
     let userId: UUID?
+    let status: String
 
     enum CodingKeys: String, CodingKey {
         case id
         case orgId = "org_id"
         case userId = "user_id"
+        case status
     }
 }
 
@@ -201,6 +231,7 @@ final class BusinessDataStore {
     private(set) var invitations: [BusinessInvitation] = []
     private(set) var occurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
+    private(set) var passOffers: [BusinessPassOffer] = []
     private(set) var bookings: [BusinessBooking] = []
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
@@ -226,6 +257,7 @@ final class BusinessDataStore {
         invitations = []
         occurrences = []
         passes = []
+        passOffers = []
         bookings = []
         availability = [:]
         trainingSessions = []
@@ -260,9 +292,9 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedLinks: [BusinessClientLink] = try await client
                 .from("clients")
-                .select("id,org_id,user_id")
+                .select("id,org_id,user_id,status")
                 .execute().value
-            let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.id))
+            let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }.map(\.id))
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
                 .select("id,org_id,kind,title,starts_at,ends_at,capacity,status")
@@ -271,13 +303,17 @@ final class BusinessDataStore {
                 .from("service_passes")
                 .select("id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status")
                 .execute().value
+            let fetchedOffers: [BusinessPassOffer] = try await client
+                .from("business_pass_offers")
+                .select("id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active")
+                .execute().value
             let fetchedBookings: [BusinessBooking] = try await client
                 .from("service_bookings")
                 .select("id,org_id,client_id,occurrence_id,status")
                 .execute().value
             let fetchedTrainingSessions: [BusinessProfessionalTrainingSession] = try await client
                 .from("professional_training_sessions")
-                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status")
+                .select("id,org_id,client_id,coach_user_id,scheduled_date,scheduled_time_minutes,source_occurrence_id,title,instructions,prescription,status")
                 .execute().value
             let fetchedNotices: [BusinessClientNotification] = try await client
                 .from("business_client_notifications")
@@ -304,10 +340,13 @@ final class BusinessDataStore {
 
             availability = counts
             centers = fetchedCenters
-            athleteCenterIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.orgId))
+            athleteCenterIds = Set(fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }.map(\.orgId))
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
+            passOffers = fetchedOffers.filter {
+                $0.isActive && athleteCenterIds.contains($0.orgId)
+            }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
@@ -352,6 +391,10 @@ final class BusinessDataStore {
 
     func passesForOrg(_ orgId: UUID) -> [BusinessPass] {
         passes.filter { $0.orgId == orgId }
+    }
+
+    func offersForOrg(_ orgId: UUID) -> [BusinessPassOffer] {
+        passOffers.filter { $0.orgId == orgId }
     }
 
     func searchDirectory(query: String) async {
@@ -476,16 +519,41 @@ final class BusinessDataStore {
     func leave(_ org: BusinessOrganization) async -> Bool {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return false }
         isSubmitting = true
+        errorMessage = nil
         defer { isSubmitting = false }
         do {
-            try await client.rpc(
+            // The RPC returns the authoritative confirmation. A successful result
+            // must not be misclassified as failure because a refresh was running.
+            let removed: Bool = try await client.rpc(
                 "leave_org_as_athlete",
                 params: ["p_org": org.id.uuidString]
-            ).execute()
+            ).execute().value
+            guard removed else {
+                errorMessage = "No se ha confirmado la desvinculación. Inténtalo de nuevo."
+                return false
+            }
+
+            // Drop all stale reads started before the membership was revoked.
+            refreshRevision &+= 1
+            isLoading = false
+            athleteCenterIds.remove(org.id)
+            centers.removeAll { $0.id == org.id }
+            passes.removeAll { $0.orgId == org.id }
+            passOffers.removeAll { $0.orgId == org.id }
+            bookings.removeAll { $0.orgId == org.id }
+            occurrences.removeAll { $0.orgId == org.id }
+            trainingSessions.removeAll { $0.orgId == org.id }
+            personalNotices.removeAll { $0.orgId == org.id }
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.professionalPlansChanged"), object: nil
+            )
+            await BusinessWorkoutSyncStore.shared.refreshSharing()
             await refresh()
+            // The unlink already succeeded in the database even if the
+            // subsequent network refresh could not fetch remaining centers.
             return true
         } catch {
-            errorMessage = "No se ha podido desvincular: \(error.localizedDescription)"
+            errorMessage = "No se ha podido desvincular: \\(error.localizedDescription)"
             return false
         }
     }

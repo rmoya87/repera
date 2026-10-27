@@ -165,17 +165,17 @@ struct FindCenterTrainerView: View {
 /// Detail of a linked center: passes, sessions, sharing, unlink.
 struct LinkedCenterDetailView: View {
     @Environment(BusinessDataStore.self) private var businessData
-    @Environment(BusinessWorkoutSyncStore.self) private var workoutSync
     let center: BusinessOrganization
     @State private var confirmLeave = false
+    @State private var leaveSheetHeight: CGFloat = 310
     @Environment(\.dismiss) private var dismiss
 
     private var orgPasses: [BusinessPass] {
         businessData.passesForOrg(center.id)
     }
 
-    private var orgSessions: [BusinessProfessionalTrainingSession] {
-        businessData.trainingSessions.filter { $0.orgId == center.id }
+    private var orgOffers: [BusinessPassOffer] {
+        businessData.offersForOrg(center.id)
     }
 
     var body: some View {
@@ -200,7 +200,7 @@ struct LinkedCenterDetailView: View {
 
             Section {
                 if orgPasses.isEmpty {
-                    Text("Sin bonos activos. El centro confirmará tu bono solicitado.")
+                    Text("No tienes bonos activos con este entrenador o centro.")
                         .foregroundStyle(OG.label2)
                 } else {
                     ForEach(orgPasses) { pass in
@@ -219,41 +219,42 @@ struct LinkedCenterDetailView: View {
                     }
                 }
             } header: {
-                Text("Bonos y sesiones")
-            }
-
-            if !orgSessions.isEmpty {
-                Section {
-                    ForEach(orgSessions.prefix(12)) { session in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(session.title).font(.subheadline.weight(.medium))
-                            Text(session.scheduledDate)
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        }
-                    }
-                } header: {
-                    Text("Planificación")
-                }
+                Text("Mis bonos")
             }
 
             Section {
-                Toggle(isOn: Binding(
-                    get: { workoutSync.sharingByCenter[center.id] == true },
-                    set: { enabled in
-                        Task { await workoutSync.setSharing(enabled, for: center.id) }
-                    }
-                )) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Compartir resultados")
-                        Text("Series, repeticiones y marcas con el equipo. Puedes desactivarlo.")
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
+                if orgOffers.isEmpty {
+                    Text("El entrenador todavía no ha publicado bonos disponibles.")
+                        .foregroundStyle(OG.label2)
+                } else {
+                    ForEach(orgOffers) { offer in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(offer.name).font(.headline)
+                                Spacer()
+                                Text(offer.localizedPrice).font(.subheadline.weight(.semibold))
+                            }
+                            Text("\(offer.credits) " +
+                                 (offer.kind == "appointment" ? "sesiones personales" : "clases") +
+                                 " · \(offer.validityDays) días de validez")
+                                .foregroundStyle(OG.label2)
+                                .font(.subheadline)
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
-                .disabled(workoutSync.updatingSharingCenter != nil)
             } header: {
-                Text("Privacidad")
+                Text("Bonos disponibles")
+            } footer: {
+                Text("La compra se habilitará cuando el centro configure una pasarela de pago verificada. Los bonos publicados no se activan sin confirmación del cobro.")
+            }
+
+            if let error = businessData.errorMessage {
+                Section {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(OG.red)
+                }
             }
 
             Section {
@@ -270,19 +271,88 @@ struct LinkedCenterDetailView: View {
         .navigationTitle(center.name)
         .navigationBarTitleDisplayMode(.inline)
         .ogTransparentNav()
-        .confirmationDialog(
-            "¿Desvincularte de \(center.name)?",
-            isPresented: $confirmLeave,
-            titleVisibility: .visible
-        ) {
-            Button("Desvincularme", role: .destructive) {
-                Task {
-                    if await businessData.leave(center) {
-                        dismiss()
+        .sheet(isPresented: $confirmLeave) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.badge.xmark")
+                        .font(.system(size: 23, weight: .semibold))
+                        .foregroundStyle(OG.red)
+                        .frame(width: 48, height: 48)
+                        .background(OG.red.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("¿Desvincularte de \\(center.name)?")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Esta acción no se puede deshacer.")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
                     }
                 }
+
+                Text("Perderás el acceso asociado a este entrenador, sus clases y tus bonos. Se cancelarán las reservas futuras. Tus entrenamientos personales y resultados guardados en Repera no se borrarán.")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let error = businessData.errorMessage {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(OG.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    Task {
+                        if await businessData.leave(center) {
+                            confirmLeave = false
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if businessData.isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        }
+                        Text(businessData.isSubmitting ? "Desvinculando…" : "Desvincularme")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(OG.red, in: RoundedRectangle(cornerRadius: 13))
+                }
+                .buttonStyle(.plain)
+                .disabled(businessData.isSubmitting)
+
+                Button("Cancelar") {
+                    confirmLeave = false
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .disabled(businessData.isSubmitting)
             }
-            Button("Cancelar", role: .cancel) {}
+            .padding(.horizontal, 24)
+            .padding(.top, 28)
+            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            leaveSheetHeight = geometry.size.height
+                        }
+                        .onChange(of: geometry.size.height) { _, height in
+                            if height > 0 { leaveSheetHeight = height }
+                        }
+                }
+            }
+            .presentationDetents([.height(max(260, leaveSheetHeight))])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(26)
+            .presentationBackground(OG.surface)
+            .interactiveDismissDisabled(businessData.isSubmitting)
         }
     }
 }
@@ -311,17 +381,16 @@ private struct LinkPassSheet: View {
                 }
 
                 Section {
-                    Picker("Bono", selection: $passKind) {
+                    Picker("Servicio de interés", selection: $passKind) {
                         Text("Clases / bono de sesiones").tag("class")
                         Text("Entrenador personal").tag("appointment")
-                        Text("Acceso ilimitado").tag("unlimited")
                     }
                     TextField("Nota para el centro (opcional)", text: $note, axis: .vertical)
                         .lineLimit(2...4)
                 } header: {
                     Text("Qué quieres contratar")
                 } footer: {
-                    Text("El centro confirmará el bono solicitado.")
+                    Text("La vinculación no compra ni activa un bono. Los precios los publica cada entrenador o centro.")
                 }
 
                 Section {

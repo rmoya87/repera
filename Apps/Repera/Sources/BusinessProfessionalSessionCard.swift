@@ -115,3 +115,109 @@ struct BusinessProfessionalSessionCard: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
+
+
+/// Native detail destination: never duplicates or mutates the athlete's local training log.
+struct BusinessProfessionalSessionDetailView: View {
+    @Environment(BusinessDataStore.self) private var businessData
+    let session: BusinessProfessionalTrainingSession
+
+    var body: some View {
+        ScrollView {
+            BusinessProfessionalSessionCard(
+                session: session,
+                centerName: businessData.centerName(session.orgId),
+                compact: false
+            )
+            .padding(OG.pad)
+        }
+        .background(OG.bg)
+        .navigationTitle("Entreno")
+        .navigationBarTitleDisplayMode(.inline)
+        .ogTransparentNav()
+    }
+}
+
+/// A confirmed class/appointment is shown once, even when it has a
+/// trainer-published prescription attached to its source occurrence.
+struct BusinessBookedOccurrenceDetailView: View {
+    @Environment(BusinessDataStore.self) private var businessData
+    @Environment(\.dismiss) private var dismiss
+    let booking: BusinessBooking
+    let occurrence: BusinessOccurrence
+    @State private var confirmCancellation = false
+
+    private var associatedSession: BusinessProfessionalTrainingSession? {
+        businessData.trainingSessions.first {
+            $0.sourceOccurrenceId == occurrence.id && $0.clientId == booking.clientId
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                OGCard {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(occurrence.title)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Label(businessData.centerName(occurrence.orgId),
+                              systemImage: "building.2")
+                            .foregroundStyle(OG.label2)
+                        if let start = BusinessDataStore.date(occurrence.startsAt) {
+                            Label(start.formatted(date: .abbreviated, time: .shortened),
+                                  systemImage: "calendar")
+                                .foregroundStyle(OG.label)
+                        }
+                        if let finish = BusinessDataStore.date(occurrence.endsAt) {
+                            Label("Finaliza a las " + finish.formatted(date: .omitted, time: .shortened),
+                                  systemImage: "clock")
+                                .foregroundStyle(OG.label2)
+                        }
+                        Label("Reserva confirmada", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(OG.accent)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let associatedSession {
+                    BusinessProfessionalSessionCard(
+                        session: associatedSession,
+                        centerName: businessData.centerName(occurrence.orgId),
+                        compact: false
+                    )
+                } else {
+                    OGCard {
+                        Text("El entrenador todavía no ha publicado ejercicios para esta sesión.")
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                Button("Cancelar reserva", role: .destructive) {
+                    confirmCancellation = true
+                }
+                .disabled(businessData.isSubmitting)
+                .frame(maxWidth: .infinity, alignment: .center)
+                if let error = businessData.errorMessage {
+                    Text(error).font(.footnote).foregroundStyle(OG.red)
+                }
+            }
+            .padding(OG.pad)
+        }
+        .background(OG.bg)
+        .navigationTitle(occurrence.kind == "class" ? "Clase" : "Cita")
+        .navigationBarTitleDisplayMode(.inline)
+        .ogTransparentNav()
+        .confirmationDialog("¿Cancelar esta reserva?", isPresented: $confirmCancellation) {
+            Button("Cancelar reserva", role: .destructive) {
+                Task {
+                    await businessData.cancel(booking)
+                    if businessData.booking(for: occurrence.id) == nil {
+                        dismiss()
+                    }
+                }
+            }
+            Button("Volver", role: .cancel) {}
+        } message: {
+            Text("La devolución del crédito depende de las condiciones de cancelación del centro.")
+        }
+    }
+}
