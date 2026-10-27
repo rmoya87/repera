@@ -144,13 +144,17 @@ begin
    raise exception 'INVALID_PAGINATION' using errcode='22023';end if;
  if not exists(select 1 from auth.users where id=p_athlete) then
    raise exception 'ATHLETE_NOT_FOUND' using errcode='22023';end if;
- return coalesce((select jsonb_agg(jsonb_build_object(
+ select coalesce((select jsonb_agg(jsonb_build_object(
    'id',w.id,'title',w.title,'started_at',w.started_at,'finished_at',w.finished_at,
    'exercises',w.exercises,'wod_results',w.wod_results,
    'created_at',w.created_at,'updated_at',w.updated_at) order by w.started_at desc)
    from (select * from public.athlete_workouts where owner_id=p_athlete
-      order by started_at desc limit p_limit offset p_offset) w),'[]'::jsonb);
-end $$;
+      order by started_at desc limit p_limit offset p_offset) w),'[]'::jsonb) into result;
+ insert into public.platform_admin_events(actor_id,action,details)
+ values(auth.uid(),'athlete.workouts.read',jsonb_build_object('athlete_id',p_athlete,
+  'limit',p_limit,'offset',p_offset));
+ return result;
+end $;
 revoke all on function private.platform_admin_athlete_workouts(uuid,integer,integer)
  from public,anon,authenticated;
 grant execute on function private.platform_admin_athlete_workouts(uuid,integer,integer) to authenticated;
