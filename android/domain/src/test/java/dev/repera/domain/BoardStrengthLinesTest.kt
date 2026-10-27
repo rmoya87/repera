@@ -101,4 +101,22 @@ class BoardStrengthLinesTest {
   assertEquals(WODFormat.FOR_TIME,block.wodFormat)
   assertEquals(2,block.movements.size)
  }
+ @Test fun simpleExplicitComplexSplitsIntoTypedMovements() {
+  val block=BoardScanLiteParser.parse("AMRAP 10'\n1 POWER CLEAN + 2 PUSH PRESS\n5 PULL UPS").blocks.single()
+  assertEquals(3,block.movements.size)
+  assertEquals(1,block.movements[0].reps)
+  assertEquals(2,block.movements[1].reps)
+  assertTrue(block.movements[0].notes.orEmpty().contains("Parte 1/2"))
+  assertTrue(block.movements[1].notes.orEmpty().contains("Parte 2/2"))
+ }
+ @Test fun sharedMultiplierComplexStaysUnsplitUntilSupported() {
+  val block=BoardScanLiteParser.parse("AMRAP 10'\n3X 1 PUSH PRESS + 1 OHSQ").blocks.single()
+  assertEquals(1,block.movements.size)
+  assertTrue(block.wodNotes.orEmpty().contains("3X 1 PUSH PRESS + 1 OHSQ"))
+ }
+ @Test fun parentLoadComplexStaysOnReviewPathWithoutReassigningWeight() {
+  val block=BoardScanLiteParser.parse("AMRAP 10'\n1 POWER CLEAN + 2 PUSH PRESS 50/35").blocks.single()
+  assertEquals(1,block.movements.size)
+  assertTrue(block.wodNotes.orEmpty().contains("50/35"))
+ }
 }

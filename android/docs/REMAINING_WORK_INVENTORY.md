@@ -327,3 +327,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  percent/setsrange enfallback,otros headers/matching yvalidacion nativa.
 - Recuperacion289 desdeclon65338db7+gitam hasta289 arbol942c373cc29c9eb22a984790419df040bf272bfb
  exacto;Wearassemble47s21:57nuevo packageverde. Wear8/1tests21:20.
+
+## Complex simple OCR 22:20
+- Subset FullparseWODMovementLine730-800:1POWER CLEAN+2PUSH PRESS ahora
+2movimientos tipados,notasParte1/2y2/2;cada segmento cantidad explicita.
+- Restriccion deliberada:sin parentmultipliers/repwave/sharedloads/cargas
+ kg-lbs/@/#/slash. Esos casos siguenreviewLiteoriginal+rawenwodNotes,no
+ se redistribuyen pesos ni se inventan cantidades. No paridadFullcompleta.
+-3tests:split explicito,multiplier intacto,cargaparent intacta. Domain502/502,
+93XMLcompleta22:20verde. Mobilepost293pendiente;ultimo647/162completo291.

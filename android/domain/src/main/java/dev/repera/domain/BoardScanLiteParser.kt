@@ -67,22 +67,23 @@ object BoardScanLiteParser {
                 !upper.contains("CAP: 4 INTERVALOS") &&
                     !upper.startsWith("REALIZA AMBOS") &&
                     !upper.startsWith("NO TOUCH")
-            }.mapNotNull { raw ->
+            }.flatMap { raw ->
                 // Full parser roundMarker/isFootnote: metadata stays in wodNotes,
                 // never becomes a fabricated movement. Round note scopes following rows.
-                if(raw.startsWith("*") || raw.startsWith("•")) return@mapNotNull null
+                if(raw.startsWith("*") || raw.startsWith("•")) return@flatMap emptyList()
                 Regex("^ROUNDS?\\s*(\\d+)\\s*:?\\s*$",RegexOption.IGNORE_CASE).matchEntire(raw)?.let {round ->
                     roundLabel="Ronda ${round.groupValues[1]}"
-                    return@mapNotNull null
+                    return@flatMap emptyList()
                 }
-                val parsed=movement(raw,searchAliases)
-                val upperRaw=raw.uppercase(Locale.ROOT)
-                if(cur.format==WODFormat.FOR_TIME && parsed.isRest &&
-                    (upperRaw.contains("BTWN") || upperRaw.contains("BETWEEN") || upperRaw.contains("ENTRE RONDAS"))) {
-                    block.restBetweenRoundsSeconds=parsed.restSeconds
-                    return@mapNotNull null
+                val segments=simpleComplexMovements(raw,searchAliases)
+                segments.mapNotNull {parsed ->
+                    val upperRaw=raw.uppercase(Locale.ROOT)
+                    if(cur.format==WODFormat.FOR_TIME && parsed.isRest &&
+                        (upperRaw.contains("BTWN") || upperRaw.contains("BETWEEN") || upperRaw.contains("ENTRE RONDAS"))) {
+                        block.restBetweenRoundsSeconds=parsed.restSeconds
+                        null
+                    } else roundLabel?.let {label ->parsed.copy(notes=listOfNotNull(label,parsed.notes).joinToString(" · "))} ?: parsed
                 }
-                roundLabel?.let {label ->parsed.copy(notes=listOfNotNull(label,parsed.notes).joinToString(" · "))} ?: parsed
             }
             capture("(?i)(\\d+)\\s*MIN\\s*ON.*?(\\d+)\\s*MIN\\s*OFF", cur.header)?.let { values ->
                 if (values.size == 2) {
@@ -494,6 +495,22 @@ object BoardScanLiteParser {
             .mapNotNull { it.replace(",", ".").toDoubleOrNull() }
         if (numbers.size != 2) return null
         return Effort.toRIR((numbers[0] + numbers[1]) / 2, "rpe")
+    }
+
+    /** Full-parser complex split, deliberately restricted to independently
+     * quantified parts. Parent multipliers/waves/shared-load semantics remain
+     * on the existing review path rather than inventing quantities. */
+    private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
+        val parts=raw.split(Regex("\\s*\\+\\s*")).map {it.trim()}.filter {it.isNotEmpty()}
+        val explicit=Regex("^\\d+\\s+[^0-9].*")
+        if(parts.size<2 || parts.any {!explicit.matches(it)} ||
+            raw.contains('/') || raw.contains('@') || raw.contains('#') ||
+            Regex("\\b(?:kg|kgs|lb|lbs)\\b",RegexOption.IGNORE_CASE).containsMatchIn(raw) ||
+            Regex("^\\d+\\s*[x×X]|^\\d+\\s*[-–]").containsMatchIn(raw)) return listOf(movement(raw,aliases))
+        return parts.mapIndexed {index,part ->
+            val parsed=movement(part,aliases)
+            parsed.copy(notes=listOfNotNull("Parte ${index+1}/${parts.size}",parsed.notes).joinToString(" · "))
+        }
     }
 
     private fun movement(line: String, searchAliases: Map<String, String>): WODMovement {
