@@ -64,7 +64,7 @@ struct FavoritesHubView: View {
                                         onOpenedWorkout()
                                     } else {
                                         startFailureMessage = HealthKitStore.shared.lastError
-                                            ?? "No se ha podido iniciar «\\(routine.title)». Comprueba que no haya otra actividad activa."
+                                            ?? "No se ha podido iniciar «\(routine.title)». Comprueba que no haya otra actividad activa."
                                     }
                                 }
                             }
