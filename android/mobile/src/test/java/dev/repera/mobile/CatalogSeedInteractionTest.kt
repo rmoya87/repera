@@ -98,4 +98,28 @@ class CatalogSeedInteractionTest {
         val state = stateFromSeed()
         assertFalse(CatalogRefreshMigration.mergeSeedIntoState(seed, state))
     }
+
+    @Test
+    fun migrationPreservesSupabaseAliasesOnExistingEntries() {
+        // Apple 6552bd80: la hidratacion del catalogo empaquetado no puede borrar
+        // los alias editoriales recibidos de Supabase. La migracion Android nunca
+        // escribe searchAliases (no esta en CATALOG_FIELDS) y las entradas
+        // hidratadas desde Supabase llevan _remoteCatalogKey y se saltan enteras.
+        val state = stateFromSeed()
+        val target = byName(state, "Toes to bar")
+        target.put("searchAliases", JSONArray(listOf("T2B", "TTB")))
+        target.put("_remoteCatalogKey", "toes-to-bar")
+        CatalogRefreshMigration.mergeSeedIntoState(seed, state)
+        val after = byName(state, "Toes to bar")
+        assertEquals(
+            listOf("T2B", "TTB"),
+            PublishedCatalogAliases.read(after))
+        // Incluso sin _remoteCatalogKey (caso no alcanzable en produccion: los
+        // alias solo llegan por Supabase), la migracion no toca searchAliases.
+        target.remove("_remoteCatalogKey")
+        CatalogRefreshMigration.mergeSeedIntoState(seed, state)
+        assertEquals(
+            listOf("T2B", "TTB"),
+            PublishedCatalogAliases.read(byName(state, "Toes to bar")))
+    }
 }
