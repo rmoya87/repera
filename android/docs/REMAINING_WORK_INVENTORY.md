@@ -254,3 +254,14 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  suite yassemble de este cambio pendientes;ultimo645/162XMLyassemble280.
 - Reparado overwrite propio282 por variable s reusada:restaurado281+esta nota,
  sin atribucion externa ni cambios de clasificacion;matrices735/70abiertas.
+
+## Validacion post282 21:36
+- HEADae1c96ef:mobile assembleDebug ejecutado63s verde21:30;TODAS162clases,
+645tests,0fallos/errores en4lotes90/97/80/82s21:31..21:36. Conjunto de clases
+ esperado=real,sin faltantes. XML nuevos consolidados repera285-mobile-xml.tar.gz.
+- Domain489/489,93XML completa21:27;Wear8/8,1XML ejecutada21:20. Esto NO cierra
+ parser completo ni validacion nativa. Matrices735/70abiertas sin cierres.
+- Causa recurrente overwrite:284/285 introduce writer append-only separado,
+ SHA256 esperado,validacion inventario/rechazo matriz,replace atomico con
+ segunda comprobacion.4/4tests Pythonverdes. Esta nota entra por ese writer,
+ no por buffer general compartido. Reescrituras requieren diff separado.
