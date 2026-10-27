@@ -54,3 +54,17 @@ test('Desvincularse revoca la relación del propio atleta, no borra historial ni
  assert.match(migration,/update public\.organization_memberships/);
  assert.doesNotMatch(migration,/delete from public\.athlete_workout_mirror/);
 });
+
+test('Desvincularme usa un bottom sheet nativo con altura adaptable y mantiene visible el error',()=>{
+ const view=read('../../../Apps/Repera/Sources/BusinessCenterViews.swift');
+ const store=read('../../../Apps/Repera/Sources/BusinessDataStore.swift');
+ assert.match(view,/\.sheet\(isPresented: \$confirmLeave\)/);
+ assert.match(view,/\.presentationDetents\(\[\.height\(max\(260, leaveSheetHeight\)\)\]\)/);
+ assert.match(view,/leaveSheetHeight = geometry\.size\.height/);
+ assert.match(view,/\.interactiveDismissDisabled\(businessData\.isSubmitting\)/);
+ assert.doesNotMatch(view,/\.confirmationDialog\(/);
+ assert.match(view,/if let error = businessData\.errorMessage/);
+ assert.match(store,/let removed: Bool = try await client\.rpc\(/);
+ assert.match(store,/refreshRevision &\+= 1/);
+ assert.match(store,/athleteCenterIds\.remove\(org\.id\)/);
+});
