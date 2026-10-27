@@ -42,10 +42,10 @@ function formattedMoney(cents,currency='EUR'){
 function organizationDetail(o,opts){
  const {plans}=opts;
  const suspend=o.status==='suspended';
- return `${heading(esc(o.name),'Ficha global del negocio · '+esc(type(o.kind)),button('Volver a organizaciones','back-org'))}
+ return `${heading(esc(o.name),'Ficha global del negocio · '+esc(type(o.kind)),button('Volver a centros','back-org'))}
  <div class="pa-metrics">${stat('Clientes registrados',o.client_count||0)}${stat('Clientes activos',o.active_clients||0)}${stat('Miembros del equipo',o.member_count||0)}${stat('Sesiones registradas',o.sessions||0)}</div>
  <div class="pa-layout">
- <section class="pa-panel"><h2>Perfil y configuración</h2>
+ <section class="pa-panel"><div class="pa-identity pa-detail-identity">${photo(o.avatar_url,o.name,'large')}<h2>Perfil y configuración</h2></div>
  <dl class="pa-details"><dt>Nombre comercial</dt><dd>${esc(o.name)}</dd><dt>Identificador</dt><dd>${esc(o.slug)}</dd><dt>Actividad</dt><dd>${esc(type(o.kind))}</dd><dt>Correo público</dt><dd>${esc(o.email||'—')}</dd><dt>Teléfono</dt><dd>${esc(o.phone||'—')}</dd><dt>Web</dt><dd>${esc(o.website||'—')}</dd><dt>Dirección</dt><dd>${esc(o.address||'—')}</dd><dt>Zona horaria</dt><dd>${esc(o.timezone||'Europe/Madrid')}</dd><dt>Descripción</dt><dd>${esc(o.description||'—')}</dd></dl>
  <p class="pa-muted">Para editar todos los ajustes del negocio utiliza el acceso delegado y el menú Configuración. Los datos fiscales privados no se exponen en el listado global.</p>
  </section>
@@ -119,17 +119,24 @@ function paymentsPage(orgs,finance,filter){
  <section class="pa-panel"><h2>Solicitudes de suscripción (sin cargo)</h2>${intents.length?table(['Fecha','Negocio','Plan solicitado','Estado'],intents.map(i=>`<tr><td>${date(i.created_at)}</td><td>${esc(names.get(i.org_id)||'—')}</td><td>${esc(i.plan_key)}</td><td>${esc(i.status)}</td></tr>`).join('')):empty('Ninguna solicitud','Los nuevos intereses de contratación aparecerán aquí.')}</section>`;
 }
 function provisioning(pending,plans){
- return `${heading('Crear gimnasio o entrenador','Alta gestionada por Repera: la propiedad se asigna al usuario cuando confirma su correo e inicia sesión.')}
- <div class="pa-layout"><section class="pa-panel"><h2>Nuevo negocio</h2>
+ return `${heading('Añadir centro','Prepara un gimnasio, centro deportivo o entrenador personal y asígnalo a su futuro propietario.')}
+ <div class="pa-layout"><section class="pa-panel"><h2>Datos del centro</h2>
  <form class="pa-form" data-admin-form="provision">
+ <div class="pa-brand-picker"><div class="pa-brand-preview">${photo(null,'Centro','large')}<img class="pa-brand-upload-preview" data-admin-image-preview hidden alt="Vista previa del logo o foto"></div>
+ <div><strong>Logo o fotografía</strong><p>JPG, PNG o WebP · máximo 8 MB. La imagen se optimiza y se sube a Supabase.</p>
+ <label class="pa-file-label">Seleccionar imagen<input type="file" name="avatarFile" accept="image/jpeg,image/png,image/webp" data-admin-image-file></label></div></div>
  ${field('name','Nombre comercial','','text','required minlength="2" maxlength="120"')}
- <label class="pa-field"><span>Tipo</span><select name="kind" required><option value="gym">Gimnasio</option><option value="personal_trainer">Entrenador personal</option></select></label>
+ <label class="pa-field"><span>Tipo de centro</span><select name="kind" required data-provision-kind>
+ <option value="gym">Gimnasio</option><option value="personal_trainer">Entrenador personal</option></select></label>
  ${field('email','Correo del futuro propietario','','email','required maxlength="180"')}
- <label class="pa-field"><span>Plan de referencia (opcional)</span><select name="plan"><option value="">Prueba gratuita sin compromiso</option>${plans.filter(p=>p.is_active).map(p=>`<option value="${esc(p.plan_key)}" data-audience="${esc(p.audience)}">${esc(p.title)} · ${esc(p.audience)}</option>`).join('')}</select></label>
- <p class="pa-muted">Se guarda una solicitud de alta. No se crea una cuenta ni se envía correo automático; el propietario deberá registrarse e iniciar sesión con ese email verificado. No se activan cobros.</p>
- <button type="submit" class="pa-button primary">Preparar alta del negocio</button></form></section>
- <section class="pa-panel"><h2>Altas pendientes y completadas</h2>
- ${pending.length?pending.map(p=>`<div class="pa-event"><div><strong>${esc(p.name)}</strong><small>${esc(p.email)} · ${esc(type(p.kind))}</small></div>${statusPill(p.status)}</div>`).join(''):empty('Sin altas preparadas','Crea la primera organización desde el formulario.')}</section></div>`;
+ <label class="pa-field"><span>Plan de referencia</span><select name="plan">
+ <option value="">Sin plan · prueba gratuita</option>
+ ${plans.filter(p=>p.is_active).map(p=>`<option data-audience="${esc(p.audience)}" value="${esc(p.plan_key)}">${esc(p.title)} · ${esc(type(p.audience))} · ${euros(p.monthly_price_cents)}/mes</option>`).join('')}
+ </select></label>
+ <p class="pa-muted">Se prepara la ficha. El propietario debe confirmar su correo e iniciar sesión para activarla. Los planes no generan cobros automáticamente.</p>
+ <button type="submit" class="pa-button primary">Preparar alta</button></form></section>
+ <section class="pa-panel"><h2>Altas preparadas</h2>
+ ${pending.length?pending.map(p=>`<div class="pa-event pa-pending-event"><div class="pa-identity">${photo(p.avatar_url,p.name)}<div><strong>${esc(p.name)}</strong><small>${esc(p.email)} · ${esc(type(p.kind))}</small></div></div>${statusPill(p.status)}</div>`).join(''):empty('Aún no hay altas','Los centros creados aparecerán aquí hasta que el propietario complete su registro.')}</section></div>`;
 }
 function support(orgs,pending){
  return `${heading('Soporte y operaciones','Punto de entrada para incidencias, acceso delegado y altas pendientes.')}
