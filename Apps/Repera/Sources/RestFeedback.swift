@@ -8,6 +8,11 @@ enum RestFeedback {
         if haptic {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
+        if sound {
+            // El temporizador y Comenzar comparten los mismos tres pitidos.
+            // Hasta ahora tick solo vibraba a pesar de recibir sound: true.
+            AudioServicesPlaySystemSound(1057)
+        }
     }
 
     static func restComplete(sound: Bool, haptic: Bool) {
