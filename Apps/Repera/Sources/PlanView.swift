@@ -102,6 +102,7 @@ struct DayEditorView: View {
     @State private var showWODCatalog = false
     @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
+    @State private var routineSaveError: String?
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
     @State private var completedDetails: WorkoutSession?
@@ -301,6 +302,14 @@ struct DayEditorView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
+        .alert("No se ha podido guardar el entrenamiento", isPresented: Binding(
+            get: { routineSaveError != nil },
+            set: { if !$0 { routineSaveError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { routineSaveError = nil }
+        } message: {
+            Text(routineSaveError ?? "")
+        }
         .onAppear {
             ensureCompletedWorkoutDraft()
             ensureStrengthPlannedSets()
@@ -816,6 +825,11 @@ struct DayEditorView: View {
     }
 
     private func confirm() {
+        subscriptions.syncCounts(
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount
+        )
+        store.featureAccess = { [subscriptions] in subscriptions.policy }
         if let onApplyCompleted, let completedDetails = completedWorkoutDraft {
             var edited = routine
             for index in edited.blocks.indices { edited.blocks[index].deriveEmomRoundsIfNeeded() }
@@ -1043,9 +1057,16 @@ struct DayEditorView: View {
     }
 
     private func presentRoutineLimitPaywall() {
-        let decision = store.lastAccessDenial
-            ?? subscriptions.canCreateLibraryRoutine(isNew: true)
-        subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
+        if let decision = store.lastAccessDenial, !decision.allowed,
+           !subscriptions.policy.isPro, subscriptions.snapshot.status != .unknown {
+            subscriptions.presentPaywall(
+                decision.paywallContext, feature: .unlimitedRoutines
+            )
+        } else {
+            routineSaveError = subscriptions.snapshot.status == .unknown && !subscriptions.isPro
+                ? "No hemos podido comprobar tu suscripción. Revisa la conexión o restaura tus compras desde Ajustes."
+                : "El entrenamiento no se ha guardado. Revisa sus datos y vuelve a intentarlo."
+        }
     }
 
     /// Al editar una sesión terminada la miniatura se alinea al título,
