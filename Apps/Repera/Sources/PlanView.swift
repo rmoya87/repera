@@ -1684,8 +1684,15 @@ private struct InlineWODMovementSets: View {
         return Exercise.loggingStyle(name: catalogName, equipment: movement.notes)
     }
 
+    private var isWeightedDistance: Bool {
+        Exercise.supportsWeightedRepsOrMeters(name: movement.name)
+            || Exercise.supportsWeightedRepsOrMeters(
+                name: CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+            )
+    }
+
     private var cardioUnitPicker: some View {
-        Picker("Unidad de cardio", selection: Binding(
+        Picker("Unidad", selection: Binding(
             get: { movement.prescribedQuantityUnit },
             set: { unit in
                 let amount = draftSets.first?.targetReps ?? 10
@@ -1703,7 +1710,11 @@ private struct InlineWODMovementSets: View {
                 writeSetsToMovement()
             }
         )) {
-            Text("Calorías").tag(ExerciseQuantityUnit.calories)
+            if isWeightedDistance {
+                Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+            } else {
+                Text("Calorías").tag(ExerciseQuantityUnit.calories)
+            }
             Text("Metros").tag(ExerciseQuantityUnit.meters)
         }
         .pickerStyle(.segmented)
@@ -1721,10 +1732,11 @@ private struct InlineWODMovementSets: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if loggingStyle == .machineWork { cardioUnitPicker }
+            if loggingStyle == .machineWork || isWeightedDistance { cardioUnitPicker }
             OGSetEntryHeader(
                 firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
-                secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil,
+                secondTitle: loggingStyle == .loadAndReps
+                    ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                 showsRIR: loggingStyle.usesRIR
             )
             ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
@@ -1772,6 +1784,8 @@ private struct InlineWODMovementSets: View {
     @ViewBuilder
     private func setRow(index: Int) -> some View {
         let style = loggingStyle
+        let quantityCap = isWeightedDistance && movement.prescribedQuantityUnit == .meters
+            ? 100_000 : style.quantityCap
         let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
         let catalogExercise = store.state.exercises.first {
             $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
@@ -1807,13 +1821,13 @@ private struct InlineWODMovementSets: View {
                             draftSets[index].targetWeightKg = nil
                         }
                     } else if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
+                        draftSets[index].targetReps = min(quantityCap, max(1, parsed))
                     }
                     writeSetsToMovement()
                 },
                 onSecondCommit: { text in
                     if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
+                        draftSets[index].targetReps = min(quantityCap, max(1, parsed))
                         writeSetsToMovement()
                     }
                 }
@@ -1844,7 +1858,13 @@ private struct InlineWODMovementSets: View {
     private func writeSetsToMovement() {
         movement.explicitPlannedSets = draftSets
         let repsList = draftSets.map(\.targetReps)
-        if loggingStyle == .machineWork {
+        if isWeightedDistance {
+            let unit = movement.prescribedQuantityUnit
+            movement.calories = nil
+            movement.distanceMeters = unit == .meters ? repsList.first : nil
+            movement.reps = unit == .meters ? nil : repsList.first
+            movement.repScheme = repsList.count > 1 ? repsList : nil
+        } else if loggingStyle == .machineWork {
             let qty = repsList.first
             switch movement.prescribedQuantityUnit {
             case .calories:
@@ -1899,8 +1919,15 @@ struct WODMovementEditor: View {
         return Exercise.loggingStyle(name: catalogName, equipment: movement.notes)
     }
 
+    private var isWeightedDistance: Bool {
+        Exercise.supportsWeightedRepsOrMeters(name: movement.name)
+            || Exercise.supportsWeightedRepsOrMeters(
+                name: CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+            )
+    }
+
     private var cardioUnitPicker: some View {
-        Picker("Unidad de cardio", selection: Binding(
+        Picker("Unidad", selection: Binding(
             get: { movement.prescribedQuantityUnit },
             set: { unit in
                 let amount = draftSets.first?.targetReps ?? 10
@@ -1918,7 +1945,11 @@ struct WODMovementEditor: View {
                 writeSetsToMovement()
             }
         )) {
-            Text("Calorías").tag(ExerciseQuantityUnit.calories)
+            if isWeightedDistance {
+                Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+            } else {
+                Text("Calorías").tag(ExerciseQuantityUnit.calories)
+            }
             Text("Metros").tag(ExerciseQuantityUnit.meters)
         }
         .pickerStyle(.segmented)
@@ -1947,10 +1978,11 @@ struct WODMovementEditor: View {
                 TextField("Nombre", text: $movement.name)
 
                 Section {
-                    if loggingStyle == .machineWork { cardioUnitPicker }
+                    if loggingStyle == .machineWork || isWeightedDistance { cardioUnitPicker }
                     OGSetEntryHeader(
                         firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : (loggingStyle == .repsAndTime ? "Veces" : "Reps")),
-                        secondTitle: loggingStyle == .loadAndReps ? "Reps" : nil,
+                        secondTitle: loggingStyle == .loadAndReps
+                    ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                         showsRIR: loggingStyle.usesRIR
                     )
                     ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
@@ -1982,7 +2014,9 @@ struct WODMovementEditor: View {
                     case .repsOnly:
                         Text("Solo reps (peso corporal).")
                     case .loadAndReps:
-                        if resolvedLoadField == .deficitCm {
+                        if isWeightedDistance {
+                            Text("Walking lunge: repeticiones o metros, siempre con peso opcional en kg y RIR.")
+                        } else if resolvedLoadField == .deficitCm {
                             Text("HSPU: déficit (cm) · reps. 0 = sin déficit.")
                         } else {
                             Text("Peso/lastre · reps · RIR. Dominadas: lastre 0 = sin lastre.")
@@ -1990,7 +2024,7 @@ struct WODMovementEditor: View {
                     }
                 }
 
-                if loggingStyle != .machineWork {
+                if loggingStyle != .machineWork && !isWeightedDistance {
                     Stepper("Metros: \(movement.distanceMeters ?? 0)", value: Binding(
                         get: { movement.distanceMeters ?? 0 },
                         set: { movement.distanceMeters = $0 == 0 ? nil : $0 }
@@ -2082,6 +2116,8 @@ struct WODMovementEditor: View {
 
     private func wodSetRow(index: Int) -> some View {
         let style = loggingStyle
+        let quantityCap = isWeightedDistance && movement.prescribedQuantityUnit == .meters
+            ? 100_000 : style.quantityCap
         let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
         let catalogExercise = store.state.exercises.first {
             $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
@@ -2117,13 +2153,13 @@ struct WODMovementEditor: View {
                             draftSets[index].targetWeightKg = nil
                         }
                     } else if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
+                        draftSets[index].targetReps = min(quantityCap, max(1, parsed))
                     }
                     writeSetsToMovement()
                 },
                 onSecondCommit: { text in
                     if let parsed = Int(text) {
-                        draftSets[index].targetReps = min(style.quantityCap, max(1, parsed))
+                        draftSets[index].targetReps = min(quantityCap, max(1, parsed))
                         writeSetsToMovement()
                     }
                 }
@@ -2163,7 +2199,13 @@ struct WODMovementEditor: View {
     private func writeSetsToMovement() {
         movement.explicitPlannedSets = draftSets
         let repsList = draftSets.map(\.targetReps)
-        if loggingStyle == .machineWork {
+        if isWeightedDistance {
+            let unit = movement.prescribedQuantityUnit
+            movement.calories = nil
+            movement.distanceMeters = unit == .meters ? repsList.first : nil
+            movement.reps = unit == .meters ? nil : repsList.first
+            movement.repScheme = repsList.count > 1 ? repsList : nil
+        } else if loggingStyle == .machineWork {
             // En erg la cantidad de la 1.ª serie alimenta cal o metros prescritos.
             let qty = repsList.first
             switch movement.prescribedQuantityUnit {
