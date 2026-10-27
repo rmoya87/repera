@@ -805,6 +805,7 @@ struct DayEditorView: View {
     }
 
     private var canConfirm: Bool {
+        guard !isConfirmingSave else { return false }
         if onApplyDraft != nil || onApplyCompleted != nil {
             return routine.blocks.contains { block in
                 switch block.kind {
