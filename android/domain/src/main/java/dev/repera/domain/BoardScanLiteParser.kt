@@ -60,12 +60,29 @@ object BoardScanLiteParser {
             if (cur.format == WODFormat.EMOM) {
                 block.emomIntervalSeconds = cur.interval ?: 60
             }
+            var roundLabel:String?=null
             block.movements = cur.body.filter { line ->
                 val upper = line.uppercase(Locale.ROOT)
                 !upper.contains("CAP: 4 INTERVALOS") &&
                     !upper.startsWith("REALIZA AMBOS") &&
                     !upper.startsWith("NO TOUCH")
-            }.map { movement(it, searchAliases) }
+            }.mapNotNull { raw ->
+                // Full parser roundMarker/isFootnote: metadata stays in wodNotes,
+                // never becomes a fabricated movement. Round note scopes following rows.
+                if(raw.startsWith("*") || raw.startsWith("•")) return@mapNotNull null
+                Regex("^ROUNDS?\\s*(\\d+)\\s*:?\\s*$",RegexOption.IGNORE_CASE).matchEntire(raw)?.let {round ->
+                    roundLabel="Ronda ${round.groupValues[1]}"
+                    return@mapNotNull null
+                }
+                val parsed=movement(raw,searchAliases)
+                val upperRaw=raw.uppercase(Locale.ROOT)
+                if(cur.format==WODFormat.FOR_TIME && parsed.isRest &&
+                    (upperRaw.contains("BTWN") || upperRaw.contains("BETWEEN") || upperRaw.contains("ENTRE RONDAS"))) {
+                    block.restBetweenRoundsSeconds=parsed.restSeconds
+                    return@mapNotNull null
+                }
+                roundLabel?.let {label ->parsed.copy(notes=listOfNotNull(label,parsed.notes).joinToString(" · "))} ?: parsed
+            }
             capture("(?i)(\\d+)\\s*MIN\\s*ON.*?(\\d+)\\s*MIN\\s*OFF", cur.header)?.let { values ->
                 if (values.size == 2) {
                     val work = values[0].toIntOrNull()
@@ -78,29 +95,8 @@ object BoardScanLiteParser {
             }
             // 'REST BTWN' describe el descanso *entre* pasadas, no un ejercicio
             // extra al final de la última. Se preserva la anotación original.
-            if (cur.format == WODFormat.FOR_TIME) {
-                val toRemove = mutableListOf<Int>()
-                for (position in cur.body.indices.reversed()) {
-                    val upper = cur.body[position].uppercase(Locale.ROOT)
-                    if (upper.contains("BTWN") || upper.contains("BETWEEN") ||
-                        upper.contains("ENTRE RONDAS")) {
-                        if (position in block.movements.indices &&
-                            block.movements[position].isRest) {
-                            block.restBetweenRoundsSeconds =
-                                block.movements[position].restSeconds
-                            toRemove.add(position)
-                        }
-                    }
-                }
-                if (toRemove.isNotEmpty()) {
-                    block.movements = block.movements
-                        .filterIndexed { index, _ -> index !in toRemove }
-                }
-                if (block.restBetweenRoundsSeconds == null) {
-                    block.movements.firstOrNull { it.isRest }?.let {
-                        block.restBetweenRoundsSeconds = it.restSeconds
-                    }
-                }
+            if(cur.format==WODFormat.FOR_TIME && block.restBetweenRoundsSeconds==null) {
+                block.movements.firstOrNull {it.isRest}?.let {block.restBetweenRoundsSeconds=it.restSeconds}
             }
             block.wodNotes = (listOf(cur.header) + cur.body).joinToString("\n")
             block.deriveEmomRoundsIfNeeded()

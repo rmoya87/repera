@@ -64,4 +64,23 @@ class BoardStrengthLinesTest {
   assertEquals(WODFormat.EMOM,result.blocks.single().wodFormat)
   assertEquals(2,result.blocks.single().movements.size)
  }
+ @Test fun roundMarkersAndFootnotesStayMetadataNotMovements() {
+  val result=BoardScanLiteParser.parse("AMRAP 12'\nROUND 1:\n5 POWER CLEAN\nROUND 2\n10 PULL UPS\n* Solo técnica\n• No tocar el suelo")
+  val block=result.blocks.single()
+  assertEquals(2,block.movements.size)
+  assertTrue(block.movements[0].notes.orEmpty().contains("Ronda 1"))
+  assertTrue(block.movements[1].notes.orEmpty().contains("Ronda 2"))
+  assertTrue(block.wodNotes.orEmpty().contains("Solo técnica"))
+  assertTrue(block.wodNotes.orEmpty().contains("No tocar el suelo"))
+ }
+ @Test fun ordinaryRoundWordsInsideExerciseRemainMovementText() {
+  val block=BoardScanLiteParser.parse("AMRAP 10'\n5 ROUND THE WORLD\n10 PUSH UPS").blocks.single()
+  assertEquals(2,block.movements.size)
+ }
+ @Test fun roundMetadataDoesNotShiftBetweenRoundRestRemoval() {
+  val block=BoardScanLiteParser.parse("4 RFT (TC 12')\nROUND 1\n300M RUN\n* Nota\n1' REST BTWN").blocks.single()
+  assertEquals(1,block.movements.size)
+  assertEquals(60,block.restBetweenRoundsSeconds)
+  assertEquals(300,block.movements.single().distanceMeters)
+ }
 }

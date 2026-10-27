@@ -296,3 +296,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Clase wire completa5tests ejecutada21:56;resto mobile es ejecucion post288.
  No afirmar suite monolitica nueva647. Domain493/93XML,Wear8/1siguen verdes
  con tiempos de sus checkpoints. Parser completo yruntime siguen abiertos.
+
+## Metadatos OCR 22:01
+- Full corte flattenMovements/roundMarker/isFootnote: ROUND1/ROUND2 exactos
+ ylineas * o• ya NO producen ejercicios inventados. Se conservan enwodNotes;
+ movimientos siguientes llevan Ronda N ennotas. PalabraROUNDdentrodeejercicio
+ NO se interpreta metadata.3tests nuevosincluyenRESTBTWN conmetadata antes.
+- RESTentre rondas ahora se procesa en mismo map de fila cruda,no indices
+ paralelos que se desalinearian al omitir metadata. Domain496/496,93XML
+ completa22:01verde. ParsercompletoGAP,caminosstructured/secciones/complex.
+- Mobile post290pendiente;ultimoTODAS645/162post288+clasewire5/5post289.
