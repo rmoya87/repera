@@ -83,4 +83,22 @@ class BoardStrengthLinesTest {
   assertEquals(60,block.restBetweenRoundsSeconds)
   assertEquals(300,block.movements.single().distanceMeters)
  }
+ @Test fun namedSectionWithoutTimedHeaderKeepsExplicitStrength() {
+  val blocks=BoardScanLiteParser.parse("Weightlifting \"Squat Work\"\n5x5 BACK SQUAT @60\nMETCON\nAMRAP 10'\n10 PULL UPS",listOf(squat)).blocks
+  assertEquals(2,blocks.size)
+  assertEquals("Squat Work",blocks[0].title)
+  assertEquals(RoutineBlockKind.STRENGTH,blocks[0].kind)
+  assertEquals(5,blocks[0].exercises.single().plannedSets.size)
+  assertEquals(WODFormat.AMRAP,blocks[1].wodFormat)
+ }
+ @Test fun cornerClockAndNumericNoiseDoNotCreateMovements() {
+  val block=BoardScanLiteParser.parse("AMRAP 12'\n5 POWER CLEAN\n22:02\n123\n10 PULL UPS").blocks.single()
+  assertEquals(2,block.movements.size)
+ }
+ @Test fun quotedMetconSectionRetainsFormatWithoutHeader() {
+  val block=BoardScanLiteParser.parse("Metcon \"Fran\"\n21 THRUSTERS\n21 PULL UPS").blocks.single()
+  assertEquals("Fran",block.title)
+  assertEquals(WODFormat.FOR_TIME,block.wodFormat)
+  assertEquals(2,block.movements.size)
+ }
 }

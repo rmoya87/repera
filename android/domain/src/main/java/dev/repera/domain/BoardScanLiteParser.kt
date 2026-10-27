@@ -32,6 +32,7 @@ object BoardScanLiteParser {
 
         val blocks = mutableListOf<RoutineBlock>()
         var sectionTitle: String? = null
+        var pendingSectionFormat:WODFormat?=null
         var intervalDescription: String? = null
         var current: Current? = null
 
@@ -106,12 +107,15 @@ object BoardScanLiteParser {
 
         for (line in rawLines) {
             val upper = line.uppercase(Locale.ROOT)
-            if (upper == "METCON" || upper.startsWith("WEIGHTLIFTING") ||
-                upper == "PULLING STRENGTH & POWER") {
+            val section=sectionLabel(line)
+            if(section!=null || upper=="PULLING STRENGTH & POWER") {
                 flush()
-                sectionTitle = line
+                sectionTitle=section ?: line
+                pendingSectionFormat=if(upper.startsWith("METCON") || upper.startsWith("MET CON") || upper.startsWith("CONDITION") || upper.startsWith("CONDICION")) WODFormat.FOR_TIME else WODFormat.STRENGTH
                 continue
             }
+            // Clock in the OCR corner and bare numeric noise are not exercises.
+            if(Regex("^\\d{1,2}:\\d{2}$").matches(line) || Regex("^[\\d.,]+$").matches(line)) continue
             if (upper.contains("INTERVALOS DE") && upper.contains("ON") &&
                 upper.contains("OFF")) {
                 intervalDescription = line
@@ -125,6 +129,7 @@ object BoardScanLiteParser {
                 current = Current(title, header.format, header.cap, header.rounds,
                     header.interval, mutableListOf())
                 sectionTitle = null
+                pendingSectionFormat=null
                 intervalDescription = null
             } else if (isQualityAnnotation(line)) {
                 // Vision puede separar «EMOM 9' @FOR QUALITY» en @FOR + QUALITY.
@@ -136,8 +141,11 @@ object BoardScanLiteParser {
             } else if (current != null) {
                 current!!.body.add(line)
             } else {
-                current = Current("Añadir entreno", WODFormat.CHIPPER, null, null, null,
-                    mutableListOf(line))
+                val pendingSection=sectionTitle
+                val sectionFormat=pendingSectionFormat ?: WODFormat.CHIPPER
+                current = Current(pendingSection ?: "Añadir entreno",sectionFormat,null,null,null,mutableListOf(line))
+                sectionTitle=null
+                pendingSectionFormat=null
             }
         }
         flush()
@@ -258,6 +266,16 @@ object BoardScanLiteParser {
             .trim(' ', '@', ':', '.', '-')
             .replace(Regex("\\s+"), " ")
         return setOf("QUALITY", "FOR QUALITY", "FQ", "RFQ", "FOR").contains(normalized)
+    }
+
+    /** BoardImportParser.sectionLabelTitle subset: explicit section prefix.
+     * Titles remain visible even without a following timed-format header. */
+    private fun sectionLabel(line:String):String? {
+        val upper=line.uppercase(Locale.ROOT)
+        val labels=listOf("WEIGHTLIFTING","WEIGHT LIFTING","HALTEROFILIA","HALTERO","METCON","MET CON","CONDITIONING","CONDICIONAMIENTO","GYMNASTICS","GIMNASIA","STRENGTH","FUERZA","SKILL","TECH","WOD","WORKOUT")
+        val label=labels.sortedByDescending {it.length}.firstOrNull {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:") || upper.startsWith("$it\"") || upper.startsWith("$it“") || upper.startsWith("$it«")} ?: return null
+        Regex("[\"“«](.+?)[\"”»]").find(line)?.groupValues?.get(1)?.takeIf {it.isNotBlank()}?.let {return it}
+        return line.drop(label.length).trim().trim(':','-','\"').trim().ifBlank {line}
     }
 
     private fun detectHeader(line: String): Header? {

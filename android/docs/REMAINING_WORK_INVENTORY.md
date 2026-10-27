@@ -306,3 +306,14 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  paralelos que se desalinearian al omitir metadata. Domain496/496,93XML
  completa22:01verde. ParsercompletoGAP,caminosstructured/secciones/complex.
 - Mobile post290pendiente;ultimoTODAS645/162post288+clasewire5/5post289.
+
+## Secciones OCR 22:11
+- FullsectionLabelTitle335-374:prefixes Weightlifting/Metcon/Gymnastics/etc
+ extraen titulo entrecomillas osufijo;seccion sin cabecera timed conserva
+ titulo yformato (Metcon/Conditioning ForTime,restoStrength). Conheader timed
+ mantiene concatenacion previa deLite,titulo visible. Namedstrength con
+ setsxreps resuelve porvia282;no infiere3x8 de lineas sin esquema.
+- Tipo de seccion se conserva aparte del titulo (Metcon Fran no pierde tipo).
+ RelojOCR22:02 ynumericospuros no crean movimientos.3tests nuevos,domain499
+ /499,93XMLcompleta22:11verde. Completo sigueGAP(complex/otrasrutas).
+- Mobilepost290TODAS647/162XML+assemble69sverde.Mobilepostestaunidadpendiente.
