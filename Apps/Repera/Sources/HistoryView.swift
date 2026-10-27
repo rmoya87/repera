@@ -2609,9 +2609,15 @@ struct HealthWorkoutRouteMap: View {
     }
 
     private var cameraPosition: MapCameraPosition {
-        guard !points.isEmpty else { return .automatic }
-        let lats = points.map(\.latitude)
-        let lons = points.map(\.longitude)
+        // En una tarjeta de mapa corta MapKit ajusta la región al aspect ratio
+        // de la vista. El margen anterior de 1,5 recortaba curvas y el halo de
+        // velocidad cerca del borde superior, aunque todos los GPS fueran válidos.
+        // Reservar más aire en la miniatura que en el mapa interactivo evita
+        // ese corte sin modificar el trazado, las velocidades ni los puntos.
+        let validPoints = points.filter { Self.valid($0.latitude, $0.longitude) }
+        guard !validPoints.isEmpty else { return .automatic }
+        let lats = validPoints.map(\.latitude)
+        let lons = validPoints.map(\.longitude)
         guard let minLat = lats.min(), let maxLat = lats.max(),
               let minLon = lons.min(), let maxLon = lons.max()
         else { return .automatic }
@@ -2619,8 +2625,9 @@ struct HealthWorkoutRouteMap: View {
             latitude: (minLat + maxLat) / 2,
             longitude: (minLon + maxLon) / 2
         )
-        let latDelta = Swift.max((maxLat - minLat) * 1.5, 0.008)
-        let lonDelta = Swift.max((maxLon - minLon) * 1.5, 0.008)
+        let paddingFactor = isInteractive ? 1.5 : 1.95
+        let latDelta = Swift.max((maxLat - minLat) * paddingFactor, 0.008)
+        let lonDelta = Swift.max((maxLon - minLon) * paddingFactor, 0.008)
         return .region(
             MKCoordinateRegion(
                 center: center,
