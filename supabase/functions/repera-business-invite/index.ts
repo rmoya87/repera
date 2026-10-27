@@ -29,7 +29,7 @@ function emailHtml(payload:{org_name:string,recipient:string,org_type:string},ur
  <p style="font-size:11px;line-height:1.6;color:#819588">Si no conoces este centro o no quieres unirte, ignora este mensaje. La invitación caduca automáticamente.</p></div></main></body></html>`;
 }
 Deno.serve(async(request:Request)=>{
- if(request.method==="OPTIONS")return json({},204);
+ if(request.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type","Access-Control-Allow-Methods":"POST,OPTIONS"}});
  if(request.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405);
  if(!project||!publicKey)return json({error:"SERVICE_UNAVAILABLE"},503);
  if(!resendKey||!sender||!safeHttps(base))return json({error:"EMAIL_PROVIDER_NOT_CONFIGURED"},503);
