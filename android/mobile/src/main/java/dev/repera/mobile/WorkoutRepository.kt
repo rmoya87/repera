@@ -379,7 +379,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             if((0 until routines.length()).any {routines.getJSONObject(it).optString("id")==routineId}) return routineId
         }
         requireTemplateSlot(state,schedule,canCreateTemplate)
-        val id=appendScannedRoutine(state,title,blocks,schedule,routineId,null)
+        // Apple 04da40ef (DayPlusSheet review.seed): los % de 1RM de la pizarra
+        // se resuelven a kg con el 1RM actual antes de guardar el entreno.
+        val seededBlocks=ExerciseLoadGuide.applyPercentLoads(blocks,state)
+        val id=appendScannedRoutine(state,title,seededBlocks,schedule,routineId,null)
         save(state)
         return id
     }

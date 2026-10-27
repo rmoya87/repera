@@ -10,15 +10,9 @@ import java.util.Locale
  */
 object SetSummaryLine {
 
-    /** %g de C/Swift: 6 dígitos significativos, SIN ceros de relleno (el %g de
-     *  Java los conserva: "50.0000"; hay que recortarlos como hace C/Swift). */
-    private fun g(value: Double): String {
-        var out = String.format(Locale.US, "%g", value)
-        if ('.' in out && 'e' !in out && 'E' !in out) {
-            out = out.trimEnd('0').trimEnd('.')
-        }
-        return out
-    }
+    /** Apple a192c38b: las cantidades usan el formato localizado (coma
+     *  es_ES), no %g con punto. */
+    private fun g(value: Double): String = ReperaNumberFormat.decimal(value)
 
     private fun clock(seconds: Int): String {
         val m = seconds / 60
@@ -74,7 +68,7 @@ object SetSummaryLine {
                 // fractionLength(0...1) de iOS: sin decimales si es entera.
                 val kg = if (targetWeightKg == Math.floor(targetWeightKg))
                     targetWeightKg.toLong().toString()
-                else String.format(Locale.US, "%.1f", targetWeightKg)
+                else ReperaNumberFormat.decimal(targetWeightKg, maximumFractionDigits = 1)
                 return "$targetReps @ $kg kg"
             }
             if (targetReps > 0) return "$targetReps reps"

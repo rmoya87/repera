@@ -3,16 +3,17 @@
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
 Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Contadores (reconciliado 15:15 CET)
-- Pre-window: 54 partial + 26 in-progress = 80
-- Post-window: 20 partial + 14 in-progress = 34
-- TOTAL abierto: 114 filas + dependencias de validacion
-- Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado)
+## Contadores (reconciliado 15:55 CET)
+- Pre-window: 54 partial + 18 in-progress = 72
+- Post-window: 31 (20 partial + 4 verified-partial + 2 verified-partial+gap + 5 gap; in-progress 14->0)
+- TOTAL abierto: 103 filas + dependencias de validacion
+  (el recuento post de 15:15 no incluia las etiquetas verified-partial/gap; resueltas hoy: 14 in-progress post)
+- Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado), cadena BTT/T2B (6993e330..0a640da8), localizacion numeros post (b8cca90a/04da40ef/a192c38b/bf8de3db portados; 95847d98/fb6de251/af08512c n/a codigo muerto baseline)
 
 ## Dependencias de validacion (bloquean cierre)
 1. compile/build mobile+wear COMPLETO (bloqueado por limite 120s por llamada) — REQUISITO antes de integrar/push
 2. Validacion runtime/UI en dispositivo/emulador de todo lo movil desde tree175 (WIP)
-3. Tests runner ligero + domain verdes tras cada implementacion (actual: 448/448 domain, 36/36 runner)
+3. Tests runner ligero + domain verdes tras cada implementacion (actual: 457/457 domain, 36/36 runner)
 
 ## Grupos de gaps principales (pre+post)
 - Onboarding AI unificado (OAuth/instrucciones/logos): AIAccessScreen 324l vs Apple 648l

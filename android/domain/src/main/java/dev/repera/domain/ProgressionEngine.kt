@@ -259,6 +259,7 @@ object ProgressionEngine {
     private fun snap(value: Double, step: Double): Double =
         if (step <= 0) round(value * 10) / 10 else round(value / step) * step
 
-    private fun format(value: Double): String =
-        if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+    // Apple bf8de3db: los textos del dominio usan el formato localizado
+    // (coma decimal es_ES), no %g con punto.
+    private fun format(value: Double): String = ReperaNumberFormat.decimal(value)
 }

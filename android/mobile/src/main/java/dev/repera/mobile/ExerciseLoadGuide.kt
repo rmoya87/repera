@@ -107,6 +107,58 @@ object ExerciseLoadGuide {
         return if (best > 0) best else null
     }
 
+    /** Rellena `weightMaleKg` en movimientos que solo traen % y tienen 1RM
+     *  conocido (tested o e1RM). Port de LoadSuggestion.applyPercentLoads
+     *  (Apple 04da40ef: DayPlusSheet review.seed): la nota conserva la fuente
+     *  y no se duplica si ya hay una nota de % previa. */
+    fun applyPercentLoads(
+        blocks: List<dev.repera.domain.RoutineBlock>,
+        root: JSONObject
+    ): List<dev.repera.domain.RoutineBlock> {
+        val workouts = root.optJSONArray("workouts")?.let { array ->
+            (0 until array.length()).map { array.getJSONObject(it) }
+        } ?: emptyList()
+        val catalog = root.optJSONArray("exercises")
+        val increment = root.optJSONObject("settings")
+            ?.takeIf { it.has("weightIncrementKg") && !it.isNull("weightIncrementKg") }
+            ?.getDouble("weightIncrementKg")?.takeIf { it > 0 }
+            ?: DEFAULT_INCREMENT_KG
+        val prefs = root.optJSONObject("exerciseLoadPrefs")
+        fun testedFor(id: String): Double? = prefs?.optJSONObject(id)
+            ?.takeIf { it.has("testedOneRMKg") && !it.isNull("testedOneRMKg") }
+            ?.getDouble("testedOneRMKg")?.takeIf { it > 0 }
+        return blocks.map { block ->
+            block.copy(movements = block.movements.map { move ->
+                if (move.isRest) return@map move
+                if (move.weightMaleKg != null) return@map move
+                val pct = dev.repera.domain.LoadSuggestion.percentOfOneRM(move.notes)?.value
+                    ?: dev.repera.domain.LoadSuggestion.percentOfOneRM(move.name)?.value
+                    ?: return@map move
+                val exerciseId = move.exerciseId ?: catalog?.let { array ->
+                    (0 until array.length()).map { array.getJSONObject(it) }
+                        .firstOrNull {
+                            dev.repera.domain.CrossFitGlossary.normalize(it.optString("name")) ==
+                                dev.repera.domain.CrossFitGlossary.normalize(move.name)
+                        }?.optString("id")
+                } ?: return@map move
+                val tested = testedFor(exerciseId)
+                val oneRM = tested ?: estimatedOneRM(exerciseId, workouts, catalog)
+                if (oneRM == null || oneRM <= 0) return@map move
+                val sourceLabel = if (tested != null) "1RM" else "e1RM"
+                val kg = dev.repera.domain.LoadSuggestion.weightKg(oneRM, pct, roundTo = increment)
+                val note = "~${pct.toInt()}% $sourceLabel → " +
+                    "${dev.repera.domain.ReperaNumberFormat.decimal(kg)} kg"
+                val existing = move.notes
+                val notes = if (!existing.isNullOrEmpty()) {
+                    if (!existing.contains("% e1RM") && !existing.contains("% 1RM")) {
+                        "$existing · $note"
+                    } else existing
+                } else note
+                move.copy(weightMaleKg = kg, notes = notes)
+            })
+        }
+    }
+
     /** «Aplicar» del editor: escala la última sesión al kg sugerido (misma
      *  progresión, reps y RIR; port de PlanView.applySuggestedLoad iOS).
      *  Sin sesión previa devuelve null: el editor solo fija el kg en las

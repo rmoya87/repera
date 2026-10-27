@@ -191,10 +191,10 @@ internal fun ActiveWorkoutCard(
                             "meters" -> "m"
                             else -> "reps"
                         } +
-                        (set.weightKg?.let { " · $it kg" } ?: "") +
-                        (set.deficitCm?.let { " · $it cm déficit" } ?: "") +
+                        (set.weightKg?.let { " · ${dev.repera.domain.ReperaNumberFormat.decimal(it)} kg" } ?: "") +
+                        (set.deficitCm?.let { " · ${dev.repera.domain.ReperaNumberFormat.decimal(it.toDouble())} cm déficit" } ?: "") +
                         (if(set.toFailure) " · F" else "") +
-                        (set.rir?.let { " · ${effortUnit.uppercase()} ${dev.repera.domain.Effort.fromRIR(it,effortUnit)}" } ?: "") +
+                        (set.rir?.let { dev.repera.domain.Effort.label(it,effortUnit)?.let { l -> " · $l" } } ?: "") +
                         (set.durationSeconds?.let { " · ${it / 60}:${(it % 60).toString().padStart(2,'0')}" } ?: ""))
                     Row {
                         TextButton(onClick = {

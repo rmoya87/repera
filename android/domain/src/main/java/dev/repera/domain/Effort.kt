@@ -14,6 +14,15 @@ object Effort {
         else -> rir
     }
 
+    /** Etiqueta localizada "RIR 2" / "RPE 8,5" (port de Effort.label, Apple
+     *  b8cca90a: formato es_ES, no %g con punto). */
+    fun label(rir: Double?, unit: String): String? {
+        if (rir == null) return null
+        val display = fromRIR(rir, unit)
+        val prefix = if (unit == "rpe") "RPE" else "RIR"
+        return prefix + " " + ReperaNumberFormat.decimal(display)
+    }
+
     fun isHard(rir: Double?): Boolean = rir != null && rir <= hardRIR
 
     fun plainLanguage(rir: Double): String = when {

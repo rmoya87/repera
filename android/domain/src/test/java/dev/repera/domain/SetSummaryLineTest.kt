@@ -7,7 +7,7 @@ class SetSummaryLineTest {
 
     @Test fun weightTimesRepsIsTheStrengthShape() {
         assertEquals("50×8", SetSummaryLine.displayLine(reps = 8, weightKg = 50.0))
-        assertEquals("22.5×5", SetSummaryLine.displayLine(reps = 5, weightKg = 22.5))
+        assertEquals("22,5×5", SetSummaryLine.displayLine(reps = 5, weightKg = 22.5))
         assertEquals("—×12", SetSummaryLine.displayLine(reps = 12))
     }
 
@@ -33,7 +33,7 @@ class SetSummaryLineTest {
 
     @Test fun prescriptionLineMatchesIos() {
         assertEquals("8 @ 50 kg", SetSummaryLine.prescriptionLine(8, 50.0, "Press banca"))
-        assertEquals("8 @ 22.5 kg", SetSummaryLine.prescriptionLine(8, 22.5, "Press banca"))
+        assertEquals("8 @ 22,5 kg", SetSummaryLine.prescriptionLine(8, 22.5, "Press banca"))
         assertEquals("12 reps", SetSummaryLine.prescriptionLine(12, null, "Dominadas"))
         assertEquals("Dominadas", SetSummaryLine.prescriptionLine(null, null, "Dominadas"))
         assertEquals("Dominadas", SetSummaryLine.prescriptionLine(0, null, "Dominadas"))
