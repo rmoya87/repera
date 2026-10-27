@@ -37,24 +37,38 @@ en rama local, sin borrar datos, validación UI pendiente (bloqueo 120s + dispos
 4. "＋ Añadir" → DayPlusSheet Android (crear / favoritos / temporizador / escanear).
 5. Tarjeta de programas IA (aiPrograms) → abre programas IA.
 6. `OverviewEmptyActions` (inicializar local / importar JSON con cuenta vacía) y
-   `AccountSyncCard` (sync Drive / exportar / cerrar sesión). Las acciones de
-   cuenta TAMBIÉN existen en Ajustes (SettingsTab, verificado en
-   ReperaMobileScreen.kt); `OverviewEmptyActions` SOLO se renderiza en DiaryTab
-   (pendiente confirmar si hay equivalente en Inicio).
-7. Android tiene además HomeView con strip semanal propio (verificar solape real
-   con DiaryTab antes de tocar nada).
+   `AccountSyncCard` (sync Drive / exportar / cerrar sesión). VERIFICADO: ambas
+   se renderizan TAMBIÉN en Inicio (HomeTab.kt líneas 332-334) y la cuenta en
+   Ajustes; DiaryTab es una segunda instancia, no la única. Sin acción.
+
+## C2. Inicio (HomeTab) verificado — qué cubre ya (27oct 12:14)
+- Strip semanal + rutinas del día (fechadas + recurrentes por weekday) ✓
+- "Ver plan y empezar" → SessionPreviewSheet con Empezar / Editar / Eliminar
+  (removeScheduledRoutine) ✓ (equivalente a plannedDayCard + preview Apple)
+- "Añadir nuevo entrenamiento" → navega a Crear (NO es el DayPlusSheet por día
+  de Apple: no lleva la fecha seleccionada ni ofrece favoritos/temporizador/
+  escanear inline) — PARCIAL
+- OverviewEmptyActions + AccountSyncCard ✓
+- NO cubre (GAPs reales antes de retirar Diario):
+  a) Asignar rutina a weekday recurrente ni a fecha (diálogos assigningDay/
+     assigningDate de DiaryTab; Inicio no tiene onAssign*).
+  b) "＋ Añadir otro entreno el <fecha>" (segundo entreno fechado del mismo día).
+  c) Tarjeta de programas IA (sin parámetro aiPrograms en HomeTab).
+  d) Biblioteca completa de Rutinas (lista) — sin ella no hay UI para asignar.
+  e) Copiar semana anterior / Vaciar programación (Apple los dejó sin UI;
+     retirar es PARIDAD, repository los conserva).
 
 ## D. Destinos Android propuestos (pendiente verificación de solapes)
 | Función Android | Destino propuesto | Estado |
 |---|---|---|
-| Plan semanal ver/empezar/quitar del día | Inicio (HomeView Android): ya tiene strip + tarjetas por día | Verificar paridad de acciones (quitar del día, one-off vs plantilla) |
-| ＋ Añadir a un día | DayPlusSheet ya existe; invocarlo desde Inicio | Verificar que Inicio lo ofrece por día |
-| Asignación recurrente L-D | Decisión de conservación: Apple mantiene `Routine.weekday` en el modelo | Verificar que Inicio permite asignar weekday (si no, es GAP funcional real, no solo UI) |
-| Biblioteca Rutinas completa | Destino nuevo necesario (p. ej. sección en Inicio o Favoritos ampliado) | ABIERTO: Apple la eliminó; Android la usa como fuente de "asignar a día" |
-| Copiar semana anterior / Vaciar | Apple los dejó sin UI (store los conserva) | Reversible: retirar del menú, conservar repository |
-| Programas IA | Bandeja/menú IA existente (`programas-ia` nav) | Verificar que la entrada existe fuera de Diario |
-| OverviewEmptyActions | Mover a Inicio (cuenta vacía) | ABIERTO: única renderización actual |
-| AccountSyncCard | Ya duplicada en Ajustes | OK sin trabajo |
+| Plan semanal ver/empezar/quitar del día | Inicio YA lo cubre (strip + preview + remove) | ✓ verificado 12:14 |
+| ＋ Añadir a un día | DayPlusSheet existe (en DiaryTab); llevarlo a Inicio con la fecha seleccionada | POR PORTAR a Inicio |
+| Asignación recurrente L-D / a fecha | Portar diálogos assigningDay/assigningDate a Inicio | POR PORTAR a Inicio (sin esto retirar Diario pierde función) |
+| Biblioteca Rutinas completa | Conservar acceso (Inicio o Favoritos ampliado) | DECISIÓN CONSERVADORA documentada: Apple la eliminó, pero la asignación a día la necesita; mantener acceso hasta que la asignación no dependa de ella |
+| Copiar semana anterior / Vaciar | Retirar del menú (paridad Apple), conservar repository | POR PORTAR (reversible) |
+| Programas IA | Entrada `programas-ia` en nav + tarjeta; llevar tarjeta a Inicio o dejar solo acceso por Ajustes/menú IA | POR DECIDIR en el port |
+| OverviewEmptyActions | Ya duplicada en Inicio | ✓ verificado 12:14 |
+| AccountSyncCard | Ya duplicada en Inicio y Ajustes | ✓ verificado 12:14 |
 
 ## E. Reversibilidad y datos
 - NO se borran datos: rutinas, programación (weekday/scheduledDate), favoritos y
@@ -65,13 +79,16 @@ en rama local, sin borrar datos, validación UI pendiente (bloqueo 120s + dispos
 - Validación UI/dispositivo bloqueada (compile 120s + sin dispositivo): NO
   declarar fin ni cumplir condición de push con esta pieza sin validar.
 
-## F. Abiertos antes de ejecutar
-1. Confirmar que Inicio Android cubre: quitar rutina del día, distinguir one-off
-   vs plantilla en el diálogo de borrado, asignar/editar weekday recurrente,
-   ＋ por día, y entrada a programas IA. Los que falten son GAPs funcionales a
-   portar (DayEditor/preview push ya tienen contrapartes parciales).
-2. Confirmar destino de OverviewEmptyActions.
-3. Decisión documentada (no de usuario): la biblioteca Rutinas como sección
-   desaparece en Apple; si Inicio/Favoritos no cubren "asignar plantilla a día",
-   la navegación Android debe conservar un acceso a la biblioteca (límite más
-   conservador, a reportar).
+## F. Plan de ejecución (rama local, reversible, próxima fase)
+1. Portar a Inicio: DayPlusSheet por día seleccionado, diálogos de asignación
+   (weekday recurrente + fecha + "＋ otro entreno"), tarjeta programas IA.
+2. Conservar acceso a la biblioteca Rutinas (decisión conservadora, §D).
+3. Retirar "Copiar semana anterior"/"Vaciar" del menú (repository intacto).
+4. Sacar "diario" del grafo de navegación conservando DiaryTab.kt en el árbol
+   (rollback instantáneo; sin borrar datos: rutinas, weekday, fechadas,
+   favoritos e historial intactos).
+5. Validación UI/dispositivo bloqueada: el cambio queda como WIP explícito; NO
+   cuenta para declarar fin ni para la condición de push.
+Resueltos: destino de OverviewEmptyActions/AccountSyncCard (Inicio/Ajustes ✓);
+diálogo de borrado Apple (one-off elimina, plantilla quita del día) — verificar
+que removeScheduledRoutine Android distingue ambos casos al portar el preview.
