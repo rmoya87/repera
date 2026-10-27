@@ -112,11 +112,18 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("HStack(spacing: 6)", actions)
         self.assertNotIn("metricsActionPlaceholder", actions)
         self.assertIn("if recorder.phase == .recording {", actions)
-        self.assertEqual(actions.count("if recorder.phase == .paused {"), 2)
-        # Al pausar, Finalizar aparece ANTES de Audio: los 3 últimos no se mueven.
-        self.assertLess(actions.index('"flag.checkered"'), actions.index("if showGuidanceToggle"))
+        self.assertEqual(actions.count("if recorder.phase == .paused {"), 1)
+        # En pausa el orden es Audio · Mapa · Finalizar · Play.
+        # La bandera negra está directamente a la izquierda del botón verde;
+        # ambos pertenecen a la misma rama condicional de pausa.
         self.assertLess(actions.index("guidanceSymbol"), actions.index('metricsCircleButton("map"'))
-        self.assertLess(actions.index('metricsCircleButton("map"'), actions.index('"pause.fill"'))
+        self.assertLess(actions.index('metricsCircleButton("map"'), actions.index('"flag.checkered"'))
+        self.assertLess(actions.index('"flag.checkered"'), actions.index('"play.fill"'))
+        paused = actions.split("} else if recorder.phase == .paused {", 1)[1]
+        self.assertIn('"flag.checkered"', paused)
+        self.assertIn('"play.fill"', paused)
+        self.assertLess(paused.index("finishAndShowSave()"), paused.index("recorder.resume()"))
+        self.assertNotIn('"flag.checkered"', actions.split("if showGuidanceToggle", 1)[0])
 
     def test_three_seconds_countdown_reuses_timer_sound_before_gps_starts(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
