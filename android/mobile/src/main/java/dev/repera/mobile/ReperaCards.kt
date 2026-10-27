@@ -1298,71 +1298,45 @@ internal object WeekCalendarGeometry {
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth().testTag("week_calendar_card")) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
+                "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
+                style = MaterialTheme.typography.titleSmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().let { m ->
+                    // Apple weekSelector: tocar la etiqueta vuelve a la semana actual.
+                    if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
+                })
             val days = if(monday) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("D","L","M","X","J","V","S")
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                // Carrusel horizontal unico, como el corte Apple (0a640da8
+                // HomeView.weekSelectorCard): compacto = 7 dias que llenan el
+                // ancho; expandido (>=620) = mas de 7 dias edge-to-edge.
+                // El scroll es la navegacion entre semanas (sin botones).
                 val expanded = WeekCalendarGeometry.isExpanded(maxWidth.value)
-                if (!expanded) {
-                    Row(modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(onClick = { onSelect(selected.minusWeeks(1)) }) {
-                            Text("‹ Semana")
-                        }
-                        Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
-                            "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(top = 12.dp).let { m ->
-                                // Apple PlanView weekSelector: tocar la etiqueta vuelve a la semana actual.
-                                if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
-                            })
-                        TextButton(onClick = { onSelect(selected.plusWeeks(1)) }) {
-                            Text("Semana ›")
-                        }
-                    }
-                    // Compacto: los 7 días siempre visibles (sin scroll), como
-                    // visibleDays=7 del corte Apple.
-                    Row(modifier = Modifier.fillMaxWidth().testTag("week_strip_compact"),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        repeat(7) { index ->
-                            val day = weekStart.plusDays(index.toLong())
-                            WeekDayCell(day, days[index], day == selected, day in completedDays,
-                                Modifier.weight(1f), onSelect)
-                        }
-                    }
-                } else {
-                    // Expandido (>=620, paridad isExpandedLayout): carrusel
-                    // horizontal edge-to-edge con MAS de 7 dias visibles
-                    // (Apple retiro el ancho fijo/centrado antiguo). Los
-                    // botones de semana se sustituyen por el propio scroll.
-                    Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
-                        "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.fillMaxWidth().let { m ->
-                            if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
-                        },
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    val spacing = WeekCalendarGeometry.spacingDp(maxWidth.value).dp
-                    val side = WeekCalendarGeometry.sideDp(maxWidth.value).dp
-                    val scrollState = androidx.compose.foundation.rememberScrollState()
-                    // Anclar el scroll para que la semana seleccionada quede
-                    // visible (la ventana empieza 7 dias antes de weekStart).
-                    val density = androidx.compose.ui.platform.LocalDensity.current
-                    LaunchedEffect(weekStart, maxWidth) {
-                        val targetPx = with(density) { ((side + spacing) * 7).toPx() }.toInt()
-                        scrollState.scrollTo(targetPx)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth()
-                            .horizontalScroll(scrollState)
-                            .testTag("week_strip_expanded"),
-                        horizontalArrangement = Arrangement.spacedBy(spacing)) {
-                        for (offset in -7..13) {
-                            val day = weekStart.plusDays(offset.toLong())
-                            val label = days[((day.dayOfWeek.value - (if(monday) 1 else 0) % 7 + 7) % 7)]
-                            WeekDayCell(day, label, day == selected, day in completedDays,
-                                Modifier.width(side), onSelect)
-                        }
+                val spacing = WeekCalendarGeometry.spacingDp(maxWidth.value).dp
+                val side = WeekCalendarGeometry.sideDp(maxWidth.value).dp
+                val scrollState = androidx.compose.foundation.rememberScrollState()
+                // Anclar el scroll para que la semana seleccionada quede
+                // visible (la ventana empieza 7 dias antes de weekStart).
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                LaunchedEffect(weekStart, maxWidth) {
+                    val targetPx = with(density) { ((side + spacing) * 7).toPx() }.toInt()
+                    scrollState.scrollTo(targetPx)
+                }
+                Row(modifier = Modifier.fillMaxWidth()
+                        .horizontalScroll(scrollState)
+                        .testTag(if (expanded) "week_strip_expanded" else "week_strip_compact"),
+                    horizontalArrangement = Arrangement.spacedBy(spacing)) {
+                    for (offset in -7..13) {
+                        val day = weekStart.plusDays(offset.toLong())
+                        val label = days[(day.dayOfWeek.value - (if(monday) 1 else 0) + 7) % 7]
+                        // Ancho fijo en ambos modos (weight no aplica dentro
+                        // de scroll): en compacto side=(w-24)/7 llena justo.
+                        WeekDayCell(day, label, day == selected, day in completedDays,
+                            Modifier.width(side), onSelect)
                     }
                 }
             }
