@@ -39,30 +39,78 @@ function formattedMoney(cents,currency='EUR'){
  try{return new Intl.NumberFormat('es-ES',{style:'currency',currency}).format(Number(cents||0)/100);}
  catch{return String(Number(cents||0)/100)+' '+String(currency);}
 }
+const stamp=v=>v?new Date(v).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):'—';
+const readable=(v)=>v==null||v===''?'—':v===true?'Sí':v===false?'No':typeof v==='object'?JSON.stringify(v):String(v);
+const details=(pairs)=>`<dl class="pa-details">${pairs.map(([key,val])=>`<dt>${esc(key)}</dt><dd>${esc(readable(val))}</dd>`).join('')}</dl>`;
+const moneyRow=p=>`<tr><td>${stamp(p.paid_at)}</td><td>${esc(formattedMoney(p.amount_cents,p.currency))}</td><td>${statusPill(p.status)}</td><td>${esc(p.provider)}</td></tr>`;
+const formatListing=(rows)=>rows?.length||0;
 function organizationDetail(o,opts){
- const {plans}=opts;
- const suspend=o.status==='suspended';
- return `${heading(esc(o.name),'Ficha global del negocio · '+esc(type(o.kind)),button('Volver a centros','back-org'))}
- <div class="pa-metrics">${stat('Clientes registrados',o.client_count||0)}${stat('Clientes activos',o.active_clients||0)}${stat('Miembros del equipo',o.member_count||0)}${stat('Sesiones registradas',o.sessions||0)}</div>
+ const {plans,detail}=opts;const d=detail||{};
+ const suspended=o.status==='suspended';
+ const actionLabel=suspended?'Reactivar centro':'Suspender centro';
+ return `${heading(esc(o.name),'Ficha completa · '+esc(type(o.kind)),button('Volver a centros','back-org'))}
+ <div class="pa-metrics pa-center-metrics">${stat('Clientes registrados',o.client_count||0)}
+ ${stat('Clientes activos',o.active_clients||0)}${stat('Equipo',o.member_count||0)}
+ ${stat('Sesiones y clases',o.sessions||0)}</div>
+ <div class="pa-panel pa-center-hero">
+ <div class="pa-identity">${photo(o.avatar_url,o.name,'large')}<div><h2>${esc(o.name)}</h2>
+ <p>${esc(type(o.kind))} · ${statusPill(o.status)}
+ ${o.registration_status==='pending'?'<span class="pa-pill">Pendiente de aceptación del propietario</span>':''}</p></div></div>
+ <div class="pa-center-hero-actions"><button type="button" class="pa-button primary" data-admin-action="access-center" data-id="${esc(o.id)}">Entrar como administrador del centro</button></div>
+ </div>
+ <div class="pa-layout"><section class="pa-panel"><h2>Datos del centro</h2>
+ ${details([['Nombre',o.name],['Tipo',type(o.kind)],['Código',o.slug],
+ ['Correo público',o.email],['Teléfono',o.phone],['Sitio web',o.website],['Dirección',o.address],
+ ['Zona horaria',o.timezone],['Descripción',o.description],
+ ['Visibilidad',d.center?.is_discoverable?'Publicado':'No publicado'],
+ ['Creado',stamp(d.center?.created_at||o.created_at)],
+ ['Última actualización',stamp(d.center?.updated_at)]])}
+ </section><section class="pa-panel"><h2>Estado y suscripción</h2>
+ ${details([['Registro del propietario',o.registration_status==='pending'?'Pendiente':'Completado'],
+ ['Correo del futuro propietario',o.owner_email],['Plan',plans.find(p=>p.plan_key===o.paid_plan)?.title||o.paid_plan||'Sin plan de pago'],
+ ['Prueba hasta',date(o.trial_ends_at)],['Pagado hasta',date(o.paid_until)],
+ ['Última reserva',stamp(o.last_activity)],['Motivo de suspensión',o.status_reason]])}
+ <form class="pa-status-inline" data-admin-form="status"><input type="hidden" name="org_id" value="${esc(o.id)}">
+ <label class="pa-field"><span>Estado operativo</span><select name="status">
+ <option value="active" ${!suspended?'selected':''}>Activo${o.registration_status==='pending'?' · registro pendiente':''}</option>
+ <option value="suspended" ${suspended?'selected':''}>Suspendido</option>
+ </select></label><button class="pa-button primary" type="submit">Guardar estado</button></form>
+ <p class="pa-muted">El estado operativo es independiente de la aceptación del propietario. El cambio queda registrado automáticamente.</p></section></div>
+ ${!detail?'<section class="pa-panel"><h2>Personas, fiscalidad y operaciones</h2><p>Cargando información del centro...</p></section>':`
  <div class="pa-layout">
- <section class="pa-panel"><div class="pa-identity pa-detail-identity">${photo(o.avatar_url,o.name,'large')}<h2>Perfil y configuración</h2></div>
- <dl class="pa-details"><dt>Nombre comercial</dt><dd>${esc(o.name)}</dd><dt>Registro</dt><dd>${esc(o.registration_status==='pending'?'Pendiente de aceptación del propietario':'Completado')}</dd><dt>Correo del propietario</dt><dd>${esc(o.owner_email||'—')}</dd><dt>Identificador</dt><dd>${esc(o.slug)}</dd><dt>Actividad</dt><dd>${esc(type(o.kind))}</dd><dt>Correo público</dt><dd>${esc(o.email||'—')}</dd><dt>Teléfono</dt><dd>${esc(o.phone||'—')}</dd><dt>Web</dt><dd>${esc(o.website||'—')}</dd><dt>Dirección</dt><dd>${esc(o.address||'—')}</dd><dt>Zona horaria</dt><dd>${esc(o.timezone||'Europe/Madrid')}</dd><dt>Descripción</dt><dd>${esc(o.description||'—')}</dd></dl>
- <p class="pa-muted">Para editar todos los ajustes del negocio utiliza el acceso delegado y el menú Configuración. Los datos fiscales privados no se exponen en el listado global.</p>
- </section>
- <section class="pa-panel"><h2>Suscripción y situación</h2>
- <div class="pa-inline"><strong>${statusPill(o.status)}</strong><span>${esc(o.status_reason||'')}</span></div>${o.registration_status==='pending'?'<p class="pa-muted">Puedes gestionar o suspender este centro y acceder temporalmente como administrador. Su propietario todavía debe verificar la cuenta y aceptar el negocio.</p>':''}
- <dl class="pa-details"><dt>Plan</dt><dd>${esc(plans.find(p=>p.plan_key===o.paid_plan)?.title||o.paid_plan||'Sin suscripción confirmada')}</dd><dt>Fin de prueba</dt><dd>${date(o.trial_ends_at)}</dd><dt>Pagado hasta</dt><dd>${date(o.paid_until)}</dd><dt>Última reserva</dt><dd>${date(o.last_activity)}</dd></dl>
- <p class="pa-muted">Los cambios de plan y su renovación requieren confirmación del proveedor de pago. No se activa una suscripción desde el panel.</p>
- <form data-admin-form="status" class="pa-form"><input type="hidden" name="org_id" value="${esc(o.id)}">
- <input type="hidden" name="status" value="${suspend?'active':'suspended'}">
- ${field('reason',suspend?'Motivo de reactivación':'Motivo de suspensión','','text','minlength="8" maxlength="300" required')}
- <button type="submit" class="pa-button ${suspend?'':'danger'}">${suspend?'Reactivar negocio':'Suspender negocio'}</button></form>
- </section></div>
- <section class="pa-panel"><h2>Gestionar como este negocio</h2>
- <p>Verás la aplicación desde el contexto de administración de este centro, incluso si está pendiente de registro. No se usan las credenciales del propietario. Acceso temporal de 30 minutos, con motivo y auditoría.</p>
- <form data-admin-form="delegate" class="pa-form pa-delegate-form"><input type="hidden" name="org_id" value="${esc(o.id)}">
- <label class="pa-field"><span>Motivo del acceso delegado</span><textarea name="reason" required minlength="12" maxlength="300" rows="2" placeholder="Por ejemplo: revisar un problema de reservas comunicado por el propietario"></textarea></label>
- <button class="pa-button primary" type="submit">Entrar en el centro (modo administrador)</button></form></section>
+ <section class="pa-panel"><h2>Datos fiscales</h2>${d.legal?details([
+ ['Tipo de entidad',d.legal.entity_type],['Razón social',d.legal.legal_name],['NIF/CIF',d.legal.tax_id],
+ ['Representante',d.legal.representative_name],['Contacto',d.legal.contact_name],
+ ['Email de facturación',d.legal.billing_email],['Dirección fiscal',d.legal.billing_address],
+ ['Código postal',d.legal.postal_code],['Población',d.legal.city],
+ ['Provincia',d.legal.province],['País',d.legal.country]]):empty('Sin datos fiscales','El centro aún no ha completado sus datos legales.')}</section>
+ <section class="pa-panel"><h2>Equipo y accesos (${formatListing(d.team)})</h2>
+ ${d.team?.length?table(['Persona','Correo','Rol','Estado'],d.team.map(m=>`<tr>
+ <td><div class="pa-identity">${photo(m.avatar_url,m.name)}<span>${esc(m.name)}</span></div></td>
+ <td>${esc(m.email||'—')}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td></tr>`).join('')):
+ empty('Sin equipo asignado','Este centro puede estar pendiente de aceptación.')}</section></div>
+ <section class="pa-panel"><h2>Atletas y clientes vinculados (${formatListing(d.clients)})</h2>
+ ${d.clients?.length?table(['Persona','Correo','Teléfono','Estado','Cuenta Repera'],d.clients.map(c=>`<tr>
+ <td><div class="pa-identity">${photo(c.avatar_url,c.name)}<strong>${esc(c.name)}</strong></div></td>
+ <td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td>${statusPill(c.status)}</td><td>
+ ${c.user_id?button('Ver atleta','view-athlete',`data-id="${esc(c.user_id)}"`):'<span class="pa-muted">Sin cuenta asociada</span>'}
+ </td></tr>`).join('')):empty('Sin clientes','No hay personas vinculadas todavía.')}</section>
+ <div class="pa-layout"><section class="pa-panel"><h2>Grupos (${formatListing(d.groups)})</h2>
+ ${d.groups?.length?table(['Grupo','Descripción','Fecha'],d.groups.map(g=>`<tr><td>${esc(g.name)}</td>
+ <td>${esc(g.description||'—')}</td><td>${date(g.created_at)}</td></tr>`).join('')):
+ empty('Sin grupos','Todavía no se han creado grupos.')}</section>
+ <section class="pa-panel"><h2>Actividad del centro</h2>
+ ${details([['Reservas totales',d.booking_count||0],
+ ['Entrenamientos profesionales programados',d.training_count||0],
+ ['Clientes con ficha',d.client_count||0]])}
+ <h3>Clases y citas recientes</h3>
+ ${d.services?.length?table(['Actividad','Inicio','Estado'],d.services.map(x=>`<tr><td>${esc(x.title)}</td>
+ <td>${stamp(x.starts_at)}</td><td>${statusPill(x.status)}</td></tr>`).join('')):
+ empty('Sin actividades','No existen citas o clases programadas.')}</section></div>
+ <section class="pa-panel"><h2>Últimos pagos de la plataforma</h2>
+ ${d.payments?.length?table(['Fecha','Importe','Estado','Proveedor'],d.payments.map(moneyRow).join('')):
+ empty('Sin pagos registrados','No hay cobros B2B confirmados asociados a este centro.')}</section>`}
+ <p class="pa-muted">Los datos se leen de Supabase y su consulta queda auditada. Los entrenamientos individuales solo se muestran en fichas de atleta con acceso administrativo autorizado.</p>
  `;
 }
 function overview(orgs,financial,history){
