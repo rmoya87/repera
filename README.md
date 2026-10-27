@@ -1,5 +1,10 @@
 # Repera
 
+## Ajustes del mapa meteorológico en iOS (27/10/2026)
+
+Los detalles de entrenamientos con ruta comparten la tarjeta nativa `SessionMapWeatherCard`. La franja meteorológica sitúa los símbolos de tiempo, humedad y viento a la izquierda de título y cifra, con tamaño semejante a su altura combinada. Se retira la fila textual «Apple Weather» bajo la temperatura, manteniendo la atribución compacta y el enlace exigidos por WeatherKit. El mapa de previsualización tiene más espacio alrededor del recorrido para que las curvas de los extremos no queden recortadas por el redondeo de la tarjeta. No se cambian rutas GPS, velocidades, ni mapas a pantalla completa.
+
+
 ## Administración global renovada (27/10/2026)
 
 El favicon de la consola Business es el mismo PNG binario del icono nativo de iOS, copiado en web/assets/repera-app-icon.png. El menú lateral comienza directamente con las secciones y se pliega a iconos, con preferencia local. El acceso a Auditoría se ha retirado de la navegación, aunque los eventos siguen guardándose en Supabase.
