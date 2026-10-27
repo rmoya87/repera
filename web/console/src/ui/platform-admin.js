@@ -144,6 +144,103 @@ function support(orgs,pending){
  ${orgs.slice(0,15).map(o=>`<div class="pa-event"><strong>${esc(o.name)}</strong>${button('Abrir ficha','view-org',`data-id="${esc(o.id)}"`)}</div>`).join('')||empty('Sin organizaciones','No hay negocios registrados.')}
  </section><section class="pa-panel"><h2>Altas que requieren registro</h2>${pending.filter(p=>p.status==='pending').length?pending.filter(p=>p.status==='pending').map(p=>`<div class="pa-event"><strong>${esc(p.name)}</strong><small>${esc(p.email)}</small></div>`).join(''):empty('Sin pendientes','Todas las solicitudes han sido reclamadas o aún no hay solicitudes.')}</section></div>`;
 }
+function athletesPage(athletes,filter){
+ const query=String(filter.athleteSearch||'').toLocaleLowerCase('es-ES').trim();
+ const list=athletes.filter(a=>!query||[a.name,a.email].some(v=>String(v||'').toLocaleLowerCase('es-ES').includes(query)));
+ return `${heading('Atletas','Todas las cuentas registradas en Repera, también las que no tienen gimnasio ni entrenador personal.')}
+ <div class="pa-metrics">${stat('Cuentas registradas',athletes.length)}
+ ${stat('Sin centro asociado',athletes.filter(a=>!validNumber(a.center_count)).length)}
+ ${stat('Cuentas verificadas',athletes.filter(a=>a.confirmed).length)}</div>
+ <section class="pa-panel"><div class="pa-filters">
+ ${field('athleteSearch','Buscar atleta',filter.athleteSearch||'','search','data-admin-filter="athleteSearch" placeholder="Nombre o correo"')}
+ <span class="pa-filter-count">${list.length} cuentas</span></div>
+ ${list.length?table(['Atleta','Email','Centros asociados','Estado','Registro'],
+ list.map(a=>`<tr><td><div class="pa-identity">${photo(a.avatar_url,a.name)}
+ <div><strong>${esc(a.name)}</strong>${a.platform_role==='platform_admin'?'<small>Administrador de plataforma</small>':''}</div></div></td>
+ <td>${esc(a.email||'—')}</td><td>${validNumber(a.center_count)?validNumber(a.center_count):'<span class="pa-muted">Sin centro</span>'}</td>
+ <td>${statusPill(a.confirmed?'active':'pending')}</td><td>${date(a.created_at)}</td></tr>`).join('')):
+ empty('No hay atletas con esos filtros','La lista incluye cuentas autenticadas incluso sin centros vinculados.')}</section>`;
+}
+function planForm(plan,newPlan=false){
+ const p=plan||{},key=esc(p.plan_key||''),audience=p.audience||'personal_trainer';
+ return `<form class="pa-plan-edit-form" data-connected="${newPlan?'new-plan':'save-plan'}">
+ <div class="pa-form-grid">
+ ${newPlan?field('plan_key','Clave interna única','','text','required minlength="3" maxlength="40" pattern="[a-z][a-z0-9_]{2,39}"'): `<input type="hidden" name="plan_key" value="${key}">`}
+ ${field('title','Nombre comercial',p.title||'','text','required minlength="2" maxlength="70"')}
+ <label class="pa-field"><span>Dirigido a</span><select name="audience">
+ <option value="personal_trainer" ${audience==='personal_trainer'?'selected':''}>Entrenador personal</option>
+ <option value="gym" ${audience==='gym'?'selected':''}>Gimnasio</option></select></label>
+ ${field('price','Precio mensual (€)',p.monthly_price_cents==null?'':Number(p.monthly_price_cents)/100,'number','required min="0" max="100000" step="0.01"')}
+ ${field('max_clients','Clientes máximos (vacío = sin límite)',p.max_clients??'','number','min="1" max="100000"')}
+ ${field('description','Descripción',p.description||'','text','maxlength="250"')}
+ ${field('discount_percent','Descuento inicial (%)',p.discount_percent??0,'number','min="0" max="90"')}
+ ${field('discount_months','Meses con descuento',p.discount_months??0,'number','min="0" max="12"')}
+ ${field('display_order','Orden de aparición',p.display_order??0,'number','min="-999" max="999"')}
+ <label class="pa-field"><span>Disponibilidad</span><select name="is_active">
+ <option value="true" ${p.is_active!==false?'selected':''}>Visible</option>
+ <option value="false" ${p.is_active===false?'selected':''}>Oculto</option></select></label></div>
+ <div class="pa-actions"><button class="pa-button primary" type="submit">${newPlan?'Crear plan':'Guardar cambios'}</button>
+ ${button('Cancelar','cancel-plan-edit')}</div></form>`;
+}
+function plansPage(plans,editingKey){
+ const sections=[['personal_trainer','Entrenadores personales'],['gym','Gimnasios y centros']];
+ return `${heading('Planes y precios','Catálogo real agrupado por tipo de centro. Los cambios afectan a las futuras ofertas, no generan cobros.',button('Añadir plan','new-plan'))}
+ ${editingKey==='new'? `<section class="pa-panel"><h2>Nuevo plan</h2>${planForm(null,true)}</section>`:''}
+ ${sections.map(([audience,title])=>`<section class="pa-panel"><div class="pa-panel-title"><h2>${title}</h2><span class="pa-muted">${plans.filter(p=>p.audience===audience).length} planes</span></div>
+ <div class="pa-plan-list">${plans.filter(p=>p.audience===audience).sort((a,b)=>a.display_order-b.display_order).map(p=>`
+ <article class="pa-plan-item"><div class="pa-plan-summary"><div class="pa-plan-main"><strong>${esc(p.title)}</strong>
+ <small>${esc(p.description||'Sin descripción')}</small><span>${p.max_clients?`Hasta ${validNumber(p.max_clients)} clientes`:'Clientes ilimitados'}
+ ${p.discount_percent&&p.discount_months?` · ${p.discount_percent}% durante ${p.discount_months} meses`:''}</span></div>
+ <div class="pa-plan-side"><strong>${euros(p.monthly_price_cents)}<small>/mes</small></strong>
+ ${statusPill(p.is_active?'active':'suspended')}
+ ${button(editingKey===p.plan_key?'Cerrar':'Editar','edit-plan',`data-id="${esc(p.plan_key)}"`)}</div></div>
+ ${editingKey===p.plan_key?planForm(p):''}</article>`).join('')||empty('Sin planes','Añade un plan para este tipo de centro.')}</div></section>`).join('')}
+ <p class="pa-muted">Precios mensuales sin IVA. Stripe y la activación de suscripciones reales siguen pendientes de integración.</p>`;
+}
+function settingsPage(settings,orgs,plans){
+ return `${heading('Configuración','Información operativa y datos de contacto de la plataforma Repera.')}
+ <div class="pa-layout">
+ <section class="pa-panel"><h2>Contactos y enlaces</h2><p>Se guardan en Supabase y sirven como datos de referencia para atención y operaciones.</p>
+ <form class="pa-form" data-admin-form="platform-settings">
+ ${field('support_email','Correo de soporte',settings.support_email||'','email','maxlength="180" placeholder="Correo del equipo de soporte"')}
+ ${field('support_url','Centro de ayuda (URL)',settings.support_url||'','url','maxlength="500" placeholder="https://..."')}
+ ${field('billing_email','Correo de facturación',settings.billing_email||'','email','maxlength="180"')}
+ ${field('privacy_url','Política de privacidad',settings.privacy_url||'','url','maxlength="500"')}
+ ${field('terms_url','Términos y condiciones',settings.terms_url||'','url','maxlength="500"')}
+ <button type="submit" class="pa-button primary">Guardar configuración</button></form></section>
+ <section class="pa-panel"><h2>Estado de operaciones</h2>
+ <dl class="pa-details"><dt>Centros registrados</dt><dd>${orgs.length}</dd>
+ <dt>Planes visibles</dt><dd>${plans.filter(p=>p.is_active).length}</dd>
+ <dt>Gestión de identidad</dt><dd>Supabase Auth</dd>
+ <dt>Suscripciones reales</dt><dd>Pendiente de Stripe Billing</dd>
+ <dt>Cobros de centros</dt><dd>Pendiente de Stripe Connect</dd>
+ <dt>Acceso delegado</dt><dd>Temporal, auditado y revocable</dd></dl>
+ <p>Los ajustes de la cuenta personal, nombre, avatar y contraseña se gestionan desde tu perfil en la parte inferior del menú lateral.</p>
+ ${button('Abrir mi perfil','open-account')}</section></div>`;
+}
+function accountPage(account,email){
+ const name=account?.display_name||email.split('@')[0]||'Administrador';
+ return `${heading('Mi cuenta','Identidad, fotografía y seguridad de tu cuenta de administrador.')}
+ <div class="pa-layout"><section class="pa-panel"><h2>Perfil personal</h2>
+ <div class="pa-account-photo">${photo(account?.avatar_url,name,'large')}
+ <p>Tu imagen se utilizará en la consola y en el directorio de atletas.</p></div>
+ <form class="pa-form" data-admin-form="account-profile">
+ ${field('display_name','Nombre que aparece en Repera',account?.display_name||'','text','required minlength="2" maxlength="100"')}
+ <label class="pa-field"><span>Foto de perfil</span><input name="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label>
+ <p class="pa-muted">Si no subes una fotografía propia, se utiliza tu imagen de acceso de Google cuando esté disponible.</p>
+ <button type="submit" class="pa-button primary">Guardar mi perfil</button></form></section>
+ <section class="pa-panel"><h2>Acceso y seguridad</h2>
+ <label class="pa-field"><span>Correo actual</span><input value="${esc(email)}" readonly aria-label="Correo actual"></label>
+ <form class="pa-form" data-admin-form="account-email">
+ ${field('email','Cambiar correo electrónico','','email','required maxlength="180" placeholder="Nuevo correo"')}
+ <button type="submit" class="pa-button">Solicitar cambio de correo</button></form>
+ <p class="pa-muted">Supabase podría solicitar confirmar el cambio mediante correo.</p>
+ <form class="pa-form" data-admin-form="account-password">
+ ${field('password','Nueva contraseña','','password','required minlength="8" autocomplete="new-password"')}
+ <button type="submit" class="pa-button">Cambiar contraseña</button></form>
+ <div class="pa-account-signout">${button('Cerrar sesión','logout-admin')}</div>
+ </section></div>`;
+}
 export function renderPlatformAdmin({tab='home',orgs=[],finance={},pending=[],history=[],plans=[],selectedOrg='',filter={},busy=false,error='',notice='',email=''}) {
  const o=orgs.find(o=>o.id===selectedOrg);
  const headings={home:'Inicio',gyms:'Gimnasios',trainers:'Entrenadores',users:'Usuarios y clientes',payments:'Pagos',plans:'Planes y precios',support:'Soporte',audit:'Auditoría','admin-settings':'Configuración',provision:'Nuevo negocio'};
