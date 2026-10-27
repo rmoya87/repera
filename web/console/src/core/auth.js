@@ -245,6 +245,10 @@ export class ReperaAuthAPI {
    'id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at';
   return this.#authorized('clients?select='+fields+'&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
+ async clientAvatars(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('rpc/business_client_avatars',{method:'POST',body:{p_org:orgId}});
+ }
  async addClient({orgId,name,email,userId}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Revisa los datos del cliente');
@@ -409,6 +413,12 @@ export class ReperaAuthAPI {
  async updateProfessionalSession({id,date,title,instructions='',prescription}){
   if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Sesión inválida');
   return this.#authorized('rpc/update_professional_session_v2',{method:'POST',body:{p_session:id,p_day:date,p_title:String(title||'').trim(),p_instructions:instructions,p_prescription:prescription}});
+ }
+ async cancelProfessionalSession(id){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Entrenamiento inválido');
+  const result=await this.#authorized('rpc/cancel_professional_session',{method:'POST',body:{p_session:id}});
+  if(result!==true)throw Error('El servidor no ha confirmado la cancelación');
+  return true;
  }
  async workoutTemplates(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');

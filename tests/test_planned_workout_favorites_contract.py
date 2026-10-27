@@ -77,6 +77,45 @@ class PlannedWorkoutFavoritesContractTests(unittest.TestCase):
         self.assertIn("state.routines.remove(at: index)", rem)
         self.assertIn("func clearWeeklySchedule", STORE)
 
+    def test_play_uses_saved_reps_and_kilos_instead_of_history(self):
+        # Favoritos y copias fechadas de favoritos nunca reciben objetivos
+        # modificados por ProgressionEngine (ni por el default global).
+        start = STORE.split("func startSession(from routine: Routine)", 1)[1].split(
+            "func startSessionFromBoard(", 1
+        )[0]
+        self.assertIn("let base = SessionController.from(routine: routine,", start)
+        self.assertIn(
+            "routine.isFavorite || routine.favoriteTemplateId != nil", start
+        )
+        self.assertIn("routine.progression == .off", start)
+        self.assertIn("if allowAdvanced && !usesExactPrescription", start)
+        assign = STORE.split("func assignRoutine(_ routineId: UUID, toDate date: Date)", 1)[1].split(
+            "func assignRoutine(_ routineId: UUID, toWeekday", 1
+        )[0]
+        self.assertIn("progression: source.isFavorite ? .off : source.progression", assign)
+
+        # La tabla de Play se rellena con cada PlannedSet antes de consultar
+        # pesos históricos; tampoco rellena celdas de peso vacío por defecto.
+        view = PLAY.split("private func prefill()", 1)[1].split(
+            "private func bumpWeightSuggestion", 1
+        )[0]
+        self.assertIn("let hasPrescription = !current.plannedSets.isEmpty", view)
+        self.assertIn("current.plannedSets.first?.targetWeightKg", view)
+        self.assertIn("if let suggested, !hasPrescription", view)
+        board = PLAY.split("private func rebuildLiveSets(", 1)[1].split(
+            "private func syncLiveQuantityUnit", 1
+        )[0]
+        self.assertIn("weightKg: loadField == .weightKg ? plannedSet.targetWeightKg : nil", board)
+        self.assertIn("max(1, plannedSet.targetReps)", board)
+
+        unit = (DOMAIN / "Tests" / "ReperaDomainTests" / "SessionControllerTests.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("testSavedFavoritePreservesIndividualRepsAndKilosWhenPlayingAgain", unit)
+        self.assertIn("PlannedSet(targetReps: 8, targetWeightKg: 60)", unit)
+        self.assertIn("PlannedSet(targetReps: 6, targetWeightKg: 65)", unit)
+        self.assertIn("PlannedSet(targetReps: 4, targetWeightKg: 70)", unit)
+
     def test_active_session_preserves_plan_origin_and_saves_favorite_reference(self):
         method = STORE.split("func saveActiveSessionAsFavorite() -> Routine?", 1)[1].split(
             "private static func favoriteTemplate", 1
