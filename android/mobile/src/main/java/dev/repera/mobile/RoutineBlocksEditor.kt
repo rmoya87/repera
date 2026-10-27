@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -83,7 +84,11 @@ fun RoutineBlocksEditorScreen(
     Column(modifier = Modifier.verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack, enabled = !busy) { Text("Volver") }
+            // Apple 040227d5 (corte): Volver NEUTRO a la izquierda; la
+            // confirmación (Guardar/Empezar) mantiene el verde de acento.
+            TextButton(onClick = onBack, enabled = !busy,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface)) { Text("Volver") }
             Spacer(Modifier.weight(1f))
             TextButton(onClick = {
                 val drafts = mutableListOf<RoutineBlockDraft>()

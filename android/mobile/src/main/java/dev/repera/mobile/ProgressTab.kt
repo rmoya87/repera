@@ -398,7 +398,9 @@ internal fun ProgressTab(
                 }
             }
         }
-        item {TextButton(onClick=onOpenHistory,enabled=overview!=null) {Text("Ver historial completo")} }
+        // Apple 2ac224f5: el historial solo aparece bajo el progreso de entreno,
+        // no en Recuperación ni Actividad.
+        if (topic=="Entreno") item {TextButton(onClick=onOpenHistory,enabled=overview!=null) {Text("Ver historial completo")} }
         if (recent.isNotEmpty()) {
             item {
                 Text("Resultados recientes", style = MaterialTheme.typography.titleMedium)

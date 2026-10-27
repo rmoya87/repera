@@ -200,9 +200,11 @@ internal fun HomeTab(
                             }
                         }
                     }
+                    // Apple 160f304c: la acción de añadir va separada de las
+                    // tarjetas diarias (8dp extra sobre el espaciado de la columna).
                     Button(onClick = onNavigateCreate,
                         enabled = !busy,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = brandGreen, contentColor = Color.Black
                         )) { Text("Añadir nuevo entrenamiento") }
