@@ -90,6 +90,11 @@ internal object ExerciseArtData {
         "Muscle-up barra" to "art_cf_mu_bar",
         "Muscle-up anillas" to "art_cf_mu_rings",
         "Toes to bar" to "art_cf_ttb",
+        // Aprovechar la ilustración verificada hasta disponer de un BTT propio.
+        "Burpee to target" to "art_cf_burpee",
+        "BTT" to "art_cf_burpee",
+        "T2B" to "art_cf_ttb",
+        "TTB" to "art_cf_ttb",
         "Knees to elbows" to "art_cf_kte",
         "Chest to bar" to "art_cf_ctb",
         "HSPU" to "art_cf_hspu",
