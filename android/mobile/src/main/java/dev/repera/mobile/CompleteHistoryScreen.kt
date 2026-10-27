@@ -23,7 +23,8 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
  externalProvider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail? = {null},
  onOpenExercise:(String,String,String)->Unit) {
  val rows=remember(overview) {CompleteHistoryOrder.rows(overview?.completeHistory.orEmpty(),overview?.externalHealthHistory.orEmpty())}
- var external by remember {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
+ // Al cambiar de cuenta la hoja se cierra: nada de la cuenta anterior persiste.
+ var external by remember(accountId) {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
  LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
   item {Text("Historial de entrenamientos",style=MaterialTheme.typography.headlineMedium)}
   if(rows.isEmpty()) item {Text("Sin entrenos. Las sesiones de Repera y Health Connect aparecerán aquí.")}
@@ -37,5 +38,5 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    }}
   }
  }
- external?.let {entry ->ExternalHealthDetailSheet(entry,externalProvider) {external=null}}
+ external?.let {entry ->ExternalHealthDetailSheet(entry,externalProvider,ownerKey=accountId) {external=null}}
 }

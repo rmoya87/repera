@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.testTag
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun ExternalHealthDetailSheet(entry:ExternalHealthHistoryEntry,
  provider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail?,
+ ownerKey:String = "",
  routeReader:(suspend (String)->ExternalRouteRead)? = null,
  onConsentLaunch:((String)->Unit)? = null,
  onClose:()->Unit) {
@@ -23,8 +24,10 @@ import androidx.compose.ui.platform.testTag
  // consentimiento por sesion lo lanza el usuario con el boton, nunca solo.
  val ctx=LocalContext.current
  val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
- var routeRead by remember(entry.id) {mutableStateOf<ExternalRouteRead?>(null)}
- LaunchedEffect(entry.id) {routeRead=runCatching {effectiveRouteReader(entry.id)}.getOrNull()}
+ // ownerKey (cuenta vigente) invalida lectura y consentimiento: si cambia el
+ // usuario, todo lo pendiente de la cuenta anterior se descarta.
+ var routeRead by remember(entry.id, ownerKey) {mutableStateOf<ExternalRouteRead?>(null)}
+ LaunchedEffect(entry.id, ownerKey) {routeRead=runCatching {effectiveRouteReader(entry.id)}.getOrNull()}
  // Guardia de identidad: la ruta consentida solo se pinta si el registro que
  // la pidio sigue siendo el mostrado; si la hoja cambio de entrada (o se
  // recompuso con otra sesion) mientras el sistema mostraba el dialogo, la ruta
@@ -34,15 +37,15 @@ import androidx.compose.ui.platform.testTag
   androidx.health.connect.client.contracts.ExerciseRouteRequestContract()) { route:androidx.health.connect.client.records.ExerciseRoute? ->
   // Cancelar NO es error: sin ruta nueva se conserva el estado previo (el
   // boton sigue disponible); nunca se sustituye por una ruta anterior.
-  if(route!=null && consentRequestedFor==entry.id) {
-   routeRead=ExternalRouteRead.Points(route.toWorkoutRoutePoints())
-  }
+  ExternalRouteSheetModel.applyConsentResult(consentRequestedFor,
+   ExternalRouteSheetModel.consentKey(ownerKey, entry.id),
+   route?.toWorkoutRoutePoints())?.let { routeRead = it }
   consentRequestedFor=null
  }
  ModalBottomSheet(onDismissRequest=onClose) {
   ExternalHealthDetailColumn(entry,detail,loading,routeRead,
    onConsentLaunch ?: {id:String -> consentLauncher.launch(id)},
-   consentRequestedFor,{consentRequestedFor=it},onClose)
+   consentRequestedFor,{consentRequestedFor=ExternalRouteSheetModel.consentKey(ownerKey,it)},onClose)
  }
 }
 

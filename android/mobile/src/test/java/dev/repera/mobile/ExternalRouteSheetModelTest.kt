@@ -61,4 +61,35 @@ class ExternalRouteSheetModelTest {
         assertNull(out[0].speedMps)          // HC Location no lleva velocidad
         assertNull(out[1].altitudeMeters)    // opcionales ausentes -> null
     }
+
+    @Test fun consentCancelledKeepsPriorStateNoErrorNoStaleRoute() {
+        // Cancelar (ruta null) no cambia estado: el boton sigue disponible.
+        assertEquals(null, ExternalRouteSheetModel.applyConsentResult(
+            requestedKey = "acc1|hc-42", currentKey = "acc1|hc-42", grantedRoute = null))
+    }
+
+    @Test fun consentResultDiscardedOnAccountOrRecordChange() {
+        val route = listOf(pt(40.0, -3.7, 1000), pt(40.0001, -3.7, 2000))
+        // Otra sesion mostrada al volver del dialogo: descartar.
+        assertEquals(null, ExternalRouteSheetModel.applyConsentResult(
+            requestedKey = "acc1|hc-42", currentKey = "acc1|hc-99", grantedRoute = route))
+        // Cambio de cuenta con el MISMO recordId: descartar igualmente.
+        assertEquals(null, ExternalRouteSheetModel.applyConsentResult(
+            requestedKey = "acc1|hc-42", currentKey = "acc2|hc-42", grantedRoute = route))
+        // Sin solicitud registrada (resultado espureo): descartar.
+        assertEquals(null, ExternalRouteSheetModel.applyConsentResult(
+            requestedKey = null, currentKey = "acc1|hc-42", grantedRoute = route))
+    }
+
+    @Test fun consentResultAppliesOnlyForSameAccountAndRecord() {
+        val route = listOf(pt(40.0, -3.7, 1000), pt(40.0001, -3.7, 2000))
+        val applied = ExternalRouteSheetModel.applyConsentResult(
+            requestedKey = "acc1|hc-42", currentKey = "acc1|hc-42", grantedRoute = route)
+        assertTrue(applied is ExternalRouteRead.Points)
+        assertEquals(route, (applied as ExternalRouteRead.Points).points)
+    }
+
+    @Test fun consentKeyBindsOwnerAndRecord() {
+        assertEquals("acc1|hc-42", ExternalRouteSheetModel.consentKey("acc1", "hc-42"))
+    }
 }

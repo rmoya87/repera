@@ -434,9 +434,12 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
                 val maxLon = allPoints.maxOf { it.longitude }
                 val spanLat = (maxLat - minLat).takeIf { it > 0 } ?: 1e-6
                 val spanLon = (maxLon - minLon).takeIf { it > 0 } ?: 1e-6
+                // Franja inferior reservada a la atribucion: la ruta NUNCA
+                // cruza el texto legal (26sp de margen inferior + 4px aire).
+                val attributionStrip = 30.sp.toPx()
                 fun xy(p: WorkoutRoutePoint) = Offset(
                     (((p.longitude - minLon) / spanLon).toFloat()) * size.width,
-                    (1f - ((p.latitude - minLat) / spanLat).toFloat()) * size.height)
+                    (1f - ((p.latitude - minLat) / spanLat).toFloat()) * (size.height - attributionStrip))
                 // Apple d5c263d3/26a625be + e048d814 (grosores uniformes):
                 // 3 capas apiladas (halo 0.23, edge 0.75, core 1.0 del color de
                 // velocidad), grosores 4/2.25/1.4 y dash 4/4 en tramos estimados

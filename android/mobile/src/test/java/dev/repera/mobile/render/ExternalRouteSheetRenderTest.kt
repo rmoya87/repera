@@ -47,7 +47,10 @@ class ExternalRouteSheetRenderTest {
             MaterialTheme {
                 androidx.compose.foundation.layout.Box(Modifier.testTag("sheet_root")) {
                     ExternalHealthDetailColumn(entry(),
-                        detail = null, loading = false,
+                        detail = dev.repera.mobile.ExternalHealthDetail(entry(),
+                            heart = listOf(1_110_000L to 128, 1_170_000L to 141,
+                                1_230_000L to 155, 1_290_000L to 149),
+                            activeKcal = 210.0), loading = false,
                         routeRead = ExternalRouteRead.Points(
                             (0..20).map { i ->
                                 WorkoutRoutePoint(i, 40.0 + i * 0.0004,
@@ -68,7 +71,9 @@ class ExternalRouteSheetRenderTest {
             MaterialTheme {
                 androidx.compose.foundation.layout.Box(Modifier.testTag("sheet_root")) {
                     ExternalHealthDetailColumn(entry(),
-                        detail = null, loading = false,
+                        detail = dev.repera.mobile.ExternalHealthDetail(entry(),
+                            heart = listOf(1_110_000L to 128, 1_170_000L to 141),
+                            activeKcal = 210.0), loading = false,
                         routeRead = ExternalRouteRead.ConsentRequired,
                         onConsentLaunch = {},
                         consentRequestedFor = null,

@@ -45,6 +45,23 @@ object ExternalRouteSheetModel {
         data class Shown(val points: List<WorkoutRoutePoint>) : State()
     }
 
+    /** Resultado del contract de consentimiento: null = SIN cambio de estado
+     *  (cancelar conserva el estado previo; no es error). La ruta solo se
+     *  aplica si la clave solicitada (cuenta|registro) coincide con la clave
+     *  VIGENTE; si la hoja cambio de cuenta o de registro mientras el sistema
+     *  mostraba el dialogo, la ruta se DESCARTA, nunca pintada en otra sesion. */
+    fun applyConsentResult(
+        requestedKey: String?,
+        currentKey: String,
+        grantedRoute: List<WorkoutRoutePoint>?
+    ): ExternalRouteRead? = when {
+        grantedRoute == null -> null
+        requestedKey == null || requestedKey != currentKey -> null
+        else -> ExternalRouteRead.Points(grantedRoute)
+    }
+
+    fun consentKey(ownerKey: String, recordId: String) = "$ownerKey|$recordId"
+
     fun present(read: ExternalRouteRead?): State = when (read) {
         null -> State.Loading
         is ExternalRouteRead.Unavailable -> State.Hidden
