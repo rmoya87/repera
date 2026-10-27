@@ -106,6 +106,17 @@ struct RootTabView: View {
             // El refresco es incremental y evita peticiones sucesivas en <60 s.
             if newTab == .exercises { store.requestExerciseCatalogRefresh() }
         }
+        .task(id: store.isHydrated) {
+            // The route archive contains imported GPX and favorite flags
+            // not included in ReperaStore's regular workout iCloud snapshot.
+            // Migrate/download it without delaying the first Home frame.
+            await LiveRoutesStore.shared.synchronizeWithICloud()
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didBecomeActiveNotification
+        )) { _ in
+            LiveRoutesStore.shared.requestICloudSynchronization()
+        }
         .task {
             // Nuevo proceso: volver a la pantalla real de grabación.
             // No reabrir Inicio ni iniciar un entrenamiento distinto.
