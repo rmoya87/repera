@@ -158,6 +158,9 @@ struct BlockTimerScreen: View {
     var primaryTitle: String
     var onPrimary: () -> Void
     var onClose: () -> Void
+    /// En Play se minimiza el reloj; el temporizador autónomo sigue cerrándose.
+    var closeSymbol: String = "xmark"
+    var closeAccessibilityLabel: String = "Cerrar temporizador"
     var onFinish: (() -> Void)? = nil
     var showFinish: Bool = false
 
@@ -201,8 +204,8 @@ struct BlockTimerScreen: View {
     private var topBar: some View {
         HStack(alignment: .center, spacing: 12) {
             OGToolbarGlassButton(
-                systemName: "xmark",
-                accessibilityLabel: "Cerrar temporizador",
+                systemName: closeSymbol,
+                accessibilityLabel: closeAccessibilityLabel,
                 tint: .white,
                 appliesGlass: true,
                 action: onClose

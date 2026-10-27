@@ -248,10 +248,11 @@ final class WorkoutClockCoordinator {
         return isRunning ? "Pausar" : "Continuar"
     }
 
-    /// True cuando el usuario puede marcar fin en count-up (For Time).
+    /// Finalizar está disponible en cualquier ronda activa, incluso durante
+    /// pausa; nunca durante los 3 segundos previos. Se publica el resultado
+    /// pendiente y se detiene el reloj, en lugar de descartar el registro.
     var canFinishByUser: Bool {
-        (isCountingUp || (isIntervalMode && allowsEarlyIntervalFinish))
-            && hasStarted && !isPreCountdown && pausedPreCountdownRemaining == nil
+        hasStarted && !isPreCountdown && pausedPreCountdownRemaining == nil
     }
 
     func configure(
@@ -342,8 +343,12 @@ final class WorkoutClockCoordinator {
         if isIntervalMode {
             let finishedPhases = phaseDurations.prefix(intervalIndex).reduce(0, +)
             elapsed = finishedPhases + max(0, intervalLength - displaySeconds)
-        } else {
+        } else if isCountingUp {
             elapsed = max(0, displaySeconds)
+        } else {
+            // Countdown libre o AMRAP finalizado antes del tiempo previsto:
+            // guardar tiempo transcurrido, nunca el restante.
+            elapsed = max(0, configuredCapSeconds - displaySeconds)
         }
         pendingElapsedSeconds = elapsed
         pendingEndReason = .userFinished

@@ -42,6 +42,9 @@ struct WorkoutView: View {
     @State private var expandedTechniquesExerciseID: UUID?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
+    @State private var manualRoundSetup: ManualRoundSetup?
+    @State private var manualRoundMinutes = 1
+    @State private var manualRoundSeconds = 0
     /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
     @State private var finishedTimedBlockID: UUID?
     /// Mantener el temporizador del bloque al cambiar entre sus movimientos.
@@ -58,6 +61,15 @@ struct WorkoutView: View {
         var reps: Int
         var rir: Double?
         var completed: Bool
+    }
+
+    /// Petición asociada al ejercicio de origen, no al índice seleccionado:
+    /// si el usuario cambia de bloque mientras el sheet está abierto, no
+    /// se inicia un cronómetro para una prescripción diferente.
+    private struct ManualRoundSetup: Identifiable {
+        let id = UUID()
+        let exerciseID: UUID
+        let rounds: Int
     }
 
     private struct PendingWODConfirm: Identifiable {
@@ -115,6 +127,9 @@ struct WorkoutView: View {
                 .preferredColorScheme(.dark)
                 .background(Color.black.ignoresSafeArea())
                 .statusBarHidden()
+        }
+        .sheet(item: $manualRoundSetup) { setup in
+            manualRoundDurationSheet(for: setup)
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -268,7 +283,7 @@ struct WorkoutView: View {
                 pendingTimerBlockID = nil
                 if let current = store.state.activeSession?.currentExercise,
                    current.blockId == blockID || current.id == blockID {
-                    startBlockClock(for: current)
+                    requestBlockClockStart(for: current)
                 }
             }
         }
@@ -679,7 +694,7 @@ struct WorkoutView: View {
         if store.state.activeSession?.phase == .ready {
             store.confirmCurrentOnWatchStyle()
         }
-        startBlockClock(for: current)
+        requestBlockClockStart(for: current)
     }
 
     /// Las notas se escriben directamente en Play; guardado silencioso y persistente.
@@ -1108,45 +1123,73 @@ struct WorkoutView: View {
         noteLiveDraftEdited()
     }
 
-    /// Reloj compacto persistente: anotar intervalos sin apagar el EMOM/Tabata.
+    /// Tarjeta compacta: toda la zona informativa reabre el reloj.
+    /// Pausar/Continuar queda junto a Terminar, sin acción de apertura aparte.
+    /// redundante. El tiempo y la ronda siguen a la vista durante el registro.
     private var minimizedTimerDock: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { context in
             let clock = store.workoutClock
-            HStack(spacing: 12) {
-                Image(systemName: "timer")
-                    .font(.title3.bold())
-                    .foregroundStyle(OG.accent)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(clock.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                        .lineLimit(1)
-                    Text(DurationText.format(clock.displaySeconds(at: context.date)))
-                        .font(.system(size: 23, weight: .bold).monospacedDigit())
-                        .foregroundStyle(OG.label)
-                }
-                Spacer(minLength: 4)
+            HStack(spacing: 8) {
                 Button {
                     clock.showClock()
                 } label: {
-                    Label("Ver reloj", systemImage: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 13, weight: .semibold))
+                    HStack(spacing: 10) {
+                        Image(systemName: "timer")
+                            .font(.title3.bold())
+                            .foregroundStyle(OG.accent)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(clock.isIntervalMode
+                                 ? "Ronda \(min(clock.displayedRound, clock.displayedRoundsTotal))/\(clock.displayedRoundsTotal)"
+                                 : clock.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                            Text(DurationText.format(clock.displaySeconds(at: context.date)))
+                                .font(.system(size: 22, weight: .bold).monospacedDigit())
+                                .foregroundStyle(OG.label)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.bordered)
-                .tint(OG.accent)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ver reloj completo")
+
                 Button {
-                    clock.stop()
-                    runningTimerBlockID = nil
+                    clock.handlePrimary()
                 } label: {
-                    Image(systemName: "stop.fill")
-                        .frame(minWidth: 32, minHeight: 32)
+                    Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(minWidth: 40, minHeight: 40)
                 }
                 .buttonStyle(.bordered)
-                .tint(OG.label2)
-                .accessibilityLabel("Detener temporizador")
+                .tint(OG.label)
+                .accessibilityLabel(clock.primaryTitle + " temporizador")
+
+                Button {
+                    clock.finishByUser()
+                } label: {
+                    Text("Terminar")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(minHeight: 40)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .disabled(!clock.canFinishByUser)
+                .accessibilityLabel("Terminar temporizador")
             }
             .padding(12)
-            .background(OG.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .background {
+                // También abre el reloj al tocar los márgenes de la tarjeta.
+                // Los botones visibles de Pausa y Terminar capturan sus propios taps.
+                Button { clock.showClock() } label: {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(OG.surface)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+            }
         }
     }
 
@@ -1248,7 +1291,7 @@ struct WorkoutView: View {
                     Button {
                         store.confirmCurrentOnWatchStyle()
                         if usesAutomaticTimer {
-                            startBlockClock(for: current)
+                            requestBlockClockStart(for: current)
                         }
                     } label: {
                         Text("Comenzar")
@@ -1261,7 +1304,7 @@ struct WorkoutView: View {
                     .controlSize(.large)
                 } else if !store.workoutClock.isVisible {
                     Button {
-                        startBlockClock(for: current)
+                        requestBlockClockStart(for: current)
                     } label: {
                         Label("Abrir reloj", systemImage: "timer")
                             .font(.system(size: 16, weight: .semibold))
@@ -1357,6 +1400,8 @@ struct WorkoutView: View {
                 primaryTitle: clock.primaryTitle,
                 onPrimary: { clock.handlePrimary() },
                 onClose: { clock.minimize() },
+                closeSymbol: "chevron.down",
+                closeAccessibilityLabel: "Minimizar reloj",
                 onFinish: clock.canFinishByUser ? { clock.finishByUser() } : nil,
                 showFinish: clock.canFinishByUser
             )
@@ -1400,8 +1445,93 @@ struct WorkoutView: View {
         )
     }
 
+    /// Solo los bloques libres sin duración propia preguntan los segundos
+    /// de cada ronda. Los formatos parametrizados (EMOM, Tabata, circuitos,
+    /// AMRAP, For Time…) conservan su semántica sin configuraciones extra.
+    private func requestBlockClockStart(for current: SessionExercise) {
+        let freeFormat = current.wodFormat == nil || current.wodFormat == .strength
+        let hasPrescribedDuration = (current.blockTimeCapMinutes ?? 0) > 0
+            || (current.blockIntervalSeconds ?? 0) > 0
+            || (current.blockWorkSeconds ?? 0) > 0
+        guard freeFormat && !hasPrescribedDuration else {
+            startBlockClock(for: current)
+            return
+        }
+        manualRoundMinutes = 1
+        manualRoundSeconds = 0
+        manualRoundSetup = ManualRoundSetup(
+            exerciseID: current.id,
+            rounds: prescribedRoundCount(for: current)
+        )
+    }
+
+    /// Series por ejercicio agrupadas por ronda; no sumar sets de distintos
+    /// ejercicios porque forman la MISMA vuelta al bloque.
+    private func prescribedRoundCount(for current: SessionExercise) -> Int {
+        let block = current.blockId ?? current.id
+        let planned = store.state.activeSession?.exercises
+            .filter { ($0.blockId ?? $0.id) == block }
+            .map { $0.plannedSets.count }.max() ?? current.plannedSets.count
+        return max(1, current.blockRounds ?? planned)
+    }
+
+    private func manualRoundDurationSheet(for setup: ManualRoundSetup) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Duración de cada ronda")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(OG.label)
+            Text("Bloque libre · \(setup.rounds) ronda\(setup.rounds == 1 ? "" : "s")")
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+            Stepper(value: $manualRoundMinutes, in: 0...120) {
+                HStack {
+                    Text("Minutos")
+                    Spacer()
+                    Text("\(manualRoundMinutes)")
+                        .monospacedDigit()
+                }
+            }
+            Stepper(value: $manualRoundSeconds, in: 0...55, step: 5) {
+                HStack {
+                    Text("Segundos")
+                    Spacer()
+                    Text("\(manualRoundSeconds)")
+                        .monospacedDigit()
+                }
+            }
+            Button {
+                guard let current = store.state.activeSession?.currentExercise,
+                      current.id == setup.exerciseID else {
+                    manualRoundSetup = nil
+                    return
+                }
+                let seconds = manualRoundMinutes * 60 + manualRoundSeconds
+                guard seconds > 0 else { return }
+                manualRoundSetup = nil
+                startBlockClock(for: current, manualRoundSeconds: seconds, manualRounds: setup.rounds)
+            } label: {
+                Text("Iniciar temporizador")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OG.accent)
+            .disabled(manualRoundMinutes == 0 && manualRoundSeconds == 0)
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .presentationDetents([.height(345)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(26)
+        .presentationBackground(OG.surface)
+    }
+
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
-    private func startBlockClock(for current: SessionExercise) {
+    private func startBlockClock(
+        for current: SessionExercise,
+        manualRoundSeconds: Int? = nil,
+        manualRounds: Int? = nil
+    ) {
         let sound = store.state.settings.restSoundEnabled
         let haptic = store.state.settings.restHapticEnabled
         let format = current.wodFormat
@@ -1414,7 +1544,7 @@ struct WorkoutView: View {
 
         switch format {
         case .emom:
-            let interval = max(15, current.blockIntervalSeconds ?? 60)
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
             let intervals = max(1, current.plannedIntervals ?? current.blockRounds ?? 10)
             store.workoutClock.configure(
                 exercise: current.exercise,
@@ -1429,7 +1559,7 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .circuit:
-            let interval = max(5, current.blockIntervalSeconds ?? 60)
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
             let stations = max(1, store.state.activeSession?.exercises.filter {
                 $0.blockId == current.blockId
             }.count ?? 1)
@@ -1471,7 +1601,7 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .tabata:
-            let work = max(5, current.blockWorkSeconds ?? 20)
+            let work = max(1, current.blockWorkSeconds ?? 20)
             let rest = max(1, current.blockRestSeconds ?? 10)
             let rounds = max(1, current.blockRounds ?? 8)
             store.workoutClock.configure(
@@ -1490,7 +1620,7 @@ struct WorkoutView: View {
             )
         case .deathBy:
             // Un intervalo por minuto; la persona termina cuando falla la ronda.
-            let interval = max(15, current.blockIntervalSeconds ?? 60)
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
             let intervals = max(1, current.plannedIntervals ?? current.blockTimeCapMinutes ?? 30)
             store.workoutClock.configure(
                 exercise: current.exercise,
@@ -1535,7 +1665,26 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .partner, .roundsForQuality, .strength, .none:
-            if let minutes = current.blockTimeCapMinutes, minutes > 0 {
+            // La duración explícita del formato tiene prioridad absoluta:
+            // no volver a preguntar ni sustituirla por un valor por defecto.
+            if let roundDuration = manualRoundSeconds
+                ?? current.blockIntervalSeconds ?? current.blockWorkSeconds,
+               roundDuration > 0 {
+                let rounds = manualRounds ?? prescribedRoundCount(for: current)
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.blockHeader ?? current.exercise.name,
+                    subtitle: current.blockHeader ?? "Ronda de fuerza",
+                    countingUp: false,
+                    intervalMode: true,
+                    intervalLength: roundDuration,
+                    totalIntervals: rounds,
+                    initialCountdown: roundDuration,
+                    allowEarlyIntervalFinish: true,
+                    sound: sound,
+                    haptic: haptic
+                )
+            } else if let minutes = current.blockTimeCapMinutes, minutes > 0 {
                 let seconds = minutes * 60
                 store.workoutClock.configure(
                     exercise: current.exercise,
