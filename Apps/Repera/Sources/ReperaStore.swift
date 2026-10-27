@@ -46,6 +46,9 @@ final class ReperaStore: NSObject {
 
     /// Última denegación al crear rutina/ejercicio (para que la UI muestre paywall).
     private(set) var lastAccessDenial: FeatureAccessDecision?
+    /// Motivo del último intento de convertir una sesión en una plantilla.
+    /// Distinto del bloqueo comercial y sin exponer detalles de infraestructura.
+    private(set) var lastFavoriteSaveError: String?
 
     private let store = LocalStore.shared
     private let connectivity = PhoneConnectivity()
@@ -2506,7 +2509,11 @@ final class ReperaStore: NSObject {
     @discardableResult
     func toggleWorkoutFavorite(_ id: UUID) -> Bool {
         lastAccessDenial = nil
-        guard let workoutIndex = state.workouts.firstIndex(where: { $0.id == id }) else { return false }
+        lastFavoriteSaveError = nil
+        guard let workoutIndex = state.workouts.firstIndex(where: { $0.id == id }) else {
+            lastFavoriteSaveError = "Este entrenamiento ya no está disponible en el historial. Sincroniza y vuelve a abrirlo."
+            return false
+        }
         let session = state.workouts[workoutIndex]
         if let favoriteId = session.favoriteRoutineId,
            let existing = state.routines.first(where: { $0.id == favoriteId }) {
@@ -2526,10 +2533,34 @@ final class ReperaStore: NSObject {
         let hasReusableBlocks = session.routineBlocks?.contains {
             !$0.exercises.isEmpty || !$0.movements.isEmpty
         } ?? false
-        guard hasReusableBlocks || !session.exercises.isEmpty else { return false }
+        // Algunas versiones antiguas guardaban el resultado sin su snapshot;
+        // recuperar la estructura solo cuando sigue existiendo el plan original.
+        let originalPlan = session.routineId.flatMap { id in
+            state.routines.first(where: { $0.id == id && !$0.blocks.isEmpty })
+        }
+        guard hasReusableBlocks || !session.exercises.isEmpty || originalPlan != nil else {
+            lastFavoriteSaveError = session.liveSportID != nil
+                ? "Esta actividad no contiene ejercicios para crear una rutina. Puedes guardar su recorrido desde «Mis rutas»."
+                : "El registro no conserva los ejercicios necesarios para crear una plantilla. El entrenamiento original no se ha modificado."
+            return false
+        }
 
-        let template = Self.favoriteTemplate(from: session)
-        guard saveRoutine(template) else { return false }
+        let template: Routine
+        if !hasReusableBlocks, session.exercises.isEmpty, let originalPlan {
+            template = Routine(
+                title: session.title.isEmpty ? originalPlan.title : session.title,
+                blocks: originalPlan.blocks.map { $0.duplicatingContent() },
+                progression: .off, isFavorite: true
+            )
+        } else {
+            template = Self.favoriteTemplate(from: session)
+        }
+        guard saveRoutine(template) else {
+            if lastAccessDenial == nil {
+                lastFavoriteSaveError = "No se ha podido guardar la plantilla. El entrenamiento original sigue disponible."
+            }
+            return false
+        }
         // Solo vincular la estrella si la plantilla se guardó de verdad.
         state.workouts[workoutIndex].favoriteRoutineId = template.id
         persist()
@@ -2549,6 +2580,7 @@ final class ReperaStore: NSObject {
     @discardableResult
     func saveActiveSessionAsFavorite() -> Routine? {
         lastAccessDenial = nil
+        lastFavoriteSaveError = nil
         guard let session = state.activeSession else { return nil }
         let saved: Routine
         if let favoriteId = session.favoriteRoutineId,
