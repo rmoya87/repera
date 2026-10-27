@@ -163,3 +163,40 @@ table td{border-color:#e6ede7}tr:hover td{background:#f9fbfa}
 .business-group-members{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px}
 .business-group-members label{display:flex;align-items:center;gap:10px;border:1px solid #e0e9e2;background:#fff;padding:10px;border-radius:10px;font-size:12px}
 .business-group-members input{width:17px;height:17px;flex:none;accent-color:#17713b}
+
+
+/* Entrenador personal · agenda, planificación individual y navegación de ajustes */
+.business-home-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.92fr);gap:18px;align-items:stretch;margin-bottom:20px}
+.business-home-columns>.business-360{min-width:0;height:100%;margin:0!important}
+.business-home-columns .business-cards{grid-template-columns:1fr}
+.business-home-columns .business-panel-head{align-items:flex-start}
+.business-count{border-radius:24px;background:#e6f4ea;color:#166737;font-weight:800;padding:5px 11px}
+.business-upcoming{display:grid;gap:9px}
+.business-upcoming-item{display:grid;gap:4px;width:100%;padding:13px 15px;text-align:left;background:#f9fcf9;color:#193e29;border:1px solid #dfebe2;border-radius:12px}
+.business-upcoming-item:hover,.business-upcoming-item:focus-visible{border-color:#65b980;background:#eff8f1}
+.business-upcoming-item small{font-size:11px;font-weight:700;color:#277249}
+.business-upcoming-item strong{font-size:14px}
+.business-upcoming-item span{color:#627969;font-size:12px}
+.business-calendar-day{border:0;background:transparent;padding:4px 6px;min-width:28px;min-height:26px;color:#223f2c;font-weight:850;border-radius:7px}
+.business-calendar-day:hover,.business-calendar-day:focus-visible{background:#dff4e5;color:#135b32}
+.business-calendar-event{display:block;width:100%;white-space:normal;text-align:left;overflow-wrap:anywhere}
+.business-calendar-event span{font-weight:850}
+.business-client-editor{margin-top:18px!important}
+.planning-split.planning-embedded{display:block}
+.planning-embedded .planning-composer{width:100%;max-width:none}
+.planning-quick-templates{padding:13px 16px;background:#f4faf6;border:1px solid #d5e9d9;border-radius:12px;margin-bottom:18px}
+.planning-quick-templates strong{display:block;font-size:13px;margin-bottom:9px}
+.planning-quick-templates .heading-actions{gap:7px}
+.business-settings-navigation{display:flex;gap:8px;padding:8px;border:1px solid #dce9df;border-radius:13px;background:#f5faf6;margin-bottom:23px}
+.business-settings-navigation button{border:1px solid transparent;border-radius:9px;padding:11px 17px;background:transparent;color:#536b5d;font-weight:750}
+.business-settings-navigation button[aria-current="page"]{background:#fff;border-color:#cfdfd2;color:#145f32;box-shadow:0 2px 7px #102c1810}
+.business-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:#10201983;padding:24px}
+.business-dialog{display:flex;flex-direction:column;max-height:min(94vh,990px);width:min(900px,100%);background:white;color:#193625;border:1px solid #dbe6dd;border-radius:19px;box-shadow:0 24px 90px #00150b5c;overflow:hidden}
+.business-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;border-bottom:1px solid #e2ebe4;flex:none}
+.business-dialog-header h2{font-size:20px;margin:0}
+.business-dialog-scroll{padding:23px;overflow-y:auto;min-height:0}
+.business-dialog-scroll>.business-360{border:0;box-shadow:none;padding:0}
+.business-dialog-scroll>.business-form{max-width:100%}
+.business-dialog-scroll .business-360-grid{grid-template-columns:1fr 1fr}
+@media(max-width:1000px){.business-home-columns{grid-template-columns:1fr}.business-dialog-scroll .business-360-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.business-overlay{padding:0;align-items:stretch}.business-dialog{height:100dvh;max-height:100dvh;border-radius:0;width:100%}.business-dialog-scroll{padding:16px}.business-settings-navigation{overflow-x:auto}.business-settings-navigation button{flex:none;white-space:nowrap}.business-home-columns .business-360{padding:16px}.business-calendar-day{font-size:12px}}
