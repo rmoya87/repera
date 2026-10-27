@@ -736,6 +736,8 @@ final class LiveActivityRecorder: NSObject {
     private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
     @ObservationIgnored private var speechSynthesizer = AVSpeechSynthesizer()
     private var guidanceAudioActive = false
+    /// No cerrar AVAudioSession entre dos frases que AVSpeechSynthesizer ha encolado.
+    private var pendingGuidanceUtterances: Set<ObjectIdentifier> = []
     private(set) var spokenGuidanceEnabled = true
     private var gpsSessionID = UUID()
     /// Recuperación exclusiva de una grabación interrumpida, no una pausa.
@@ -825,8 +827,7 @@ final class LiveActivityRecorder: NSObject {
         spokenGuidanceEnabled.toggle()
         UserDefaults.standard.set(spokenGuidanceEnabled, forKey: spokenGuidanceKey)
         if !spokenGuidanceEnabled {
-            speechSynthesizer.stopSpeaking(at: .immediate)
-            deactivateGuidanceAudio()
+            stopGuidanceAudio()
             // Los avisos visuales son alternativos a la locución, no duplicados.
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         }
@@ -842,43 +843,63 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func deactivateGuidanceAudio() {
-        guard guidanceAudioActive else { return }
+        // didFinish puede llegar entre dos utterances. La sesión sigue activa
+        // hasta que todas las locuciones pendientes hayan terminado/cancelado.
+        guard pendingGuidanceUtterances.isEmpty, guidanceAudioActive else { return }
         guidanceAudioActive = false
-        try? AVAudioSession.sharedInstance().setActive(
-            false, options: .notifyOthersOnDeactivation
-        )
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            NSLog("[Repera] No se pudo liberar el audio de navegación: %@", String(describing: error))
+        }
     }
 
-    /// Se invoca también desde Core Location con la pantalla bloqueada.
-    /// Solo se toca el audio de otras apps cuando la locución está habilitada.
+    private func stopGuidanceAudio() {
+        // Limpiar ANTES de cancelar; los callbacks didCancel pueden llegar tarde
+        // y no deben afectar a una nueva sesión o una nueva cola.
+        pendingGuidanceUtterances.removeAll()
+        speechSynthesizer.stopSpeaking(at: .immediate)
+        deactivateGuidanceAudio()
+    }
+
+    private func finishGuidanceUtterance(_ id: ObjectIdentifier) {
+        guard pendingGuidanceUtterances.remove(id) != nil else { return }
+        deactivateGuidanceAudio()
+    }
+
+    /// Core Location sigue entregando cruces de km con iPhone bloqueado.
+    /// La categoría playback y UIBackgroundModes(audio + location) permiten
+    /// locutar sin depender del ciclo de vida de la vista SwiftUI.
     @discardableResult
     private func speakNavigation(_ message: String) -> Bool {
-        // La indicación del kilómetro se encola también si acabamos de
-        // anunciar un giro GPX. Nunca sustituirla por una notificación.
-        guard spokenGuidanceEnabled else { return false }
-        let audio = AVAudioSession.sharedInstance()
-        do {
-            try audio.setCategory(
-                .playback, mode: .spokenAudio,
-                // El usuario ha elegido pausa completa, no bajar el volumen.
-                // Sin mixWithOthers iOS interrumpe la reproducción ajena.
-                options: []
-            )
-            try audio.setActive(true)
-            guidanceAudioActive = true
-        } catch {
-            deactivateGuidanceAudio()
-            return false
+        guard spokenGuidanceEnabled, !message.isEmpty else { return false }
+        // Reconfigurar/activar el audio en cada km o giro puede interrumpir
+        // frases que ya estén sonando (especialmente fixes GPS en lote).
+        if !guidanceAudioActive {
+            let audio = AVAudioSession.sharedInstance()
+            do {
+                try audio.setCategory(
+                    .playback, mode: .spokenAudio,
+                    // Preservar el comportamiento elegido: pausar otros audios
+                    // mientras suena la indicación, no mezclarlos.
+                    options: []
+                )
+                try audio.setActive(true)
+                guidanceAudioActive = true
+            } catch {
+                NSLog("[Repera] No se pudo activar audio de navegación: %@", String(describing: error))
+                return false
+            }
         }
         let phrase = AVSpeechUtterance(string: message)
         phrase.voice = preferredGuidanceVoice
-        // Velocidad próxima a la locución natural: la voz premium o mejorada
-        // instalada en el dispositivo aporta la mayor parte de la calidad.
-        // Evitamos elevar el tono, que artificializaba la pronunciación.
         phrase.rate = 0.52
         phrase.pitchMultiplier = 1.0
         phrase.preUtteranceDelay = 0.04
         phrase.volume = 1
+        pendingGuidanceUtterances.insert(ObjectIdentifier(phrase))
         speechSynthesizer.speak(phrase)
         return true
     }
@@ -1031,8 +1052,7 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = Date()
         phase = .paused
         if sport.usesGPS { stopGPS(clear: false) }
-        speechSynthesizer.stopSpeaking(at: .immediate)
-        deactivateGuidanceAudio()
+        stopGuidanceAudio()
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
@@ -1092,8 +1112,7 @@ final class LiveActivityRecorder: NSObject {
         finishedAt = now
         phase = .review
         stopGPS()
-        speechSynthesizer.stopSpeaking(at: .immediate)
-        deactivateGuidanceAudio()
+        stopGuidanceAudio()
         persistSnapshot()
         updateLiveActivity()
     }
@@ -1135,8 +1154,7 @@ final class LiveActivityRecorder: NSObject {
             }
         }
         stopGPS()
-        speechSynthesizer.stopSpeaking(at: .immediate)
-        deactivateGuidanceAudio()
+        stopGuidanceAudio()
         phase = .idle
         needsInterruptedGPSRecovery = false
         estimatedRecoveryMeters = 0
@@ -1284,11 +1302,13 @@ final class LiveActivityRecorder: NSObject {
             )
             kilometerSplits.append(split)
             lastKilometerBoundarySeconds = crossingSeconds
-            reportKilometer(split)
+            reportKilometer(split, elapsedActiveSeconds: crossingSeconds)
         }
     }
 
-    private func reportKilometer(_ split: LiveKmSplit) {
+    private func reportKilometer(
+        _ split: LiveKmSplit, elapsedActiveSeconds: TimeInterval
+    ) {
         let result: String
         if sport.displaysSpeed, split.seconds > 0 {
             result = "\(ReperaNumberFormat.decimal(3600 / split.seconds)) km/h"
@@ -1296,29 +1316,30 @@ final class LiveActivityRecorder: NSObject {
             result = "\(split.clock) min/km"
         }
         latestKilometerReport = "Km \(split.kilometer) · \(result)"
-        if sport.usesGPS {
-            let seconds = max(1, Int(split.seconds.rounded()))
-            let minutes = seconds / 60
-            let remaining = seconds % 60
-            let spokenTime: String
-            if minutes == 0 {
-                spokenTime = "\(remaining) segundo\(remaining == 1 ? "" : "s")"
-            } else if remaining == 0 {
-                spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s")"
-            } else {
-                spokenTime = "\(minutes) minuto\(minutes == 1 ? "" : "s") y \(remaining) segundos"
+        if sport.usesGPS,
+           let message = KilometerVoiceAnnouncement.message(
+               kilometer: split.kilometer,
+               splitSeconds: split.seconds,
+               elapsedSeconds: elapsedActiveSeconds
+           ) {
+            // Incluye velocidad media TAMBIÉN en caminata/senderismo, no solo
+            // en ciclismo, y usa el instante GPS del cruce, no el reloj al
+            // volver a primer plano.
+            let didSpeak = speakNavigation(message)
+            if spokenGuidanceEnabled && !didSpeak {
+                notifyDuringBackground(
+                    identifier: "repera.km.\(gpsSessionID.uuidString).\(split.kilometer)",
+                    title: "Kilómetro \(split.kilometer) completado",
+                    body: latestKilometerReport ?? message,
+                    fallbackWhenSpeechFailed: true
+                )
             }
-            let spokenSpeed = ReperaNumberFormat.decimal(3600 / split.seconds)
-            let message = sport.displaysSpeed
-                ? "Kilómetro \(split.kilometer) completado. Has ido a \(spokenSpeed) kilómetros por hora, de media."
-                : "Kilómetro \(split.kilometer) completado. Tu tiempo ha sido de \(spokenTime)."
-            _ = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-        // El aviso del kilómetro es exclusivamente de voz.
-        // Sin notificaciones: el resultado se conserva en Parciales.
+        // Parciales conserva el informe aunque el sistema haya interrumpido
+        // una locución o la app se encuentre en segundo plano.
         persistSnapshot()
     }
 
@@ -1418,8 +1439,8 @@ final class LiveActivityRecorder: NSObject {
         // Con voz activa, los kilómetros y giros se anuncian solo por audio;
         // nunca reemplazarlos por una notificación con icono de la app.
         // Si el usuario desactiva la voz, el aviso visual es opcional.
-        guard !spokenGuidanceEnabled,
-              UIApplication.shared.applicationState != .active else { return }
+        guard UIApplication.shared.applicationState != .active,
+              (!spokenGuidanceEnabled || fallbackWhenSpeechFailed) else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -1457,14 +1478,13 @@ final class LiveActivityRecorder: NSObject {
 
 extension LiveActivityRecorder: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self, !self.speechSynthesizer.isSpeaking else { return }
-            self.deactivateGuidanceAudio()
-        }
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.finishGuidanceUtterance(id) }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in self?.deactivateGuidanceAudio() }
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.finishGuidanceUtterance(id) }
     }
 }
 
