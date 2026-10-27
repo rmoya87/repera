@@ -239,3 +239,10 @@ Se incorpora al panel conectado un formulario de alta con identificador derivado
 
 ## Git
 Rama `feat/repera-business-platform`, derivada de `main` en `0f369a65669ef2a9b408eea9477194de7ffb6924`. No fusionar a `main` antes de revisar CI/seguridad. El proyecto Cafesito no se ha tocado.
+
+#### Cierre adicional de integración
+
+- Una invitación recibida desde un email dirige a registro independiente de **atleta**, y la aceptación conserva su correo verificado; ningún formulario le obliga a dar de alta un entrenador o gimnasio.
+- Al entrar como atleta, no se cargan detalles de organización profesionales, datos fiscales, ni endpoints de backoffice. Coach y recepción cargan solo campos básicos de cliente (`id/org_id/user_id/name/email/avatar/status/created_at`) en el navegador; las políticas RLS delimitan qué filas corresponden al coach.
+- Migración 20261027190000: búsqueda móvil ignora centros suspendidos incluso si previamente visibles; wrapper público `SECURITY INVOKER` consulta función interna protegida, evitando dejar una función privilegiada en public.
+- Se añaden pruebas para alta mediante invitación, privacidad del payload en entrenador y exclusión de suspendidos. La ruta completa con dos usuarios verificados y la entrega por proveedor externo siguen pendientes de E2E.
