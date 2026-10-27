@@ -941,7 +941,8 @@ app.addEventListener('submit',async event=>{
    await loadSelectedOrg();notice='Bono asignado. Registrado como gestión externa; no se ha efectuado ningún cobro en Repera.';
   }
   if(action==='trainer-attendance'){
-   await auth.recordTrainerAttendance({orgId:selectedOrg,clientId:data.get('client'),
+   await auth.recordTrainerAttendance({orgId:selectedOrg,
+     clientId:passes.find(p=>p.id===data.get('pass'))?.client_id,
      passId:data.get('pass'),occurrenceId:data.get('occurrence')||null,note:data.get('note')||''});
    await loadSelectedOrg();businessDialog='';notice='Sesión realizada registrada. Se ha descontado un crédito solo si no había reserva ya descontada.';
   }
