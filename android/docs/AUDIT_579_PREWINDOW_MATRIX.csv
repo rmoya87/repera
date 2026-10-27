@@ -299,33 +299,33 @@ cacd1e68|2026-10-23T19:39:03+02:00|docs(qa): document precise equipment categori
 3dcabf3c|2026-10-23T19:33:14+02:00|feat(mcp): return English lifting display labels while retaining original catalog keys|other|f479f0b7|verified-n/a 14:15: MCP display labels EN; cliente Android no consume MCP
 990147c4|2026-10-23T19:32:28+02:00|fix(db): add English display column to catalog table and expose it through the existing view|other|51ee8746 9a52adab f479f0b7|verified-n/a 14:15: columna display EN en tabla/vista Supabase compartida
 c91aa16d|2026-10-23T19:31:51+02:00|fix(db): store English titles in separate presentation columns to preserve catalog key/name constraint|other|40add9a5 7e092adf f479f0b7|verified-n/a 14:15: columnas presentacion EN Supabase compartida
-4efd48d0|2026-10-23T19:30:51+02:00|feat(db): keep stable catalog keys, English lifting labels and additive ES/EN sport aliases|other|baba0785 f479f0b7|unverified
-142c6258|2026-10-23T19:30:00+02:00|fix(search): canonical-case mapping for existing CrossFit and lifting exercise display names|packages|203dde5a 49a24605 8a9b3b23 cc92d12c|unverified
+4efd48d0|2026-10-23T19:30:51+02:00|feat(db): keep stable catalog keys, English lifting labels and additive ES/EN sport aliases|other|baba0785 f479f0b7|verified-n/a 14:18: seed db Supabase compartida; aliases cubiertos por ExerciseAliasSearch dominio
+142c6258|2026-10-23T19:30:00+02:00|fix(search): canonical-case mapping for existing CrossFit and lifting exercise display names|packages|203dde5a 49a24605 8a9b3b23 cc92d12c|verified-ported 14:18: canonical-case display names — ExerciseAliasSearch lowercase(Locale.ROOT)
 5b67471a|2026-10-23T19:29:37+02:00|test(domain): verify Olympics, CrossFit and gymnastics abbreviations in search and board scanning|packages|2366f80e 2e02be93 343b6892 bbfccf28|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 f74e2949|2026-10-23T19:29:11+02:00|test(ios): assert opaque cards, sorted facets, outline icons and material groups|docs-tests|b16c5886|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 ff0de466|2026-10-23T19:28:33+02:00|test(web): keep historic IDs while asserting 48 canonical English lifting names and aliases|other|8a9b3b23|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-0c77ab50|2026-10-23T19:28:30+02:00|feat(web): display all 48 Olympic lifts in English with stable catalog IDs and ES/acronym aliases|other|f479f0b7|unverified
-c6c15718|2026-10-23T19:28:02+02:00|fix(search): case-insensitive alias lookup for existing English gymnastic and CrossFit exercise names|packages|8a9b3b23 cc92d12c f479f0b7|unverified
-e7261834|2026-10-23T19:27:05+02:00|feat(search): use shared aliases for iOS search, ranked results and board-scanner resolution|packages||unverified
+0c77ab50|2026-10-23T19:28:30+02:00|feat(web): display all 48 Olympic lifts in English with stable catalog IDs and ES/acronym aliases|other|f479f0b7|verified-n/a 14:18: superficie web
+c6c15718|2026-10-23T19:28:02+02:00|fix(search): case-insensitive alias lookup for existing English gymnastic and CrossFit exercise names|packages|8a9b3b23 cc92d12c f479f0b7|verified-ported 14:18: lookup case-insensitive aliases — ExerciseAliasSearch
+e7261834|2026-10-23T19:27:05+02:00|feat(search): use shared aliases for iOS search, ranked results and board-scanner resolution|packages||verified-ported 14:18: aliases compartidos + ranking + board-scanner — ExercisesTab:149 usa ExerciseAliasSearch.score; BoardScanLiteParser dominio
 9b81af37|2026-10-23T19:26:59+02:00|fix(search): normalize punctuation and diacritics in acronym lookup (C&J, T2B, etc)|packages||verified: aliasKey() puntuacion->espacio port 1:1 en domain/SportExerciseNames.kt
-c5e444f8|2026-10-23T19:26:31+02:00|fix(search): remove cross-exercise aliases and align rower/gymnastics canonical names|packages|1b0cc874 8a9b3b23 cc92d12c|unverified
+c5e444f8|2026-10-23T19:26:31+02:00|fix(search): remove cross-exercise aliases and align rower/gymnastics canonical names|packages|1b0cc874 8a9b3b23 cc92d12c|verified-ported 14:18: aliases canon rower/gymnastics — ExerciseAliasSearch dominio (mapas aliasKey)
 48e1289b|2026-10-23T19:26:13+02:00|feat(search): add Olympic and CrossFit acronyms, bilingual naming variants and safe canonical alias resolver|packages||verified: supplementalAliases 75/75 claves y valores identicos a bd4d7637
-b4905ea1|2026-10-23T19:24:51+02:00|feat(ios): opaque workout-style exercise modal, alphabetic facets, outline icons and equipment ordering|ios-app|1633bbd8|unverified
-b9e3dc50|2026-10-23T18:41:24+02:00|Merge PR #50: ordenación y filtros nativos, catálogo ampliado de halterofilia|||unverified
+b4905ea1|2026-10-23T19:24:51+02:00|feat(ios): opaque workout-style exercise modal, alphabetic facets, outline icons and equipment ordering|ios-app|1633bbd8|partial 14:18: orden equipos portado (ExercisesTab); modal opaco/facetas/iconos outline = UI iOS sin counterpart directo
+b9e3dc50|2026-10-23T18:41:24+02:00|Merge PR #50: ordenación y filtros nativos, catálogo ampliado de halterofilia|||verified-ported 14:18: PR50 orden/filtros nativos — ExercisesTab sortedWith/collator; catalogo halterofilia en seed compartido
 d35eefe8|2026-10-23T18:38:28+02:00|test(domain): update bilingual sport catalog count after eight added variants|packages|baba0785 d1013cfa d50474cb f479f0b7|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 487bc908|2026-10-23T18:38:25+02:00|test(domain): account for canonical English seed names while preserving Spanish aliases|packages|0f52ef9d 10e70677 15b8328f 203dde5a|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-15e2f124|2026-10-23T18:36:40+02:00|fix(ios): never show WOD matches when a different discipline filter is active|ios-app|b2188237|unverified
-5988dd3f|2026-10-23T18:34:41+02:00|fix(ios): apply muscle sorting to WOD templates too|ios-app||unverified
-3fa5e9c6|2026-10-23T18:33:17+02:00|chore(db): remove draft migration timestamp|other||unverified
-af4746ab|2026-10-23T18:33:15+02:00|chore(db): align migration filename with applied Supabase version|other||unverified
+15e2f124|2026-10-23T18:36:40+02:00|fix(ios): never show WOD matches when a different discipline filter is active|ios-app|b2188237|verified-ported 14:18: no WODs bajo otro filtro — Android tiene pantalla WODs separada + fallback a ejercicios si busqueda sin match (WodLibraryScreen:81)
+5988dd3f|2026-10-23T18:34:41+02:00|fix(ios): apply muscle sorting to WOD templates too|ios-app||verified-ported 14:18: orden musculo en WODs — WodLibraryScreen:32-33 favorites->LibraryCollator(musclesLabel)
+3fa5e9c6|2026-10-23T18:33:17+02:00|chore(db): remove draft migration timestamp|other||verified-n/a 14:18: chore db compartida
+af4746ab|2026-10-23T18:33:15+02:00|chore(db): align migration filename with applied Supabase version|other||verified-n/a 14:18: chore db compartida
 449fda02|2026-10-23T18:31:47+02:00|docs(qa): add sorting, filtering and weightlifting catalog acceptance tests|docs-tests|89da973e|verified-n/a 10:46 (solo docs: docs/TESTING_GUIDE.md; sin delta de comportamiento)
 2543c145|2026-10-23T18:31:44+02:00|docs(ios): document separate sorting and lifting facet, eight added movements|docs-tests|89da973e|verified-n/a 10:46 (solo docs: docs/FEATURES.md; sin delta de comportamiento)
 5018a161|2026-10-23T18:31:40+02:00|test(ios): keep order and discipline filtering independent within native modal|docs-tests|2366f80e 968f1d66|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-7b3afb1f|2026-10-23T18:30:55+02:00|feat(db): seed eight stable-key Olympic lifting variations for MCP and web|other|cf34f03c|unverified
+7b3afb1f|2026-10-23T18:30:55+02:00|feat(db): seed eight stable-key Olympic lifting variations for MCP and web|other|cf34f03c|verified-n/a 14:18: seed db compartida (8 variantes halterofilia)
 2d879a4c|2026-10-23T18:29:18+02:00|test(catalog): extend complete Spanish instruction checks to 288 exercises|packages|805069c8 8a9b3b23 b2188237 baba0785|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 28c1bd79|2026-10-23T18:29:15+02:00|test(domain): enforce unique Olympic lifting variants and bilingual exercise search|packages|58ee969b 8a9b3b23 c4ee1508 cc92d12c|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 4f6cda4a|2026-10-23T18:29:13+02:00|test(web): expect 288 unique exercises after weightlifting audit|other|b2188237|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-b9ee0f4d|2026-10-23T18:29:10+02:00|feat(web): sync eight new lifting exercises into the shared catalog|other|39b19908 805069c8 88df7bf8 baba0785|unverified
+b9ee0f4d|2026-10-23T18:29:10+02:00|feat(web): sync eight new lifting exercises into the shared catalog|other|39b19908 805069c8 88df7bf8 baba0785|verified-n/a 14:18: superficie web
 b2bc2160|2026-10-23T18:28:25+02:00|feat(catalog): bilingual display aliases for lifting derivatives|packages|2c6bd9e2 84dace55 f479f0b7|unverified
 e512a743|2026-10-23T18:28:21+02:00|feat(search): support English naming for new Olympic lifting variants|packages||verified: aliases EN incluidos en valores verificados 75/75
 c56ebc7f|2026-10-23T18:27:49+02:00|feat(i18n): add complete Spanish technique notes and safety cues for 8 weightlifting drills|packages||verified 10:57 (efecto íntegro en contenido de catálogo: seed Android 288/288 == extracción bd4, 0 diffs; evidencia ejecutada tree170)
