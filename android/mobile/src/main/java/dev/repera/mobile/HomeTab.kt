@@ -229,7 +229,7 @@ internal fun HomeTab(
                     val minutes=overview?.dayWorkoutMinutes?.get(selectedDay)
                     Text("Tiempo de entreno: " + (minutes?.let {"${it.toInt()} min"} ?: "—"))
                     overview?.healthGoals?.let { goals ->
-                        goals.steps?.let {target -> Text("Objetivo pasos: ${dayHealth?.steps?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it)} / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"}")}
+                        goals.steps?.let {target -> Text("Objetivo pasos: ${dayHealth?.steps?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"}")}
                         goals.energyKcal?.let {target -> Text("Objetivo energía: ${energy?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"}")}
                         goals.minutes?.let {target -> Text("Objetivo tiempo: ${minutes?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} min"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)} min"}")}
                         goals.weeklyWorkouts?.let {target -> Text("Objetivo semanal: $selectedWeekCount / $target entrenamientos")}

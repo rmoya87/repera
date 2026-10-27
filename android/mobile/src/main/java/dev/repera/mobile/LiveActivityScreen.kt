@@ -40,11 +40,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     // (1 Hz) incluso sin fixes GPS (deporte indoor o senal perdida); la pausa
     // congela la duracion por diseno (tiempo activo).
     var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(state.phase) {
-        while (state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
-            kotlinx.coroutines.delay(1000L); nowTick = System.currentTimeMillis()
-        }
-    }
     var previewMessage by remember { mutableStateOf<String?>(null) }
     fun capturePosition() { scope.launch {
         val pin = runCatching { WorkoutLocationTracker(context).capturePin() }.getOrNull()
@@ -61,6 +56,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
+    LaunchedEffect(state.phase) {
+        while (state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
+            kotlinx.coroutines.delay(1000L); nowTick = System.currentTimeMillis()
+        }
+    }
     val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
     var routesVersion by remember { mutableStateOf(0) }
     var showRoutes by remember { mutableStateOf(false) }
