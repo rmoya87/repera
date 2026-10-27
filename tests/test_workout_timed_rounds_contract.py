@@ -92,9 +92,10 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         )[0]
         self.assertIn("OGNumericTextField(", numeric)
         self.assertIn(
-            ".glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))",
+            ".background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))",
             numeric,
         )
+        self.assertNotIn(".glassEffect(", numeric)
         self.assertIn(".frame(height: 48)", numeric)
         self.assertIn("compactIntrinsicHeight: 48", numeric)
         self.assertIn(".frame(height: 64, alignment: .top)", numeric)
@@ -124,6 +125,33 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         # No altera los demás campos de series que no solicitan altura
         # intrínseca específica.
         self.assertIn("guard let compactIntrinsicHeight else { return nil }", field)
+
+    def test_round_setup_matches_compact_modal_spacing_and_workout_reps_input(self):
+        sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
+            "private func startBlockClock(", 1
+        )[0]
+        self.assertIn("VStack(alignment: .leading, spacing: 12)", sheet)
+        self.assertIn(".font(.system(size: 20, weight: .bold))", sheet)
+        self.assertIn(".padding(.horizontal, OG.pad)", sheet)
+        self.assertIn(".padding(.top, 12)", sheet)
+        self.assertIn(".padding(.bottom, 4)", sheet)
+        self.assertNotIn(".padding(.bottom, 22)", sheet)
+        self.assertNotIn(".padding(.top, 30)", sheet)
+        self.assertIn(".ogFittedSheet()", sheet)
+        timer = (IOS / "StandaloneTimerView.swift").read_text(encoding="utf-8")
+        numeric = timer.split("struct TimerNumericInput: View {", 1)[1].split(
+            "struct StandaloneTimerView: View {", 1
+        )[0]
+        self.assertIn(
+            ".background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))",
+            numeric,
+        )
+        self.assertNotIn(".glassEffect(", numeric)
+        # Igual que los campos de Reps dentro de WorkoutView.
+        self.assertIn(
+            ".background(OG.surface2, in: RoundedRectangle(cornerRadius: 11))",
+            PLAY,
+        )
 
     def test_prescribed_intervals_are_not_overridden_by_setup(self):
         configured = PLAY.split("private func startBlockClock(", 1)[1].split(
