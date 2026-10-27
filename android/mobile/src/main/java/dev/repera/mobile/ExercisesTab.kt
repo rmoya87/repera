@@ -269,7 +269,7 @@ internal fun ExercisesTab(
     ReadableColumn {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = groupedListContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Ejercicios", style = MaterialTheme.typography.headlineLarge) }

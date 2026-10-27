@@ -123,7 +123,7 @@ internal fun ProgressTab(
     LazyColumn(
         state = dragListState,
         modifier = modifier.fillMaxSize().then(Modifier.testTag("progress_list")),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = groupedListContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Progreso", style = MaterialTheme.typography.headlineMedium) }

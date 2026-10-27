@@ -18,7 +18,9 @@ internal val CONTENT_COLUMN_MAX_WIDTH = 790.dp
 @Composable
 internal fun ReadableColumn(content: @Composable BoxScope.() -> Unit) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.fillMaxWidth().widthIn(max = CONTENT_COLUMN_MAX_WIDTH),
+        // widthIn antes de fillMaxWidth: al reves el ancho exacto del padre
+        // anula el tope (lo detecto ReadableColumnRenderTest a 1000dp).
+        Box(Modifier.widthIn(max = CONTENT_COLUMN_MAX_WIDTH).fillMaxWidth(),
             content = content)
     }
 }

@@ -80,6 +80,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1240,7 +1241,11 @@ internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
-    Card(modifier = Modifier.fillMaxWidth()) {
+    // Apple fb96456c/5058f75f calendarVisibleWidth = 7*(72-8) + 6*4 = 472pt:
+    // en paisaje la tira queda centrada y limitada a sus siete dias, sin
+    // celdas estiradas; en retrato 472dp supera el ancho y no restringe.
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+    Card(modifier = Modifier.widthIn(max = 472.dp).fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(),
@@ -1300,6 +1305,7 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
                 }
             }
         }
+    }
     }
 }
 

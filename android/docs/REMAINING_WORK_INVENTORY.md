@@ -29,7 +29,10 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
   tarjeta revocada completa sin acreditar visualmente, flujo proveedor verificado->dialogo
   sin acreditar en app, revision visual del espaciado 6dp nuevo, y validacion runtime global
 - Zonas FC + anillo intensidad Cardio Progreso (661e65f4/9947c212 — bloqueo decision usuario)
-- Paisaje/dos paneles (calendario 7 dias, secciones, safe areas)
+- Paisaje/dos paneles: columna 790 (b2b5121b), calendario 472 (fb96456c/5058f75f),
+  margenes paisaje listas (8f807f62/fb96456c/3045fb76) y safe areas (bfc79130 n/a
+  con evidencia) CERRADOS 15:28; queda 96efb7b6: PlanView dos columnas sin
+  counterpart (Android sin tab Plan) -> lote decisiones usuario
 - Wear fino: Sincronizar+mascota, flecha en descanso, EMOM/Tabata al terminar reloj, frescura planificacion
 - Cursores interactivos graficas recuperacion (b73d77dc/42f02b82)
 - Estilos parciales a verificar en runtime (margenes, miniaturas, previews)

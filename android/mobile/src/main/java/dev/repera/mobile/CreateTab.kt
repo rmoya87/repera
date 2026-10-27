@@ -88,7 +88,7 @@ internal fun CreateTab(
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = groupedListContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Crear", style = MaterialTheme.typography.headlineMedium) }
