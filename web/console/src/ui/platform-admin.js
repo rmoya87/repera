@@ -13,7 +13,7 @@ const validNumber=v=>Number.isFinite(Number(v))?Number(v):0;
 const tabs=[
  ['home','Inicio','dashboard'],['centers','Centros','team'],['athletes','Atletas','clients'],
  ['payments','Pagos','billing'],['plans','Planes y precios','products'],
- ['support','Soporte','notifications'],['audit','Auditoría','calendar'],
+ ['support','Soporte','notifications'],
  ['admin-settings','Configuración','settings']
 ];
 const button=(label,action,more='')=>`<button type="button" class="pa-button" data-admin-action="${action}" ${more}>${label}</button>`;
@@ -158,7 +158,7 @@ function paymentsPage(orgs,finance,filter){
  return `${heading('Pagos globales','Consulta separada de suscripciones a Repera (B2B) y cobros de los negocios a sus clientes (B2C). Solo movimientos verificados por backend.',button('Exportar CSV','export-payments'))}
  <div class="pa-metrics pa-payments-metrics">${stat('Cobrado en EUR y verificado',euros(currencyTotal(rows)))}${stat('Pagos confirmados',rows.filter(p=>p.status==='paid').length)}
  ${stat('Fallidos',rows.filter(p=>p.status==='failed').length)}${stat('Solicitudes de plan B2B',intents.length,'No equivalen a cobros')}</div>
- <section class="pa-panel"><div class="pa-filters"><label class="pa-field"><span>Tipo de operación</span><select data-admin-filter="paymentScope"><option value="b2b" ${!b2c?'selected':''}>Suscripciones a Repera · B2B</option><option value="b2c" ${b2c?'selected':''}>Cobros de negocios · B2C</option></select></label><label class="pa-field"><span>Organización</span><select data-admin-filter="org"><option value="all">Todas las organizaciones</option>${orgs.map(o=>`<option value="${esc(o.id)}" ${filter.org===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></label>
+ <section class="pa-panel"><div class="pa-filters pa-payments-filters"><label class="pa-field"><span>Tipo de operación</span><select data-admin-filter="paymentScope"><option value="b2b" ${!b2c?'selected':''}>Suscripciones a Repera · B2B</option><option value="b2c" ${b2c?'selected':''}>Cobros de negocios · B2C</option></select></label><label class="pa-field"><span>Organización</span><select data-admin-filter="org"><option value="all">Todas las organizaciones</option>${orgs.map(o=>`<option value="${esc(o.id)}" ${filter.org===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></label>
  <label class="pa-field"><span>Estado de cobro</span><select data-admin-filter="paymentStatus">${['all','paid','pending','failed','refunded','partially_refunded'].map(s=>`<option value="${s}" ${filter.paymentStatus===s?'selected':''}>${s==='all'?'Todos':esc(label(s))}</option>`).join('')}</select></label>
  ${field('dateFrom','Desde',filter.dateFrom||'','date','data-admin-filter="dateFrom"')}
  ${field('dateTo','Hasta',filter.dateTo||'','date','data-admin-filter="dateTo"')}</div>
@@ -381,15 +381,18 @@ function accountPage(account,email){
 }
 export function renderPlatformAdmin({
  tab='home',orgs=[],athletes=[],finance={},pending=[],history=[],plans=[],
- selectedOrg='',filter={},settings={},account={},editingPlan='',busy=false,error='',notice='',email=''
+ selectedOrg='',selectedAthlete='',centerDetail=null,athleteData=null,athleteWorkouts=[],
+ collapsed=false,filter={},settings={},account={},editingPlan='',busy=false,error='',notice='',email=''
 }={}) {
  const o=orgs.find(o=>o.id===selectedOrg);
+ const a=athletes.find(a=>a.id===selectedAthlete);
  const headings={home:'Inicio',centers:'Centros',athletes:'Atletas',payments:'Pagos',
  plans:'Planes y precios',support:'Soporte',audit:'Auditoría',
  'admin-settings':'Configuración',account:'Mi cuenta',provision:'Añadir centro'};
  const displayName=account.display_name||email.split('@')[0]||'Administrador';
  let body='';
- if(o)body=organizationDetail(o,{plans});
+ if(a)body=athleteDetail(a,athleteData,athleteWorkouts,busy);
+ else if(o)body=organizationDetail(o,{plans,detail:centerDetail});
  else if(tab==='home')body=overview(orgs,finance,history);
  else if(tab==='centers')body=directory(orgs,filter);
  else if(tab==='athletes')body=athletesPage(athletes,filter);
@@ -405,12 +408,17 @@ export function renderPlatformAdmin({
  empty('Todavía no hay eventos','Las acciones administrativas se registrarán aquí.')}</section>`;
  else if(tab==='admin-settings')body=settingsPage(settings,orgs,plans);
  else if(tab==='account')body=accountPage(account,email);
- return `<div class="pa-shell"><aside class="pa-sidebar">
- <div class="pa-brand"><span class="pa-brand-symbol">R</span><div><strong>repera</strong><small>ADMINISTRACIÓN</small></div></div>
- <div class="pa-sidebar-label">PLATAFORMA</div>
+ return `<div class="pa-shell ${collapsed?'is-collapsed':''}"><aside class="pa-sidebar">
+ <button type="button" class="pa-menu-collapse" data-admin-action="toggle-sidebar"
+  aria-label="${collapsed?'Expandir menú':'Contraer menú'}" title="${collapsed?'Expandir menú':'Contraer menú'}"
+  aria-expanded="${collapsed?'false':'true'}">
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8"
+   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+   <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>
+  <span>${collapsed?'Expandir menú':'Contraer menú'}</span></button>
  <nav aria-label="Administración Repera">
- ${tabs.map(([id,name,icon])=>`<button type="button" data-admin-tab="${id}"
- class="${tab===id&&!o?'active':''}" aria-current="${tab===id&&!o?'page':'false'}">${navIcon(icon)}<span>${name}</span></button>`).join('')}</nav>
+ ${tabs.map(([id,name,icon])=>`<button type="button" data-admin-tab="${id}" title="${esc(name)}"
+ class="${tab===id&&!o&&!a?'active':''}" aria-current="${tab===id&&!o&&!a?'page':'false'}">${navIcon(icon)}<span>${name}</span></button>`).join('')}</nav>
  <div class="pa-sidebar-bottom">
  <button type="button" class="pa-account-entry ${tab==='account'?'active':''}" data-admin-tab="account"
  aria-label="Configurar mi cuenta"><span class="pa-account-thumb">${photo(account.avatar_url,displayName)}</span>
