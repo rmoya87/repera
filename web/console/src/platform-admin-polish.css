@@ -1,0 +1,78 @@
+/* Admin UI refinement — consistent controls, center imagery, account identity and plan catalog */
+.pa-shell .pa-field input:not([type="file"]),.pa-shell .pa-field select,.pa-shell .pa-field textarea{
+ min-height:46px;height:auto;border:1px solid #d5e4d9;border-radius:11px;
+ background-color:#fff;color:#203b2a;padding:11px 13px;
+ font-size:13px;line-height:21px;font-weight:600;box-shadow:0 1px 2px #153c2010;
+}
+.pa-shell .pa-field select{appearance:none;-webkit-appearance:none;-moz-appearance:none;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a6c54' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+ background-position:right 14px center;background-repeat:no-repeat;background-size:16px 16px;
+ padding-right:42px;cursor:pointer}
+.pa-shell .pa-field select::-ms-expand{display:none}
+.pa-shell .pa-field input:focus,.pa-shell .pa-field select:focus,.pa-shell .pa-field textarea:focus{
+ border-color:#30b753;outline:3px solid #30d15824;outline-offset:0}
+.pa-shell .pa-filters{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr)) auto;
+ align-items:end;gap:16px 14px;margin-bottom:24px}
+.pa-shell .pa-filters .pa-field{width:100%;min-width:0;max-width:none}
+.pa-shell .pa-filter-count{padding:0 0 13px;white-space:nowrap;color:#6d8172}
+.pa-shell .pa-photo{width:42px;height:42px;object-fit:cover;flex-shrink:0;display:grid;
+ place-items:center;border-radius:13px;background:#e1f5e8;color:#1c7d3c;border:1px solid #d5e6d8;font-size:14px;font-weight:850}
+.pa-shell .pa-photo.large{width:72px;height:72px;border-radius:19px;font-size:23px}
+.pa-shell .pa-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.pa-shell .pa-identity>div:last-child{min-width:0}
+.pa-shell .pa-identity small{display:block;margin:2px 0 0;color:#788d7e}
+.pa-shell .pa-kind{display:inline-block;padding:5px 10px;border:1px solid #d6e6dd;
+ border-radius:9px;white-space:nowrap;background:#f6fbf7;color:#365b43;font-size:11px;font-weight:750}
+.pa-shell .pa-detail-identity{margin-bottom:15px}
+.pa-shell .pa-detail-identity h2{margin-bottom:0}
+.pa-shell .pa-brand-picker{display:flex;align-items:center;gap:17px;padding:16px;
+ border:1px dashed #b9d9c1;border-radius:15px;background:#f8fcf9}
+.pa-shell .pa-brand-preview{position:relative;flex-shrink:0}
+.pa-shell .pa-brand-upload-preview{position:absolute;inset:0;width:72px;height:72px;object-fit:cover;
+ border-radius:19px;border:1px solid #c5dec9}
+.pa-shell .pa-brand-upload-preview[hidden]{display:none!important}
+.pa-shell .pa-brand-picker strong{font-size:13px}
+.pa-shell .pa-brand-picker p{font-size:12px;margin:4px 0 9px}
+.pa-shell .pa-file-label{display:inline-flex;align-items:center;border:1px solid #b9d9c1;
+ color:#206738;background:#fff;border-radius:9px;padding:8px 12px;cursor:pointer;font-size:12px;font-weight:750}
+.pa-shell .pa-file-label input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.pa-shell .pa-file-label:focus-within{outline:2px solid #30d158;outline-offset:2px}
+.pa-shell .pa-plan-list{display:grid;gap:12px}
+.pa-shell .pa-panel-title{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:18px}
+.pa-shell .pa-plan-item{background:#fbfdfb;border:1px solid #e1ede4;border-radius:15px;padding:18px}
+.pa-shell .pa-plan-summary{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.pa-shell .pa-plan-main{min-width:0;display:grid;gap:4px}
+.pa-shell .pa-plan-main>strong{font-size:17px;color:#1e3c29}
+.pa-shell .pa-plan-main>small{font-size:12px;color:#687e70;line-height:1.4}
+.pa-shell .pa-plan-main>span{font-size:11px;color:#63846b}
+.pa-shell .pa-plan-side{display:flex;gap:14px;align-items:center;flex-shrink:0}
+.pa-shell .pa-plan-side>strong{font-size:22px;font-variant-numeric:tabular-nums}
+.pa-shell .pa-plan-side>strong small{font-weight:500;font-size:11px;color:#809385}
+.pa-shell .pa-plan-edit-form{border-top:1px solid #e1eae3;margin-top:18px;padding-top:20px;display:grid;gap:19px}
+.pa-shell .pa-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.pa-shell .pa-form-grid .pa-field{max-width:none}
+.pa-shell .pa-account-entry{display:flex!important;gap:11px;align-items:center;
+ border-radius:13px!important;padding:10px!important;background:transparent!important;
+ border:1px solid transparent!important;color:#233f2b!important;width:100%;text-align:left!important}
+.pa-shell .pa-account-entry:hover,.pa-shell .pa-account-entry.active{background:#edf8f0!important;
+ border-color:#d4e9d9!important}
+.pa-shell .pa-account-entry svg{width:17px;height:17px;flex-shrink:0;color:#7e9b84}
+.pa-shell .pa-account-copy{display:grid;min-width:0;flex:1;gap:0}
+.pa-shell .pa-account-copy strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pa-shell .pa-account-copy small{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pa-shell .pa-account-thumb .pa-photo{width:43px;height:43px;border-radius:50%}
+.pa-shell .pa-sidebar-bottom{padding-left:0;padding-right:0}
+.pa-shell .pa-sidebar-logout{font-size:12px;padding:9px 12px!important}
+.pa-shell .pa-account-photo{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+.pa-shell .pa-account-photo p{max-width:220px}
+.pa-shell .pa-account-signout{padding-top:20px;border-top:1px solid #e1ebe3;margin-top:12px}
+.pa-shell .pa-account-signout .pa-button{color:#9d3434;background:#fff4f3;border-color:#e9d2ce}
+.pa-shell input[readonly]{background:#f2f6f3!important;color:#748779!important}
+.pa-shell .pa-pending-event{align-items:center}
+@media(max-width:1100px){.pa-shell .pa-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.pa-shell .pa-filter-count{padding-bottom:10px}}
+@media(max-width:700px){.pa-shell .pa-filters{grid-template-columns:1fr}.pa-shell .pa-filter-count{padding:0}
+.pa-shell .pa-plan-summary,.pa-shell .pa-plan-side{flex-wrap:wrap}.pa-shell .pa-plan-side{justify-content:space-between;width:100%}
+.pa-shell .pa-form-grid{grid-template-columns:1fr}.pa-shell .pa-brand-picker{align-items:flex-start}
+.pa-shell .pa-sidebar-bottom{display:block;margin:0;border-top:1px solid #e4eee7;padding:8px 0}
+.pa-shell .pa-sidebar-logout{display:none}.pa-shell .pa-account-entry{justify-content:start}
+}
