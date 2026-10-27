@@ -99,10 +99,11 @@ Referencia de producto: [openGym](https://github.com/DuarteSantos8/openGym) (sol
 | **Inicio** | Semana/día, métricas Salud, varias sesiones terminadas y programadas independientes por fecha, avatar→Ajustes, planificar / pizarra |
 | **Diario** | Planificación personal de varias rutinas por fecha (cada una editable/borrable por separado) y sesiones profesionales de Supabase; ejecución profesional estructurada pendiente |
 | **Center** | Selector Clases/Citas con lectura de horarios reales, reservas y cancelaciones mediante Supabase cuando haya sesión y bono disponible; E2E pendiente |
-| **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia) |
+| **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia); al elegir un favorito desde el calendario se programa una copia para ese día |
 | **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha, filtro Movilidad con 82 movimientos bilingües ES/EN; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series editables sin check por serie, borrado por swipe, WOD/temporizadores, RIR/RPE, menú ⋯ y Live Activity |
+| **Favoritos de entrenos** | Guardar como favorita una planificación crea una plantilla independiente reutilizable desde Crear → Favoritos; al borrar el día se conserva el favorito. Desde la vista previa, editor y Play se comprueba el guardado y el límite de Gratis. Pruebas en dispositivo y con iCloud **pendientes** | 
 | **Comenzar (iOS)** | Cuenta atrás 3/2/1 con tono medio de 523,25 Hz (0,16 s), mismo tono sostenido de 0,49 s al llegar a cero y finalizar, pausa/reanudación silenciosas, voz de parciales/giros configurable y mapa 2D/3D persistente. **Pendiente:** audio y UI verificados en iPhone real/TestFlight; [checklist](docs/GPS_TRACKING.md) |
 | **Pizarra** | OCR lite; Gratis 4 escaneos/mes; Pro ilimitados |
 | **Onboarding** | Apple o Google con identidad Supabase verificada → permisos → Gratis/Pro |
