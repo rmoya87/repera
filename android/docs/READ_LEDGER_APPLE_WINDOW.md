@@ -122,3 +122,14 @@ fixes topbar, tests nuevos Packages. NO se portan ni amplían alcance sin aproba
 Pendiente sin cambios: auditoría 579 commits anteriores (matriz), resto de items de implementación de
 hallazgos (mapa fullscreen, resultado formato WOD, card Entreno unificada, traza azul, live-save Salud,
 cap heatmap 76, Live restructure, requiresReauthentication, edit-save health re-resolve, steps en detalle).
+
+## tree164 — WOD estimado en carga muscular semanal + matriz 579 (27oct 10:10 CET)
+
+4. **MuscleWorkloadMetrics.weekly: equivalente WOD estimado.** Apple MuscleLoadEngine.load /
+   MuscleMapEngine.statuses (bd4d7637): effectiveSets = sets>0 ? sets : estimatedSetEquivalent (1.0;
+   nunca hardOnly; requiere terminado, blockKind==wod o blockId en wodResults, sin series de trabajo
+   confirmadas). Android saltaba esas entradas. Port: mismo gate; la ruta de fatiga x0.7 ya estaba
+   portada. Tests: MuscleWorkloadMetricsTest 6/6 nuevos; suite mobile completa 460/460 REAL.
+5. **Auditoría 579 arrancada**: definición exacta recuperada (892 ventana 3 días = 313 leídos + 579
+   previos a fc3ef7e1; android/ jamás en main). Artefactos: AUDIT_579_PREWINDOW.md + matriz CSV
+   heurística (todo unverified; 315 con candidato por subject, 264 sin). Verificación real pendiente.

@@ -3,6 +3,7 @@ package dev.repera.mobile
 import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
 import org.json.JSONArray
+import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -39,11 +40,28 @@ object MuscleWorkloadMetrics {
                     .takeIf { it.isNotBlank() && !it.equals("cardio", ignoreCase = true) }
                     ?: continue
                 val effective = WorkoutHistorySets.confirmedWorkSets(session, entry)
-                if (effective.isEmpty()) continue
-                counts[group] = (counts[group] ?: 0) + effective.size
+                // Apple (live main) MuscleCompletedWODStimulus.estimatedSetEquivalent: un WOD
+                // terminado con el movimiento confirmado pero sin series desglosadas aporta un
+                // equivalente estimado de 1 serie; jamás en modo esfuerzo (esta métrica no lo tiene).
+                val count = if (effective.isNotEmpty()) effective.size
+                    else if (estimatedCompletedWodStimulus(session, entry)) 1
+                    else continue
+                counts[group] = (counts[group] ?: 0) + count
             }
         }
         return counts.map { GroupCount(it.key, it.value) }
             .sortedWith(compareByDescending<GroupCount> { it.sets }.thenBy { it.group })
+    }
+
+    /** WOD completado sin series registradas: estímulo estimado, nunca serie real ni RIR medido. */
+    private fun estimatedCompletedWodStimulus(session: JSONObject, entry: JSONObject): Boolean {
+        val finished = session.optString("phase") == "finished" ||
+            session.optString("finishedAt").isNotBlank()
+        if (!finished) return false
+        if (entry.optString("blockKind") == "wod") return true
+        val blockId = entry.optString("blockId")
+        if (blockId.isBlank()) return false
+        val results = session.optJSONArray("wodResults") ?: return false
+        return (0 until results.length()).any { results.optJSONObject(it)?.optString("id") == blockId }
     }
 }
