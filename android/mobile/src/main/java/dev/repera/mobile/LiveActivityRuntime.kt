@@ -158,5 +158,8 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                 catch (_: Exception) { true } // checkpoint dañado: no pisarlo con otro entreno.
         }
         @Synchronized fun stopAll() { current?.stopForAccountChange();current?.voice?.close();current=null }
+        /** Apple f6f13169: checkpoint durable forzado al suspenderse la app;
+         *  nunca perder los ultimos fixes por el throttling de 10s. */
+        @Synchronized fun checkpointForBackground() { current?.checkpoint(true) }
     }
 }

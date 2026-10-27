@@ -1121,6 +1121,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     override fun onStop() {
         aiPlansRealtime.stop()
         wearMessages.removeListener(this)
+        // Apple f6f13169: checkpoint GPS forzado antes de una posible suspension;
+        // el sensor sigue activo en segundo plano (servicio foreground).
+        LiveActivityRuntime.checkpointForBackground()
         super.onStop()
     }
 
