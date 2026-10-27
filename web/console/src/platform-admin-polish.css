@@ -102,3 +102,71 @@
 .connected-org-avatar,
 .business-avatar,
 .business-avatar img{border-radius:50%!important;object-fit:cover}
+
+/* Compact administration: top-aligned navigation with a user-controlled narrow rail. */
+.pa-shell.is-collapsed{grid-template-columns:76px minmax(0,1fr)}
+.pa-shell .pa-sidebar{gap:9px;padding-top:13px}
+.pa-shell .pa-menu-collapse{display:flex;align-items:center;gap:12px;margin:0 0 7px;
+ width:100%;background:transparent;border:1px solid transparent;border-radius:11px;
+ padding:11px 12px;min-height:44px;color:#53715b;text-align:left;font-size:12px;font-weight:700}
+.pa-shell .pa-menu-collapse:hover{background:#edf7f0;color:#28633b}
+.pa-shell .pa-menu-collapse svg{flex-shrink:0}
+.pa-shell .pa-sidebar nav{gap:3px}
+.pa-shell.is-collapsed .pa-menu-collapse{justify-content:center;padding:11px 4px}
+.pa-shell.is-collapsed .pa-menu-collapse span,
+.pa-shell.is-collapsed .pa-sidebar nav button span,
+.pa-shell.is-collapsed .pa-account-copy,
+.pa-shell.is-collapsed .pa-account-entry>svg,
+.pa-shell.is-collapsed .pa-sidebar-logout{display:none!important}
+.pa-shell.is-collapsed .pa-sidebar nav button{justify-content:center;padding:12px 8px}
+.pa-shell.is-collapsed .pa-sidebar nav button svg{width:22px;height:22px}
+.pa-shell.is-collapsed .pa-account-entry{justify-content:center;padding:6px!important}
+.pa-shell.is-collapsed .pa-sidebar-bottom{padding:12px 0 0}
+.pa-shell.is-collapsed .pa-account-thumb .pa-photo{width:40px;height:40px}
+/* Exactly four center-summary KPIs across normal desktop widths. */
+.pa-shell .pa-center-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pa-shell .pa-center-hero{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+.pa-shell .pa-center-hero h2{margin:0 0 2px}
+.pa-shell .pa-center-hero .pa-identity p{margin:0;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.pa-shell .pa-status-inline{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:15px 0 8px}
+.pa-shell .pa-status-inline .pa-field{flex:1;min-width:185px}
+.pa-shell .pa-center-hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+/* All payment filters fit one desktop row. On small screens scroll horizontally without wrapping. */
+.pa-shell .pa-payments-filters{
+ display:grid;grid-template-columns:minmax(185px,1.4fr) minmax(170px,1.25fr)
+ minmax(150px,1.05fr) minmax(135px,.8fr) minmax(135px,.8fr);
+ gap:12px;align-items:end;overflow-x:auto;padding-bottom:7px;scrollbar-width:thin}
+.pa-shell .pa-payments-filters .pa-field{min-width:0;width:100%;max-width:none}
+.pa-shell .pa-payments-filters .pa-field input,.pa-shell .pa-payments-filters .pa-field select{
+ white-space:nowrap;min-width:0;width:100%}
+/* Deep but readable account/athlete workout detail. */
+.pa-shell .pa-workout-detail{border:1px solid #e1ebe3;border-radius:12px;margin-bottom:11px;background:#fcfdfc}
+.pa-shell .pa-workout-detail summary{display:flex;align-items:center;justify-content:space-between;gap:14px;
+ padding:14px 17px;cursor:pointer;list-style:none}
+.pa-shell .pa-workout-detail summary::-webkit-details-marker{display:none}
+.pa-shell .pa-workout-detail[open] summary{border-bottom:1px solid #e4efe8}
+.pa-shell .pa-workout-detail summary strong{display:block}
+.pa-shell .pa-workout-detail summary small{display:block;color:#738877}
+.pa-shell .pa-workout-detail>.pa-layout{padding:14px}
+.pa-shell .pa-nested-list{display:grid;gap:9px;padding:3px 0}
+.pa-shell .pa-nested-item{padding:10px;background:#f7faf7;border:1px solid #edf1ed;border-radius:9px;min-width:0}
+.pa-shell .pa-nested-details{display:grid;grid-template-columns:minmax(115px,33%) minmax(0,1fr);
+ gap:8px 12px;margin:0;font-size:12px}
+.pa-shell .pa-nested-details dt{color:#718674;text-transform:none}
+.pa-shell .pa-nested-details dd{margin:0;overflow-wrap:anywhere}
+.pa-shell .pa-load-more{display:flex;justify-content:center;margin-top:15px}
+@media(max-width:1280px){
+ .pa-shell .pa-payments-filters{display:flex;flex-wrap:nowrap}
+ .pa-shell .pa-payments-filters .pa-field{flex:0 0 175px}
+}
+@media(max-width:980px){
+ .pa-shell .pa-center-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .pa-shell.is-collapsed{grid-template-columns:76px minmax(0,1fr)}
+}
+@media(max-width:800px){
+ .pa-shell.is-collapsed{grid-template-columns:1fr}
+ .pa-shell .pa-sidebar{padding:10px}
+ .pa-shell .pa-sidebar nav{overflow-x:auto;gap:4px}
+ .pa-shell .pa-menu-collapse{width:auto;min-width:38px;padding:8px 10px}
+ .pa-shell.is-collapsed .pa-sidebar nav button{width:auto}
+}

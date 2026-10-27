@@ -22,15 +22,15 @@ test('Su ficha permite gestionar estado y entrar con administración delegada, n
  const output=renderPlatformAdmin({...input,tab:'centers',selectedOrg:id});
  assert.match(output,/Pendiente de aceptación del propietario/);
  assert.match(output,/data-admin-form="status"/);
- assert.match(output,/data-admin-form="delegate"/);
- assert.match(output,/modo administrador/);
- assert.match(output,/No se usan las credenciales del propietario/);
+ assert.match(output,/data-admin-action="access-center"/);
+ assert.match(output,/Entrar como administrador del centro/);
+ assert.doesNotMatch(output,/Motivo del acceso delegado/);
  assert.doesNotMatch(output,/class="pa-top"/);
 });
 test('Un centro suspendido puede reactivarse aunque su titular todavía no se haya registrado',()=>{
  const output=renderPlatformAdmin({...input,tab:'centers',selectedOrg:id,
  orgs:[{...pending[0],status:'suspended',status_reason:'Motivo verificado'}]});
- assert.match(output,/Reactivar negocio/);
+ assert.match(output,/Guardar estado/);
  assert.match(output,/Suspendido/);
  assert.match(output,/Pendiente de aceptación del propietario/);
 });

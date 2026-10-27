@@ -1,5 +1,12 @@
 ## Administración global (2026-10-27)
 
+## Fichas 360 y plazo de prueba configurable (2026-10-27)
+
+Migración 20261027170000_platform_admin_detail_views.sql: RPCs public.platform_admin_center_detail(uuid), public.platform_admin_athlete_detail(uuid), y public.platform_admin_athlete_workouts(uuid,integer,integer). Son wrappers de invocador con ejecución validada por administrador en funciones privadas, devuelve perfil y actividad profesional, identidad, últimos accesos y entrenamientos paginados. La auditoría registra cada lectura, pero no contenido privado. No revela secretos de sesión ni métricas clínicas.
+
+Migración 20261027173000_platform_trial_settings.sql: platform_settings.trial_days (1–60, valor por defecto 7); guardado por RPC de plataforma y uso real en los triggers de organización nueva y reclamación por correo verificado. Ambas migraciones aplicadas a Supabase Repera.
+
+
 ## Materialización temprana de centros pendientes (2026-10-27)
 
 `private.platform_admin_provision` inserta `platform_org_provisioning` y llama `private.platform_admin_materialize_pending` con validación de administrador. El UUID del tenant real aparece en `claimed_org_id` aunque `status='pending'`, por compatibilidad con la estructura existente. El directorio `private.platform_admin_directory()` une ambas tablas y obtiene estado operativo real (`active`/`suspended`) junto con registro (`pending`/`claimed`). Los registros pendientes se muestran como `status='pending'` mientras no estén suspendidos.

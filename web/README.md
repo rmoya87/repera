@@ -1,5 +1,12 @@
 # Web Repera (`repera.app`)
 
+## Repera Business Admin: panel renovado (27/10/2026)
+
+Favicon idéntico a AppIcon de iOS en web/assets/repera-app-icon.png. Sidebar sin cabecera duplicada ni Auditoría, plegable y persistente; fichas de centros/atletas completas contra RPCs de Supabase. Estado operativo editable en centro y acceso delegado con un clic, auditado y sin credenciales de terceros. Cinco filtros de Pagos en línea única.
+
+La configuración añade prueba gratuita variable y describe las integraciones todavía pendientes. Requiere actualizar main y reiniciar Repera-Business.command; E2E visual y despliegue IONOS pendientes.
+
+
 ## Vista de centros pendientes — 27/10/2026
 
 «Centros» incluye registros pendientes con acceso a ficha, bloqueo/reactivación y vista de administrador delegado de 30 minutos, incluso antes de que el futuro propietario confirme su correo. Los espacios se crean en Supabase de forma privada y se asignan al titular cuando este acredita su email, sin crear duplicados. Esta vista delegada no intercambia identidad ni credenciales del cliente.

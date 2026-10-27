@@ -84,7 +84,27 @@ export class ReperaAuthAPI {
  }
  async platformAdminDirectory(){return this.#authorized('rpc/platform_admin_directory',{method:'POST',body:{}});}
  async platformAdminAthletes(){return this.#authorized('rpc/platform_admin_athletes',{method:'POST',body:{}});}
+ async platformAdminCenterDetail(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Centro inválido');
+  return this.#authorized('rpc/platform_admin_center_detail',{method:'POST',body:{p_org:orgId}});
+ }
+ async platformAdminAthleteDetail(athleteId){
+  if(!/^[0-9a-f-]{36}$/i.test(athleteId||''))throw Error('Cuenta inválida');
+  return this.#authorized('rpc/platform_admin_athlete_detail',{method:'POST',body:{p_athlete:athleteId}});
+ }
+ async platformAdminAthleteWorkouts(athleteId,offset=0,limit=30){
+  if(!/^[0-9a-f-]{36}$/i.test(athleteId||'')||!Number.isInteger(offset)||offset<0||
+    !Number.isInteger(limit)||limit<1||limit>50)throw Error('Paginación de entrenamientos inválida');
+  return this.#authorized('rpc/platform_admin_athlete_workouts',{method:'POST',
+    body:{p_athlete:athleteId,p_limit:limit,p_offset:offset}});
+ }
+
  async platformAdminSettings(){return this.#authorized('rpc/platform_admin_settings',{method:'POST',body:{}});}
+ async platformAdminSaveTrialDays(days){
+  const d=Number(days);
+  if(!Number.isInteger(d)||d<1||d>60)throw Error('El periodo debe ser de 1 a 60 días');
+  return this.#authorized('rpc/platform_admin_save_trial_days',{method:'POST',body:{p_days:d}});
+ }
  async platformAdminSaveSettings(values){
   const safe=key=>String(values[key]||'').trim();
   return this.#authorized('rpc/platform_admin_update_settings',{method:'POST',body:{

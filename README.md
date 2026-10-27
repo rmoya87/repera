@@ -1,5 +1,16 @@
 # Repera
 
+## Administración global renovada (27/10/2026)
+
+El favicon de la consola Business es el mismo PNG binario del icono nativo de iOS, copiado en web/assets/repera-app-icon.png. El menú lateral comienza directamente con las secciones y se pliega a iconos, con preferencia local. El acceso a Auditoría se ha retirado de la navegación, aunque los eventos siguen guardándose en Supabase.
+
+Las fichas de centros muestran cuatro indicadores por fila, datos legales y operativos, equipo, atletas asociados, actividades, cobros y un selector manual de estado. El botón de acceso al centro inicia la delegación temporal auditada de Repera Admin (30 minutos) sin formulario de motivo y sin usar credenciales de propietarios.
+
+Las fichas de atletas incluyen relaciones con centros, entrenamientos paginados y estructurados, últimas reservas/sesiones, programas y accesos básicos (último login y proveedor); las lecturas quedan auditadas. No se exponen claves, sesiones privadas, contraseñas o HealthKit médico. Los cinco filtros de Pagos comparten una fila.
+
+Configuración permite definir contactos y duración real de la prueba gratuita (1–60 días, aplicada en nuevas altas y reclamaciones). Siguen pendientes las integraciones Stripe, correo transaccional, fiscalidad y operaciones de privacidad/monitorización. Migraciones 20261027170000 y 20261027173000 aplicadas en Supabase. El cambio en GitHub no equivale a despliegue en IONOS.
+
+
 ## Centros pendientes y acceso delegado (27/10/2026)
 
 El administrador global ya visualiza **centros pendientes** en «Centros», con estado, búsqueda y ficha editable. En cada alta se provisiona un espacio de trabajo real y privado inmediatamente, sin inscribir al administrador como propietario ni activar públicamente el centro. El propietario legítimo, después de confirmar su email, reclama ese **mismo** centro y recibe el rol `owner` sin duplicarlo. El ejemplo previo «Alicia» se ha convertido desde la solicitud existente en un espacio pendiente, conservando su estado.

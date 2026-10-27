@@ -1,5 +1,14 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Control de acceso a fichas globales (27/10/2026)
+
+Las RPCs públicas de detalle de centro, atleta y entrenamientos paginados son SECURITY INVOKER con lógica privada SECURITY DEFINER, protegida por private.is_repera_platform_admin. El JWT es el propio del usuario verificado, nunca una credencial de terceros o service_role en navegador. Cada lectura personal y página de entrenamientos crea un evento de auditoría con actor y ámbito; se excluyen contraseñas, tokens, IP y datos médicos de HealthKit.
+
+El botón de entrada a un centro no exige texto de motivo en la UI; el backend conserva razón técnica fija, actor real y caducidad de 30 minutos. Los cambios manuales del estado también quedan registrados.
+
+El parámetro platform_settings.trial_days puede variar entre 1 y 60 por medio de una RPC admin que registra auditoría. Solo afecta altas y reclamaciones posteriores; no modifica pruebas existentes. No se habilitan pagos ni controles ficticios.
+
+
 ## Centros sin propietario registrado — 2026-10-27
 
 Un negocio pendiente ya es un tenant real pero **privado**: `is_discoverable=false`, `public_email=null`; solo el administrador autorizado puede leerlo a través de RPC o acceder a sus operaciones tras invocar la delegación registrada y temporal. El trigger `bootstrap_organization_owner` crea temporalmente la membresía del creador, eliminada en la misma transacción privilegiada, antes de exponer el registro a otras transacciones. No se otorga permiso SELECT a `platform_org_provisioning` ni `platform_admin_delegations` al navegador.

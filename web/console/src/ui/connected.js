@@ -12,7 +12,9 @@ const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminAthletes=[],adminSettings={},
-adminAccount={},adminEditPlan='',adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[];
+adminAccount={},adminEditPlan='',adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[],
+adminSelectedAthlete='',adminCenterDetail=null,adminAthleteDetail=null,adminAthleteWorkouts=[],
+adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
 let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
@@ -88,6 +90,8 @@ function enhanceWorkspace(own){
  if(user&&platformRole==='platform_admin'&&!delegation&&view!=='password'){
   app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,athletes:adminAthletes,finance:adminFinances,
    pending:adminPending,history:adminHistory,plans:planCatalog,selectedOrg:adminSelectedOrg,
+   selectedAthlete:adminSelectedAthlete,centerDetail:adminCenterDetail,
+   athleteData:adminAthleteDetail,athleteWorkouts:adminAthleteWorkouts,collapsed:adminNavCollapsed,
    settings:adminSettings,account:adminAccount,editingPlan:adminEditPlan,
    filter:adminFilter,busy,error,notice,email:user.email||''});
   return;
@@ -170,14 +174,60 @@ async function reload(){
 }
 app.addEventListener('click',async event=>{
  const platformTab=event.target.closest('[data-admin-tab]');
- if(platformTab){adminTab=platformTab.dataset.adminTab;adminSelectedOrg='';error=notice='';render();return;}
+ if(platformTab){adminTab=platformTab.dataset.adminTab;adminSelectedOrg='';adminSelectedAthlete='';
+  adminCenterDetail=null;adminAthleteDetail=null;adminAthleteWorkouts=[];
+  error=notice='';render();return;}
  const platformButton=event.target.closest('[data-admin-action]');
  if(platformButton){
   const command=platformButton.dataset.adminAction;
-  if(command==='view-org'){adminSelectedOrg=platformButton.dataset.id;render();return;}
-  if(command==='back-org'){adminSelectedOrg='';render();return;}
-  if(command==='go-centers'){adminTab='centers';adminSelectedOrg='';render();return;}
-  if(command==='go-athletes'){adminTab='athletes';adminSelectedOrg='';render();return;}
+  if(command==='toggle-sidebar'){
+   adminNavCollapsed=!adminNavCollapsed;
+   try{localStorage.setItem('repera.admin.nav.collapsed',adminNavCollapsed?'1':'0');}catch{}
+   render();return;
+  }
+  if(command==='view-org'){
+   adminSelectedOrg=platformButton.dataset.id;adminSelectedAthlete='';adminAthleteDetail=null;
+   adminAthleteWorkouts=[];adminCenterDetail=null;adminTab='centers';error=notice='';render();
+   try{adminCenterDetail=await auth.platformAdminCenterDetail(adminSelectedOrg);}
+   catch(e){error=e.message||'No se pudieron cargar los datos del centro';}
+   render();return;
+  }
+  if(command==='back-org'){adminSelectedOrg='';adminCenterDetail=null;render();return;}
+  if(command==='view-athlete'){
+   adminSelectedAthlete=platformButton.dataset.id;adminSelectedOrg='';adminCenterDetail=null;
+   adminAthleteDetail=null;adminAthleteWorkouts=[];adminTab='athletes';error=notice='';render();
+   try{
+    [adminAthleteDetail,adminAthleteWorkouts]=await Promise.all([
+     auth.platformAdminAthleteDetail(adminSelectedAthlete),
+     auth.platformAdminAthleteWorkouts(adminSelectedAthlete,0,30)]);
+   }catch(e){error=e.message||'No se pudo cargar la ficha del atleta';}
+   render();return;
+  }
+  if(command==='back-athletes'){
+   adminSelectedAthlete='';adminAthleteDetail=null;adminAthleteWorkouts=[];render();return;
+  }
+  if(command==='more-athlete-workouts'&&!busy&&adminSelectedAthlete){
+   busy=true;render();
+   try{
+    const more=await auth.platformAdminAthleteWorkouts(adminSelectedAthlete,adminAthleteWorkouts.length,30);
+    adminAthleteWorkouts=[...adminAthleteWorkouts,...(more||[])];
+   }catch(e){error=e.message||'No se pudieron cargar más entrenamientos';}
+   finally{busy=false;render();}
+   return;
+  }
+  if(command==='access-center'&&!busy){
+   const orgId=platformButton.dataset.id;busy=true;error=notice='';render();
+   try{
+    await auth.platformAdminDelegate({orgId,reason:'Acceso operativo desde Repera Admin'});
+    adminSelectedOrg='';adminCenterDetail=null;adminSelectedAthlete='';selectedOrg=orgId;activeTab='overview';
+    notice='Acceso administrativo temporal iniciado; se registra automáticamente.';
+    await reload();
+   }catch(e){error=e.message||'No se pudo entrar en el centro';}
+   finally{busy=false;render();}
+   return;
+  }
+  if(command==='go-centers'){adminTab='centers';adminSelectedOrg='';adminSelectedAthlete='';adminCenterDetail=null;render();return;}
+  if(command==='go-athletes'){adminTab='athletes';adminSelectedOrg='';adminSelectedAthlete='';render();return;}
   if(command==='open-account'){adminTab='account';adminSelectedOrg='';render();return;}
   if(command==='new-plan'){adminTab='plans';adminEditPlan='new';render();return;}
   if(command==='edit-plan'){adminEditPlan=adminEditPlan===platformButton.dataset.id?'':platformButton.dataset.id;render();return;}
@@ -283,7 +333,7 @@ app.addEventListener('submit',async event=>{
  if(platformForm){
   event.preventDefault();if(busy||platformRole!=='platform_admin'||delegation)return;
   const action=platformForm.dataset.adminForm,values=new FormData(platformForm);
-  if(action==='status'&&!confirm('¿Confirmas el cambio de estado de este centro?'))return;
+  // Estado operativo seleccionado manualmente; el servidor conserva la auditoría.
   busy=true;error=notice='';render();
   try{
    if(action==='provision'){
@@ -298,7 +348,8 @@ app.addEventListener('submit',async event=>{
     adminTab='provision';
    }
    if(action==='status'){
-    await auth.platformAdminSetStatus({orgId:values.get('org_id'),status:values.get('status'),reason:values.get('reason')});
+    await auth.platformAdminSetStatus({orgId:values.get('org_id'),status:values.get('status'),
+     reason:'Cambio manual de estado desde Repera Admin'});
     notice='Estado actualizado y operación registrada.';
    }
    if(action==='delegate'){
@@ -309,6 +360,10 @@ app.addEventListener('submit',async event=>{
    if(action==='platform-settings'){
     await auth.platformAdminSaveSettings(Object.fromEntries(values.entries()));
     notice='Configuración de plataforma guardada.';
+   }
+   if(action==='platform-trial'){
+    await auth.platformAdminSaveTrialDays(values.get('trial_days'));
+    notice='Periodo de prueba actualizado para futuras altas.';
    }
    if(action==='account-profile'){
     await auth.updateOwnProfile({displayName:values.get('display_name')});
@@ -328,6 +383,7 @@ app.addEventListener('submit',async event=>{
     return;
    }
    await reload();
+   if(action==='status'&&adminSelectedOrg)adminCenterDetail=await auth.platformAdminCenterDetail(adminSelectedOrg);
   }catch(e){error=e.message||'No se pudo completar la operación';}
   finally{busy=false;render();}
   return;

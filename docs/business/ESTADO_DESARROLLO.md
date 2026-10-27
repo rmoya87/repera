@@ -1,5 +1,17 @@
 ## Administración global de Repera — 27/10/2026
 
+## Mejoras administrador global (27/10/2026)
+
+- Sidebar sin encabezados R repera / PLATAFORMA, plegable con estado persistido; Auditoría oculta del menú pero registro SQL conservado.
+- Favicon de Business copiado sin modificaciones desde AppIcon de iOS.
+- Ficha de centro con cuatro métricas en escritorio; detalles del negocio, fiscalidad, equipo, personas, grupos, actividades, pagos y cambio manual de estado. Acceso temporal de administrador con motivo técnico automático, sin pedir autorización al propietario.
+- Ficha de atleta con acceso, afiliaciones, identidad, reservas, sesiones y entrenamiento real (ejercicios/series/marcas), paginado y protegido por RPCs exclusivos de plataforma, con registro de lecturas.
+- Pagos: filtros en una sola línea con desplazamiento horizontal en pantallas pequeñas.
+- Configuración: días de prueba editables y realmente aplicados mediante trigger de creación y claim de organizaciones. Integraciones pendientes expresamente señaladas.
+- Migraciones 20261027170000_platform_admin_detail_views.sql y 20261027173000_platform_trial_settings.sql aplicadas.
+- Queda pendiente verificación E2E visual y ejecución correcta de CI en runners de GitHub. Stripe, email, facturación, flujos RGPD y alertas no están conectados.
+
+
 ## Acceso a centros pendientes desde Repera Admin — 27/10/2026
 
 - Los centros provisionados por Admin existen en `organizations` desde que se prepara el alta, vinculados por `platform_org_provisioning.claimed_org_id` incluso con `status='pending'`. Se recuperó el centro «Alicia» ya dado de alta.
