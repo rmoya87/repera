@@ -1,5 +1,10 @@
 ## Administración global (2026-10-27)
 
+## Hotfix de RLS — 27/10/2026
+
+Migración **aplicada**: `20261027140000_fix_platform_membership_rls.sql`. Elimina una política redundante sobre `organization_memberships` que generaba `42501 permission denied for table platform_admin_delegations` en operaciones normales. La política `memberships_select_authorized` ya delega comprobación de roles en `private.has_org_role`, incluido el acceso temporal del administrador global. El ledger de delegaciones sigue sin SELECT para `authenticated`. Comprobación de acceso realizada como rol Postgres `authenticated`; listado de membresías y directorio de plataforma responden sin error.
+
+
 - Migración complementaria aplicada: `20261027131000_platform_client_payment_ledger.sql` crea `business_client_payments` para cobros B2C verificados por proveedor (RLS habilitada, cero permisos directos de navegación; solo backend privilegiado). `platform_admin_finances` separa `payments` (B2B), `client_payments` (B2C) e `intents` (solicitudes no cobradas). No hay Stripe Connect activo.
 
 Migración aplicada: `supabase/migrations/20261027120000_platform_admin_console.sql`.
