@@ -357,12 +357,12 @@ struct WorkoutView: View {
                 if store.saveActiveSessionAsFavorite() != nil { return }
             }
             if let decision = store.lastAccessDenial, !decision.allowed,
-               !subscriptions.policy.isPro, subscriptions.status != .unknown {
+               !subscriptions.policy.isPro, subscriptions.snapshot.status != .unknown {
                 subscriptions.presentPaywall(
                     decision.paywallContext, feature: .unlimitedRoutines
                 )
             } else {
-                favoriteSaveError = subscriptions.status == .unknown && !subscriptions.isPro
+                favoriteSaveError = subscriptions.snapshot.status == .unknown && !subscriptions.isPro
                     ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
                     : "No se ha podido guardar este entrenamiento como favorito. Inténtalo de nuevo."
             }
