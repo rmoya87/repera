@@ -457,12 +457,12 @@ struct WorkoutDetailView: View {
             }
         }
         if let decision = store.lastAccessDenial, !decision.allowed,
-           !subscriptions.policy.isPro, subscriptions.status != .unknown {
+           !subscriptions.policy.isPro, subscriptions.snapshot.status != .unknown {
             subscriptions.presentPaywall(
                 decision.paywallContext, feature: .unlimitedRoutines
             )
         } else {
-            favoriteSaveError = subscriptions.status == .unknown && !subscriptions.isPro
+            favoriteSaveError = subscriptions.snapshot.status == .unknown && !subscriptions.isPro
                 ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
                 : "Este entrenamiento no tiene ejercicios reutilizables o no se ha podido guardar el favorito. Inténtalo de nuevo."
         }
