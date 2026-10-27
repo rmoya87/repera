@@ -1,21 +1,20 @@
-# Inventario de trabajo restante (27 oct 15:56 CET)
+# Inventario de trabajo restante (27 oct 19:11 CET)
 
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
 Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Contadores (recontado EXACTO 16:27 CET sobre campo 6 de ambas matrices)
-- Pre-window: 48 partial + 2 in-progress + 1 verified-partial+gap = 51
-  (los 2 in-progress son 661e65f4/9947c212 zonas FC: bloqueo preservado para decision usuario)
-- Post-window: 21 (recuento directo 16:47: cierres recientes 1c729659/056cba8b/1c9afcd0/83253491; 88db5bb7 REABIERTO como verified-partial+GAP: parser de importacion completo sin contraparte Android = diferencia funcional, no n/a)
-  (39a3f7f2 verified-partial 17:58: userFinished PORTADO (pendingEnd persistido + auto-prefill For Time una vez, 7 tests); countdownFinished n/a estructural; runtime abierto;
-   00fee1b4 verified-partial+GAP: legacy sin blockId indistinguible, slot
-   unico sin TTL, sin migracion por decision del padre;
-   b2bb19eb cerrado 16:06; 479d8407 cerrado 16:10;
-   f6f13169 done 16:16: checkpoint onStop + cache geometria estructural, pendiente runtime;
-   fafe016a partial 16:24: RouteMapTapTarget portado en CardioRouteSection con tests JVM;
-   26a625be partial 16:26: velo oscuro + trazo 3 capas dentro de MapLibre, sin decision usuario)
-- TOTAL abierto: 72 filas (51 pre + 21 post, recuento DIRECTO sobre campo 6 de ambas matrices 16:47 CET, no aritmetica) + dependencias de validacion
-- Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado), cadena BTT/T2B (6993e330..0a640da8), localizacion numeros post (b8cca90a/04da40ef/a192c38b/bf8de3db portados; 95847d98/fb6de251/af08512c n/a codigo muerto baseline), cluster onboarding AI (f68d77ff: logos OpenAI/Claude/Grok 0-diff, instrucciones 1:1, catalogo conexiones; quedan 5 partial: flujo Desconectar y oauth_client_id), cluster glifos corporales (este lote: 08551cb1/5099d9f1/49febc33/fdbd3558 verified-ported, 3b3792df n/a reorganizacion Xcode, b2f6b934 superseded por eliminacion Diario)
+## Contadores (recuento directo 27oct 19:11 CET)
+- Filas SHA validas:735 (579prewindow+156postwindow).
+- Prewindow:50abiertas (41partial+7verified-partial+2in-progress).
+- Postwindow:20abiertas (13partial+7verified-partial).
+- TOTAL:70abiertas. Regla fija: abierta si campo6 empieza partial,
+  verified-partial o in-progress; no cerrar verified-partial por tests JVM.
+- Cambio ultimo: b73d77dc reabierta desde verified-ported porque tenia una
+  desviacion declarada. Readiness vacio/cursor corregidos; curva gradiente
+  y catmullRom aun no portadas. No altera decisiones del usuario.
+- Suite vigente:mobile608/608(149XML),domain485/485(92),wear8/8(1).
+  Ultimo assemble mobile+wear completo verde en tree244; cambios posteriores
+  requieren nueva pasada antes de integrar. No push hasta condicion del usuario.
 
 ## Dependencias de validacion (bloquean cierre)
 1. compile/build mobile+wear COMPLETO verde gestionado in-call (assemble OK; confirmar tras cada lote) — REQUISITO antes de integrar/push
@@ -92,3 +91,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
   Acciones principales visibles; Descartar/Voz quedan bajo scroll del panel.
   Test hace scroll real y acredita que ambas son alcanzables. Render inspeccionado.
   No acredita fuentes grandes, todos los plegables ni cartografia nativa.
+
+## Siguiente unidad preparada
+- b73d77dc: HealthRecovery.swift corte0a640da8 trainingRecoveryTrendCard
+  usa curva catmullRom, stroke3 redondo y gradiente vertical por valor0..10:
+  rojo0..0.40, amarillo0.60..0.72, acento0.84..1.0. NO por distancia temporal.
+- Android DayPointLineChart es compartido con otras metricas: agregar opcion
+  especifica de readiness, por defecto lineal/paleta actual. No cambiar otras
+  series. Conservar seleccion por distancia calendario, bounds0..10 y estado
+  sin tendencia de una muestra. Render fixture multidia explicito antes de cierre.
