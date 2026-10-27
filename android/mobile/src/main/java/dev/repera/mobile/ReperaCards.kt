@@ -597,7 +597,8 @@ internal fun WodScoreCard(
                 minutes = (pending.pendingElapsedSeconds / 60).toString()
                 seconds = (pending.pendingElapsedSeconds % 60).toString().padStart(2, '0')
             }
-            onTimerAction("consumePendingEnd")
+            // Keep durable pending completion until the score is actually saved.
+            // Navigating away after prefill must not lose the measured elapsed.
         }
     }
     val valid = if (scoreIsTime) elapsed != null else

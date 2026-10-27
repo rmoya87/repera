@@ -10,7 +10,7 @@ data class WodTimerState(
     val running: Boolean,
     /** Apple 39a3f7f2 pendingEnd: fin pendiente de confirmar. Se congela al
      *  terminar el reloj ("Terminar"), sobrevive a la muerte del proceso y lo
-     *  consume una unica vez el editor de resultado (For Time). */
+     *  consume al guardar el resultado (For Time). */
     val pendingEndReason: String? = null,
     val pendingElapsedSeconds: Int = 0
 ) {
@@ -84,7 +84,7 @@ internal class WodTimerStore(
                 .remove("pendingEndReason").remove("pendingElapsedSeconds")
             // Apple 39a3f7f2 finishByUser (userFinished): congela el elapsed
             // REAL en el instante de terminar y lo persiste; el editor For
-            // Time lo consume una vez aunque el proceso muera antes.
+            // Time lo conserva hasta guardar aunque el proceso muera antes.
             "finish" -> edit.putLong("elapsedMs", current.elapsedMillis)
                 .putBoolean("running", false).putLong("startAtUptimeMs", 0)
                 .putString("pendingEndReason", "userFinished")

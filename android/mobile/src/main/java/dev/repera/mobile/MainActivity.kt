@@ -945,7 +945,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
                 onWodScore = { rounds, reps, seconds ->
-                    runWorkoutAction { recordWodScore(rounds, reps, seconds) }
+                    val scoreOwner=profile?.uniqueId
+                    val scoredBlock=activeWorkout
+                    runWorkoutAction(onSuccess={
+                        if(scoreOwner!=null && scoredBlock!=null && profile?.uniqueId==scoreOwner) {
+                            WodTimerStore(this,scoreOwner).consumePendingEnd(scoredBlock.id,scoredBlock.index,
+                                scoredBlock.navigationEntries.firstOrNull {it.index==scoredBlock.index}?.blockId)
+                            refreshWodTimer()
+                        }
+                    }) { recordWodScore(rounds, reps, seconds) }
                 },
                 onWodMovement = { movementIndex, interval, quantity, weight ->
                     runWorkoutAction { recordWodMovement(movementIndex, interval, quantity, weight) }
@@ -1881,12 +1889,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         runCatching {
             val store = WodTimerStore(this, user)
             val blockId = active.navigationEntries.firstOrNull { it.index == active.index }?.blockId
-            wodTimer = if (action == "consumePendingEnd") {
-                store.consumePendingEnd(active.id, active.index, blockId)
-                store.read(active.id, active.index, blockId)
-            } else {
-                store.update(active.id, active.index, action, blockId)
-            }
+            wodTimer = store.update(active.id, active.index, action, blockId)
         }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
         WearActiveSessionBridge.publishWodTimer(this, active.id, active.index,
             active.wod, wodTimer)

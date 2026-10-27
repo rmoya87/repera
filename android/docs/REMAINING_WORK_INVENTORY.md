@@ -105,3 +105,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - CatmullRom y gradiente por valor PORTADOS (readinessStyle opt-in); render multidia
   fixture explicito360claro inspeccionado. Suite mobile611/611(150XML).
   b73d77dc sigue verified-partial por dispositivo;70/735abiertas.
+
+## pendingEnd 19:31
+- 39a3f7f2 contrastada con WorkoutView.swift1362-1397 corte0a640da8.
+  Android conserva checkpoint hasta guardar resultado con exito, no al montar
+  el editor. Salir/volver recupera elapsed medido. Limpieza usa cuenta+revision
+  durable del flujo y bloque original; refresca estado UI tras consumir.
+- Test Compose desmonta/remonta y cambia pending manteniendo edicion manual
+  activa. No acredita persistencia de texto manual al navegar ni Activity real.
+  70/735 siguen abiertas; runtime no sustituido por JVM.
