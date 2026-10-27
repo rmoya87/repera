@@ -107,7 +107,10 @@ internal fun RouteMapView(
         val map = loadedMap ?: return@LaunchedEffect
         map.getStyle { style ->
             runCatching {
-                style.removeLayer("route-line");style.removeSource("route-src")
+                listOf("route-line","route-line-halo","route-line-edge","route-line-core",
+                    "route-line-est","route-line-est-halo","route-line-est-edge","route-line-est-core",
+                    "route-backdrop").forEach { style.removeLayer(it) }
+                listOf("route-src","route-src-est","route-backdrop-src").forEach { style.removeSource(it) }
                 for (i in 0..1) {
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
@@ -239,19 +242,68 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
             .put("properties", JSONObject().put("color", "#%06X".format(seg.argb and 0xFFFFFF)))
             .put("geometry", JSONObject().put("type", "LineString").put("coordinates", coords)).toString())
     }
+    // Apple fafe016a/26a625be: velo oscuro bajo la ruta (mapa base atenuado)
+    // y trazo en 3 capas (halo/edge/core) por encima. MapLibre ordena por
+    // insercion: el relleno se anade primero (equivale a aboveRoads) y las
+    // lineas despues (equivale a aboveLabels). Todo dentro del renderer
+    // aprobado; no requiere cambio de proveedor.
+    if (!plannedRoute && points.size >= 2) {
+        val minLat = points.minOf { it.latitude }; val maxLat = points.maxOf { it.latitude }
+        val minLon = points.minOf { it.longitude }; val maxLon = points.maxOf { it.longitude }
+        val latPad = maxOf(0.06, (maxLat - minLat) * 4)
+        val lonPad = maxOf(0.06, (maxLon - minLon) * 4)
+        val ring = org.json.JSONArray()
+        listOf(doubleArrayOf(minLon - lonPad, minLat - latPad),
+            doubleArrayOf(maxLon + lonPad, minLat - latPad),
+            doubleArrayOf(maxLon + lonPad, maxLat + latPad),
+            doubleArrayOf(minLon - lonPad, maxLat + latPad),
+            doubleArrayOf(minLon - lonPad, minLat - latPad))
+            .forEach { ring.put(org.json.JSONArray().put(it[0]).put(it[1])) }
+        val polygon = org.maplibre.geojson.Feature.fromJson(JSONObject()
+            .put("type", "Feature")
+            .put("geometry", JSONObject().put("type", "Polygon")
+                .put("coordinates", org.json.JSONArray().put(ring))).toString())
+        style.addSource(GeoJsonSource("route-backdrop-src", polygon))
+        style.addLayer(org.maplibre.android.style.layers.FillLayer(
+            "route-backdrop", "route-backdrop-src").withProperties(
+            PropertyFactory.fillColor(android.graphics.Color.BLACK),
+            PropertyFactory.fillOpacity(0.33f)))
+    }
+    // Trazo: halo/edge/core (anchos 4/2.25/1.4 y opacidades 0.23/0.75/1.0,
+    // valores Apple). Tramos estimados discontinuos en las 3 capas con el
+    // dash absoluto de Apple (4pt -> dasharray relativa por ancho).
+    fun strokeLayers(src: String, base: String, dashed_: Boolean) {
+        val widths = floatArrayOf(4f, 2.25f, 1.4f)
+        val opacities = floatArrayOf(0.23f, 0.75f, 1f)
+        val names = arrayOf("halo", "edge", "core")
+        for (i in 0..2) {
+            val props = mutableListOf(
+                PropertyFactory.lineColor(Expression.get("color")),
+                PropertyFactory.lineWidth(widths[i]),
+                PropertyFactory.lineOpacity(opacities[i]),
+                PropertyFactory.lineCap("round"))
+            if (dashed_) props.add(PropertyFactory.lineDasharray(
+                arrayOf(4f / widths[i], 4f / widths[i])))
+            style.addLayer(LineLayer("$base-${names[i]}", src).withProperties(*props.toTypedArray()))
+        }
+    }
     if (solid.isNotEmpty() || dashed.isEmpty()) {
         style.addSource(GeoJsonSource("route-src", org.maplibre.geojson.FeatureCollection.fromFeatures(featuresOf(solid))))
-        style.addLayer(LineLayer("route-line", "route-src").withProperties(
-            PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
-            PropertyFactory.lineCap("round")))
+        if (plannedRoute) {
+            style.addLayer(LineLayer("route-line", "route-src").withProperties(
+                PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
+                PropertyFactory.lineCap("round")))
+        } else strokeLayers("route-src", "route-line", dashed_ = false)
     }
     if (dashed.isNotEmpty()) {
         // Tramos estimados: discontinuos, nunca como medicion GPS (Apple 9f62c49a).
         style.addSource(GeoJsonSource("route-src-est", org.maplibre.geojson.FeatureCollection.fromFeatures(featuresOf(dashed))))
-        style.addLayer(LineLayer("route-line-est", "route-src-est").withProperties(
-            PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
-            PropertyFactory.lineCap("round"),
-            PropertyFactory.lineDasharray(arrayOf(2.0f, 2.0f))))
+        if (plannedRoute) {
+            style.addLayer(LineLayer("route-line-est", "route-src-est").withProperties(
+                PropertyFactory.lineColor(Expression.get("color")), PropertyFactory.lineWidth(4f),
+                PropertyFactory.lineCap("round"),
+                PropertyFactory.lineDasharray(arrayOf(2.0f, 2.0f))))
+        } else strokeLayers("route-src-est", "route-line-est", dashed_ = true)
     }
     // Inicio (acento) y fin (rojo), círculos con borde blanco como iOS.
     listOfNotNull(
