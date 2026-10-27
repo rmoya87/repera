@@ -13,6 +13,12 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
 ## Dependencias de validacion (bloquean cierre)
 1. compile/build mobile+wear COMPLETO verde gestionado in-call (assemble OK; confirmar tras cada lote) — REQUISITO antes de integrar/push
 2. Validacion runtime/UI en dispositivo/emulador de todo lo movil desde tree175 (WIP; emulador sin KVM no viable, adb requiere accion del usuario, cloud prohibido)
+   - Sub-dependencia explicita (padre 14:47): lo implementado por comparacion de fuente
+     (glifos 20x20, tarjeta "Musculos y equipo", iconos chips biblioteca, onboarding AI)
+     NO esta visualmente validado: 0-diff de coordenadas y assemble no acreditan pixeles.
+     Via intermedia honesta: render headless inspeccionable (captura Compose a bitmap en
+     test JVM / Robolectric modo grafico) con PNGs revisables — acredita render, nunca
+     runtime de dispositivo. Robolectric no esta en deps de mobile hoy.
 3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 507/507 en 123 suites XML real)
 
 ## Grupos de gaps principales (pre+post)
