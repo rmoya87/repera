@@ -83,6 +83,9 @@ function organizationDetail(o,{plans=[],detail=null,section='data'}={}){
  <button type="submit" class="pa-button">Guardar visibilidad</button></form>
  <p class="pa-muted">El propietario sigue pendiente hasta que confirme su correo y acepte el registro.
  Publicar el centro permite recibir solicitudes, pero no suplanta ni vincula al futuro propietario.</p>
+ ${o.registration_status==='pending'&&o.provisioning_id?
+ `<button type="button" class="pa-button" data-admin-action="email-owner" data-id="${esc(o.provisioning_id)}">
+ Enviar instrucciones al propietario</button>`:''}
  ${details([['Correo del propietario',o.owner_email],['Registro',o.registration_status==='pending'?'Pendiente de aceptación':'Completado'],
  ['Última actividad',stamp(o.last_activity)]])}</section></div>
  <section class="pa-panel"><h2>Descripción y servicios</h2>${d.services?.length?
