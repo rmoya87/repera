@@ -2652,6 +2652,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     point.altitudeMeters?.let { put("altitudeMeters", it) }
                     point.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
                     point.verticalAccuracyMeters?.let { put("verticalAccuracyMeters", it) }
+                    point.isEstimated?.let { put("isEstimated", it) }
                 })
         }
         target.put("routePoints", array)

@@ -2197,7 +2197,8 @@ data class StateOverview(
                                         altitudeMeters = point.optDouble("altitudeMeters")
                                             .takeIf { !it.isNaN() },
                                         horizontalAccuracyMeters = point.optDouble("horizontalAccuracyMeters", Double.NaN).takeIf { it.isFinite() },
-                                        verticalAccuracyMeters = point.optDouble("verticalAccuracyMeters", Double.NaN).takeIf { it.isFinite() }
+                                        verticalAccuracyMeters = point.optDouble("verticalAccuracyMeters", Double.NaN).takeIf { it.isFinite() },
+                                        isEstimated = if (point.has("isEstimated")) point.optBoolean("isEstimated") else null
                                     )
                             }
                         } ?: emptyList()
