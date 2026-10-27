@@ -8,7 +8,7 @@ import {navIcon} from './nav-icons.js';
 import {renderPlatformAdmin,paymentCSV} from './platform-admin.js';
 import {renderBusinessHome,renderClient360,renderClasses360} from './management-360.js';
 import {renderTrainerPassPanel,trainerSeatInfo} from './trainer-pass-panel.js';
-import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription} from './workout-editor.js';
+import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup} from './workout-editor.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,7 +19,7 @@ adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWork
 adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -50,8 +50,32 @@ function trainerDialogMarkup({manager,members}){
  const iso=/^\d{4}-\d{2}-\d{2}$/.test(dialogDay)?dialogDay:new Date().toLocaleDateString('sv-SE');
  let title='',inner='';
  if(businessDialog==='bulk'){
-  title='Añadir planificación';
-  inner=renderProfessionalPlanning({orgId:selectedOrg,role:manager?'owner':(memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role||'athlete'),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,clientId:selectedClientId,bulkOnly:true});
+  title='Crear planificación';
+  const linked=clients.filter(c=>c.user_id&&c.status==='active');
+  const today=new Date().toLocaleDateString('sv-SE');
+  const start=trainerActivityDay&&trainerActivityDay>=today?trainerActivityDay:today;
+  const tabs=`<nav class="trainer-bulk-modes">
+    <button type="button" data-action="bulk-mode" data-mode="custom" aria-current="${bulkMode==='custom'?'page':'false'}">Crear nuevo entrenamiento</button>
+    <button type="button" data-action="bulk-mode" data-mode="template" aria-current="${bulkMode==='template'?'page':'false'}">Usar plantilla guardada</button></nav>`;
+  const custom=`<form data-connected="bulk-custom" class="business-bulk-form trainer-bulk-custom">
+    <p class="connected-hint">1. Diseña el entrenamiento. 2. Elige a quién y cuándo asignarlo. 3. Publica.
+    No necesitas un Excel ni guardar una plantilla. Máximo 120 asignaciones por operación.</p>
+    <label class="connected-field">Nombre del entrenamiento<input name="title" minlength="2" maxlength="120" required placeholder="Fuerza + WOD"></label>
+    ${editorMarkup(emptyPrescription())}
+    <label class="connected-field">Indicaciones para el atleta<textarea name="instructions" maxlength="10000" rows="3" placeholder="Objetivos y recomendaciones"></textarea></label>
+    <fieldset class="business-bulk-step"><legend>Destinatarios</legend><div class="business-bulk-athletes">
+    ${linked.map(c=>`<label class="business-bulk-athlete"><input name="clients" type="checkbox" value="${escapeHTML(c.id)}" ${c.id===selectedClientId?'checked':''}><span class="business-avatar">${escapeHTML(c.name.slice(0,1))}</span><strong>${escapeHTML(c.name)}</strong></label>`).join('')||'No hay atletas vinculados'}</div></fieldset>
+    <fieldset class="business-bulk-step"><legend>Fechas y días</legend>
+    <div class="business-bulk-dates">
+    <label class="connected-field">Desde<input name="start" type="date" min="${today}" value="${start}" required></label>
+    <label class="connected-field">Hasta<input name="end" type="date" min="${today}" value="${start}" required></label></div>
+    <div class="business-bulk-weekdays">${['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((name,i)=>`<label><input type="checkbox" name="weekdays" value="${i+1}" checked><span>${name.slice(0,2)}</span></label>`).join('')}</div></fieldset>
+    <p class="connected-hint" role="status" data-custom-preview>Selecciona destinatarios y bloques.</p>
+    <button type="submit" class="connected-primary" ${!linked.length?'disabled':''}>Publicar planificación</button></form>`;
+  inner=tabs+(bulkMode==='custom'?custom:renderProfessionalPlanning({
+   orgId:selectedOrg,role:manager?'owner':(memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role||'athlete'),
+   sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,
+   clientId:selectedClientId,bulkOnly:true}));
  }else if(businessDialog==='new-appointment'){
   title='Nueva cita o grupo';
   inner=`<form data-connected="service-occurrence" class="business-form">
@@ -502,7 +526,8 @@ app.addEventListener('click',async event=>{
  if(action==='close-business-dialog'||trainer&&(action==='back-classes'||action==='back-groups')){businessDialog='';selectedClassId=null;selectedGroupId=null;render();return;}
  if(action==='new-date-appointment'&&trainer){dialogDay=actionable.dataset.day;businessDialog='new-appointment';render();return;}
  if(action==='calendar-today'){calendarMonth='';render();return;}
- if(action==='add-planning'&&trainer){if(actionable.dataset.id){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;}businessDialog='bulk';render();return;}
+ if(action==='bulk-mode'){bulkMode=actionable.dataset.mode==='template'?'template':'custom';render();return;}
+ if(action==='add-planning'&&trainer){if(actionable.dataset.id){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;}bulkMode='custom';businessDialog='bulk';render();return;}
  if(action==='delete-session'&&!busy){if(!confirm('¿Eliminar este entrenamiento programado? No se borrarán actividades ya realizadas por el deportista.'))return;busy=true;render();try{await auth.cancelProfessionalSession(actionable.dataset.id);await loadSelectedOrg();notice='Entrenamiento retirado de la planificación.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='end-client'&&trainer&&!busy){const client=clients.find(c=>c.id===actionable.dataset.id);if(!client)return;if(!confirm('Confirma que el contrato profesional ya ha vencido. La cuenta personal del deportista y sus suscripciones independientes se conservarán.'))return;busy=true;render();try{await auth.updateClientProfile({orgId:selectedOrg,id:client.id,name:client.name,email:client.email,phone:client.phone||'',notes:client.notes||'',avatar:client.avatar_url||'',status:'cancelled'});await loadSelectedOrg();notice='Relación profesional finalizada; la cuenta personal no se ha cancelado.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='detail-client'){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;clientSection='training';clientEditorOpen=false;trainerActivityMonth='';trainerActivityDay='';sharedHistory=[];activeTab='clients';businessDialog='';setWorkspaceRoute();render();try{sharedHistory=await auth.sharedClientHistory({orgId:selectedOrg,clientId:selectedClientId});}catch(e){error='El historial privado no está disponible para este profesional.';}render();return;}
@@ -745,6 +770,21 @@ app.addEventListener('submit',async event=>{
  }
  const f=event.target.closest('form[data-connected]');if(!f)return;event.preventDefault();if(busy)return;
  const action=f.dataset.connected,data=new FormData(f),intent=event.submitter?.dataset.intent||'publish';
+ if(action==='bulk-custom'){
+  const ids=[...f.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
+  const weekdays=[...f.querySelectorAll('input[name="weekdays"]:checked')].map(x=>Number(x.value));
+  const from=String(data.get('start')||''),to=String(data.get('end')||'');
+  const days=(Date.parse(to+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000;
+  const selectedDays=Number.isFinite(days)&&days>=0&&days<=55?Array.from({length:days+1},(_,i)=>{
+   const d=new Date(from+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+i);
+   return weekdays.includes(d.getUTCDay()||7)?1:0;
+  }).reduce((a,b)=>a+b,0):0;
+  const preview=f.querySelector('[data-custom-preview]');
+  if(ids.length<1||ids.length>20||!selectedDays||ids.length*selectedDays>120){
+   if(preview){preview.textContent='Selecciona entre 1 y 20 atletas, un rango máximo de 8 semanas y hasta 120 sesiones.';preview.classList.add('is-invalid');}
+   return;
+  }
+ }
  if(action==='bulk-training'){
   const valid=bulkPlanSummary(f);
   if(!valid.ok){
@@ -755,7 +795,10 @@ app.addEventListener('submit',async event=>{
   }
  }
  let prescription=null;
- try{if(action==='publish-session'||action==='publish-class-plan')prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){error=e.message;notice='';render();return;}
+ try{if(['publish-session','publish-class-plan','bulk-custom'].includes(action))prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){
+  const preview=f.querySelector('[data-custom-preview]');if(preview){preview.textContent=e.message;preview.classList.add('is-invalid');return;}
+  error=e.message;notice='';render();return;
+ }
  busy=true;error=notice='';render();
  try{
   if(action==='login'){user=await auth.signIn(data.get('email'),data.get('password'));await reload();await finalizePendingRegistration();}
@@ -814,6 +857,15 @@ app.addEventListener('submit',async event=>{
    }
    await reload();
    if(trainerActive()&&intent==='publish')clientEditorOpen=false;
+  }
+  if(action==='bulk-custom'){
+   const ids=[...f.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
+   const weekdays=[...f.querySelectorAll('input[name="weekdays"]:checked')].map(x=>Number(x.value));
+   const result=await auth.bulkPublishCustomTraining({
+     orgId:selectedOrg,clientIds:ids,start:data.get('start'),end:data.get('end'),weekdays,
+     title:data.get('title'),instructions:data.get('instructions')||'',prescription});
+   await loadSelectedOrg();businessDialog='';
+   notice='Planificación guardada: '+(result.created||0)+' sesiones'+(result.skipped?' · '+result.skipped+' existentes sin duplicar':'')+'.';
   }
   if(action==='bulk-training'){
    const ids=[...f.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
