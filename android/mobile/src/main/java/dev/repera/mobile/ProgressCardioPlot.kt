@@ -37,7 +37,7 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
  fun nearest(f:Float)=points.indices.minBy {abs(ProgressPlotAxis.fraction(points[it].day,domain)-f)}
  Column(Modifier.fillMaxWidth().semantics {
   contentDescription=if(preview) "Cardio de ejemplo, datos ficticios" else "Cardio registrado: mínimo, media y máximo"
-  if(points.isNotEmpty()) customActions=listOf(
+  if(!preview && points.isNotEmpty()) customActions=listOf(
    CustomAccessibilityAction("Punto anterior") {selected=ChartSelectionStep.step(selected,-1,points.size);true},
    CustomAccessibilityAction("Punto siguiente") {selected=ChartSelectionStep.step(selected,1,points.size);true})
  }) {
@@ -51,8 +51,8 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
      listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall)}
     }
     Canvas(Modifier.weight(1f).height(190.dp).testTag("cardio_observed_plot")
-     .pointerInput(points,domain) {detectTapGestures {selected=nearest(it.x/size.width)}}
-     .pointerInput(points,domain) {detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
+     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
+     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
      fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
      fun y(value:Double)=size.height-((value-low)/(high-low)*size.height).toFloat()
      clipRect {

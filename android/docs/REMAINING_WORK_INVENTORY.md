@@ -493,3 +493,19 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  layouttarjetasseparadasSwift.8focalizados/3XMLverdes64s,compile65s;
  PNG360curvas/vacioinspeccionados. Completa307+assemblependientes.
 -735/70abiertas,nativopendiente,nopush;domain504/93Wear8/1anteriores.
+
+## Revision graficos, continuidad 00:15 28oct
+- Full307mobile666/163XMLreales66/80/65/62s0error/fallo/omitidos,
+ assemble73sverde. Ultimabateriacompleta,noejecucion308.
+- Mismobloque ysubhuecoyaindicado:cardiokcalseparadosahora2cards
+ ordenCardio->Calorias,gap12,padding10horizontal/20vertical,titulos y
+ ejemplo/totalenfila;statsdespuesdeplot,sinsuperficiecombinadaanterior.
+- Hallazgonuevoenrevision:305/307permitianseleccionenpreviewFree,
+ contrarioStatsViewfreeHealthPreview allowsHitTestingfalse. Regresion
+ propia corregida:tap/drag/customactions inactivos sipreview. Datos reales
+ mantienenseleccion.3testsverdes64s,nointeraccionFreey2seleccionesreal,
+ compile62s. PNG360x742inspeccionado,curvas/ticks/tileslegibles.
+- Gridcompleto4cardsadaptativoSwift aunpendiente:AndroidseccionScores/
+ peso estaenseparadositems,estas2cards aunverticales. Noafirmarreticula
+ totalni cierreblock.Yticks/greedylabelsaproximados,nativopendiente.
+- Completa308/assemblependientes;735/70nopush,domain504/93Wear8/1previos.

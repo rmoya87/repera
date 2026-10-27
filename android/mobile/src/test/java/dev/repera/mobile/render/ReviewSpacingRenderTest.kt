@@ -308,7 +308,7 @@ class ReviewSpacingRenderTest {
         composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("calories_fixture")) {
             androidx.compose.foundation.layout.Column {
             val charts=dev.repera.mobile.ProgressPreview.charts(day,true).copy(caloriesDailyAverage=503.0,previousCaloriesDailyAverage=450.0)
-            dev.repera.mobile.ProgressCaloriesPlot(charts,preview=true,today=day)
+            dev.repera.mobile.ProgressCaloriesPlot(charts,preview=false,today=day)
             dev.repera.mobile.ProgressCalorieStats(charts)
             }
         }}}
@@ -317,7 +317,7 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertEquals(210,composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         save(composeRule.onNodeWithTag("calories_fixture").captureToImage().asAndroidBitmap(),"calories-preview-curve.png")
         composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()
-        composeRule.onNodeWithText("24 oct 2026: 721 kcal",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithText("26 oct 2026: 645 kcal",useUnmergedTree=true).assertExists()
     }
  @Test fun caloriesEmptyKeepsAxesWithoutFabricatedSamples() {
         val day=LocalDate.of(2026,10,27)
@@ -331,13 +331,13 @@ class ReviewSpacingRenderTest {
  @Test fun cardioThreeCurvesAndSelection() {
         val day=LocalDate.of(2026,10,27)
         composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("cardio_fixture")) {
-            dev.repera.mobile.ProgressCardioPlot(dev.repera.mobile.ProgressPreview.charts(day,true),preview=true,today=day)
+            dev.repera.mobile.ProgressCardioPlot(dev.repera.mobile.ProgressPreview.charts(day,true),preview=false,today=day)
         }}}
         org.junit.Assert.assertEquals(190,composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         composeRule.onNodeWithText("Mín",useUnmergedTree=true).assertExists()
         save(composeRule.onNodeWithTag("cardio_fixture").captureToImage().asAndroidBitmap(),"cardio-three-curves.png")
         composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).performClick()
-        composeRule.onNodeWithText("24 oct 2026: 130 lpm",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithText("26 oct 2026: 129 lpm",useUnmergedTree=true).assertExists()
     }
  @Test fun cardioEmptyKeeps190Axes() {
         val day=LocalDate.of(2026,10,27)
@@ -347,5 +347,18 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertEquals(190,composeRule.onNodeWithTag("empty_health_chart_axes",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).assertDoesNotExist()
         save(composeRule.onNodeWithTag("cardio_empty_fixture").captureToImage().asAndroidBitmap(),"cardio-empty-axes.png")
+    }
+ @Test @Config(sdk=[35],qualifiers="w360dp-h1200dp") fun healthPreviewSeparateCardsAndNoSelection() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("health_preview_fixture")) {
+            dev.repera.mobile.ProgressChartsCard(dev.repera.mobile.ProgressPreview.charts(day,true),showEmpty=true,preview=true)
+        }}}
+        composeRule.onNodeWithTag("progress_cardio_card").assertExists()
+        composeRule.onNodeWithTag("progress_calories_card").assertExists()
+        composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).performClick()
+        composeRule.onNodeWithText("24 oct 2026: 130 lpm",useUnmergedTree=true).assertDoesNotExist()
+        composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()
+        composeRule.onNodeWithText("24 oct 2026: 721 kcal",useUnmergedTree=true).assertDoesNotExist()
+        save(composeRule.onNodeWithTag("health_preview_fixture").captureToImage().asAndroidBitmap(),"health-preview-separate-cards.png")
     }
 }

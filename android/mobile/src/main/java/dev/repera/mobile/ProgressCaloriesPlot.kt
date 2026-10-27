@@ -47,7 +47,7 @@ internal object ProgressPlotAxis {
  fun nearest(f:Float)=points.indices.minBy {abs(ProgressPlotAxis.fraction(points[it].day,domain)-f)}
  Column(Modifier.fillMaxWidth().semantics {
   contentDescription=if(preview) "Calorías de ejemplo, datos ficticios" else "Calorías activas registradas"
-  if(points.isNotEmpty()) customActions=listOf(
+  if(!preview && points.isNotEmpty()) customActions=listOf(
    CustomAccessibilityAction("Punto anterior") {selected=ChartSelectionStep.step(selected,-1,points.size);true},
    CustomAccessibilityAction("Punto siguiente") {selected=ChartSelectionStep.step(selected,1,points.size);true})
  }) {
@@ -63,8 +63,8 @@ internal object ProgressPlotAxis {
      Text("0",style=MaterialTheme.typography.labelSmall)
     }
     Canvas(Modifier.weight(1f).height(210.dp).testTag("calories_observed_plot")
-     .pointerInput(points,domain) {detectTapGestures {selected=nearest(it.x/size.width)}}
-     .pointerInput(points,domain) {detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
+     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
+     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
      fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
      fun y(value:Double)=size.height-(value/maximum*size.height).toFloat()
      clipRect {

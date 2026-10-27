@@ -51,30 +51,25 @@ import dev.repera.domain.ProgressPreparedCharts
 @Composable
 internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean=false,preview:Boolean=false) {
     if (!showEmpty && charts.calories.isEmpty() && charts.heartRate.isEmpty()) return
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text("Actividad y pulso", style = MaterialTheme.typography.titleLarge)
-            if(showEmpty && charts.calories.isEmpty()) {
-                Text("Calorías activas · sin mediciones en el periodo")
-                ProgressCaloriesPlot(charts,preview)
-            }
-            if(showEmpty && charts.heartRate.isEmpty()) {
-                Text("Frecuencia cardíaca · sin mediciones en el periodo")
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        if(showEmpty || charts.heartRate.isNotEmpty()) Card(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
+            Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text("Cardio",style=MaterialTheme.typography.titleMedium)
+                    if(preview) Text("Ejemplo",style=MaterialTheme.typography.labelMedium)
+                    else if(charts.heartRate.isNotEmpty()) Text("Media ${Math.round(charts.heartRate.map {it.avgBpm}.average())} lpm",style=MaterialTheme.typography.labelMedium)
+                }
                 ProgressCardioPlot(charts,preview)
             }
-            if (charts.calories.isNotEmpty()) {
-                Text("Calorías activas · ${charts.caloriesTotal.toInt()} kcal en el rango",
-                    style = MaterialTheme.typography.bodyMedium)
+        }
+        if(showEmpty || charts.calories.isNotEmpty()) Card(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
+            Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text("Calorías",style=MaterialTheme.typography.titleMedium)
+                    if(preview || charts.caloriesTotal>0) Text((if(preview) "Ejemplo · " else "")+Math.round(charts.caloriesTotal)+" kcal",style=MaterialTheme.typography.labelMedium)
+                }
                 ProgressCaloriesPlot(charts,preview)
-            }
-            if(showEmpty || charts.calories.isNotEmpty()) ProgressCalorieStats(charts)
-            if (charts.heartRate.isNotEmpty()) {
-                Text("Frecuencia cardíaca" +
-                    (charts.averageHeartRate?.let {
-                        " · media ${it.toInt()} ppm" } ?: ""),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 12.dp))
-                ProgressCardioPlot(charts,preview)
+                ProgressCalorieStats(charts)
             }
         }
     }
