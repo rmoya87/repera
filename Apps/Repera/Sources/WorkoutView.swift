@@ -1448,16 +1448,22 @@ struct WorkoutView: View {
             startBlockClock(for: current)
             return
         }
-        let block = current.blockId ?? current.id
-        let plannedRounds = store.state.activeSession?.exercises
-            .filter { ($0.blockId ?? $0.id) == block }
-            .map { $0.plannedSets.count }.max() ?? 0
         manualRoundMinutes = 1
         manualRoundSeconds = 0
         manualRoundSetup = ManualRoundSetup(
             exerciseID: current.id,
-            rounds: min(99, max(1, current.blockRounds ?? plannedRounds))
+            rounds: prescribedRoundCount(for: current)
         )
+    }
+
+    /// Series por ejercicio agrupadas por ronda; no sumar sets de distintos
+    /// ejercicios porque forman la MISMA vuelta al bloque.
+    private func prescribedRoundCount(for current: SessionExercise) -> Int {
+        let block = current.blockId ?? current.id
+        let planned = store.state.activeSession?.exercises
+            .filter { ($0.blockId ?? $0.id) == block }
+            .map { $0.plannedSets.count }.max() ?? current.plannedSets.count
+        return min(99, max(1, current.blockRounds ?? planned))
     }
 
     private func manualRoundDurationSheet(for setup: ManualRoundSetup) -> some View {
@@ -1650,18 +1656,21 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .partner, .roundsForQuality, .strength, .none:
-            if let manualRoundSeconds, manualRoundSeconds > 0 {
-                // Los bloques libres siguen sus series prescritas como rondas
-                // de la misma duración, mostrando el contador verde 1/N.
+            // La duración explícita del formato tiene prioridad absoluta:
+            // no volver a preguntar ni sustituirla por un valor por defecto.
+            if let roundDuration = manualRoundSeconds
+                ?? current.blockIntervalSeconds ?? current.blockWorkSeconds,
+               roundDuration > 0 {
+                let rounds = manualRounds ?? prescribedRoundCount(for: current)
                 store.workoutClock.configure(
                     exercise: current.exercise,
                     title: current.blockHeader ?? current.exercise.name,
                     subtitle: current.blockHeader ?? "Ronda de fuerza",
                     countingUp: false,
                     intervalMode: true,
-                    intervalLength: manualRoundSeconds,
-                    totalIntervals: max(1, manualRounds ?? 1),
-                    initialCountdown: manualRoundSeconds,
+                    intervalLength: roundDuration,
+                    totalIntervals: rounds,
+                    initialCountdown: roundDuration,
                     allowEarlyIntervalFinish: true,
                     sound: sound,
                     haptic: haptic
