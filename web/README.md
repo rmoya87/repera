@@ -1,5 +1,14 @@
 # Web Repera (`repera.app`)
 
+## Panel de administración global (27/10/2026)
+
+Menú único **Centros** (gimnasios, centros deportivos, entrenadores con columna diferenciadora), **Atletas** (cuentas incluso sin centro), **Pagos**, **Planes** (catálogo simplificado), **Soporte**, **Auditoría** y **Configuración** (contactos persistidos). La identidad del administrador se muestra en el pie del menú: pulsar avatar/nombre abre nombre/foto, correo y contraseña. Los desplegables de filtros y formularios tienen un estilo consistente en `platform-admin-polish.css`.
+
+Las imágenes de alta se convierten a JPEG, limitadas al bucket comercial mediante permisos por carpeta `pending/{uuid}` y asociadas por RPC a la prealta. El propietario recibe esa imagen al confirmar y reclamar el centro. No se simula ningún cobro. Los datos no provienen de fixtures locales.
+
+Para actualizar la versión local: `git pull --ff-only origin main` y volver a abrir `Repera-Business.command`; los recursos usan versión de caché `20261027u`.
+
+
 ## Inicio local exclusivamente conectado (2026-10-27)
 
 `Repera-Business.command` abre `/console/` y utiliza exclusivamente Supabase Auth y PostgREST de Repera. Se ha retirado la opción de demostración y el enlace del encabezado; los parámetros de URL ya no permiten acceder a datos precargados. El administrador global se determina antes de consultar las membresías de negocio, evitando un bloqueo de la consola por reglas RLS de tenants.
