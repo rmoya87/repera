@@ -19,6 +19,8 @@ struct SessionPreviewView: View {
     @State private var editedSnapshot: Routine?
     @State private var showDeleteConfirm = false
     @State private var startFailureMessage: String?
+    @State private var favoriteSaveError: String?
+    @State private var isSavingFavorite = false
 
     private var active: WorkoutSession? { store.state.activeSession }
 
@@ -144,27 +146,14 @@ struct SessionPreviewView: View {
             if active == nil, liveRoutine != nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        guard let routine = liveRoutine else { return }
-                        if store.state.routines.contains(where: { $0.id == routine.id }) {
-                            guard store.setRoutineFavorite(
-                                routine.id, isFavorite: !routine.isFavorite
-                            ) else {
-                                presentFavoriteLimitPaywall()
-                                return
-                            }
-                        } else if !routine.isFavorite {
-                            guard let saved = store.saveAsFavorite(routine) else {
-                                presentFavoriteLimitPaywall()
-                                return
-                            }
-                            editedSnapshot = saved
-                        }
+                        Task { await toggleVisibleFavorite() }
                     } label: {
                         Image(systemName: liveRoutine?.isFavorite == true ? "star.fill" : "star")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(liveRoutine?.isFavorite == true ? OG.yellow : OG.label)
                     }
                     .accessibilityLabel(liveRoutine?.isFavorite == true ? "Quitar de favoritos" : "Guardar en favoritos")
+                    .disabled(isSavingFavorite)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -202,6 +191,14 @@ struct SessionPreviewView: View {
                     .accessibilityLabel("Comenzar")
                 }
             }
+        }
+        .alert("No se ha podido guardar el favorito", isPresented: Binding(
+            get: { favoriteSaveError != nil },
+            set: { if !$0 { favoriteSaveError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
+        } message: {
+            Text(favoriteSaveError ?? "")
         }
         .alert("No se ha podido iniciar el entreno", isPresented: Binding(
             get: { startFailureMessage != nil },
@@ -246,13 +243,49 @@ struct SessionPreviewView: View {
         onStart()
     }
 
-    /// Una estrella solo confirma éxito cuando existe una plantilla persistida.
-    /// Cuando la versión Gratis alcanza su límite, abrir el paywall igual
-    /// que el editor en vez de mostrar un favorito que nunca se guardó.
+    /// Intenta marcar o desmarcar una plantilla sin perder su programación.
+    private func persistVisibleFavorite() -> Bool {
+        guard let routine = liveRoutine else { return false }
+        if store.state.routines.contains(where: { $0.id == routine.id }) {
+            return store.setRoutineFavorite(
+                routine.id, isFavorite: !routine.isFavorite
+            )
+        }
+        if !routine.isFavorite, let saved = store.saveAsFavorite(routine) {
+            editedSnapshot = saved
+            return true
+        }
+        return routine.isFavorite
+    }
+
+    private func toggleVisibleFavorite() async {
+        guard !isSavingFavorite, liveRoutine != nil else { return }
+        isSavingFavorite = true
+        defer { isSavingFavorite = false }
+        favoriteSaveError = nil
+        subscriptions.syncCounts(
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount
+        )
+        if persistVisibleFavorite() { return }
+        if store.lastAccessDenial != nil {
+            await subscriptions.refreshEntitlementsForFeatureAction()
+            if persistVisibleFavorite() { return }
+        }
+        presentFavoriteLimitPaywall()
+    }
+
+    /// Solo un rechazo de cuota confirmado abre la suscripción.
+    /// El fallo al guardar una plantilla con Pro activo muestra un error normal.
     private func presentFavoriteLimitPaywall() {
-        let decision = store.lastAccessDenial
-            ?? subscriptions.canCreateLibraryRoutine(isNew: true)
-        subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
+        if let decision = store.lastAccessDenial, !decision.allowed,
+           !subscriptions.policy.isPro, subscriptions.status != .unknown {
+            subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
+        } else {
+            favoriteSaveError = subscriptions.status == .unknown && !subscriptions.isPro
+                ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
+                : "No se ha podido guardar este entrenamiento como favorito. Inténtalo de nuevo."
+        }
     }
 
     private var deleteConfirmMessage: String {
