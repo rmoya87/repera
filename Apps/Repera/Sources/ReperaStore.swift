@@ -2599,6 +2599,13 @@ final class ReperaStore: NSObject {
             }
             return false
         }
+        // Un histórico restaurado puede conservar el ejercicio completo
+        // aunque el catálogo local todavía no tenga su UUID (ejercicio
+        // personalizado/antiguo). Recuperarlo para que Play no omita series.
+        for item in session.exercises where
+            !state.exercises.contains(where: { $0.id == item.exercise.id }) {
+            state.exercises.append(item.exercise)
+        }
         // Solo vincular la estrella si la plantilla se guardó de verdad.
         state.workouts[workoutIndex].favoriteRoutineId = template.id
         persist()
