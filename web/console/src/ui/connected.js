@@ -172,13 +172,18 @@ app.addEventListener('click',async event=>{
   const command=platformButton.dataset.adminAction;
   if(command==='view-org'){adminSelectedOrg=platformButton.dataset.id;render();return;}
   if(command==='back-org'){adminSelectedOrg='';render();return;}
-  if(command==='go-gyms'){adminTab='gyms';adminSelectedOrg='';render();return;}
-  if(command==='go-trainers'){adminTab='trainers';adminSelectedOrg='';render();return;}
+  if(command==='go-centers'){adminTab='centers';adminSelectedOrg='';render();return;}
+  if(command==='go-athletes'){adminTab='athletes';adminSelectedOrg='';render();return;}
+  if(command==='open-account'){adminTab='account';adminSelectedOrg='';render();return;}
+  if(command==='new-plan'){adminTab='plans';adminEditPlan='new';render();return;}
+  if(command==='edit-plan'){adminEditPlan=adminEditPlan===platformButton.dataset.id?'':platformButton.dataset.id;render();return;}
+  if(command==='cancel-plan-edit'){adminEditPlan='';render();return;}
+  if(command==='logout-admin'){app.querySelector('[data-action="logout"]')?.click();return;}
   if(command==='go-payments'){adminTab='payments';adminSelectedOrg='';render();return;}
   if(command==='go-provision'){adminTab='provision';adminSelectedOrg='';render();return;}
   if(command==='export-payments'){
    const content=paymentCSV(adminDirectory,adminFinances,adminFilter),blob=new Blob(['\uFEFF'+content],{type:'text/csv;charset=utf-8'});
-   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='repera-pagos-b2b.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);return;
+   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='repera-pagos-'+(adminFilter.paymentScope==='b2c'?'centros-b2c':'plataforma-b2b')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);return;
   }
   if(command==='exit-delegation'&&!busy){
    busy=true;render();try{await auth.platformAdminEndDelegation();delegation=null;selectedOrg=null;activeTab='overview';adminTab='home';adminSelectedOrg='';await reload();notice='Has vuelto a la administración global.';}catch(e){error=e.message||'No se pudo cerrar la delegación';}finally{busy=false;render();}return;
