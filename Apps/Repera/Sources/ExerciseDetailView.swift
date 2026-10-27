@@ -336,6 +336,11 @@ struct ExerciseDetailView: View {
             if let exercise {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        if !showsInlineHeader {
+                            OGScrollablePageTitle(exercise.name)
+                                .padding(.horizontal, OG.pad)
+                                .padding(.top, 8)
+                        }
                         if showsInlineHeader {
                             HStack(alignment: .center, spacing: 10) {
                                 Text(exercise.name)
@@ -410,7 +415,7 @@ struct ExerciseDetailView: View {
                     .ogReadableColumn()
                 }
                 .background(OG.bg.ignoresSafeArea())
-                .ogPinnedTransparentNav(showsInlineHeader ? "" : exercise.name)
+                .ogScrollingTitleNav()
                 .ogDiaryTransparentNav()
                 .toolbar(showsInlineHeader ? .hidden : .visible, for: .navigationBar)
                 .toolbar {

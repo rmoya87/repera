@@ -72,6 +72,7 @@ struct HistoryView: View {
                 .foregroundStyle(OG.label2)
             } else {
                 List {
+                    OGScrollablePageTitle("Historial").ogScrollingTitleListRow()
                     Section {
                         NavigationLink {
                             LiveSportsCatalogView()
@@ -127,7 +128,7 @@ struct HistoryView: View {
             }
         }
         .background(OG.bg)
-        .ogPinnedTransparentNav("Historial")
+        .ogScrollingTitleNav()
         .task(id: store.workoutsEpoch) {
             // No persistir reviews masivamente al abrir: causaba invalidaciones
             // del store y un refresco costoso al regresar de un detalle.
@@ -499,6 +500,7 @@ struct WorkoutDetailView: View {
 
     private var detailList: some View {
         List {
+            OGScrollablePageTitle(workoutNavTitle).ogScrollingTitleListRow()
             if let session = draft {
                 // La fecha es cabecera EXTERIOR, no contenido de la primera
                 // fila insetGrouped. Evita que las esquinas redondeadas de List
@@ -733,7 +735,7 @@ struct WorkoutDetailView: View {
                 highlightExerciseInstanceId: route.exerciseInstanceId
             )
         }
-        .ogPinnedTransparentNav(workoutNavTitle)
+        .ogScrollingTitleNav()
         .navigationBarBackButtonHidden(isEditing)
         .toolbar {
             if isEditing {
@@ -1968,6 +1970,7 @@ struct HealthActivityDetailView: View {
         let showRouteMap = detail.routePoints.count >= 2
 
         return List {
+            OGScrollablePageTitle(activity.title).ogScrollingTitleListRow()
             Section {
                 summaryRow(activity, detail: detail)
                     .ogCardListRow(top: 0, bottom: 2)
@@ -2043,7 +2046,7 @@ struct HealthActivityDetailView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
-        .ogPinnedTransparentNav(activity.title)
+        .ogScrollingTitleNav()
     }
 
     private func sectionHeader(_ title: String) -> some View {

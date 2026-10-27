@@ -11,7 +11,9 @@ struct ExerciseProgressView: View {
 
     var body: some View {
         ScrollView {
-            Group {
+            VStack(alignment: .leading, spacing: 14) {
+                OGScrollablePageTitle(store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio")
+                Group {
                 if subscriptions.isPro {
                     ExerciseEvolutionPanel(exerciseId: exerciseId)
                 } else {
@@ -21,15 +23,14 @@ struct ExerciseProgressView: View {
                     }
                 }
             }
+                }
             .padding(.horizontal, OG.pad)
-            .padding(.top, 0)
+            .padding(.top, 8)
             .padding(.bottom, 28)
             .ogReadableColumn()
         }
         .background(OG.bg.ignoresSafeArea())
-        .ogPinnedTransparentNav(
-            store.resolvedCatalogExercise(id: exerciseId)?.name ?? "Ejercicio"
-        )
+        .ogScrollingTitleNav()
         .ogDiaryTransparentNav()
     }
 
@@ -600,6 +601,7 @@ struct ExerciseHistoryView: View {
                 .foregroundStyle(OG.label2)
             } else {
                 List {
+                    OGScrollablePageTitle(exerciseName).ogScrollingTitleListRow()
                     ForEach(sessions) { row in
                         NavigationLink {
                             WorkoutDetailView(sessionId: row.id)
@@ -640,7 +642,7 @@ struct ExerciseHistoryView: View {
             }
         }
         .background(OG.bg)
-        .ogPinnedTransparentNav(exerciseName)
+        .ogScrollingTitleNav()
         .ogDiaryTransparentNav()
     }
 }

@@ -41,6 +41,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     @Environment(ReperaStore.self) private var store
     let exercises: [Exercise]
     var prompt: String = "Buscar ejercicio"
+    var pageTitle: String? = nil
     var subtitle: (ExerciseSearch.Document) -> String = { doc in
         var parts = [doc.muscleGroup]
         if let eq = doc.equipment, !eq.isEmpty { parts.append(eq) }
@@ -61,6 +62,9 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
 
     var body: some View {
         List {
+            if let pageTitle {
+                OGScrollablePageTitle(pageTitle).ogScrollingTitleListRow()
+            }
             Section {
                 ForEach(rows) { row in
                     Button {
@@ -247,6 +251,7 @@ extension ExerciseCatalogSearchList where Header == EmptyView, Footer == EmptyVi
     init(
         exercises: [Exercise],
         prompt: String = "Buscar ejercicio",
+        pageTitle: String? = nil,
         subtitle: @escaping (ExerciseSearch.Document) -> String = { doc in
             var parts = [doc.muscleGroup]
             if let eq = doc.equipment, !eq.isEmpty { parts.append(eq) }
@@ -257,6 +262,7 @@ extension ExerciseCatalogSearchList where Header == EmptyView, Footer == EmptyVi
         self.init(
             exercises: exercises,
             prompt: prompt,
+            pageTitle: pageTitle,
             subtitle: subtitle,
             onPick: onPick,
             header: { EmptyView() },

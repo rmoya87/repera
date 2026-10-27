@@ -209,6 +209,7 @@ struct StandaloneTimerView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                OGScrollablePageTitle("Temporizador")
                 // Mismo selector Liquid Glass nativo que Entreno / Actividad / Recuperación.
                 Picker("Tipo de temporizador", selection: $config.mode) {
                     ForEach(StandaloneTimerMode.allCases) { mode in
@@ -283,9 +284,7 @@ struct StandaloneTimerView: View {
             .padding(.bottom, 28)
         }
         .background(OG.bg.ignoresSafeArea())
-        .navigationTitle("Temporizador")
-        .navigationBarTitleDisplayMode(.large)
-        .ogDiaryTransparentNav()
+        .ogScrollingTitleNav()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 OGToolbarGlassButton(

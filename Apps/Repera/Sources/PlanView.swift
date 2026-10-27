@@ -22,7 +22,7 @@ private struct DayEditorChromeModifier: ViewModifier {
     func body(content: Content) -> some View {
         if usesPageCloseHeader {
             content
-                .ogPinnedTransparentNav(title)
+                .ogScrollingTitleNav()
                 // Usar solo el chevron nativo de NavigationStack.
                 // El botón manual duplicaba el volver en iOS 27.
                 .navigationBarBackButtonHidden(false)
@@ -154,6 +154,9 @@ struct DayEditorView: View {
 
     private var editorForm: some View {
         Form {
+            if usesPageCloseHeader {
+                OGScrollablePageTitle(navTitle).ogScrollingTitleListRow()
+            }
             Section {
                 TextField(nameFieldPlaceholder, text: $routine.title)
                 switch mode {
@@ -1924,6 +1927,7 @@ struct WODMovementEditor: View {
 
     var body: some View {
         Form {
+            OGScrollablePageTitle("Movimiento WOD").ogScrollingTitleListRow()
             Toggle("Es descanso", isOn: $movement.isRest)
             if movement.isRest {
                 Stepper("Segundos: \(movement.restSeconds ?? 60)", value: Binding(
@@ -2008,7 +2012,7 @@ struct WODMovementEditor: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Movimiento WOD")
+        .ogScrollingTitleNav()
         .onAppear {
             seedSetsIfNeeded()
             maleWeightDraft = movement.weightMaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
@@ -2197,6 +2201,7 @@ struct RoutineExerciseEditor: View {
 
     var body: some View {
         Form {
+            OGScrollablePageTitle(exerciseName).ogScrollingTitleListRow()
             if let exercise {
                 Section {
                     ExerciseArtView(exercise: exercise, showBadge: false, showStepCaptions: false)
@@ -2298,7 +2303,7 @@ struct RoutineExerciseEditor: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .ogPinnedTransparentNav(exerciseName)
+        .ogScrollingTitleNav()
         .onAppear {
             if item.plannedSets.isEmpty {
                 let style = exercise?.loggingStyle ?? .loadAndReps
@@ -2479,12 +2484,13 @@ struct ExercisePickerView: View {
     private var pickerContent: some View {
         ExerciseCatalogSearchList(
             exercises: store.state.exercises,
-            prompt: "Buscar ejercicio"
+            prompt: "Buscar ejercicio",
+            pageTitle: "Elegir ejercicio"
         ) { exercise in
             onPick(exercise)
             if embedsNavigationStack { dismiss() }
         }
-        .ogPinnedTransparentNav("Elegir ejercicio")
+        .ogScrollingTitleNav()
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {
@@ -2513,6 +2519,7 @@ private struct FreeWODMovementCreatePage: View {
 
     var body: some View {
         Form {
+            OGScrollablePageTitle("Nuevo movimiento").ogScrollingTitleListRow()
             Section("Movimiento") {
                 TextField("Nombre", text: $name)
                     .textInputAutocapitalization(.words)
@@ -2525,7 +2532,7 @@ private struct FreeWODMovementCreatePage: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Nuevo movimiento")
+        .ogScrollingTitleNav()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Añadir") {
@@ -2586,6 +2593,7 @@ private struct WODFormatPickerPage: View {
 
     var body: some View {
         List {
+            OGScrollablePageTitle("Formato del bloque").ogScrollingTitleListRow()
             Button {
                 onPick(nil)
             } label: {
@@ -2617,7 +2625,7 @@ private struct WODFormatPickerPage: View {
             }
         }
         .ogListChrome()
-        .ogPinnedTransparentNav("Formato del bloque")
+        .ogScrollingTitleNav()
     }
 }
 

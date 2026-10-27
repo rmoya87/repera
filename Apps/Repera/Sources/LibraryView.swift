@@ -294,10 +294,10 @@ struct LibraryView: View {
             .onDisappear {
                 ExerciseArt.cancelThumbPrefetch()
             }
-            .navigationTitle(filterMode == .wods ? "WODs" : filterMode == .sports ? "Deportes" : "Ejercicios")
-            // Ejercicios: título y acciones en una fila (iPhone y DUO).
-            // Solo WODs/Deportes conservan la toolbar/búsqueda nativas.
-            .navigationBarTitleDisplayMode(.large)
+            // Ejercicios conserva dos filas fijas de controles; WODs y Deportes
+            // dibujan el título en la propia lista para ocultarlo al desplazar.
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .ogDiaryTransparentNav()
             .toolbar(hasCustomExerciseHeader ? .hidden : .visible, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -379,6 +379,7 @@ struct LibraryView: View {
 
     private var wodsList: some View {
         List {
+            OGScrollablePageTitle("WODs").ogScrollingTitleListRow()
             ForEach(filteredWODTemplates) { template in
                 NavigationLink(value: template.id) {
                     HStack(alignment: .top, spacing: 12) {
@@ -460,6 +461,7 @@ struct LibraryView: View {
     /// Página push (no sheet): mismo patrón que el resto de subpáginas de Ejercicios.
     private var addExercisePage: some View {
         Form {
+            OGScrollablePageTitle("Nuevo ejercicio").ogScrollingTitleListRow()
             Section("Básico") {
                 TextField("Nombre", text: $name)
                 Picker("Grupo muscular", selection: $muscle) {
@@ -481,7 +483,7 @@ struct LibraryView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .ogPinnedTransparentNav("Nuevo ejercicio")
+        .ogScrollingTitleNav()
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Añadir") {
