@@ -172,19 +172,12 @@ fun AIAccessScreen(
             val token = tokens.orEmpty().firstOrNull {
                 it.oauthClientID == provider.oauthClientID &&
                     provider.oauthClientID != null && it.hasConnected }
-            AlertDialog(onDismissRequest = { disconnectingProvider = null },
-                title = { Text("Desconectar asistente") },
-                text = { Text("Se revocará el acceso del asistente a tu cuenta de Repera.") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        disconnectingProvider = null
-                        if (token != null) onRevoke(token.id)
-                    }) { Text("Desconectar " + provider.name,
-                        color = MaterialTheme.colorScheme.error) }
+            DisconnectAssistantDialog(providerName = provider.name,
+                onConfirm = {
+                    disconnectingProvider = null
+                    if (token != null) onRevoke(token.id)
                 },
-                dismissButton = {
-                    TextButton(onClick = { disconnectingProvider = null }) { Text("Cancelar") }
-                })
+                onDismiss = { disconnectingProvider = null })
         }
         instructionsFor?.let { provider ->
             val text = AIProviderLaunch.instructions(provider)
@@ -281,8 +274,8 @@ fun AIAccessScreen(
                                      else "Pendiente de conexión")
                                  else "Desconectado",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (token.isActive) brandGreen
-                                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                                // Apple: caption en color secundario siempre
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Text(token.tokenPrefix + "…",
                             style = MaterialTheme.typography.bodySmall,
@@ -472,4 +465,24 @@ private fun setChangeLabel(change: JSONObject): String {
     if (change.optBoolean("clearRir")) parts.add("sin RIR")
     return change.getString("loggedSetId").take(8) + ": " +
         parts.joinToString(" · ")
+}
+
+/** Apple 0a640da8: confirmationDialog "Desconectar asistente" (copy 1:1).
+ *  Interno para render headless inspeccionable. */
+@Composable
+internal fun DisconnectAssistantDialog(providerName: String,
+                                       onConfirm: () -> Unit,
+                                       onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss,
+        title = { Text("Desconectar asistente") },
+        text = { Text("Se revocará el acceso del asistente a tu cuenta de Repera.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Desconectar " + providerName,
+                    color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        })
 }

@@ -9,6 +9,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performScrollToNode
 import dev.repera.mobile.AIAccessScreen
 import dev.repera.mobile.AIAccessStore
@@ -89,7 +92,7 @@ class AIAccessRenderTest {
         bitmap.getPixels(px, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         assert(px.any { it != 0 }) { "AIAccessScreen renderizo vacia" }
         // Estados de token 1:1 Apple
-        composeRule.onNodeWithTag("airoot").assertExists()
+        composeRule.onNodeWithTag("airoot").assertIsDisplayed()
         assert(tokens[0].hasConnected) { "fixture oauth debe ser hasConnected" }
         assert(!tokens[1].hasConnected && tokens[1].isActive) { "fixture manual pendiente" }
         assert(!tokens[2].isActive) { "fixture revocado inactivo" }
@@ -99,7 +102,36 @@ class AIAccessRenderTest {
         val bitmap2 = composeRule.onNodeWithTag("airoot").captureToImage().asAndroidBitmap()
         val out2 = File(dir, "ai_access_tokens.png")
         FileOutputStream(out2).use { bitmap2.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        // Tarjeta revocada (Claude, "Desconectado") bajo el fold.
+        composeRule.onNodeWithTag("airoot")
+            .performScrollToNode(androidx.compose.ui.test.hasText("Desconectado"))
+        val bitmap3 = composeRule.onNodeWithTag("airoot").captureToImage().asAndroidBitmap()
+        val out3 = File(dir, "ai_access_revoked.png")
+        FileOutputStream(out3).use { bitmap3.compress(Bitmap.CompressFormat.PNG, 100, it) }
         println("RENDERED_AIACCESS=" + out.absolutePath)
         println("RENDERED_AITOKENS=" + out2.absolutePath)
+        println("RENDERED_AIREVOKED=" + out3.absolutePath)
+    }
+
+    @Test
+    fun disconnectDialogRenders() {
+        composeRule.setContent {
+            MaterialTheme {
+                Surface {
+                    dev.repera.mobile.DisconnectAssistantDialog(
+                        providerName = "ChatGPT", onConfirm = {}, onDismiss = {})
+                }
+            }
+        }
+        val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()
+        val dir = File("build/reports/render").apply { mkdirs() }
+        val out = File(dir, "ai_disconnect_dialog.png")
+        FileOutputStream(out).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        composeRule.onNodeWithText("Desconectar asistente").assertIsDisplayed()
+        composeRule.onNodeWithText(
+            "Se revocará el acceso del asistente a tu cuenta de Repera.").assertIsDisplayed()
+        composeRule.onNodeWithText("Desconectar ChatGPT").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancelar").assertIsDisplayed()
+        println("RENDERED_AIDIALOG=" + out.absolutePath)
     }
 }
