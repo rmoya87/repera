@@ -131,6 +131,7 @@ function enhanceWorkspace(own){
  attach('settings',`<div data-settings-panel="plan">${renderSubscriptions(org)}</div>`);
  // Entrenador y gimnasio disponen de permisos diferentes.
  if(trainer)root.querySelector('[data-workspace-section="team"]')?.remove();
+ if(trainer&&businessDialog==='bulk'){const bulk=root.querySelector('form[data-connected="bulk-training"]');if(bulk)refreshBulkPlanPreview(bulk);}
  const trial=trialStatus();
  if(!trial.active&&!delegation&&activeTab!=='settings'){
   const notice=document.createElement('div');notice.className='connected-error';notice.innerHTML='<strong>Prueba finalizada.</strong> Para seguir administrando el negocio, elige un plan en Configuración. Los pagos todavía no están disponibles.';
@@ -258,6 +259,9 @@ async function loadSelectedOrg(){
   ['owner','admin','coach'].includes(role)?auth.groupList(selectedOrg):Promise.resolve([]),
   ['owner','admin','coach'].includes(role)?auth.groupMembers(selectedOrg):Promise.resolve([]),
   auth.clientNotifications(selectedOrg)]);
+ const avatars=await auth.clientAvatars(selectedOrg).catch(()=>[]);
+ const byId=new Map(avatars.map(a=>[a.client_id,a.avatar_url]));
+ clients=clients.map(c=>({...c,avatar_url:byId.get(c.id)||c.avatar_url}));
  legalProfile=manager?await auth.legalProfile(selectedOrg):null;
  enrollmentRequests=manager?await auth.enrollmentRequests(selectedOrg):[];
 }
@@ -771,7 +775,7 @@ app.addEventListener('submit',async event=>{
     orgId:selectedOrg,templateId:data.get('template'),clientIds:ids,
     start:data.get('start'),end:data.get('end'),weekdays,
     requestId:crypto.randomUUID()});
-   await loadSelectedOrg();
+   await loadSelectedOrg();businessDialog='';
    notice='Planificación completada: '+(result.created||0)+' entrenamientos publicados'+
     (result.skipped?' · '+result.skipped+' ya existentes, sin duplicar':'')+'.';
   }
@@ -785,7 +789,7 @@ app.addEventListener('submit',async event=>{
   }
   if(action==='service-occurrence'){
    const created=await auth.addClassSeries({orgId:selectedOrg,coachId:data.get('coach'),kind:data.get('kind'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:Number(data.get('capacity')),repeat:data.get('repeat')||'none',count:Number(data.get('repeatCount')||1)});
-   await loadSelectedOrg();notice='Sesiones creadas: '+(Array.isArray(created)?created.length:1);
+   await loadSelectedOrg();businessDialog='';notice='Sesiones creadas: '+(Array.isArray(created)?created.length:1);
   }
   if(action==='edit-occurrence'){
    await auth.manageOccurrence({id:data.get('id'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:data.get('capacity'),description:data.get('description'),location:data.get('location'),color:data.get('color'),image:data.get('image')});
