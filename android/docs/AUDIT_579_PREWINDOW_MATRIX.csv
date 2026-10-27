@@ -484,21 +484,21 @@ aa1abc62|2026-10-23T11:30:36+02:00|fix(ios): quitar instrucción redundante, usa
 31d835ef|2026-10-23T11:16:51+02:00|fix(play): separar controles de navegación neutros de check verde|ios-app||verified-ported 14:40: controles navegacion neutros separados — ActiveSessionControls.kt (Anterior/Ejercicios/Siguiente TextButtons neutros)
 8e4df187|2026-10-23T11:15:23+02:00|test(ios): evitar regresión de margen, cluster, topbar y separadores|docs-tests||verified-n/a 14:40: tests XCTest iOS
 040227d5|2026-10-23T11:13:27+02:00|fix(editor): separar Volver neutral de confirmación verde y quitar línea al expandir|ios-app|554307bd b7c27be4 d164d03f|partial 14:40: Volver neutral vs confirmacion verde en editor — verificar FinishedWorkoutEditor Android (parcial, revisar)
-b3abae06|2026-10-23T11:12:31+02:00|fix(play): técnicas sin doble margen, clusters compactos y separador de series|ios-app||unverified
+b3abae06|2026-10-23T11:12:31+02:00|fix(play): técnicas sin doble margen, clusters compactos y separador de series|ios-app||partial 14:44: margenes/clusters Play — UI especifica iOS; verificar margenes ActiveSessionControls Android
 4ba0059e|2026-10-23T11:04:33+02:00|test(progress): validar tarjetas más altas y márgenes verticales de gráficas|docs-tests|51e96612 82858176 fd1a86cd|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-d74afff0|2026-10-23T11:02:41+02:00|refactor(ios): retirar editor Rx duplicado y alinear miniaturas en Play|docs-tests,ios-app|94b27158|unverified
-c7878496|2026-10-23T11:01:18+02:00|style(progress): ampliar gráficos y separar trazado de bordes verticales|ios-app||unverified
-3b24108a|2026-10-23T11:00:18+02:00|fix(ios): alinear también miniaturas en WOD y evitar formulario duplicado|ios-app||unverified
-69a9f03b|2026-10-23T10:59:51+02:00|fix(ios): alinear miniatura y compactar valores reales en edición terminada|ios-app|7beee4e6|unverified
-661e65f4|2026-10-23T10:43:03+02:00|fix(progress): Cardio agrupa sus zonas y la intensidad; contratos Diario|docs-tests,ios-app|9956477c ed3232d9|unverified
-9947c212|2026-10-23T10:41:37+02:00|feat(progress): integrar zonas de FC y anillo de intensidad dentro de Cardio|ios-app|9956477c ed3232d9|unverified
-b2f6b934|2026-10-23T10:40:20+02:00|fix(diary): excluir los entrenos sueltos con fecha de la planificación semanal|ios-app|cfc65230|unverified
-e1d55bed|2026-10-23T10:27:35+02:00|test(docs): proteger programación unificada y previews fieles de Progreso|docs-tests||unverified
-0d649f28|2026-10-23T10:26:25+02:00|style(progress): alinear márgenes en recuperación y evolución por ejercicio|ios-app|b5d07abb|unverified
-08790a22|2026-10-23T10:25:21+02:00|fix(progress): gráficos más anchos y previews fieles al modo Pro|ios-app|42e42f8c|unverified
-b3e3a714|2026-10-23T10:23:33+02:00|fix(ios): extender gris de Inicio e integrar fechas en Tu programación|ios-app||unverified
-55f013a6|2026-10-23T10:13:58+02:00|fix(charts): mantener tipo Int en escalas X de ejemplos|docs-tests,ios-app||unverified
-8099d3ad|2026-10-23T10:12:46+02:00|test(docs): cubrir presentación compacta, gráficas y objetivos de Inicio|docs-tests|854c7cf7 c8fbc133|unverified
+d74afff0|2026-10-23T11:02:41+02:00|refactor(ios): retirar editor Rx duplicado y alinear miniaturas en Play|docs-tests,ios-app|94b27158|partial 14:44: miniaturas alineadas Play — Android WodExerciseArt propio; verificar alineacion
+c7878496|2026-10-23T11:01:18+02:00|style(progress): ampliar gráficos y separar trazado de bordes verticales|ios-app||partial 14:44: graficos mas anchos Progreso — estilo iOS; revisar en validacion runtime
+3b24108a|2026-10-23T11:00:18+02:00|fix(ios): alinear también miniaturas en WOD y evitar formulario duplicado|ios-app||partial 14:44: miniaturas WOD alineadas + sin formulario duplicado — verificar Android
+69a9f03b|2026-10-23T10:59:51+02:00|fix(ios): alinear miniatura y compactar valores reales en edición terminada|ios-app|7beee4e6|partial 14:44: miniatura compacta edicion terminada — verificar FinishedWorkoutEditor Android
+661e65f4|2026-10-23T10:43:03+02:00|fix(progress): Cardio agrupa sus zonas y la intensidad; contratos Diario|docs-tests,ios-app|9956477c ed3232d9|in-progress 14:44: GAP — Cardio agrupa zonas FC + intensidad: Android ProgressTab sin zonas/anillo
+9947c212|2026-10-23T10:41:37+02:00|feat(progress): integrar zonas de FC y anillo de intensidad dentro de Cardio|ios-app|9956477c ed3232d9|in-progress 14:44: GAP — zonas FC + anillo intensidad integrados en Cardio (cluster 661e65f4)
+b2f6b934|2026-10-23T10:40:20+02:00|fix(diary): excluir los entrenos sueltos con fecha de la planificación semanal|ios-app|cfc65230|in-progress 14:44: excluir entrenos sueltos con fecha de programacion semanal — verificar DiaryTab Android (Diario pendiente eliminacion rama 7fd14b59)
+e1d55bed|2026-10-23T10:27:35+02:00|test(docs): proteger programación unificada y previews fieles de Progreso|docs-tests||verified-n/a 14:44: tests docs XCTest iOS
+0d649f28|2026-10-23T10:26:25+02:00|style(progress): alinear márgenes en recuperación y evolución por ejercicio|ios-app|b5d07abb|partial 14:44: margenes recuperacion/evolucion — estilo iOS
+08790a22|2026-10-23T10:25:21+02:00|fix(progress): gráficos más anchos y previews fieles al modo Pro|ios-app|42e42f8c|partial 14:44: graficos anchos + previews modo Pro — verificar previews Android
+b3e3a714|2026-10-23T10:23:33+02:00|fix(ios): extender gris de Inicio e integrar fechas en Tu programación|ios-app||partial 14:44: gris Inicio + fechas en Tu programacion — verificar DiaryTab Android (rama diario pendiente)
+55f013a6|2026-10-23T10:13:58+02:00|fix(charts): mantener tipo Int en escalas X de ejemplos|docs-tests,ios-app||verified-n/a 14:44: tipado Int escalas Swift
+8099d3ad|2026-10-23T10:12:46+02:00|test(docs): cubrir presentación compacta, gráficas y objetivos de Inicio|docs-tests|854c7cf7 c8fbc133|verified-n/a 14:44: tests docs XCTest iOS
 6b3b4480|2026-10-23T10:11:03+02:00|fix(progress): respetar márgenes en ejemplos de recuperación y ejercicio|ios-app||unverified
 b44db55f|2026-10-23T10:10:25+02:00|fix(ios): alinear gráficos de ejemplo dentro de sus ejes|ios-app||unverified
 6002e615|2026-10-23T10:09:35+02:00|fix(ios): ajustar técnicas a ancho completo, barras e interfaz muscular|ios-app||unverified
