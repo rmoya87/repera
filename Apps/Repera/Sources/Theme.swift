@@ -328,6 +328,10 @@ extension OGPageHeader where Leading == EmptyView {
 struct OGScrollablePageTitle: View {
     let title: String
 
+    init(_ title: String) {
+        self.title = title
+    }
+
     var body: some View {
         Text(title)
             .font(.largeTitle.weight(.bold))
