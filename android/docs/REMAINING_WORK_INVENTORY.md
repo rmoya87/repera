@@ -1,20 +1,25 @@
-# Inventario de trabajo restante (27 oct 19:11 CET)
+# Inventario de trabajo restante (27 oct 20:19 CET)
 
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
-Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
+Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (579 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Contadores (recuento directo 27oct 19:11 CET)
-- Filas SHA validas:735 (579prewindow+156postwindow).
-- Prewindow:50abiertas (41partial+7verified-partial+2in-progress).
-- Postwindow:20abiertas (13partial+7verified-partial).
-- TOTAL:70abiertas. Regla fija: abierta si campo6 empieza partial,
-  verified-partial o in-progress; no cerrar verified-partial por tests JVM.
-- Cambio ultimo: b73d77dc reabierta desde verified-ported porque tenia una
-  desviacion declarada. Readiness vacio/cursor corregidos; curva gradiente
-  y catmullRom aun no portadas. No altera decisiones del usuario.
-- Suite vigente:mobile608/608(149XML),domain485/485(92),wear8/8(1).
-  Ultimo assemble mobile+wear completo verde en tree244; cambios posteriores
-  requieren nueva pasada antes de integrar. No push hasta condicion del usuario.
+## Estado vigente (recuento directo 27oct20:19 CET)
+-735 filas SHA validas:579prewindow+156postwindow.
+-70 abiertas:50prewindow+20postwindow. Abierta = campo6 comienza partial,
+ verified-partial o in-progress. Cambiar partial a verified-partial no cierra.
+- Mobile632/632(160XML) ejecutada completa20:18. Domain485/485(92XML) y
+ Wear8/8(1XML) ejecutadas19:48. Cero fallos/errores por modulo.
+- Assemble mobile ejecutado verde269;270 solo agrega test. Wear assemble
+ verde UP-TO-DATE19:48, no se presenta como compilacion nueva.
+- Readiness curva Catmull-Rom+gradiente por valor YA portadas (tree251/252);
+ b73d77dc permanece abierta por runtime. No inferir pendiente desde notas viejas.
+- Cambios256..270: pendingEnd hasta guardado; bindings servicios por identidad;
+ peso tiles/previews; filtros opacos/reset; rest-pause individual; reps/metros
+ Play con pruebas de filas/clasico/correccion. Ver notas y matrices para limites.
+- Runtime dispositivo, zonas FC decision, parser completo, meteo ruta,
+ Live status entrenos planificados y rama Diario siguen abiertos.
+- Ninguna nota historica posterior sustituye este recuento ni la matriz viva.
+  No push hasta condicion original y cierre real.
 
 ## Dependencias de validacion (bloquean cierre)
 1. compile/build mobile+wear COMPLETO verde gestionado in-call (assemble OK; confirmar tras cada lote) — REQUISITO antes de integrar/push
@@ -28,7 +33,7 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
      (conexiones + tokens tras scroll). Acreditan la previsualizacion JVM de esos
      fixtures/tamanos concretos; NO todos los tamanos/temas ni runtime de dispositivo.
      Diffs de glifos verificados por comparacion PROGRAMATICA exhaustiva 9/9 (no muestreo).
-3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 458/458 en 87 suites XML real, mobile 525/525 en 129 suites XML real)
+3. Suites COMPLETAS verdes tras cada implementacion: cifras vigentes arriba; las notas cronologicas conservan cifras de su checkpoint, no el estado actual.
 
 ## Grupos de gaps principales (pre+post)
 - Onboarding AI unificado: IMPLEMENTACION COMPLETADA (f68d77ff + Desconectar 14:51 + d61c5d52 espaciado 15:11) CON DEPENDENCIAS EXPLICITAS:
@@ -44,8 +49,8 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
 - Wear fino: 3/4 items ya cerrados (linea stale): Sincronizar+mascota = 4a82b4b2
   verified-ported 15:35; flecha en descanso = a4a5d9ce/ea99a5b6 verified-ported 15:35;
   frescura planificacion = 1d333b42 verified-ported 15:35. ABIERTO real: 44713457
-  GAP captura de series WOD por movimiento en reloj (wodUsesSeries; Android Wear
-  difiere siempre al movil) + validacion visual estilo botones (0f528156/604b1293)
+  captura de series WOD por movimiento YA portada; sigue diferencia sin reloj
+  de bloque activo (44713457) + validacion visual estilo botones (0f528156/604b1293)
 - Cursores interactivos graficas recuperacion (b73d77dc/42f02b82)
 - Estilos parciales a verificar en runtime (margenes, miniaturas, previews)
 - Gaps post-window ya conocidos: widgets/LiveActivities, Health-ruta upload, fullscreen map, tap targets/overlay, Health Connect por rango, tiles resumen
