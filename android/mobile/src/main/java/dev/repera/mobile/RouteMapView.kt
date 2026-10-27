@@ -1,9 +1,15 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -31,6 +38,29 @@ import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.json.JSONObject
+
+/** Leyenda de escala de color por velocidad (Apple c04c7dd9): solo en recorridos
+ *  ya guardados. Misma funcion cromatica que cada segmento del trazado; las 25
+ *  muestras distribuidas compensan la curva de contraste pow 0.72. */
+@Composable
+internal fun RouteSpeedLegend(water: Boolean = false) {
+    val colors = (0..24).map { i ->
+        val position = i / 24.0
+        Color(RouteMapModel.speedColor(position, 0.0, 1.0, water))
+    }
+    Column(modifier = Modifier.width(130.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(7.dp)
+            .clip(RoundedCornerShape(3.5.dp))
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(colors))) {}
+        Row(modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Lento", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Rápido", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
 
 /**
  * Mapa nativo de la ruta GPS (paridad HealthWorkoutRouteMap iOS):

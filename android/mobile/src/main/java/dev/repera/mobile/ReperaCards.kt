@@ -1698,6 +1698,8 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
         RouteMapView(points = points, isInteractive = false, waterSport = waterSport,
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .clip(RoundedCornerShape(10.dp)))
+        // Solo los recorridos ya guardados muestran su escala de color (Apple c04c7dd9).
+        RouteSpeedLegend(water = waterSport)
         if (points.any { it.isEstimated == true }) {
             // Apple 303453ff: la reconstruccion se rotula, no se presenta como GPS.
             Text("El tramo discontinuo se ha estimado en línea recta tras un cierre inesperado; no es una medición GPS.",
