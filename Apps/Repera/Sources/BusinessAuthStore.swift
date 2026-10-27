@@ -481,7 +481,7 @@ final class BusinessAuthStore {
             isConnected = false
             isMigrationRequired = true
             BusinessDataStore.shared.clear()
-            lastErrorMessage = "No se ha podido conectar con Repera: \(error.localizedDescription)"
+            lastErrorMessage = "No se ha podido conectar con Repera. Inténtalo de nuevo."
             AuthSessionTrace.event("connect FAIL: \(error.localizedDescription)")
             return false
         }
@@ -537,7 +537,7 @@ final class BusinessAuthStore {
         } catch {
             if error as? GoogleNativeSignInError == .cancelled { return false }
             GIDSignIn.sharedInstance.signOut()
-            lastErrorMessage = "No se pudo iniciar sesión con Google: \(error.localizedDescription)"
+            lastErrorMessage = "No se pudo iniciar sesión con Google. Inténtalo de nuevo."
             // No afirmar éxito ni aceptar una sesión de identidad desconocida.
             return false
         }
@@ -585,7 +585,7 @@ final class BusinessAuthStore {
         } catch {
             if error as? GoogleNativeSignInError == .cancelled { return false }
             GIDSignIn.sharedInstance.signOut()
-            lastErrorMessage = "No se pudo vincular Google: \(error.localizedDescription)"
+            lastErrorMessage = "No se pudo vincular Google. Inténtalo de nuevo."
             return false
         }
     }
