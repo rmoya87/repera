@@ -96,9 +96,34 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
             numeric,
         )
         self.assertIn(".frame(height: 48)", numeric)
+        self.assertIn("compactIntrinsicHeight: 48", numeric)
+        self.assertIn(".frame(height: 64, alignment: .top)", numeric)
+        self.assertIn(".clipped()", numeric)
         self.assertNotIn(".frame(maxWidth: .infinity, minHeight: 48)", numeric)
         self.assertNotIn("private struct TimerNumericInput", timer)
         self.assertIn("TimerNumericInput(label:", timer)
+
+    def test_round_fields_cannot_force_fullscreen_sheet_via_uikit_layout(self):
+        play = PLAY.split("private func manualRoundTimeRow(", 1)[1].split(
+            "/// Reloj a pantalla completa", 1
+        )[0]
+        self.assertIn(".frame(width: 84, height: 64, alignment: .top)", play)
+        self.assertIn(".frame(width: 176, height: 64, alignment: .top)", play)
+        self.assertIn(".frame(height: 72, alignment: .center)", play)
+        self.assertGreaterEqual(play.count(".clipped()"), 3)
+        self.assertNotIn(".frame(maxWidth: 184)", play)
+
+        theme = (IOS / "Theme.swift").read_text(encoding="utf-8")
+        field = theme.split("struct OGNumericTextField: UIViewRepresentable {", 1)[1].split(
+            "private func configure(", 1
+        )[0]
+        self.assertIn("var compactIntrinsicHeight: CGFloat? = nil", field)
+        self.assertIn("func sizeThatFits(", field)
+        self.assertIn("guard let compactIntrinsicHeight else { return nil }", field)
+        self.assertIn("height: compactIntrinsicHeight", field)
+        # No altera los demás campos de series que no solicitan altura
+        # intrínseca específica.
+        self.assertIn("guard let compactIntrinsicHeight else { return nil }", field)
 
     def test_prescribed_intervals_are_not_overridden_by_setup(self):
         configured = PLAY.split("private func startBlockClock(", 1)[1].split(
