@@ -216,3 +216,75 @@
 .is-delegated .business-navigation button[aria-current="page"]{font-weight:800}
 @media(max-width:900px){.business-quick-actions{grid-template-columns:1fr}}
 @media(min-width:901px) and (max-width:1340px){.business-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Detailed athlete and business profiles — consistent compact editorial hierarchy. */
+.pa-shell .pa-athlete-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;
+ flex-wrap:wrap;padding:20px 23px}
+.pa-shell .pa-athlete-hero h1{font-size:25px;line-height:1.18;margin:0 0 4px}
+.pa-shell .pa-athlete-hero p{font-size:13px;color:#6c8071;margin:0}
+.pa-shell .pa-athlete-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pa-shell .pa-athlete-actions .pa-muted{max-width:240px;font-size:11px}
+.pa-shell .pa-detail-tabs{display:flex;gap:8px;margin:0 0 20px;
+ border-bottom:1px solid #dfe9e2;overflow-x:auto;scrollbar-width:thin}
+.pa-shell .pa-detail-tabs button{border:0;border-bottom:3px solid transparent;background:none;
+ color:#63806c;font-size:13px;font-weight:700;white-space:nowrap;padding:13px 17px;cursor:pointer}
+.pa-shell .pa-detail-tabs button.active{border-bottom-color:#29ad59;color:#175d33}
+.pa-shell .pa-detail-tabs button:hover{background:#eef8f1}
+.pa-shell .pa-athlete-training-grid{display:grid;grid-template-columns:minmax(280px,.82fr) minmax(0,1.18fr);
+ align-items:start;gap:16px}
+.pa-shell .pa-athlete-training-grid>.pa-panel{height:100%;min-width:0}
+.pa-shell .pa-activity-right-heading{display:flex;justify-content:space-between;gap:9px;align-items:center;
+ flex-wrap:wrap;margin-bottom:12px}
+.pa-shell .pa-activity-right-heading h2{font-size:17px;margin:0}
+.pa-shell .pa-activity-right-heading .pa-button{font-size:11px!important;padding:8px 10px!important}
+.pa-shell .pa-athlete-training-grid .pa-activity-heading{align-items:start}
+.pa-shell .pa-athlete-training-grid .pa-activity-heading h2{font-size:17px}
+.pa-shell .pa-athlete-training-grid .pa-calendar-actions{width:100%;justify-content:space-between}
+.pa-shell .pa-athlete-training-grid .pa-calendar-actions strong{min-width:100px}
+.pa-shell .pa-athlete-training-grid .pa-activity-day{min-height:44px;border-radius:9px;font-size:12px}
+.pa-shell .pa-athlete-training-grid .pa-workout-block{margin:8px 0}
+.pa-shell .pa-athlete-insights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;
+ margin-top:16px}
+.pa-shell .pa-athlete-insights>.pa-panel:last-child{grid-column:1/-1}
+.pa-shell .pa-record-list{display:grid;gap:8px}
+.pa-shell .pa-record-list article{display:flex;justify-content:space-between;align-items:center;gap:14px;
+ padding:11px;border:1px solid #e3eee5;background:#fbfdfb;border-radius:11px}
+.pa-shell .pa-record-list article strong{font-size:12px}
+.pa-shell .pa-record-list article small{display:block;color:#788a7b;font-size:11px}
+.pa-shell .pa-e1rm{text-align:right;white-space:nowrap}
+.pa-shell .pa-e1rm strong{display:block;color:#237e43;font-size:15px}
+.pa-shell .pa-muscle-map{display:block;width:min(100%,340px);max-height:280px;margin:6px auto 12px}
+.pa-shell .pa-coaching-score{display:flex;gap:15px;align-items:center}
+.pa-shell .pa-coaching-score>strong{font-size:33px;color:#238748}
+.pa-shell .pa-coaching-score>strong small{font-size:14px}
+.pa-shell .pa-coaching-score div{display:grid;gap:3px}
+.pa-shell .pa-coaching-score div span{font-weight:850;font-size:14px}
+.pa-shell .pa-coaching-score div small{font-size:11px;color:#748577}
+.pa-shell .pa-insight-stats{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+.pa-shell .pa-insight-stats span{background:#eef8f1;color:#346b46;border-radius:99px;padding:7px 11px;font-size:11px}
+.pa-shell .pa-athlete-insights ul{padding-left:19px;font-size:12px}
+.pa-shell .pa-center-row:hover{cursor:pointer}
+.is-delegated .connected-heading{display:none!important}
+.is-delegated .business-delegated-workspace{grid-template-rows:minmax(0,1fr)!important}
+.is-delegated .business-navigation{grid-row:1!important;display:flex!important;flex-direction:column;
+ min-height:calc(100vh - 50px);max-height:calc(100vh - 40px)}
+.is-delegated .business-delegate-content{grid-row:1!important}
+.is-delegated .business-sidebar-account{display:flex;align-items:center;gap:11px;margin-top:auto;
+ border-top:1px solid #e4ede6;padding:13px 5px 0;min-width:0}
+.is-delegated .business-sidebar-account img,.is-delegated .business-sidebar-avatar{width:42px;height:42px;
+ border-radius:50%;object-fit:cover;background:#e0f7e7;display:grid;place-items:center;flex-shrink:0}
+.is-delegated .business-sidebar-account strong{font-size:12px;color:#173e25;display:block}
+.is-delegated .business-sidebar-account small{font-size:10px;color:#698473;display:block}
+.is-delegated .business-sidebar-account button{background:transparent;border:0;cursor:pointer;padding:7px;
+ color:#497259;font-size:18px}
+.is-delegated .business-sidebar-actions{display:grid;gap:5px;margin-top:8px}
+.is-delegated .business-sidebar-actions button{font-size:12px!important}
+@media(max-width:1100px){
+ .pa-shell .pa-athlete-training-grid{grid-template-columns:1fr}
+ .pa-shell .pa-athlete-insights{grid-template-columns:1fr}
+ .pa-shell .pa-athlete-insights>.pa-panel:last-child{grid-column:auto}
+}
+@media(max-width:750px){
+ .is-delegated .business-navigation{min-height:auto;max-height:none}
+ .is-delegated .business-sidebar-account{margin-top:12px}
+}
