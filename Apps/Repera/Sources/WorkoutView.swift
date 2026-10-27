@@ -1485,7 +1485,7 @@ struct WorkoutView: View {
         // RoutineBlock crea emomIntervalSeconds=60 incluso en fuerza libre.
         // Ese 60 heredado NO es una prescripción de tiempo por ronda.
         let hasExplicitInterval = (current.blockIntervalSeconds ?? 0) > 0
-            && current.blockIntervalSeconds != 60
+            && (current.blockIntervalSeconds != 60 || current.wodFormat == .strength)
         let hasPrescribedDuration = (current.blockTimeCapMinutes ?? 0) > 0
             || hasExplicitInterval
             || (current.blockWorkSeconds ?? 0) > 0
@@ -1719,6 +1719,7 @@ struct WorkoutView: View {
             // La duración explícita del formato tiene prioridad absoluta:
             // no volver a preguntar ni sustituirla por un valor por defecto.
             let explicitInterval = current.blockIntervalSeconds == 60
+                && current.wodFormat == nil
                 ? nil : current.blockIntervalSeconds
             if let roundDuration = manualRoundSeconds
                 ?? current.blockWorkSeconds ?? explicitInterval,
