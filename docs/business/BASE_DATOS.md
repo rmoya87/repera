@@ -1,3 +1,20 @@
+## Administración global (2026-10-27)
+
+Migración aplicada: `supabase/migrations/20261027120000_platform_admin_console.sql`.
+
+Nuevas tablas (todas con RLS):
+- `platform_org_controls`: suspensión/reactivación administrativa de una organización con motivo y actor.
+- `platform_org_provisioning`: solicitud de alta por correo del futuro propietario y estado; `claim_platform_provisioning` crea organización y membresía owner mediante trigger **solo** para email confirmado que coincide.
+- `platform_admin_delegations`: actor, organización, motivo, caducidad (30 min) y revocación.
+- `platform_admin_events`: auditoría administrativa de creación, reclamación, suspensión, apertura y cierre de delegación.
+- `platform_billing_payments`: transacciones B2B con céntimos, divisa, referencia única de proveedor, fecha y estado; **no implica Stripe conectado**.
+
+Los wrappers de lectura y acciones en `public` son invoker; la lógica privilegiada y la validación de `platform_admin` están en `private`. `private.has_org_role` conserva la membresía real y admite de manera temporal los permisos administrativos del negocio en delegación, sin acceso a roles exclusivos de atleta. Si la organización está suspendida, sus miembros ordinarios pierden los privilegios de empresa hasta reactivación.
+
+`platform_admin_directory` ofrece recuentos de clientes/sesiones y campos públicos; `platform_admin_finances` distingue pagos verificados de `business_subscription_intents` que siguen siendo simples solicitudes. Los negocios no se crean a nombre del superadministrador: el registro pendiente se reclama desde la cuenta verificada del titular. El plan solicitado en una prealta es de referencia, sin activación ni cobro.
+
+Pendiente: integración Stripe Billing/Connect, webhooks verificados, almacenamiento/conciliación de cobros de clientes B2C, facturación fiscal y tests E2E de tenant con JWT reales.
+
 # Base de datos — Repera
 Última actualización: 2026-10-20 (profiles.avatar_url; ensure search_discoverable_organizations).
 
