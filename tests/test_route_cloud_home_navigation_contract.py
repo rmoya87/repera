@@ -27,7 +27,10 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("iCloud.com.app.repera", self.project)
         self.assertIn("- path: Apps/Repera/Sources/LiveActivityView.swift", self.project)
         self.assertNotIn("- path: Apps/Repera/Sources/LiveRouteCloudBackup.swift", self.project)
-        self.assertFalse((SRC / "LiveRouteCloudBackup.swift").exists())
+        compatibility = SRC / "LiveRouteCloudBackup.swift"
+        self.assertTrue(compatibility.is_file())
+        self.assertNotIn("actor LiveRouteCloudBackup", compatibility.read_text(encoding="utf-8"))
+        self.assertNotIn("struct LiveRouteCloudArchive", compatibility.read_text(encoding="utf-8"))
         self.assertIn("actor LiveRouteCloudBackup", self.live)
         self.assertIn("struct LiveRouteCloudArchive: Codable, Sendable", self.live)
         self.assertIn("UserDefaults.standard.set(erased.map { $0.uuidString }", self.live)
