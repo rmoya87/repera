@@ -73,11 +73,14 @@ class StartMapControlsContractTests(unittest.TestCase):
             "private var mapStatusMessages: some View", 1
         )[0]
         # Horizontal y vertical muestran las métricas SOLO al grabar o pausar.
+        import re
+
         self.assertEqual(
-            map_view.count(
-                "if recorder.phase == .recording || recorder.phase == .paused {\\n"
-                "                            mapMetricStrip"
-            ),
+            len(re.findall(
+                r"if recorder\\.phase == \\.recording \\|\\| recorder\\.phase == \\.paused"
+                r" \\{\\s+mapMetricStrip",
+                map_view,
+            )),
             2,
         )
         self.assertNotIn(
