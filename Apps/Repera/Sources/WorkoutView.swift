@@ -1548,11 +1548,6 @@ struct WorkoutView: View {
                 )
             }
 
-            Text("Deja el descanso en 0:00 si quieres pasar directamente a la siguiente ronda.")
-                .font(.caption)
-                .foregroundStyle(OG.label2)
-                .fixedSize(horizontal: false, vertical: true)
-
             Button {
                 guard let current = store.state.activeSession?.currentExercise,
                       current.id == setup.exerciseID else {
