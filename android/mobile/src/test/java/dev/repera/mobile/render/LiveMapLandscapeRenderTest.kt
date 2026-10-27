@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.core.app.ApplicationProvider
 import dev.repera.mobile.*
 import dev.repera.domain.LiveSport
@@ -79,5 +81,29 @@ class LiveMapLandscapeRenderTest {
   val bmp=composeRule.onNodeWithTag("recording_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/live-map-landscape-recording.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+ }
+ @Test
+ @Config(sdk=[35],qualifiers="w620dp-h360dp")
+ fun compactPausedLandscapeKeepsMetricsAndStatusSeparateWithoutGps() {
+  val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+  val runtime=LiveActivityRuntime.forAccount(context,"render-compact-paused-landscape")
+  // Pure state fixture only: do not call runtime.start(), service or sensors.
+  runtime.state.choose(LiveSport.RUNNING)
+  val now=System.currentTimeMillis()
+  runtime.state.start(now-90_000,"fake-fixture")
+  runtime.state.pause(now)
+  composeRule.setContent {
+   MaterialTheme(colorScheme=reperaColorScheme(false)) {
+    Surface(Modifier.testTag("compact_root")) {
+     LiveActivityScreen("render-compact-paused-landscape",onSaved={},onOpenTools={})
+    }
+   }
+  }
+  composeRule.onNodeWithText("Reanudar").assertExists()
+  val bmp=composeRule.onNodeWithTag("compact_root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/live-map-landscape-compact.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+  composeRule.onNodeWithText("Descartar").performScrollTo().assertIsDisplayed()
+  composeRule.onNodeWithText("Voz activada").performScrollTo().assertIsDisplayed()
  }
 }

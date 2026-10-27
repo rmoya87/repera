@@ -86,3 +86,9 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
   comprobados con owner+record+identityRevision durable; cierre invalida instancia.
   Cubre A->B->A y proveedor no cooperativo tras cerrar;3tests del gate puro.
   Tests de gate no acreditan Activity HC ni ciclo de vida real de dispositivo.
+
+## Paisaje compacto 19:08
+- Fixture pausado620x360: avisos y metricas separados, atribucion libre.
+  Acciones principales visibles; Descartar/Voz quedan bajo scroll del panel.
+  Test hace scroll real y acredita que ambas son alcanzables. Render inspeccionado.
+  No acredita fuentes grandes, todos los plegables ni cartografia nativa.
