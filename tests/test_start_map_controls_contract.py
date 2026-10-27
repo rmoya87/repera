@@ -67,6 +67,35 @@ class StartMapControlsContractTests(unittest.TestCase):
         self.assertIn('metricsCircleButton("map", label: "Ver mapa")', actions)
         self.assertIn("showingMetrics = false", actions)
 
+    def test_idle_map_does_not_show_redundant_metrics_panel(self):
+        live = read_swift("LiveActivityView.swift")
+        map_view = live.split("private var mapView: some View", 1)[1].split(
+            "private var mapStatusMessages: some View", 1
+        )[0]
+        # Horizontal y vertical muestran las métricas SOLO al grabar o pausar.
+        self.assertEqual(
+            map_view.count(
+                "if recorder.phase == .recording || recorder.phase == .paused {\\n"
+                "                            mapMetricStrip"
+            ),
+            2,
+        )
+        self.assertNotIn(
+            "Spacer(minLength: 0)\\n                        mapMetricStrip",
+            map_view,
+        )
+        # La barra inferior de elegir actividad / Play / GPX sigue en idle.
+        self.assertGreaterEqual(
+            map_view.count("if recorder.phase == .idle {"),
+            2,
+        )
+        self.assertIn("bottomControls", map_view)
+        # Métricas es su pantalla completa, no la tarjeta superpuesta al mapa.
+        metrics = live.split("private var metricsView: some View", 1)[1].split(
+            "private var metricsTrailingActions: some View", 1
+        )[0]
+        self.assertNotIn("mapMetricStrip", metrics)
+
     def test_play_does_not_change_selection_and_choice_is_remembered(self):
         live = read_swift("LiveActivityView.swift")
         self.assertIn(
