@@ -431,11 +431,11 @@ private fun formatVolume(volumeKg: Double): String = when {
 }
 
 @Composable
-private fun WeightStatTiles(latestKg: Double?, goalKg: Double?) {
+internal fun WeightStatTiles(latestKg: Double?, goalKg: Double?) {
     val l = dev.repera.domain.WeightStatsTiles.labels(latestKg, goalKg)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf("Actual" to l.actual, "Objetivo" to l.goal, "Δ" to l.delta).forEach { (title, value) ->
-            Column(Modifier.weight(1f).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)).padding(horizontal = 6.dp, vertical = 10.dp)) {
+            Column(Modifier.weight(1f).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(title, style = MaterialTheme.typography.labelSmall)
                 Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 1)
             }
