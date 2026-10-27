@@ -233,9 +233,9 @@ struct LinkedCenterDetailView: View {
                                 Spacer()
                                 Text(offer.localizedPrice).font(.subheadline.weight(.semibold))
                             }
-                            Text("\\(offer.credits) " +
+                            Text("\(offer.credits) " +
                                  (offer.kind == "appointment" ? "sesiones personales" : "clases") +
-                                 " · \\(offer.validityDays) días de validez")
+                                 " · \(offer.validityDays) días de validez")
                                 .foregroundStyle(OG.label2)
                                 .font(.subheadline)
                         }
