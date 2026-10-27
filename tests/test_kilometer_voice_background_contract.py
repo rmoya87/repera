@@ -96,6 +96,8 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn(".frame(width: 32)", header)
         self.assertIn(".lineLimit(2)", header)
         self.assertIn(".minimumScaleFactor(0.7)", header)
+        self.assertIn(".frame(height: 60, alignment: .center)", header)
+        self.assertIn(".lineLimit(1).minimumScaleFactor(0.7)", header)
         self.assertIn("GeometryReader { header in", header)
         self.assertIn("width: min(110, max(68, header.size.width - 248))", header)
         self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", header)
@@ -117,6 +119,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         timer = (ROOT / "Apps/Repera/Sources/StandaloneTimerView.swift").read_text(encoding="utf-8")
         self.assertIn("RestFeedback.tick(remaining: remaining, sound: true, haptic: true)", timer)
         self.assertIn("RestFeedback.restComplete(sound: true, haptic: true)", timer)
+        self.assertIn("RestFeedback.tick(remaining: preCountdown, sound: true, haptic: true)", timer)
         self.assertIn("AudioServicesPlaySystemSound(1057)", feedback)
         self.assertIn("AudioServicesPlaySystemSound(1007)", feedback)
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
