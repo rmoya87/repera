@@ -112,7 +112,7 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertNotIn('"Ver reloj"', dock)
         self.assertNotIn("clock.stop()", dock)
         self.assertLess(dock.index("clock.showClock()"), dock.index("clock.handlePrimary()"))
-        self.assertLess(dock.index("clock.handlePrimary()"), dock.index("clock.finishByUser()"))
+        self.assertLess(dock.index("clock.finishByUser()"), dock.index("clock.handlePrimary()"))
         self.assertIn('Image(systemName: "flag.checkered")', dock)
         self.assertIn('Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")', dock)
         self.assertIn("clock.isRunning ? OG.yellow : OG.accent", dock)
