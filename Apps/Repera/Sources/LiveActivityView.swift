@@ -2031,7 +2031,12 @@ struct LiveActivityView: View {
                         }
                         mapStatusMessages
                         Spacer(minLength: 0)
-                        mapMetricStrip
+                        // Antes de Play, la barra de selección inferior ya
+                        // contiene sus controles. No duplicar aquí los
+                        // valores 00:00:00, velocidad y distancia.
+                        if recorder.phase == .recording || recorder.phase == .paused {
+                            mapMetricStrip
+                        }
                         if recorder.phase == .idle {
                             bottomControls
                         }
