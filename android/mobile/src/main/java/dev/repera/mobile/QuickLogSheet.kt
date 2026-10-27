@@ -58,7 +58,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 @Composable
 internal fun QuickNumericField(initial:String,label:String,enabled:Boolean,decimal:Boolean=false,onChange:(String)->Unit) {
  var text by rememberSaveable {mutableStateOf(initial)}
+ // Apple 643fa111 (OG.inputSurface): fondo negro suave en modo noche y gris
+ // claro en modo dia, sin alterar el resto del tema.
+ val inputSurface = if (androidx.compose.foundation.isSystemInDarkTheme())
+     androidx.compose.ui.graphics.Color(0xFF0A0A0C) else androidx.compose.ui.graphics.Color(0xFFF2F5F3)
  OutlinedTextField(text,{value ->text=value;onChange(value)},label={Text(label)},enabled=enabled,singleLine=true,
+  colors=androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+      focusedContainerColor=inputSurface,unfocusedContainerColor=inputSurface,
+      disabledContainerColor=inputSurface),
   keyboardOptions=KeyboardOptions(keyboardType=if(decimal) KeyboardType.Decimal else KeyboardType.Number))
 }
 
