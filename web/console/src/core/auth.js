@@ -199,6 +199,12 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Sesión inválida');
   return this.#authorized('rpc/update_professional_session_v2',{method:'POST',body:{p_session:id,p_day:date,p_title:String(title||'').trim(),p_instructions:instructions,p_prescription:prescription}});
  }
+ async cancelProfessionalSession(id){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Entrenamiento inválido');
+  const result=await this.#authorized('rpc/cancel_professional_session',{method:'POST',body:{p_session:id}});
+  if(result!==true)throw Error('No se ha podido cancelar el entrenamiento');
+  return result;
+ }
  async workoutTemplates(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('professional_workout_templates?select=id,org_id,name,description,prescription,created_by,updated_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=updated_at.desc');
