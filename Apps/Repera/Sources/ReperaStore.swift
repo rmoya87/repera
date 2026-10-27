@@ -2283,11 +2283,16 @@ final class ReperaStore: NSObject {
         // Una favorita fechada también es una plantilla: desprogramarla
         // sin borrar el favorito del catálogo del usuario.
         for i in state.routines.indices where ids.contains(state.routines[i].id)
-            && state.routines[i].isFavorite {
+            && state.routines[i].isFavorite
+            && state.routines[i].favoriteTemplateId == nil {
+            // Compatibilidad de favoritos antiguos sin plantilla asociada.
             state.routines[i].scheduledDate = nil
             state.routines[i].weekday = nil
         }
-        state.routines.removeAll { ids.contains($0.id) && !$0.isFavorite }
+        // Los nuevos favoritos ya existen como plantilla independiente.
+        state.routines.removeAll {
+            ids.contains($0.id) && (!$0.isFavorite || $0.favoriteTemplateId != nil)
+        }
         persist()
         pushActiveToWatch()
     }
@@ -2296,10 +2301,13 @@ final class ReperaStore: NSObject {
     func removeScheduledRoutine(id: UUID) {
         guard let index = state.routines.firstIndex(where: { $0.id == id }),
               state.routines[index].scheduledDate != nil else { return }
-        if state.routines[index].isFavorite {
+        if state.routines[index].isFavorite
+            && state.routines[index].favoriteTemplateId == nil {
+            // Favorito antiguo: convertir el programado en plantilla.
             state.routines[index].scheduledDate = nil
             state.routines[index].weekday = nil
         } else {
+            // La nueva plantilla favorita se guarda aparte y se conserva.
             state.routines.remove(at: index)
         }
         persist()
