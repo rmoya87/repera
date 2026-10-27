@@ -7,6 +7,9 @@ internal object BoardStrengthLines {
  fun block(lines:List<String>,catalog:List<CatalogExercise>):RoutineBlock? {
   if(lines.isEmpty() || catalog.isEmpty()) return null
   val exercises=lines.map {raw ->
+   // Percent/RPE annotations are not kg. Leave unsupported intensity on
+   // the movement review path instead of falsely creating a load.
+   if(Regex("[@#]\\s*>?\\s*\\d+(?:[.,]\\d+)?\\s*%|@\\s*\\d+(?:[.,]\\d+)?\\s*[-–]\\s*\\d+",RegexOption.IGNORE_CASE).containsMatchIn(raw)) return null
    var working=CrossFitGlossary.expand(raw)
    val scheme=Regex("(\\d+)\\s*[x×X]\\s*(\\d+)").find(working) ?: return null
    val sets=scheme.groupValues[1].toIntOrNull() ?: return null

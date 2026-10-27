@@ -344,3 +344,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Backup293 recuperado desdeclon limpio65338db7+gitam hasta293:arbol
 3cc8c123295f0dfb4affe46239ad57a7a331621a IDENTICO aloriginal293.
 - Completo parser ydispositivo siguen abiertos.735/70abiertas sin cierres.
+
+## OCR porcentaje/setsrange 22:29
+- FullparseWODMovementLine633-668:prefijoSets1-2 y#70%/@>80% extraidos
+ como notasSeries1-2/70%/>80%,sin contaminar reps/nombre ni fabricar kg.
+- Hardening subsetfuerza282:rechaza% yRPErange antes leer@peso;se mantiene
+ ruta movimiento/rawreview,no interpreta70% ni6-8como70kg/6kg. Limite
+ explicito:no convierte intensidad enplannedsets typed enesta unidad.
+-2tests nuevos,domain504/504,93XMLcompleta22:29verde.Mobilepost295pendiente;
+ ultimoTODAS647/162post293+assemble42s, Wear8/1reejecutada22:26.

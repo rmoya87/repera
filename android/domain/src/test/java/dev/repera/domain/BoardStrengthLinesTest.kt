@@ -119,4 +119,19 @@ class BoardStrengthLinesTest {
   assertEquals(1,block.movements.size)
   assertTrue(block.wodNotes.orEmpty().contains("50/35"))
  }
+ @Test fun percentAndRpeAreNotTurnedIntoKgByStrengthSubset() {
+  assertNull(BoardStrengthLines.block(listOf("3x8 BACK SQUAT @70%"),listOf(squat)))
+  assertNull(BoardStrengthLines.block(listOf("3x8 BACK SQUAT @6-8"),listOf(squat)))
+ }
+ @Test fun movementSetRangeAndPercentRemainNotesNotQuantityOrLoad() {
+  val block=BoardScanLiteParser.parse("EMOM 12'\nSets 1-2: 3 Squat Clean #70%\nSets 3-4: 2 Squat Clean @>80%").blocks.single()
+  assertEquals(2,block.movements.size)
+  assertEquals(3,block.movements[0].reps)
+  assertEquals(2,block.movements[1].reps)
+  assertNull(block.movements[0].weightMaleKg)
+  assertNull(block.movements[1].weightMaleKg)
+  assertTrue(block.movements[0].notes.orEmpty().contains("Series 1-2"))
+  assertTrue(block.movements[0].notes.orEmpty().contains("70%"))
+  assertTrue(block.movements[1].notes.orEmpty().contains(">80%"))
+ }
 }

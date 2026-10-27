@@ -516,6 +516,14 @@ object BoardScanLiteParser {
     private fun movement(line: String, searchAliases: Map<String, String>): WODMovement {
         var working = line
         val notes = mutableListOf<String>()
+        Regex("^SETS?\\s+(\\d+)\\s*[-–]\\s*(\\d+)\\s*:\\s*",RegexOption.IGNORE_CASE).find(working)?.let {range ->
+            notes.add("Series ${range.groupValues[1]}-${range.groupValues[2]}")
+            working=working.removeRange(range.range)
+        }
+        Regex("[#@]\\s*(>?)(\\d+)\\s*%").find(working)?.let {percent ->
+            notes.add("${percent.groupValues[1]}${percent.groupValues[2]}%")
+            working=working.removeRange(percent.range)
+        }
         Regex("@\\s*\\d+(?:[.,]\\d+)?\\s*[-–]\\s*\\d+(?:[.,]\\d+)?").find(working)?.let { rpe ->
             notes.add("RPE " + rpe.value.replace("@", "").trim())
             working = working.removeRange(rpe.range)
