@@ -18,7 +18,7 @@ internal class WearPendingSetStore(context: Context) {
                               rir: Double? = null,
                               durationSeconds: Int? = null,
                               quantityUnit: String? = null,
-                              deficitCm: Int? = null,
+                              deficitCm: Int? = null, intervalIndex: Int? = null,
                               sessionJson: String? = null, warmup:Boolean=false,toFailure:Boolean=false): String = synchronized(lock) {
         require(sessionId.isNotBlank() && exerciseIndex >= 0 && quantity in 1..10000)
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
@@ -26,6 +26,7 @@ internal class WearPendingSetStore(context: Context) {
         require(durationSeconds == null || durationSeconds in 1..86400)
         require(quantityUnit == null || quantityUnit in setOf("reps", "calories", "meters"))
         require(deficitCm == null || deficitCm in 0..100)
+        require(intervalIndex == null || intervalIndex in 0..100000)
         val values = JSONArray(prefs.getString("outbox", "[]"))
         require(values.length() < 100) { "Hay demasiadas series sin sincronizar" }
         val id = UUID.randomUUID().toString()
@@ -37,6 +38,7 @@ internal class WearPendingSetStore(context: Context) {
         if (durationSeconds != null) command.put("durationSeconds", durationSeconds)
         if (quantityUnit != null) command.put("quantityUnit", quantityUnit)
         if (deficitCm != null) command.put("deficitCm", deficitCm)
+        if (intervalIndex != null) command.put("intervalIndex", intervalIndex)
         if (sessionJson != null) command.put("session", JSONObject(sessionJson))
         values.put(command)
         check(prefs.edit().putString("outbox", values.toString()).commit())

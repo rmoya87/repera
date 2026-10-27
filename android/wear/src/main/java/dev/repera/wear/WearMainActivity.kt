@@ -529,7 +529,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if(runCatching {pendingFinish.sessionId()==session.sessionId}.getOrDefault(true)) {
             sendStatus="La sesión está pendiente de terminar; no se añaden más series";return
         }
-        if (!session.canLogOnWatch || session.wodFormatLabel != null) return
+        if (!session.canLogOnWatch) return
+        if (session.wodFormatLabel != null && !session.wodUsesSeries) return
         // Apple ea99a5b6/a4a5d9ce: cero reps nunca se registra; con cero la
         // acción salta el descanso activo y avanza (o termina en el último).
         if (repsInput == 0) {
@@ -542,18 +543,30 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         if (repsInput !in 1..10000) return
+        // Apple 44713457: una serie WOD confirmada pertenece al intervalo actual
+        // del reloj del bloque; sin reloj activo no se deriva ni se inventa.
+        val wodInterval = if (session.wodUsesSeries) {
+            val derived = wearWodIntervalIndex(wodTimerJson, session.sessionId,
+                session.exerciseIndex, wodTickSeconds)
+            if (derived == null) {
+                sendStatus = "Inicia el reloj del bloque para registrar desde el reloj"
+                return
+            }
+            derived
+        } else null
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-                repsInput, weightInput, if(session.inputMode in setOf("strength","hspuDeficit","repsOnly") && !warmupInput) rirInput else null,
-                durationSeconds = if (session.inputMode in setOf("repsAndTime","machineWork"))
+                repsInput, weightInput, if(!session.wodUsesSeries && session.inputMode in setOf("strength","hspuDeficit","repsOnly") && !warmupInput) rirInput else null,
+                durationSeconds = if (!session.wodUsesSeries && session.inputMode in setOf("repsAndTime","machineWork"))
                     durationInput else null,
-                quantityUnit = if (session.inputMode in setOf("machineWork","loadDistance"))
+                quantityUnit = if (!session.wodUsesSeries && session.inputMode in setOf("machineWork","loadDistance"))
                     unitInput else null,
-                deficitCm = if (session.inputMode == "hspuDeficit")
+                deficitCm = if (!session.wodUsesSeries && session.inputMode == "hspuDeficit")
                     deficitInput else null,
+                intervalIndex = wodInterval,
                 sessionJson = if (watchStartedSession)
                     sessionCache.getString("snapshot", null) else null,
-                warmup=warmupInput && session.inputMode in setOf("strength","hspuDeficit","repsOnly"),toFailure=failureInput && !warmupInput && session.inputMode in setOf("strength","hspuDeficit","repsOnly"))
+                warmup=warmupInput && !session.wodUsesSeries && session.inputMode in setOf("strength","hspuDeficit","repsOnly"),toFailure=failureInput && !warmupInput && !session.wodUsesSeries && session.inputMode in setOf("strength","hspuDeficit","repsOnly"))
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
@@ -866,6 +879,8 @@ data class WatchSessionSummary(
     val prescribedReps: Int?,
     val prescribedWeightKg: Double?,
     val wodFormatLabel: String?,
+    /** Apple 44713457: formato WOD con captura de series por movimiento. */
+    val wodUsesSeries: Boolean = false,
     val globalScore: Boolean,
     val wodMovements: List<String>,
     val plannedWorkSets: Int = 0,
@@ -912,6 +927,8 @@ data class WatchSessionSummary(
                 minOf(done, plan.length() - 1)
             )
             val wodFormat = WodFormat.fromWire(exercise.optString("wodFormat"))
+            val wodUsesSeries = exercise.optString("blockKind") == "wod" &&
+                wodFormat?.capture == dev.repera.domain.ResultCapture.PER_MOVEMENT_SETS
             val globalScore = wodFormat?.capture?.let {
                 it != ResultCapture.PER_MOVEMENT_SETS
             } ?: false
@@ -944,7 +961,7 @@ data class WatchSessionSummary(
                     ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY,
                     ExerciseInputMode.REPS_AND_TIME, ExerciseInputMode.MACHINE_WORK,
                     ExerciseInputMode.HSPU_DEFICIT,ExerciseInputMode.LOAD_DISTANCE) &&
-                    exercise.optString("blockKind") != "wod",
+                    (exercise.optString("blockKind") != "wod" || wodUsesSeries),
                 allowsWeight = mode.showsWeight,
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
                 exerciseIndex = index + 1,
@@ -957,6 +974,7 @@ data class WatchSessionSummary(
                 prescribedWeightKg = if (globalScore || !mode.showsWeight) null else target?.takeIf {
                     it.has("targetWeightKg") && !it.isNull("targetWeightKg")
                 }?.getDouble("targetWeightKg"),
+                wodUsesSeries = wodUsesSeries,
                 wodFormatLabel = wodFormat?.displayName,
                 globalScore = globalScore,
                 wodMovements = movementLines,

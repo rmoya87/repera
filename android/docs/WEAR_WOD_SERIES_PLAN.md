@@ -24,19 +24,27 @@ Estado: ANALISIS COMPLETO contra corte 0a640da8; implementacion NO iniciada (27 
   valida formato PER_MOVEMENT_SETS, limites de intervalo contra routineBlocks. Opera
   sobre el ejercicio currentIndex del telefono.
 
-## Trabajo de implementacion (lote futuro, sin prisa)
-1. WatchSessionSummary: exponer capture (perMovementSets) y blockId del ejercicio actual.
-2. canLogOnWatch: true para WOD con capture==perMovementSets y modo soportado.
-3. queueSet: permitir wodFormatLabel != null solo si capture==perMovementSets; cero reps
-   mantiene la regla actual (saltar/avanzar, nunca registrar).
-4. Payload /repera/log-set: añadir intervalIndex (derivado del reloj del bloque en el
-   reloj, como Apple: elapsed%intervalo) y flag wodMovement.
-5. logWearSet: si blockKind=="wod" && capture==perMovementSets -> enrutar a
-   recordWodMovement (mapear exerciseIndex del reloj al currentIndex/movimiento del
-   bloque en el telefono) en vez de rechazar; mantener dedup setId y ack saved/rejected.
-6. Tests: phone (logWearSet WOD enruta a recordWodMovement, dedup, rechazo formato
-   global), watch-side logic donde sea testeable en JVM.
-7. Validacion visual/runtime Wear ABIERTA (sin emulador KVM).
+## Trabajo de implementacion
+HECHO unidad 1 (telefono, 466a45e1): logWearSet enruta WOD perMovementSets a
+recordWodMovement (movementIndex derivado del exerciseIndex global dentro del
+bloque; currentIndex del telefono puede ser otro movimiento del MISMO bloque);
+setId del reloj = LoggedSet.id persistido (dedup por reintento); intervalIndex
+requerido para WOD (payload /repera/log-set + validacion 0..100000 en MainActivity);
+recordWodMovement acepta setId. Tests WearWodSetRoutingTest 6/6 REAL.
+HECHO unidad 2 (reloj): WatchSessionSummary.wodUsesSeries; canLogOnWatch admite
+WOD perMovementSets con modo soportado; queueSet deriva intervalIndex del reloj
+del bloque publicado (/repera/wod-timer: spec completa + elapsed; funcion pura
+wearWodIntervalIndex -> WodClock.activeIntervalIndex); SIN reloj activo no
+registra y avisa ("Inicia el reloj del bloque...") - diferencia documentada vs
+Apple (que registra sin intervalo); cero reps mantiene la regla (salta/avanza,
+NUNCA registra); WearPendingSetStore lleva intervalIndex en el comando (fluye
+verbatim al telefono). Tests WearWodSeriesTest 6/6 REAL (infra de test unitario
+nueva en el modulo wear: junit+robolectric).
+PENDIENTE:
+- Descanso tras serie WOD confirmada: Apple usa el resto del intervalo; Android
+  usa WatchStrengthRest con blockRestSeconds. Alinear o documentar (no inventar).
+- Validacion visual/runtime Wear ABIERTA (sin emulador KVM): UI "Registrar serie"
+  en bloque WOD, estado sin reloj, ack saved/rejected en reloj real.
 
 ## Riesgos / preguntas abiertas
 - recordWodMovement opera sobre currentIndex del telefono: confirmar como se mapea un
