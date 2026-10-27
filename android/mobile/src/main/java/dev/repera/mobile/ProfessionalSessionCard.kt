@@ -31,7 +31,7 @@ import org.json.JSONArray
                 else Text(listOfNotNull(e.optInt("reps").takeIf {e.has("reps") && !e.isNull("reps")}?.let {"$it rep"},
                     e.optString("notes").takeIf {it.isNotEmpty()},"Ejercicio libre".takeIf {e.optString("source")=="free"}).joinToString(" · "),style=MaterialTheme.typography.bodySmall)
             }
-            if(compact && entries.length()>3) Text("+ ${entries.length()-3} movimientos · Ver todos en Diario")
+            if(compact && entries.length()>3) Text("+ ${entries.length()-3} movimientos · Ver todos en el historial")
         }
         if(blocks.length()==0 && session.instructions.isEmpty()) Text("Sin bloques estructurados: el entrenador todavía no ha añadido movimientos.")
     } }
