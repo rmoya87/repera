@@ -1,5 +1,15 @@
 ## Administración global de Repera — 27/10/2026
 
+## Corrección de acceso administrador y retirada de demo — 27/10/2026
+
+- **Incidencia reproducida y reparada en Supabase**: la política `memberships_platform_delegated_read` consultaba `platform_admin_delegations` desde el rol navegador `authenticated`, sin permiso SELECT intencionadamente; impedía leer `organization_memberships` y ocultaba el panel administrativo bajo el mensaje 403. Migración `20261027140000_fix_platform_membership_rls.sql` aplicada. La política original `memberships_select_authorized` ya incorpora acceso delegado mediante `private.has_org_role()` (SECURITY DEFINER).
+- Se reprodujo la consulta fallida con `SET LOCAL ROLE authenticated` y JWT simulado de la cuenta administrador, y se verificó lectura de membresías y RPC de directorio después de corregirla.
+- El frontend consulta primero el rol global y los endpoints de plataforma; solo consulta membresías de negocio si existe acceso delegado o si se trata de usuario profesional normal. Una consulta de negocio no puede bloquear el acceso al panel global.
+- Se elimina la entrada a la demostración local: ni el navegador ni `Repera-Business.command` admiten modo demo. La interfaz siempre usa sesión y datos auténticos de Supabase; aún hay fixtures estáticas utilizadas únicamente en pruebas unitarias, nunca en la app conectada.
+- Se incorpora prueba de regresión `web/console/tests/connected-only.test.mjs` y se fuerza versión de recursos nueva para evitar caché.
+- Pendiente de validación visual en navegador real con la cuenta administrativa después de actualizar la copia local; sin despliegue IONOS implícito.
+
+
 - Complemento de pagos (27/10): migración `20261027131000_platform_client_payment_ledger.sql` aplicada con `business_client_payments` (B2C, escritura solo backend privilegiado) y ampliación de `platform_admin_finances`. La UI permite alternar B2B/B2C, filtrar negocio, estado y fechas y exportar CSV (protección contra fórmulas). Sigue pendiente la ingestión de Stripe Connect y los cobros reales.
 
 - Nueva consola **independiente** para `platform_admin` en `web/console/src/ui/platform-admin.js` con menú de Inicio, Gimnasios, Entrenadores, Usuarios y clientes (agregados), Pagos B2B, Planes, Soporte, Auditoría y Configuración. Listados buscables y filtrables, fichas del negocio con datos públicos, recuentos de clientes y sesiones, plan, estado y actividad.

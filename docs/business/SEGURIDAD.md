@@ -1,5 +1,12 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Reparación RLS de membresías — 27/10/2026
+
+**Incidente real (403):** la política `memberships_platform_delegated_read` incluía un subquery directo de `platform_admin_delegations`. Aunque no existiese delegación activa, PostgreSQL evaluaba la expresión de la política y el rol `authenticated` no podía leer la tabla (correctamente denegada). El error afectaba al listado de membresías de todos los negocios y al arranque del panel.
+
+La migración `20261027140000_fix_platform_membership_rls.sql` elimina la política redundante. Sigue vigente `memberships_select_authorized`, que consulta `private.has_org_role()`; esa función SECURITY DEFINER comprueba el administrador y las delegaciones sin exponer la tabla al navegador. **No se otorgan permisos SELECT adicionales sobre tablas administrativas.** Confirmado con sesión de prueba como rol `authenticated` y el usuario de plataforma.
+
+
 - El segundo ledger `business_client_payments` no admite escrituras desde el navegador; solo un backend con verificación de firma del proveedor podrá registrar transacciones. Se definieron políticas explícitas de denegación para las tablas administrativas; wrappers públicos siguen sujetos al guard de administrador. El CSV añade neutralización de prefijos de fórmula.
 
 La administración global no usa `service_role` en el navegador. `private.is_repera_platform_admin()` valida `profiles.role` más email confirmado de la cuenta raíz. El listado de negocio y el histórico administrativo se exponen por wrappers SQL `SECURITY INVOKER` cuyo destino es una función privada de privilegios restringidos.

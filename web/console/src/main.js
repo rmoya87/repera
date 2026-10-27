@@ -1,4 +1,3 @@
-// Authenticated backend is the DEFAULT; the isolated local prototype is opt-in.
-// This prevents seeded clients, fake payments and role switches being shown as live data.
-if(new URLSearchParams(location.search).get('demo')==='1')import('./ui/app.js');
-else import('./ui/connected.js');
+// Repera Business always opens the authenticated Supabase console.
+// Offline fixtures cannot be selected from a URL or the local launcher.
+import './ui/connected.js';
