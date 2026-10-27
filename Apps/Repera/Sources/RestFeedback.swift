@@ -6,15 +6,9 @@ import UIKit
 /// Los tres pitidos y el aviso largo comparten frecuencia y timbre.
 @MainActor
 enum RestFeedback {
-    private static var tonePlayer: AVAudioPlayer?
-    private static var releaseAudioTask: Task<Void, Never>?
-    private static var currentToneID = UUID()
-    /// Serializa cambios de AVAudioSession FUERA de MainActor: nunca bloquear
-    /// animaciones, scroll o controles de Comenzar con setActive/setCategory.
-    private static let audioSessionQueue = DispatchQueue(
-        label: "com.app.repera.rest-feedback.audio-session",
-        qos: .userInitiated
-    )
+    /// El hilo principal solo genera hápticos y encola peticiones de sonido.
+    /// AVAudioPlayer.prepareToPlay() también puede activar el hardware y bloquear.
+    private static let audioEngine = RestToneAudioEngine()
 
     // Tono medio (Do5), menos grave que el anterior Sol4 (392 Hz).
     // Los avisos usan la misma nota: solo cambia la duración.
@@ -44,69 +38,7 @@ enum RestFeedback {
     }
 
     private static func playTone(_ data: Data, duration: TimeInterval) {
-        releaseAudioTask?.cancel()
-        releaseAudioTask = nil
-        tonePlayer?.stop()
-        tonePlayer = nil
-        let id = UUID()
-        currentToneID = id
-
-        // setCategory/setActive pueden esperar a la ruta de audio física
-        // (Bluetooth, AirPods, interrupciones). No ejecutarlos en MainActor.
-        // La cola evita que varios pitidos activen/desactiven en paralelo.
-        audioSessionQueue.async {
-            let session = AVAudioSession.sharedInstance()
-            do {
-                try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-                try session.setActive(true)
-            } catch {
-                let message = String(describing: error)
-                Task { @MainActor in
-                    guard currentToneID == id else { return }
-                    NSLog("[Repera] No se pudo activar el audio deportivo: %@", message)
-                }
-                return
-            }
-            Task { @MainActor in
-                // Un pitido posterior sustituye al anterior incluso si la
-                // activación asíncrona del primero termina más tarde.
-                guard currentToneID == id else { return }
-                do {
-                    let player = try AVAudioPlayer(data: data)
-                    player.volume = 0.75
-                    player.prepareToPlay()
-                    tonePlayer = player
-                    guard player.play() else {
-                        tonePlayer = nil
-                        deactivateAudioWhenIdle()
-                        return
-                    }
-                } catch {
-                    tonePlayer = nil
-                    NSLog("[Repera] No se pudo reproducir el tono deportivo: %@", String(describing: error))
-                    deactivateAudioWhenIdle()
-                    return
-                }
-                releaseAudioTask = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(duration + 0.15))
-                    guard !Task.isCancelled, currentToneID == id else { return }
-                    tonePlayer = nil
-                    releaseAudioTask = nil
-                    deactivateAudioWhenIdle()
-                }
-            }
-        }
-    }
-
-    private static func deactivateAudioWhenIdle() {
-        audioSessionQueue.async {
-            let session = AVAudioSession.sharedInstance()
-            // Una locución GPS puede empezar mientras termina el tono.
-            // No desactivar su sesión al terminar el pitido.
-            if session.mode != .spokenAudio {
-                try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            }
-        }
+        audioEngine.play(data: data, duration: duration)
     }
 
     /// WAV PCM mono generado localmente, sin recursos remotos ni sonidos
@@ -146,5 +78,73 @@ enum RestFeedback {
             appendLE(UInt16(bitPattern: value))
         }
         return data
+    }
+}
+
+
+/// AVAudioSession y AVAudioPlayer se usan solo desde la misma cola serial.
+/// No hacer `prepareToPlay`, `play`, `stop` ni destruir el player en MainActor:
+/// `prepareToPlay` puede activar el hardware de forma síncrona.
+private final class RestToneAudioEngine: @unchecked Sendable {
+    private let queue = DispatchQueue(
+        label: "com.app.repera.rest-feedback.audio-session",
+        qos: .userInitiated
+    )
+    /// El ID se consulta al entrar/salir de operaciones que pueden tardar
+    /// (Bluetooth, cambio de ruta). Nunca se bloquea el main thread con AVAudio.
+    private let identityLock = NSLock()
+    private var currentToneID = UUID()
+    /// Propiedad confinada a `queue`; justifica @unchecked Sendable.
+    private var tonePlayer: AVAudioPlayer?
+
+    func play(data: Data, duration: TimeInterval) {
+        let id = UUID()
+        identityLock.lock()
+        currentToneID = id
+        identityLock.unlock()
+
+        queue.async { [self] in
+            guard isCurrent(id) else { return }
+            tonePlayer?.stop()
+            tonePlayer = nil
+
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+                try session.setActive(true)
+                guard isCurrent(id) else { return }
+
+                let player = try AVAudioPlayer(data: data)
+                player.volume = 0.75
+                // Este método también activa la sesión internamente: solo cola.
+                guard player.prepareToPlay(), player.play() else {
+                    deactivateWhenIdle(session, id: id)
+                    return
+                }
+                tonePlayer = player
+            } catch {
+                NSLog("[Repera] No se pudo reproducir el tono deportivo: %@", String(describing: error))
+                deactivateWhenIdle(session, id: id)
+                return
+            }
+
+            queue.asyncAfter(deadline: .now() + duration + 0.15) { [self] in
+                guard isCurrent(id) else { return }
+                tonePlayer = nil
+                deactivateWhenIdle(AVAudioSession.sharedInstance(), id: id)
+            }
+        }
+    }
+
+    private func isCurrent(_ id: UUID) -> Bool {
+        identityLock.lock()
+        defer { identityLock.unlock() }
+        return currentToneID == id
+    }
+
+    /// Solo se invoca desde `queue`. No cerrar la sesión de una locución GPS.
+    private func deactivateWhenIdle(_ session: AVAudioSession, id: UUID) {
+        guard isCurrent(id), session.mode != .spokenAudio else { return }
+        try? session.setActive(false, options: .notifyOthersOnDeactivation)
     }
 }

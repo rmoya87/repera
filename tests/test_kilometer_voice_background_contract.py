@@ -164,7 +164,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertNotIn("makeTone(duration: 0.82)", feedback)
         self.assertNotIn("392 * seconds", feedback)
         self.assertNotIn("AudioServicesPlaySystemSound", feedback)
-        self.assertIn("if session.mode != .spokenAudio", feedback)
+        self.assertIn("session.mode != .spokenAudio", feedback)
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
             "func cancelStartCountdown()", 1
         )[0]
@@ -181,21 +181,37 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("recorder.startCountdownRemaining", LIVE)
         self.assertIn("if previous == .idle && next == .recording", LIVE)
 
-    def test_audio_session_configuration_never_blocks_main_actor(self):
+    def test_audio_player_and_session_do_not_block_main_actor(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
-        self.assertIn('label: "com.app.repera.rest-feedback.audio-session"', feedback)
-        self.assertIn("audioSessionQueue.async {", feedback)
-        self.assertIn("try session.setCategory(", feedback)
-        self.assertIn("try session.setActive(true)", feedback)
-        self.assertIn("try? session.setActive(false, options: .notifyOthersOnDeactivation)", feedback)
-        self.assertIn("guard currentToneID == id else { return }", feedback)
-        self.assertIn("if session.mode != .spokenAudio", feedback)
-        # setActive debe estar exclusivamente en bloques de la cola serial.
-        start = feedback.index("    private static func playTone(")
-        stop = feedback.index("    private static func makeTone(", start)
-        audio_methods = feedback[start:stop]
-        self.assertEqual(audio_methods.count("setActive("), 2)
-        self.assertEqual(audio_methods.count("audioSessionQueue.async {"), 2)
+        main, audio = feedback.split("private final class RestToneAudioEngine:", 1)
+
+        # AVAudioPlayer.prepareToPlay y stop también pueden activar hardware.
+        # Todas las operaciones sobre el reproductor, no solo setActive, van a la cola.
+        self.assertIn("@MainActor\nenum RestFeedback", main)
+        self.assertIn("audioEngine.play(data: data, duration: duration)", main)
+        for name in ("AVAudioPlayer(data:", "prepareToPlay()", "player.play()",
+                     "tonePlayer?.stop()", "setActive(", "setCategory("):
+            # Los comentarios pueden explicar las llamadas; buscar solo código.
+            lines = [line.strip() for line in main.splitlines()
+                     if line.strip() and not line.strip().startswith(("///", "//"))]
+            self.assertFalse(any(name in line for line in lines), name)
+
+        self.assertIn("private let queue = DispatchQueue(", audio)
+        self.assertIn('label: "com.app.repera.rest-feedback.audio-session"', audio)
+        self.assertIn("queue.async { [self] in", audio)
+        self.assertIn("let player = try AVAudioPlayer(data: data)", audio)
+        self.assertIn("guard player.prepareToPlay(), player.play() else", audio)
+        self.assertIn("tonePlayer?.stop()", audio)
+        self.assertIn("queue.asyncAfter(deadline:", audio)
+        self.assertIn("guard isCurrent(id) else { return }", audio)
+        self.assertIn("identityLock.lock()", audio)
+        self.assertIn("identityLock.unlock()", audio)
+        self.assertIn("try session.setCategory(", audio)
+        self.assertIn("try session.setActive(true)", audio)
+        self.assertIn("try? session.setActive(false, options: .notifyOthersOnDeactivation)", audio)
+        self.assertIn("session.mode != .spokenAudio", audio)
+        # Si mañana alguien mueve prepareToPlay a MainActor, este test falla.
+        self.assertLess(audio.index("queue.async { [self] in"), audio.index("player.prepareToPlay()"))
 
     def test_favorites_swipe_edit_uses_existing_template(self):
         favorites = (ROOT / "Apps/Repera/Sources/FavoritesHubView.swift").read_text(encoding="utf-8")
