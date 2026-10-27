@@ -7,9 +7,9 @@ on:
       - "Apps/Repera/Resources/Assets.xcassets/MascotHero.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/MascotRunning.imageset/**"
       - "Apps/Repera/Resources/Assets.xcassets/ReperaBarbellLaunch.imageset/**"
-      - "Apps/Repera/Resources/LaunchHeroOpaque.png"
+      - "Apps/Repera/Resources/Assets.xcassets/ReperaNativeOpaqueHero.imageset/**"
       - "Apps/Repera/Resources/Info.plist"
-      - "Apps/Repera/Resources/ReperaNativeLaunch.storyboard"
+      - "Apps/Repera/Resources/LaunchScreen.storyboard"
       - "project.yml"
       - ".github/workflows/validate-splash-alpha.yml"
   pull_request:
@@ -78,7 +78,7 @@ jobs:
           constraint_ids={node.attrib.get("id") for node in tree.findall(".//constraint")}
           required={"mascot-leading","mascot-trailing","mascot-top","mascot-bottom"}
           assert required.issubset(constraint_ids), "Native splash mascot not pinned edge-to-edge"
-          assert "path: Apps/Repera/Resources/ReperaNativeLaunch.storyboard" not in config
+          assert config.count("path: Apps/Repera/Resources/LaunchScreen.storyboard")==1
           assert 'path: Apps/Repera/Resources/LaunchScreen.storyboard' in config
           assert 'UILaunchStoryboardName: LaunchScreen' in config
           # Only the built-in launch storyboard is part of the Xcode target.

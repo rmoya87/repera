@@ -71,7 +71,7 @@ targets:
         buildPhase: resources
         type: folder
       # El sistema renderiza el LaunchScreen nativo mientras SwiftUI inicia.
-      # El storyboard usa ReperaBarbellLaunch (Asset Catalog), mismo muñeco que SwiftUI.
+      # El storyboard nativo y el primer frame SwiftUI usan ReperaNativeOpaqueHero.
       - path: Apps/Repera/Resources/LaunchScreen.storyboard
         buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json
