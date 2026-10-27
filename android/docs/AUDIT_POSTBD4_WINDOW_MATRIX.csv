@@ -76,7 +76,7 @@ d5c263d3|2026-10-26T20:39:20+01:00|Fix compact workout route stroke and bridge s
 1c9afcd0|2026-10-26T20:41:56+01:00|Keep linked GPX visual gap guidance in enlarged post-workout map|ios-app||unverified
 e048d814|2026-10-26T21:16:52+01:00|Refine route map strokes and GPS continuity; recognize T2B/BTT; simplify weather attribution|ios-app+domain+tests||unverified
 505dd6a6|2026-10-26T21:21:48+01:00|Fix workout preview title placement inside native top bar beside close button|ios-app||unverified
-6993e330|2026-10-26T21:33:09+01:00|Add shared catalog resolution for legacy BTT/T2B WOD movement ids|domain||unverified
+6993e330|2026-10-26T21:33:09+01:00|Add shared catalog resolution for legacy BTT/T2B WOD movement ids|domain||in-progress 11:24 (catalogExercise: reconciliación en display de WODs con ids provisionales; cadena con 88db5bb7/83253491/154fd42b; Android tiene ExerciseEquivalence pero falta análisis de llamante en history)
 cf25922e|2026-10-26T21:33:20+01:00|Resolve old BTT identifiers when starting scheduled workouts|domain||unverified
 cde03942|2026-10-26T21:33:33+01:00|Show catalog identity for scheduled BTT in workout preview|ios-app||unverified
 576bf897|2026-10-26T21:33:52+01:00|Resolve catalog exercise in WOD editor for legacy saved aliases|ios-app||unverified
@@ -92,7 +92,7 @@ ea59caff|2026-10-26T21:37:59+01:00|Remove duplicate back arrow and apply adaptiv
 3666d1ac|2026-10-26T22:17:33+01:00|Connect workout preview exercise taps to centralized navigation path|ios-app||unverified
 4768dc48|2026-10-26T22:17:45+01:00|Push one exercise detail route from workout preview and return in one back action|ios-app||unverified
 e3f1d652|2026-10-26T22:19:20+01:00|Preserve disclosure chevrons when switching workout exercise rows to single-action buttons|ios-app||unverified
-c6f89c28|2026-10-26T22:20:13+01:00|Prefer official catalog entries over legacy scanned customs when matching board movements|domain||unverified
+c6f89c28|2026-10-26T22:20:13+01:00|Prefer official catalog entries over legacy scanned customs when matching board movements|domain||verified-partial 11:24 (BoardImportParser full: sin contraparte Android; el caso Lite ya cubierto en tree173 catalogIndex oficial>custom)
 ca7b1ae2|2026-10-26T22:20:23+01:00|Prioritize official catalog exercises in lightweight board scanner|domain||unverified
 6efd1cec|2026-10-26T22:20:48+01:00|Test mixed-case BTT and T2B repair over same-name legacy custom exercises|tests||unverified
 3684a6ec|2026-10-26T22:21:03+01:00|Regression test lite board scanner with BTT/T2B duplicate legacy custom matches|tests||unverified
@@ -102,7 +102,7 @@ e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise 
 61185bba|2026-10-26T22:26:36+01:00|Apply Supabase catalog alias arrays to persisted offline Exercise entries|ios-app||unverified
 6552bd80|2026-10-26T22:26:47+01:00|Preserve Supabase alias metadata when enriching local exercises from bundled seed|ios-app||unverified
 439bafa7|2026-10-26T22:27:10+01:00|Index remote Supabase aliases in exercise search without rebuilding the app|domain||unverified
-88db5bb7|2026-10-26T22:27:25+01:00|Resolve OCR and existing WOD movements using persisted Supabase aliases|domain||unverified
+88db5bb7|2026-10-26T22:27:25+01:00|Resolve OCR and existing WOD movements using persisted Supabase aliases|domain||verified-partial 11:24 (alias persistidos en matching: Lite ya portado tree173 vía SEN.searchAliases; parte catalogExercise pendiente con 6993e330)
 7081dc4a|2026-10-26T22:27:40+01:00|Use dynamic Supabase aliases in all lightweight board scanner paths|domain||unverified
 846b75a6|2026-10-26T22:28:03+01:00|Distinguish scheduled days from completed workouts in Diary indicators|ios-app||unverified
 b74ad790|2026-10-26T22:28:54+01:00|Increase GPS heatmap contrast using session speed range and reduced smoothing|ios-app||unverified
@@ -110,7 +110,7 @@ de1a6f0e|2026-10-26T22:30:04+01:00|Test Supabase-driven aliases for OCR, search 
 4dde4f78|2026-10-26T22:30:07+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 67311dbf|2026-10-26T22:30:11+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 d38719b2|2026-10-26T22:30:14+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
-83253491|2026-10-26T22:32:52+01:00|Ensure exact official exercise names outrank conflicting server aliases|domain||unverified
+83253491|2026-10-26T22:32:52+01:00|Ensure exact official exercise names outrank conflicting server aliases|domain||verified-partial 11:24 (precedencia nombre oficial exacto sobre alias: ya en catalogIndex tree173 (alias no pisa canónico); parte catalogExercise pendiente)
 7dff0470|2026-10-26T23:12:39+01:00|Set Repera TestFlight version to 1.0 (39) after build 38 upload|other||unverified
 3eb312a1|2026-10-26T23:12:51+01:00|Protect TestFlight build number from stale Xcode scheme pre-action settings|other||unverified
 087455df|2026-10-26T23:13:06+01:00|Test version sync rejects stale TestFlight 38 and preserves newer builds|other||unverified
@@ -120,16 +120,16 @@ c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout f
 c04c7dd9|2026-10-26T23:32:49+01:00|feat(iOS): show color-speed legend on saved workout route maps|ios-app||unverified
 103c85da|2026-10-26T23:34:41+01:00|Restore compact add-workout sheet and push Favorites as a separate page|ios-app||unverified
 4d9d39a2|2026-10-26T23:39:57+01:00|Unify add workout destinations as push pages and restore compact bottom sheet|ios-app||unverified
-b4b6dbaf|2026-10-26T23:46:26+01:00|Keep workout navigation chrome stable and recover BTT/T2B catalog links|ios-app+domain+tests||unverified
+b4b6dbaf|2026-10-26T23:46:26+01:00|Keep workout navigation chrome stable and recover BTT/T2B catalog links|ios-app+domain+tests||in-progress 11:24 (vistas iOS sin contraparte; parser +6 líneas por revisar con clúster catalogExercise)
 a6e22d02|2026-10-26T23:47:26+01:00|style(iOS): match standalone timer segmented tabs to Progress Liquid Glass|ios-app||unverified
 7a14cd0d|2026-10-26T23:47:44+01:00|docs: document timer mode selector parity with Progress|docs||unverified
 a112c75b|2026-10-26T23:49:15+01:00|style(iOS): remove timer configuration heading and align first rows|ios-app||unverified
 c77599d5|2026-10-26T23:49:27+01:00|docs: record compact timer configuration layout|docs||unverified
 a5e2a2c8|2026-10-27T06:38:00+01:00|fix(ios): keep top navigation transparent and align route speed legend|ios-app||unverified
-85c7124c|2026-10-27T06:39:19+01:00|Resolve BTT and T2B from bundled catalog before remote hydration and repair saved WOD links|ios-app+domain+tests||unverified
+85c7124c|2026-10-27T06:39:19+01:00|Resolve BTT and T2B from bundled catalog before remote hydration and repair saved WOD links|ios-app+domain+tests||in-progress 11:24 (resolución bundled-first + repair de enlaces guardados: requiere análisis de llamante Android en history)
 33068e86|2026-10-27T06:41:12+01:00|refactor(ios): render large subpage titles in scrollable content|ios-app||unverified
-8f3941de|2026-10-27T06:41:43+01:00|Prioritize canonical BTT/T2B records over legacy mislabeled catalog entries|domain+tests||unverified
-154fd42b|2026-10-27T06:43:51+01:00|Avoid promoting historical abbreviated exercise IDs during WOD catalog reconciliation|domain||unverified
+8f3941de|2026-10-27T06:41:43+01:00|Prioritize canonical BTT/T2B records over legacy mislabeled catalog entries|domain+tests||in-progress 11:24 (priorización canónica BTT/T2B en reconciliación; con clúster catalogExercise)
+154fd42b|2026-10-27T06:43:51+01:00|Avoid promoting historical abbreviated exercise IDs during WOD catalog reconciliation|domain||in-progress 11:24 (refinamiento del guard de abreviaturas en catalogExercise; con clúster)
 b036d0f2|2026-10-27T06:44:46+01:00|refactor(ios): scroll page headings without collapsing to small titles|ios-app||unverified
 cbfb8eab|2026-10-27T06:49:20+01:00|refactor(ios): apply scrolling headings across remaining navigation destinations|ios-app||unverified
 8e9b7941|2026-10-27T06:52:11+01:00|fix(ios): remove opaque play navigation and unify live screen topbars|ios-app+docs||unverified
