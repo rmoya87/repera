@@ -209,6 +209,7 @@ final class SubscriptionManager {
         do {
             let previous = snapshot
             var next = try await provider.purchase(productID: productID)
+            next = await verifiedAppleAccessIfNeeded(next)
             next = mergedVerifiedCache(next, from: previous)
             applySnapshot(next)
             if snapshot.grantsProAccess {
@@ -242,6 +243,7 @@ final class SubscriptionManager {
         do {
             let previous = snapshot
             var next = try await provider.restore()
+            next = await verifiedAppleAccessIfNeeded(next)
             next = mergedVerifiedCache(next, from: previous)
             applySnapshot(next)
             if snapshot.grantsProAccess {
@@ -262,6 +264,9 @@ final class SubscriptionManager {
         defer { isRefreshing = false }
         let previous = snapshot
         var next = await provider.refresh()
+        // En TestFlight/App Store la compra verificada por Apple sigue siendo
+        // válida aunque el proveedor principal no encuentre su entitlement.
+        next = await verifiedAppleAccessIfNeeded(next)
         // Offline: si el provider devolvió unknown, conservar Pro verificado.
         if next.status == .unknown, previous.grantsProAccess || previous.lastVerifiedProStatus != nil {
             next.lastVerifiedProStatus = previous.lastVerifiedProStatus ?? previous.status
@@ -274,6 +279,24 @@ final class SubscriptionManager {
         }
         applySnapshot(next)
         _ = reason
+    }
+
+    /// Solo valida transacciones firmadas por Apple y productos propios.
+    /// Nunca concede Pro por un estado local o una compra no verificada.
+    private func verifiedAppleAccessIfNeeded(_ snapshot: CommercialSnapshot) async -> CommercialSnapshot {
+        guard !snapshot.grantsProAccess else { return snapshot }
+        #if canImport(RevenueCat)
+        guard provider is RevenueCatEntitlementProvider else { return snapshot }
+        let apple = StoreKitEntitlementProvider()
+        let verified = await apple.refresh()
+        guard verified.grantsProAccess else { return snapshot }
+        // A partir de aquí usar el mismo verificador para compras/restore,
+        // evitando discrepancias de entitlement entre proveedores.
+        provider = apple
+        return verified
+        #else
+        return snapshot
+        #endif
     }
 
     private func applySnapshot(_ next: CommercialSnapshot) {
