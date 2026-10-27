@@ -70,8 +70,6 @@ struct HomeView: View {
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
-    /// Cargar una ruta siempre lleva a Comenzar; nunca arranca GPS sin Play.
-    var onLoadRoutes: () -> Void = {}
 
     /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
@@ -1092,23 +1090,6 @@ struct HomeView: View {
             if !hasActive {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
-                Button(action: onLoadRoutes) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Cargar ruta")
-                            .font(.system(size: 15, weight: .semibold))
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(OG.label)
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 48)
-                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Abre Mis rutas en Comenzar para elegir y preparar el recorrido")
             }
         }
         .swipeActionsContainer()
