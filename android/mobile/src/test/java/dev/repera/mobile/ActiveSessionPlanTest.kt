@@ -48,4 +48,38 @@ class ActiveSessionPlanTest {
   val r=session.getJSONArray("exercises")
   assertEquals(5,r.getJSONObject(0).getInt("completedReps"));assertEquals(8,r.getJSONObject(1).getInt("completedReps"))
  }
+ @Test fun nonLegacySessionNeverReassignsResultsByExerciseMatch() {
+  fun item(id:String,reps:Int)=JSONObject().put("id",id).put("blockId","b").put("exercise",JSONObject().put("id","sq").put("name","Sentadilla"))
+   .put("loggedSets",JSONArray().apply {if(reps>0) put(JSONObject().put("id","s$id").put("reps",reps))}).put("completedReps",reps).put("isCompleted",reps>0)
+  // Sesión creada con ids del plan: sus routineBlocks contienen i1 e i2.
+  val blocks=JSONArray().put(JSONObject().put("id","b").put("kind","strength")
+   .put("exercises",JSONArray().put(JSONObject().put("id","i1")).put(JSONObject().put("id","i2"))))
+  val session=JSONObject().put("currentIndex",0).put("routineBlocks",blocks)
+   .put("exercises",JSONArray().put(item("i1",5)).put(item("i2",8)))
+  // El plan editado sustituye i2 por un ítem NUEVO con el mismo ejercicio: no debe heredar sus series.
+  val fresh=JSONObject().put("routineBlocks",blocks).put("exercises",JSONArray().put(item("i1",0)).put(item("i3",0)))
+  ActiveSessionPlan.refresh(session,fresh)
+  val r=session.getJSONArray("exercises")
+  assertEquals(5,r.getJSONObject(0).getInt("completedReps"))
+  assertEquals(0,r.getJSONObject(1).getInt("completedReps"))
+  assertEquals(0,r.getJSONObject(1).getJSONArray("loggedSets").length())
+ }
+ @Test fun legacyFallbackCarriesAdaptedValues() {
+  fun item(id:String,reps:Int)=JSONObject().put("id",id).put("blockId","b").put("exercise",JSONObject().put("id","sq").put("name","Sentadilla"))
+   .put("loggedSets",JSONArray()).put("completedReps",reps).put("isCompleted",reps>0)
+  val old=item("old",5).put("adaptedReps",12).put("adaptedWeightKg",42.5)
+  val session=JSONObject().put("currentIndex",0).put("exercises",JSONArray().put(old))
+  val fresh=JSONObject().put("routineBlocks",JSONArray()).put("exercises",JSONArray().put(item("n1",0)))
+  ActiveSessionPlan.refresh(session,fresh)
+  val r=session.getJSONArray("exercises").getJSONObject(0)
+  assertEquals(12,r.getInt("adaptedReps"));assertEquals(42.5,r.getDouble("adaptedWeightKg"),0.0)
+  assertEquals(5,r.getInt("completedReps"))
+ }
+ @Test fun freshTitleReplacesSessionTitle() {
+  val session=JSONObject().put("title","Viejo").put("currentIndex",0)
+   .put("exercises",JSONArray().put(e("a","one",5)))
+  val fresh=JSONObject().put("title","Nuevo").put("routineBlocks",JSONArray()).put("exercises",JSONArray().put(e("a","one")))
+  ActiveSessionPlan.refresh(session,fresh)
+  assertEquals("Nuevo",session.getString("title"))
+ }
 }

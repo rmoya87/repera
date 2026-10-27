@@ -91,3 +91,34 @@ BusinessAuthStore (90 diff lines): requiresReauthentication semantics now fully 
 HealthMuscleMapper (75 diff lines): uniqueExternalActivities = linked-UUID filter + native overlap (same healthType, start <90 s, duration <3 min). Android: overlap rule ported verbatim in domain HealthMuscleMapper.dropNativeOverlaps; the linked-id part is handled by the reader (ReperaHealthExclusion) instead of the mapper - equivalent coverage, different placement. nativeSportStimuli, isEstimatedIntense (HIIT/cross/functionalStrength/boxing/kickboxing/martialArts/wrestling) and isCardio (strength/core/yoga/pilates/flexibility/cooldown/other NOT cardio) all ported. No open item.
 
 ActivityHeatmapView (21 diff lines): only change is HeatmapLayout gaining cellHeight; in strip mode cells become horizontal rectangles with height min(cell, 76) so 1-3 day strips do not grow hundreds of points tall. Android ProgressCharts heatmap still uses square cells for strips (canvasHeight = cell * rows). OPEN (small visual).
+
+## tree163 — Correcciones portadas (27oct 09:55 CET)
+
+Baseline REAL previo: domain 382/0/0/0, mobile 446/0/0/0 (XML; primera ejecución combinada cortada
+con daemon eliminado sin OOM explícito en log — hipótesis memoria, no confirmada; solución observada:
+módulos por separado + heap 900m). Coincidencia de conteos NO certifica identidad del árbol ni validación runtime.
+
+1. **updateFinishedWorkout: duración preservada con vínculo Salud.** Apple ReperaStore.saveWorkout
+   (edición, bd4d7637): appleDurationSeconds solo se deriva fin-inicio (mín 60) cuando
+   liveSportID==nil AND healthKitWorkoutUUID==nil. Android lo recalculaba siempre, pisando la
+   medición Health Connect. Fix: puerta pura FinishedSessionDuration.shouldDeriveFromSchedule
+   (healthKitWorkoutUUID, healthConnectRecordId=HealthSessionLink.SNAPSHOT_FIELD, liveSportID).
+   Tests: FinishedSessionDurationTest 5/5 (4 unitarios puros + guardia estática de uso en repo).
+2. **ActiveSessionPlan.refresh: legacyIdentity a nivel de sesión + adapted*.** Apple
+   ReperaStore.refreshActiveSessionPlan (bd4d7637): fallback por ejercicio SOLO si la sesión es
+   legada (ningún id de sus ejercicios aparece en sus propios routineBlocks exercises+movements);
+   conserva loggedSets/completedReps/isCompleted/adaptedReps/adaptedWeightKg; copia title;
+   fallback de currentIndex también gobernado. Android hacía fallback por ítem (id !in freshIds),
+   que robaba series a ítems repetidos en sesiones con identidad estable. Tests: ActiveSessionPlanTest
+   7/7 (4 previos intactos + 3 nuevos: no-reasignación no legada, arrastre adapted*, copia título).
+3. explicitPlannedSets=[] NO cambiado (decisión main 09:42: riesgo legacy WOD, trazar
+   writers/consumidores antes; parche de borrado ya revertido en el pasado).
+
+Post-ventana REGISTRADA, fuera de cobertura solicitada (usuario fijó «desde hace 3 días» 26oct 17:43;
+ventana resuelta bd4d7637): 152 commits first-parent bd4d7637..origin/main (26oct 18:01 → 27oct 09:23,
+87 archivos, +3580/-1686): walking lunges kg reps/metros, escáner distancias, relinks snapshots BTT/T2B,
+fixes topbar, tests nuevos Packages. NO se portan ni amplían alcance sin aprobación del usuario.
+
+Pendiente sin cambios: auditoría 579 commits anteriores (matriz), resto de items de implementación de
+hallazgos (mapa fullscreen, resultado formato WOD, card Entreno unificada, traza azul, live-save Salud,
+cap heatmap 76, Live restructure, requiresReauthentication, edit-save health re-resolve, steps en detalle).

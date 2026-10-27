@@ -2586,7 +2586,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         val s2 = start ?: runCatching { java.time.Instant.parse(target.optString("startedAt")) }.getOrNull()
         val e2 = end ?: runCatching { java.time.Instant.parse(target.optString("finishedAt")) }.getOrNull()
-        if (s2 != null && e2 != null) {
+        // ReperaStore.saveWorkout iOS: con vínculo Salud o captura En vivo se preserva la medición.
+        if (s2 != null && e2 != null && FinishedSessionDuration.shouldDeriveFromSchedule(target)) {
             target.put("appleDurationSeconds", maxOf(60.0, (e2.toEpochMilli() - s2.toEpochMilli()) / 1000.0))
         }
         SessionReviewSupport.attachToFinishedSession(state, target)
