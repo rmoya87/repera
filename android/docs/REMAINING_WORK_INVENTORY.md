@@ -373,3 +373,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  mensaje delcorte. Captura1000singleinspeccionada,ejes ytexto sinrecortes.
 - Mobilepost296TODAS649/163XML4lotes+assemble74sverdes;postestaunidad
  completa+assemblependientes. Restoaxes/grid/cardinterior/runtimeabiertos.
+
+## Validacion297 22:51
+- Mobilepost297TODAS650/163XML4lotes58/64/53/54s,0fallos,sin faltantes;
+ assemble36sverde.Domain504/93XML22:29 yWear8/1real22:26,no reejecutadas
+ en297. Renders chartreal220/full1000 ysingleinspeccionados. No dispositivo.
+- Ejercicioreal296/297:altura/curva/domain/fechaX yestado<2 portados;
+ axes/grid/cardinteriorpendientes. Parsercompletoyruntimeabiertos.
+-735/70abiertas sincierres,no push. Las notas anteriores conpendientes
+ mobile296/297 quedan superadas por esta ejecucion real completa.
