@@ -181,6 +181,35 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("recorder.startCountdownRemaining", LIVE)
         self.assertIn("if previous == .idle && next == .recording", LIVE)
 
+    def test_audio_session_configuration_never_blocks_main_actor(self):
+        feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
+        self.assertIn('label: "com.app.repera.rest-feedback.audio-session"', feedback)
+        self.assertIn("audioSessionQueue.async {", feedback)
+        self.assertIn("try session.setCategory(", feedback)
+        self.assertIn("try session.setActive(true)", feedback)
+        self.assertIn("try? session.setActive(false, options: .notifyOthersOnDeactivation)", feedback)
+        self.assertIn("guard currentToneID == id else { return }", feedback)
+        self.assertIn("if session.mode != .spokenAudio", feedback)
+        # setActive debe estar exclusivamente en bloques de la cola serial.
+        start = feedback.index("    private static func playTone(")
+        stop = feedback.index("    private static func makeTone(", start)
+        audio_methods = feedback[start:stop]
+        self.assertEqual(audio_methods.count("setActive("), 2)
+        self.assertEqual(audio_methods.count("audioSessionQueue.async {"), 2)
+
+    def test_favorites_swipe_edit_uses_existing_template(self):
+        favorites = (ROOT / "Apps/Repera/Sources/FavoritesHubView.swift").read_text(encoding="utf-8")
+        self.assertIn(".swipeActions(edge: .leading, allowsFullSwipe: false)", favorites)
+        self.assertIn('Image(systemName: "pencil.circle.fill")', favorites)
+        self.assertIn(".tint(OG.blue)", favorites)
+        self.assertIn("editing = routine", favorites)
+        self.assertIn("mode: .favorite(isNew: isCreating)", favorites)
+        self.assertIn(".swipeActions(edge: .trailing, allowsFullSwipe: false)", favorites)
+        self.assertIn("store.removeFavorite(routine.id)", favorites)
+        plan = (ROOT / "Apps/Repera/Sources/PlanView.swift").read_text(encoding="utf-8")
+        self.assertIn("case .favorite:", plan)
+        self.assertIn("guard store.saveRoutine(draft) else", plan)
+
     def test_finish_uses_single_completion_sound_and_no_speech(self):
         finish = LIVE.split("func finish() {", 1)[1].split(
             "func makeSession(", 1

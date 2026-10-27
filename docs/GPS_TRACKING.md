@@ -5,6 +5,10 @@ Estado: implementación integrada en `main` (PR #75); compilación iOS/watchOS y
 
 Esta es la referencia técnica para GPS, rutas, Apple Salud, actividad en directo y entrenamientos libres/programados. La descripción de producto está en [FEATURES.md](FEATURES.md) y el contexto general en [ARCHITECTURE.md](ARCHITECTURE.md). La fuente de verdad definitiva es el código.
 
+## Audio y favoritos: ajustes 27/10/2026
+- `RestFeedback` no llama `AVAudioSession.setActive/setCategory` desde `MainActor`: una cola serial activa/desactiva el hardware; un identificador de tono evita reproducir solicitudes obsoletas, y `.spokenAudio` protege la locución GPS durante la liberación. Validar en dispositivo real con Bluetooth, bloqueo y cambios de ruta de audio.
+- Crear → Favoritos permite editar la plantilla con un swipe a la derecha (lápiz azul); la eliminación roja permanece en el swipe opuesto y los cambios guardados se reutilizan en futuras sesiones.
+
 ## Objetivo y responsabilidades
 
 Evitar dos desarrollos paralelos: `Comenzar` (sesión libre) y `Play` (entrenamiento programado) usan **el mismo servicio de localización** y reglas de aceptación de puntos. HealthKit, MapKit y ActivityKit consumen esos resultados; ninguno debe volver a calcular su propia distancia a partir de una ruta simplificada.

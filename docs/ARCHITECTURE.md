@@ -298,6 +298,7 @@ El campo histórico `supersetGroup` permanece en el formato Codable para abrir c
 
 ### Audio de Comenzar y temporizadores (iOS 27, 27/10/2026)
 
+- `RestFeedback` usa una `DispatchQueue` serial propia para `AVAudioSession.setCategory/setActive`, evitando bloqueos del actor principal; vuelve a `MainActor` solo para `AVAudioPlayer` y comprueba un UUID por pitido para ignorar activaciones obsoletas.
 - `Apps/Repera/Sources/RestFeedback.swift` es el único generador de pitidos para **Comenzar, Temporizador, descansos e intervalos**. Genera PCM WAV mono a 22.050 Hz en memoria y lo reproduce con `AVAudioPlayer`. No usa sonidos preinstalados del sistema.
 - `tick` e `intervalBeep` usan un tono de **523,25 Hz (Do5)** de **0,16 s**. `restComplete` mantiene exactamente el mismo timbre y frecuencia durante **0,49 s**. Tanto el aviso a cero de la cuenta previa como el de finalizar actividad pasan por `restComplete` y respetan el booleano `sound`. Su duración anterior era 0,82 s y la frecuencia anterior 392 Hz; las pruebas comprueban estos nuevos valores.
 - `LiveActivityRecorder.beginStartCountdown()` mantiene `idle` durante tres segundos y luego inicia GPS/HealthKit en `start()`. El selector persistente de voz se aplica a los tonos y a `AVSpeechSynthesizer`; **pausa y reanudación no anuncian nada**, mientras que cruces por kilómetro y giros sí pueden generar locuciones. Una sesión de reproducción de tonos no debe desactivar el audio del sintetizador en curso.

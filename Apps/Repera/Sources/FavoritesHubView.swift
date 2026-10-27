@@ -82,18 +82,23 @@ struct FavoritesHubView: View {
                                     .foregroundStyle(OG.yellow)
                             }
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            OGSwipeDeleteButton {
-                                store.removeFavorite(routine.id)
-                            }
+                        // Derecha: editar la plantilla guardada, nunca iniciar
+                        // la sesión ni crear otra plantilla al pulsar el lápiz.
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
                             Button {
                                 isCreating = false
                                 editing = routine
                             } label: {
-                                Image(systemName: "pencil")
+                                Image(systemName: "pencil.circle.fill")
                             }
                             .tint(OG.blue)
-                            .accessibilityLabel("Editar")
+                            .accessibilityLabel("Editar plantilla favorita")
+                        }
+                        // Izquierda: mantener el borrado rojo en el gesto habitual.
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            OGSwipeDeleteButton {
+                                store.removeFavorite(routine.id)
+                            }
                         }
                     }
                 } header: {
