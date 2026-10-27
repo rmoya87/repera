@@ -702,6 +702,11 @@ final class LiveActivityRecorder: NSObject {
 
     enum Phase: String { case idle, recording, paused, review }
     private(set) var phase: Phase = .idle
+    /// Cuenta atrás visual/sonora de tres segundos antes de abrir GPS y Salud.
+    private(set) var startCountdownRemaining = 0
+    @ObservationIgnored private var startCountdownTask: Task<Void, Never>?
+    private var startCountdownID = UUID()
+    var isStartCountingDown: Bool { startCountdownRemaining > 0 }
     private(set) var sport: LiveSport = .running
     private(set) var startedAt: Date?
     private(set) var finishedAt: Date?
@@ -905,14 +910,14 @@ final class LiveActivityRecorder: NSObject {
     }
 
     func choose(_ selection: LiveSport) {
-        guard phase == .idle else { return }
+        guard phase == .idle, !isStartCountingDown else { return }
         sport = selection
         chosenRoute = nil
         UserDefaults.standard.set(selection.rawValue, forKey: "repera.live.lastSport")
     }
 
     func selectRoute(_ route: LiveSavedRoute?) {
-        guard phase == .idle else { return }
+        guard phase == .idle, !isStartCountingDown else { return }
         chosenRoute = route
         prepareRouteNavigation()
     }
@@ -949,8 +954,46 @@ final class LiveActivityRecorder: NSObject {
         }
     }
 
+    /// Los tres pitidos son los del temporizador (RestFeedback.tick).
+    /// El tiempo activo y el seguimiento GPS empiezan DESPUÉS de la cuenta.
+    /// El UUID evita que una cuenta cancelada reactive la actividad.
+    func beginStartCountdown() {
+        guard phase == .idle, !isStartCountingDown else { return }
+        stopGuidanceAudio()
+        let id = UUID()
+        startCountdownID = id
+        startCountdownRemaining = 3
+        RestFeedback.tick(remaining: 3, sound: spokenGuidanceEnabled, haptic: true)
+        startCountdownTask = Task { @MainActor [weak self] in
+            for second in [2, 1, 0] {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, !Task.isCancelled,
+                      self.startCountdownID == id, self.phase == .idle else { return }
+                self.startCountdownRemaining = second
+                if second > 0 {
+                    RestFeedback.tick(
+                        remaining: second, sound: self.spokenGuidanceEnabled, haptic: true
+                    )
+                } else {
+                    self.startCountdownTask = nil
+                    // Mismo aviso de inicio del temporizador al llegar a cero.
+                    RestFeedback.restComplete(sound: self.spokenGuidanceEnabled, haptic: true)
+                    self.start()
+                }
+            }
+        }
+    }
+
+    func cancelStartCountdown() {
+        guard isStartCountingDown else { return }
+        startCountdownID = UUID()
+        startCountdownTask?.cancel()
+        startCountdownTask = nil
+        startCountdownRemaining = 0
+    }
+
     func start() {
-        guard phase == .idle else { return }
+        guard phase == .idle, !isStartCountingDown else { return }
         // Si se inicia otra actividad justo después de guardar, no dejar que
         // el mensaje final anterior tape el nuevo aviso.
         stopGuidanceAudio()
@@ -998,9 +1041,7 @@ final class LiveActivityRecorder: NSObject {
         }
         persistSnapshot()
         updateLiveActivity()
-        _ = speakNavigation(
-            LiveSessionVoiceAnnouncement.started(sportName: selectedSport.title)
-        )
+        // Sin voz de «Iniciando ...»: la cuenta atrás ya da paso a la sesión.
     }
 
     private func startGPS(bridgingInterruption: Bool = false) {
@@ -1128,7 +1169,8 @@ final class LiveActivityRecorder: NSObject {
         stopGuidanceAudio()
         persistSnapshot()
         updateLiveActivity()
-        _ = speakNavigation(LiveSessionVoiceAnnouncement.finished)
+        // Misma señal final del temporizador; no pronunciar «Finalizado».
+        RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)
     }
 
     func makeSession(title: String, notes: String) -> WorkoutSession? {
@@ -1153,6 +1195,7 @@ final class LiveActivityRecorder: NSObject {
     }
 
     func discard(saved: Bool = false) {
+        cancelStartCountdown()
         if !saved {
             let sessionID = gpsSessionID
             Task {
@@ -1677,6 +1720,12 @@ struct LiveActivityView: View {
             }
         }
         .tint(OG.accent)
+        .onChange(of: recorder.phase) { previous, next in
+            // Al terminar la cuenta, cambiar a Métricas como antes al iniciar.
+            if previous == .idle && next == .recording {
+                showingMetrics = recorder.sport.usesGPS
+            }
+        }
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
@@ -2230,33 +2279,37 @@ struct LiveActivityView: View {
                         .padding(.horizontal, 14)
                         .padding(.top, 10)
                 }
-                HStack(spacing: 12) {
-                    Image(systemName: recorder.sport.symbol)
-                        .font(.title2.weight(.medium))
-                        .foregroundStyle(OG.accent)
-                        .frame(width: 32)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(recorder.sport.title)
-                            .font(.headline)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.75)
-                        if recorder.phase == .paused {
-                            Text("En pausa").font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.orange)
-                        } else {
-                            Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
-                                .font(.caption).foregroundStyle(OG.label2)
+                GeometryReader { header in
+                    HStack(spacing: 8) {
+                        Image(systemName: recorder.sport.symbol)
+                            .font(.title2.weight(.medium))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 32)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(recorder.sport.title)
+                                .font(.headline)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.7)
+                            if recorder.phase == .paused {
+                                Text("En pausa").font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.orange)
+                            } else {
+                                Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
+                                    .font(.caption).foregroundStyle(OG.label2)
+                            }
                         }
+                        // Anchura reservada, independiente de la fase. En pantallas
+                        // anchas, las acciones empiezan aquí, a la IZQUIERDA,
+                        // en vez de irse al extremo derecho del encabezado.
+                        .frame(width: min(110, max(68, header.size.width - 248)),
+                               alignment: .leading)
+                        metricsTrailingActions
+                            .fixedSize(horizontal: true, vertical: false)
                     }
-                    // Dar al nombre todo el ancho libre sin desplazar acciones.
-                    // El mismo título ocupa el mismo espacio en grabación y pausa.
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // Cuatro posiciones fijas: Audio, Mapa, Pausa/Play y Finalizar.
-                    // El último hueco queda invisible hasta pausar.
-                    metricsTrailingActions
-                        .fixedSize(horizontal: true, vertical: false)
                 }
-                .padding(.horizontal, 18)
+                .frame(height: 68)
+                .padding(.horizontal, 12)
                 .padding(.top, 14)
 
                 Spacer(minLength: 16)
@@ -2420,20 +2473,30 @@ struct LiveActivityView: View {
                     .accessibilityLabel("Elegir actividad: \(recorder.sport.title)")
 
                     Button {
-                        if store.hasActiveSession {
+                        if recorder.isStartCountingDown {
+                            recorder.cancelStartCountdown()
+                        } else if store.hasActiveSession {
                             onOpenWorkout()
                         } else {
-                            recorder.start()
-                            showingMetrics = recorder.sport.usesGPS
+                            recorder.beginStartCountdown()
                         }
                     } label: {
                         VStack(spacing: 7) {
-                            Image(systemName: store.hasActiveSession ? "arrow.uturn.forward" : "play.fill")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundStyle(.black)
-                                .frame(width: 70, height: 70)
-                                .background(OG.accent, in: Circle())
-                            Text(store.hasActiveSession ? "Continuar" : "Iniciar")
+                            Group {
+                                if recorder.isStartCountingDown {
+                                    Text("\(recorder.startCountdownRemaining)")
+                                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                } else {
+                                    Image(systemName: store.hasActiveSession ? "arrow.uturn.forward" : "play.fill")
+                                        .font(.system(size: 28, weight: .bold))
+                                }
+                            }
+                            .foregroundStyle(.black)
+                            .frame(width: 70, height: 70)
+                            .background(OG.accent, in: Circle())
+                            Text(recorder.isStartCountingDown ? "Cancelar" :
+                                 (store.hasActiveSession ? "Continuar" : "Iniciar"))
                                 .font(.caption.weight(.bold))
                         }
                         .frame(maxWidth: .infinity)
