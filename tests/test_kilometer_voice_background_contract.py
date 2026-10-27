@@ -33,17 +33,17 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("finishGuidanceUtterance(id)", LIVE)
         self.assertIn("private func stopGuidanceAudio()", LIVE)
 
-    def test_transition_announcements_have_selected_sport_and_voice_gate(self):
+    def test_transition_speech_is_exclusively_pause_and_resume(self):
         state = (ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/LiveSessionVoiceAnnouncement.swift").read_text(encoding="utf-8")
-        self.assertIn("Iniciando \\(spokenSport.lowercased", state)
+        self.assertNotIn("Entrenamiento iniciado.", state)
+        self.assertNotIn("Entrenamiento finalizado.", state)
         self.assertIn("Entrenamiento pausado.", state)
         self.assertIn("Entrenamiento reanudado.", state)
-        self.assertIn("Entrenamiento finalizado.", state)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
-        self.assertIn("LiveSessionVoiceAnnouncement.started(sportName: selectedSport.title)", LIVE)
+        self.assertNotIn("LiveSessionVoiceAnnouncement.started(", LIVE)
+        self.assertNotIn("LiveSessionVoiceAnnouncement.finished", LIVE)
         self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.paused)", LIVE)
         self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.resumed)", LIVE)
-        self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.finished)", LIVE)
 
     def test_start_and_finish_announcements_are_not_lifecycle_duplicates(self):
         # Solo se habla al pulsar los botones, no al recuperar el GPS,
@@ -56,7 +56,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
             "func pause() {", 1
         )[0]
         self.assertNotIn("speakNavigation(", refresh)
-        self.assertIn("if !(saved && phase == .review && spokenGuidanceEnabled)", LIVE)
+        self.assertIn("RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)", LIVE)
         self.assertIn("recorder.phase != .review", LIVE)
         self.assertIn("metricsTrailingActions", LIVE)
         self.assertNotIn('else if recorder.sport.usesGPS {\n                        metricsCircleButton("map", label: "Ver mapa")', LIVE)
@@ -95,7 +95,9 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         )[0]
         self.assertIn(".frame(width: 32)", header)
         self.assertIn(".lineLimit(2)", header)
-        self.assertIn(".minimumScaleFactor(0.75)", header)
+        self.assertIn(".minimumScaleFactor(0.7)", header)
+        self.assertIn("GeometryReader { header in", header)
+        self.assertIn("width: min(110, max(68, header.size.width - 248))", header)
         self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", header)
         self.assertIn(".fixedSize(horizontal: true, vertical: false)", header)
         actions = LIVE.split("private var metricsTrailingActions: some View", 1)[1].split(
@@ -109,6 +111,37 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn(".frame(width: 44, height: 44)", actions)
         self.assertIn(".accessibilityHidden(true)", actions)
         self.assertIn(".allowsHitTesting(false)", actions)
+
+    def test_three_seconds_countdown_reuses_timer_sound_before_gps_starts(self):
+        feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
+        timer = (ROOT / "Apps/Repera/Sources/StandaloneTimerView.swift").read_text(encoding="utf-8")
+        self.assertIn("RestFeedback.tick(remaining: remaining, sound: true, haptic: true)", timer)
+        self.assertIn("RestFeedback.restComplete(sound: true, haptic: true)", timer)
+        self.assertIn("AudioServicesPlaySystemSound(1057)", feedback)
+        self.assertIn("AudioServicesPlaySystemSound(1007)", feedback)
+        countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
+            "func cancelStartCountdown()", 1
+        )[0]
+        self.assertIn("startCountdownRemaining = 3", countdown)
+        self.assertIn("for second in [2, 1, 0]", countdown)
+        self.assertIn("try? await Task.sleep(for: .seconds(1))", countdown)
+        self.assertIn("RestFeedback.tick(remaining: 3, sound: spokenGuidanceEnabled", countdown)
+        self.assertIn("sound: self.spokenGuidanceEnabled", countdown)
+        self.assertIn("RestFeedback.restComplete(sound: self.spokenGuidanceEnabled", countdown)
+        self.assertIn("self.start()", countdown)
+        self.assertIn("guard phase == .idle, !isStartCountingDown else", LIVE)
+        self.assertIn("recorder.beginStartCountdown()", LIVE)
+        self.assertIn("recorder.cancelStartCountdown()", LIVE)
+        self.assertIn("recorder.startCountdownRemaining", LIVE)
+        self.assertIn("if previous == .idle && next == .recording", LIVE)
+
+    def test_finish_uses_single_completion_sound_and_no_speech(self):
+        finish = LIVE.split("func finish() {", 1)[1].split(
+            "func makeSession(", 1
+        )[0]
+        self.assertIn("RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)", finish)
+        self.assertNotIn("speakNavigation(", finish)
+        self.assertIn("stopGuidanceAudio()", finish)
 
     def test_native_background_modes_are_present_in_source_and_xcodegen(self):
         info = plistlib.loads((ROOT / "Apps/Repera/Resources/Info.plist").read_bytes())
