@@ -1,5 +1,12 @@
 # Web Repera (`repera.app`)
 
+## Vista de centros pendientes — 27/10/2026
+
+«Centros» incluye registros pendientes con acceso a ficha, bloqueo/reactivación y vista de administrador delegado de 30 minutos, incluso antes de que el futuro propietario confirme su correo. Los espacios se crean en Supabase de forma privada y se asignan al titular cuando este acredita su email, sin crear duplicados. Esta vista delegada no intercambia identidad ni credenciales del cliente.
+
+Barra superior global eliminada. Cuatro indicadores por fila en Pagos, versión adaptable a móvil. Imágenes de gimnasio, entrenador y perfil mostradas de forma circular. Para ver los cambios locales, actualiza `origin/main`, vuelve a abrir `Repera-Business.command` y recarga los recursos actualizados con versión `20261027pending`.
+
+
 ## Panel de administración global (27/10/2026)
 
 Menú único **Centros** (gimnasios, centros deportivos, entrenadores con columna diferenciadora), **Atletas** (cuentas incluso sin centro), **Pagos**, **Planes** (catálogo simplificado), **Soporte**, **Auditoría** y **Configuración** (contactos persistidos). La identidad del administrador se muestra en el pie del menú: pulsar avatar/nombre abre nombre/foto, correo y contraseña. Los desplegables de filtros y formularios tienen un estilo consistente en `platform-admin-polish.css`.
