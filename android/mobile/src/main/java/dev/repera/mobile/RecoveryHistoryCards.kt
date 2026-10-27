@@ -17,6 +17,9 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  val sleep=SleepPeriodSummary.forRange(recovery.nights,range,today,monday)
  val nights=sleep.nights
  val vitals=recovery.vitals.filter {range.contains(it.day,today,monday)}
+ BoxWithConstraints(Modifier.fillMaxWidth()) {
+ val columns=adaptiveCardColumns(maxWidth.value,outerHorizontalPaddingDp)
+ val readinessHeight=readinessChartHeightDp((maxWidth.value-16f*(columns-1))/columns,columns>1).dp
  val cards=mutableListOf<@Composable ()->Unit>()
  cards.add {TrainingReadinessCard(recovery)}
  cards.add {
@@ -24,11 +27,11 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   Text(if(pro) "Evolución de recuperación" else "Evolución de recuperación · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
   if(pro) {
    if(trend.size<2) {
-    EmptyHealthChartAxes(0.0,10.0,220.dp)
+    EmptyHealthChartAxes(0.0,10.0,readinessHeight)
     Text("Aún no hay suficientes registros para ver la recuperación.")
-   } else DayPointLineChart(trend,valueFormat={"${kotlin.math.round(it).toInt()}/10"},bounds=0.0..10.0,readinessStyle=true)
+   } else DayPointLineChart(trend,valueFormat={"${kotlin.math.round(it).toInt()}/10"},bounds=0.0..10.0,readinessStyle=true,chartHeight=readinessHeight)
   } else {
-   DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false)
+   DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false,chartHeight=readinessHeight)
    Text("No son tus datos de recuperación",style=MaterialTheme.typography.bodySmall)
   }
   Text("Mañanas con sueño observado a las 07:00. No proyecta una nota futura con sueño supuesto.",style=MaterialTheme.typography.bodySmall)
@@ -97,8 +100,6 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  } else RecoveryPhysiologyPreviewCard(today)
  }
  if(recovery.menstrualDays.isNotEmpty()) cards.add {CycleHistoryCard(recovery,monday)}
- BoxWithConstraints(Modifier.fillMaxWidth()) {
-  val columns=adaptiveCardColumns(maxWidth.value,outerHorizontalPaddingDp)
   Column(Modifier.fillMaxWidth().testTag("recovery_columns_$columns"),verticalArrangement=Arrangement.spacedBy(16.dp)) {
    cards.chunked(columns).forEach {row ->
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp),verticalAlignment=androidx.compose.ui.Alignment.Top) {

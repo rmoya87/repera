@@ -207,3 +207,10 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  CatmullRom compartida conservada. Renders reales/preview360claro revisados.
 - DUO altura dinamica205..270 segun columna aun pendiente;no afirmar adaptativo
  completo por altura portrait. Resto metricas no cambia en esta unidad.
+
+## Readiness DUO 20:49
+- Formula de HealthRecovery corte542-557 ahora calculada desde columna real
+ del contenedor existente: max205/min270/(columna-2*16)*2/3; primary220.
+ Se aplica a curva real,preview y ejes vacios. No añade padding de relleno.
+- Prueba pura portrait y clamp inferior/intermedio/superior;fixture1000dp
+ Free en dos columnas inspeccionada sin cortes. No implica validacion nativa.

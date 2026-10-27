@@ -224,4 +224,15 @@ class ReviewSpacingRenderTest {
         save(composeRule.onNodeWithTag("readiness_plain_fixture").captureToImage().asAndroidBitmap(),"readiness-preview-plain.png")
     }
 
+ @Test @Config(sdk=[35],qualifiers="w1000dp-h1400dp")
+    fun recoveryExpandedHeight() {
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
+            Surface(Modifier.testTag("recovery_expanded_fixture")) {
+                RecoveryHistoryCards(RecoveryState(readiness=null,sleepIndex=null,lastNightHours=null,
+                    recentAverageSleepHours=null),ProgressTimeRange.WEEK,true,pro=false)
+            }
+        }}
+        composeRule.onNodeWithTag("recovery_columns_2").assertExists()
+        save(composeRule.onNodeWithTag("recovery_expanded_fixture").captureToImage().asAndroidBitmap(),"recovery-expanded-height.png")
+    }
 }

@@ -407,7 +407,8 @@ internal fun DayPointLineChart(
     readinessStyle:Boolean=false,
     weightStyle:Boolean=false,
     weightPreview:Boolean=false,
-    readinessGradient:Boolean=true
+    readinessGradient:Boolean=true,
+    chartHeight:androidx.compose.ui.unit.Dp?=null
 ) {
     if (points.isEmpty()) return
     // Apple HealthRecovery.vitalChart: one observed sample is not a trend.
@@ -428,7 +429,7 @@ internal fun DayPointLineChart(
     val axisMin=minV-padding
     val axisMax=maxV+padding
     val span = (axisMax - axisMin).coerceAtLeast(1e-9)
-    val plotHeight=if(weightStyle) 210.dp else if(readinessStyle) 220.dp else 100.dp
+    val plotHeight=chartHeight ?: if(weightStyle) 210.dp else if(readinessStyle) 220.dp else 100.dp
     val insetPlot=readinessStyle || weightStyle
     val firstDay = points.first().day
     val midDay = DayChartPositions.midpoint(points)
