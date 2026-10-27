@@ -1121,6 +1121,22 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        // Apple 4a82b4b2/1d333b42/d350b42f: petición explícita del reloj -> plan de
+        // HOY fresco del estado actual del teléfono (nunca caché viejo).
+        if (event.path == "/repera/request-today-plan") {
+            runOnUiThread {
+                val id = profile?.uniqueId ?: return@runOnUiThread
+                lifecycleScope.launch {
+                    val plan = withContext(Dispatchers.IO) {
+                        WorkoutRepository(this@MainActivity, id)
+                            .todayPlanSession(professional = centerSnapshot?.trainingSessions.orEmpty())
+                    }
+                    if (profile?.uniqueId == id)
+                        WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
+                }
+            }
+            return
+        }
         if (event.path == "/repera/session-finish") {
             val sessionId = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8)).optString("sessionId")

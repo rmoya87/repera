@@ -58,6 +58,7 @@ internal class WearHomeCallbacks(
     val onSelectBlock: (WatchSessionSummary, Int) -> Unit = { _, _ -> },
     val onFinishSession: (WatchSessionSummary) -> Unit = {},
     val onSkipRest: () -> Unit = {},
+    val onSyncRequest: () -> Unit = {},
     val onRepsMinus: () -> Unit = {},
     val onRepsPlus: () -> Unit = {},
     val onWeightDelta: (Double) -> Unit = {},
@@ -126,10 +127,19 @@ internal fun WearHomeContent(
                             }
                         }
                 } else {
+                    // Apple 4a82b4b2: mascota + botón "Sincronizar" inferior con
+                    // petición fresca al teléfono (no solo espera pasiva).
                     item { Text(if (state.syncProblem)
                         "No se pudo leer la sesión del teléfono"
                         else "Sin entrenamiento recibido",
                         textAlign = TextAlign.Center) }
+                    item { androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.mascot_watch),
+                        contentDescription = "Mascota de Repera",
+                        modifier = Modifier.height(72.dp)) }
+                    item { Button(onClick = { callbacks.onSyncRequest() },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("Sincronizar") } }
                 }
             }
         } else {
@@ -317,10 +327,18 @@ internal fun WearHomeContent(
                         }
                     }
                     item {
+                        // Apple ea99a5b6/a4a5d9ce: la flecha/confirmación sigue
+                        // disponible con cero reps y durante el descanso (salta
+                        // el descanso); cero NUNCA crea una serie registrada; en
+                        // el último ejercicio con cero se llama Finalizado.
+                        val zeroReps = state.repsInput == 0
+                        val isLast = session.exerciseIndex >= session.exerciseCount
                         Button(onClick = { callbacks.onQueueSet(session) },
-                            enabled = state.repsInput > 0 && !state.sessionPaused,
+                            enabled = !state.sessionPaused,
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("Confirmar serie")
+                            Text(if (!zeroReps) "Confirmar serie"
+                                else if (isLast) "Finalizado"
+                                else "Siguiente ejercicio")
                         }
                     }
                 }

@@ -193,6 +193,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onSelectBlock = { session, index -> requestSelectBlock(session, index) },
                                 onFinishSession = { session -> finishSessionFromWatch(session) },
                                 onSkipRest = { skipRest() },
+                                onSyncRequest = { requestTodayPlanSync() },
                                 onRepsMinus = { adjustQuantity(-1) },
                                 onRepsPlus = { adjustQuantity(1) },
                                 onWeightDelta = { delta ->
@@ -528,8 +529,19 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if(runCatching {pendingFinish.sessionId()==session.sessionId}.getOrDefault(true)) {
             sendStatus="La sesión está pendiente de terminar; no se añaden más series";return
         }
-        if (!session.canLogOnWatch || session.wodFormatLabel != null ||
-            repsInput !in 1..10000) return
+        if (!session.canLogOnWatch || session.wodFormatLabel != null) return
+        // Apple ea99a5b6/a4a5d9ce: cero reps nunca se registra; con cero la
+        // acción salta el descanso activo y avanza (o termina en el último).
+        if (repsInput == 0) {
+            if (restRemaining > 0) skipRest()
+            if (session.exerciseIndex >= session.exerciseCount) {
+                finishSessionFromWatch(session)
+            } else {
+                requestSelectBlock(session, session.exerciseIndex)
+            }
+            return
+        }
+        if (repsInput !in 1..10000) return
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
                 repsInput, weightInput, if(session.inputMode in setOf("strength","hspuDeficit","repsOnly") && !warmupInput) rirInput else null,
@@ -632,6 +644,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             if (visibleSession?.sessionId != session.sessionId) return@addOnSuccessListener
             if (nodes.isEmpty()) sendStatus = "Móvil no conectado; no se cambió de ejercicio"
             nodes.forEach { Wearable.getMessageClient(this).sendMessage(it.id, "/repera/select-exercise", payload) }
+        }
+    }
+
+    /** Apple 4a82b4b2/1d333b42/d350b42f: botón "Sincronizar" del reloj = petición
+     *  explícita; el teléfono responde con el plan de HOY fresco por /repera/today-plan. */
+    private fun requestTodayPlanSync() {
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (nodes.isEmpty()) { sendStatus = "Móvil no conectado; no se pudo sincronizar"; return@addOnSuccessListener }
+            nodes.forEach { Wearable.getMessageClient(this).sendMessage(it.id, "/repera/request-today-plan", byteArrayOf()) }
+            sendStatus = "Solicitando plan de hoy al móvil…"
         }
     }
 
