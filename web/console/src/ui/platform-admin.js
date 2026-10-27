@@ -23,6 +23,18 @@ const orgTable=orgs=>table(['Negocio','Tipo','Clientes','Activos','Plan','Estado
 function heading(title,description,action=''){return `<div class="pa-heading"><div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 const field=(name,title,value='',type='text',extra='')=>`<label class="pa-field"><span>${title}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 const currencyTotal=payments=>payments.filter(p=>p.status==='paid'&&p.currency==='EUR').reduce((sum,p)=>sum+validNumber(p.amount_cents),0);
+function filteredPayments(finance,filter={}){
+ const scope=filter.paymentScope==='b2c'?'client_payments':'payments';
+ return (finance[scope]||[]).filter(p=>
+   (!filter.org||filter.org==='all'||p.org_id===filter.org)&&
+   (!filter.paymentStatus||filter.paymentStatus==='all'||p.status===filter.paymentStatus)&&
+   (!filter.dateFrom||String(p.created_at).slice(0,10)>=filter.dateFrom)&&
+   (!filter.dateTo||String(p.created_at).slice(0,10)<=filter.dateTo));
+}
+function formattedMoney(cents,currency='EUR'){
+ try{return new Intl.NumberFormat('es-ES',{style:'currency',currency}).format(Number(cents||0)/100);}
+ catch{return String(Number(cents||0)/100)+' '+String(currency);}
+}
 function organizationDetail(o,opts){
  const {plans}=opts;
  const suspend=o.status==='suspended';
@@ -79,16 +91,19 @@ function directory(orgs,kind,filter){
  ${list.length?orgTable(list):empty('No se encontraron negocios','Modifica los filtros o crea una organización.')}</section>`;
 }
 function paymentsPage(orgs,finance,filter){
- const payments=finance.payments||[],intents=finance.intents||[];
- let rows=payments.filter(p=>(!filter.org||filter.org==='all'||p.org_id===filter.org)&&
- (filter.paymentStatus==='all'||p.status===filter.paymentStatus));
+ const intents=finance.intents||[];
+ const rows=filteredPayments(finance,filter);
+ const b2c=filter.paymentScope==='b2c';
  const names=new Map(orgs.map(o=>[o.id,o.name]));
- return `${heading('Pagos de Repera','Suscripciones B2B de negocios a la plataforma. Los cobros de los clientes finales se gestionarán por separado.',button('Exportar CSV','export-payments'))}
- <div class="pa-metrics">${stat('Cobrado y verificado',euros(currencyTotal(rows)))}${stat('Pagos confirmados',rows.filter(p=>p.status==='paid').length)}
- ${stat('Fallidos',rows.filter(p=>p.status==='failed').length)}${stat('Solicitudes de plan',intents.length,'No equivalen a cobros')}</div>
- <section class="pa-panel"><div class="pa-filters"><label class="pa-field"><span>Organización</span><select data-admin-filter="org"><option value="all">Todas las organizaciones</option>${orgs.map(o=>`<option value="${esc(o.id)}" ${filter.org===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></label>
- <label class="pa-field"><span>Estado de cobro</span><select data-admin-filter="paymentStatus">${['all','paid','pending','failed','refunded','partially_refunded'].map(s=>`<option value="${s}" ${filter.paymentStatus===s?'selected':''}>${s==='all'?'Todos':esc(label(s))}</option>`).join('')}</select></label></div>
- ${rows.length?table(['Fecha','Negocio','Importe','Divisa','Estado','Proveedor'],rows.map(p=>`<tr><td>${date(p.created_at)}</td><td>${esc(names.get(p.org_id)||'—')}</td><td>${euros(p.amount_cents)}</td><td>${esc(p.currency)}</td><td>${statusPill(p.status)}</td><td>${esc(p.provider)}</td></tr>`).join('')):empty('No hay cobros verificados','La pasarela de pagos aún no está conectada. No se muestran ingresos ficticios.')}
+ return `${heading('Pagos globales','Consulta separada de suscripciones a Repera (B2B) y cobros de los negocios a sus clientes (B2C). Solo movimientos verificados por backend.',button('Exportar CSV','export-payments'))}
+ <div class="pa-metrics">${stat('Cobrado en EUR y verificado',euros(currencyTotal(rows)))}${stat('Pagos confirmados',rows.filter(p=>p.status==='paid').length)}
+ ${stat('Fallidos',rows.filter(p=>p.status==='failed').length)}${stat('Solicitudes de plan B2B',intents.length,'No equivalen a cobros')}</div>
+ <section class="pa-panel"><div class="pa-filters"><label class="pa-field"><span>Tipo de operación</span><select data-admin-filter="paymentScope"><option value="b2b" ${!b2c?'selected':''}>Suscripciones a Repera · B2B</option><option value="b2c" ${b2c?'selected':''}>Cobros de negocios · B2C</option></select></label><label class="pa-field"><span>Organización</span><select data-admin-filter="org"><option value="all">Todas las organizaciones</option>${orgs.map(o=>`<option value="${esc(o.id)}" ${filter.org===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></label>
+ <label class="pa-field"><span>Estado de cobro</span><select data-admin-filter="paymentStatus">${['all','paid','pending','failed','refunded','partially_refunded'].map(s=>`<option value="${s}" ${filter.paymentStatus===s?'selected':''}>${s==='all'?'Todos':esc(label(s))}</option>`).join('')}</select></label>
+ ${field('dateFrom','Desde',filter.dateFrom||'','date','data-admin-filter="dateFrom"')}
+ ${field('dateTo','Hasta',filter.dateTo||'','date','data-admin-filter="dateTo"')}</div>
+ ${rows.length?table(['Fecha','Negocio','Importe','Divisa','Estado','Proveedor'],rows.map(p=>`<tr><td>${date(p.created_at)}</td><td>${esc(names.get(p.org_id)||'—')}</td><td>${esc(formattedMoney(p.amount_cents,p.currency))}</td><td>${esc(p.currency)}</td><td>${statusPill(p.status)}</td><td>${esc(p.provider)}</td></tr>`).join('')):empty('No hay cobros verificados',b2c?'Stripe Connect o el cobro externo verificado aún no ha registrado transacciones.':'Stripe Billing aún no ha registrado transacciones.')}
+
  </section>
  <section class="pa-panel"><h2>Solicitudes de suscripción (sin cargo)</h2>${intents.length?table(['Fecha','Negocio','Plan solicitado','Estado'],intents.map(i=>`<tr><td>${date(i.created_at)}</td><td>${esc(names.get(i.org_id)||'—')}</td><td>${esc(i.plan_key)}</td><td>${esc(i.status)}</td></tr>`).join('')):empty('Ninguna solicitud','Los nuevos intereses de contratación aparecerán aquí.')}</section>`;
 }
@@ -137,7 +152,7 @@ export function renderPlatformAdmin({tab='home',orgs=[],finance={},pending=[],hi
 }
 export function paymentCSV(orgs,finance,filter={}){
  const names=new Map(orgs.map(o=>[o.id,o.name]));
- const data=(finance.payments||[]).filter(p=>(!filter.org||filter.org==='all'||filter.org===p.org_id)&&(filter.paymentStatus==='all'||filter.paymentStatus===p.status));
+ const data=filteredPayments(finance,filter);
  const csv=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
  return [['Fecha','Negocio','Importe_centimos','Divisa','Estado','Proveedor'].join(';'),...data.map(p=>[p.created_at,names.get(p.org_id)||'',p.amount_cents,p.currency,p.status,p.provider].map(csv).join(';'))].join('\r\n');
 }
