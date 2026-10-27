@@ -22,6 +22,11 @@ class PublishedCatalogAliasesTest {
         assertTrue(scan.blocks.flatMap {it.movements}.any {it.exerciseId=="official"})
         assertEquals(95,ExerciseAliasSearch.score("Odd historical label","Official row",emptyMap(),publishedAliases=aliases))
     }
+    @Test fun oldPayloadWithoutAliasesDecodesWithEmptyList() {
+        // Apple de1a6f0e: un payload antiguo sin searchAliases decodifica como [].
+        val old=JSONObject().put("id","old").put("name","Legado")
+        assertEquals(emptyList<String>(),PublishedCatalogAliases.read(old))
+    }
     @Test fun absentOrNullRemoteAliasesClearOldPublishedAliasesLikeApple() {
         for (remote in listOf(JSONObject(),JSONObject().put("aliases",JSONObject.NULL))) {
             val ex=JSONObject().put("searchAliases",JSONArray().put("stale"))
