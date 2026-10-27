@@ -1180,7 +1180,16 @@ struct WorkoutView: View {
                 .accessibilityLabel("Terminar temporizador")
             }
             .padding(12)
-            .background(OG.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .background {
+                // También abre el reloj al tocar los márgenes de la tarjeta.
+                // Los botones visibles de Pausa y Terminar capturan sus propios taps.
+                Button { clock.showClock() } label: {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(OG.surface)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+            }
         }
     }
 
