@@ -1,5 +1,12 @@
 # Repera
 
+## Centros pendientes y acceso delegado (27/10/2026)
+
+El administrador global ya visualiza **centros pendientes** en «Centros», con estado, búsqueda y ficha editable. En cada alta se provisiona un espacio de trabajo real y privado inmediatamente, sin inscribir al administrador como propietario ni activar públicamente el centro. El propietario legítimo, después de confirmar su email, reclama ese **mismo** centro y recibe el rol `owner` sin duplicarlo. El ejemplo previo «Alicia» se ha convertido desde la solicitud existente en un espacio pendiente, conservando su estado.
+
+Desde la ficha es posible suspender/reactivar el centro con motivo y usar acceso delegado temporal (30 minutos, auditable) incluso sin propietario registrado. Es **administración en contexto del negocio**, no suplantación de una cuenta ajena ni falsificación de tokens de usuario. El panel no muestra la franja superior; Pagos utiliza cuatro indicadores por fila en escritorio; fotos y avatares son circulares. Los cambios están en `web/console/src/ui/platform-admin.js` y `src/platform-admin-polish.css`. Migraciones `20261027153000` y `20261027154500` aplicadas a Supabase.
+
+
 ## Repera Business — Centros, Atletas y cuenta de administración (27/10/2026)
 
 La consola `web/console/` presenta «Centros» como directorio común de gimnasios y entrenadores, con tipo visible e imagen. «Atletas» consulta un directorio global de cuentas verificadas o pendientes, incluidas personas sin centro asociado, a través de un RPC de plataforma protegido; solo se muestran datos de cuenta, vinculación y avatar público, no registros deportivos privados. El icono/nombre del administrador se encuentra en el pie del menú lateral y abre el perfil (nombre, imagen, correo sujeto a confirmación y contraseña).
