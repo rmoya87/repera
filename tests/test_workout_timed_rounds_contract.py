@@ -30,6 +30,15 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn("current.blockRounds ?? planned", request)
         self.assertIn("map { $0.plannedSets.count }.max()", request)
 
+    def test_new_strength_blocks_have_no_implicit_emom_interval(self):
+        models = (ROOT / "Packages" / "ReperaDomain" / "Sources"
+                  / "ReperaDomain" / "Models.swift").read_text(encoding="utf-8")
+        strength = models.split("public static func strength(title:", 1)[1].split(
+            "/// Copia profunda", 1
+        )[0]
+        self.assertIn("emomIntervalSeconds: nil", strength)
+        self.assertIn("emomIntervalSeconds: Int? = 60", models)
+
     def test_setup_is_presented_before_first_timer_start(self):
         self.assertIn(".sheet(item: $manualRoundSetup, onDismiss:", PLAY)
         self.assertIn("confirmedManualRoundStart = nil", PLAY)
