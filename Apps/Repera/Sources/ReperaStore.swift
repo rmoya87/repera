@@ -2337,7 +2337,12 @@ final class ReperaStore: NSObject {
 
     /// Plantillas favoritas (habituales).
     var favoriteRoutines: [Routine] {
-        state.routines.filter(\.isFavorite).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        // Una sesión del calendario asociada a una plantilla favorita NO
+        // aparece dos veces en Crear → Favoritos. Los datos históricos
+        // (favoritos fechados sin vínculo) siguen siendo visibles.
+        state.routines
+            .filter { $0.isFavorite && ($0.scheduledDate == nil || $0.favoriteTemplateId == nil) }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     /// Compatibilidad de consumidores antiguos: solo busca en la semana actual.
@@ -2349,37 +2354,96 @@ final class ReperaStore: NSObject {
         return scheduledRoutine(on: date)
     }
 
-    func setRoutineFavorite(_ id: UUID, isFavorite: Bool) {
-        guard let i = state.routines.firstIndex(where: { $0.id == id }) else { return }
-        state.routines[i].isFavorite = isFavorite
-        persist()
-    }
-
-    /// Quita de favoritos; la plantilla sigue en Diario → Rutinas.
-    func removeFavorite(_ id: UUID) {
-        setRoutineFavorite(id, isFavorite: false)
-    }
-
-    /// Guarda (o clona) una rutina como favorito reutilizable.
+    /// Una planificación fechada es una SESIÓN, no la plantilla reutilizable.
+    /// Al marcarla se crea una copia sin fecha y con UUID propio. Devolver
+    /// false cuando el plan impida la nueva plantilla: nunca mostrar estrella
+    /// encendida cuando el favorito no se ha guardado realmente.
     @discardableResult
-    func saveAsFavorite(_ routine: Routine, title: String? = nil) -> Routine {
-        if let idx = state.routines.firstIndex(where: { $0.id == routine.id }) {
-            state.routines[idx].isFavorite = true
-            if let title, !title.isEmpty { state.routines[idx].title = title }
-            persist()
-            return state.routines[idx]
+    func setRoutineFavorite(_ id: UUID, isFavorite: Bool) -> Bool {
+        guard let index = state.routines.firstIndex(where: { $0.id == id }) else { return false }
+        let source = state.routines[index]
+
+        if source.scheduledDate != nil {
+            if isFavorite {
+                if let favoriteId = source.favoriteTemplateId,
+                   let favoriteIndex = state.routines.firstIndex(where: { $0.id == favoriteId }) {
+                    state.routines[favoriteIndex].isFavorite = true
+                } else {
+                    let template = Routine(
+                        title: source.title,
+                        blocks: source.blocks.map { $0.duplicatingContent() },
+                        progression: source.progression,
+                        isFavorite: true
+                    )
+                    guard saveRoutine(template) else { return false }
+                    // saveRoutine ordena el array: recuperar índice por UUID.
+                    guard let newIndex = state.routines.firstIndex(where: { $0.id == id }) else {
+                        return false
+                    }
+                    state.routines[newIndex].favoriteTemplateId = template.id
+                }
+                if let current = state.routines.firstIndex(where: { $0.id == id }) {
+                    state.routines[current].isFavorite = true
+                }
+            } else {
+                if let favoriteId = source.favoriteTemplateId,
+                   let favoriteIndex = state.routines.firstIndex(where: { $0.id == favoriteId }) {
+                    state.routines[favoriteIndex].isFavorite = false
+                }
+                state.routines[index].isFavorite = false
+                state.routines[index].favoriteTemplateId = nil
+            }
+        } else {
+            state.routines[index].isFavorite = isFavorite
+            // La estrella del día refleja también la eliminación desde
+            // Crear → Favoritos, sin borrar entrenamientos programados.
+            for i in state.routines.indices where state.routines[i].favoriteTemplateId == id {
+                state.routines[i].isFavorite = isFavorite
+                if !isFavorite { state.routines[i].favoriteTemplateId = nil }
+            }
+        }
+        persist()
+        return true
+    }
+
+    /// Quita el favorito sin borrar la planificación del calendario.
+    func removeFavorite(_ id: UUID) {
+        _ = setRoutineFavorite(id, isFavorite: false)
+    }
+
+    /// Guarda una plantilla REAL reutilizable, independiente de un día.
+    /// nil significa rechazo de acceso, no un favorito guardado.
+    @discardableResult
+    func saveAsFavorite(_ routine: Routine, title: String? = nil) -> Routine? {
+        if let source = state.routines.first(where: { $0.id == routine.id }) {
+            if source.scheduledDate != nil {
+                guard setRoutineFavorite(source.id, isFavorite: true),
+                      let updated = state.routines.first(where: { $0.id == source.id }),
+                      let favoriteId = updated.favoriteTemplateId else { return nil }
+                if let title, !title.isEmpty,
+                   let index = state.routines.firstIndex(where: { $0.id == favoriteId }) {
+                    state.routines[index].title = title
+                    persist()
+                }
+                return state.routines.first(where: { $0.id == favoriteId })
+            }
+            guard setRoutineFavorite(source.id, isFavorite: true) else { return nil }
+            if let title, !title.isEmpty,
+               let index = state.routines.firstIndex(where: { $0.id == source.id }) {
+                state.routines[index].title = title
+                persist()
+            }
+            return state.routines.first(where: { $0.id == source.id })
         }
         let name = (title ?? routine.title).trimmingCharacters(in: .whitespacesAndNewlines)
-        let fav = Routine(
-            id: UUID(),
+        let favorite = Routine(
             title: name.isEmpty ? "Favorito" : name,
-            weekday: nil,
-            blocks: routine.blocks,
+            blocks: routine.blocks.map { $0.duplicatingContent() },
             progression: routine.progression,
             isFavorite: true
         )
-        saveRoutine(fav)
-        return fav
+        guard saveRoutine(favorite) else { return nil }
+        return favorite
     }
 
     /// El favorito de un entreno completado se mantiene tras cerrar y reabrir el detalle.
@@ -2400,15 +2464,17 @@ final class ReperaStore: NSObject {
         guard let workoutIndex = state.workouts.firstIndex(where: { $0.id == id }) else { return }
         let session = state.workouts[workoutIndex]
         if let favoriteId = session.favoriteRoutineId,
-           let index = state.routines.firstIndex(where: { $0.id == favoriteId }) {
-            state.routines[index].isFavorite.toggle()
-            persist()
+           let existing = state.routines.first(where: { $0.id == favoriteId }) {
+            _ = setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite)
             return
         }
         if let routineId = session.routineId,
-           let index = state.routines.firstIndex(where: { $0.id == routineId }) {
-            state.routines[index].isFavorite.toggle()
-            persist()
+           let existing = state.routines.first(where: { $0.id == routineId }) {
+            guard setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite) else { return }
+            if let linked = state.routines.first(where: { $0.id == routineId })?.favoriteTemplateId {
+                state.workouts[workoutIndex].favoriteRoutineId = linked
+                persist()
+            }
             return
         }
         let template = Self.favoriteTemplate(from: session)
@@ -2418,19 +2484,36 @@ final class ReperaStore: NSObject {
     }
 
     /// Marca la rutina de la sesión activa como favorita, o crea plantilla desde la sesión.
+    var activeSessionIsFavorite: Bool {
+        guard let session = state.activeSession else { return false }
+        if let favoriteId = session.favoriteRoutineId {
+            return state.routines.contains { $0.id == favoriteId && $0.isFavorite }
+        }
+        guard let routineId = session.routineId else { return false }
+        return state.routines.contains { $0.id == routineId && $0.isFavorite }
+    }
+
     @discardableResult
     func saveActiveSessionAsFavorite() -> Routine? {
         guard let session = state.activeSession else { return nil }
         let saved: Routine
-        if let rid = session.routineId, let existing = state.routines.first(where: { $0.id == rid }) {
-            saved = saveAsFavorite(existing)
+        if let favoriteId = session.favoriteRoutineId,
+           let existing = state.routines.first(where: { $0.id == favoriteId }) {
+            guard let favorite = saveAsFavorite(existing) else { return nil }
+            saved = favorite
+        } else if let rid = session.routineId,
+                  let existing = state.routines.first(where: { $0.id == rid }) {
+            guard let favorite = saveAsFavorite(existing) else { return nil }
+            saved = favorite
         } else {
             let template = Self.favoriteTemplate(from: session)
-            saveRoutine(template)
+            guard saveRoutine(template) else { return nil }
             saved = template
         }
         if var active = state.activeSession {
-            active.routineId = saved.id
+            // Mantener routineId de la sesión programada: cambiarlo alteraba
+            // el origen de Play y podía hacer desaparecer el favorito.
+            active.favoriteRoutineId = saved.id
             state.activeSession = active
             persist()
         }
