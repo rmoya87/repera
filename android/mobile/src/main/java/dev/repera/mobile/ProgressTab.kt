@@ -261,8 +261,8 @@ internal fun ProgressTab(
                     dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},overview?.trainingSettings?.weekStartsOnMonday ?: true,
                     emptyList(),emptyList(),0.0,null,dev.repera.domain.ProgressSeriesGranularity.DAY)
                 ProgressHealthGrid(
-                    score={if(pro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty())
-                        else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true)},
+                    score={if(pro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty(),range=dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},monday=prepared.weekStartsOnMonday)
+                        else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true,range=dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},monday=prepared.weekStartsOnMonday)},
                     cardio={ProgressCardioCard(prepared,!pro)},calories={ProgressCaloriesCard(prepared,!pro)},
                     weight={if(!pro) WeightPreviewCard(today) else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)})
                 }

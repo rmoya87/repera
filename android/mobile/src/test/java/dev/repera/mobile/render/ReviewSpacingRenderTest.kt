@@ -397,4 +397,23 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("Registrar").performClick()
         org.junit.Assert.assertEquals(76.2,received!!,0.001)
     }
+ @Test fun scoreCurveKeeps205HeightAndSelection() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("score_fixture")) {
+            dev.repera.mobile.SessionScoreProgressCard(listOf(dev.repera.domain.ProgressDayPoint(day.minusDays(1),6.0),dev.repera.domain.ProgressDayPoint(day,9.0)),today=day)
+        }}}
+        org.junit.Assert.assertEquals(205,composeRule.onNodeWithTag("session_score_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
+        save(composeRule.onNodeWithTag("score_fixture").captureToImage().asAndroidBitmap(),"score-curve-real.png")
+        composeRule.onNodeWithTag("session_score_plot",useUnmergedTree=true).performClick()
+        composeRule.onNodeWithText("26 oct 2026: 6/10",useUnmergedTree=true).assertExists()
+    }
+ @Test fun scorePreviewDoesNotSelect() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("score_preview_fixture")) {
+            dev.repera.mobile.SessionScoreProgressCard(listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0).mapIndexed {i,v ->dev.repera.domain.ProgressDayPoint(day.minusDays(6L-i),v)},preview=true,today=day)
+        }}}
+        composeRule.onNodeWithTag("session_score_plot",useUnmergedTree=true).performClick()
+        composeRule.onNodeWithText("24 oct 2026: 8/10",useUnmergedTree=true).assertDoesNotExist()
+        save(composeRule.onNodeWithTag("score_preview_fixture").captureToImage().asAndroidBitmap(),"score-curve-preview.png")
+    }
 }

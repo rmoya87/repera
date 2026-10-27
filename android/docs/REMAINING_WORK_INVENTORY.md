@@ -523,3 +523,18 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Scoresiguegeometria100/130Androidnoportadaalafuente;Yticks/greedylabels
  aproximados yruntimependientes. Reticula noequivale a todoschartsportados.
 - Completa309+assemblependientes,735/70,nopush,domain504/93Wear8/1previos.
+
+## Revision graficos, avance Score 00:35 28oct
+- Full309mobile670/163XMLreales70/85/67/68s0fallos/errores/omitidos,
+ assemble84sverde. Ultimabateriacompleta,noejecucion310.
+- Mismobloque revisionconstantes/graficos,subhuecoScore conocido309:
+ StatsView971-1110 corte:205dp real/preview/vacio,C at mullRom2.5dpaccent,
+ dominioY0..10/ticks0/5/10 yXperiodoelegido/preview+-0.5dia,clip.
+- Realnearestfecha/valor,tap/drag/accesibilidad yregla3/4dp;preview
+ nointeractivo,ficticioexplicito;mediaresumen/header ycaptionhistorial.
+ Preparaciondailyverified sin cambios;range/mondaydelaseleccionconectados.
+-5focalizados/2XMLverdes56s,compile83s;PNG360real/preview y1000vacio
+ inspeccionados,alturas/ticks/textosenteros. Xautomatic4Swift sigue
+ aproximadoAndroid3grid/2labels;vacioaxeshelpernoesSwiftcompleto.
+- Completa310/assemblependientes;735/70nativopendiente,nopush,
+ domain504/93Wear8/1anteriores. Bloquerevisionabierto.
