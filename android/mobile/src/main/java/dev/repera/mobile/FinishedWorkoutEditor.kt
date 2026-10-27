@@ -275,6 +275,21 @@ private fun FinishedContentEditor(
                         if (set.has("targetWeightKg") && !set.isNull("targetWeightKg"))
                             set.getDouble("targetWeightKg").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }
                         else "") }
+                    // Apple editableSetRow (VStack): el picker de unidad va en su
+                    // propia fila SOBRE los campos; en una sola fila se recorta en telefonos.
+                    Column {
+                    if (repsOrMeters) {
+                        // Apple: Picker «Unidad de la serie» (segmented, ancho completo)
+                        // - solo edicion explicita, nunca conversion automatica.
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("reps" to "Repeticiones", "meters" to "Metros").forEach { (u, lbl) ->
+                                FilterChip(selected = setUnit == u,
+                                    onClick = { set.put("targetQuantityUnit", u); onChanged() },
+                                    label = { Text(lbl) },
+                                    modifier = Modifier.weight(1f).testTag("set_unit_${u}_${b}_${i}_$s"))
+                            }
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
@@ -308,20 +323,9 @@ private fun FinishedContentEditor(
                                 if (parsed != null && parsed in 0.0..10.0) set.put("targetRir", parsed) else set.remove("targetRir")
                                 onEdited()
                             })
-                        if (repsOrMeters) {
-                            // Apple: Picker «Unidad de la serie» - solo edicion
-                            // explicita, nunca conversion automatica del historial.
-                            Row {
-                                listOf("reps" to "Repeticiones", "meters" to "Metros").forEach { (u, lbl) ->
-                                    FilterChip(selected = setUnit == u,
-                                        onClick = { set.put("targetQuantityUnit", u); onChanged() },
-                                        label = { Text(lbl) },
-                                        modifier = Modifier.testTag("set_unit_${u}_${b}_${i}_$s"))
-                                }
-                            }
-                        }
                         TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
                             onClick = { sets.remove(s); onChanged() }) { Text("×") }
+                    }
                     }
                 }
                 TextButton(modifier = Modifier.testTag("set_add_${b}_$i"), onClick = {

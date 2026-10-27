@@ -29,10 +29,7 @@ import java.io.FileOutputStream
 
 /** Apple f7109bd7 (WorkoutDetailView edit): cabecera «Reps / m» y picker de
  *  unidad por serie en la edicion de un entreno terminado. */
-@RunWith(RobolectricTestRunner::class)
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w1000dp-h1400dp")
-class FinishedEditorUnitPickerRenderTest {
+abstract class FinishedEditorUnitPickerRenderBase {
 
     @get:Rule
     val composeRule = createComposeRule()
@@ -46,6 +43,8 @@ class FinishedEditorUnitPickerRenderTest {
             .put("kind", "strength").put("exercises", JSONArray().put(item))
         return JSONArray().put(block).toString()
     }
+
+    protected open fun pngName(): String = "finished-editor-unit-picker.png"
 
     @Test
     fun unitPickerAndRepsMetersHeaderVisible() {
@@ -70,8 +69,22 @@ class FinishedEditorUnitPickerRenderTest {
             .assertExists()
         val bmp = composeRule.onNodeWithTag("fweditor").captureToImage().asAndroidBitmap()
         File("build/reports/render").mkdirs()
-        FileOutputStream("build/reports/render/finished-editor-unit-picker.png").use {
+        FileOutputStream("build/reports/render/" + pngName()).use {
             bmp.compress(Bitmap.CompressFormat.PNG, 100, it)
         }
     }
 }
+
+/** Ancho de telefono estrecho: la fila Reps/m + Kg + RIR + chips no debe recortarse. */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "w360dp-h900dp")
+class FinishedEditorUnitPickerRenderNarrowTest : FinishedEditorUnitPickerRenderBase() {
+    override fun pngName(): String = "finished-editor-unit-picker-narrow.png"
+}
+
+/** Ancho grande (tableta/plegable). */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "w1000dp-h1400dp")
+class FinishedEditorUnitPickerRenderTest : FinishedEditorUnitPickerRenderBase()
