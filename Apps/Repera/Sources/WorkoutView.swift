@@ -1162,7 +1162,7 @@ struct WorkoutView: View {
                             .foregroundStyle(OG.accent)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(clock.isIntervalMode
-                                 ? "Ronda \(min(clock.displayedRound, clock.displayedRoundsTotal))/\(clock.displayedRoundsTotal)"
+                                 ? "\(clock.subtitle.contains("Descanso") ? "Descanso · " : "")Ronda \(min(clock.displayedRound, clock.displayedRoundsTotal))/\(clock.displayedRoundsTotal)"
                                  : clock.subtitle)
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
