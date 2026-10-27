@@ -122,7 +122,8 @@ function enhanceWorkspace(own){
  const ownInvites=pendingInvites.filter(i=>i.email===(user.email||'').trim().toLowerCase());
  const own=new Map(memberships.filter(m=>m.user_id===user.id&&m.status==='active').map(m=>[m.organization_id,m.role]));
  if(delegation)own.set(delegation.org_id,'admin');
- if(!delegation&&platformRole!=='platform_admin'&&(invitationLink||ownInvites.length)&&
+ if(!delegation&&platformRole!=='platform_admin'&&
+   (invitationLink||ownInvites.length||[...own.values()].includes('athlete'))&&
    ![...own.values()].some(role=>['owner','admin','coach','reception'].includes(role))){
   app.innerHTML=`<div class="connected-page"><main class="connected-auth">
    <section class="connected-card"><span class="connected-tag">REPERA · DEPORTISTAS</span>
@@ -232,7 +233,15 @@ async function reload(){
   auth.organizations(),auth.memberships(),auth.invitations()]);
  organizations=orgs||[];memberships=members||[];invitations=invites||[];
  if(delegation)selectedOrg=delegation.org_id;
- else if(!organizations.some(o=>o.id===selectedOrg))selectedOrg=organizations[0]?.id||null;
+ else {
+  const professionalIds=new Set(memberships.filter(m=>m.user_id===user?.id&&
+    m.status==='active'&&['owner','admin','coach','reception'].includes(m.role))
+   .map(m=>m.organization_id));
+  if(!professionalIds.size)selectedOrg=null;
+  else if(!professionalIds.has(selectedOrg))
+   selectedOrg=organizations.find(o=>professionalIds.has(o.id))?.id||null;
+ }
+ // Athletes do not enter financial, fiscal and staff RPCs of a professional center.
  await loadSelectedOrg();
 }
 function bulkPlanSummary(form){
