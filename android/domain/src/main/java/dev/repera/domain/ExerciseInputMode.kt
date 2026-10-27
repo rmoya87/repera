@@ -11,12 +11,49 @@ enum class ExerciseInputMode(val basicRecorderAvailable: Boolean, val showsWeigh
 }
 
 object ExerciseInput {
+    /** Apple Models.swift normalizeExerciseToken: minusculas + plegado de
+     *  diacriticos, SIN colapsar puntuacion (las apostrofes cuentan). */
+    fun normalizeExerciseToken(raw: String): String =
+        java.text.Normalizer.normalize(raw.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+
+    /** Apple Models.swift supportsWeightedRepsOrMeters: distancia o repeticiones
+     *  prescribibles junto con carga REAL en kg. No implica convertir historicos. */
+    fun supportsWeightedRepsOrMeters(name: String): Boolean {
+        val key = normalizeExerciseToken(name)
+        val loadedDistancePatterns = listOf(
+            "walking lunge", "zancada caminando", "zancadas caminando",
+            "zancadas andando", "sandbag lunge", "zancadas con saco",
+            "farmer carry", "farmer walk", "farmers carry", "farmer's carry",
+            "paseo del granjero", "paseo granjero",
+            "yoke carry", "yoke walk", "paseo con yugo",
+            "sled push", "sled pull", "sled drag",
+            "empuje de trineo", "arrastre de trineo",
+            "suitcase carry", "overhead carry", "front rack carry",
+            "bear hug carry", "sandbag carry")
+        return key == "walking lung" || loadedDistancePatterns.any { key.contains(it) }
+    }
+
+    /** Apple Models.swift supportsRepsOrMeters: recorridos sin lastre nunca activan kg. */
+    fun supportsRepsOrMeters(name: String): Boolean {
+        val key = normalizeExerciseToken(name)
+        return supportsWeightedRepsOrMeters(name) ||
+            key.startsWith("burpee broad jump") ||
+            key.startsWith("burpee con salto de longitud") ||
+            key.startsWith("bear crawl") || key.startsWith("gateo del oso")
+    }
+
     /** Mirrors Swift Exercise.defaultQuantityUnit; never use reps for machine-work by default. */
     fun defaultQuantityUnit(name: String, equipment: String?): String {
-        val n = ExerciseAliasSearch.normalize(name)
-        if (n in setOf("sled push", "sled pull", "farmer carry",
-                "farmer walk", "sandbag lunges", "burpee broad jump"))
+        val n = normalizeExerciseToken(name)
+        // Apple: solo Walking lunge empieza en reps por retrocompatibilidad; los
+        // transportes, empujes y saltos de longitud suelen prescribirse en m.
+        if (supportsRepsOrMeters(name)) {
+            if (n == "walking lung" || n.contains("walking lunge")
+                || n.contains("zancada caminando") || n.contains("zancadas caminando")
+                || n.contains("zancadas andando")) return "reps"
             return "meters"
+        }
         val style = mode(name, equipment, null, null)
         if (style != ExerciseInputMode.MACHINE_WORK) return "reps"
         val rower = n.contains("rower") || n.contains("remoerg") ||

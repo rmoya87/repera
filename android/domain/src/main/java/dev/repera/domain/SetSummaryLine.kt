@@ -42,6 +42,8 @@ object SetSummaryLine {
         val unit = quantityUnit ?: "reps"
         if (unit != "reps") {
             val parts = mutableListOf("$reps ${unitShortLabel(unit)}")
+            // Apple faa68128: metros/calorias muestran tambien la carga (20 m · 16 kg).
+            weightKg?.let { parts.add("${g(it)} kg") }
             if (durationSeconds != null && durationSeconds > 0) parts.add(clock(durationSeconds))
             return parts.joinToString(" · ")
         }
