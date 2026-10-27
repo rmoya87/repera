@@ -34,6 +34,8 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("guard coordinationError == nil", self.backup)
         self.assertIn("let archive = try? JSONDecoder().decode", self.backup)
         self.assertIn("else { return .unavailable }", self.backup)
+        self.assertIn("case missing", self.backup)
+        self.assertIn("return .missing", self.backup)
 
     def test_local_backup_and_cloud_merge_do_not_erase_favorites(self):
         store = self.live.split("final class LiveRoutesStore {", 1)[1].split(
@@ -48,6 +50,12 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("try persist(scheduleCloud: false)", store)
         self.assertIn("cloudSyncRequestedAgain = true", store)
         self.assertIn("LiveRouteCloudBackup.shared.write(archive)", store)
+        self.assertIn("let remoteAlreadyMatches = remote.routes == newRoutes", store)
+        self.assertIn("if newRoutes != routes {", store)
+        self.assertIn("try persist(scheduleCloud: false)", store)
+        self.assertIn("case .missing:", store)
+        self.assertIn("guard !routes.isEmpty || !deletedIDs.isEmpty else", store)
+        self.assertIn("Task.sleep(for: .seconds(2))", store)
         self.assertIn("UserDefaults.standard.set(erased.map(", store)
         self.assertIn("requestICloudSynchronization()", store)
 
@@ -59,6 +67,7 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("recorder.sport.usesGPS", save)
         self.assertIn("session.liveRouteID = try routes.addRecordedRoute(from: session)", save)
         self.assertIn("store.saveWorkout(session)", save)
+        self.assertIn("Rutas sincronizadas con iCloud", self.live)
 
     def test_home_load_route_switches_to_start_and_opens_library_without_play(self):
         self.assertIn("var onLoadRoutes: () -> Void", self.home)
