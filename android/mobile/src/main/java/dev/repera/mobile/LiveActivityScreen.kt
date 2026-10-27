@@ -198,16 +198,20 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         // Una captura puntual no se convierte en ubicación viva por quedarse
         // en memoria: caduca aunque el usuario no haya salido de esta pantalla.
         val freshPosition = previewPosition?.takeIf { System.currentTimeMillis()-it.recordedAtEpochMs < 15_000 }
-        Box(Modifier.fillMaxSize().testTag("live_activity_screen")) {
+        BoxWithConstraints(Modifier.fillMaxSize().testTag("live_activity_screen")) {
+            val mapLandscape=liveMapLandscape(maxWidth.value,maxHeight.value)
+            val overlayWidth=liveMapOverlayWidth(maxWidth.value)
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
                 isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2, waterSport = state.sport.isWaterSport,
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
                 onMapRendered = onMapRendered,navigationMode=navigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
                 recenterToken=recenterToken,onCameraGesture={followingMap=false})
-            Surface(Modifier.align(Alignment.TopCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
-                tonalElevation = 4.dp) {
-                Column(Modifier.padding(12.dp)) {
+            Surface(Modifier.align(if(mapLandscape) Alignment.TopStart else Alignment.TopCenter)
+                .padding(12.dp).then(if(mapLandscape) Modifier.width(overlayWidth.dp) else Modifier),
+                shape = MaterialTheme.shapes.large,tonalElevation = 4.dp) {
+                Column(Modifier.then(if(mapLandscape) Modifier.heightIn(max=(maxHeight*0.4f))
+                    .verticalScroll(rememberScrollState()) else Modifier).padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(state.sport.materialIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
@@ -234,9 +238,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
                 }
             }
-            Surface(Modifier.align(Alignment.BottomCenter).padding(12.dp), shape = MaterialTheme.shapes.large,
-                tonalElevation = 4.dp) {
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Surface(Modifier.align(if(mapLandscape && state.phase!=LiveActivityState.Phase.IDLE)
+                    Alignment.BottomStart else Alignment.BottomCenter)
+                .padding(start=12.dp,end=12.dp,top=12.dp,bottom=48.dp)
+                .then(if(mapLandscape) Modifier.width(if(state.phase==LiveActivityState.Phase.IDLE) 570.dp else overlayWidth.dp) else Modifier),
+                shape = MaterialTheme.shapes.large,tonalElevation = 4.dp) {
+                Column(Modifier.then(if(mapLandscape) Modifier.heightIn(max=(maxHeight*0.4f))
+                    .verticalScroll(rememberScrollState()) else Modifier).padding(12.dp),
+                    verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     if (state.phase == LiveActivityState.Phase.IDLE) {
                         Text(state.sport.metricDescription,style=MaterialTheme.typography.bodySmall)
                         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
