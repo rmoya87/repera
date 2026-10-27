@@ -149,6 +149,8 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let clientId: UUID
     let coachUserId: UUID
     let scheduledDate: String  // yyyy-MM-dd, date-only (never UTC-shifted)
+    let scheduledTimeMinutes: Int?
+    let sourceOccurrenceId: UUID?
     let title: String
     let instructions: String
     let status: String
@@ -160,6 +162,8 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
         case clientId = "client_id"
         case coachUserId = "coach_user_id"
         case scheduledDate = "scheduled_date"
+        case scheduledTimeMinutes = "scheduled_time_minutes"
+        case sourceOccurrenceId = "source_occurrence_id"
     }
 }
 
@@ -183,11 +187,13 @@ private struct BusinessClientLink: Decodable {
     let id: UUID
     let orgId: UUID
     let userId: UUID?
+    let status: String
 
     enum CodingKeys: String, CodingKey {
         case id
         case orgId = "org_id"
         case userId = "user_id"
+        case status
     }
 }
 
@@ -260,9 +266,9 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedLinks: [BusinessClientLink] = try await client
                 .from("clients")
-                .select("id,org_id,user_id")
+                .select("id,org_id,user_id,status")
                 .execute().value
-            let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.id))
+            let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }.map(\.id))
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
                 .select("id,org_id,kind,title,starts_at,ends_at,capacity,status")
@@ -277,7 +283,7 @@ final class BusinessDataStore {
                 .execute().value
             let fetchedTrainingSessions: [BusinessProfessionalTrainingSession] = try await client
                 .from("professional_training_sessions")
-                .select("id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status")
+                .select("id,org_id,client_id,coach_user_id,scheduled_date,scheduled_time_minutes,source_occurrence_id,title,instructions,prescription,status")
                 .execute().value
             let fetchedNotices: [BusinessClientNotification] = try await client
                 .from("business_client_notifications")
@@ -304,7 +310,7 @@ final class BusinessDataStore {
 
             availability = counts
             centers = fetchedCenters
-            athleteCenterIds = Set(fetchedLinks.filter { $0.userId == currentUser }.map(\.orgId))
+            athleteCenterIds = Set(fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }.map(\.orgId))
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
@@ -483,6 +489,11 @@ final class BusinessDataStore {
                 params: ["p_org": org.id.uuidString]
             ).execute()
             await refresh()
+            guard !athleteCenterIds.contains(org.id) else {
+                errorMessage = "La desvinculación no se ha confirmado. Inténtalo de nuevo."
+                return false
+            }
+            await BusinessWorkoutSyncStore.shared.refreshSharing()
             return true
         } catch {
             errorMessage = "No se ha podido desvincular: \(error.localizedDescription)"
