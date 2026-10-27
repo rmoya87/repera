@@ -389,13 +389,23 @@ struct HomeView: View {
                     Task(priority: .utility) { await refreshProgressiveHealthIfNeeded() }
                 }
             }
-            .task(id: "\(store.workoutsEpoch)-\(health.healthDataRevision)") {
+            // Personal-record calculations depend on the workout history,
+            // not on every HealthKit authorization/sample callback.
+            .task(id: store.workoutsEpoch) {
                 rebuildDayBuckets()
                 rebuildWeekChrome()
                 await Task.yield()
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
+            }
+            .task(id: health.healthDataRevision) {
+                // Health changes update calories/minutes and the day dots,
+                // but should never repeat personal-record analysis.
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+                await Task.yield()
+                rebuildStreakChrome()
             }
             .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
                 let requestedDay = selectedDay
