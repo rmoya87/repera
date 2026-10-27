@@ -21,6 +21,7 @@ function restoreWorkspaceRoute(){
  if(org&&/^[0-9a-f-]{36}$/i.test(org))selectedOrg=org;
  if(['overview','clients','planning','services','bonos','billing','analytics','team','settings','platform'].includes(section))activeTab=section;
  if(client&&/^[0-9a-f-]{36}$/i.test(client)){selectedClientId=client;planningClientId=client;activeTab='clients';}
+ else if(section==='clients'){selectedClientId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;}
 }
 function setWorkspaceRoute(replace=false){
  const uri=new URL(location.href);
