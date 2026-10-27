@@ -54,7 +54,11 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("if newRoutes != routes {", store)
         self.assertIn("try persist(scheduleCloud: false)", store)
         self.assertIn("case .missing:", store)
-        self.assertIn("guard !routes.isEmpty || !deletedIDs.isEmpty else", store)
+        self.assertIn("(!routes.isEmpty || !deletedIDs.isEmpty)", store)
+        self.assertIn("(hadRouteFileAtLaunch || didEditRouteLocally)", store)
+        self.assertIn("hadRouteFileAtLaunch = FileManager.default.fileExists", store)
+        self.assertIn("try persist(markUserAction: false)", store)
+        self.assertIn("if markUserAction { didEditRouteLocally = true }", store)
         self.assertIn("Task.sleep(for: .seconds(2))", store)
         self.assertIn("UserDefaults.standard.set(erased.map(", store)
         self.assertIn("requestICloudSynchronization()", store)
@@ -95,6 +99,8 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertNotIn("for routine in store.state.routines", week)
         self.assertNotIn("businessData.occurrences.first(where:", week)
         self.assertIn("LazyVStack(spacing: 6)", self.home)
+        self.assertIn(".task(id: store.workoutsEpoch)", self.home)
+        self.assertIn(".task(id: health.healthDataRevision)", self.home)
 
     def test_home_reloading_does_not_show_black_gap_and_tab_transition_is_shorter(self):
         self.assertIn(".background(OG.surface.ignoresSafeArea())", self.home)
