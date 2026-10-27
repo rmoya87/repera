@@ -131,4 +131,15 @@ class ExerciseEvolutionSummaryRenderTest {
         File("build/reports/render").mkdirs()
         FileOutputStream("build/reports/render/exercise-evolution-single.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
     }
+    @Test @Config(sdk=[35],qualifiers="w360dp-h1400dp")
+    fun chartAxesFitNarrowWindow() {
+        composeRule.setContent {MaterialTheme {Surface(Modifier.testTag("narrow_evo_fixture")) {
+            ExerciseEvolutionSection(entry=ExerciseEntry("e1","Press banca",true,true),exerciseSeries={_,_,_ ->listOf(
+                ExerciseProgressPoint(1_700_000_000_000L,80.0,80.0,10),ExerciseProgressPoint(1_700_200_000_000L,92.0,92.0,8),ExerciseProgressPoint(1_701_000_000_000L,85.0,85.0,6))},
+                testedOneRM=null,onSetTestedOneRM={},busy=false)
+        }}}
+        val bmp=composeRule.onNodeWithTag("narrow_evo_fixture").captureToImage().asAndroidBitmap()
+        File("build/reports/render").mkdirs()
+        FileOutputStream("build/reports/render/exercise-evolution-axes360.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+    }
 }

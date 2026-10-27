@@ -321,6 +321,7 @@ internal fun ExerciseEvolutionSection(
                         label = { Text(r.title) })
                 }
             }
+            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant,RoundedCornerShape(12.dp)).padding(12.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             if (points.size<2) {
                 val (low,high)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
                 Column(Modifier.testTag("exercise_evolution_empty")) {
@@ -332,15 +333,23 @@ internal fun ExerciseEvolutionSection(
                     }
                 }
             } else {
-                val line = MaterialTheme.colorScheme.primary
-                val ceilingColor=MaterialTheme.colorScheme.onSurfaceVariant
+                val ceilingColor=MaterialTheme.colorScheme.primary
+                val gridColor=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.18f)
+                val (axisLow,axisHigh)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
+                Row(Modifier.fillMaxWidth()) {
+                Column(Modifier.size(width=44.dp,height=220.dp),verticalArrangement=Arrangement.SpaceBetween) {
+                    Text(formatWeight(axisHigh),style=MaterialTheme.typography.labelSmall)
+                    Text(formatWeight((axisLow+axisHigh)/2),style=MaterialTheme.typography.labelSmall)
+                    Text(formatWeight(axisLow),style=MaterialTheme.typography.labelSmall)
+                }
+                Column(Modifier.weight(1f)) {
                 fun selectAt(x:Float,width:Int,inset:Float) {
                     selectedPoint=ExerciseChartGeometry.nearest(points,((x-inset)/(width-2*inset).coerceAtLeast(1f)))
                 }
                 androidx.compose.foundation.Canvas(modifier = Modifier
-                    .fillMaxWidth().height(220.dp).testTag("exercise_evolution_chart")
+                    .fillMaxWidth().height(220.dp).clip(RoundedCornerShape(2.dp)).testTag("exercise_evolution_chart")
                     .semantics {
-                        contentDescription="Evolución de ${points.size} registros"
+                        contentDescription="Evolución de ${points.size} registros, valores entre ${formatWeight(axisLow)} y ${formatWeight(axisHigh)}"
                         customActions=listOf(
                             androidx.compose.ui.semantics.CustomAccessibilityAction("Punto anterior") {selectedPoint=ChartSelectionStep.step(selectedPoint,-1,points.size);true},
                             androidx.compose.ui.semantics.CustomAccessibilityAction("Punto siguiente") {selectedPoint=ChartSelectionStep.step(selectedPoint,1,points.size);true})
@@ -351,24 +360,35 @@ internal fun ExerciseEvolutionSection(
                     val span=maxV-minV
                     fun x(i:Int)=8.dp.toPx()+ExerciseChartGeometry.fraction(points,i)*(size.width-16.dp.toPx()).coerceAtLeast(0f)
                     fun y(v:Double)=size.height-((v-minV)/span*size.height).toFloat()
+                    listOf(axisLow,(axisLow+axisHigh)/2,axisHigh).forEach {value ->drawLine(gridColor,androidx.compose.ui.geometry.Offset(0f,y(value)),androidx.compose.ui.geometry.Offset(size.width,y(value)),0.5.dp.toPx())}
+                    listOf(0f,0.5f,1f).forEach {fraction ->val gx=8.dp.toPx()+fraction*(size.width-16.dp.toPx());drawLine(gridColor,androidx.compose.ui.geometry.Offset(gx,0f),androidx.compose.ui.geometry.Offset(gx,size.height),0.5.dp.toPx())}
                     ceiling?.let {drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(0f,y(it)),androidx.compose.ui.geometry.Offset(size.width,y(it)),strokeWidth=2f,
                         pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f,8f)))}
-                    selectedPoint?.let {i -> drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(x(i),0f),androidx.compose.ui.geometry.Offset(x(i),size.height),strokeWidth=2f)}
+                    selectedPoint?.takeIf {it in points.indices}?.let {i -> drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(x(i),0f),androidx.compose.ui.geometry.Offset(x(i),size.height),strokeWidth=1.dp.toPx(),pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
                     val observed=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
                     val path=androidx.compose.ui.graphics.Path()
                     path.moveTo(observed.first().x,observed.first().y)
                     ReadinessCurve.segments(observed).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
                     drawPath(path,color=androidx.compose.ui.graphics.Color(0xFF0A84FF),
                         style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))
-                    // One observation has no line or trend; keep its location visible.
-                    if(points.size==1) drawCircle(color=line,radius=3.dp.toPx(),center=androidx.compose.ui.geometry.Offset(x(0),y(points[0].value)))
+                }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    val monthFormatter=java.time.format.DateTimeFormatter.ofPattern("MMM",java.util.Locale("es","ES"))
+                    val zone=java.time.ZoneId.systemDefault()
+                    val firstMonth=java.time.Instant.ofEpochMilli(points.first().epochMillis).atZone(zone).format(monthFormatter)
+                    val lastMonth=java.time.Instant.ofEpochMilli(points.last().epochMillis).atZone(zone).format(monthFormatter)
+                    Text(firstMonth,style=MaterialTheme.typography.labelSmall)
+                    if(lastMonth!=firstMonth) Text(lastMonth,style=MaterialTheme.typography.labelSmall)
+                }
+                }
                 }
                 ceiling?.let {Text("Tope 1RM · ${dev.repera.domain.ReperaNumberFormat.decimal(it)} kg",style=MaterialTheme.typography.bodySmall)}
-                val last = points[selectedPoint ?: points.lastIndex]
+                val last = points[selectedPoint?.takeIf {it in points.indices} ?: points.lastIndex]
                 Text(java.time.Instant.ofEpochMilli(last.epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter),style=MaterialTheme.typography.bodySmall)
                 Text("${if(selectedPoint==null) "Último" else "Seleccionado"}: ${formatPointValue(selectedMetric, last)} · " +
                     "${points.size} registros",
                     style = MaterialTheme.typography.bodyMedium)
+            }
             }
         }
     }

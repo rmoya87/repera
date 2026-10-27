@@ -382,3 +382,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  axes/grid/cardinteriorpendientes. Parsercompletoyruntimeabiertos.
 -735/70abiertas sincierres,no push. Las notas anteriores conpendientes
  mobile296/297 quedan superadas por esta ejecucion real completa.
+
+## Ejes evolucion 22:57
+- ExerciseProgressViewchartBlock410-437:superficieinterior12dp/radio12,
+ Ylabels/domain real ygrid0.5dp,Xmeses locales,selecciondashed3/4dp.
+ Labelmismomes solo1,no dosnov redundantes. Plot220dpconclip.
+- AproximacionAndroid explicita:ticksYlow/mid/high ygridX0/.5/1,noalgoritmo
+ automaticoSwiftCharts,no afirmar pixelparity. Guardiaindice seleccion.
+- Nuevofixture360datosirregulares+1000full inspeccionados,curva/grid/labels
+ enteros;focalizados7tests verdes. Mobilecompleta+assemblepost299pendientes.
+ Domain504/93yWear8/1siguen checkpoints previos.735/70abiertas,sincierres.
