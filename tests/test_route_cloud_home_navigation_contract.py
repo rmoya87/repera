@@ -16,14 +16,24 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.live = code("LiveActivityView.swift")
-        cls.backup = code("LiveRouteCloudBackup.swift")
+        # Archive types deliberately live with LiveRoutesStore so older
+        # generated Repera.xcodeproj projects always compile them.
+        cls.backup = cls.live
         cls.home = code("HomeView.swift")
         cls.root = code("RootTabView.swift")
         cls.project = (ROOT / "project.yml").read_text(encoding="utf-8")
 
     def test_icloud_documents_is_enabled_and_route_archive_is_coordinated(self):
         self.assertIn("iCloud.com.app.repera", self.project)
-        self.assertIn("- path: Apps/Repera/Sources/LiveRouteCloudBackup.swift", self.project)
+        self.assertIn("- path: Apps/Repera/Sources/LiveActivityView.swift", self.project)
+        self.assertNotIn("- path: Apps/Repera/Sources/LiveRouteCloudBackup.swift", self.project)
+        compatibility = SRC / "LiveRouteCloudBackup.swift"
+        self.assertTrue(compatibility.is_file())
+        self.assertNotIn("actor LiveRouteCloudBackup", compatibility.read_text(encoding="utf-8"))
+        self.assertNotIn("struct LiveRouteCloudArchive", compatibility.read_text(encoding="utf-8"))
+        self.assertIn("actor LiveRouteCloudBackup", self.live)
+        self.assertIn("struct LiveRouteCloudArchive: Codable, Sendable", self.live)
+        self.assertIn("UserDefaults.standard.set(erased.map { $0.uuidString }", self.live)
         self.assertIn('private let containerID = "iCloud.com.app.repera"', self.backup)
         self.assertIn("forUbiquityContainerIdentifier: containerID", self.backup)
         self.assertIn("struct LiveRouteCloudArchive: Codable, Sendable", self.backup)
@@ -60,7 +70,7 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("try persist(markUserAction: false)", store)
         self.assertIn("if markUserAction { didEditRouteLocally = true }", store)
         self.assertIn("Task.sleep(for: .seconds(2))", store)
-        self.assertIn("UserDefaults.standard.set(erased.map(", store)
+        self.assertIn("UserDefaults.standard.set(erased.map { $0.uuidString }", store)
         self.assertIn("requestICloudSynchronization()", store)
 
     def test_recorded_gps_walking_routes_are_archived_when_saved(self):
