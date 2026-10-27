@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-19 (precios StoreKit/ASC en onboarding + RevenueCat)
+Última actualización: 2026-10-27 (verificación de Pro al guardar Favoritos)
 
 ## 1. Arquitectura
 
@@ -89,6 +89,15 @@ Solo la oferta introductoria de Apple. No hay contador local de 14 días. Si el 
 
 - Paywall y Ajustes → «Restaurar compras» (`AppStore.sync()` con StoreKit 2, o `Purchases.restorePurchases()` si RevenueCat está configurado).
 - «Gestionar suscripción» → `https://apps.apple.com/account/subscriptions`.
+
+### Favoritos y reconocimiento de Pro (27/10/2026)
+
+- Los botones **Favorito** de Play, vista previa e historial solo abren el paywall tras un rechazo real de `FeatureAccessPolicy`. Un fallo de guardado con Pro activo no solicita comprar de nuevo: muestra un mensaje de error normal.
+- Antes de ofrecer una suscripción por un límite de plantillas, `SubscriptionManager.refreshEntitlementsForFeatureAction()` verifica de nuevo los permisos y reintenta el guardado si la situación ha cambiado. Los rechazos con estado `unknown` muestran indicaciones para recuperar compras, sin afirmar que la cuenta sea Gratis.
+- `SubscriptionManager.presentPaywall` impide la presentación del paywall a cuentas con acceso Pro o patrocinado incluso si una vista lo invoca por error.
+- En caso de desacuerdo del verificador comercial principal, se consulta `StoreKit 2 Transaction.currentEntitlements` y se adoptan exclusivamente compras verificadas de los dos identificadores oficiales, incluyendo TestFlight. No se activa Pro por un booleano local ni por una pantalla de pago simulada.
+- Se resetea `lastAccessDenial` al empezar cada intento de favorito, para que una denegación anterior no provoque un falso paywall en una acción nueva.
+- Pruebas estáticas: `tests/test_pro_favorite_entitlements_contract.py`; política comercial: `FeatureAccessPolicyTests.swift`. Falta validación de compra/restauración en TestFlight.
 
 ## 11. Offline
 
