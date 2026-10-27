@@ -1,5 +1,14 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Centros sin propietario registrado — 2026-10-27
+
+Un negocio pendiente ya es un tenant real pero **privado**: `is_discoverable=false`, `public_email=null`; solo el administrador autorizado puede leerlo a través de RPC o acceder a sus operaciones tras invocar la delegación registrada y temporal. El trigger `bootstrap_organization_owner` crea temporalmente la membresía del creador, eliminada en la misma transacción privilegiada, antes de exponer el registro a otras transacciones. No se otorga permiso SELECT a `platform_org_provisioning` ni `platform_admin_delegations` al navegador.
+
+Se preserva el control de acceso mediante `private.has_org_role` con `auth.uid()` del administrador; nunca se construye JWT del propietario ni se inicia sesión como este. La suspensión se gestiona por `platform_org_controls` con motivo y auditoría, mientras que la reclamación solo admite email **verificado** coincidente y asigna membresía owner al usuario correcto. Se ha probado un ciclo completo en una transacción SQL revertida (sin registros de prueba persistentes).
+
+Migrations: `20261027153000_materialize_pending_centers.sql`, `20261027154500_pending_centers_email_privacy.sql` ambas aplicadas y versionadas.
+
+
 ## Directorio global y Storage previo a altas (27/10/2026)
 
 - El listado de cuentas y avatares es exclusivo del `platform_admin` validado en SQL por rol y correo confirmado. Ni `auth.users` ni `profiles` se hacen públicamente consultables. Se prohíbe desde la función el acceso anónimo o con usuario normal, verificado con prueba 42501. El directorio no devuelve información clínica, nutricional ni de entrenamientos.
