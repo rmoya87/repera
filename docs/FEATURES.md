@@ -55,7 +55,16 @@
 
 ## Tabs
 
-### Inicio (`HomeView`)
+### Favoritos de entrenamientos planificados (27/10/2026)
+
+- La estrella de **Entreno planificado → vista previa** y el interruptor **Favorito** del editor de un entrenamiento con fecha crean una **plantilla independiente** sin `scheduledDate`, con nuevo UUID y copia profunda de bloques, movimientos y series. No se transforma ni se desprograma el entrenamiento del calendario; ambos se conservan al cerrar o reabrir la aplicación.
+- `Routine.favoriteTemplateId` enlaza la programación con esa plantilla reutilizable; su decodificación es opcional para seguir leyendo rutinas anteriores sin este campo. La lista **Crear → Favoritos** muestra únicamente la plantilla, no una segunda fila del entrenamiento planificado con el mismo nombre. Los favoritos antiguos con fecha, sin vínculo, siguen visibles.
+- En **Inicio → Añadir entreno → Favoritos**, pulsar un entrenamiento añade una **nueva copia** al día seleccionado y devuelve al calendario. Desde el acceso general **Crear → Favoritos**, pulsar un entrenamiento sigue comenzando una sesión inmediata. La copia conserva la estructura prescrita sin editar la plantilla original.
+- Si se elimina un entrenamiento del calendario, se mantiene su plantilla favorita independiente; quitar la estrella o retirar una plantilla de Favoritos actualiza el enlace de la programación sin borrar el entreno de ese día.
+- En **Play → ⋯ → Favorito** se conserva el `routineId` de la planificación y se escribe `favoriteRoutineId` en la sesión activa; antes se sobrescribía el origen por el ID del favorito. Tanto la estrella de vista previa como el editor y Play comprueban el resultado de `saveRoutine`: si el límite de plantillas de Gratis bloquea el guardado, presentan el aviso de plan en lugar de confirmar silenciosamente un favorito inexistente.
+- **Pendiente de validación en dispositivo:** pulsar estrella y comprobar persistencia después de relanzar/iCloud; reutilizarlo para otra fecha; eliminar la programación sin perder la plantilla; desmarcar favorito; comprobar la pantalla de límite Gratis y una sesión activa sin origen guardado. Contratos: `tests/test_planned_workout_favorites_contract.py` y `WorkoutFavoriteCodableTests.swift`.
+
+## Inicio (`HomeView`)
 
 - Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
