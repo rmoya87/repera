@@ -1,5 +1,7 @@
 ## Administración global (2026-10-27)
 
+- Migración complementaria aplicada: `20261027131000_platform_client_payment_ledger.sql` crea `business_client_payments` para cobros B2C verificados por proveedor (RLS habilitada, cero permisos directos de navegación; solo backend privilegiado). `platform_admin_finances` separa `payments` (B2B), `client_payments` (B2C) e `intents` (solicitudes no cobradas). No hay Stripe Connect activo.
+
 Migración aplicada: `supabase/migrations/20261027120000_platform_admin_console.sql`.
 
 Nuevas tablas (todas con RLS):
