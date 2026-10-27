@@ -212,7 +212,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("isFavorite", false)
         if (scheduledDay != null) {
             // Convención del snapshot: fecha concreta "yyyy-MM-dd" (AITrainingContextStore,
-            // AITrainingInbox y DiaryTab comparan contra LocalDate.toString()).
+            // AITrainingInbox y la antigua pestana Diario (eliminada) comparan contra LocalDate.toString()).
             nativeRoutine.put("scheduledDate", scheduledDay.toString())
         } else if (schedule.weekday != null) {
             nativeRoutine.put("weekday", schedule.weekday)
