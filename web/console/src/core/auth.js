@@ -100,6 +100,11 @@ export class ReperaAuthAPI {
  }
 
  async platformAdminSettings(){return this.#authorized('rpc/platform_admin_settings',{method:'POST',body:{}});}
+ async platformAdminSaveTrialDays(days){
+  const d=Number(days);
+  if(!Number.isInteger(d)||d<1||d>60)throw Error('El periodo debe ser de 1 a 60 días');
+  return this.#authorized('rpc/platform_admin_save_trial_days',{method:'POST',body:{p_days:d}});
+ }
  async platformAdminSaveSettings(values){
   const safe=key=>String(values[key]||'').trim();
   return this.#authorized('rpc/platform_admin_update_settings',{method:'POST',body:{
