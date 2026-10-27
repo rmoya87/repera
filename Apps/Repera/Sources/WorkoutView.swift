@@ -2103,14 +2103,20 @@ struct WorkoutView: View {
         // Fuerza: registro manual y pesos visibles; WOD cronometrado: reloj por defecto.
         usesAutomaticTimer = (current.wodFormat != nil && current.wodFormat != .strength)
             || (current.blockTimeCapMinutes ?? 0) > 0
-        let suggested = current.lastLoggedWeight
-            ?? store.cachedLastWorkingWeight(for: current.exercise.id)
-            ?? current.plannedSets.first?.targetWeightKg
+        // Las series prescritas de una plantilla siempre mandan sobre
+        // los últimos kilos anotados. La sugerencia histórica solo se usa
+        // cuando el entreno NO tiene series configuradas.
+        let hasPrescription = !current.plannedSets.isEmpty
+        let suggested = hasPrescription
+            ? current.plannedSets.first?.targetWeightKg
+            : (current.lastLoggedWeight
+                ?? store.cachedLastWorkingWeight(for: current.exercise.id))
         weightText = suggested.map { ReperaNumberFormat.decimal($0) } ?? ""
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
         rebuildLiveSets(from: current)
-        // Si hay peso sugerido y la primera serie pendiente no tiene peso, rellenarla.
-        if let suggested, !hasUserDraft,
+        // No rellenar un peso dejado vacío deliberadamente en una plantilla:
+        // cada fila mantiene su targetWeightKg, incluso si varía por serie.
+        if let suggested, !hasPrescription, !hasUserDraft,
            let idx = liveSets.firstIndex(where: { !$0.completed }),
            liveSets[idx].weightKg == nil {
             liveSets[idx].weightKg = suggested
