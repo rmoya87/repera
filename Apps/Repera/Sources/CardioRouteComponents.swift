@@ -502,6 +502,7 @@ struct CardioSplitsView: View {
 /// Condiciones en la fecha del entreno vía WeatherKit histórico (AQI histórico no disponible).
 /// No se persiste: se consulta al abrir el detalle.
 struct RouteWeatherStrip: View {
+    @Environment(\.colorScheme) private var colorScheme
     var latitude: Double
     var longitude: Double
     var workoutDate: Date
@@ -511,33 +512,55 @@ struct RouteWeatherStrip: View {
     @State private var windKmh: Double?
     @State private var symbol = "cloud.sun"
     @State private var attributionURL: URL?
+    @State private var attributionMarkLightURL: URL?
+    @State private var attributionMarkDarkURL: URL?
     @State private var isLoading = true
     @State private var failureHint: String?
 
     private var hasWeather: Bool { temperatureC != nil }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 0) {
                 weatherStat(
                     symbol: symbol,
                     title: "Tiempo",
                     value: temperatureC.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0)) °C" },
                     loading: isLoading
                 )
-                Divider().frame(height: 36).padding(.horizontal, 4)
+                Divider().frame(height: 46).padding(.horizontal, 4)
                 weatherStat(
                     symbol: "humidity.fill",
                     title: "Humedad",
                     value: humidity.map { "\(Int(($0 * 100).rounded())) %" },
                     loading: isLoading
                 )
-                Divider().frame(height: 36).padding(.horizontal, 4)
+                Divider().frame(height: 46).padding(.horizontal, 4)
                 weatherStat(
                     symbol: "wind", title: "Viento",
                     value: windKmh.map { "\(ReperaNumberFormat.decimal($0, maximumFractionDigits: 0)) km/h" },
                     loading: isLoading
                 )
+            }
+            // El texto «Apple Weather» deja de ocupar una tercera línea.
+            // WeatherKit exige la marca y el enlace legal: conservamos su
+            // logotipo oficial discretamente sin incrementar alto del pie.
+            .overlay(alignment: .bottomTrailing) {
+                if hasWeather, let attributionURL,
+                   let mark = colorScheme == .dark
+                       ? attributionMarkLightURL : attributionMarkDarkURL {
+                    Link(destination: attributionURL) {
+                        AsyncImage(url: mark) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            Color.clear
+                        }
+                        .frame(width: 66, height: 11)
+                    }
+                    .accessibilityLabel("Fuente meteorológica y atribución legal de Apple Weather")
+                    .padding(.trailing, 4)
+                    .offset(y: 7)
+                }
             }
             if !hasWeather {
                 if let failureHint {
@@ -556,7 +579,8 @@ struct RouteWeatherStrip: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.top, 12)
+        .padding(.bottom, 17)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface)
         .task(id: taskKey) {
@@ -570,41 +594,36 @@ struct RouteWeatherStrip: View {
     }
 
     private func weatherStat(symbol: String, title: String, value: String?, loading: Bool) -> some View {
-        VStack(alignment: .center, spacing: 4) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(OG.label2)
-                    .accessibilityHidden(true)
+        HStack(alignment: .center, spacing: 9) {
+            // El icono abarca visualmente título y dato en una sola fila.
+            Image(systemName: symbol)
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(OG.label2)
+                .frame(width: 30, height: 44)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(OG.label2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                if loading, value == nil {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(OG.label2)
+                        .frame(height: 23, alignment: .leading)
+                } else {
+                    Text(value ?? "—")
+                        .font(.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            if loading, value == nil {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(OG.label2)
-                    .frame(height: 18, alignment: .leading)
-            } else {
-                Text(value ?? "—")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            // Sin logotipo ni segunda fila «Tiempo»: conservar la marca textual
-            // de Apple Weather y el enlace legal obligatorio de WeatherKit.
-            if title == "Tiempo", hasWeather, let attributionURL {
-                Link("Apple Weather", destination: attributionURL)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                    .accessibilityLabel("Apple Weather · atribución legal")
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     private func loadWeather() async {
@@ -612,6 +631,8 @@ struct RouteWeatherStrip: View {
         windKmh = nil
         temperatureC = nil
         attributionURL = nil
+        attributionMarkLightURL = nil
+        attributionMarkDarkURL = nil
         failureHint = nil
         isLoading = true
         defer { isLoading = false }
@@ -667,6 +688,8 @@ struct RouteWeatherStrip: View {
         do {
             let attribution = try await WeatherService.shared.attribution
             attributionURL = attribution.legalPageURL
+            attributionMarkLightURL = attribution.combinedMarkLightURL
+            attributionMarkDarkURL = attribution.combinedMarkDarkURL
         } catch {
             #if DEBUG
             print("WeatherKit attribution error: \(error)")
