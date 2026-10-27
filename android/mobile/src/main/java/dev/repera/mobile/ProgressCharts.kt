@@ -60,7 +60,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
             }
             if(showEmpty && charts.heartRate.isEmpty()) {
                 Text("Frecuencia cardíaca · sin mediciones en el periodo")
-                EmptyHealthChartAxes(40.0,200.0)
+                ProgressCardioPlot(charts,preview)
             }
             if (charts.calories.isNotEmpty()) {
                 Text("Calorías activas · ${charts.caloriesTotal.toInt()} kcal en el rango",
@@ -74,41 +74,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
                         " · media ${it.toInt()} ppm" } ?: ""),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 12.dp))
-                val band = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f)
-                val line = MaterialTheme.colorScheme.tertiary
-                val points = charts.heartRate
-                Canvas(modifier = Modifier
-                    .fillMaxWidth()
-                    .height(96.dp)
-                    .padding(top = 8.dp)) {
-                    val minV = points.minOf { it.minBpm }
-                    val maxV = points.maxOf { it.maxBpm }
-                    val span = (maxV - minV).coerceAtLeast(1.0)
-                    fun x(i: Int) = DayChartPositions.dateFraction(points.first().day,points.last().day,points[i].day)*size.width
-                    fun y(v: Double) =
-                        size.height - ((v - minV) / span * size.height).toFloat()
-                    // Banda mín-máx.
-                    val area = Path()
-                    points.forEachIndexed { i, p ->
-                        if (i == 0) area.moveTo(x(i), y(p.maxBpm))
-                        else area.lineTo(x(i), y(p.maxBpm))
-                    }
-                    for (i in points.indices.reversed()) {
-                        area.lineTo(x(i), y(points[i].minBpm))
-                    }
-                    area.close()
-                    drawPath(area, color = band)
-                    // Línea de media.
-                    val avg = Path()
-                    points.forEachIndexed { i, p ->
-                        if (i == 0) avg.moveTo(x(i), y(p.avgBpm))
-                        else avg.lineTo(x(i), y(p.avgBpm))
-                    }
-                    drawPath(avg, color = line, style = Stroke(width = 3f))
-                }
-                val extrema=heartPlotRange(charts.heartRate)!!
-                Text("${extrema.first.toInt()}-${extrema.second.toInt()} ppm (mín-máx del rango)",
-                    style = MaterialTheme.typography.bodySmall)
+                ProgressCardioPlot(charts,preview)
             }
         }
     }

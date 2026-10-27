@@ -31,4 +31,13 @@ class DayChartPositionsTest {
   assertEquals(listOf(0,3,6,9,12,15,18,19).map {days[it]},result)
   assertEquals(days.take(7),ProgressPlotAxis.ticks(days.take(7),dev.repera.domain.ProgressTimeRange.WEEK,dev.repera.domain.ProgressSeriesGranularity.DAY))
  }
+ @Test fun cardioDomainPadsExtremaAndClampsLow() {
+  val day=LocalDate.of(2026,10,27)
+  val points=listOf(dev.repera.domain.HeartRatePlotPoint(day,60.0,100.0,150.0))
+  assertEquals(48.0,cardioPlotBounds(points,false).first,0.001)
+  assertEquals(164.0,cardioPlotBounds(points,false).second,0.001)
+  assertEquals(42.0,cardioPlotBounds(points,true).first,0.001)
+  assertEquals(172.0,cardioPlotBounds(points,true).second,0.001)
+  assertEquals(60.0 to 160.0,cardioPlotBounds(emptyList(),false))
+ }
 }

@@ -479,3 +479,17 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -5focalizados/2XMLverdes44s,compile64s;PNG360con7dias ystatsinspeccionado.
  Yticks0/mitad/max aunaproximados;cardio190/3curvas aunpendiente.
  Completa306pendiente,domain504/93Wear8/1previos.735/70,nativopendiente.
+
+## Revision graficos, avance cardio 00:05 28oct
+- Full306mobile663/163XMLreales64/72/61/58s0fallos/errores/omitidos.
+- Mismobloque revisionconstantes/graficos:cardioyahuecopendiente ahora
+3curvasCatmullRom190dp:Minazul0A84FF1.75,MediaFF453A2.25,MaxFF9F0A1.75,
+ sin banda. Dominiocorte min-12/max+14 real,-18/+22preview,low>=40 yspan>=24.
+- DominioXperiodo/preview ytickDates compartidosconkcal,seleccionnearest
+ tap/drag/accesibilidad yregla3/4dp. TilesMin/Media/Maxcentrados,escalas
+ propiasdelperiodo. Vacioaxes60..160190dp,noobservacionesinventadas.
+- No cambiosenzonasFC/intensidad(decisionpendiente),lecturas ni series.
+ Yticks ygreedylabelsAndroidaproximados. Surfacecombinedcontinua,noigual
+ layouttarjetasseparadasSwift.8focalizados/3XMLverdes64s,compile65s;
+ PNG360curvas/vacioinspeccionados. Completa307+assemblependientes.
+-735/70abiertas,nativopendiente,nopush;domain504/93Wear8/1anteriores.
