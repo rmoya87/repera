@@ -17,8 +17,10 @@ import java.util.concurrent.TimeUnit
  */
 class AITrainingProgramsStore(
     private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(20, TimeUnit.SECONDS).build()
+        .callTimeout(20, TimeUnit.SECONDS).build(),
+    private val stillAuthorized:()->Boolean={true}
 ) {
+    private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante la consulta de programas"}
     data class Phase(
         val title: String,
         val weeks: Int,
@@ -65,8 +67,11 @@ class AITrainingProgramsStore(
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
         return try {
+            authorize()
             http.newCall(request).execute().use { response ->
+                authorize()
                 val body = response.body?.string().orEmpty()
+                authorize()
                 if (!response.isSuccessful) {
                     return LoadResult.Failed(
                         "No se pudieron cargar los programas: HTTP " +
@@ -96,7 +101,9 @@ class AITrainingProgramsStore(
                 .toRequestBody("application/json".toMediaType()))
             .build()
         return try {
+            authorize()
             http.newCall(request).execute().use { response ->
+                authorize()
                 if (response.isSuccessful) null
                 else "No se pudo actualizar el programa: HTTP " + response.code
             }

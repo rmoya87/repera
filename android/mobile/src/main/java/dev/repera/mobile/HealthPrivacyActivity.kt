@@ -25,6 +25,14 @@ class HealthPrivacyActivity : Activity() {
                     no necesita enviar esas mediciones a Google Drive ni a Supabase
                     para mostrar la actividad diaria.
 
+                    El acceso al historial anterior a 30 días es opcional y se solicita
+                    solo si tu versión de Health Connect lo permite. Se usa para las
+                    tendencias de Progreso, peso y recuperación. Sin ese permiso,
+                    Health Connect limita las lecturas antiguas; no significa que nunca
+                    hayas tenido registros. Las lecturas que ya hayas autorizado siguen disponibles.
+
+                    Sueño y ciclo requieren además que actives su opción privada en Repera.
+                    Las decisiones de esas opciones se guardan solo en este dispositivo.
                     Puedes revocar los permisos desde Health Connect.
                 """.trimIndent()
             })

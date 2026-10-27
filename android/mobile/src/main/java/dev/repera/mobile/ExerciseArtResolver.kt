@@ -66,14 +66,16 @@ internal object ExerciseArtResolver {
      *
      * @param exists asset-existence probe, e.g. assets list("exercise-art").
      */
-    fun framesFor(name: String, hero: String, captionCount: Int = Int.MAX_VALUE,
+    fun framesFor(name: String, hero: String, captionCount: Int = Int.MAX_VALUE, isMobility: Boolean = false,
                   exists: (String) -> Boolean): List<String> {
-        if (name in ExerciseArtData.staticHoldExercises) return listOf(hero)
-        if (hero in ExerciseArtData.quarantinedSequences) return listOf(hero)
+        val legacy=SportExerciseNames.spanishAlias(name) ?: name
+        if (name in ExerciseArtData.staticHoldExercises || (!isMobility && legacy in ExerciseArtData.staticHoldExercises)) return if(exists(hero)) listOf(hero) else emptyList()
+        if (hero in ExerciseArtData.quarantinedSequences) return if(exists(hero)) listOf(hero) else emptyList()
         val numbered = (1..8).asSequence().map { "${hero}_$it" }.takeWhile { exists(it) }.toList()
         // iOS: el carrusel exige captions de fase suficientes; si no, hero solo.
-        if (numbered.size >= 2 && captionCount < numbered.size) return listOf(hero)
-        return if (numbered.size >= 2) numbered else listOf(hero)
+        if (isMobility) return if(numbered.size >= 2 && captionCount >= numbered.size) numbered else if(exists(hero)) listOf(hero) else emptyList()
+        if (numbered.size >= 2 && captionCount < numbered.size) return if(exists(hero)) listOf(hero) else emptyList()
+        return if (numbered.size >= 2) numbered else if(exists(hero)) listOf(hero) else numbered.take(1)
     }
 
     private fun accepted(base: String?): String? =

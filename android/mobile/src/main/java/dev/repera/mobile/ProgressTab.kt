@@ -1,4 +1,9 @@
 package dev.repera.mobile
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -88,8 +93,12 @@ internal fun ProgressTab(
     onLogBodyWeight: (Double) -> Unit = {},
     onOpenBodyWeights:()->Unit = {},
     onOpenHistory:()->Unit = {},
+    healthAccess: HealthAccessState = HealthAccessState.UNKNOWN,
+    onHealthConnect: () -> Unit = {},
     onOpenExercise:(String)->Unit = {},
-    modifier: Modifier = Modifier
+    onOpenSports:()->Unit = {},
+    modifier: Modifier = Modifier,
+    accountId: String = ""
 ) {
     // The inline archive is recent; aggregate snapshots use the complete local archive.
     val recent = overview?.history.orEmpty()
@@ -105,6 +114,10 @@ internal fun ProgressTab(
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
         .withLocale(java.util.Locale.getDefault())
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Apple StatsView: las tres pestañas comparten scroll; al cambiar se vuelve al encabezado sin animación
+    // (un offset heredado de Entreno dejaba la vista vacía). No se dispara en la composición inicial/restaurada.
+    var shownTopic by remember {mutableStateOf(topic)}
+    LaunchedEffect(topic) {if(topic!=shownTopic) {shownTopic=topic;dragListState.scrollToItem(0)}}
     ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
         state = dragListState,
@@ -123,6 +136,14 @@ internal fun ProgressTab(
         }
         if(topic=="Entreno") {
         item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
+        // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
+        if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
+            Card(Modifier.fillMaxWidth().clickable(onClick=onOpenSports).testTag("progress_sports_link")) {
+                Row(Modifier.padding(18.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text("Deportes · evolución y récords");Text("›")
+                }
+            }
+        }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -171,27 +192,37 @@ internal fun ProgressTab(
         if (snapshot != null) {
             if(topic=="Entreno") {
             item {
+                val tiles=ProgressTilesModel.tiles(snapshot.summary.sessionCount,snapshot.summary.averageMinutes,snapshot.previousSummary?.sessionCount,
+                    snapshot.previousSummary?.averageMinutes,snapshot.streak,snapshot.previousStreak,pro)
+                // Apple OGAdaptiveMetricLayout(minimumItemWidth: 96): columns follow the available width, and the
+                // minimum scales with the font so large text wraps to fewer columns instead of clipping.
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val minItem=(96*LocalDensity.current.fontScale).dp
+                    val cols=((maxWidth+8.dp)/(minItem+8.dp)).toInt().coerceIn(1,tiles.size)
+                    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {tiles.chunked(cols).forEach {rowTiles ->
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {rowTiles.forEach {t ->
+                            Card(Modifier.weight(1f)) {Column(Modifier.fillMaxWidth().padding(vertical=12.dp,horizontal=6.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                                Text(t.label,style=MaterialTheme.typography.labelMedium)
+                                Text(t.value,style=MaterialTheme.typography.headlineMedium,maxLines=1)
+                                Text(ProgressTilesModel.deltaLabel(t.delta) ?: "+0",style=MaterialTheme.typography.labelSmall,
+                                    color=if(ProgressTilesModel.deltaLabel(t.delta)==null) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }}}
+                            repeat(cols-rowTiles.size) {Spacer(Modifier.weight(1f))}
+                        }}}
+                }
+            }
+            item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Resumen · " + snapshot.range.subtitleLabel,
                             style = MaterialTheme.typography.titleLarge)
                         val s = snapshot.summary
-                        Text("${s.sessionCount} sesiones · " +
-                            "${formatVolume(s.volumeKg)} movidos")
-                        s.averageMinutes?.let {
-                            Text("Duración media: ${it.toInt()} min")
-                        }
+                        Text("${formatVolume(s.volumeKg)} movidos")
                         if (s.totalKcal > 0)
                             Text("Energía activa: ${s.totalKcal.toInt()} kcal")
                         s.averageCardioMinutes?.let {
                             Text("Cardio medio: ${it.toInt()} min")
-                        }
-                        snapshot.previousSummary?.let { prev ->
-                            val delta = s.sessionCount - prev.sessionCount
-                            val sign = if (delta >= 0) "+" else ""
-                            Text("Periodo anterior: ${prev.sessionCount} sesiones " +
-                                "($sign$delta)", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -201,55 +232,18 @@ internal fun ProgressTab(
                     Column(modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Constancia", style = MaterialTheme.typography.titleMedium)
-                        Text("${snapshot.streak} semanas seguidas entrenando")
                         Text("${snapshot.monthSessions} sesiones este mes",
                             style = MaterialTheme.typography.bodyMedium)
-                        if (snapshot.mobilitySessions > 0) {
-                            Text("Movilidad: ${snapshot.mobilitySessions} sesiones · " +
-                                "${snapshot.mobilitySeconds / 60} min",
-                                style = MaterialTheme.typography.bodyMedium)
-                        }
                     }
                 }
             }
             }
             if(topic=="Recuperación") {
-            if(overview?.recovery?.let {it.readiness==null && it.sleepIndex==null} != false) item {Text("Sin datos de recuperación. Activa Salud y registra sueño o constantes para ver tu descanso.")}
-            overview?.recovery?.let { recovery ->
-                if (recovery.readiness != null || recovery.sleepIndex != null) {
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier.padding(18.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text("Recuperación",
-                                    style = MaterialTheme.typography.titleLarge)
-                                recovery.lastNightHours?.let { hours ->
-                                    val index = recovery.sleepIndex
-                                    Text("%.1f h de sueño".format(hours) +
-                                        (index?.let { " · índice ${it / 10}/10" } ?: ""),
-                                        style = MaterialTheme.typography.titleMedium)
-                                }
-                                recovery.readiness?.let { ready ->
-                                    Text("Disposición para entrenar: " +
-                                        "${ready.score.toInt()}/10",
-                                        style = MaterialTheme.typography.titleMedium)
-                                    Text(ready.advice.label,
-                                        style = MaterialTheme.typography.bodyMedium)
-                                    ready.vitalNotes.forEach { note ->
-                                        Text("· $note",
-                                            style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                                Text("Estimación orientativa con tus datos de Salud; " +
-                                    "no es un diagnóstico.",
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                }
-            }
+                val recovery=overview?.recovery ?: RecoveryState(null,null,null,null)
+                item {RecoveryHistoryCards(recovery,ProgressTimeRange.entries.first {it.wire==selectedRange},overview?.trainingSettings?.weekStartsOnMonday ?: true,pro,outerHorizontalPaddingDp=32f)}
+                if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Recuperación completa",bodyText="Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.RECOVERY,onClick={
+                    subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
+                })}
             }
             if(topic=="Actividad") {
             item {
@@ -261,7 +255,20 @@ internal fun ProgressTab(
                 if(!pro) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
                 if(charts!=null) ProgressChartsCard(charts,showEmpty=true)
             }
-            if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
+            val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
+            if(healthPrompt!=ProgressHealthPromptKind.NONE) item {
+                Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    if(healthPrompt==ProgressHealthPromptKind.NOT_AUTHORIZED) {
+                        Text("Salud sin permiso de lectura",style=MaterialTheme.typography.titleMedium)
+                        Text("Autoriza Health Connect para ver FC y kcal.")
+                        TextButton(onClick=onHealthConnect) {Text("Autorizar Salud")}
+                    } else {
+                        Text("Health Connect no disponible",style=MaterialTheme.typography.titleMedium)
+                        Text("Este dispositivo no tiene Health Connect disponible, así que no hay FC ni kcal que mostrar.")
+                    }
+                }}
+            }
+            if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
             if(!pro) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
                 Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
                 Text("Datos ficticios. Objetivo de ejemplo:74kg")
@@ -289,29 +296,35 @@ internal fun ProgressTab(
                 }
             }
 
-            if(subscriptions==null || subscriptions.isPro) {
-                item {ProgressExercisesCard(snapshot.chartExercises,onOpenExercise)}
-                item {ProgressRecordsCard(snapshot.records,onOpenExercise)}
+            // Apple order (StatsView training): tiles, activity, muscle balance, mobility, then
+            // exercises/records or the Free preview + teaser. The card has its own empty text,
+            // so it is not hidden when there are no muscle statuses (Apple does not hide it).
+            item {
+                // Current Apple StatsView explicitly exposes map and bars to Free.
+                MuscleBalanceCard(
+                    loadAll = snapshot.muscleLoadAll,
+                    loadHard = snapshot.muscleLoadHard,
+                    fatigueAll = snapshot.muscleFatigueAll,
+                    fatigueHard = snapshot.muscleFatigueHard,
+                    hasHardSets = snapshot.hasHardSets,
+                    includesEstimatedWodMuscles = snapshot.includesEstimatedWodMuscles)
             }
-            else item {dev.repera.mobile.monetization.ProTeaserCard(title="Descubre todo tu progreso",bodyText="Analiza tu evolución por ejercicio y tus marcas personales.",onClick={
+            if(snapshot.mobilitySessions>0) item {ProgressMobilityCard(snapshot.mobilitySessions,snapshot.mobilitySeconds,
+                if(subscriptions==null || subscriptions.isPro) snapshot.chartExercises.filter {it.isMobility}.take(3) else emptyList(),onOpenExercise)}
+            if(subscriptions==null || subscriptions.isPro) {
+                item {AdaptiveCardPair(
+                    first={ProgressExercisesCard(snapshot.chartExercises,onOpenExercise)},
+                    second={ProgressRecordsCard(snapshot.records,onOpenExercise)})}
+            }
+            else item {ProgressExerciseTrendPreview(today)}
+            if(!(subscriptions==null || subscriptions.isPro)) item {dev.repera.mobile.monetization.ProTeaserCard(title="Descubre todo tu progreso",bodyText="Analiza tu evolución por ejercicio y tus marcas personales.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,onClick={
                 subscriptions.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
             })}
-            if (snapshot.muscleStatuses.isNotEmpty()) {
-                item {
-                    // Current Apple StatsView explicitly exposes map and bars to Free.
-                    // Range selection remains gated separately; do not gate this whole card.
-                    MuscleBalanceCard(
-                        loadAll = snapshot.muscleLoadAll,
-                        loadHard = snapshot.muscleLoadHard,
-                        fatigueAll = snapshot.muscleFatigueAll,
-                        fatigueHard = snapshot.muscleFatigueHard,
-                        hasHardSets = snapshot.hasHardSets)
-                }
-            }
             }
             if(topic=="Actividad" && pro && snapshot.weightPoints.isEmpty()) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
                 Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
                 Text("Sin mediciones en el periodo.")
+                WeightStatTiles(null, overview?.healthGoals?.weightKg)
                 EmptyHealthChartAxes(40.0,100.0)
             }}}
             if (topic=="Actividad" && pro && snapshot.weightPoints.isNotEmpty()) {
@@ -328,13 +341,11 @@ internal fun ProgressTab(
                                 Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
                                     style = MaterialTheme.typography.bodyMedium)
                             }
-                            overview?.healthGoals?.weightKg?.let {goal ->
-                                val delta=last.value-goal
-                                Text(if(kotlin.math.abs(delta)<0.3) "En objetivo (${formatWeight(goal)} kg)"
-                                    else "${if(delta>0) "+" else ""}${formatWeight(delta)} kg vs ${formatWeight(goal)} kg")
-                            }
+                            WeightStatTiles(last.value, overview?.healthGoals?.weightKg)
                             DayPointLineChart(snapshot.weightPoints,goal=overview?.healthGoals?.weightKg)
-                            var weightInput by rememberSaveable { mutableStateOf("") }
+                            val weightScope=remember(accountId) {org.json.JSONArray(listOf(accountId,"progress-weight-input")).toString()}
+                            val weightSaver=remember(weightScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(weightScope,it)},restore={restoreScopedEditorValue(weightScope,it)})}
+                            var weightInput by rememberSaveable(accountId,stateSaver=weightSaver) { mutableStateOf("") }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 OutlinedTextField(
@@ -408,6 +419,19 @@ internal fun ProgressTab(
 private fun formatVolume(volumeKg: Double): String = when {
     volumeKg >= 1000 -> "%.1f t".format(volumeKg / 1000)
     else -> "${volumeKg.toInt()} kg"
+}
+
+@Composable
+private fun WeightStatTiles(latestKg: Double?, goalKg: Double?) {
+    val l = dev.repera.domain.WeightStatsTiles.labels(latestKg, goalKg)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("Actual" to l.actual, "Objetivo" to l.goal, "Δ" to l.delta).forEach { (title, value) ->
+            Column(Modifier.weight(1f).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)).padding(horizontal = 6.dp, vertical = 10.dp)) {
+                Text(title, style = MaterialTheme.typography.labelSmall)
+                Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            }
+        }
+    }
 }
 
 internal fun formatWeight(value: Double): String =

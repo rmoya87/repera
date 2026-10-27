@@ -20,6 +20,7 @@ internal object CompleteHistoryOrder {
 internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountId:String,
  onRevise:(String,String,String,Int,Double?,Int?)->Unit,onDeleteSet:(String,String,String)->Unit,onDelete:(String)->Unit,
  onUpdate:(String,WorkoutRepository.FinishedWorkoutEdit)->Unit,heartSeries:suspend(String)->List<Pair<Long,Int>>,
+ externalProvider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail? = {null},
  onOpenExercise:(String,String,String)->Unit) {
  val rows=remember(overview) {CompleteHistoryOrder.rows(overview?.completeHistory.orEmpty(),overview?.externalHealthHistory.orEmpty())}
  var external by remember {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
@@ -36,10 +37,5 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    }}
   }
  }
- external?.let {entry ->AlertDialog(onDismissRequest={external=null},title={Text(entry.title)},text={Column {
-  Text("Health Connect")
-  Text(Instant.ofEpochMilli(entry.startMillis).atZone(ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter))
-  Text("${entry.minutes.toInt()} min registrados")
-  Text("Fuente: ${entry.sourcePackage}")
- }},confirmButton={TextButton(onClick={external=null}) {Text("Cerrar")}})}
+ external?.let {entry ->ExternalHealthDetailSheet(entry,externalProvider) {external=null}}
 }

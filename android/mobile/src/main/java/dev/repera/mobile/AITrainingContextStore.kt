@@ -27,8 +27,10 @@ class AITrainingContextStore(
     context: Context,
     private val userId: String,
     private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(30, TimeUnit.SECONDS).build()
+        .callTimeout(30, TimeUnit.SECONDS).build(),
+    private val stillAuthorized: () -> Boolean = { true }
 ) {
+    private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante la sincronización IA"}
     private val prefs = context.getSharedPreferences(
         "repera.ai-context.$userId", Context.MODE_PRIVATE)
 
@@ -45,6 +47,8 @@ class AITrainingContextStore(
              today: LocalDate = LocalDate.now(),
              zone: ZoneId = ZoneId.systemDefault()): Result {
         return try {
+            authorize()
+            check(session.userId==userId) {"La cuenta no corresponde al contexto IA"}
             val items = buildItems(repository.routinesSnapshot(),
                 repository.exercisesSnapshot(), today, zone)
             if (items.length() > MAX_ITEMS) {
@@ -66,6 +70,7 @@ class AITrainingContextStore(
                 .put("time_zone", timeZone)
                 .put("updated_at", Instant.now().toString())
             upsert(session, JSONArray().put(row))
+            authorize()
             prefs.edit().putString(KEY_DIGEST, digest).apply()
             Result(ok = true, items = items.length(), uploaded = true)
         } catch (error: Exception) {
@@ -85,7 +90,9 @@ class AITrainingContextStore(
             .header("Prefer", "resolution=merge-duplicates")
             .post(rows.toString().toRequestBody("application/json".toMediaType()))
             .build()
+        authorize()
         http.newCall(request).execute().use { response ->
+            authorize()
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
         }

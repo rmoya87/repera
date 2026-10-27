@@ -15,13 +15,13 @@ import java.util.concurrent.TimeUnit
  * pendientes; esta clase los traduce a los mismos modelos nativos que Diario
  * e Inicio usan. Port 1:1 de AITrainingInboxStore.swift (iOS).
  *
- * Divergencia documentada: iOS escucha Realtime por websocket; Android
- * sincroniza al iniciar sesión, al abrir la app y tras cada sync — los planes
- * llegan como mucho en el siguiente arranque, nunca se pierden.
+ * Foreground Realtime notifications trigger this full synchronization;
+ * sign-in and refresh also reconcile pending plans. Delivery remains unverified end to end.
  */
 internal class AITrainingInbox(
     private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(20, TimeUnit.SECONDS).build()
+        .callTimeout(20, TimeUnit.SECONDS).build(),
+    private val stillAuthorized: () -> Boolean = { true }
 ) {
     data class Result(
         val imported: Int,
@@ -31,11 +31,14 @@ internal class AITrainingInbox(
         val error: String?
     )
 
+    private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante la sincronización IA"}
+
     private class ImportError(message: String) : Exception(message)
 
     fun sync(session: SupabaseIdentity.Session,
              repository: WorkoutRepository): Result {
         return try {
+            authorize()
             val uid = session.userId
             val rows = fetchPending(session, uid)
             var imported = 0
@@ -45,6 +48,7 @@ internal class AITrainingInbox(
                 val row = rows.getJSONObject(i)
                 val day = row.optString("scheduled_date")
                 try {
+                    authorize()
                     importPlan(row, session, uid, repository)
                     imported += 1
                     lastTitle = row.optString("title")
@@ -76,8 +80,11 @@ internal class AITrainingInbox(
             .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
+        authorize()
         http.newCall(request).execute().use { response ->
+            authorize()
             val body = response.body?.string().orEmpty()
+                authorize()
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
             return JSONArray(body)
@@ -99,7 +106,9 @@ internal class AITrainingInbox(
             .patch(okhttp3.RequestBody.create(
                 "application/json".toMediaType(), payload.toString()))
             .build()
+        authorize()
         http.newCall(request).execute().use { response ->
+            authorize()
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
         }
@@ -109,6 +118,7 @@ internal class AITrainingInbox(
      * por id, ACK atómico status=pending -> applied. */
     private fun importPlan(row: JSONObject, session: SupabaseIdentity.Session,
                            uid: String, repository: WorkoutRepository) {
+        authorize()
         val zone = ZoneId.systemDefault()
         val date: LocalDate = run {
             val at = row.optString("scheduled_at")
@@ -129,9 +139,6 @@ internal class AITrainingInbox(
         }
         // Idempotencia: un sync anterior pudo guardar la rutina y perder el ACK.
         if (existing.none { it.optString("id") == planId }) {
-            val (title, blocks) = buildRoutine(row) { name, key ->
-                repository.resolveOrCreateCatalogExercise(name, key)
-            }
             val timeMinutes: Int? = run {
                 val at = row.optString("scheduled_at")
                 if (at.isNotBlank()) {
@@ -142,14 +149,12 @@ internal class AITrainingInbox(
                     row.optInt("scheduled_time_minutes")
                 } else null
             }
-            repository.createRoutineFromScan(
-                title = title,
-                blocks = blocks,
-                schedule = RoutineSchedule(
-                    scheduledDate = date.toString(),
-                    timeMinutes = timeMinutes),
-                routineId = planId)
+            authorize()
+            repository.importAiRoutine(planId,
+                RoutineSchedule(scheduledDate=date.toString(),timeMinutes=timeMinutes),
+                stillAuthorized=stillAuthorized) {resolver ->buildRoutine(row,resolver)}
         }
+        authorize()
         markApplied(session, uid, planId)
     }
 
@@ -174,9 +179,9 @@ internal class AITrainingInbox(
                 set.optDouble("rir") else null
             val pct = if (set.has("percent1RM") && !set.isNull("percent1RM"))
                 set.optDouble("percent1RM") else null
-            if (reps <= 0 || reps > 5000 || (weight != null && weight < 0) ||
-                (rir != null && rir !in 0.0..10.0) ||
-                (pct != null && pct !in 1.0..150.0)) {
+            if (reps <= 0 || reps > 5000 || (weight != null && (!weight.isFinite() || weight < 0)) ||
+                (rir != null && (!rir.isFinite() || rir !in 0.0..10.0)) ||
+                (pct != null && (!pct.isFinite() || pct !in 1.0..150.0))) {
                 throw ImportError("El entrenamiento recibido no cumple el formato Repera.")
             }
             dev.repera.domain.PlannedSet(
@@ -190,6 +195,15 @@ internal class AITrainingInbox(
     }
 
     internal fun buildRoutine(row: JSONObject,
+            resolveExercise: (String, String?) -> String):
+            Pair<String, List<dev.repera.domain.RoutineBlock>> {
+        // Complete structural parsing before the resolver may create local
+        // exercises. A structurally malformed later block must not leave orphans.
+        parseRoutine(row) { _, _ -> "validation-only" }
+        return parseRoutine(row,resolveExercise)
+    }
+
+    private fun parseRoutine(row: JSONObject,
             resolveExercise: (String, String?) -> String):
             Pair<String, List<dev.repera.domain.RoutineBlock>> {
         val payload = row.getJSONObject("payload")

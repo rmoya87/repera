@@ -1,5 +1,8 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,6 +59,9 @@ internal fun ExerciseDetailScreen(
     incrementKg:Double = 2.5,
     onSetTestedOneRM:(Double?)->Unit = {},
     busy:Boolean = false,
+    onQuickLog:()->Unit = {},
+    // Apple ExerciseDetailView toolbar: star next to quick log. Null hides it.
+    onToggleFavorite:(()->Unit)? = null,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     highlightSessionId: String? = null,
@@ -86,6 +94,20 @@ internal fun ExerciseDetailScreen(
         item {
             TextButton(onClick = onBack) { Text("‹ Ejercicios") }
             Text(entry.displayName, style = MaterialTheme.typography.headlineMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick=onQuickLog,enabled=!busy) {Text("Apuntar ejercicio")}
+                if (onToggleFavorite != null) {
+                    androidx.compose.material3.IconButton(onClick = onToggleFavorite, enabled = !busy,
+                        modifier = Modifier.testTag("exercise_detail_favorite")) {
+                        androidx.compose.material3.Icon(
+                            if (entry.isFavorite) androidx.compose.material.icons.Icons.Default.Star
+                            else androidx.compose.material.icons.Icons.Default.StarBorder,
+                            contentDescription = if (entry.isFavorite) "Quitar de favoritos" else "Favorito",
+                            tint = if (entry.isFavorite) brandGreen
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
         if (thisSessionAppearance != null) {
             item(key = "this-session-" + highlightSessionId) {
@@ -249,6 +271,12 @@ internal fun ExerciseEvolutionSection(
                 }
                 androidx.compose.foundation.Canvas(modifier = Modifier
                     .fillMaxWidth().height(120.dp).testTag("exercise_evolution_chart")
+                    .semantics {
+                        contentDescription="Evolución de ${points.size} registros"
+                        customActions=listOf(
+                            androidx.compose.ui.semantics.CustomAccessibilityAction("Punto anterior") {selectedPoint=ChartSelectionStep.step(selectedPoint,-1,points.size);true},
+                            androidx.compose.ui.semantics.CustomAccessibilityAction("Punto siguiente") {selectedPoint=ChartSelectionStep.step(selectedPoint,1,points.size);true})
+                    }
                     .pointerInput(points) {detectTapGestures {selectAt(it.x,size.width)}}
                     .pointerInput(points) {detectHorizontalDragGestures {change,_ -> selectAt(change.position.x,size.width)}}) {
                     val minV = minOf(points.minOf { it.value },ceiling ?: Double.MAX_VALUE)

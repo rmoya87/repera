@@ -35,4 +35,16 @@ class ActiveSessionFavoriteTest {
   assertEquals(8,wod.getJSONArray("movements").getJSONObject(0).getInt("reps"))
   assertEquals(before,session.getJSONArray("exercises").toString())
  }
+ @Test fun deniedNewTemplateLeavesSessionAndRoutinesUntouched() {
+  val state=JSONObject().put("routines",JSONArray().put(JSONObject().put("id","weekly").put("weekday",1)))
+   .put("activeSession",JSONObject().put("id","active").put("exercises",JSONArray().put(entry("a","b"))))
+  val before=state.toString();var count:Int?=null
+  assertThrows(IllegalStateException::class.java) {ActiveSessionFavorite.save(state) {count=it;false}}
+  assertEquals(1,count);assertEquals(before,state.toString())
+ }
+ @Test fun markingExistingRoutineNeedsNoNewSlot() {
+  val state=JSONObject().put("routines",JSONArray().put(JSONObject().put("id","existing").put("scheduledDate","2026-10-26")))
+   .put("activeSession",JSONObject().put("routineId","existing"))
+  assertEquals("existing",ActiveSessionFavorite.save(state) {error("No new template")})
+ }
 }

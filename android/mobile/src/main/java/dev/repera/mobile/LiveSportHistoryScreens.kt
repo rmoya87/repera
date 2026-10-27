@@ -89,6 +89,23 @@ internal fun LiveSportHistoryScreen(
                 }
             }
         }
+        if (own.isNotEmpty()) item {
+            val records = LiveSportHistory.records(sport, sessions)
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Mejores marcas · ${sport.title}", style = MaterialTheme.typography.titleMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        records.longestDistanceMeters?.takeIf { sport.usesGPS }?.let {
+                            SportSummaryTile("Mayor distancia", "%.2f km".format(it / 1000), Modifier.weight(1f)) }
+                        records.fastestRecordedKilometerSeconds?.takeIf { sport.usesGPS }?.let {
+                            SportSummaryTile("Mejor km", LiveSportHistory.formatDuration(it), Modifier.weight(1f)) }
+                        records.longestActiveSeconds?.let {
+                            SportSummaryTile("Mayor duración", LiveSportHistory.formatDuration(it), Modifier.weight(1f)) }
+                    }
+                    Text("Marcas basadas en actividades guardadas de este deporte. No representan récords de fuerza.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         if (sport.usesGPS && favoriteRoutes.isNotEmpty()) {
             item { Text("Rutas favoritas · evolución", style = MaterialTheme.typography.titleMedium) }
             items(favoriteRoutes, key = { "route-${it.id}" }) { route ->
@@ -167,14 +184,20 @@ internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Bo
     }
     Column(Modifier.fillMaxWidth().testTag("live_kilometer_splits"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Parciales por kilómetro", style = MaterialTheme.typography.titleMedium)
-        seconds.forEachIndexed { index, duration ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Km ${index + 1}")
-                Text(if (displaysSpeed) "%.1f km/h".format(3600 / duration)
-                    else "${LiveSportHistory.formatDuration(duration)} min/km")
-                measured.firstOrNull { it.kilometer == index+1 }?.averageBpm?.let {
-                    Text("%.0f lpm".format(it))
-                }
+        val rows = dev.repera.domain.SessionSportMetrics.splitRows(seconds, displaysSpeed,
+            measured.mapNotNull { sp -> sp.averageBpm?.let { sp.kilometer to it } }.toMap())
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("KM", Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)
+            Text("Tiempo", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+            Text(if (displaysSpeed) "km/h" else "Ritmo", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+            Text("Frec. cardiaca", Modifier.width(88.dp), style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+        }
+        rows.forEach { r ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("${r.kilometer}", Modifier.width(38.dp))
+                Text(r.time, Modifier.weight(1f))
+                Text(r.rateOrSpeed, Modifier.weight(1f))
+                Text(r.bpm, Modifier.width(88.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
             }
         }
     }

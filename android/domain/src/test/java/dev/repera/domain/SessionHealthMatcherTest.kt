@@ -116,4 +116,22 @@ class SessionHealthMatcherTest {
         assertEquals(SessionHealthMatcher.Association.None,
             SessionHealthMatcher.associate(sStart, sEnd, emptyList(), own))
     }
+    @Test fun ambiguousExternalSourcesCannotFallBackToOwnWorkout() {
+        val candidates=listOf(
+            SessionHealthMatcher.CandidateSession("external-a",0,600_000,"a"),
+            SessionHealthMatcher.CandidateSession("external-b",0,600_000,"b"),
+            SessionHealthMatcher.CandidateSession("own-unrelated",0,600_000,"repera")
+        )
+        assertEquals(SessionHealthMatcher.Association.Ambiguous,
+            SessionHealthMatcher.associate(0,600_000,candidates,"repera"))
+        assertEquals(SessionHealthMatcher.LinkDecision.Skip,
+            SessionHealthMatcher.resolveLink("session",0,600_000,null,candidates,"repera"))
+    }
+    @Test fun cardioDurationUsesMatchedObservedWorkoutNotLocalWindow() {
+        val matched=SessionHealthMatcher.CandidateSession("watch",0,3_600_000,"watch",observedDurationMinutes=45.0)
+        assertEquals(45.0,SessionHealthMatcher.observedDurationMinutes(matched)!!,0.001)
+        assertEquals(0.0,SessionHealthMatcher.observedDurationMinutes(matched.copy(observedDurationMinutes=0.0))!!,0.001)
+        assertEquals(60.0,SessionHealthMatcher.observedDurationMinutes(matched.copy(observedDurationMinutes=null))!!,0.001)
+        assertEquals(60.0,SessionHealthMatcher.observedDurationMinutes(matched.copy(observedDurationMinutes=Double.NaN))!!,0.001)
+    }
 }

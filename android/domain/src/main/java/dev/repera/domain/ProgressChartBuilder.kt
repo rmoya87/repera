@@ -32,7 +32,11 @@ data class ProgressPreparedCharts(
     val calories: List<ProgressDayPoint>,
     val caloriesTotal: Double,
     val averageHeartRate: Double?,
-    val granularity: ProgressSeriesGranularity
+    val granularity: ProgressSeriesGranularity,
+    /** Apple caloriesDailyAverage: media por día CON dato (no se cuentan ausencias como 0 kcal). */
+    val caloriesDailyAverage: Double? = null,
+    /** Apple previousCaloriesDailyAverage: null si no hay periodo anterior comparable (menos días que el actual). */
+    val previousCaloriesDailyAverage: Double? = null
 )
 
 /** Preparación de series para las gráficas de Progreso.
@@ -71,6 +75,11 @@ object ProgressChartBuilder {
             endExclusive = endExclusive
         )
         val kcalTotal = kcalDaily.sumOf { it.value }
+        val dailyAverage = if (kcalDaily.isEmpty()) null else kcalTotal / kcalDaily.size
+        val (prevStart, prevEnd) = range.previousPeriodBounds(now, weekStartsOnMonday)
+        val previousDays = mergedDailyCalories(energyDays = energyDays, external = external, start = prevStart, endExclusive = prevEnd)
+        val previousAverage = if (previousDays.isEmpty() || previousDays.size < kcalDaily.size) null
+            else previousDays.sumOf { it.value } / previousDays.size
         val kcalAgg = StatsEngine.averagedSeries(
             kcalDaily, granularity, weekStartsOnMonday)
         val kcalPlot = downsample(kcalAgg, MAX_PLOT_POINTS)
@@ -85,7 +94,9 @@ object ProgressChartBuilder {
             calories = kcalPlot,
             caloriesTotal = kcalTotal,
             averageHeartRate = avgHr,
-            granularity = granularity
+            granularity = granularity,
+            caloriesDailyAverage = dailyAverage,
+            previousCaloriesDailyAverage = previousAverage
         )
     }
 

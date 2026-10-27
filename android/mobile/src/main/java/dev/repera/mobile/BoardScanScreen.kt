@@ -50,7 +50,8 @@ import java.io.File
 internal fun BoardScanScreen(
     busy: Boolean,
     overview: StateOverview?,
-    onConfirm: (String, List<RoutineBlock>) -> Unit,
+    onConfirm: (String, List<RoutineBlock>,String) -> Unit,
+    saveStatus:String? = null,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -58,9 +59,19 @@ internal fun BoardScanScreen(
     var reading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var review by remember { mutableStateOf<List<RoutineBlock>?>(null) }
+    var reviewRequestId by androidx.compose.runtime.saveable.rememberSaveable {mutableStateOf(java.util.UUID.randomUUID().toString())}
     var reviewTitle by remember { mutableStateOf("Entreno de pizarra") }
 
     val subscriptions = LocalSubscriptions.current
+    val sessionStore=remember(context) {SessionStore(context)}
+    var mediaRevision by remember {mutableStateOf<String?>(null)}
+    var mediaPending by remember {mutableStateOf(false)}
+    fun consumeMediaRequest():Boolean {
+        val valid=mediaPending && mediaRevision==sessionStore.identityRevision()
+        mediaPending=false;mediaRevision=null
+        return valid
+    }
+    fun markMediaRequest() {mediaRevision=sessionStore.identityRevision();mediaPending=true}
 
     fun process(uri: Uri) {
         if (reading) return
@@ -90,8 +101,11 @@ internal fun BoardScanScreen(
                     errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
                 } else {
                     subscriptions?.consumeBoardScanIfNeeded(attemptID)
+                    reviewRequestId=java.util.UUID.randomUUID().toString()
                     review = parsed.blocks
                 }
+            } catch(cancelled:kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage = error.localizedMessage ?: "No se pudo leer la foto"
             } finally {
@@ -102,7 +116,7 @@ internal fun BoardScanScreen(
 
     val pickImage = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
-    ) { uri: Uri? -> uri?.let(::process) }
+    ) { uri: Uri? -> if(consumeMediaRequest()) uri?.let(::process) }
 
     val photoUri = remember {
         val dir = File(context.cacheDir, "board_scan").apply { mkdirs() }
@@ -111,7 +125,7 @@ internal fun BoardScanScreen(
     }
     val takePicture = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
-    ) { ok: Boolean -> if (ok) process(photoUri) }
+    ) { ok: Boolean -> val valid=consumeMediaRequest();if (ok && valid) process(photoUri) }
 
     val blocks = review
     LazyColumn(
@@ -120,14 +134,15 @@ internal fun BoardScanScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Importar pizarra", style = MaterialTheme.typography.headlineMedium) }
+        saveStatus?.let {message ->item {Text(message,color=MaterialTheme.colorScheme.error)}}
         if (blocks == null) {
             item {
                 Text("Fotografía la pizarra del box y Repera la convierte en una rutina.")
             }
             item {
                 Button(
-                    onClick = { takePicture.launch(photoUri) },
-                    enabled = !busy && !reading,
+                    onClick = { markMediaRequest();takePicture.launch(photoUri) },
+                    enabled = !busy && !reading && !mediaPending,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = brandGreen, contentColor = Color.Black)
@@ -135,8 +150,8 @@ internal fun BoardScanScreen(
             }
             item {
                 OutlinedButton(
-                    onClick = { pickImage.launch("image/*") },
-                    enabled = !busy && !reading,
+                    onClick = { markMediaRequest();pickImage.launch("image/*") },
+                    enabled = !busy && !reading && !mediaPending,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Elegir de la galería") }
             }
@@ -209,7 +224,7 @@ internal fun BoardScanScreen(
             }
             item {
                 Button(
-                    onClick = { onConfirm(reviewTitle, blocks) },
+                    onClick = { onConfirm(reviewTitle, blocks,reviewRequestId) },
                     enabled = !busy && reviewTitle.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(

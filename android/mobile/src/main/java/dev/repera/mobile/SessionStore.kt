@@ -37,6 +37,8 @@ internal class SessionStore(context: Context) {
     private val preferences = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+    fun identityRevision():String?=preferences.getString(KEY_IDENTITY_REVISION,null)
+
     fun load(): StoredSession? {
         val packed = preferences.getString(KEY_BLOB, null) ?: return null
         return runCatching {
@@ -64,11 +66,33 @@ internal class SessionStore(context: Context) {
             .put("refreshToken", session.refreshToken)
             .put("expiresAt", session.expiresAtEpochSeconds)
         val packed = Base64.encodeToString(encrypt(json.toString().toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
-        preferences.edit().putString(KEY_BLOB, packed).apply()
+        synchronized(identityLock) {
+            val before=load()
+            val identityChanged=before?.uniqueId!=session.uniqueId || before.userId!=session.userId
+            val editor=preferences.edit().putString(KEY_BLOB,packed)
+            if(identityChanged || identityRevision()==null) editor.putString(KEY_IDENTITY_REVISION,java.util.UUID.randomUUID().toString())
+            check(editor.commit()) {"No se pudo guardar la sesión"}
+        }
+    }
+
+    fun saveIfCurrent(expectedRevision:String?,owner:String,userId:String,session:StoredSession):Boolean = synchronized(identityLock) {
+        val current=load()
+        if(identityRevision()!=expectedRevision || current?.uniqueId!=owner || current.userId!=userId) return@synchronized false
+        require(session.uniqueId==owner && session.userId==userId) {"La identidad cambió al renovar sesión"}
+        save(session)
+        true
+    }
+
+    fun clearIfCurrent(expectedRevision:String?,owner:String,userId:String):Boolean = synchronized(identityLock) {
+        val current=load()
+        if(identityRevision()!=expectedRevision || current?.uniqueId!=owner || current.userId!=userId) return@synchronized false
+        clear();true
     }
 
     fun clear() {
-        preferences.edit().remove(KEY_BLOB).apply()
+        synchronized(identityLock) {
+            check(preferences.edit().remove(KEY_BLOB).putString(KEY_IDENTITY_REVISION,java.util.UUID.randomUUID().toString()).commit()) {"No se pudo cerrar la sesión guardada"}
+        }
     }
 
     private fun encrypt(data: ByteArray): ByteArray {
@@ -103,6 +127,8 @@ internal class SessionStore(context: Context) {
     }
 
     companion object {
+        private val identityLock=Any()
+        private const val KEY_IDENTITY_REVISION="identity_revision"
         private const val PREFS = "repera_session"
         private const val KEY_BLOB = "session_blob"
         private const val KEY_ALIAS = "repera_session_key"

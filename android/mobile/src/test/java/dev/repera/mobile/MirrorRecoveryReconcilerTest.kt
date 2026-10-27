@@ -13,7 +13,7 @@ class MirrorRecoveryReconcilerTest {
 
     private fun doc(workouts: List<JSONObject>, rev: Int, routines: List<String> = emptyList(),
                     settings: JSONObject = JSONObject(), active: JSONObject? = null): JSONObject {
-        val ex = JSONArray(); repeat(196) { ex.put(JSONObject().put("id", "e$it").put("name", "E$it")) }
+        val ex = JSONArray(java.io.File("src/main/assets/catalog_seed.json").readText())
         return JSONObject().put("exercises", ex)
             .put("routines", JSONArray().also { a -> routines.forEach { a.put(JSONObject().put("id", it)) } })
             .put("workouts", JSONArray().also { a -> workouts.forEach { a.put(it) } })

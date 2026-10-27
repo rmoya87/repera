@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import dev.repera.domain.DayActivityContribution
 import dev.repera.domain.ExternalDaySample
+import dev.repera.domain.HealthMuscleMapper
 import dev.repera.domain.MuscleLoadEngine
 import dev.repera.domain.MuscleMapEngine
 import dev.repera.domain.MuscleStatus
@@ -29,7 +30,10 @@ import java.time.ZoneId
  * MuscleMapEngine sobre el archivo completo del estado. Port del
  * ProgressDataEngine de iOS (sin las partes de Salud aún no conectadas).
  */
-data class ProgressExerciseRow(val id:String,val name:String,val topWeight:Double?,val lastEpochMillis:Long=0)
+internal fun performedForChart(e: dev.repera.domain.StatsExercise): Boolean =
+    e.sets.any { !it.isWarmup && (it.reps > 0 || (it.durationSeconds ?: 0) > 0) } || (e.isMobility && e.sets.any { it.reps > 0 })
+
+data class ProgressExerciseRow(val id:String,val name:String,val topWeight:Double?,val lastEpochMillis:Long=0,val isMobility:Boolean=false)
 
 data class ProgressSnapshotData(
     val range: ProgressTimeRange,
@@ -40,6 +44,7 @@ data class ProgressSnapshotData(
     val records: List<PersonalRecord>,
     val muscleStatuses: List<MuscleStatus>,
     val hasHardSets: Boolean,
+    val includesEstimatedWodMuscles: Boolean = false,
     /** Series efectivas por músculo del periodo, todas (port preparedLoadAll iOS). */
     val muscleLoadAll: Map<String, Double>,
     /** Series efectivas duras (RIR) por músculo del periodo (preparedLoadHard iOS). */
@@ -159,9 +164,17 @@ object ProgressSnapshotBuilder {
                 val entry = exercisesJson.optJSONObject(e) ?: continue
                 val detail = entry.optJSONObject("exercise")
                 val logged = entry.optJSONArray("loggedSets") ?: JSONArray()
-                val sets = (0 until logged.length()).map { s ->
+                val recorded = (0 until logged.length()).map { s ->
                     statsSet(logged.getJSONObject(s), entry)
                 }
+                // Apple StatsEngine.confirmedWorkSets: una sesión finalizada sin registros acepta lo prescrito
+                // (misma regla que ya usan carga muscular e historial); nunca se escribe en disco.
+                val sets = if (logged.length() == 0 && finished) {
+                    WorkoutHistorySets.confirmedWorkSets(session, entry).map { eff ->
+                        StatsSet(reps = eff.reps, weightKg = eff.weightKg, quantityUnit = when (eff.unit) { "cal" -> "calories"; "m" -> "meters"; else -> null },
+                            durationSeconds = eff.durationSeconds, rir = eff.rir)
+                    }
+                } else recorded
                 val mobility = detail?.optString("sportTag") == "Movilidad"
                 val planned = entry.optJSONArray("plannedSets")
                 exercises.add(StatsExercise(
@@ -175,7 +188,18 @@ object ProgressSnapshotBuilder {
                         ?.optInt("targetReps")?.takeIf { it > 0 },
                     plannedSetCount = planned?.length() ?: 0
                 ))
+                val blockId = entry.optString("blockId").takeIf { it.isNotBlank() && it != "null" }
+                val wodResultsJson = session.optJSONArray("wodResults")
+                val hasBlockScore = blockId != null && wodResultsJson != null &&
+                    (0 until wodResultsJson.length()).any { wodResultsJson.optJSONObject(it)?.optString("id") == blockId }
+                val noWorkRecorded = (0 until logged.length()).none {
+                    val l = logged.getJSONObject(it)
+                    l.optString("phase", "work") == "work" && l.optInt("reps") > 0
+                }
+                val completedWod = if (finished && (entry.optString("blockKind") == "wod" || hasBlockScore) &&
+                    !mobility && noWorkRecorded) 1.0 else 0.0
                 stimulusExercises.add(MuscleStimulusExercise(
+                    completedWodSetEquivalent = completedWod,
                     sportTag = detail?.optString("sportTag"),
                     targetMuscle = detail?.optString("targetMuscle"),
                     primaryRegions = detail?.optJSONArray("primaryRegions")
@@ -189,7 +213,9 @@ object ProgressSnapshotBuilder {
                         .orEmpty(),
                     bodyPart = detail?.optString("bodyPart"),
                     muscleGroup = detail?.optString("muscleGroup"),
-                    sets = sets.map {
+                    // Apple MuscleMapEngine usa StatsEngine.confirmedWorkSets: sin terminar no cuenta y los
+                    // calentamientos/series sin reps nunca aportan fatiga ni carga.
+                    sets = (if (finished) sets.filter { !it.isWarmup && it.reps > 0 } else emptyList()).map {
                         MuscleStimulusSet(
                             reps = it.reps,
                             isWarmup = it.isWarmup,
@@ -221,8 +247,15 @@ object ProgressSnapshotBuilder {
         health: HealthSamples? = null
     ): ProgressSnapshotData {
         val (workouts, stimuli) = adapt(state, zone)
+        // Una sesión de Comenzar sincronizada en Salud (p. ej. copia del reloj) se cuenta solo una vez.
+        val health = health?.copy(externalActivities =
+            HealthMuscleMapper.dropNativeOverlaps(health.externalActivities, workouts))
         val externalSamples = health?.daySamples.orEmpty()
-        val externalStimuli = health?.stimuli.orEmpty()
+        // Apple (live main): el propio «Comenzar» aporta carga por deporte y duración activa; la capa de esfuerzo
+        // alto solo recibe estímulos de modalidades intensas (nunca un paseo).
+        val externalStimuli = health?.stimuli.orEmpty() + HealthMuscleMapper.nativeSportStimuli(workouts)
+        val highEffortStimuli = HealthMuscleMapper.highEffortStimuli(health?.externalActivities.orEmpty()) +
+            HealthMuscleMapper.nativeHighEffortSportStimuli(workouts)
 
         val filtered = StatsEngine.filterWorkouts(workouts, range, monday, now, zone)
         val filteredExternal = StatsEngine.filterExternal(
@@ -270,16 +303,21 @@ object ProgressSnapshotBuilder {
                 Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
                 now, monday)
         }
+        val highEffortInRange = highEffortStimuli.filter { stimulus ->
+            range.contains(
+                Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
+                now, monday)
+        }
         val statuses = MuscleMapEngine.statuses(
             filteredStimuli, externalInRange, hardOnly = false, nowMillis = nowMillis)
         // Mapas preparados para la tarjeta Equilibrio muscular (port iOS ProgressSnapshot).
         val loadAll = MuscleLoadEngine.load(filteredStimuli, externalInRange, hardOnly = false)
-        val loadHard = MuscleLoadEngine.load(filteredStimuli, externalInRange, hardOnly = true)
+        val loadHard = MuscleLoadEngine.load(filteredStimuli, highEffortInRange, hardOnly = true)
         val fatigueAll = MuscleMapEngine.retainedLoad(filteredStimuli, externalInRange,
             hardOnly = false, nowMillis = nowMillis)
-        val fatigueHard = MuscleMapEngine.retainedLoad(filteredStimuli, externalInRange,
+        val fatigueHard = MuscleMapEngine.retainedLoad(filteredStimuli, highEffortInRange,
             hardOnly = true, nowMillis = nowMillis)
-        val hasHardSets = filteredStimuli.any { stimulus ->
+        val hasHardSets = highEffortInRange.isNotEmpty() || filteredStimuli.any { stimulus ->
             stimulus.exercises.any { entry ->
                 entry.sportTag != "Movilidad" && entry.sets.any {
                     !it.isWarmup && it.reps > 0 &&
@@ -287,6 +325,9 @@ object ProgressSnapshotBuilder {
                 }
             }
         }
+
+        // Apple MuscleBalanceCard.includesEstimatedWODMuscles: nota solo si algún WOD confirmado aporta estimación mínima.
+        val includesEstimatedWodMuscles = filteredStimuli.any { w -> w.exercises.any { it.completedWodSetEquivalent > 0 } }
 
         val activity = StatsEngine.dailyActivity(filtered, filteredExternal, zone)
         val thresholds = StatsEngine.heatmapThresholds(
@@ -375,12 +416,16 @@ object ProgressSnapshotBuilder {
             streak = streak,
             previousStreak = previousStreak,
             records = records,
-            chartExercises=filtered.flatMap {it.exercises}.groupBy {it.exerciseId}.map {(id,items) ->
-                ProgressExerciseRow(id,items.first().exerciseName,items.flatMap {it.sets}.filter { !it.isWarmup && it.reps>0 }.mapNotNull {it.weightKg?.takeIf {kg ->kg>0}}.maxOrNull(),
-                    filtered.filter {w ->w.exercises.any {it.exerciseId==id}}.maxOf {it.epochMillis})
+            // Apple ProgressSnapshot (live main): solo ejercicios realmente practicados (series confirmadas, o movilidad con reps);
+            // los que solo figuraban en el plan no entran, y la fecha es la de la última sesión donde se practicó.
+            chartExercises=filtered.flatMap {w ->w.exercises.filter {performedForChart(it)}.map {w.epochMillis to it}}.groupBy {it.second.exerciseId}.map {(id,items) ->
+                val ex=items.map {it.second}
+                ProgressExerciseRow(id,ex.first().exerciseName,ex.flatMap {it.sets}.filter { !it.isWarmup && it.reps>0 }.mapNotNull {it.weightKg?.takeIf {kg ->kg>0}}.maxOrNull(),
+                    items.maxOf {it.first},ex.any {it.isMobility})
             }.sortedWith(compareByDescending<ProgressExerciseRow> {it.lastEpochMillis}.thenBy {it.name}),
             muscleStatuses = statuses,
             hasHardSets = hasHardSets,
+            includesEstimatedWodMuscles = includesEstimatedWodMuscles,
             muscleLoadAll = loadAll,
             muscleLoadHard = loadHard,
             muscleFatigueAll = fatigueAll,

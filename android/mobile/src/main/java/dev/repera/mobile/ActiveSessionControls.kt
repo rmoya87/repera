@@ -10,10 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 
 @Composable
-internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(Int)->Unit,onNotes:(String)->Unit,onFavorite:()->Unit = {},onEdit:()->Unit = {}) {
+internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(Int)->Unit,onNotes:(String)->Unit,onFavorite:()->Unit = {},onEdit:()->Unit = {},accountId:String="") {
     var choosing by remember {mutableStateOf(false)}
     var editingNotes by remember {mutableStateOf(false)}
-    var notes by rememberSaveable(active.id,active.notes) {mutableStateOf(active.notes.orEmpty())}
+    val noteScope=remember(accountId,active.id) {org.json.JSONArray(listOf(accountId,active.id)).toString()}
+    val noteSaver=remember(noteScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(noteScope,it)},restore={restoreScopedEditorValue(noteScope,it)})}
+    var notes by rememberSaveable(accountId,active.id,active.notes,stateSaver=noteSaver) {mutableStateOf(active.notes.orEmpty())}
     Column {
     Row {
         TextButton(enabled=!busy && active.index>0,onClick={onSelect(active.index-1)},modifier=Modifier.testTag("active_previous")) {Text("Anterior")}

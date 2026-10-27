@@ -13,13 +13,13 @@ import java.util.UUID
 internal class WearPendingSetStore(context: Context) {
     private val prefs = context.getSharedPreferences("repera.wear.set-outbox", Context.MODE_PRIVATE)
 
-    @Synchronized fun append(sessionId: String, exerciseIndex: Int,
+    fun append(sessionId: String, exerciseIndex: Int,
                               quantity: Int, weightKg: Double?,
                               rir: Double? = null,
                               durationSeconds: Int? = null,
                               quantityUnit: String? = null,
                               deficitCm: Int? = null,
-                              sessionJson: String? = null): String {
+                              sessionJson: String? = null, warmup:Boolean=false,toFailure:Boolean=false): String = synchronized(lock) {
         require(sessionId.isNotBlank() && exerciseIndex >= 0 && quantity in 1..10000)
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
         require(rir == null || (rir.isFinite() && rir in 0.0..5.0))
@@ -30,6 +30,7 @@ internal class WearPendingSetStore(context: Context) {
         require(values.length() < 100) { "Hay demasiadas series sin sincronizar" }
         val id = UUID.randomUUID().toString()
         val command = JSONObject().put("id", id).put("sessionId", sessionId)
+            .put("warmup",warmup).put("toFailure",toFailure && !warmup)
             .put("exerciseIndex", exerciseIndex).put("quantity", quantity)
         if (weightKg != null) command.put("weightKg", weightKg)
         if (rir != null) command.put("rir", rir)
@@ -39,27 +40,28 @@ internal class WearPendingSetStore(context: Context) {
         if (sessionJson != null) command.put("session", JSONObject(sessionJson))
         values.put(command)
         check(prefs.edit().putString("outbox", values.toString()).commit())
-        return id
+        id
     }
 
-    @Synchronized fun all(): List<JSONObject> {
+    fun all(): List<JSONObject> = synchronized(lock) {
         val values = JSONArray(prefs.getString("outbox", "[]"))
-        return (0 until values.length()).map { values.getJSONObject(it) }
+        (0 until values.length()).map { values.getJSONObject(it) }
     }
 
-    @Synchronized fun count(): Int = all().size
+    fun count(): Int = synchronized(lock) { all().size }
 
-    @Synchronized fun remove(id: String) {
-        if (id.isBlank()) return
+    fun remove(id: String) = synchronized(lock) {
+        if (id.isBlank()) return@synchronized
         val current = all()
         val retained = current.filter { it.optString("id") != id }
-        if (retained.size == current.size) return
+        if (retained.size == current.size) return@synchronized
         val array = JSONArray()
         retained.forEach { array.put(it) }
         check(prefs.edit().putString("outbox", array.toString()).commit())
     }
 
-    @Synchronized fun clear() {
+    fun clear() = synchronized(lock) {
         check(prefs.edit().remove("outbox").commit())
     }
+    companion object { private val lock=Any() }
 }

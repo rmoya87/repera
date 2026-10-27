@@ -616,4 +616,34 @@ class WorkoutRepositoryInstrumentedTest {
             .map { afterSave.getJSONArray("routines").getJSONObject(it).getString("id") }
         assertTrue("legacy-empty-1" in idsAfter)
     }
+    @Test fun reassignExistingTemplateKeepsOneRecurringRoutinePerWeekdayWithoutDeletingAnything() {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val user="test-weekday-exclusive-${UUID.randomUUID()}"
+        val root=JSONObject().put("exercises",JSONArray()).put("workouts",JSONArray())
+            .put("routines",JSONArray()
+                .put(JSONObject().put("id","old").put("title","Anterior").put("weekday",1).put("blocks",JSONArray()))
+                .put(JSONObject().put("id","new").put("title","Nueva").put("blocks",JSONArray()))
+                .put(JSONObject().put("id","dated").put("title","Fecha").put("scheduledDate","2026-10-26").put("weekday",1).put("blocks",JSONArray())))
+        val local=LocalSnapshotStore(ctx,user);local.write(root.toString().toByteArray())
+        WorkoutRepository(ctx,user).updateRoutineDetails("new","Nueva",RoutineSchedule(weekday=1,timeMinutes=600))
+        val routines=JSONObject(String(local.read()!!)).getJSONArray("routines")
+        assertEquals(3,routines.length())
+        assertTrue(routines.getJSONObject(0).isNull("weekday"))
+        assertEquals(1,routines.getJSONObject(1).getInt("weekday"))
+        assertEquals(600,routines.getJSONObject(1).getInt("scheduledTimeMinutes"))
+        assertEquals("2026-10-26",routines.getJSONObject(2).getString("scheduledDate"))
+        assertEquals(1,routines.getJSONObject(2).getInt("weekday"))
+    }
+    @Test fun scannedTemplateCreationReplacesWeekdayAssignmentWithoutDeletingOldTemplate() {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val user="test-create-weekday-${UUID.randomUUID()}"
+        CatalogBootstrap.initializeEmptyAccount(ctx,user)
+        val repo=WorkoutRepository(ctx,user)
+        val old=repo.createRoutineFromScan("Anterior",listOf(dev.repera.domain.RoutineBlock.strength("Fuerza")),RoutineSchedule(weekday=1))
+        val new=repo.createRoutineFromScan("Nueva",listOf(dev.repera.domain.RoutineBlock.strength("Fuerza")),RoutineSchedule(weekday=1))
+        val saved=repo.routinesSnapshot()
+        assertEquals(2,saved.size)
+        assertTrue(saved.single {it.getString("id")==old}.isNull("weekday"))
+        assertEquals(1,saved.single {it.getString("id")==new}.getInt("weekday"))
+    }
 }

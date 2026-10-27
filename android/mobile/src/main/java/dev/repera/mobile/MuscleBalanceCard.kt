@@ -48,7 +48,8 @@ internal fun MuscleBalanceCard(
     loadHard: Map<String, Double>,
     fatigueAll: Map<String, Double>,
     fatigueHard: Map<String, Double>,
-    hasHardSets: Boolean
+    hasHardSets: Boolean,
+    includesEstimatedWodMuscles: Boolean = false
 ) {
     var hardOnly by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
@@ -110,6 +111,11 @@ internal fun MuscleBalanceCard(
             } else if (worked.isNotEmpty()) {
                 Text(if (hardOnly) "Cada grupo tuvo al menos una serie dura."
                     else "Cada grupo muscular recibió trabajo.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (!hardOnly && includesEstimatedWodMuscles) {
+                Text("Los movimientos WOD confirmados sin series registradas aportan una estimación mínima de estímulo muscular.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

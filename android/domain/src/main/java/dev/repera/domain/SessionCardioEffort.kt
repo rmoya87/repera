@@ -11,7 +11,9 @@ data class SessionCardioSample(
     val maxHeartRateBpm: Double? = null,
     val heartRateBpmSamples: List<Double> = emptyList(),
     val activeEnergyKcal: Double? = null,
-    val durationMinutes: Double? = null
+    val durationMinutes: Double? = null,
+    /** Health Connect record this sample was read from (null when unknown). */
+    val sourceRecordId: String? = null
 ) {
     val hasUsableSignal: Boolean
         get() = (averageHeartRateBpm ?: 0.0) >= 80 ||

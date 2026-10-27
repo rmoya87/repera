@@ -82,6 +82,21 @@ class BusinessProjectionInstrumentedTest {
         assertNull(repo.todayPlanSession(date,listOf(session)))
         local.write(stored)
     }
+    @Test fun malformedProfessionalWatchPrescriptionDoesNotAbortRefreshOrMutatePrivateData() {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val owner="malformed-professional-${java.util.UUID.randomUUID()}"
+        val local=LocalSnapshotStore(ctx,owner)
+        local.write(JSONObject().put("workouts",JSONArray()).put("routines",JSONArray()).put("exercises",JSONArray()).toString().toByteArray())
+        val before=local.read()!!
+        val date=java.time.LocalDate.of(2026,10,26)
+        val missingId=JSONObject().put("schemaVersion",1).put("blocks",JSONArray().put(JSONObject()
+            .put("kind","strength").put("exercises",JSONArray())))
+        val session=BusinessCenterStore.ProfessionalSession("plan","org","client","coach",date.toString(),"Plan","","scheduled",missingId)
+        assertNull(WorkoutRepository(ctx,owner).todayPlanSession(date,listOf(session)))
+        val wrongBlock=JSONObject().put("schemaVersion",1).put("blocks",JSONArray().put("not-an-object"))
+        assertNull(WorkoutRepository(ctx,owner).todayPlanSession(date,listOf(session.copy(prescription=wrongBlock))))
+        assertArrayEquals(before,local.read())
+    }
     @Test fun rpeInputAndHistoryUseRirOnWire() {
         var logged:Double?=null
         val workout=ActiveWorkout(id="rpe",title="Fuerza",index=0,total=1,exerciseName="Sentadilla",completedSets=0,

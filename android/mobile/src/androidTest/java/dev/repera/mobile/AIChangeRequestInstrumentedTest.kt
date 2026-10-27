@@ -134,4 +134,19 @@ class AIChangeRequestInstrumentedTest {
         assertEquals(1, finished.size)
         assertFalse(finished[0].isNull("finishedAt"))
     }
+    @Test fun proposalCannotPatchOrDeleteWorkoutChangedDuringRemoteCheck() {
+        val (repo,local)=repo()
+        val workout=finishedWorkout(repo,local)
+        val id=workout.getString("id")
+        val digest=WorkoutMirrorStore.canonicalDigest(workout)
+        repo.applyAIWorkoutPatch(id,"New user edit",emptyList())
+        val before=local.read()!!
+        assertTrue(runCatching {repo.applyAIWorkoutPatch(id,"Stale proposal",emptyList(),expectedLocalDigest=digest)}.isFailure)
+        assertTrue(runCatching {repo.deleteWorkout(id,expectedLocalDigest=digest)}.isFailure)
+        assertArrayEquals(before,local.read())
+        assertEquals("New user edit",readWorkouts(local).getJSONObject(0).getString("title"))
+        val current=WorkoutMirrorStore.canonicalDigest(readWorkouts(local).getJSONObject(0))
+        repo.applyAIWorkoutPatch(id,"Matching proposal",emptyList(),expectedLocalDigest=current)
+        assertEquals("Matching proposal",readWorkouts(local).getJSONObject(0).getString("title"))
+    }
 }

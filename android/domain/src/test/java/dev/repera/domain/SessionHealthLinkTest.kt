@@ -91,22 +91,50 @@ class SessionHealthLinkTest {
     }
 
     @Test fun validStoredLinkRejectsLinkOfAnotherSessionEvenInWindow() {
-        // Propio, EN ventana, pero clientRecordId de otra sesión: la ventana
-        // SÍ lo hace plausible para associate(), así que se acepta por la
-        // segunda condición (registro válido en ventana); la condición de
-        // pertenencia estricta es el clientRecordId. Documentado: un registro
-        // propio en ventana sin el id de esta sesión se adopta como asociación
-        // por ventana, igual que un externo.
+        // Explicit clientRecordId ownership beats an otherwise plausible time window.
         val other = candidate("rX", 602, 658, own,
             clientRecordId = HealthSessionLink.clientRecordId("ses-otra"))
         val v = SessionHealthMatcher.validStoredLink(
             sessionId, sStart, sEnd, "rX", listOf(other), own)
-        assertEquals("rX", v?.id)
+        assertEquals(null, v)
+        assertEquals(SessionHealthMatcher.LinkDecision.Insert,decision("rX",listOf(other)))
         // Y fuera de ventana se rechaza:
         val far = candidate("rY", 100, 160, own,
             clientRecordId = HealthSessionLink.clientRecordId("ses-otra"))
         val rejected = SessionHealthMatcher.validStoredLink(
             sessionId, sStart, sEnd, "rY", listOf(far), own)
         assertEquals(null, rejected)
+    }
+    @Test fun readEligibilityRejectsOtherSessionAndUnboundOwnRecordButKeepsLegacyAndExternal() {
+        val same=candidate("same",600,660,own,HealthSessionLink.clientRecordId(sessionId))
+        val other=candidate("other",600,660,own,HealthSessionLink.clientRecordId("other"))
+        val legacy=candidate("legacy",600,660,own)
+        val external=candidate("external",600,660,garmin,"vendor-id")
+        assertEquals(listOf(same,legacy,external),SessionHealthMatcher.eligibleForSession(sessionId,listOf(same,other,legacy,external),own))
+        assertEquals(listOf(legacy,external),SessionHealthMatcher.eligibleForSession(null,listOf(same,other,legacy,external),own))
+    }
+
+    private val ownPkg = "dev.repera"
+    private fun lrec(id: String, pkg: String, client: String? = null) = SessionHealthMatcher.CandidateSession(id, 0, 1000, pkg, client)
+
+    @Test fun editedWindowKeepsPersistedExternalRecord() {
+        val r = SessionHealthMatcher.resolveStoredLink("s1", "x1", SessionHealthMatcher.LinkLookup.Found(lrec("x1", "ext")), ownPkg)
+        assertEquals(SessionHealthMatcher.LinkResolution.Use(lrec("x1", "ext")), r)
+    }
+    @Test fun unreadableNeverReassociates() {
+        assertEquals(SessionHealthMatcher.LinkResolution.KeepLinkUnresolved,
+            SessionHealthMatcher.resolveStoredLink("s1", "x1", SessionHealthMatcher.LinkLookup.Unreadable, ownPkg))
+    }
+    @Test fun verifiedAbsenceFreesWindowMatching() {
+        assertEquals(SessionHealthMatcher.LinkResolution.FallBackToWindow,
+            SessionHealthMatcher.resolveStoredLink("s1", "x1", SessionHealthMatcher.LinkLookup.Gone, ownPkg))
+    }
+    @Test fun noStoredLinkFallsBackAndOtherSessionsOwnRecordIsRejected() {
+        assertEquals(SessionHealthMatcher.LinkResolution.FallBackToWindow,
+            SessionHealthMatcher.resolveStoredLink("s1", null, SessionHealthMatcher.LinkLookup.Unreadable, ownPkg))
+        assertEquals(SessionHealthMatcher.LinkResolution.FallBackToWindow,
+            SessionHealthMatcher.resolveStoredLink("s1", "o2", SessionHealthMatcher.LinkLookup.Found(lrec("o2", ownPkg, HealthSessionLink.clientRecordId("s2"))), ownPkg))
+        assertEquals(SessionHealthMatcher.LinkResolution.Use(lrec("o1", ownPkg, HealthSessionLink.clientRecordId("s1"))),
+            SessionHealthMatcher.resolveStoredLink("s1", "o1", SessionHealthMatcher.LinkLookup.Found(lrec("o1", ownPkg, HealthSessionLink.clientRecordId("s1"))), ownPkg))
     }
 }

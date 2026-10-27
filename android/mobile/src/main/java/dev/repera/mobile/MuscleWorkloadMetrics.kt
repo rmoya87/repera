@@ -38,7 +38,7 @@ object MuscleWorkloadMetrics {
                     .ifBlank { exercise.optString("targetMuscle").trim() }
                     .takeIf { it.isNotBlank() && !it.equals("cardio", ignoreCase = true) }
                     ?: continue
-                val effective = WorkoutHistorySets.effectiveWorkSets(session, entry)
+                val effective = WorkoutHistorySets.confirmedWorkSets(session, entry)
                 if (effective.isEmpty()) continue
                 counts[group] = (counts[group] ?: 0) + effective.size
             }

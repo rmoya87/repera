@@ -58,6 +58,47 @@ object SessionReviewSupport {
         return null
     }
 
+    /** Apple finishWorkout stores the HealthKit active energy on the saved session.
+     *  Here the value is only the sample read from the reliably associated Health
+     *  Connect session (readSessionSample), written once and never overwritten or
+     *  fabricated from time/load. Returns true when the session changed. */
+    fun applyMeasuredEnergy(state: JSONObject, sessionId: String, kcal: Double?, sourceRecordId: String?): Boolean {
+        if (sourceRecordId.isNullOrBlank()) return false
+        if (kcal == null || !kcal.isFinite() || kcal <= 0.0) return false
+        val archive = state.optJSONArray("workouts") ?: return false
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") != sessionId) continue
+            if (session.has("appleActiveEnergyKcal") && !session.isNull("appleActiveEnergyKcal")) return false
+            // The matcher compares one local session with Health candidates only; it does
+            // not prove that no other local session matched the same record. Skip rather
+            // than risk counting the same energy twice: no times or any time overlap
+            // with another saved workout means no write.
+            val range = instantRange(session) ?: return false
+            for (j in 0 until archive.length()) {
+                if (j == i) continue
+                val other = archive.optJSONObject(j) ?: continue
+                val o = instantRange(other) ?: continue
+                if (o.first < range.second && range.first < o.second) return false
+            }
+            // Another local workout already linked to the same Health record: ambiguous.
+            for (j in 0 until archive.length()) {
+                if (j == i) continue
+                val link = archive.optJSONObject(j)?.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD)
+                if (link == sourceRecordId) return false
+            }
+            session.put("appleActiveEnergyKcal", kcal)
+            return true
+        }
+        return false
+    }
+
+    private fun instantRange(session: JSONObject): Pair<java.time.Instant, java.time.Instant>? = runCatching {
+        val a = java.time.Instant.parse(session.getString("startedAt"))
+        val b = java.time.Instant.parse(session.getString("finishedAt"))
+        if (b > a) a to b else null
+    }.getOrNull()
+
     /** Recalcula notas de todos los entrenos si la fórmula cambió (p. ej. equivalencias). */
     fun refreshAllIfNeeded(state: JSONObject, storedVersion: Int): Boolean {
         if (storedVersion >= FORMULA_VERSION) return false

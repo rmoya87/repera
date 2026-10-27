@@ -29,12 +29,13 @@ class AIPlansRealtimeListener(
         data object JoinAccepted : ServerEvent
         data class JoinRejected(val reason: String) : ServerEvent
         data object HeartbeatAck : ServerEvent
+        data object ConnectionClosed : ServerEvent
     }
 
     @Volatile private var running = false
     private var worker: Thread? = null
     private var socket: WebSocket? = null
-    private var generation = UUID.randomUUID()
+    @Volatile private var generation = UUID.randomUUID()
 
     @Synchronized fun start() {
         if (running) return
@@ -74,23 +75,23 @@ class AIPlansRealtimeListener(
     /** Una conexión completa: join -> resync -> eventos hasta cierre/error. */
     private fun connectOnce(session: SupabaseIdentity.Session, gen: UUID): Boolean {
         val topic = "realtime:public:ai_training_plans:owner_id=eq." + session.userId
-        val events = LinkedBlockingQueue<ServerEvent?>()
+        val events = LinkedBlockingQueue<ServerEvent>()
         val closed = java.util.concurrent.atomic.AtomicBoolean(false)
         val url = BuildConfig.SUPABASE_URL.replace("https://", "wss://") +
             "/realtime/v1/websocket?apikey=" + BuildConfig.SUPABASE_PUBLISHABLE_KEY +
             "&vsn=1.0.0"
         val listener = object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
-                events.offer(parseServerEvent(text, topic))
+                parseServerEvent(text, topic)?.let {events.offer(it)}
             }
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                closed.set(true); events.offer(null)
+                closed.set(true); events.offer(ServerEvent.ConnectionClosed)
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                closed.set(true); events.offer(null)
+                closed.set(true); events.offer(ServerEvent.ConnectionClosed)
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                closed.set(true); events.offer(null)
+                closed.set(true); events.offer(ServerEvent.ConnectionClosed)
             }
         }
         val ws = http.newWebSocket(Request.Builder().url(url).build(), listener)
@@ -100,11 +101,14 @@ class AIPlansRealtimeListener(
         var joined = false
         var heartbeatsMissed = 0
         while (running && generation == gen && !closed.get()) {
+            if(sessionProvider()?.let {it.userId==session.userId && it.accessToken==session.accessToken}!=true) break
             val event = try {
                 events.poll(HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS)
             } catch (_: InterruptedException) { break }
-            if (closed.get()) break
+            if (closed.get() || !running || generation!=gen) break
+            if(sessionProvider()?.let {it.userId==session.userId && it.accessToken==session.accessToken}!=true) break
             if (event == null) {
+                if(!joined) break // No join response: reconnect instead of waiting forever.
                 // Tick: heartbeat; si el servidor no contesta dos seguidos, reconecta.
                 if (joined) {
                     ws.send(heartbeatMessage(++ref))
@@ -114,6 +118,7 @@ class AIPlansRealtimeListener(
                 continue
             }
             when (event) {
+                is ServerEvent.ConnectionClosed -> break
                 is ServerEvent.JoinAccepted -> {
                     joined = true
                     // Cierra la carrera: resync completo tras suscribirse (igual que iOS).
@@ -139,7 +144,7 @@ class AIPlansRealtimeListener(
                 .put("event", "INSERT")
                 .put("schema", "public")
                 .put("table", "ai_training_plans")
-                .put("filter", topic.substringAfter("owner_id="))
+                .put("filter", "owner_id=" + topic.substringAfter("owner_id="))
             val config = JSONObject()
                 .put("postgres_changes", org.json.JSONArray().put(change))
                 .put("broadcast", JSONObject().put("ack", false).put("self", false))
@@ -182,7 +187,9 @@ class AIPlansRealtimeListener(
                 "postgres_changes" -> {
                     if (message.optString("topic") != expectedTopic) return null
                     val data = message.optJSONObject("payload")?.optJSONObject("data")
-                    if (data?.optString("type") == "INSERT") ServerEvent.InsertedPlan else null
+                    if (data?.optString("type") == "INSERT" &&
+                        data.optString("schema")=="public" && data.optString("table")=="ai_training_plans")
+                        ServerEvent.InsertedPlan else null
                 }
                 else -> null
             }

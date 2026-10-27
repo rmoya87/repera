@@ -20,10 +20,11 @@ import org.json.JSONObject
  * reinicia la cuota, igual que en iOS.
  */
 class FreeUsageStore(private val file: File) {
+    private val lock=locks.computeIfAbsent(file.absolutePath) {Any()}
     var state by mutableStateOf(FreeUsageState())
         private set
 
-    fun load() {
+    fun load() = synchronized(lock) {
         val decoded = runCatching {
             if (file.exists()) fromJson(JSONObject(file.readText())) else null
         }.getOrNull()
@@ -31,7 +32,7 @@ class FreeUsageStore(private val file: File) {
         if (decoded == null) persist()
     }
 
-    fun persist() {
+    private fun persist() {
         state = FreeUsageLedger.normalized(state)
         file.parentFile?.mkdirs()
         val tmp = File(file.parentFile, file.name + ".new")
@@ -43,19 +44,26 @@ class FreeUsageStore(private val file: File) {
     }
 
     /** Consume un escaneo exitoso. Idempotente por attemptID. */
-    fun consumeBoardScan(attemptID: String, isPro: Boolean): Boolean {
+    fun consumeBoardScan(attemptID: String, isPro: Boolean): Boolean = synchronized(lock) {
+        // Another instance may have consumed since our last foreground load.
+        load()
         val (next, consumed) = FreeUsageLedger.consumeBoardScan(state, attemptID, isPro)
+        val before=state
         state = next
-        if (consumed) persist()
-        return consumed
+        if (consumed) try {persist()} catch(error:Exception) {
+            state=before
+            throw error
+        }
+        consumed
     }
 
-    fun resetForDebug() {
+    fun resetForDebug() = synchronized(lock) {
         state = FreeUsageLedger.normalized(FreeUsageState())
         persist()
     }
 
     companion object {
+        private val locks=java.util.concurrent.ConcurrentHashMap<String,Any>()
         private const val FILE_NAME = "free_usage.json"
 
         fun forAccount(folder: File): FreeUsageStore =

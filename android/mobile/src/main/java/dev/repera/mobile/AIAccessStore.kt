@@ -18,8 +18,17 @@ import java.util.concurrent.TimeUnit
  */
 class AIAccessStore(
     private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(20, TimeUnit.SECONDS).build()
+        .callTimeout(20, TimeUnit.SECONDS).build(),
+    private val stillAuthorized:()->Boolean={true}
 ) {
+    private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante el acceso IA"}
+    private fun executeAuthorized(request:Request):okhttp3.Response {
+        authorize()
+        val response=http.newCall(request).execute()
+        try {authorize()} catch(error:Exception) {response.close();throw error}
+        return response
+    }
+
     data class TokenInfo(
         val id: String,
         val label: String,
@@ -60,8 +69,9 @@ class AIAccessStore(
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
         return try {
-            http.newCall(request).execute().use { response ->
+            executeAuthorized(request).use { response ->
                 val body = response.body?.string().orEmpty()
+                authorize()
                 if (!response.isSuccessful) {
                     return LoadResult.Failed("No se pudieron obtener los tokens: HTTP " + response.code)
                 }
@@ -86,8 +96,9 @@ class AIAccessStore(
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
             .build()
         return try {
-            http.newCall(request).execute().use { response ->
+            executeAuthorized(request).use { response ->
                 val body = response.body?.string().orEmpty()
+                authorize()
                 if (response.code !in 200..299) {
                     val issue = runCatching { JSONObject(body).optString("error") }
                         .getOrDefault("")
@@ -115,7 +126,7 @@ class AIAccessStore(
             .patch(payload.toString().toRequestBody("application/json".toMediaType()))
             .build()
         return try {
-            http.newCall(request).execute().use { response ->
+            executeAuthorized(request).use { response ->
                 if (response.isSuccessful) null
                 else "No se pudo revocar el token: HTTP " + response.code
             }

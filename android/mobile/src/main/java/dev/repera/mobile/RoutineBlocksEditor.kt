@@ -25,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,12 +53,23 @@ fun RoutineBlocksEditorScreen(
     onTitleSuggested: (String) -> Unit = {},
     /** Modo sesión de Apple: interruptor «Favorito» y botón «Empezar». onFavoriteChosen se llama justo antes de onReplace. */
     sessionMode: Boolean = false,
-    onFavoriteChosen: (Boolean) -> Unit = {}
+    onFavoriteChosen: (Boolean) -> Unit = {},
+    saveStatus:String? = null,
+    editableTitle:Boolean = false,
+    accountId:String = ""
 ) {
-    var asFavorite by remember(routine.id) { mutableStateOf(false) }
-    var suggestedTitle by remember(routine.id) { mutableStateOf<String?>(null) }
+    val scopeKey=remember(accountId,routine.id) {org.json.JSONArray(listOf(accountId,routine.id)).toString()}
+    val textSaver=remember(scopeKey) {Saver<String,String>(save={saveScopedEditorValue(scopeKey,it)},restore={restoreScopedEditorValue(scopeKey,it)})}
+    val nullableTextSaver=remember(scopeKey) {Saver<String?,String>(save={saveScopedEditorValue(scopeKey,it)},restore={restoreScopedEditorValue(scopeKey,it)})}
+    val favoriteSaver=remember(scopeKey) {Saver<Boolean,String>(save={saveScopedEditorValue(scopeKey,it.toString())},restore={restoreScopedEditorValue(scopeKey,it)?.toBooleanStrictOrNull()})}
+    val blocksSaver=remember(scopeKey) {Saver<androidx.compose.runtime.snapshots.SnapshotStateList<BlockDraftUi>,String>(
+        save={saveScopedEditorValue(scopeKey,saveRoutineEditorBlocks(it))},
+        restore={restoreScopedEditorValue(scopeKey,it)?.let(::restoreRoutineEditorBlocksOrNull)})}
+    var draftTitle by rememberSaveable(accountId,routine.id,stateSaver=textSaver) {mutableStateOf(routine.title)}
+    var asFavorite by rememberSaveable(accountId,routine.id,stateSaver=favoriteSaver) { mutableStateOf(false) }
+    var suggestedTitle by rememberSaveable(accountId,routine.id,stateSaver=nullableTextSaver) { mutableStateOf<String?>(null) }
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
-    val blocks = remember(routine.id) {
+    val blocks = rememberSaveable(accountId,routine.id,saver=blocksSaver) {
         mutableStateListOf<BlockDraftUi>().apply {
             if (routine.blocks.isEmpty()) add(BlockDraftUi())
             else routine.blocks.forEach { add(BlockDraftUi(it)) }
@@ -83,24 +96,31 @@ fun RoutineBlocksEditorScreen(
                     }
                     drafts.add(parsed)
                 }
-                suggestedTitle?.let(onTitleSuggested)
+                if(editableTitle) {
+                    if(draftTitle.trim().isBlank()) {error="Escribe un título válido";return@TextButton}
+                    onTitleSuggested(draftTitle.trim())
+                } else suggestedTitle?.let(onTitleSuggested)
                 if (sessionMode) onFavoriteChosen(asFavorite)
                 onReplace(drafts)
             }, enabled = !busy) { Text(if (sessionMode) "Empezar" else "Guardar") }
         }
         Text("Contenido de «" + routine.title + "»",
             style = MaterialTheme.typography.titleLarge)
+        if(editableTitle) OutlinedTextField(value=draftTitle,onValueChange={draftTitle=it},enabled=!busy,
+            label={Text("Nombre de la rutina")},modifier=Modifier.testTag("new_template_title"))
         if (sessionMode) Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Switch(checked = asFavorite, onCheckedChange = { asFavorite = it },
                 modifier = Modifier.testTag("session_favorite_switch"))
             Text("  Favorito")
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        saveStatus?.let {Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("routine_save_status"))}
 
         val blockHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         blocks.forEachIndexed { index, block ->
             DragReorderItem(index, blockHeights, blocks.size,
                 onDrop = { _, t -> if (t != index) { val moved = blocks.removeAt(index); blocks.add(t, moved) } },
+                onMoveTo = { t -> if (t != index && t in blocks.indices) { val moved = blocks.removeAt(index); blocks.add(t, moved) } },
                 onBounds = { top, bottom -> geo.blocks[index] = top to bottom }) { handle ->
                 BlockEditorCard(
                     block = block,
@@ -193,7 +213,7 @@ private fun formatLabel(wire: String): String = when (wire) {
     else -> WodFormat.fromWire(wire)?.displayName ?: wire
 }
 
-private class EntryUi(val exerciseId: String, name: String, quantity: Int,
+internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
                       sets: Int, weightKg: Double?,
                       planned: List<PlannedSetDraft>? = null,
                       val itemId: String? = null, sourceJson: String? = null) {
@@ -213,16 +233,55 @@ private class EntryUi(val exerciseId: String, name: String, quantity: Int,
         }
         addAll(base)
     }
+    var detailsOpen by mutableStateOf(false)
+    val rawMovementInputs=androidx.compose.runtime.mutableStateMapOf<String,String>()
+    val invalidMovementInputs=androidx.compose.runtime.mutableStateMapOf<String,Boolean>()
+    fun movementText(key:String):String = rawMovementInputs[key] ?: sourceJson?.let {raw ->
+        val o=JSONObject(raw)
+        if(o.has(key) && !o.isNull(key)) o.get(key).toString() else ""
+    }.orEmpty()
+    fun durationText(index:Int,hold:Boolean):String = rawMovementInputs["duration:$index"] ?: (plannedSets[index].targetDurationSeconds ?: if(hold) 30 else 60).toString()
+    fun setDurationText(index:Int,text:String) {
+        val key="duration:$index";rawMovementInputs[key]=text
+        val seconds=text.toIntOrNull()?.takeIf {it in 1..3600}
+        invalidMovementInputs[key]=seconds==null
+        if(seconds!=null) {
+            val previous=plannedSets[index];val updated=previous.copy(targetDurationSeconds=seconds)
+            rawSetInputs[index]?.takeIf {it.first==previous}?.let {rawSetInputs[index]=updated to it.second}
+            plannedSets[index]=updated
+        }
+    }
+    fun restText():String = rawMovementInputs["restSeconds"] ?: sourceJson?.let {JSONObject(it).optInt("restSeconds",60).toString()} ?: "60"
+    fun setRestText(text:String) {
+        rawMovementInputs["restSeconds"]=text
+        val seconds=text.toIntOrNull()?.takeIf {it in 15..300}
+        invalidMovementInputs["restSeconds"]=seconds==null
+        if(seconds!=null) sourceJson=JSONObject(sourceJson!!).put("restSeconds",seconds).toString()
+    }
+    fun setMovementText(key:String,text:String,numeric:Boolean) {
+        rawMovementInputs[key]=text
+        val number=if(numeric && text.isNotBlank()) text.replace(',','.').toDoubleOrNull()?.takeIf {it.isFinite() && it>=0} else null
+        val invalid=numeric && text.isNotBlank() && number==null
+        invalidMovementInputs[key]=invalid
+        if(invalid) return
+        val o=sourceJson?.let(::JSONObject) ?: JSONObject()
+            .put("id",itemId ?: java.util.UUID.randomUUID().toString()).put("exerciseId",exerciseId).put("name",name).put("isRest",false)
+        if(numeric) {if(number==null) o.remove(key) else o.put(key,number)}
+        else {if(text.isEmpty()) o.remove(key) else o.put(key,text)}
+        sourceJson=o.toString()
+    }
     var setsExpanded by mutableStateOf(false)
+    val invalidSetInputs=androidx.compose.runtime.mutableStateMapOf<Int,Boolean>()
+    val rawSetInputs=androidx.compose.runtime.mutableStateMapOf<Int,Pair<PlannedSetDraft,Triple<String,String,String>>>()
     /** Valores iniciales de los campos uniformes: si no se tocan, las series
      *  originales (ids, RIR, no uniformes) se escriben tal cual. */
-    val initialUniform = Triple(quantity.toString(), sets.toString(), weightKg?.toString() ?: "")
-    val hadPlanned = planned != null
+    var initialUniform = Triple(quantity.toString(), sets.toString(), weightKg?.toString() ?: "")
+    var hadPlanned = planned != null
     val untouchedUniform: Boolean
         get() = hadPlanned && Triple(quantity, sets, weight) == initialUniform
 }
 
-private class BlockDraftUi(info: RoutineBlockInfo? = null) {
+internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val blockId: String? = info?.id
     val sourceJson: String? = info?.sourceJson
     var title by mutableStateOf(info?.title ?: "")
@@ -251,6 +310,7 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 .map { it.toIntOrNull() ?: return null }
         } else null
         val parsed = entries.map { entry ->
+            if(entry.invalidSetInputs.values.any {it} || entry.invalidMovementInputs.values.any {it}) return null
             val base = RoutineDraftEntry(
                 itemId = entry.itemId, sourceJson = entry.sourceJson, quantityUnit = entry.unit,
                 exerciseId = entry.exerciseId,
@@ -271,6 +331,82 @@ private class BlockDraftUi(info: RoutineBlockInfo? = null) {
         )
     }
 }
+
+/** Raw editor state, not a validated RoutineBlockDraft: incomplete numbers must survive. */
+internal fun saveRoutineEditorBlocks(blocks:List<BlockDraftUi>):String = org.json.JSONArray().apply {
+    blocks.forEach {b ->put(JSONObject().apply {
+        put("blockId",b.blockId);put("source",b.sourceJson)
+        put("title",b.title);put("format",b.format);put("cap",b.timeCap);put("rounds",b.rounds)
+        put("interval",b.interval);put("work",b.work);put("rest",b.rest);put("ladder",b.ladder)
+        put("entries",org.json.JSONArray().apply {b.entries.forEach {e ->put(JSONObject().apply {
+            put("exerciseId",e.exerciseId);put("name",e.name);put("itemId",e.itemId);put("source",e.sourceJson)
+            put("unit",e.unit);put("quantity",e.quantity);put("sets",e.sets);put("weight",e.weight)
+            put("detailsOpen",e.detailsOpen)
+            put("rawMovement",JSONObject().apply {e.rawMovementInputs.forEach {(key,value) ->put(key,value)}})
+            put("invalidMovement",org.json.JSONArray(e.invalidMovementInputs.filterValues {it}.keys.toList()))
+            put("expanded",e.setsExpanded);put("hadPlanned",e.hadPlanned)
+            put("invalidSets",org.json.JSONArray(e.invalidSetInputs.filterValues {it}.keys.toList()))
+            put("rawSets",org.json.JSONArray().apply {e.rawSetInputs.filter {(index,row) ->e.plannedSets.getOrNull(index)==row.first}.forEach {(index,row) ->
+                put(JSONObject().put("index",index).put("reps",row.second.first).put("kg",row.second.second).put("rir",row.second.third))
+            }})
+            put("initial",org.json.JSONArray(listOf(e.initialUniform.first,e.initialUniform.second,e.initialUniform.third)))
+            put("planned",org.json.JSONArray().apply {e.plannedSets.forEach {p ->put(JSONObject()
+                .put("targetReps",p.targetReps).put("targetWeightKg",p.targetWeightKg)
+                .put("targetRir",p.targetRir).put("id",p.id).put("duration",p.targetDurationSeconds).put("source",p.sourceJson))}})
+        })}})
+    })}
+}.toString()
+
+internal fun restoreRoutineEditorBlocks(raw:String):androidx.compose.runtime.snapshots.SnapshotStateList<BlockDraftUi> {
+    val array=org.json.JSONArray(raw)
+    fun JSONObject.nullable(key:String):String?=if(has(key) && !isNull(key)) getString(key) else null
+    return mutableStateListOf<BlockDraftUi>().apply {
+        for(i in 0 until array.length()) {
+            val o=array.getJSONObject(i)
+            val b=BlockDraftUi(RoutineBlockInfo(title=o.getString("title"),format=o.getString("format"),
+                id=o.nullable("blockId"),sourceJson=o.nullable("source")))
+            b.timeCap=o.getString("cap");b.rounds=o.getString("rounds");b.interval=o.getString("interval")
+            b.work=o.getString("work");b.rest=o.getString("rest");b.ladder=o.getString("ladder")
+            val entries=o.getJSONArray("entries")
+            for(j in 0 until entries.length()) {
+                val e=entries.getJSONObject(j)
+                val entry=EntryUi(e.getString("exerciseId"),e.getString("name"),0,1,null,
+                    emptyList(),e.nullable("itemId"),e.nullable("source"))
+                val planned=e.getJSONArray("planned")
+                for(k in 0 until planned.length()) {
+                    val p=planned.getJSONObject(k)
+                    entry.plannedSets.add(PlannedSetDraft(p.getInt("targetReps"),
+                        if(p.has("targetWeightKg")) p.getDouble("targetWeightKg") else null,
+                        if(p.has("targetRir")) p.getDouble("targetRir") else null,p.nullable("id"),if(p.has("duration")) p.getInt("duration") else null,p.nullable("source")))
+                }
+                e.optJSONArray("invalidSets")?.let {invalid ->for(k in 0 until invalid.length()) entry.invalidSetInputs[invalid.getInt(k)]=true}
+                e.optJSONArray("rawSets")?.let {rows ->for(k in 0 until rows.length()) {
+                    val row=rows.getJSONObject(k);val index=row.getInt("index")
+                    entry.plannedSets.getOrNull(index)?.let {ps ->entry.rawSetInputs[index]=ps to Triple(row.getString("reps"),row.getString("kg"),row.getString("rir"))}
+                }}
+                entry.detailsOpen=e.optBoolean("detailsOpen")
+                e.optJSONObject("rawMovement")?.let {raw ->raw.keys().forEach {key ->entry.rawMovementInputs[key]=raw.getString(key)}}
+                e.optJSONArray("invalidMovement")?.let {invalid ->for(k in 0 until invalid.length()) entry.invalidMovementInputs[invalid.getString(k)]=true}
+                entry.quantity=e.getString("quantity");entry.sets=e.getString("sets");entry.weight=e.getString("weight")
+                entry.unit=e.nullable("unit");entry.setsExpanded=e.getBoolean("expanded");entry.hadPlanned=e.getBoolean("hadPlanned")
+                val initial=e.getJSONArray("initial")
+                entry.initialUniform=Triple(initial.getString(0),initial.getString(1),initial.getString(2))
+                b.entries.add(entry)
+            }
+            add(b)
+        }
+    }
+}
+internal fun saveScopedEditorValue(scope:String,value:String?):String = JSONObject().put("scope",scope).put("value",value).toString()
+internal fun restoreScopedEditorValue(scope:String,raw:String):String? {
+    // Fail closed: malformed or foreign saved data yields null (fresh state) instead of crashing the restore.
+    return runCatching {
+        val o=JSONObject(raw)
+        if(o.getString("scope")==scope && o.has("value") && !o.isNull("value")) o.getString("value") else null
+    }.getOrNull()
+}
+internal fun restoreRoutineEditorBlocksOrNull(raw:String):androidx.compose.runtime.snapshots.SnapshotStateList<BlockDraftUi>? =
+    runCatching {restoreRoutineEditorBlocks(raw)}.getOrNull()
 
 @Composable
 private fun BlockEditorCard(
@@ -349,6 +485,7 @@ private fun BlockEditorCard(
               androidx.compose.runtime.key(entry) {
                 DragReorderItem(index, entryHeights, block.entries.size,
                     onDrop = { cy, t -> onEntryDrop(index, cy, t) },
+                    onMoveTo = { t -> if (t != index && t in block.entries.indices) { val moved = block.entries.removeAt(index); block.entries.add(t, moved) } },
                     onBounds = { top, bottom -> onEntryBounds(index, top, bottom) }) { entryHandle ->
                   // Deslizar para quitar (OGSwipeDeleteButton de Apple); el arrastre sigue siendo por pulsación larga.
                   val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState(
@@ -366,6 +503,8 @@ private fun BlockEditorCard(
                         resolvedName = entry.name.ifBlank {
                             nameById[entry.exerciseId] ?: "Ejercicio" },
                         isStrength = block.format == "strength",
+                        mobility=exercises.firstOrNull {it.id==entry.exerciseId}?.sportTag=="Movilidad",
+                        mobilityHold=exercises.firstOrNull {it.id==entry.exerciseId}?.mobilityHold==true,
                         unitChoices = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
                             dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(ex.name, ex.equipment) } == true,
                         loadGuideProvider = loadGuideProvider,
@@ -421,6 +560,7 @@ private fun EntryEditorRow(
     entry: EntryUi,
     resolvedName: String,
     isStrength: Boolean,
+    mobility:Boolean=false,mobilityHold:Boolean=false,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: () -> Unit,
     handle: Modifier = Modifier,
@@ -451,16 +591,10 @@ private fun EntryEditorRow(
             TextButton(onClick = onRemove) { Text("Quitar") }
         }
         if (isRest) {
-            var secs by remember(entry.itemId) { mutableStateOf(
-                runCatching { JSONObject(entry.sourceJson!!).optInt("restSeconds", 60).toString() }.getOrDefault("60")) }
-            OutlinedTextField(value = secs, singleLine = true, label = { Text("Segundos de descanso") },
+            OutlinedTextField(value = entry.restText(), singleLine = true, label = { Text("Segundos de descanso") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth().testTag("plan_rest_seconds"),
-                onValueChange = { v ->
-                    secs = v.filter { it.isDigit() }.take(3)
-                    entry.sourceJson = JSONObject(entry.sourceJson!!)
-                        .put("restSeconds", (secs.toIntOrNull() ?: 60).coerceIn(15, 300)).toString()
-                })
+                onValueChange = {entry.setRestText(it)})
             return@Column
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -526,7 +660,8 @@ private fun EntryEditorRow(
                             ExerciseLoadGuide.scaledPlannedSets(kg, it.sets,
                                 guide.incrementKg, guide.effectiveRir)
                         }
-                        entry.plannedSets.clear()
+                        entry.plannedSets.clear();entry.invalidSetInputs.clear();entry.rawSetInputs.clear()
+                            entry.rawMovementInputs.keys.filter {it.startsWith("duration:")}.forEach {entry.rawMovementInputs.remove(it);entry.invalidMovementInputs.remove(it)}
                         if (scaled != null) {
                             entry.plannedSets.addAll(scaled)
                         } else {
@@ -544,7 +679,8 @@ private fun EntryEditorRow(
                     }
                     if (guide.lastSession != null) {
                         TextButton(onClick = {
-                            entry.plannedSets.clear()
+                            entry.plannedSets.clear();entry.invalidSetInputs.clear();entry.rawSetInputs.clear()
+                            entry.rawMovementInputs.keys.filter {it.startsWith("duration:")}.forEach {entry.rawMovementInputs.remove(it);entry.invalidMovementInputs.remove(it)}
                             entry.plannedSets.addAll(
                                 ExerciseLoadGuide.copyLastSession(
                                     guide.lastSession.sets))
@@ -564,22 +700,23 @@ private fun EntryEditorRow(
                     Spacer(Modifier.weight(0.4f))
                 }
                 entry.plannedSets.forEachIndexed { index, ps ->
-                    var kgText by remember(entry.exerciseId, index, ps) {
-                        mutableStateOf(ps.targetWeightKg?.toString() ?: "")
-                    }
-                    var repsText by remember(entry.exerciseId, index, ps) {
-                        mutableStateOf(ps.targetReps.toString())
-                    }
-                    var rirText by remember(entry.exerciseId, index, ps) {
-                        mutableStateOf(ps.targetRir?.toString() ?: "")
-                    }
+                    if(mobility) OutlinedTextField(value=entry.durationText(index,mobilityHold),
+                        onValueChange={entry.setDurationText(index,it)},singleLine=true,
+                        label={Text("Duración serie ${index+1} (segundos)")},
+                        keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
+                        modifier=Modifier.fillMaxWidth().testTag("plan_set_duration_$index"))
+
+                    val current=entry.rawSetInputs[index]?.takeIf {it.first==ps}?.second
+                        ?: Triple(ps.targetReps.toString(),ps.targetWeightKg?.toString() ?: "",ps.targetRir?.toString() ?: "")
+                    var repsText=current.first
+                    var kgText=current.second
+                    var rirText=current.third
                     fun commit() {
-                        val reps = repsText.toIntOrNull() ?: return
-                        val kg = kgText.takeIf { it.isNotBlank() }
-                            ?.replace(',', '.')?.toDoubleOrNull()
-                        val rir = rirText.takeIf { it.isNotBlank() }
-                            ?.replace(',', '.')?.toDoubleOrNull()
-                        entry.plannedSets[index] = PlannedSetDraft(reps, kg, rir, ps.id)
+                        val parsed=parsePlannedSetText(repsText,kgText,rirText,ps.id)
+                        entry.invalidSetInputs[index]=parsed==null
+                        val updated=parsed?.copy(targetDurationSeconds=ps.targetDurationSeconds,sourceJson=ps.sourceJson)
+                        if(updated!=null) entry.plannedSets[index] = updated
+                        entry.rawSetInputs[index]=(updated ?: ps) to Triple(repsText,kgText,rirText)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -605,7 +742,22 @@ private fun EntryEditorRow(
                                 keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f))
                         TextButton(
-                            onClick = { entry.plannedSets.removeAt(index) },
+                            onClick = {
+                                entry.plannedSets.removeAt(index)
+                                val shifted=entry.invalidSetInputs.filterKeys {it!=index}.mapKeys {if(it.key>index) it.key-1 else it.key}
+                                entry.invalidSetInputs.clear();entry.invalidSetInputs.putAll(shifted)
+                                val rawShifted=entry.rawSetInputs.filterKeys {it!=index}.mapKeys {if(it.key>index) it.key-1 else it.key}
+                                entry.rawSetInputs.clear();entry.rawSetInputs.putAll(rawShifted)
+                                fun shiftedKey(key:String):String? {
+                                    if(!key.startsWith("duration:")) return key
+                                    val n=key.substringAfter(':').toInt();return if(n==index) null else "duration:${if(n>index) n-1 else n}"
+                                }
+                                val rawDurations=entry.rawMovementInputs.toMap().mapNotNull {(k,v) ->shiftedKey(k)?.let {it to v}}.toMap()
+                                val invalidDurations=entry.invalidMovementInputs.toMap().mapNotNull {(k,v) ->shiftedKey(k)?.let {it to v}}.toMap()
+                                entry.rawMovementInputs.clear();entry.rawMovementInputs.putAll(rawDurations)
+                                entry.invalidMovementInputs.clear();entry.invalidMovementInputs.putAll(invalidDurations)
+
+                            },
                             enabled = entry.plannedSets.size > 1,
                             modifier = Modifier.weight(0.4f)) { Text("✕") }
                     }
@@ -615,7 +767,7 @@ private fun EntryEditorRow(
                     entry.plannedSets.add(PlannedSetDraft(
                         targetReps = last?.targetReps ?: 8,
                         targetWeightKg = last?.targetWeightKg,
-                        targetRir = last?.targetRir))
+                        targetRir = last?.targetRir,targetDurationSeconds=last?.targetDurationSeconds))
                 }) { Text("+ Añadir serie") }
             }
         }
@@ -657,45 +809,30 @@ private fun AddExerciseRow(
  *  escala alternativa y notas. Editan el JSON original del movimiento (ids y demás campos intactos). */
 @Composable
 private fun WodMovementDetails(entry: EntryUi) {
-    var open by remember(entry.itemId) { mutableStateOf(false) }
-    TextButton(modifier = Modifier.testTag("plan_wod_details"), onClick = { open = !open }) {
-        Text(if (open) "Cerrar detalles" else "Detalles del movimiento")
+    TextButton(modifier = Modifier.testTag("plan_wod_details"), onClick = { entry.detailsOpen = !entry.detailsOpen }) {
+        Text(if (entry.detailsOpen) "Cerrar detalles" else "Detalles del movimiento")
     }
-    if (!open) return
-    fun json(): JSONObject = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-        ?: JSONObject().put("id", entry.itemId ?: java.util.UUID.randomUUID().toString())
-            .put("exerciseId", entry.exerciseId).put("name", entry.name).put("isRest", false)
-    fun num(key: String): String = json().let { if (it.has(key) && !it.isNull(key)) it.getDouble(key).toString() else "" }
-    var male by remember(entry.itemId) { mutableStateOf(num("weightMaleKg")) }
-    var female by remember(entry.itemId) { mutableStateOf(num("weightFemaleKg")) }
-    var scale by remember(entry.itemId) { mutableStateOf(json().optString("scaleAlternative")) }
-    var notes by remember(entry.itemId) { mutableStateOf(json().optString("notes")) }
-    fun write(key: String, text: String, numeric: Boolean) {
-        val o = json()
-        val v = if (numeric) text.replace(',', '.').toDoubleOrNull() else text.ifEmpty { null }
-        if (v == null) o.remove(key) else o.put(key, v)
-        entry.sourceJson = o.toString()
-    }
+    if (!entry.detailsOpen) return
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = male, singleLine = true, label = { Text("Peso H (kg)") },
+        OutlinedTextField(value = entry.movementText("weightMaleKg"), singleLine = true, label = { Text("Peso H (kg)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.weight(1f).testTag("plan_wod_male"),
-            onValueChange = { male = it; write("weightMaleKg", it, true) })
-        OutlinedTextField(value = female, singleLine = true, label = { Text("Peso M (kg)") },
+            onValueChange = { entry.setMovementText("weightMaleKg", it, true) })
+        OutlinedTextField(value = entry.movementText("weightFemaleKg"), singleLine = true, label = { Text("Peso M (kg)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.weight(1f).testTag("plan_wod_female"),
-            onValueChange = { female = it; write("weightFemaleKg", it, true) })
+            onValueChange = { entry.setMovementText("weightFemaleKg", it, true) })
     }
-    OutlinedTextField(value = scale, singleLine = true, label = { Text("Escala alternativa") },
+    OutlinedTextField(value = entry.movementText("scaleAlternative"), singleLine = true, label = { Text("Escala alternativa") },
         modifier = Modifier.fillMaxWidth().testTag("plan_wod_scale"),
-        onValueChange = { scale = it; write("scaleAlternative", it, false) })
-    OutlinedTextField(value = notes, singleLine = true, label = { Text("Notas") },
+        onValueChange = { entry.setMovementText("scaleAlternative", it, false) })
+    OutlinedTextField(value = entry.movementText("notes"), singleLine = true, label = { Text("Notas") },
         modifier = Modifier.fillMaxWidth().testTag("plan_wod_notes"),
-        onValueChange = { notes = it; write("notes", it, false) })
+        onValueChange = { entry.setMovementText("notes", it, false) })
 }
 
 /** Mover una entrada a otro bloque (Apple applyReorder): misma clase o conversión fuerza↔WOD con la regla de Apple. */
-private object PlanEntryMoves {
+internal object PlanEntryMoves {
     /** Devuelve un aviso/error para mostrar (null si todo bien y sin pérdidas). El borrador no cambia si rechaza. */
     fun move(
         blocks: MutableList<BlockDraftUi>, from: Int, entryIndex: Int, to: Int,
@@ -710,6 +847,7 @@ private object PlanEntryMoves {
                 return "«" + (nameById[entry.exerciseId] ?: "Ejercicio") + "» ya está en ese bloque de fuerza"
             src.entries.removeAt(entryIndex); dst.entries.add((beforeIndex ?: dst.entries.size).coerceIn(0, dst.entries.size), entry); return null
         }
+        if(src.toDraft()==null) return "Corrige los campos del bloque antes de convertir un movimiento"
         if (srcStrength) {
             val sets = if (entry.setsExpanded || entry.untouchedUniform) entry.plannedSets.toList()
             else (1..(entry.sets.toIntOrNull() ?: 1).coerceIn(1, 30)).map {

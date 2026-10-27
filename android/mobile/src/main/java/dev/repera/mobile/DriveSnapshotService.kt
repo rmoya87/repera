@@ -20,7 +20,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class DriveSnapshotService(
     private val token: String,
     private val local: SnapshotStorage,
-    private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build()
+    private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build(),
+    private val stillAuthorized:()->Boolean = {true}
 ) {
     sealed interface Outcome {
         data object Empty : Outcome
@@ -32,7 +33,14 @@ class DriveSnapshotService(
 
     fun synchronize(): Outcome = CloudSyncGate.driveSync { synchronizeInternal() }
 
+    private fun checkAuthority() {check(stillAuthorized()) {"La cuenta cambió durante la sincronización de Drive"}}
+    private fun applyDownload(expected:ByteArray?,remote:ByteArray):Outcome {
+        checkAuthority()
+        return if(local.replaceIfUnchanged(expected,remote)) Outcome.Downloaded else Outcome.Conflict
+    }
+
     private fun synchronizeInternal(): Outcome {
+        checkAuthority()
         val remoteId = findSingleFile()
         val localBytes = local.read()
         val remoteBytes = remoteId?.let { request(
@@ -40,8 +48,7 @@ class DriveSnapshotService(
         ) }
         if (localBytes == null && remoteBytes == null) return Outcome.Empty
         if (localBytes == null && remoteBytes != null) {
-            local.write(remoteBytes)
-            return Outcome.Downloaded
+            return applyDownload(localBytes,remoteBytes)
         }
         if (localBytes != null && remoteBytes == null) {
             create(localBytes)
@@ -54,8 +61,7 @@ class DriveSnapshotService(
         // A freshly created catalog cannot supersede an existing athlete history,
         // even if that history uses the legacy revision=0 or distant-past date.
         if (isVirgin(localBytes) && !isVirgin(remoteBytes)) {
-            local.write(remoteBytes)
-            return Outcome.Downloaded
+            return applyDownload(localBytes,remoteBytes)
         }
         if (!isVirgin(localBytes) && isVirgin(remoteBytes)) {
             local.preserveRemoteBackup(remoteBytes)
@@ -66,7 +72,7 @@ class DriveSnapshotService(
         // Cualquier otra diferencia local cae al camino normal (con su Conflict).
         when (MirrorRecoveryReconciler.reconcile(
             localBytes, remoteBytes, local.readMirrorProvenance(), Instant.now().toString())) {
-            MirrorRecoveryReconciler.Result.UseRemote -> { local.write(remoteBytes); return Outcome.Downloaded }
+            MirrorRecoveryReconciler.Result.UseRemote -> { return applyDownload(localBytes,remoteBytes) }
             MirrorRecoveryReconciler.Result.NotApplicable -> Unit
         }
         if (divergentTraining(localBytes, remoteBytes)) return Outcome.Conflict
@@ -82,8 +88,8 @@ class DriveSnapshotService(
             update(remoteId, localBytes)
             Outcome.Uploaded
         } else {
-            local.write(remoteBytes) // preserves prior local document as recovery backup
-            Outcome.Downloaded
+            // Compare under the storage lock: never replace edits made during the Drive request.
+            applyDownload(localBytes,remoteBytes)
         }
     }
 
@@ -92,24 +98,8 @@ class DriveSnapshotService(
      * A legacy iOS backup can have revision 0 and no workouts while still holding
      * a body-weight log, preferences or custom exercises: never discard it.
      */
-    private fun isVirgin(bytes: ByteArray): Boolean {
-        val state = JSONObject(String(bytes, Charsets.UTF_8))
-        fun emptyArray(key: String) = state.optJSONArray(key)?.length() == 0
-        fun emptyObject(key: String) = state.optJSONObject(key)?.length() == 0
-        val exercises = state.optJSONArray("exercises") ?: return false
-        return state.optInt("syncRevision", -1) == 0 &&
-            state.optString("updatedAt") == "1970-01-01T00:00:00Z" &&
-            state.optString("lastWriterDeviceId") == "" &&
-            emptyArray("workouts") && emptyArray("routines") &&
-            emptyArray("bodyWeights") && emptyArray("favoriteTimers") &&
-            emptyObject("settings") && emptyObject("exerciseLoadPrefs") &&
-            state.optJSONObject("activeSession") == null &&
-            (exercises.length() == 196 || exercises.length() == 278 ||
-                exercises.length() == 280) &&
-            (0 until exercises.length()).none { index ->
-                exercises.getJSONObject(index).optBoolean("isCustom")
-            }
-    }
+    private fun isVirgin(bytes: ByteArray): Boolean =
+        PristineCatalogState.virgin(JSONObject(String(bytes, Charsets.UTF_8)))
 
     /** Two independent edits must never silently overwrite each other. */
     private fun divergentTraining(local: ByteArray, remote: ByteArray): Boolean {
@@ -179,6 +169,7 @@ class DriveSnapshotService(
     private fun request(
         method: String, path: String, contentType: String? = null, bytes: ByteArray? = null
     ): ByteArray {
+        checkAuthority()
         val body = bytes?.toRequestBody((contentType ?: "application/octet-stream").toMediaType())
         val request = Request.Builder()
             .url(path)
@@ -189,7 +180,9 @@ class DriveSnapshotService(
             if (!response.isSuccessful) {
                 throw IllegalStateException("Google Drive HTTP " + response.code)
             }
-            return response.body?.bytes() ?: byteArrayOf()
+            val received=response.body?.bytes() ?: byteArrayOf()
+            checkAuthority()
+            return received
         }
     }
 

@@ -20,10 +20,12 @@ object BoardScanOcr {
         withContext(Dispatchers.IO) {
             val image = InputImage.fromFilePath(context, uri)
             suspendCancellableCoroutine { cont ->
-                TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                    .process(image)
-                    .addOnSuccessListener { result -> cont.resume(result.text) }
-                    .addOnFailureListener { error -> cont.resumeWithException(error) }
+                val recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                cont.invokeOnCancellation {recognizer.close()}
+                recognizer.process(image)
+                    .addOnSuccessListener { result -> if(cont.isActive) cont.resume(result.text) }
+                    .addOnFailureListener { error -> if(cont.isActive) cont.resumeWithException(error) }
+                    .addOnCompleteListener {recognizer.close()}
             }
         }
 }

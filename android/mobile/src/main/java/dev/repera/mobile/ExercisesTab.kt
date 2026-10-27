@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.domain.SessionSportMetrics
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
@@ -52,6 +53,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import dev.repera.domain.ExerciseEquipmentGroup
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -77,6 +82,7 @@ internal fun ExercisesTab(
     overview: StateOverview?,
     activeWorkout: ActiveWorkout?,
     onQuickLog: (String) -> Unit,
+    onSaveQuickSets:(String,List<QuickLogRow>,String?,String,()->Unit)->Unit = {_,_,_,_,_->},
     onOpenExercise: (String) -> Unit,
     onSetExerciseFavorite: (String, Boolean) -> Unit = { _, _ -> },
     onInitializeLocal: () -> Unit,
@@ -88,12 +94,34 @@ internal fun ExercisesTab(
     modifier: Modifier = Modifier,
     accountId: String = "", onArchiveChanged: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
-    heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() }
+    heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() },
+    exerciseSeries:(String,ExerciseProgressMetric,ExerciseProgressRange)->List<ExerciseProgressPoint> = {_,_,_->emptyList()},
+    onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
+    wodFavorites:Set<String> = emptySet(),
+    onToggleWodFavorite:(String)->Unit = {},
+    onPlayWod:(String,String)->Unit = {_,_->},
+    requestedLibraryMode:String? = null,
+    onLibraryModeRequestConsumed:()->Unit = {}
 ) {
-    var selectedLiveSessionID by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedExerciseId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
+    var quickLogId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
+    val quickLog=quickLogId?.let {id ->overview?.exerciseEntries?.firstOrNull {it.id==id}}
+    quickLog?.let {entry ->
+        val quickContext=LocalContext.current
+        val last=remember(entry.id,overview?.workouts,accountId) {runCatching {
+            val root=org.json.JSONObject(String(LocalSnapshotStore(quickContext,accountId).read()!!))
+            ExerciseLoadGuide.lastWorkingSession(entry.id,root.getJSONArray("workouts").let {a ->(0 until a.length()).map {a.getJSONObject(it)}},root.getJSONArray("exercises"))?.sets?.lastOrNull()
+        }.getOrNull()}
+        QuickLogSheet(entry,accountId,busy,last,{quickLogId=null}) {rows,notes,requestId ->onSaveQuickSets(entry.id,rows,notes,requestId) {quickLogId=null}}
+    }
+    var selectedLiveSessionID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
     var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
-    var selectedSportID by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedSportID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
     var sportSearch by rememberSaveable { mutableStateOf("") }
+    // Entrada desde Progreso ("Deportes · evolución y récords", Apple StatsView): abre el catálogo de deportes una vez.
+    LaunchedEffect(requestedLibraryMode) {
+        requestedLibraryMode?.let {libraryMode=it;selectedSportID=null;onLibraryModeRequestConsumed()}
+    }
     var exerciseSearch by rememberSaveable { mutableStateOf("") }
     var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
     // Ordenación de biblioteca por grupo (paridad ExerciseSortMode iOS):
@@ -105,7 +133,7 @@ internal fun ExercisesTab(
     val routeStore = remember(accountId) {
         if (accountId.isBlank()) null else runCatching { LiveRoutesStore(context, accountId) }.getOrNull()
     }
-    var evolutionRouteID by rememberSaveable { mutableStateOf<String?>(null) }
+    var evolutionRouteID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
     val savedRoutes = remember(routeStore, routeVersion) { routeStore?.routes.orEmpty() }
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     // LazyListScope is not @Composable: calculate the filtered list here,
@@ -136,6 +164,19 @@ internal fun ExercisesTab(
             }.toList()
             .sortedWith { a, b -> LibraryCollator.compare(a.first, b.first) }
     }
+    if(libraryMode=="WODs") {
+        WodLibraryScreen(accountId,busy,wodFavorites,onToggleWodFavorite,{libraryMode="Ejercicios"},
+            onPlay=onPlayWod,canPlay=overview!=null,hasActiveSession=activeWorkout!=null,activeRequestId=activeWorkout?.draftRequestId,history=overview?.wodLibraryHistory.orEmpty(),exercises=overview?.exerciseEntries.orEmpty(),onExercise=onOpenExercise,
+            exerciseDetail={entry,close ->
+                ExerciseDetailScreen(entry,testedOneRM=overview?.testedOneRMByExercise?.get(entry.id),
+                    estimatedOneRM=overview?.exerciseProgress?.get(entry.id)?.estimatedOneRM,
+                    incrementKg=overview?.trainingSettings?.weightIncrementKg ?: 2.5,
+                    onSetTestedOneRM={onSetTestedOneRM(entry.id,it)},busy=busy,onQuickLog={quickLogId=entry.id},
+                    onToggleFavorite={onSetExerciseFavorite(entry.id,!entry.isFavorite)},
+                    exerciseSeries=exerciseSeries,onBack=close)
+            })
+        return
+    }
     if (libraryMode == "Deportes") {
         val selected = selectedSportID?.let { dev.repera.domain.LiveSport.byId(it) }
         Column(modifier.fillMaxSize()) {
@@ -153,13 +194,19 @@ internal fun ExercisesTab(
                             session.activeEnergyKcal?.takeIf { it > 0 }?.let { Text("Energía activa medida: %.0f kcal".format(it)) }
                         }
                     }
+                    item { SessionMovementSection(detail.id) }
+                    item { SessionSportMetricRow(detail) }
+                    item { RouteUnavailableNotice(detail) }
                     item { detail.review?.let { SessionReviewCard(it) } }
-                    if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty()) }
+                    if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty(),
+                        waterSport = detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true) }
                     item {
                         val heart by androidx.compose.runtime.produceState<List<Pair<Long,Int>>>(emptyList(),detail.id) {
                             value=runCatching { heartSeriesProvider(detail.id) }.getOrDefault(emptyList())
                         }
                         HeartRateCurveSection(detail.id,heartSeriesProvider)
+                        SessionRangeTiles("Frecuencia cardiaca",SessionSportMetrics.heartRange(heart.map {it.second}),"lpm")
+                        if (detail.routePoints.size >= 2) SessionRangeTiles("Altitud",SessionSportMetrics.altitudeRange(detail.routePoints),"m")
                         LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds,
                             detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true,
                             detail.routePoints,heart)
@@ -211,15 +258,17 @@ internal fun ExercisesTab(
         }
         return
     }
+    val listContent: @Composable ((String)->Unit)->Unit = {openExercise ->
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Biblioteca", style = MaterialTheme.typography.headlineMedium) }
+        item { Text("Ejercicios", style = MaterialTheme.typography.headlineLarge) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
+                FilterChip(selected=false,onClick={libraryMode="WODs"},label={Text("WODs")})
                 FilterChip(selected = false, onClick = { libraryMode = "Deportes" }, label = { Text("Deportes") })
             }
         }
@@ -277,7 +326,11 @@ internal fun ExercisesTab(
                         modifier = Modifier.padding(top = 4.dp))
                 }
                 items(groupEntries, key = { it.id }) { entry ->
-        Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
+        Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
+            .semantics { selected = selectedExerciseId == entry.id }
+            .clickable { openExercise(entry.id) },
+            colors = CardDefaults.cardColors(containerColor = if (selectedExerciseId == entry.id)
+                MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -350,16 +403,20 @@ internal fun ExercisesTab(
                     }
                 }
                 TextButton(
-                    onClick = { onQuickLog(entry.id); onNavigateHome() },
-                    enabled = !busy && activeWorkout == null && entry.supportsBasicInput
-                ) { Text(if (entry.supportsBasicInput) "Apuntar series" else "Registro avanzado pendiente") }
+                    onClick = { quickLogId=entry.id },
+                    enabled = !busy && entry.supportsBasicInput
+                ) { Text(if (entry.supportsBasicInput) "Apuntar ejercicio" else "Registro avanzado pendiente") }
             }
         }
                 }
             }
         } else {
         items(entries, key = { it.id }) { entry ->
-Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) {
+Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
+    .semantics { selected = selectedExerciseId == entry.id }
+    .clickable { openExercise(entry.id) },
+    colors = CardDefaults.cardColors(containerColor = if (selectedExerciseId == entry.id)
+        MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
     Column(modifier = Modifier.padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically) {
@@ -432,9 +489,9 @@ Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) 
             }
         }
         TextButton(
-            onClick = { onQuickLog(entry.id); onNavigateHome() },
-            enabled = !busy && activeWorkout == null && entry.supportsBasicInput
-        ) { Text(if (entry.supportsBasicInput) "Apuntar series" else "Registro avanzado pendiente") }
+            onClick = { quickLogId=entry.id },
+            enabled = !busy && entry.supportsBasicInput
+        ) { Text(if (entry.supportsBasicInput) "Apuntar ejercicio" else "Registro avanzado pendiente") }
     }
 }
         }
@@ -444,6 +501,32 @@ Card(modifier = Modifier.fillMaxWidth().clickable { onOpenExercise(entry.id) }) 
             AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
     }
+    }
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxSize()) {
+        if(adaptiveCardColumns(maxWidth.value)==2) {
+            Row(Modifier.fillMaxSize().testTag("library_split"),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f).testTag("library_selector")) {listContent {selectedExerciseId=it}}
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f).testTag("library_detail")) {
+                    val selected=overview?.exerciseEntries?.firstOrNull {it.id==selectedExerciseId}
+                    if(selected==null) Column(Modifier.fillMaxWidth().padding(24.dp),
+                        verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                        Text("Selecciona ejercicio",style=MaterialTheme.typography.titleLarge)
+                        Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
+                    } else key(selected.id) {
+                        ExerciseDetailScreen(selected,
+                            testedOneRM=overview?.testedOneRMByExercise?.get(selected.id),
+                            estimatedOneRM=overview?.exerciseProgress?.get(selected.id)?.estimatedOneRM,
+                            incrementKg=overview?.trainingSettings?.weightIncrementKg ?: 2.5,
+                            onSetTestedOneRM={onSetTestedOneRM(selected.id,it)},busy=busy,
+                            onQuickLog={quickLogId=selected.id},exerciseSeries=exerciseSeries,
+                            onToggleFavorite={onSetExerciseFavorite(selected.id,!selected.isFavorite)},
+                            onBack={selectedExerciseId=null})
+                    }
+                }
+            }
+        } else listContent(onOpenExercise)
+    }
+
 }
 
 /**

@@ -13,6 +13,7 @@ import java.util.Locale
 internal class LiveSpokenGuidance(context: Context) {
     private val audio=context.getSystemService(AudioManager::class.java)
     private var ready=false
+    private var pending=0
     private val focus=AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
         .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -21,12 +22,14 @@ internal class LiveSpokenGuidance(context: Context) {
     init {
         tts.setOnUtteranceProgressListener(object:UtteranceProgressListener() {
             override fun onStart(id:String?) {}
-            override fun onDone(id:String?) {audio.abandonAudioFocusRequest(focus)}
-            @Deprecated("TTS legacy callback") override fun onError(id:String?) {audio.abandonAudioFocusRequest(focus)}
+            override fun onDone(id:String?) {finishOne()}
+            @Deprecated("TTS legacy callback") override fun onError(id:String?) {finishOne()}
         })
     }
-    fun speak(message:String):Boolean {
-        if(!ready || tts.isSpeaking) return false
+    @Synchronized private fun finishOne() {pending=maxOf(0,pending-1);if(pending==0) audio.abandonAudioFocusRequest(focus)}
+    /** [queue]: la frase se añade a la cola en vez de rechazarse si ya hay voz (kilómetro tras un giro). */
+    @Synchronized fun speak(message:String,queue:Boolean=false):Boolean {
+        if(!ready || (!queue && tts.isSpeaking)) return false
         val language=tts.setLanguage(Locale("es","ES"))
         if(language==TextToSpeech.LANG_MISSING_DATA || language==TextToSpeech.LANG_NOT_SUPPORTED) return false
         val offline = tts.voices?.filter {
@@ -35,10 +38,10 @@ internal class LiveSpokenGuidance(context: Context) {
         tts.voice = offline
         if(audio.requestAudioFocus(focus)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return false
         tts.setSpeechRate(1.0f)
-        val result=tts.speak(message,TextToSpeech.QUEUE_FLUSH,null,"repera-live-guidance")
-        if(result!=TextToSpeech.SUCCESS) audio.abandonAudioFocusRequest(focus)
+        val result=tts.speak(message,if(queue) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH,null,"repera-live-guidance-"+System.nanoTime())
+        if(result!=TextToSpeech.SUCCESS) {if(pending==0) audio.abandonAudioFocusRequest(focus)} else pending++
         return result==TextToSpeech.SUCCESS
     }
-    fun stop() {tts.stop();audio.abandonAudioFocusRequest(focus)}
+    @Synchronized fun stop() {tts.stop();pending=0;audio.abandonAudioFocusRequest(focus)}
     fun close() {stop();tts.shutdown();ready=false}
 }

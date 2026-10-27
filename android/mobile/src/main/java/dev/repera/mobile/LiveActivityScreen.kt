@@ -75,8 +75,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         val bytes = LocalSnapshotStore(context, accountId).read()
         bytes?.let { LiveSportSnapshot.sessions(org.json.JSONObject(String(it))) }.orEmpty()
     }.getOrDefault(emptyList())).orEmpty() }
-    var title by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var title by remember(accountId) { mutableStateOf("") }
+    var notes by remember(accountId) { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
@@ -186,7 +186,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         val freshPosition = previewPosition?.takeIf { System.currentTimeMillis()-it.recordedAtEpochMs < 15_000 }
         Box(Modifier.fillMaxSize().testTag("live_activity_screen")) {
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
-                isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2,
+                isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2, waterSport = state.sport.isWaterSport,
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
                 onMapRendered = onMapRendered,navigationMode=navigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
@@ -373,7 +373,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
                     Text("Km ${state.activeKilometer} · $current")
                 }
-                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),
+                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),waterSport=state.sport.isWaterSport,
                     plannedPoints=routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty(),onMapRendered=onMapRendered)
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }

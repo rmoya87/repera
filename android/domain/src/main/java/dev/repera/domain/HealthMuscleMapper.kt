@@ -23,6 +23,48 @@ object HealthMuscleMapper {
             else ExternalMuscleStimulus(activity.epochMillis, load)
         }
 
+    /** Apple uniqueExternalActivities (parte de solapamiento): una actividad externa del mismo tipo que una sesión
+     *  «Comenzar» terminada, con inicio a < 90 s y duración a < 3 min, es la misma sesión (p. ej. copia del reloj).
+     *  El vínculo por id lo resuelve el lector (ReperaHealthExclusion). Clave de tipo: LiveSport.healthKey. */
+    fun dropNativeOverlaps(activities: List<ExternalActivity>, workouts: List<StatsWorkout>): List<ExternalActivity> {
+        val natives = workouts.filter { it.finished }.mapNotNull { w ->
+            w.liveSportID?.let(LiveSport::byId)?.let { Triple(it.healthKey, w.epochMillis, w.durationMinutes) }
+        }
+        if (natives.isEmpty()) return activities
+        return activities.filter { a ->
+            natives.none { (key, start, minutes) ->
+                key == a.type && kotlin.math.abs(start - a.epochMillis) < 90_000L &&
+                    kotlin.math.abs(minutes - a.durationMinutes) < 3.0
+            }
+        }
+    }
+
+    /** Las actividades de «Comenzar» no guardan ejercicios: aportan una carga ESTIMADA por deporte y minutos
+     *  activos (Apple nativeSportStimuli, live main). Solo sesiones terminadas con duración > 0. */
+    fun nativeSportStimuli(workouts: List<StatsWorkout>): List<ExternalMuscleStimulus> =
+        workouts.mapNotNull { w ->
+            if (!w.finished) return@mapNotNull null
+            val sport = w.liveSportID?.let(LiveSport::byId) ?: return@mapNotNull null
+            if (w.durationMinutes <= 0) return@mapNotNull null
+            val load = muscleLoad(sport.healthKey, w.durationMinutes)
+            if (load.isEmpty()) null else ExternalMuscleStimulus(w.epochMillis, load)
+        }
+
+    /** Sin RIR medido, solo modalidades interválicas/alta intensidad aportan a la capa «esfuerzo alto». */
+    fun isEstimatedIntense(type: String): Boolean = when (type) {
+        "highIntensityIntervalTraining", "crossTraining", "functionalStrengthTraining",
+        "boxing", "kickboxing", "martialArts", "wrestling" -> true
+        else -> false
+    }
+
+    fun highEffortStimuli(from: List<ExternalActivity>): List<ExternalMuscleStimulus> =
+        stimuli(from.filter { isEstimatedIntense(it.type) })
+
+    fun nativeHighEffortSportStimuli(workouts: List<StatsWorkout>): List<ExternalMuscleStimulus> =
+        nativeSportStimuli(workouts.filter { w ->
+            w.liveSportID?.let(LiveSport::byId)?.let { isEstimatedIntense(it.healthKey) } == true
+        })
+
     fun daySamples(from: List<ExternalActivity>): List<ExternalDaySample> =
         from.map { activity ->
             val mins = maxOf(0.0, activity.durationMinutes)
@@ -40,7 +82,9 @@ object HealthMuscleMapper {
         "swimming", "elliptical", "rowing", "stairClimbing",
         "highIntensityIntervalTraining", "mixedCardio", "crossTraining",
         "dance", "wheelchairRunPace", "paddleSports" -> true
-        "traditionalStrengthTraining", "functionalStrengthTraining" -> false
+        // Estímulo muscular estimado sí; una actividad sin categoría no son minutos de cardio verificados.
+        "traditionalStrengthTraining", "functionalStrengthTraining",
+        "coreTraining", "yoga", "pilates", "flexibility", "cooldown", "other" -> false
         // Deportes y resto: cuentan como cardio para minutos de Progreso.
         else -> true
     }

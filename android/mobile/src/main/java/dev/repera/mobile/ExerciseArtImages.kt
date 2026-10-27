@@ -25,7 +25,7 @@ internal object ExerciseArtImages {
                       aliases: Map<String, String>, captionCount: Int): List<String> {
         val stems = availableStems(context)
         val hero = ExerciseArtResolver.heroFor(name, isMobility, aliases) ?: return emptyList()
-        return ExerciseArtResolver.framesFor(name, hero, captionCount) { it in stems }
+        return ExerciseArtResolver.framesFor(name, hero, captionCount, isMobility) { it in stems }
             .filter { it in stems }
     }
 

@@ -41,11 +41,78 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
     DANCE("dance", "Baile", "figure.dance", "Otros deportes"),
     PILATES("pilates", "Pilates", "figure.pilates", "Otros deportes"),
     SKATEBOARDING("skateboarding", "Skateboard", "figure.skating", "Otros deportes"),
+    BOXING("boxing", "Boxeo", "figure.boxing", "Combate"),
+    KICKBOXING("kickboxing", "Kickboxing", "figure.boxing", "Combate"),
+    MARTIAL_ARTS("martialArts", "Artes marciales", "figure.martial.arts", "Combate"),
+    WRESTLING("wrestling", "Lucha", "figure.martial.arts", "Combate"),
+    BADMINTON("badminton", "Bádminton", "figure.tennis", "Deportes de raqueta"),
+    PICKLEBALL("pickleball", "Pickleball", "figure.tennis", "Deportes de raqueta"),
+    SQUASH("squash", "Squash", "figure.tennis", "Deportes de raqueta"),
+    FUNCTIONAL_STRENGTH("functionalStrength", "Fuerza funcional", "dumbbell", "Cardio y gimnasio"),
+    CORE_TRAINING("coreTraining", "Core", "figure.core.training", "Cardio y gimnasio"),
+    ELLIPTICAL("elliptical", "Elíptica", "figure.mixed.cardio", "Cardio y gimnasio"),
+    STAIR_CLIMBING("stairClimbing", "Subida de escaleras", "figure.mixed.cardio", "Cardio y gimnasio"),
+    AMERICAN_FOOTBALL("americanFootball", "Fútbol americano", "sportscourt", "Deportes de equipo"),
+    BASEBALL("baseball", "Béisbol", "sportscourt", "Deportes de equipo"),
+    SOFTBALL("softball", "Sóftbol", "sportscourt", "Deportes de equipo"),
+    HOCKEY("hockey", "Hockey", "sportscourt", "Deportes de equipo"),
+    LACROSSE("lacrosse", "Lacrosse", "sportscourt", "Deportes de equipo"),
+    RUGBY("rugby", "Rugby", "sportscourt", "Deportes de equipo"),
     YOGA("yoga", "Yoga", "figure.yoga", "Otros deportes"),
     MOBILITY("mobility", "Movilidad", "figure.flexibility", "Otros deportes"),
     OTHER("other", "Otra actividad", "figure.mixed.cardio", "Otros deportes");
 
-    val isSelectable:Boolean get()=this!=GRAVEL && this!=OTHER
+    /** Apple (live main): gravel y «Otra actividad» quedan como respaldo seleccionable. */
+    val isSelectable:Boolean get()=true
+
+    /** Clave de tipo de actividad (misma que usa HealthMuscleMapper); espejo de LiveSport.healthType de Apple. */
+    val healthKey: String
+        get() = when (this) {
+            RUNNING, TRAIL -> "running"
+            CYCLING, MOUNTAIN_BIKE, GRAVEL -> "cycling"
+            WALKING -> "walking"
+            HIKING -> "hiking"
+            CROSSFIT, HYROX -> "crossTraining"
+            STRENGTH -> "traditionalStrengthTraining"
+            FUNCTIONAL_STRENGTH -> "functionalStrengthTraining"
+            CORE_TRAINING -> "coreTraining"
+            ELLIPTICAL -> "elliptical"
+            STAIR_CLIMBING -> "stairClimbing"
+            HIIT -> "highIntensityIntervalTraining"
+            TENNIS, PADEL -> "tennis"
+            BADMINTON -> "badminton"
+            PICKLEBALL -> "pickleball"
+            SQUASH -> "squash"
+            SURFING, WINDSURFING, KITESURFING -> "surfingSports"
+            SWIMMING -> "swimming"
+            KAYAKING, CANOEING -> "paddleSports"
+            ROWING -> "rowing"
+            SAILING -> "sailing"
+            GOLF -> "golf"
+            SKIING -> "downhillSkiing"
+            ICE_SKATING, SKATEBOARDING -> "skatingSports"
+            SNOWBOARDING -> "snowboarding"
+            CROSS_COUNTRY_SKIING -> "crossCountrySkiing"
+            SOCCER -> "soccer"
+            BASKETBALL -> "basketball"
+            VOLLEYBALL -> "volleyball"
+            AMERICAN_FOOTBALL -> "americanFootball"
+            BASEBALL -> "baseball"
+            SOFTBALL -> "softball"
+            HOCKEY -> "hockey"
+            LACROSSE -> "lacrosse"
+            RUGBY -> "rugby"
+            BOXING -> "boxing"
+            KICKBOXING -> "kickboxing"
+            MARTIAL_ARTS -> "martialArts"
+            WRESTLING -> "wrestling"
+            CLIMBING -> "climbing"
+            DANCE -> "dance"
+            PILATES -> "pilates"
+            YOGA -> "yoga"
+            MOBILITY -> "flexibility"
+            OTHER -> "other"
+        }
 
     /** GPS únicamente para modalidades con recorrido exterior verificable.
      *  Ni la piscina, las pistas ni la escalada interior fabrican distancia. */
@@ -58,6 +125,9 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
             else -> false
         }
 
+    /** Apple LiveSport.isWaterSport (live main): selects the water palette of the speed trace. */
+    val isWaterSport: Boolean
+        get() = this in setOf(SURFING, SWIMMING, WINDSURFING, KITESURFING, KAYAKING, ROWING, CANOEING, SAILING)
     val isCycling: Boolean
         get() = this == CYCLING || this == MOUNTAIN_BIKE || this == GRAVEL
 
@@ -103,7 +173,7 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
         val groups: List<String> = listOf(
             "A pie", "Ciclismo", "Fuerza y fitness", "Deportes de raqueta",
             "Deportes acuáticos", "Deportes de invierno", "Deportes de equipo",
-            "Otros deportes"
+            "Combate", "Cardio y gimnasio", "Otros deportes"
         )
 
         val selectableCases:List<LiveSport>
@@ -128,7 +198,12 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
             "windsurfing", "kitesurfing", "kayaking", "rowing", "canoeing",
             "sailing", "iceSkating", "snowboarding", "crossCountrySkiing",
             "soccer", "basketball", "volleyball", "climbing", "dance",
-            "skateboarding", "hiit", "hyrox"
+            "skateboarding", "hiit", "hyrox", "crossfit",
+            "boxing", "kickboxing", "martialArts", "wrestling",
+            "badminton", "pickleball", "squash",
+            "elliptical", "stairClimbing",
+            "americanFootball", "baseball", "softball",
+            "hockey", "lacrosse", "rugby"
         )
     }
 }

@@ -64,4 +64,15 @@ class ExerciseInputModeTest {
         assertEquals(ExerciseInputMode.HSPU_DEFICIT,
             ExerciseInput.mode("HSPU", "Peso corporal", null, "Hombros"))
     }
+    @Test fun appleSupportAndBandRulesNeverInventExternalLoad() {
+        listOf("Burpee over bar" to "Barra", "Remo con banda" to "Banda elástica",
+            "GHD sit-up" to "GHD", "Fondos" to "Paralelas", "Step-up" to "Cajón",
+            "Flexiones" to "Anillas").forEach {(name,equipment) ->
+            assertEquals(name,ExerciseInputMode.REPS_ONLY,ExerciseInput.mode(name,equipment,null,null))
+        }
+        assertEquals(ExerciseInputMode.LOAD_REPS,ExerciseInput.mode("Step-up","Cajón, mancuernas",null,null))
+        assertEquals(ExerciseInputMode.LOAD_REPS,ExerciseInput.mode("Dominadas","Barra de dominadas",null,null))
+        assertEquals(ExerciseInputMode.HSPU_DEFICIT,ExerciseInput.mode("HSPU","Pared",null,null))
+        assertEquals(ExerciseInputMode.REPS_ONLY,ExerciseInput.mode("Custom",null,null,"cardio"))
+    }
 }

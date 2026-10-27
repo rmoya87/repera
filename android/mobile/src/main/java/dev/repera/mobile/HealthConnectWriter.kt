@@ -26,7 +26,7 @@ import java.time.ZoneId
  *  - Sin permiso/disponibilidad: devuelve null y el entreno queda intacto
  *    en local (iOS: "guardar únicamente en Repera").
  *  - NUNCA se escriben kcal ni FC para crear el vínculo. */
-class HealthConnectWriter(private val context: Context) {
+class HealthConnectWriter(private val context: Context,private val stillAuthorized:()->Boolean = {true}) {
 
     /** Devuelve el id del registro de Salud vinculado o null si no hubo
      *  escritura/vínculo (sin permiso, no disponible o fallo). */
@@ -35,14 +35,14 @@ class HealthConnectWriter(private val context: Context) {
         title: String,
         startEpochMs: Long,
         endEpochMs: Long,
-        storedRecordId: String?
+        storedRecordId: String?,
+        exerciseType: Int = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
     ): String? {
-        if (!HealthConnectReader(context).available() || endEpochMs <= startEpochMs) return null
+        if (!stillAuthorized() || !HealthConnectReader(context).available() || endEpochMs <= startEpochMs) return null
         val client = HealthConnectClient.getOrCreate(context)
         val granted = runCatching { client.permissionController.getGrantedPermissions() }
             .getOrNull() ?: return null
-        if (!granted.contains(HealthPermission.getWritePermission(ExerciseSessionRecord::class)))
-            return null
+        if (!stillAuthorized()) return null
         return runCatching {
             val start = Instant.ofEpochMilli(startEpochMs)
             val end = Instant.ofEpochMilli(endEpochMs)
@@ -65,6 +65,7 @@ class HealthConnectWriter(private val context: Context) {
             // Decisión de vínculo en dominio puro (SessionHealthMatcher.resolveLink):
             // el vínculo persistido solo se reusa si pertenece a ESTA sesión y el
             // registro sigue válido; la ambigüedad se excluye ANTES de insertar.
+            if(!stillAuthorized()) return null
             when (val decision = SessionHealthMatcher.resolveLink(
                 sessionId, startEpochMs, endEpochMs, storedRecordId,
                 candidates, context.packageName)) {
@@ -72,14 +73,16 @@ class HealthConnectWriter(private val context: Context) {
                 SessionHealthMatcher.LinkDecision.Skip -> return null
                 SessionHealthMatcher.LinkDecision.Insert -> Unit
             }
+            // Reading/adopting a genuine external workout does not require permission to write.
+            if(!granted.contains(HealthPermission.getWritePermission(ExerciseSessionRecord::class))) return null
             // Escritura idempotente (mismo clientRecordId ⇒ actualiza).
             val zone = ZoneId.systemDefault().rules.getOffset(start)
             val record = ExerciseSessionRecord(
                 startTime = start,
                 startZoneOffset = zone,
                 endTime = end,
-                endZoneOffset = zone,
-                exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
+                endZoneOffset = ZoneId.systemDefault().rules.getOffset(end),
+                exerciseType = exerciseType,
                 title = title,
                 metadata = Metadata.manualEntry(
                     device = null,
@@ -87,7 +90,58 @@ class HealthConnectWriter(private val context: Context) {
                     clientRecordVersion = 0
                 )
             )
+            if(!stillAuthorized()) return null
             client.insertRecords(listOf(record)).recordIdsList.firstOrNull()
         }.getOrNull()
+    }
+
+    companion object {
+        /** Tipo Health Connect de la sesión (Apple workoutHealthType: el deporte de «Comenzar» manda; el resto es
+         *  fuerza). Health Connect no tiene tipo propio para CrossFit, core, pickleball, pádel, kickboxing, lucha ni
+         *  lacrosse: se usa el más cercano (aproximación, no equivalencia verificada con Apple). */
+        fun exerciseTypeFor(sport: dev.repera.domain.LiveSport?): Int {
+            return when (sport) {
+                null -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+                dev.repera.domain.LiveSport.RUNNING, dev.repera.domain.LiveSport.TRAIL -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+                dev.repera.domain.LiveSport.CYCLING, dev.repera.domain.LiveSport.MOUNTAIN_BIKE, dev.repera.domain.LiveSport.GRAVEL -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+                dev.repera.domain.LiveSport.WALKING -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+                dev.repera.domain.LiveSport.HIKING -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
+                dev.repera.domain.LiveSport.CROSSFIT, dev.repera.domain.LiveSport.HYROX, dev.repera.domain.LiveSport.HIIT ->
+                    ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
+                dev.repera.domain.LiveSport.STRENGTH -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+                dev.repera.domain.LiveSport.FUNCTIONAL_STRENGTH, dev.repera.domain.LiveSport.CORE_TRAINING -> ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS
+                dev.repera.domain.LiveSport.ELLIPTICAL -> ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL
+                dev.repera.domain.LiveSport.STAIR_CLIMBING -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING
+                dev.repera.domain.LiveSport.TENNIS, dev.repera.domain.LiveSport.PADEL, dev.repera.domain.LiveSport.PICKLEBALL -> ExerciseSessionRecord.EXERCISE_TYPE_TENNIS
+                dev.repera.domain.LiveSport.BADMINTON -> ExerciseSessionRecord.EXERCISE_TYPE_BADMINTON
+                dev.repera.domain.LiveSport.SQUASH -> ExerciseSessionRecord.EXERCISE_TYPE_SQUASH
+                dev.repera.domain.LiveSport.SURFING, dev.repera.domain.LiveSport.WINDSURFING, dev.repera.domain.LiveSport.KITESURFING -> ExerciseSessionRecord.EXERCISE_TYPE_SURFING
+                dev.repera.domain.LiveSport.SWIMMING -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL
+                dev.repera.domain.LiveSport.KAYAKING, dev.repera.domain.LiveSport.CANOEING -> ExerciseSessionRecord.EXERCISE_TYPE_PADDLING
+                dev.repera.domain.LiveSport.ROWING -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING
+                dev.repera.domain.LiveSport.SAILING -> ExerciseSessionRecord.EXERCISE_TYPE_SAILING
+                dev.repera.domain.LiveSport.GOLF -> ExerciseSessionRecord.EXERCISE_TYPE_GOLF
+                dev.repera.domain.LiveSport.SKIING, dev.repera.domain.LiveSport.CROSS_COUNTRY_SKIING -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
+                dev.repera.domain.LiveSport.ICE_SKATING, dev.repera.domain.LiveSport.SKATEBOARDING -> ExerciseSessionRecord.EXERCISE_TYPE_SKATING
+                dev.repera.domain.LiveSport.SNOWBOARDING -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING
+                dev.repera.domain.LiveSport.SOCCER -> ExerciseSessionRecord.EXERCISE_TYPE_SOCCER
+                dev.repera.domain.LiveSport.BASKETBALL -> ExerciseSessionRecord.EXERCISE_TYPE_BASKETBALL
+                dev.repera.domain.LiveSport.VOLLEYBALL -> ExerciseSessionRecord.EXERCISE_TYPE_VOLLEYBALL
+                dev.repera.domain.LiveSport.AMERICAN_FOOTBALL -> ExerciseSessionRecord.EXERCISE_TYPE_FOOTBALL_AMERICAN
+                dev.repera.domain.LiveSport.BASEBALL -> ExerciseSessionRecord.EXERCISE_TYPE_BASEBALL
+                dev.repera.domain.LiveSport.SOFTBALL -> ExerciseSessionRecord.EXERCISE_TYPE_SOFTBALL
+                dev.repera.domain.LiveSport.HOCKEY -> ExerciseSessionRecord.EXERCISE_TYPE_ICE_HOCKEY
+                dev.repera.domain.LiveSport.RUGBY -> ExerciseSessionRecord.EXERCISE_TYPE_RUGBY
+                dev.repera.domain.LiveSport.BOXING -> ExerciseSessionRecord.EXERCISE_TYPE_BOXING
+                dev.repera.domain.LiveSport.KICKBOXING, dev.repera.domain.LiveSport.MARTIAL_ARTS, dev.repera.domain.LiveSport.WRESTLING ->
+                    ExerciseSessionRecord.EXERCISE_TYPE_MARTIAL_ARTS
+                dev.repera.domain.LiveSport.CLIMBING -> ExerciseSessionRecord.EXERCISE_TYPE_ROCK_CLIMBING
+                dev.repera.domain.LiveSport.DANCE -> ExerciseSessionRecord.EXERCISE_TYPE_DANCING
+                dev.repera.domain.LiveSport.PILATES -> ExerciseSessionRecord.EXERCISE_TYPE_PILATES
+                dev.repera.domain.LiveSport.YOGA -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+                dev.repera.domain.LiveSport.MOBILITY -> ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING
+                dev.repera.domain.LiveSport.LACROSSE, dev.repera.domain.LiveSport.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+            }
+        }
     }
 }

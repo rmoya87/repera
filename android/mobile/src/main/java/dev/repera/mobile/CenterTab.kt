@@ -56,9 +56,10 @@ internal fun CenterTab(
     directorySearching:Boolean = false,
     onSearchDirectory:(String)->Unit = {},
     onRequestLink:(BusinessCenterStore.Organization,String,String?)->Unit = {_,_,_->},
-    onLeave:(BusinessCenterStore.Organization)->Unit = {}
+    onLeave:(BusinessCenterStore.Organization)->Unit = {},
+    accountId:String = ""
 ) {
-    var showDirectory by remember {mutableStateOf(false)}
+    var showDirectory by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf(false)}
     var detail by remember {mutableStateOf<BusinessCenterStore.Organization?>(null)}
     var section by remember { mutableStateOf("class") }
     var pendingCancellation by remember {
@@ -282,7 +283,7 @@ internal fun CenterTab(
         )
     }
     if(showDirectory) CenterDirectoryDialog(connected,directory,directorySearching,submitting,
-        snapshot?.athleteCenterIds.orEmpty(),onSearchDirectory,onRequestLink,{showDirectory=false},errorMessage)
+        snapshot?.athleteCenterIds.orEmpty(),onSearchDirectory,onRequestLink,{showDirectory=false},errorMessage,accountId)
     detail?.let {center -> LinkedCenterDialog(center,snapshot,submitting,onLeave,{detail=null},
         sharingByCenter[center.id]==true,sharingUpdating,{onSetSharing(center.id,it)},errorMessage)}
 }

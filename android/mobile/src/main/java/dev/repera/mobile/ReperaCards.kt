@@ -11,6 +11,8 @@ import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
@@ -180,6 +182,7 @@ internal fun ActiveWorkoutCard(
                 style = MaterialTheme.typography.titleMedium)
             Text("${active.completedSets} series registradas")
             active.sets.forEachIndexed { index, set ->
+                if (active.liveRows != null && set.phase == "work") return@forEachIndexed
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     Text((if (set.phase == "warmup") "Calentamiento" else "Serie") +
@@ -207,6 +210,34 @@ internal fun ActiveWorkoutCard(
                             onDeleteSet(set.id)
                         }, enabled = !busy) { Text("Eliminar") }
                     }
+                }
+            }
+            val removePending = LocalRemovePendingSet.current
+            val editPendingSet = LocalEditPendingSet.current
+            var editingPendingId by remember(active.id, active.index) { mutableStateOf<String?>(null) }
+            var pendingReps by remember(active.id, active.index) { mutableStateOf("") }
+            var pendingWeight by remember(active.id, active.index) { mutableStateOf("") }
+            (if (active.liveRows == null) active.pendingSets else emptyList()).forEachIndexed { index, pending ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Pendiente ${active.sets.count { it.phase == "work" } + index + 1}: ${pending.reps} " +
+                        when (active.quantityUnit) { "calories" -> "cal"; "meters" -> "m"; else -> "reps" } +
+                        (pending.weightKg?.let { " · $it kg" } ?: ""),
+                        style = MaterialTheme.typography.bodyMedium)
+                    Row {
+                        TextButton(onClick = { editingPendingId = if (editingPendingId == pending.id) null else pending.id
+                            pendingReps = pending.reps.toString(); pendingWeight = pending.weightKg?.toString() ?: "" }, enabled = !busy) { Text("Editar") }
+                        TextButton(onClick = { removePending(pending.id) }, enabled = !busy) { Text("Quitar serie") }
+                    }
+                }
+                if (editingPendingId == pending.id) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(pendingReps, { pendingReps = it.filter(Char::isDigit) }, label = { Text("Reps") }, singleLine = true, modifier = Modifier.weight(1f))
+                        if (active.allowsWeight) OutlinedTextField(pendingWeight, { pendingWeight = it }, label = { Text("kg") }, singleLine = true, modifier = Modifier.weight(1f))
+                    }
+                    val kg = pendingWeight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
+                    val okKg = pendingWeight.isBlank() || (kg != null && kg.isFinite() && kg >= 0)
+                    TextButton(enabled = !busy && okKg && pendingReps.toIntOrNull() != null, onClick = {
+                        editPendingSet(pending.id, pendingReps.toInt(), kg); editingPendingId = null }) { Text("Guardar serie pendiente") }
                 }
             }
             if (editingId != null) {
@@ -274,6 +305,13 @@ internal fun ActiveWorkoutCard(
                     }, enabled = !busy && editValid) { Text("Guardar corrección") }
                 }
             }
+            var showClassic by remember(active.id, active.index) { mutableStateOf(false) }
+            active.liveRows?.let { rows ->
+                LiveSetRows(active, rows, effortUnit)
+                FilterChip(selected = showClassic, onClick = { showClassic = !showClassic },
+                    label = { Text("Calentamiento o técnica (dropset, rest-pause)") })
+            }
+            if (active.liveRows == null || showClassic) {
             OutlinedTextField(
                 value = quantity,
                 onValueChange = { quantity = it.filter { char -> char.isDigit() } },
@@ -432,6 +470,7 @@ internal fun ActiveWorkoutCard(
                 enabled = !busy && valid && validTechnique,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar serie") }
+            }
             OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                 Text(if (active.index + 1 == active.total) "Terminar último ejercicio" else "Siguiente ejercicio")
             }
@@ -819,7 +858,7 @@ internal fun ScheduledRoutineCard(
             }
             if (editing) {
                 OutlinedTextField(
-                    value = editTitle, onValueChange = { editTitle = it.take(100) },
+                    value = editTitle, onValueChange = { editTitle = it },
                     label = { Text("Nombre") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
                 Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1140,7 +1179,7 @@ internal fun RoutineCreatorCard(
                     restSeconds.toIntOrNull()?.let { it in 0..600 } == true)
             Button(
                 enabled = !busy && title.trim().isNotEmpty() &&
-                    title.trim().length <= 100 && chosen.isNotEmpty() &&
+                    chosen.isNotEmpty() &&
                     (kind == "strength" || (validCap && validRounds && validIntervals &&
                         validLadder)) &&
                     validDate && validClock,
@@ -1199,7 +1238,7 @@ internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
         .withLocale(java.util.Locale("es", "ES"))
 
 @Composable
-internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, onSelect: (LocalDate) -> Unit) {
+internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
@@ -1212,7 +1251,10 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, onSelec
                 Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
                     "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
                     style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 12.dp))
+                    modifier = Modifier.padding(top = 12.dp).let { m ->
+                        // Apple PlanView weekSelector: tocar la etiqueta vuelve a la semana actual.
+                        if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
+                    })
                 TextButton(onClick = { onSelect(selected.plusWeeks(1)) }) {
                     Text("Semana ›")
                 }
@@ -1228,6 +1270,9 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, onSelec
                     // envolvía los números de dos cifras ("1/9" en vez de 19).
                     // Letra 11sp sobre número 17sp como calendarDayColumn (iOS).
                     val isSelected = day == selected
+                    // Apple HomeView (6ac9f0e4/b75ecbcb): punto SOLO si hay entreno finalizado (Repera o Salud);
+                    // seleccionar no cambia su visibilidad y el hueco se reserva siempre.
+                    val hasCompleted = day in completedDays
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -1238,6 +1283,9 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, onSelec
                                 else androidx.compose.ui.graphics.Color.Transparent
                             )
                             .clickable { onSelect(day) }
+                            .semantics(mergeDescendants = true) {
+                                if (hasCompleted) stateDescription = "Entrenamiento completado"
+                            }
                             .padding(vertical = 8.dp)
                     ) {
                         Text(days[index], fontSize = 11.sp,
@@ -1246,6 +1294,8 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, onSelec
                         Text("${day.dayOfMonth}", fontSize = 17.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             maxLines = 1, softWrap = false)
+                        Box(Modifier.padding(top = 2.dp).size(4.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(if (hasCompleted) brandGreen else androidx.compose.ui.graphics.Color.Transparent))
                     }
                 }
             }
@@ -1463,11 +1513,15 @@ internal fun WorkoutHistoryCard(
                 workout.review?.let { SessionReviewCard(it) }
                 // Curva de pulso de la sesión (extras.heartRateSeries iOS):
                 // solo se muestra con datos de Salud (≥2 muestras).
+                SessionMovementSection(workout.id)
+                SessionSportMetricRow(workout)
+                RouteUnavailableNotice(workout)
                 HeartRateCurveSection(workout.id, heartSeriesProvider)
                 // Ruta GPS: distancia/desnivel/splits y perfil de altitud
                 // (CardioRouteComponents iOS; el análisis es 1:1 en dominio).
                 if (workout.routePoints.size >= 2) {
-                    CardioRouteSection(workout.routePoints, showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty())
+                    CardioRouteSection(workout.routePoints, showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
+                        waterSport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true)
                 }
                 val splitHeart by produceState<List<Pair<Long,Int>>>(emptyList(),workout.id,workout.liveKilometerSplitsSeconds) {
                     if (workout.liveKilometerSplitsSeconds.isNotEmpty())
@@ -1627,7 +1681,7 @@ internal fun BenchmarkWodPicker(
  *  Distancia/desnivel/splits del dominio; perfil dibujado en Canvas. El mapa
  *  nativo de la ruta es un sub-gap pendiente de componente. */
 @Composable
-internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>, showComputedSplits: Boolean = true) {
+internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>, showComputedSplits: Boolean = true, waterSport: Boolean = false) {
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
             dev.repera.domain.CardioRouteAnalysis.Sample(
@@ -1642,7 +1696,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
         Text("Ruta", style = MaterialTheme.typography.titleMedium)
         // Mapa nativo con la polilínea coloreada por velocidad (paridad
         // HealthWorkoutRouteMap iOS; no interactivo en el detalle, como iOS).
-        RouteMapView(points = points, isInteractive = false,
+        RouteMapView(points = points, isInteractive = false, waterSport = waterSport,
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .clip(RoundedCornerShape(10.dp)))
         Row(

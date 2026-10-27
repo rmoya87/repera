@@ -33,6 +33,8 @@ internal class WodTimerService : Service() {
         override fun run() {
             if (!ticking) return
             val specData = lastSpec
+            val key=lastStoreKey
+            if(key==null || !serviceIdentityCurrent(key.third,identityRevision)) {stopSelf();return}
             val state = lastStoreKey?.let { (sessionId, index, user) ->
                 WodTimerStore(this@WodTimerService, user).read(sessionId, index)
             }
@@ -55,6 +57,11 @@ internal class WodTimerService : Service() {
     }
 
     private data class ServiceSpec(val spec: WodClockSpec, val title: String)
+    private var identityRevision:String?=null
+    private fun serviceIdentityCurrent(owner:String,revision:String?):Boolean {
+        val sessions=SessionStore(this)
+        return sessions.identityRevision()==revision && sessions.load()?.uniqueId==owner
+    }
     private var lastSpec: ServiceSpec? = null
     private var lastStoreKey: Triple<String, Int, String>? = null
 
@@ -72,6 +79,12 @@ internal class WodTimerService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        val sessions=SessionStore(this)
+        val revision=sessions.identityRevision()
+        if(!serviceIdentityCurrent(user,revision) || revision!=intent.getStringExtra(EXTRA_IDENTITY_REVISION)) {
+            stopSelf();return START_NOT_STICKY
+        }
+        identityRevision=revision
         val spec = WodClockSpec(
             format = format,
             blockTimeCapMinutes = intent.getIntExtra(EXTRA_CAP, -1).takeIf { it >= 0 },
@@ -90,7 +103,7 @@ internal class WodTimerService : Service() {
             ticking = true
             handler.post(tick)
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -145,6 +158,7 @@ internal class WodTimerService : Service() {
         private const val CHANNEL_ID = "repera.timers"
         private const val NOTIFICATION_ID = 4202
         const val ACTION_START = "dev.repera.mobile.action.WOD_TIMER_START"
+        private const val EXTRA_IDENTITY_REVISION="identityRevision"
         private const val EXTRA_SESSION_ID = "sessionId"
         private const val EXTRA_BLOCK_INDEX = "blockIndex"
         private const val EXTRA_GOOGLE_USER = "googleUser"
@@ -169,7 +183,12 @@ internal class WodTimerService : Service() {
                 context.stopService(Intent(context, WodTimerService::class.java))
                 return
             }
+            val sessions=SessionStore(context)
+            if(sessions.load()?.uniqueId!=googleUser) {
+                context.stopService(Intent(context,WodTimerService::class.java));return
+            }
             val intent = Intent(context, WodTimerService::class.java)
+                .putExtra(EXTRA_IDENTITY_REVISION,sessions.identityRevision())
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_SESSION_ID, active.id)
                 .putExtra(EXTRA_BLOCK_INDEX, active.index)

@@ -57,6 +57,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private val messageClient by lazy { Wearable.getMessageClient(this) }
     private val pendingStore by lazy { WearPendingSetStore(this) }
+    private val pendingFinish by lazy {WearPendingFinishStore(this)}
     private var repsInput by mutableStateOf(0)
     private var weightInput by mutableStateOf<Double?>(null)
     private var rirInput by mutableStateOf<Double?>(null)
@@ -75,26 +76,53 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var wodTickSeconds by mutableStateOf(0)
     private var wodTickJob: kotlinx.coroutines.Job? = null
     private var restJob: kotlinx.coroutines.Job? = null
+    private val restClock=dev.repera.domain.RestCountdown()
     private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
-    private val healthSession by lazy {
-        WearHealthSession(this).apply {
-            onUpdate = { runOnUiThread {
-                health = heartRateBpm to energyKcal
-            } }
+    private var healthConnection:WearHealthService.Connection?=null
+    private var healthBound=false
+    private var pauseSensorsIntent:dev.repera.domain.WearStartPauseIntent?=null
+    private val healthServiceConnection=object:android.content.ServiceConnection {
+        override fun onServiceConnected(name:android.content.ComponentName,binder:android.os.IBinder) {
+            healthConnection=binder as WearHealthService.Connection
+            healthConnection?.observe {state ->runOnUiThread {
+                health=if(state.sessionId==visibleSession?.sessionId) state.heart to state.energy else null
+                // Apple startToday + selectBlock pauses HealthKit; decision logic is WearStartPauseIntent (JVM-tested).
+                pauseSensorsIntent?.let {intent ->
+                    when(intent.onSensorState(visibleSession?.sessionId,state.sessionId,state.recording,state.paused,sessionPaused)) {
+                        dev.repera.domain.WearStartPauseIntent.Decision.PAUSE -> healthConnection?.pause(intent.sessionId,true)
+                        dev.repera.domain.WearStartPauseIntent.Decision.DROP -> pauseSensorsIntent=null
+                        dev.repera.domain.WearStartPauseIntent.Decision.WAIT -> {}
+                    }
+                }
+                state.problem?.let {sendStatus=it}
+            }}
+            if(visibleSession!=null) ensureHealthRecording()
         }
+        override fun onServiceDisconnected(name:android.content.ComponentName) {healthConnection=null;health=null}
     }
 
+    private var sensorRevision=0L
+    private val pendingSensorPermission=dev.repera.domain.PendingSessionRequest()
     private val sensorPermissions = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts
             .RequestMultiplePermissions()
     ) { grants ->
-        if (grants[android.Manifest.permission.BODY_SENSORS] == true) {
-            lifecycleScope.launch { runCatching { healthSession.start() } }
+        if (!pendingSensorPermission.consume(visibleSession?.sessionId,sensorRevision)) {
+            sendStatus="La sesión cambió; vuelve a solicitar sensores desde el reloj"
+            return@registerForActivityResult
+        }
+        if (visibleSession!=null && WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all {permission ->
+            grants[permission]==true || androidx.core.content.ContextCompat.checkSelfPermission(this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED
+        }) {
+            startHealthForCurrentSession()
         }
     }
+    private var transportRevision=0L
     private var confirmDiscardPending by mutableStateOf(false)
     private var pendingCount by mutableStateOf(0)
     private var sendStatus by mutableStateOf<String?>(null)
+    private var warmupInput by mutableStateOf(false)
+    private var failureInput by mutableStateOf(false)
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
@@ -111,9 +139,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             val restored = runCatching { WatchSessionSummary.fromJson(JSONObject(cached)) }.getOrNull()
             if (restored != null) {
                 visibleSession = restored
+                seedDraft(restored)
+                restoreDraft(restored)
+                restoreRest(restored)
                 showingCachedSession = true
             } else {
-                sessionCache.edit().remove("snapshot").apply()
+                sessionCache.edit().remove("snapshot").remove("inputDraft").remove("restState").apply()
             }
         }
         sessionCache.getString("todayPlan", null)?.let { cached ->
@@ -148,7 +179,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 deficitInput = deficitInput,
                                 pendingCount = pendingCount,
                                 confirmDiscardPending = confirmDiscardPending,
-                                sendStatus = sendStatus
+                                sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput
                             ),
                             callbacks = WearHomeCallbacks(
                                 onDismissFinished = { finished ->
@@ -157,48 +188,41 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     finishedSummary = null
                                 },
                                 onStartTodayPlan = { startTodayPlan() },
+                                onStartTodayPlanAt = { startTodayPlan(it) },
                                 onTogglePause = { togglePause() },
+                                onSelectBlock = { session, index -> requestSelectBlock(session, index) },
                                 onFinishSession = { session -> finishSessionFromWatch(session) },
                                 onSkipRest = { skipRest() },
-                                onRepsMinus = {
-                                    if (visibleSession?.prescribedReps == null) {
-                                        repCounter.applyManualDelta(-1)
-                                        repsInput = repCounter.count
-                                    } else {
-                                        repsInput = (repsInput - 1).coerceAtLeast(0)
-                                    }
-                                },
-                                onRepsPlus = {
-                                    if (visibleSession?.prescribedReps == null) {
-                                        repCounter.applyManualDelta(1)
-                                        repsInput = repCounter.count
-                                    } else {
-                                        repsInput = (repsInput + 1).coerceAtMost(10000)
-                                    }
-                                },
+                                onRepsMinus = { adjustQuantity(-1) },
+                                onRepsPlus = { adjustQuantity(1) },
                                 onWeightDelta = { delta ->
-                                    weightInput = ((weightInput ?: 0.0) + delta)
+                                    weightInput = (kotlin.math.round(((weightInput ?: 0.0) + delta)*10.0)/10.0)
                                         .coerceAtLeast(0.0).coerceAtMost(2000.0)
+                                    persistDraft()
                                 },
                                 onRirMinus = {
-                                    rirInput = ((rirInput ?: 3.0) - 1).coerceAtLeast(0.0)
+                                    rirInput = ((rirInput ?: 3.0) - 1).coerceAtLeast(0.0);failureInput=rirInput==0.0
+                                    persistDraft()
                                 },
                                 onRirPlus = {
-                                    rirInput = ((rirInput ?: 1.0) + 1).coerceAtMost(5.0)
+                                    rirInput = ((rirInput ?: 1.0) + 1).coerceAtMost(5.0);failureInput=false
+                                    persistDraft()
                                 },
-                                onRirClear = { rirInput = null },
+                                onRirClear = { rirInput = null;failureInput=false;persistDraft() },
+                                onToggleWarmup={warmupInput=!warmupInput;if(warmupInput) failureInput=false;persistDraft()},
+                                onToggleFailure={failureInput=!failureInput;if(failureInput) rirInput=0.0;persistDraft()},
                                 onDurationDelta = { delta ->
-                                    durationInput = (durationInput + delta).coerceAtLeast(5)
+                                    durationInput = (durationInput + delta).coerceIn(5, 86400)
+                                    persistDraft()
                                 },
                                 onCycleUnit = {
-                                    unitInput = when (unitInput) {
-                                        "reps" -> "calories"
-                                        "calories" -> "meters"
-                                        else -> "reps"
-                                    }
+                                    val session=visibleSession
+                                    unitInput=if(session?.allowsUnitToggle==true) {if(unitInput=="calories") "meters" else "calories"} else session?.quantityUnit ?: "reps"
+                                    persistDraft()
                                 },
                                 onDeficitDelta = { delta ->
-                                    deficitInput = (deficitInput + delta).coerceAtLeast(0)
+                                    deficitInput = (deficitInput + delta).coerceIn(0, 60)
+                                    persistDraft()
                                 },
                                 onQueueSet = { session -> queueSet(session) },
                                 onResendPending = { resendPending() },
@@ -206,6 +230,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onDiscardPending = {
                                     val dropped = runCatching {
                                         pendingStore.clear()
+                                        transportRevision++
                                         pendingCount = 0
                                     }.isSuccess
                                     confirmDiscardPending = false
@@ -223,6 +248,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onStart() {
         super.onStart()
+        healthBound=bindService(android.content.Intent(this,WearHealthService::class.java),healthServiceConnection,android.content.Context.BIND_AUTO_CREATE)
         motionSensor?.let { sensor ->
             sensorManager?.registerListener(this, sensor, 40_000)
         }
@@ -257,6 +283,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onStop() {
+        persistDraft()
+        persistRest()
+        healthConnection?.observe(null);healthConnection=null
+        if(healthBound) {unbindService(healthServiceConnection);healthBound=false}
         sensorManager?.unregisterListener(this)
         messageClient.removeListener(this)
         dataClient.removeListener(this)
@@ -286,6 +316,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if(event.path=="/repera/session-finish-ack") {
+            val ack=runCatching {JSONObject(String(event.data,Charsets.UTF_8))}.getOrNull() ?: return
+            if(ack.optString("status")=="saved") runOnUiThread {
+                runCatching {if(pendingFinish.sessionId()==ack.optString("sessionId")) {pendingFinish.acknowledge(ack.optString("sessionId"));sendStatus="Fin confirmado por el teléfono"}}.onSuccess {}
+                    .onFailure {sendStatus="No se pudo guardar la confirmación; se reintentará sin duplicar"}
+            }
+            return
+        }
         if (event.path != "/repera/log-set-ack") return
         val ack = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
             ?: return
@@ -297,6 +335,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         pendingStore.remove(id)
                         pendingCount = pendingStore.count()
                     }.isSuccess
+                    if(cleared) resendFinish()
                     sendStatus = when {
                         !cleared -> "No se pudo confirmar la serie; permanece en el reloj"
                         pendingCount == 0 -> "Series sincronizadas"
@@ -319,7 +358,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      */
     override fun onSensorChanged(event: SensorEvent) {
         val session = visibleSession ?: return
-        if (!session.canLogOnWatch || session.inputMode != "strength" ||
+        if (!session.canLogOnWatch || !dev.repera.domain.WatchQuantityPolicy.usesMotion(session.inputMode) ||
             session.wodFormatLabel != null || sessionPaused || restRemaining > 0) return
         val x = event.values[0]; val y = event.values[1]; val z = event.values[2]
         val magnitudeG = kotlin.math.sqrt(
@@ -332,6 +371,51 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    private fun adjustQuantity(delta: Int) {
+        val session = visibleSession ?: return
+        if (sessionPaused) return
+        // Non-motion drafts (including a hold seeded to one) must not use a
+        // zero-based repCounter as their source when the user taps +/-.
+        val previous = repsInput
+        repsInput = dev.repera.domain.WatchQuantityPolicy.adjusted(previous, delta)
+        if (session.prescribedReps == null &&
+            dev.repera.domain.WatchQuantityPolicy.usesMotion(session.inputMode)) {
+            repCounter.applyManualDelta(repsInput - previous)
+        }
+        persistDraft()
+    }
+
+    private fun seedDraft(summary:WatchSessionSummary) {
+        repsInput=if(summary.mobilityHold) 1 else summary.prescribedReps ?: 0
+        weightInput=summary.prescribedWeightKg.takeIf {summary.allowsWeight}
+        warmupInput=false;failureInput=summary.prescribedRir==0.0
+        rirInput=summary.prescribedRir;unitInput=summary.quantityUnit
+        durationInput=summary.prescribedDurationSeconds ?: if(summary.mobilityHold) 30 else 60
+        deficitInput=summary.prescribedDeficitCm ?: 0
+    }
+
+    private fun persistDraft() {
+        val session=visibleSession ?: return
+        val draft=runCatching { dev.repera.domain.WatchInputDraft(
+            session.sessionId,session.exerciseIndex,session.recordedTotalSets,repsInput,
+            weightInput,rirInput,durationInput,unitInput,deficitInput,warmupInput,failureInput)
+        }.getOrNull() ?: return
+        if(!sessionCache.edit().putString("inputDraft",draft.encode()).commit())
+            sendStatus="No se pudo guardar el borrador; no se ha confirmado ninguna serie"
+    }
+
+    private fun restoreDraft(summary:WatchSessionSummary) {
+        val draft=sessionCache.getString("inputDraft",null)?.let {
+            dev.repera.domain.WatchInputDraft.decode(it)
+        } ?: return
+        if(!draft.matches(summary.sessionId,summary.exerciseIndex,summary.recordedTotalSets)) return
+        repsInput=draft.quantity;weightInput=draft.weightKg.takeIf {summary.allowsWeight}
+        rirInput=draft.rir;durationInput=draft.durationSeconds;unitInput=draft.unit
+        deficitInput=draft.deficitCm;warmupInput=draft.warmup;failureInput=draft.toFailure
+        if(summary.prescribedReps==null && dev.repera.domain.WatchQuantityPolicy.usesMotion(summary.inputMode))
+            repCounter.applyManualDelta(draft.quantity)
+    }
 
     private fun showTodayPlan(bytes: ByteArray?) {
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
@@ -350,43 +434,74 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      * activa en el teléfono (startToday de watchOS). Las series se encolan con
      * la sesión adjunta y el teléfono la adopta al reconciliar.
      */
-    private fun startTodayPlan() {
-        val plan = todayPlanJson ?: return
+    private fun startTodayPlan(startIndex: Int = 0) {
+        if(visibleSession!=null || runCatching {pendingFinish.sessionId()!=null}.getOrDefault(true)) {
+            sendStatus="Hay una sesión activa o pendiente de terminar";return
+        }
+        val prescription = todayPlanJson ?: return
+        val begun=runCatching {dev.repera.domain.WatchPlanExecution.begin(prescription)}.getOrElse {
+            sendStatus="No se pudo iniciar el plan: ${it.localizedMessage}";return
+        }
+        // Apple startToday + selectBlock(startingAt:): jump without completing skipped work.
+        val plan=if(startIndex>0) dev.repera.domain.WatchPlanExecution.select(begun,startIndex) ?: begun else begun
         val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrNull()
             ?: return
+        if(!sessionCache.edit().putString("snapshot",plan.toString()).putBoolean("watchStarted",true)
+                .remove("todayPlan").remove("inputDraft").remove("restState").commit()) {
+            sendStatus="No se pudo guardar el inicio en el reloj";return
+        }
+        sensorRevision++
+        sessionPaused=false
+        restJob?.cancel();restClock.clear();restRemaining=0
+        wodTickJob?.cancel();wodTimerJson=null;wodTickSeconds=0
+        finishedSummary=null
+        warmupInput=false;failureInput=false
         visibleSession = summary
+        seedDraft(summary)
         showingCachedSession = false
         watchStartedSession = true
         repCounter.reset()
-        sessionCache.edit()
-            .putString("snapshot", plan.toString())
-            .putBoolean("watchStarted", true)
-            .remove("todayPlan")
-            .apply()
         todayPlanJson = null
         ensureHealthRecording()
+        if (plan !== begun) {
+            // Apple startToday + selectBlock leaves the block in `ready` until Play. Equivalent here: paused, so no set
+            // can be confirmed before "Reanudar". Sensors pause once the async service confirms recording (pauseSensorsIntent).
+            sessionPaused = true
+            restClock.pause(SystemClock.elapsedRealtime())
+            persistRest()
+            pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
+        }
     }
 
     /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
     private fun finishSessionFromWatch(session: WatchSessionSummary) {
-        val payload = JSONObject().put("sessionId", session.sessionId)
-            .toString().toByteArray(Charsets.UTF_8)
-        Wearable.getNodeClient(this).connectedNodes
-            .addOnSuccessListener { nodes ->
-                if (nodes.isEmpty()) {
-                    sendStatus = "Sin teléfono: la sesión sigue activa en el reloj"
-                    return@addOnSuccessListener
-                }
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(this)
-                        .sendMessage(node.id, "/repera/session-finish", payload)
-                }
-                sendStatus = "Terminando sesión en el teléfono…"
-            }
+        if(visibleSession?.sessionId!=session.sessionId) {
+            sendStatus="La sesión cambió; revisa el entrenamiento antes de terminar";return
+        }
+        runCatching {pendingFinish.queue(session.sessionId)}.onFailure {
+            sendStatus="No se pudo guardar la petición de terminar: ${it.localizedMessage}";return
+        }
+        sendStatus="Fin guardado en el reloj; esperando confirmar series y teléfono"
+        resendPending()
+    }
+
+    private fun resendFinish() {
+        val sessionId=runCatching {pendingFinish.sessionId()}.getOrNull() ?: return
+        // Never race finish against unacknowledged sets for this session.
+        if(runCatching {pendingStore.all().any {it.optString("sessionId")==sessionId}}.getOrDefault(true)) return
+        val revision=transportRevision
+        val payload=JSONObject().put("sessionId",sessionId).toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener {nodes ->
+            if(revision!=transportRevision || runCatching {pendingFinish.sessionId()!=sessionId}.getOrDefault(true)) return@addOnSuccessListener
+            if(nodes.isEmpty()) {sendStatus="Fin pendiente de conexión; conservado en el reloj";return@addOnSuccessListener}
+            nodes.forEach {node ->Wearable.getMessageClient(this).sendMessage(node.id,"/repera/session-finish",payload)}
+            sendStatus="Fin enviado; esperando confirmación del teléfono"
+        }
     }
 
     private fun showWodTimer(bytes: ByteArray?) {
         wodTickJob?.cancel()
+        wodTickSeconds=0
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
             runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
         }
@@ -408,19 +523,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun queueSet(session: WatchSessionSummary) {
+        if(visibleSession?.sessionId!=session.sessionId || visibleSession?.exerciseIndex!=session.exerciseIndex) return
+        if(sessionPaused) {sendStatus="Reanuda la sesión antes de confirmar una serie";return}
+        if(runCatching {pendingFinish.sessionId()==session.sessionId}.getOrDefault(true)) {
+            sendStatus="La sesión está pendiente de terminar; no se añaden más series";return
+        }
         if (!session.canLogOnWatch || session.wodFormatLabel != null ||
             repsInput !in 1..10000) return
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-                repsInput, weightInput, rirInput,
-                durationSeconds = if (session.inputMode == "repsAndTime")
+                repsInput, weightInput, if(session.inputMode in setOf("strength","hspuDeficit","repsOnly") && !warmupInput) rirInput else null,
+                durationSeconds = if (session.inputMode in setOf("repsAndTime","machineWork"))
                     durationInput else null,
-                quantityUnit = if (session.inputMode == "machineWork")
+                quantityUnit = if (session.inputMode in setOf("machineWork","loadDistance"))
                     unitInput else null,
                 deficitCm = if (session.inputMode == "hspuDeficit")
                     deficitInput else null,
                 sessionJson = if (watchStartedSession)
-                    sessionCache.getString("snapshot", null) else null)
+                    sessionCache.getString("snapshot", null) else null,
+                warmup=warmupInput && session.inputMode in setOf("strength","hspuDeficit","repsOnly"),toFailure=failureInput && !warmupInput && session.inputMode in setOf("strength","hspuDeficit","repsOnly"))
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
@@ -431,46 +552,132 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
         repCounter.reset()
         if (session.prescribedReps == null) repsInput = 0
-        if (session.restSeconds > 0 &&
-            session.recordedSets + 1 < session.plannedWorkSets) {
-            startRest(session.restSeconds)
-        }
+        persistDraft()
+        val rest=dev.repera.domain.WatchStrengthRest.afterConfirmedSet(session.restSeconds,
+            warmupInput,session.recordedSets + if(warmupInput) 0 else 1,session.plannedWorkSets)
+        if(rest>0) startRest(rest) else skipRest()
         resendPending()
     }
 
+    private fun bootCount():Int? = runCatching {
+        android.provider.Settings.Global.getInt(contentResolver,android.provider.Settings.Global.BOOT_COUNT)
+    }.getOrNull()?.takeIf {it>=0}
+
+    private fun persistRest() {
+        val session=visibleSession ?: return
+        val boot=bootCount() ?: return
+        val now=SystemClock.elapsedRealtime()
+        val checkpoint=runCatching {dev.repera.domain.WatchRestState(
+            session.sessionId,sessionPaused,restClock.remainingMillis(now),now,boot)
+        }.getOrNull() ?: return
+        if(!sessionCache.edit().putString("restState",checkpoint.encode()).commit())
+            sendStatus="No se pudo guardar la pausa o el descanso del reloj"
+    }
+
+    private fun restoreRest(summary:WatchSessionSummary) {
+        val checkpoint=sessionCache.getString("restState",null)?.let {
+            dev.repera.domain.WatchRestState.decode(it)
+        } ?: return
+        val now=SystemClock.elapsedRealtime()
+        val remaining=checkpoint.remainingAt(summary.sessionId,now,bootCount())
+        if(remaining==null) {
+            sessionCache.edit().remove("restState").apply()
+            sendStatus="No se pudo recuperar la pausa o el descanso tras reiniciar el reloj"
+            return
+        }
+        sessionPaused=checkpoint.paused
+        restClock.restore(remaining,sessionPaused,now)
+        // The durable UI pause is the source of truth after a restart: recreate the intent so sensors that are
+        // recording unpaused (service/process restarted) are paused again once confirmed recording.
+        if(sessionPaused) pauseSensorsIntent=dev.repera.domain.WearStartPauseIntent(summary.sessionId)
+        tickRest()
+    }
+
     private fun startRest(seconds: Int) {
+        restClock.start(seconds,SystemClock.elapsedRealtime())
+        if(sessionPaused) restClock.pause(SystemClock.elapsedRealtime())
+        tickRest()
+        persistRest()
+    }
+
+    private fun tickRest() {
         restJob?.cancel()
-        restJob = lifecycleScope.launch {
-            restRemaining = seconds
-            while (restRemaining > 0) {
-                kotlinx.coroutines.delay(1000)
-                restRemaining -= 1
+        restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
+        if(sessionPaused) return
+        restJob=lifecycleScope.launch {
+            while(restRemaining>0) {
+                kotlinx.coroutines.delay(250)
+                restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
             }
         }
     }
 
     private fun skipRest() {
-        restJob?.cancel()
-        restRemaining = 0
+        restJob?.cancel();restClock.clear();restRemaining=0
+        persistRest()
+    }
+
+    /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
+     *  session is changed locally; a phone session is changed by the phone, which validates session and shown index. */
+    private fun requestSelectBlock(session: WatchSessionSummary, toIndex: Int) {
+        if (visibleSession?.sessionId != session.sessionId || visibleSession?.exerciseIndex != session.exerciseIndex) return
+        if (toIndex !in 0 until session.exerciseCount || toIndex == session.exerciseIndex - 1) return
+        if (runCatching { pendingFinish.sessionId() == session.sessionId }.getOrDefault(true)) {
+            sendStatus = "La sesión está pendiente de terminar; no se cambia de ejercicio"; return
+        }
+        if (watchStartedSession) { selectLocally(session, toIndex); return }
+        val payload = JSONObject().put("sessionId", session.sessionId)
+            .put("fromIndex", session.exerciseIndex - 1).put("toIndex", toIndex).toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (visibleSession?.sessionId != session.sessionId) return@addOnSuccessListener
+            if (nodes.isEmpty()) sendStatus = "Móvil no conectado; no se cambió de ejercicio"
+            nodes.forEach { Wearable.getMessageClient(this).sendMessage(it.id, "/repera/select-exercise", payload) }
+        }
+    }
+
+    private fun selectLocally(session: WatchSessionSummary, toIndex: Int) {
+        val snapshot = sessionCache.getString("snapshot", null)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
+        if (snapshot.optString("id") != session.sessionId) return
+        val changed = dev.repera.domain.WatchPlanExecution.select(snapshot, toIndex) ?: return
+        val summary = runCatching { WatchSessionSummary.fromJson(changed) }.getOrNull() ?: return
+        if (!sessionCache.edit().putString("snapshot", changed.toString()).remove("inputDraft").remove("restState").commit()) {
+            sendStatus = "No se pudo guardar el cambio de ejercicio en el reloj"; return
+        }
+        restJob?.cancel(); restClock.clear(); restRemaining = 0
+        wodTickJob?.cancel(); wodTimerJson = null; wodTickSeconds = 0
+        visibleSession = summary
+        seedDraft(summary)
+        repCounter.reset()
+        persistDraft()
+        // Apple selectBlock: health.pause() and phase=ready; the next Play (confirm + health.resume()) starts the block.
+        // Wear has no ready phase, so the equivalent is the paused state: sensors and rest paused, "Reanudar" is Play,
+        // and sets cannot be confirmed until it is pressed (queueSet rejects while paused).
+        sessionPaused = false
+        togglePause()
     }
 
     private fun togglePause() {
+        val session=visibleSession ?: return
+        val sessionId=session.sessionId
         val nowPaused = !sessionPaused
         sessionPaused = nowPaused
+        if(!nowPaused) pauseSensorsIntent=null
         if (nowPaused) {
-            restJob?.cancel()
-        } else if (restRemaining > 0) {
-            startRest(restRemaining)
+            restClock.pause(SystemClock.elapsedRealtime());restJob?.cancel()
+            restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
+        } else {
+            restClock.resume(SystemClock.elapsedRealtime());tickRest()
         }
-        lifecycleScope.launch {
-            runCatching {
-                if (nowPaused) healthSession.pause() else healthSession.resume()
-            }
-        }
-        val payload = JSONObject().put("paused", nowPaused).toString()
+        persistRest()
+        val revision=sensorRevision
+        val transport=transportRevision
+        fun current()=visibleSession?.sessionId==sessionId && sensorRevision==revision && transportRevision==transport
+        healthConnection?.pause(sessionId,nowPaused) ?: run {sendStatus="Sensores pendientes de conexión; pausa no confirmada"}
+        val payload = JSONObject().put("sessionId",sessionId).put("blockIndex",session.exerciseIndex-1).put("paused", nowPaused).toString()
             .toByteArray(Charsets.UTF_8)
         Wearable.getNodeClient(this).connectedNodes
             .addOnSuccessListener { nodes ->
+                if(!current() || sessionPaused!=nowPaused) return@addOnSuccessListener
                 nodes.forEach { node ->
                     Wearable.getMessageClient(this)
                         .sendMessage(node.id, "/repera/session-pause", payload)
@@ -479,34 +686,54 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun resendPending() {
+        val revision=transportRevision
         val commands = runCatching { pendingStore.all() }.getOrElse {
             sendStatus = "No se puede leer la cola; los datos siguen guardados"
             return
         }
-        if (commands.isEmpty()) return
+        if (commands.isEmpty()) {resendFinish();return}
         Wearable.getNodeClient(this).connectedNodes
             .addOnSuccessListener { nodes ->
+                if(revision!=transportRevision) return@addOnSuccessListener
+                val liveIds=runCatching {pendingStore.all().map {it.optString("id")}.toSet()}.getOrNull() ?: return@addOnSuccessListener
                 if (nodes.isEmpty()) {
-                    runOnUiThread { sendStatus = "Sin teléfono conectado · serie conservada" }
+                    runOnUiThread { if(revision==transportRevision) sendStatus = "Sin teléfono conectado · serie conservada" }
                 } else {
                     for (node in nodes) for (command in commands) {
+                        if(command.optString("id") !in liveIds) continue
                         messageClient.sendMessage(node.id, "/repera/log-set",
                             command.toString().toByteArray(Charsets.UTF_8))
                     }
                 }
             }.addOnFailureListener {
-                runOnUiThread { sendStatus = "Pendiente de conexión con el teléfono" }
+                runOnUiThread { if(revision==transportRevision) sendStatus = "Pendiente de conexión con el teléfono" }
             }
     }
 
     private fun showSession(bytes: ByteArray?, signedOut: Boolean = false,
                             finished: ByteArray? = null) {
         if (signedOut) {
+            transportRevision++
+            todayPlanJson=null
+            sessionCache.edit().remove("todayPlan").apply()
+            runCatching {pendingFinish.clear()}
             finishedSummary = null
             sessionCache.edit().remove("finishedDismissed").apply()
             clearSession(erasePending = true)
             return
         }
+        val completed=FinishedSummary.fromBytes(finished)
+        val incomingId=bytes?.takeIf {it.isNotEmpty()}?.let {
+            runCatching {JSONObject(String(it,Charsets.UTF_8)).getString("id")}.getOrNull()
+        }
+        if(dev.repera.domain.WatchSessionReconciliation.preserveLocal(
+            watchStartedSession,visibleSession?.sessionId,incomingId,completed?.sessionId)) {
+            sendStatus=if(incomingId==null) "Sesión del reloj conservada; pendiente de confirmar en el teléfono"
+                else "Otra sesión está activa en el teléfono; se conserva la del reloj"
+            syncProblem=incomingId!=null
+            return
+        }
+        completed?.let {runCatching {pendingFinish.acknowledge(it.sessionId)}}
         finishedSummary = FinishedSummary.fromBytes(finished)
             ?.takeIf { it.sessionId != sessionCache.getString("finishedDismissed", null) }
         if (bytes == null || bytes.isEmpty()) {
@@ -519,24 +746,32 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val parsed = runCatching { WatchSessionSummary.fromJson(JSONObject(raw)) }
         val summary = parsed.getOrNull()
         if (summary != null) {
+            val previousSessionId=visibleSession?.sessionId
+            val changedSession=wearSessionChanged(previousSessionId,summary.sessionId)
+            if(changedSession) {
+                sensorRevision++
+                // Paused/rest state belongs to the old workout, never the new identity.
+                sessionPaused=false
+                skipRest()
+                health=null
+                sessionCache.edit().remove("restState").apply()
+            }
             // Persist only a validated session; a malformed update cannot corrupt recovery.
             sessionCache.edit().putString("snapshot", raw).apply()
-            if (watchStartedSession && !showingCachedSession) {
+            if (watchStartedSession) {
                 // El teléfono ya adoptó la sesión iniciada en el reloj.
                 watchStartedSession = false
                 sessionCache.edit().remove("watchStarted").apply()
             }
             // Borrador prellenado con la prescripción, como el setDraft de watchOS.
             if (visibleSession?.sessionId != summary.sessionId ||
-                visibleSession?.exerciseIndex != summary.exerciseIndex) {
-                repCounter.reset()
-                summary.prescribedReps?.let { repsInput = it }
-                summary.prescribedWeightKg?.let { weightInput = it }
-            }
-            if (visibleSession?.sessionId != summary.sessionId ||
-                visibleSession?.exerciseIndex != summary.exerciseIndex) {
-                repsInput = summary.prescribedReps ?: 0
-                weightInput = summary.prescribedWeightKg
+                visibleSession?.exerciseIndex != summary.exerciseIndex ||
+                visibleSession?.recordedTotalSets != summary.recordedTotalSets) {
+                if(!wearTimerMatches(wodTimerJson,summary.sessionId,summary.exerciseIndex)) {
+                    wodTickJob?.cancel();wodTimerJson=null;wodTickSeconds=0
+                }
+                repCounter.reset();seedDraft(summary)
+                sessionCache.edit().remove("inputDraft").apply()
             }
             visibleSession = summary
             resendPending()
@@ -550,10 +785,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun clearSession(erasePending: Boolean) {
+        sensorRevision++
+        val sensorSessionId=visibleSession?.sessionId
+        warmupInput=false;failureInput=false;rirInput=null
         sessionPaused = false
+        wodTickJob?.cancel();wodTimerJson=null;wodTickSeconds=0
         watchStartedSession = false
         sessionCache.edit().remove("watchStarted").apply()
-        sessionCache.edit().remove("snapshot").apply()
+        sessionCache.edit().remove("snapshot").remove("inputDraft").remove("restState").apply()
         val outboxCleared = if (erasePending) runCatching {
             pendingStore.clear()
         }.isSuccess else true
@@ -567,21 +806,28 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         syncProblem = false
         showingCachedSession = false
         skipRest()
-        lifecycleScope.launch { runCatching { healthSession.stop() } }
+        healthConnection?.stop(sensorSessionId)
         health = null
     }
 
+    private fun startHealthForCurrentSession() {
+        val id=visibleSession?.sessionId ?: return
+        if(!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            sendStatus="Abre Repera para iniciar o recuperar sensores";return
+        }
+        runCatching {WearHealthService.startFromVisibleUI(this,id)}
+            .onFailure {sendStatus=it.localizedMessage ?: "No se pudo iniciar el registro de sensores"}
+    }
+
     private fun ensureHealthRecording() {
-        if (healthSession.recording) return
-        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
-            this, android.Manifest.permission.BODY_SENSORS
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        health=null
+        val permissions=WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT)
+        val granted=permissions.all {permission ->androidx.core.content.ContextCompat.checkSelfPermission(this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED}
         if (granted) {
-            lifecycleScope.launch { runCatching { healthSession.start() } }
+            startHealthForCurrentSession()
         } else {
-            sensorPermissions.launch(arrayOf(
-                android.Manifest.permission.BODY_SENSORS,
-                android.Manifest.permission.ACTIVITY_RECOGNITION))
+            val id=visibleSession?.sessionId ?: return
+            if(pendingSensorPermission.begin(id,sensorRevision)) sensorPermissions.launch(permissions)
         }
     }
 }
@@ -602,9 +848,28 @@ data class WatchSessionSummary(
     val wodMovements: List<String>,
     val plannedWorkSets: Int = 0,
     val restSeconds: Int = 0,
-    val inputMode: String = "strength"
+    val inputMode: String = "strength",
+    val quantityUnit:String="reps",val allowsUnitToggle:Boolean=false,
+    val prescribedDurationSeconds:Int?=null,val prescribedRir:Double?=null,val mobilityHold:Boolean=false,
+    val prescribedDeficitCm:Int?=null,
+    val recordedTotalSets:Int=recordedSets,
+    /** (exercise index 0-based, first exercise name) per block run; Apple blockStarts. */
+    val blocks:List<Pair<Int,String>> = emptyList()
 ) {
     companion object {
+        /** (first exercise index, Apple displayBlockHeader) per consecutive block run. */
+        fun blocksOf(exercises: JSONArray): List<Pair<Int, String>> =
+            dev.repera.domain.WearBlockStarts.of((0 until exercises.length()).map {
+                exercises.getJSONObject(it).optString("blockId").takeIf { id -> id.isNotBlank() }
+            }).map { start ->
+                val e = exercises.getJSONObject(start)
+                fun int(k: String) = if (e.has(k) && !e.isNull(k)) e.optInt(k) else null
+                start to dev.repera.domain.WearBlockHeader.display(
+                    e.optString("blockKind") == "strength", dev.repera.domain.WodFormat.fromWire(e.optString("wodFormat")),
+                    if (e.has("blockHeader") && !e.isNull("blockHeader")) e.optString("blockHeader") else null,
+                    int("blockTimeCapMinutes"), int("blockRounds"), int("blockIntervalSeconds"),
+                    int("blockWorkSeconds"), int("blockRestSeconds"))
+            }
         fun fromJson(session: JSONObject): WatchSessionSummary {
             val exercises = session.getJSONArray("exercises")
             require(exercises.length() > 0)
@@ -656,15 +921,18 @@ data class WatchSessionSummary(
                 canLogOnWatch = mode in setOf(
                     ExerciseInputMode.LOAD_REPS, ExerciseInputMode.REPS_ONLY,
                     ExerciseInputMode.REPS_AND_TIME, ExerciseInputMode.MACHINE_WORK,
-                    ExerciseInputMode.HSPU_DEFICIT) &&
+                    ExerciseInputMode.HSPU_DEFICIT,ExerciseInputMode.LOAD_DISTANCE) &&
                     exercise.optString("blockKind") != "wod",
                 allowsWeight = mode.showsWeight,
                 exerciseName = exercise.getJSONObject("exercise").getString("name"),
                 exerciseIndex = index + 1,
                 exerciseCount = exercises.length(),
                 recordedSets = done,
-                prescribedReps = if (globalScore) null else target?.optInt("targetReps"),
-                prescribedWeightKg = if (globalScore) null else target?.takeIf {
+                recordedTotalSets = recorded.length(),
+                prescribedReps = if (globalScore) null else target?.takeIf {
+                    it.has("targetReps") && !it.isNull("targetReps")
+                }?.optInt("targetReps"),
+                prescribedWeightKg = if (globalScore || !mode.showsWeight) null else target?.takeIf {
                     it.has("targetWeightKg") && !it.isNull("targetWeightKg")
                 }?.getDouble("targetWeightKg"),
                 wodFormatLabel = wodFormat?.displayName,
@@ -673,10 +941,23 @@ data class WatchSessionSummary(
                 plannedWorkSets = plan?.length() ?: 0,
                 restSeconds = exercise.optInt("restSeconds",
                     exercise.optInt("blockRestSeconds", 0)),
+                quantityUnit=exercise.optString("quantityUnit").takeIf {it in setOf("reps","calories","meters")} ?: ExerciseInput.defaultQuantityUnit(sourceExercise.getString("name"),sourceExercise.optString("equipment")),
+                allowsUnitToggle=ExerciseInput.supportsCaloriesAndMeters(sourceExercise.getString("name"),sourceExercise.optString("equipment")),
+                prescribedDeficitCm=if(mode == ExerciseInputMode.HSPU_DEFICIT) target?.takeIf {
+                    it.has("targetWeightKg") && !it.isNull("targetWeightKg")
+                }?.optDouble("targetWeightKg")?.takeIf {it.isFinite()}?.let {
+                    kotlin.math.floor(it+0.5).toInt().coerceIn(0,60)
+                } else null,
+                prescribedDurationSeconds=target?.takeIf {it.has("targetDurationSeconds") && !it.isNull("targetDurationSeconds")}?.optInt("targetDurationSeconds"),
+                prescribedRir=target?.takeIf {it.has("targetRir") && !it.isNull("targetRir")}?.optDouble("targetRir"),
+                mobilityHold=sourceExercise.optString("sportTag")=="Movilidad" && sourceExercise.optString("catalogId") in setOf("mobility-14","mobility-15","mobility-16","mobility-20","mobility-21","mobility-30","mobility-31","mobility-32","mobility-36","mobility-38","mobility-39","mobility-40","mobility-41","mobility-42","mobility-44","mobility-46","mobility-60","mobility-61","mobility-62","mobility-67","mobility-70","mobility-80"),
+                blocks = blocksOf(exercises),
                 inputMode = when (mode) {
                     ExerciseInputMode.MACHINE_WORK -> "machineWork"
                     ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
                     ExerciseInputMode.HSPU_DEFICIT -> "hspuDeficit"
+                    ExerciseInputMode.REPS_ONLY -> "repsOnly"
+                    ExerciseInputMode.LOAD_DISTANCE -> "loadDistance"
                     else -> "strength"
                 }
             )

@@ -82,7 +82,9 @@ internal object MobilityCatalogMigration {
             state.put("updatedAt", Instant.now().toString())
             state.put("lastWriterDeviceId", "android-mobility-catalog")
         }
-        store.write(state.toString().toByteArray(Charsets.UTF_8))
+        check(store.replaceIfUnchanged(bytes,state.toString().toByteArray(Charsets.UTF_8))) {
+            "El historial cambió durante la migración del catálogo; vuelve a intentarlo"
+        }
         return true
     }
 }

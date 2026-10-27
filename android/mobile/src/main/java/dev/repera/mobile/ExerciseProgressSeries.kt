@@ -88,11 +88,15 @@ object ExerciseProgressSeries {
             val day = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
             if (start != null && day.isBefore(start)) continue
             val movements = workout.optJSONArray("exercises") ?: continue
-            for (n in 0 until movements.length()) {
-                val exercise = movements.optJSONObject(n) ?: continue
-                val id = exercise.optJSONObject("exercise")?.optString("id").orEmpty()
-                if (id != exerciseId) continue
-                val work = WorkoutHistorySets.effectiveWorkSets(workout, exercise)
+            // Apple exerciseProgressSeries: una sesion = un punto, uniendo todas las apariciones
+            // del ejercicio (p. ej. EMOM y RFT del mismo movimiento).
+            val occurrences = (0 until movements.length()).mapNotNull { movements.optJSONObject(it) }
+                .filter { it.optJSONObject("exercise")?.optString("id").orEmpty() == exerciseId }
+            if (occurrences.isEmpty()) continue
+            for (n in 0 until 1) {
+                val work = occurrences.flatMap {
+                    WorkoutHistorySets.confirmedWorkSets(workout, it, includeWodPrescribed = true)
+                }
                 if (work.isEmpty()) continue
                 when (metric) {
                     ExerciseProgressMetric.TOP_SET -> {

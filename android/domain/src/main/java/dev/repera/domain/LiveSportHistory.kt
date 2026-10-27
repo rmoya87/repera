@@ -20,7 +20,8 @@ object LiveSportHistory {
         val recordedDistanceMeters: Double?,
         val averageHeartRateBpm: Double?,
         val activeEnergyKcal: Double?,
-        val liveRouteID: String? = null
+        val liveRouteID: String? = null,
+        val liveKilometerSplitsSeconds: List<Double> = emptyList()
     )
 
     data class SportSummary(
@@ -39,6 +40,18 @@ object LiveSportHistory {
             "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60)
         else
             "%02d:%02d".format(s / 60, s % 60)
+    }
+
+    /** Apple LiveSportHistoryView "Mejores marcas": solo valores guardados de este deporte (no récords de fuerza). */
+    data class SportRecords(val longestDistanceMeters: Double?, val fastestRecordedKilometerSeconds: Double?, val longestActiveSeconds: Double?)
+
+    fun records(sport: LiveSport, sessions: List<LiveSession>): SportRecords {
+        val own = sessionsOf(sport, sessions)
+        return SportRecords(
+            longestDistanceMeters = own.mapNotNull { it.recordedDistanceMeters }.filter { it > 0 }.maxOrNull(),
+            fastestRecordedKilometerSeconds = own.flatMap { it.liveKilometerSplitsSeconds }.filter { it.isFinite() && it > 0 }.minOrNull(),
+            longestActiveSeconds = own.mapNotNull { it.activeDurationSeconds }.filter { it > 0 }.maxOrNull()
+        )
     }
 
     /** Resumen por deporte: solo sesiones terminadas del deporte dado. */

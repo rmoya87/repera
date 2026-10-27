@@ -109,6 +109,7 @@ internal fun HomeTab(
 
     onNavigateCreate: () -> Unit,
     onDeleteRoutine: (String) -> Unit = {},
+    onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
     onOpenClock: () -> Unit,
     modifier: Modifier = Modifier,
     focusDay: java.time.LocalDate? = null,
@@ -116,6 +117,8 @@ internal fun HomeTab(
     centerName:(String)->String = {"Centro"},
     onOpenMessages:()->Unit = {},
     onOpenHistory:()->Unit = {},
+    onOpenRecoverySettings:()->Unit = {},
+    onOpenSettings:()->Unit = {},
     dayHealthProvider:suspend (java.time.LocalDate)->TodayHealth? = {null}
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
@@ -136,11 +139,81 @@ internal fun HomeTab(
     ) {
         item {
             Column {
-                Text("Hola, " + (displayName ?: "Deportista"),style = MaterialTheme.typography.headlineMedium)
+                Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("Hola, " + (displayName ?: "Deportista"),Modifier.weight(1f),style = MaterialTheme.typography.headlineMedium)
+                    HomeProfileButton(overview?.profileSettings ?: ProfileSettings(),onOpenSettings)
+                }
                 TextButton(onClick=onOpenMessages) {Text("Mensajes con centro o entrenador")}
             }
         }
         item {
+            val day = LocalDate.parse(homeDateIso)
+            val dayRoutines = overview?.routineEntries.orEmpty().filter {
+                (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
+                    (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
+                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
+            }
+            val visibleRoutines = HomePlannedFilter.visible(dayRoutines, { it.id },
+                HomePlannedFilter.completedRoutineIds(overview?.completeHistory.orEmpty(), day), activeWorkout?.routineId, day, LocalDate.now())
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Calendario y entrenamientos",
+                        style = MaterialTheme.typography.titleLarge)
+                    WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true,
+                        overview?.dayWorkoutCounts.orEmpty().filterValues {it>0}.keys) { homeDateIso = it.toString() }
+                    Text("Entrenamientos · " + day.format(reperaDayFormatter),
+                        style = MaterialTheme.typography.titleMedium)
+                    if (visibleRoutines.isEmpty()) {
+                        Text("Sin entrenamiento programado",
+                            style = MaterialTheme.typography.bodyMedium)
+                    } else visibleRoutines.forEach { routine ->
+                        // Tocar abre el resumen del plan (SessionPreviewView iOS);
+                        // el Play dentro de la hoja sí inicia la sesión.
+                        var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(routine.title, style = MaterialTheme.typography.bodyLarge)
+                            TextButton(onClick = { preview = true },
+                                enabled = !busy && activeWorkout == null) {
+                                Text("Ver plan y empezar")
+                            }
+                        }
+                        if (preview) {
+                            @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+                            androidx.compose.material3.ModalBottomSheet(
+                                onDismissRequest = { preview = false }
+                            ) {
+                                SessionPreviewSheet(
+                                    routine = routine,
+                                    busy = busy,
+                                    onStart = { onStartRoutine(routine.id) },
+                                    onEdit = { onNavigateCreate() },
+                                    onDelete = {
+                                        preview = false
+                                        onRemoveScheduledRoutine(routine.id)
+                                    },
+                                    onClose = { preview = false }
+                                )
+                            }
+                        }
+                    }
+                    Button(onClick = onNavigateCreate,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = brandGreen, contentColor = Color.Black
+                        )) { Text("Añadir nuevo entrenamiento") }
+                }
+            }
+        }
+        item {
+            val days=dev.repera.domain.WeeklyWorkoutProgress.days(selectedDay,
+                overview?.trainingSettings?.weekStartsOnMonday ?: true,
+                overview?.dayWorkoutCounts.orEmpty(),overview?.routineEntries.orEmpty().map {routine ->
+                    dev.repera.domain.WeeklyWorkoutProgress.Plan(
+                        routine.scheduledDate?.let {runCatching {LocalDate.parse(it.take(10))}.getOrNull()},routine.weekday)
+                })
+            val activityContent: @Composable () -> Unit = {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(18.dp),
@@ -164,72 +237,32 @@ internal fun HomeTab(
                     ) { Text("Conectar o actualizar Salud") }
                 }
             }
+            }
+            AdaptiveCardPair(
+                first={
+                    if(overview!=null) HomeWeeklyProgressCard(days,overview.healthGoals.weeklyWorkouts)
+                    else Text("Progreso semanal: sin datos locales")
+                },second=activityContent)
+        }
+        overview?.recovery?.takeIf {selectedDay==LocalDate.now()}?.let {recovery ->
+            HomeRecoveryModel.of(recovery.lastNightHours,recovery.sleepIndex,recovery.menstrualDays,LocalDate.now())?.let {model ->
+                item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
+                    Text("Tu estado de hoy",style=MaterialTheme.typography.titleMedium)
+                    model.sleepHours?.let {Text("%.1f h de sueño".format(it))}
+                    model.sleepIndexOutOf10?.let {Text("Índice de sueño: $it/10")}
+                    model.cycleLabel?.let {Text(it)}
+                    TextButton(onClick=onOpenRecoverySettings) {Text("Ver Salud y recuperación")}
+                }}}
+            }
         }
         items(professionalSessions.filter {it.scheduledDate==homeDateIso}) {session ->
             ProfessionalSessionCard(session,centerName(session.orgId),true)
         }
         item {
-            val day = LocalDate.parse(homeDateIso)
-            val dayRoutines = overview?.routineEntries.orEmpty().filter {
-                (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
-                    (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
-                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
-            }
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Calendario y entrenamientos",
-                        style = MaterialTheme.typography.titleLarge)
-                    WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true) { homeDateIso = it.toString() }
-                    Text("Entrenamientos · " + day.format(reperaDayFormatter),
-                        style = MaterialTheme.typography.titleMedium)
-                    if (dayRoutines.isEmpty()) {
-                        Text("Sin entrenamiento programado",
-                            style = MaterialTheme.typography.bodyMedium)
-                    } else dayRoutines.forEach { routine ->
-                        // Tocar abre el resumen del plan (SessionPreviewView iOS);
-                        // el Play dentro de la hoja sí inicia la sesión.
-                        var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(routine.title, style = MaterialTheme.typography.bodyLarge)
-                            TextButton(onClick = { preview = true },
-                                enabled = !busy && activeWorkout == null) {
-                                Text("Ver plan y empezar")
-                            }
-                        }
-                        if (preview) {
-                            @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-                            androidx.compose.material3.ModalBottomSheet(
-                                onDismissRequest = { preview = false }
-                            ) {
-                                SessionPreviewSheet(
-                                    routine = routine,
-                                    busy = busy,
-                                    onStart = { onStartRoutine(routine.id) },
-                                    onEdit = { onNavigateCreate() },
-                                    onDelete = {
-                                        preview = false
-                                        onDeleteRoutine(routine.id)
-                                    },
-                                    onClose = { preview = false }
-                                )
-                            }
-                        }
-                    }
-                    Button(onClick = onNavigateCreate,
-                        enabled = !busy,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = brandGreen, contentColor = Color.Black
-                        )) { Text("Añadir nuevo entrenamiento") }
-                }
-            }
-        }
-        item {
             if (activeWorkout != null) {
                 key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
                 Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,onEditActivePlan)
+                    ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,onEditActivePlan,accountId)
                     if (activeWorkout.wod != null) {
                         WodScoreCard(
                             active = activeWorkout,

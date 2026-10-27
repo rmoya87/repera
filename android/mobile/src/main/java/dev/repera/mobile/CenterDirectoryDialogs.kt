@@ -11,12 +11,19 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterStore.Organization>,searching:Boolean,submitting:Boolean,
- linked:Set<String>,onSearch:(String)->Unit,onRequest:(BusinessCenterStore.Organization,String,String?)->Unit,onClose:()->Unit,error:String?=null) {
- var query by rememberSaveable {mutableStateOf("")}
- var selected by remember {mutableStateOf<BusinessCenterStore.Organization?>(null)}
- var passKind by rememberSaveable {mutableStateOf("class")}
- var note by rememberSaveable {mutableStateOf("")}
- LaunchedEffect(linked) {if(selected?.id in linked) {selected=null;note=""}}
+ linked:Set<String>,onSearch:(String)->Unit,onRequest:(BusinessCenterStore.Organization,String,String?)->Unit,onClose:()->Unit,error:String?=null,accountId:String="") {
+ fun scope(field:String)=org.json.JSONArray(listOf(accountId,"center-directory",field)).toString()
+ fun textSaver(field:String)=androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(scope(field),it)},restore={restoreScopedEditorValue(scope(field),it)})
+ fun nullableSaver(field:String)=androidx.compose.runtime.saveable.Saver<String?,String>(save={saveScopedEditorValue(scope(field),it)},restore={restoreScopedEditorValue(scope(field),it)})
+ var query by rememberSaveable(accountId,stateSaver=textSaver("query")) {mutableStateOf("")}
+ // Id restorable; the object is kept in memory so a changing search result does not close the confirm dialog.
+ var selectedId by rememberSaveable(accountId,stateSaver=nullableSaver("selected")) {mutableStateOf<String?>(null)}
+ var selectedObj by remember {mutableStateOf<BusinessCenterStore.Organization?>(null)}
+ val selected=selectedObj?.takeIf {it.id==selectedId} ?: rows.firstOrNull {it.id==selectedId}
+ fun clearSelection() {selectedId=null;selectedObj=null}
+ var passKind by rememberSaveable(accountId,stateSaver=textSaver("passKind")) {mutableStateOf("class")}
+ var note by rememberSaveable(accountId,stateSaver=textSaver("note")) {mutableStateOf("")}
+ LaunchedEffect(linked) {if(selectedId in linked) {clearSelection();note=""}}
  LaunchedEffect(query,connected) {if(connected) {delay(350);onSearch(query)}}
  AlertDialog(onDismissRequest=onClose,title={Text("Buscar centro o entrenador")},
   text={Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -24,11 +31,11 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
    if(!connected) Text("La búsqueda estará disponible al recuperar la conexión.")
    else if(searching) CircularProgressIndicator()
    else if(rows.isEmpty()) Text("No hay resultados. Prueba otro nombre o pide invitación a tu centro.")
-   else rows.forEach {org ->TextButton(enabled=org.id !in linked && !submitting,onClick={selected=org;note=""}) {
+   else rows.forEach {org ->TextButton(enabled=org.id !in linked && !submitting,onClick={selectedObj=org;selectedId=org.id;note=""}) {
     Column {Text(org.name);Text(if(org.id in linked) "Vinculado" else org.tagline ?: org.kind)}
    }}
   }},confirmButton={TextButton(onClick=onClose) {Text("Cerrar")}})
- selected?.let {org -> AlertDialog(onDismissRequest={selected=null},title={Text(org.name)},
+ selected?.let {org -> AlertDialog(onDismissRequest={clearSelection()},title={Text(org.name)},
   text={Column {
    Text("Qué quieres contratar")
    listOf("class" to "Clases / bono de sesiones","appointment" to "Entrenador personal","unlimited" to "Acceso ilimitado").forEach {(kind,label) ->
@@ -38,7 +45,7 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
    Text("El centro confirmará el bono solicitado.")
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
   }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text("Vincularme y continuar")}},
-  dismissButton={TextButton(onClick={selected=null}) {Text("Cancelar")}})}
+  dismissButton={TextButton(onClick={clearSelection()}) {Text("Cancelar")}})}
 }
 @Composable
 internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:BusinessCenterStore.Snapshot?,submitting:Boolean,

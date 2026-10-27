@@ -64,4 +64,33 @@ class ProgressChartBuilderTest {
         assertEquals(null, charts.averageHeartRate)
         assertEquals(300.0, charts.caloriesTotal, 1e-9)
     }
+
+    private fun week(energy: List<DailyActiveEnergyPoint>) = ProgressChartBuilder.build(
+        range = ProgressTimeRange.WEEK, weekStartsOnMonday = true, heartRateDays = emptyList(),
+        energyDays = energy, workouts = emptyList(), external = emptyList(), now = now)
+
+    @Test
+    fun `media diaria y periodo anterior comparables`() {
+        val charts = week(listOf(DailyActiveEnergyPoint(now, 300.0),
+            DailyActiveEnergyPoint(now.minusDays(1), 200.0), DailyActiveEnergyPoint(now.minusDays(2), 200.0)))
+        assertEquals(300.0, charts.caloriesDailyAverage!!, 1e-9)
+        assertEquals(200.0, charts.previousCaloriesDailyAverage!!, 1e-9)
+        assertEquals(50.0, CalorieAverageStats.change(charts.caloriesDailyAverage, charts.previousCaloriesDailyAverage)!!, 1e-9)
+    }
+
+    @Test
+    fun `periodo anterior mas corto o ausente no da variacion enganosa`() {
+        val none = week(listOf(DailyActiveEnergyPoint(now, 300.0)))
+        assertEquals(null, none.previousCaloriesDailyAverage)
+        // actual con 2 dias de datos (lunes y martes) frente a 1 dia previo: no comparable
+        val shorter = ProgressChartBuilder.build(range = ProgressTimeRange.WEEK, weekStartsOnMonday = true, heartRateDays = emptyList(),
+            energyDays = listOf(DailyActiveEnergyPoint(now, 300.0), DailyActiveEnergyPoint(now.plusDays(1), 100.0),
+                DailyActiveEnergyPoint(now.minusDays(1), 200.0)), workouts = emptyList(), external = emptyList(), now = now.plusDays(1))
+        assertEquals(null, shorter.previousCaloriesDailyAverage)
+        assertEquals(200.0, shorter.caloriesDailyAverage!!, 1e-9)
+        assertEquals(null, CalorieAverageStats.change(100.0, 0.0))
+        assertEquals("—", CalorieAverageStats.kcalLabel(null))
+        assertEquals("+50 %", CalorieAverageStats.changeLabel(50.0))
+        assertEquals("-10 %", CalorieAverageStats.changeLabel(-10.0))
+    }
 }

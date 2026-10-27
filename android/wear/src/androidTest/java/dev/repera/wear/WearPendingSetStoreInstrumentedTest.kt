@@ -84,4 +84,10 @@ class WearPendingSetStoreInstrumentedTest {
         }
         assertTrue(store.count() == 0)
     }
+    @Test fun warmupAndFailureAreDurableAndWarmupCannotClaimFailure() {
+        val store=WearPendingSetStore(context)
+        store.append("s",0,5,20.0,warmup=true,toFailure=true)
+        val saved=WearPendingSetStore(context).all().single()
+        assertTrue(saved.getBoolean("warmup"));org.junit.Assert.assertFalse(saved.getBoolean("toFailure"))
+    }
 }

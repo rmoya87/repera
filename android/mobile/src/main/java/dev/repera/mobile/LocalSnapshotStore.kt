@@ -13,14 +13,24 @@ import java.security.MessageDigest
 class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotStorage {
     private val folder = File(context.filesDir, "users/" + sha256(uniqueGoogleId))
         .apply { mkdirs() }
+    private val stateLock=locks.computeIfAbsent(folder.absolutePath) {Any()}
     private val stateFile = AtomicFile(File(folder, "app_state.json"))
     private val backup = File(folder, "previous_app_state.json")
     private val remoteBackup = AtomicFile(File(folder, "remote_before_upload.json"))
 
-    @Synchronized override fun read(): ByteArray? =
-        if (stateFile.baseFile.exists()) stateFile.openRead().use { it.readBytes() } else null
+    override fun read(): ByteArray? = synchronized(stateLock) {
+        // openRead recovers an interrupted AtomicFile write, even if base is absent.
+        try {stateFile.openRead().use {it.readBytes()}} catch(_:java.io.FileNotFoundException) {null}
+    }
 
-    @Synchronized override fun write(bytes: ByteArray) {
+    override fun replaceIfUnchanged(expected:ByteArray?,replacement:ByteArray):Boolean = synchronized(stateLock) {
+        val current=read()
+        if(!(current==null && expected==null || current!=null && expected!=null && current.contentEquals(expected))) return@synchronized false
+        write(replacement)
+        true
+    }
+
+    override fun write(bytes: ByteArray) = synchronized(stateLock) {
         validate(bytes)
         val existing = read()
         if (existing != null && !existing.contentEquals(bytes)) backup.writeBytes(existing)
@@ -35,7 +45,7 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotSto
     }
 
     /** Safeguard a remote document before replacing it with a newer local revision. */
-    @Synchronized override fun preserveRemoteBackup(bytes: ByteArray) {
+    override fun preserveRemoteBackup(bytes: ByteArray) = synchronized(stateLock) {
         validate(bytes)
         val stream = remoteBackup.startWrite()
         try {
@@ -47,24 +57,32 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotSto
         }
     }
 
-    private val provenanceFile = File(folder, "mirror_recovered.json")
+    private val provenanceFile = AtomicFile(File(folder, "mirror_recovered.json"))
 
-    /** Procedencia: id -> huella de entrenos recuperados del espejo (por cuenta, junto al snapshot). */
-    @Synchronized override fun readMirrorProvenance(): Map<String, String> = runCatching {
-        if (!provenanceFile.exists()) emptyMap() else JSONObject(provenanceFile.readText()).let { j ->
-            j.keys().asSequence().associateWith { j.getString(it) } }
-    }.getOrDefault(emptyMap())
+    /** Provenance must survive interruption; loss must never turn edited local history into pristine. */
+    override fun readMirrorProvenance(): Map<String, String> = synchronized(stateLock) {
+        runCatching {
+            val json=provenanceFile.openRead().bufferedReader().use {JSONObject(it.readText())}
+            json.keys().asSequence().associateWith {json.getString(it)}
+        }.getOrDefault(emptyMap())
+    }
 
-    @Synchronized fun addMirrorProvenance(entries: Map<String, String>) {
-        val merged = readMirrorProvenance() + entries
-        val tmp = File(folder, "mirror_recovered.json.tmp")
-        tmp.writeText(JSONObject(merged).toString())
-        check(tmp.renameTo(provenanceFile) || (provenanceFile.delete() && tmp.renameTo(provenanceFile)))
+    fun addMirrorProvenance(entries: Map<String, String>) = synchronized(stateLock) {
+        val merged=readMirrorProvenance()+entries
+        val stream=provenanceFile.startWrite()
+        try {
+            stream.write(JSONObject(merged).toString().toByteArray(Charsets.UTF_8))
+            provenanceFile.finishWrite(stream)
+        } catch(error:Exception) {
+            provenanceFile.failWrite(stream)
+            throw error
+        }
     }
 
     fun snapshotRevision(): Int? = read()?.let { JSONObject(String(it, Charsets.UTF_8)).optInt("syncRevision", 0) }
 
     companion object {
+        private val locks=java.util.concurrent.ConcurrentHashMap<String,Any>()
         /** A corrupted or incomplete download is never allowed to replace local history. */
         fun validate(bytes: ByteArray) {
             require(bytes.isNotEmpty() && bytes.size <= 128 * 1024 * 1024) { "Tamaño de estado no válido" }

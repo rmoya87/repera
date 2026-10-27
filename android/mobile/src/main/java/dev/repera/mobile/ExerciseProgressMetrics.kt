@@ -81,7 +81,7 @@ internal object ExerciseProgressMetrics {
                 val exercise = movements.optJSONObject(i) ?: continue
                 val id = exercise.optJSONObject("exercise")?.optString("id").orEmpty()
                 if (id.isBlank()) continue
-                val effective = WorkoutHistorySets.effectiveWorkSets(workout, exercise)
+                val effective = WorkoutHistorySets.confirmedWorkSets(workout, exercise, includeWodPrescribed = true)
                 if (effective.isNotEmpty()) grouped.getOrPut(id) { mutableListOf() }.addAll(effective)
             }
             val date = workout.optString("finishedAt").takeUnless { it.isBlank() || it == "null" }

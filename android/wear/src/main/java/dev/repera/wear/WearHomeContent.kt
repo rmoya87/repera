@@ -45,13 +45,16 @@ internal data class WearHomeState(
     val deficitInput: Int,
     val pendingCount: Int,
     val confirmDiscardPending: Boolean,
-    val sendStatus: String?
+    val sendStatus: String?,
+    val warmup:Boolean=false,val toFailure:Boolean=false
 )
 
 internal class WearHomeCallbacks(
     val onDismissFinished: (FinishedSummary) -> Unit = {},
     val onStartTodayPlan: () -> Unit = {},
+    val onStartTodayPlanAt: (Int) -> Unit = {},
     val onTogglePause: () -> Unit = {},
+    val onSelectBlock: (WatchSessionSummary, Int) -> Unit = { _, _ -> },
     val onFinishSession: (WatchSessionSummary) -> Unit = {},
     val onSkipRest: () -> Unit = {},
     val onRepsMinus: () -> Unit = {},
@@ -60,6 +63,7 @@ internal class WearHomeCallbacks(
     val onRirMinus: () -> Unit = {},
     val onRirPlus: () -> Unit = {},
     val onRirClear: () -> Unit = {},
+    val onToggleWarmup:()->Unit = {},val onToggleFailure:()->Unit = {},
     val onDurationDelta: (Int) -> Unit = {},
     val onCycleUnit: () -> Unit = {},
     val onDeficitDelta: (Int) -> Unit = {},
@@ -111,6 +115,15 @@ internal fun WearHomeContent(
                         style = MaterialTheme.typography.labelSmall) }
                     item { Button(onClick = { callbacks.onStartTodayPlan() }) {
                         Text("Empezar") } }
+                    plan.optJSONArray("exercises")?.let { WatchSessionSummary.blocksOf(it) }
+                        ?.takeIf { it.size > 1 }?.let { blocks ->
+                            item { Text("Empezar en", style = MaterialTheme.typography.labelSmall) }
+                            blocks.forEach { (start, header) ->
+                                item { TextButton(onClick = { callbacks.onStartTodayPlanAt(start) },
+                                    modifier = Modifier.fillMaxWidth()) {
+                                    Text(header, style = MaterialTheme.typography.labelSmall, maxLines = 1) } }
+                            }
+                        }
                 } else {
                     item { Text(if (state.syncProblem)
                         "No se pudo leer la sesión del teléfono"
@@ -142,7 +155,7 @@ internal fun WearHomeContent(
                     item { Text(movement, textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall) }
                 }
-                state.wodTimerJson?.let { timer ->
+                state.wodTimerJson?.takeIf {wearTimerMatches(it,session.sessionId,session.exerciseIndex)}?.let { timer ->
                     val spec = dev.repera.domain.WodClockSpec(
                         format = dev.repera.domain.WodFormat
                             .fromWire(timer.optString("format"))
@@ -189,19 +202,22 @@ internal fun WearHomeContent(
                 item { Text("Ejercicio ${session.exerciseIndex}/${session.exerciseCount}",
                     style = MaterialTheme.typography.labelSmall) }
                 if (session.prescribedReps != null) {
-                    item { Text("${session.prescribedReps} reps" +
-                        (session.prescribedWeightKg?.let { " · $it kg" } ?: ""),
+                    item { Text("${session.prescribedReps} ${when(session.quantityUnit) { "meters" -> "m"; "calories" -> "cal"; else -> "reps" }}" +
+                        (session.prescribedWeightKg?.let { " · $it kg" }
+                            ?: session.prescribedDeficitCm?.let { " · $it cm" } ?: ""),
                         style = MaterialTheme.typography.titleLarge) }
                 }
                 item { Text("${session.recordedSets} series registradas",
                     style = MaterialTheme.typography.labelSmall) }
                 item { Button(onClick = { callbacks.onTogglePause() }) {
                     Text(if (state.sessionPaused) "Reanudar" else "Pausar") } }
-                item {
-                    TextButton(onClick = { callbacks.onFinishSession(session) },
-                        modifier = Modifier.fillMaxWidth()) {
-                        Text("Terminar sesión",
-                            style = MaterialTheme.typography.labelSmall)
+                if (session.blocks.size > 1) {
+                    item { Text("Ir a", style = MaterialTheme.typography.labelSmall) }
+                    session.blocks.forEach { (start, name) ->
+                        item { TextButton(enabled = start != session.exerciseIndex - 1,
+                            onClick = { callbacks.onSelectBlock(session, start) },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text(name, style = MaterialTheme.typography.labelSmall, maxLines = 1) } }
                     }
                 }
                 if (!session.canLogOnWatch) {
@@ -219,12 +235,12 @@ internal fun WearHomeContent(
                     }
                     item { Text("Registrar serie",
                         style = MaterialTheme.typography.titleMedium) }
-                    item {
+                    if(!session.mobilityHold) item {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { callbacks.onRepsMinus() }) {
                                 Text("−") }
-                            Text("${state.repsInput} reps",
+                            Text("${state.repsInput} ${if(session.inputMode in setOf("machineWork","loadDistance")) (if(state.unitInput=="meters") "m" else "cal") else "reps"}",
                                 style = MaterialTheme.typography.titleMedium)
                             IconButton(onClick = { callbacks.onRepsPlus() }) {
                                 Text("+") }
@@ -234,15 +250,18 @@ internal fun WearHomeContent(
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { callbacks.onWeightDelta(-0.5) }) {
+                                IconButton(onClick = { callbacks.onWeightDelta(-0.1) }) {
                                     Text("−") }
                                 Text("${state.weightInput ?: 0.0} kg",
                                     style = MaterialTheme.typography.titleMedium)
-                                IconButton(onClick = { callbacks.onWeightDelta(0.5) }) {
+                                IconButton(onClick = { callbacks.onWeightDelta(0.1) }) {
                                     Text("+") }
                             }
                         }
                     }
+                    if(session.inputMode in setOf("strength","hspuDeficit","repsOnly")) {
+                        item {TextButton(onClick={callbacks.onToggleWarmup()}) {Text(if(state.warmup) "Calentamiento ✓" else "Serie de trabajo")}}
+                        if(!state.warmup) {
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -258,7 +277,10 @@ internal fun WearHomeContent(
                             Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                    if (session.inputMode == "repsAndTime") {
+                            item {TextButton(onClick={callbacks.onToggleFailure()}) {Text(if(state.toFailure) "Al fallo ✓" else "Al fallo: no")}}
+                        }
+                    }
+                    if (session.inputMode in setOf("repsAndTime","machineWork")) {
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
@@ -277,7 +299,7 @@ internal fun WearHomeContent(
                             "meters" -> "m"
                             else -> "reps"
                         }
-                        item { Button(onClick = { callbacks.onCycleUnit() }) {
+                        if(session.allowsUnitToggle) item { Button(onClick = { callbacks.onCycleUnit() }) {
                             Text("Unidad: $label") } }
                     }
                     if (session.inputMode == "hspuDeficit") {
@@ -295,12 +317,17 @@ internal fun WearHomeContent(
                     }
                     item {
                         Button(onClick = { callbacks.onQueueSet(session) },
-                            enabled = state.repsInput > 0,
+                            enabled = state.repsInput > 0 && !state.sessionPaused,
                             modifier = Modifier.fillMaxWidth()) {
                             Text("Confirmar serie")
                         }
                     }
                 }
+            }
+        }
+        if(session!=null) item {
+            TextButton(onClick={callbacks.onFinishSession(session)},modifier=Modifier.fillMaxWidth()) {
+                Text("Terminar sesión",style=MaterialTheme.typography.labelSmall)
             }
         }
         if (state.pendingCount > 0) {

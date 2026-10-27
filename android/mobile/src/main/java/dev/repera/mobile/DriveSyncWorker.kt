@@ -33,7 +33,10 @@ class DriveSyncWorker(
 ) : Worker(context, params) {
 
     override fun doWork(): Result {
-        val stored = SessionStore(applicationContext).load() ?: return Result.success()
+        val sessions=SessionStore(applicationContext)
+        val revision=sessions.identityRevision()
+        val stored = sessions.load() ?: return Result.success()
+        fun current()=sessions.identityRevision()==revision && sessions.load()?.let {it.uniqueId==stored.uniqueId && it.userId==stored.userId}==true && !isStopped
         val builder = AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
         if (stored.email.isNotBlank()) {
@@ -46,6 +49,7 @@ class DriveSyncWorker(
             )
         }.getOrElse { return if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success() }
 
+        if(!current()) return Result.success()
         if (result.hasResolution()) {
             SyncStatusStore(applicationContext).markConsentRequired()
             return Result.success()
@@ -57,11 +61,11 @@ class DriveSyncWorker(
         }
         return runCatching {
             val store = LocalSnapshotStore(applicationContext, stored.uniqueId)
-            val outcome = DriveSnapshotService(token, store).synchronize()
-            SyncStatusStore(applicationContext).markSynced(outcome)
+            val outcome = DriveSnapshotService(token, store, stillAuthorized={current()}).synchronize()
+            if(current()) SyncStatusStore(applicationContext).markSynced(outcome)
             Result.success()
         }.getOrElse {
-            if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
+            if (current() && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
         }
     }
 

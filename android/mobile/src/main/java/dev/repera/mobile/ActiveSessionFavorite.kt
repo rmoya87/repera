@@ -5,11 +5,15 @@ import java.util.UUID
 
 /** ReperaStore.favoriteTemplate: prescriptions, never completed work, form the new template. */
 internal object ActiveSessionFavorite {
- fun save(state:JSONObject):String {
+ fun save(state:JSONObject,canCreateTemplate:(Int)->Boolean = {true}):String {
   val session=state.optJSONObject("activeSession") ?: error("No hay sesión activa")
   val routines=state.optJSONArray("routines") ?: JSONArray().also {state.put("routines",it)}
   val existing=(0 until routines.length()).map {routines.getJSONObject(it)}
    .firstOrNull {it.optString("id")==session.optString("routineId")}
+  if(existing==null) {
+   val count=(0 until routines.length()).count {routines.getJSONObject(it).isNull("scheduledDate")}
+   check(canCreateTemplate(count)) {"Has alcanzado el límite de rutinas. Revisa tu plan antes de guardar otra plantilla."}
+  }
   val favorite=existing ?: template(session).also {routines.put(it)}
   favorite.put("isFavorite",true)
   session.put("routineId",favorite.getString("id"))

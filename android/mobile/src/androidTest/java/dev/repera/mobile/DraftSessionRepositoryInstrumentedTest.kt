@@ -99,4 +99,128 @@ class DraftSessionRepositoryInstrumentedTest {
         val favIds = (0 until fav.getJSONArray("blocks").length()).map { fav.getJSONArray("blocks").getJSONObject(it).getString("id") }
         assertTrue(favIds.none { it in workoutBlockIds })
     }
+    @Test fun suggestedTemplateTitleAndContentCommitTogetherOrNeither() {
+        val (repo,local)=repo()
+        val rid=repo.createRoutine("Entreno","strength",listOf(RoutineDraftEntry(exId(local),5)))
+        repo.replaceRoutineBlocks(rid,draft(exId(local)),suggestedTitle="Plantilla elegida")
+        assertEquals("Plantilla elegida",state(local).getJSONArray("routines").getJSONObject(0).getString("title"))
+        val before=local.read()!!
+        assertThrows(IllegalArgumentException::class.java) {
+            repo.replaceRoutineBlocks(rid,draft(exId(local)),suggestedTitle=" ")
+        }
+        assertArrayEquals(before,local.read())
+    }
+    @Test fun oneOffRetryWithSameDraftIdDoesNotDuplicateOrOverwriteCommittedEdits() {
+        val (repo,local)=repo()
+        val request="fixture-oneoff-request"
+        repo.createRoutineFromDrafts("Original",draft(exId(local)),RoutineSchedule(scheduledDate="2026-10-26"),routineId=request)
+        repo.updateRoutineDetails(request,"Edición posterior",RoutineSchedule(scheduledDate="2026-10-27"))
+        val before=local.read()!!
+        repo.createRoutineFromDrafts("Original",draft(exId(local)),RoutineSchedule(scheduledDate="2026-10-26"),routineId=request)
+        assertArrayEquals(before,local.read())
+        assertEquals(1,state(local).getJSONArray("routines").length())
+    }
+    @Test fun sameSessionDraftRequestReturnsActiveWithoutDuplicateFavorite() {
+        val (repo,local)=repo()
+        val entries=draft(exId(local))
+        val first=repo.startSessionFromDrafts("Mi entreno",entries,true,requestId="session-request")
+        val before=local.read()!!
+        val again=repo.startSessionFromDrafts("Mi entreno",entries,true,requestId="session-request")
+        assertEquals(first.id,again.id)
+        assertArrayEquals(before,local.read())
+        assertEquals(1,state(local).getJSONArray("routines").length())
+        repo.finish()
+        val finished=local.read()!!
+        assertThrows(IllegalStateException::class.java) {
+            repo.startSessionFromDrafts("Mi entreno",entries,true,requestId="session-request")
+        }
+        assertArrayEquals(finished,local.read())
+    }
+    @Test fun newWeeklyTemplatePersistsOnceAndUnassignsPreviousWithoutDeletingIt() {
+        val (repo,local)=repo()
+        val exercise=exId(local)
+        val previous=repo.createRoutineFromDrafts("Anterior",draft(exercise),RoutineSchedule(weekday=1))
+        val request=UUID.randomUUID().toString()
+        repo.createRoutineFromDrafts("Nueva rutina",draft(exercise),RoutineSchedule(weekday=1),routineId=request)
+        repo.createRoutineFromDrafts("No sobrescribir",draft(exercise),RoutineSchedule(weekday=2),routineId=request)
+        val routines=state(local).getJSONArray("routines")
+        assertEquals(2,routines.length())
+        val all=(0 until routines.length()).map {routines.getJSONObject(it)}
+        assertFalse(all.first {it.getString("id")==previous}.has("weekday"))
+        val created=all.first {it.getString("id")==request}
+        assertEquals(1,created.getInt("weekday"))
+        assertEquals("Nueva rutina",created.getString("title"))
+        assertFalse(created.has("scheduledDate"))
+    }
+    @Test fun favoriteQuotaIsCheckedBeforeMaterializationButNotForAnExistingDraftRequest() {
+        val (repo,local)=repo()
+        val entries=draft(exId(local))
+        val before=local.read()!!
+        var observedCount:Int?=null
+        assertThrows(IllegalStateException::class.java) {
+            repo.startSessionFromDrafts("No",draft("pending:No debe crearse"),true,
+                requestId="denied",canSaveFavorite={count ->observedCount=count;false})
+        }
+        assertEquals(0,observedCount)
+        assertArrayEquals(before,local.read())
+        val first=repo.startSessionFromDrafts("Sí",entries,true,requestId="same",canSaveFavorite={true})
+        val committed=local.read()!!
+        val again=repo.startSessionFromDrafts("No cambiar",entries,true,requestId="same",
+            canSaveFavorite={error("A retry must not consume a new favorite slot")})
+        assertEquals(first.id,again.id)
+        assertEquals("same",again.draftRequestId)
+        assertArrayEquals(committed,local.read())
+    }
+    @Test fun nonFavoriteSessionDoesNotRequireTemplateQuota() {
+        val (repo,local)=repo()
+        repo.startSessionFromDrafts("Libre",draft(exId(local)),false,
+            canSaveFavorite={error("No new template requested")})
+        assertEquals(0,state(local).getJSONArray("routines").length())
+    }
+    @Test fun templateQuotaUsesLoadedCountSkipsOneOffAndAllowsExactRetry() {
+        val (repo,local)=repo()
+        val entries=draft(exId(local))
+        repo.createRoutineFromDrafts("Suelto",entries,RoutineSchedule(scheduledDate="2026-10-26"),
+            canCreateTemplate={error("Dated routines do not need a template slot")})
+        repo.createRoutineFromDrafts("Semanal",entries,RoutineSchedule(weekday=1),routineId="weekly")
+        val before=local.read()!!
+        var count:Int?=null
+        assertThrows(IllegalStateException::class.java) {
+            repo.createRoutineFromDrafts("No",draft("pending:No crear"),canCreateTemplate={count=it;false})
+        }
+        assertEquals(1,count)
+        assertArrayEquals(before,local.read())
+        repo.createRoutineFromDrafts("No cambiar",entries,routineId="weekly",
+            canCreateTemplate={error("Retry is not a new template")})
+        assertArrayEquals(before,local.read())
+        assertThrows(IllegalStateException::class.java) {
+            repo.createRoutineFromScan("No",emptyList(),canCreateTemplate={false})
+        }
+        assertArrayEquals(before,local.read())
+    }
+    @Test fun simpleWodAndHistoryFavoriteDenyWithoutChangingSnapshot() {
+        val (repo,local)=repo()
+        val exercise=exId(local)
+        val initial=local.read()!!
+        assertThrows(IllegalStateException::class.java) {
+            repo.createRoutine("No","strength",listOf(RoutineDraftEntry(exercise,5)),canCreateTemplate={false})
+        }
+        assertThrows(IllegalStateException::class.java) {
+            repo.createWodRoutine(dev.repera.domain.CatalogWods.template("cindy")!!,canCreateTemplate={false})
+        }
+        assertArrayEquals(initial,local.read())
+        repo.startQuickLog(exercise);repo.logCurrentSet(5,40.0);repo.finish()
+        val workout=state(local).getJSONArray("workouts").getJSONObject(0).getString("id")
+        val before=local.read()!!
+        assertThrows(IllegalStateException::class.java) {
+            repo.updateFinishedWorkout(workout,WorkoutRepository.FinishedWorkoutEdit(
+                title="No editar",startedAtIso=null,finishedAtIso=null,notes="No guardar",
+                pinEdited=false,pin=null,saveAsFavorite=true),canSaveFavorite={false})
+        }
+        assertArrayEquals(before,local.read())
+        repo.updateFinishedWorkout(workout,WorkoutRepository.FinishedWorkoutEdit(
+            title="Editar sin favorito",startedAtIso=null,finishedAtIso=null,notes=null,
+            pinEdited=false,pin=null),canSaveFavorite={error("No template requested")})
+        assertEquals(0,state(local).getJSONArray("routines").length())
+    }
 }

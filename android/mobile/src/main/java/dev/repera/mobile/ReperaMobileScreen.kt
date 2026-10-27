@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import dev.repera.mobile.monetization.LocalSubscriptions
 import android.net.Uri
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.rememberScrollState
@@ -79,7 +80,11 @@ fun ReperaMobileScreen(
     status: String?,
     overview: StateOverview?,
     todayHealth: TodayHealth?,
+    healthAccess: HealthAccessState = HealthAccessState.UNKNOWN,
     onHealthConnect: () -> Unit,
+    onPrivateSleepChanged:(Boolean)->Unit = {},
+    onPrivateCycleChanged:(Boolean)->Unit = {},
+    externalHealthDetail:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail? = {null},
     activeWorkout: ActiveWorkout?,
     wodTimer: WodTimerState?,
     onWodTimerAction: (String) -> Unit,
@@ -87,15 +92,20 @@ fun ReperaMobileScreen(
     onStartRoutine: (String) -> Unit,
     onEditRoutine: (String, String, RoutineSchedule) -> Unit,
     onDeleteRoutine: (String) -> Unit,
-    onCopyPreviousWeek: () -> Unit = {},
-    onClearWeeklySchedule: () -> Unit = {},
-    onReplaceRoutineBlocks: (String, List<RoutineBlockDraft>) -> Unit,
+    onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
+    onCopyPreviousWeek: (java.time.LocalDate) -> Unit = {},
+    onAssignRoutineToDate: (String, java.time.LocalDate) -> Unit = { _, _ -> },
+    onClearWeeklySchedule: (java.time.LocalDate) -> Unit = {},
+    onReplaceRoutineBlocks: (String, List<RoutineBlockDraft>,String?,()->Unit) -> Unit,
+    onCreateTemplate: (String,List<RoutineBlockDraft>,RoutineSchedule,String,()->Unit)->Unit,
     onCreateRoutine: (String, String, List<RoutineDraftEntry>, Int, Int,
         RoutineSchedule, Int, Int, Int, List<Int>?) -> Unit,
     onAddWodTemplate: (String) -> Unit,
-    onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>) -> Unit,
-    onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String) -> Unit = { _, _, _ -> },
-    onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean) -> Unit = { _, _, _ -> },
+    onToggleWodFavorite:(String)->Unit,
+    onPlayWod:(String,String,()->Unit)->Unit,
+    onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>,String,()->Unit) -> Unit,
+    onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
+    onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
     centerSubmitting: Boolean,
@@ -142,6 +152,7 @@ fun ReperaMobileScreen(
     onReviseWodMovement: (String, Int, Double?) -> Unit,
     onDeleteWodMovement: (String) -> Unit,
     onQuickLog: (String) -> Unit,
+    onSaveQuickSets:(String,List<QuickLogRow>,String?,String,()->Unit)->Unit = {_,_,_,_,_->},
     onInitializeLocal: () -> Unit,
     onLogSet: (Int, Double?, Double?, Boolean, String?, Int?, Int?, Boolean) -> Unit,
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>, Double?, Boolean) -> Unit,
@@ -170,7 +181,7 @@ fun ReperaMobileScreen(
     onUpdateActiveNotes:(String)->Unit = {},
     onSaveActiveFavorite:()->Unit = {},
     activeEditorDraft:()->RoutineEntry? = {null},
-    onUpdateActivePlan:(String,List<RoutineBlockDraft>,()->Unit)->Unit = {_,_,_->},
+    onUpdateActivePlan:(String,String,List<RoutineBlockDraft>,()->Unit)->Unit = {_,_,_,_->},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -248,6 +259,11 @@ fun ReperaMobileScreen(
             return@MaterialTheme
         }
         val navController = rememberNavController()
+        // Apple SessionPreviewView: con una sesión activa, Empezar la continúa en lugar de intentar iniciar otra.
+        val startOrContinueRoutine: (String) -> Unit = { id ->
+            if (activeWorkout != null) navController.navigate("entreno-activo") else onStartRoutine(id)
+        }
+        var libraryModeRequest by rememberSaveable {mutableStateOf<String?>(null)}
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
         val navigateTab: (String) -> Unit = { route ->
@@ -269,6 +285,7 @@ fun ReperaMobileScreen(
         if (showCenter && centerVisible) {
             androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showCenter = false }) {
                 CenterTab(
+                    accountId = accountId,
                     connected = centerConnected, loading = centerLoading, submitting = centerSubmitting,
                     errorMessage = centerError, snapshot = centerSnapshot, onRefresh = onCenterRefresh,
                     sharingByCenter = sharingByCenter, sharingUpdating = sharingUpdating,
@@ -278,13 +295,43 @@ fun ReperaMobileScreen(
                     onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter)
             }
         }
+        var showSettingsPanel by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf(false)}
+        // Expanded Inicio edits a routine in the same trailing column instead of navigating away.
+        var routinePanelId by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf<String?>(null)}
+        val settingsContent: @Composable ()->Unit = {
+                    val subs=dev.repera.mobile.monetization.LocalSubscriptions.current
+                    SettingsTab(
+                        busy = busy,
+                        onOpenAIAccess = {
+                            navController.navigate("acceso-ia")
+                        },
+                        onImportJson = onImportJson,
+                        onImportCsv = onImportCsv,
+                        onOpenCenter={navController.navigate("center")},
+                        onOpenBodyWeights={navController.navigate("peso-corporal")},
+                        onOpenHistory={navController.navigate("historial")},
+                        onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
+                            feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
+                        proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
+                        onUpdateProfile=onUpdateProfile,
+                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
+                        onExportJson=onExportJson,onHealthConnect=onHealthConnect,onPrivateSleepChanged=onPrivateSleepChanged,onPrivateCycleChanged=onPrivateCycleChanged,onSignOut=onSignOut
+                    )
+
+        }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val expanded=adaptiveCardColumns(maxWidth.value)==2
+        LaunchedEffect(expanded,currentRoute,accountId) {if(!expanded || currentRoute!="inicio") {showSettingsPanel=false;routinePanelId=null}}
+        val openSettings:()->Unit = {
+            if(expanded && currentRoute=="inicio") {routinePanelId=null;showSettingsPanel=true} else navigateTab("ajustes")
+        }
         val visibleTabs = tabs
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { Text("repera") },
                     actions = {
-                        IconButton(onClick = { navigateTab("ajustes") }) {
+                        IconButton(onClick = openSettings) {
                             Icon(imageVector = Icons.Outlined.Settings,
                                 contentDescription = "Ajustes")
                         }
@@ -303,13 +350,16 @@ fun ReperaMobileScreen(
                 }
             }
         ) { padding ->
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(padding)) {
             NavHost(
                 navController = navController,
                 startDestination = "inicio",
-                modifier = Modifier.padding(padding)
+                modifier = Modifier.fillMaxSize()
             ) {
                 composable("inicio") {
                     HomeTab(
+                        onOpenSettings=openSettings,
+                        onOpenRecoverySettings=openSettings,
                         professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
                         centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
                         onOpenMessages={navController.navigate("mensajes")},
@@ -328,7 +378,7 @@ fun ReperaMobileScreen(
                         wodTimer = wodTimer,
                         onWodTimerAction = onWodTimerAction,
                         onWodTimerTick = onWodTimerTick,
-                        onStartRoutine = onStartRoutine,
+                        onStartRoutine = startOrContinueRoutine,
                         onWodScore = onWodScore,
                         onWodMovement = onWodMovement,
                         onCompleteWodBlock = onCompleteWodBlock,
@@ -364,13 +414,36 @@ fun ReperaMobileScreen(
                         onSignOut = onSignOut,
                         onNavigateCreate = { navigateTab("crear") },
                         onDeleteRoutine = onDeleteRoutine,
+                        onRemoveScheduledRoutine = onRemoveScheduledRoutine,
                         onOpenClock = {
                             if (activeWorkout?.wod != null) navController.navigate("reloj")
                         }
                     )
                 }
                 composable("diario") {
+                    val diarySubscriptions=LocalSubscriptions.current
                     DiaryTab(
+                        accountId=accountId,
+                        canCreateTemplate={
+                            val subs=diarySubscriptions
+                            if(subs==null || subs.canCreateLibraryRoutine(true).allowed) true
+                            else {subs.presentPaywall(dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
+                                feature=dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES);false}
+                        },
+                        newRoutineEditor={draft,close ->
+                            var title by remember(accountId,draft.id) {mutableStateOf(draft.title)}
+                            RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
+                                onReplace={blocks ->onCreateTemplate(title,blocks,RoutineSchedule(weekday=draft.weekday),draft.id,close)},
+                                onBack=close,loadGuideProvider=loadGuideProvider,importableRoutines=overview?.routineEntries.orEmpty(),
+                                onTitleSuggested={title=it},saveStatus=status,editableTitle=true)
+                        },
+                        inlineRoutineEditor={routine,close ->
+                            var title by remember(accountId,routine.id) {mutableStateOf<String?>(null)}
+                            RoutineBlocksEditorScreen(routine,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
+                                onReplace={drafts ->onReplaceRoutineBlocks(routine.id,drafts,title,close)},onBack=close,
+                                loadGuideProvider=loadGuideProvider,importableRoutines=overview?.routineEntries.orEmpty(),
+                                onTitleSuggested={title=it},saveStatus=status)
+                        },
                         professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
                         centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
                         aiPrograms = aiPrograms ?: emptyList(),
@@ -380,13 +453,16 @@ fun ReperaMobileScreen(
                         status = status,
                         overview = overview,
                         activeWorkout = activeWorkout,
-                        onStartRoutine = onStartRoutine,
+                        onStartRoutine = startOrContinueRoutine,
                         onEditRoutine = onEditRoutine,
                         onDeleteRoutine = onDeleteRoutine,
                         onCopyPreviousWeek = onCopyPreviousWeek,
+                        onAssignRoutineToDate = onAssignRoutineToDate,
+                        onRemoveScheduledRoutine = onRemoveScheduledRoutine,
                         onClearWeeklySchedule = onClearWeeklySchedule,
                         onEditRoutineContent = { routineId ->
-                            navController.navigate("rutina/$routineId")
+                            if(expanded && currentRoute=="inicio") {showSettingsPanel=false;routinePanelId=routineId}
+                            else navController.navigate("rutina/$routineId")
                         },
                         onSetRoutineProgression = onSetRoutineProgression,
                         onSetRoutineFavorite = onSetRoutineFavorite,
@@ -411,29 +487,23 @@ fun ReperaMobileScreen(
                 }
                 composable("entreno-libre") {
                     // DayEditorView .session: borrador puro; nada se persiste hasta «Empezar» (y solo con Favorito se guarda rutina).
-                    val subs = LocalSubscriptions.current
-                    val draft = remember {
-                        RoutineEntry(id = java.util.UUID.randomUUID().toString(), title = "Mi entreno", supported = true,
+                    val requestId=androidx.compose.runtime.saveable.rememberSaveable(accountId) {java.util.UUID.randomUUID().toString()}
+                    val draft = remember(accountId,requestId) {
+                        RoutineEntry(id = requestId, title = "Mi entreno", supported = true,
                             blocks = emptyList())
                     }
                     var favorite by remember { mutableStateOf(false) }
-                    RoutineBlocksEditorScreen(
+                    RoutineBlocksEditorScreen(accountId=accountId,
                         routine = draft,
                         exercises = overview?.exerciseEntries.orEmpty(),
-                        busy = busy || activeWorkout != null,
+                        busy = busy || (activeWorkout != null && activeWorkout.draftRequestId!=requestId),
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
                         sessionMode = true,
+                        saveStatus=status,
                         onFavoriteChosen = { favorite = it },
                         onReplace = { drafts ->
-                            if (favorite && subs != null && !subs.canCreateLibraryRoutine(isNew = true).allowed) {
-                                subs.presentPaywall(
-                                    dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
-                                    feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
-                            } else {
-                                onStartSessionFromDrafts(draft.title, drafts, favorite)
-                                navController.popBackStack()
-                            }
+                            onStartSessionFromDrafts(draft.title, drafts, favorite,requestId) {navController.popBackStack()}
                         },
                         onBack = { navController.popBackStack() }
                     )
@@ -461,7 +531,7 @@ fun ReperaMobileScreen(
                         overview = overview,
                         busy = busy,
                         activeWorkout = activeWorkout,
-                        onStartRoutine = onStartRoutine,
+                        onStartRoutine = startOrContinueRoutine,
                         onOpenTimer = { favId ->
                             if (favId != null) navController.navigate("temporizador?fav=" + favId)
                             else navController.navigate("temporizador")
@@ -485,24 +555,27 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("escaner") {
+                    androidx.compose.runtime.key(accountId) {
                     BoardScanScreen(
                         busy = busy,
+                        saveStatus=status,
                         overview = overview,
-                        onConfirm = { title, blocks ->
-                            onCreateRoutineFromScan(title, blocks)
-                            navController.popBackStack()
+                        onConfirm = { title, blocks,requestId ->
+                            onCreateRoutineFromScan(title, blocks,requestId) {navController.popBackStack()}
                         },
                         onBack = { navController.popBackStack() }
                     )
                 }
+                }
                 composable("entreno-activo-editar") {
-                    val draft=remember(activeWorkout?.id) {activeEditorDraft()}
-                    if(draft==null || activeWorkout==null) {
+                    val editorSessionId=androidx.compose.runtime.saveable.rememberSaveable(accountId) {activeWorkout?.id.orEmpty()}
+                    val draft=remember(accountId,editorSessionId) {activeEditorDraft()}
+                    if(draft==null || activeWorkout==null || editorSessionId.isBlank() || activeWorkout.id!=editorSessionId) {
                         LaunchedEffect(Unit) {navController.popBackStack()}
-                    } else RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,
-                        onReplace={blocks ->onUpdateActivePlan(draft.id,blocks) {navController.popBackStack()}},
+                    } else RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
+                        onReplace={blocks ->onUpdateActivePlan(editorSessionId,draft.id,blocks) {navController.popBackStack()}},
                         onBack={navController.popBackStack()},loadGuideProvider=loadGuideProvider,
-                        importableRoutines=overview?.routineEntries.orEmpty())
+                        saveStatus=status,importableRoutines=overview?.routineEntries.orEmpty())
                 }
                 composable("entreno-activo") {
                     val workout=activeWorkout
@@ -526,6 +599,7 @@ fun ReperaMobileScreen(
                 }
                 composable("center") {
                     CenterTab(
+                    accountId = accountId,
                         connected = centerConnected,
                         loading = centerLoading,
                         submitting = centerSubmitting,
@@ -544,6 +618,8 @@ fun ReperaMobileScreen(
                 }
                 composable("progreso") {
                     ProgressTab(onOpenExercise={id ->navController.navigate("ejercicio/$id")},
+                        onOpenSports={libraryModeRequest="Deportes";navController.navigate("ejercicios")},
+                        accountId = accountId,
                         busy = busy,
                         syncing = syncing,
                         status = status,
@@ -557,7 +633,9 @@ fun ReperaMobileScreen(
                         onDeleteFinishedSet = onDeleteFinishedSet,
                         onLogBodyWeight = onLogBodyWeight,
                         onOpenBodyWeights = { navController.navigate("peso-corporal") },
-                        onOpenHistory = {navController.navigate("historial")}
+                        onOpenHistory = {navController.navigate("historial")},
+                        healthAccess = healthAccess,
+                        onHealthConnect = onHealthConnect
                     )
                 }
                 composable("reloj") {
@@ -577,6 +655,10 @@ fun ReperaMobileScreen(
                 }
                 composable("ejercicios") {
                     ExercisesTab(
+                        requestedLibraryMode=libraryModeRequest,onLibraryModeRequestConsumed={libraryModeRequest=null},
+                        onPlayWod={id,request ->onPlayWod(id,request) {navigateTab("inicio")}},
+                        wodFavorites=overview?.wodTemplateFavorites.orEmpty(),onToggleWodFavorite=onToggleWodFavorite,
+                        exerciseSeries=exerciseSeries,onSetTestedOneRM=onSetTestedOneRM,
                         heartSeriesProvider = heartSeriesProvider,
                         onUpdateFinishedWorkout = onUpdateFinishedWorkout,
                         accountId = accountId, onArchiveChanged = onLiveActivitySaved,
@@ -586,6 +668,7 @@ fun ReperaMobileScreen(
                         overview = overview,
                         activeWorkout = activeWorkout,
                         onQuickLog = onQuickLog,
+                        onSaveQuickSets=onSaveQuickSets,
                         onSetExerciseFavorite = onSetExerciseFavorite,
                         onOpenExercise = { exerciseId ->
                             navController.navigate("ejercicio/$exerciseId")
@@ -599,33 +682,16 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("ajustes") {
-                    val subs=dev.repera.mobile.monetization.LocalSubscriptions.current
-                    SettingsTab(
-                        busy = busy,
-                        onOpenAIAccess = {
-                            navController.navigate("acceso-ia")
-                        },
-                        onImportJson = onImportJson,
-                        onImportCsv = onImportCsv,
-                        onOpenCenter={navController.navigate("center")},
-                        onOpenBodyWeights={navController.navigate("peso-corporal")},
-                        onOpenHistory={navController.navigate("historial")},
-                        onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
-                            feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
-                        proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
-                        onUpdateProfile=onUpdateProfile,
-                        overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
-                        onExportJson=onExportJson,onHealthConnect=onHealthConnect,onSignOut=onSignOut
-                    )
+                    settingsContent()
                 }
                 composable("historial") {
                     CompleteHistoryScreen(overview,busy,accountId,onReviseFinishedSet,onDeleteFinishedSet,onDeleteWorkout,
-                        onUpdateFinishedWorkout,heartSeriesProvider) {exerciseId,sessionId,instanceId ->
+                        onUpdateFinishedWorkout,heartSeriesProvider,externalHealthDetail) {exerciseId,sessionId,instanceId ->
                         navController.navigate("ejercicio/"+Uri.encode(exerciseId)+"?sesion="+Uri.encode(sessionId)+"&instancia="+Uri.encode(instanceId))
                     }
                 }
                 composable("peso-corporal") {
-                    BodyWeightHistoryScreen(overview?.bodyWeightHistory.orEmpty(),busy,onLogBodyWeight,onDeleteBodyWeight)
+                    BodyWeightHistoryScreen(overview?.bodyWeightHistory.orEmpty(),busy,onLogBodyWeight,onDeleteBodyWeight,accountId)
                 }
                 composable("mensajes") {
                     LaunchedEffect(Unit) {onCenterRefresh()}
@@ -678,18 +744,19 @@ fun ReperaMobileScreen(
                         // Editor sobre borrador local (RoutineBlocksEditorScreen):
                         // solo «Guardar» persiste; «Volver» descarta sin tocar
                         // la rutina, igual que en iOS.
-                        RoutineBlocksEditorScreen(
+                        var suggestedTitle by remember(accountId,routineId) {mutableStateOf<String?>(null)}
+                        RoutineBlocksEditorScreen(accountId=accountId,
                             routine = routine,
+                            saveStatus=status,
                             exercises = overview?.exerciseEntries.orEmpty(),
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
                             importableRoutines = overview?.routineEntries.orEmpty(),
                             onTitleSuggested = { t ->
-                                onEditRoutine(routineId, t, RoutineSchedule(routine.scheduledDate, routine.weekday, routine.timeMinutes))
+                                suggestedTitle=t
                             },
                             onReplace = { drafts ->
-                                onReplaceRoutineBlocks(routineId, drafts)
-                                navController.popBackStack()
+                                onReplaceRoutineBlocks(routineId, drafts,suggestedTitle) {navController.popBackStack()}
                             },
                             onBack = { navController.popBackStack() }
                         )
@@ -712,25 +779,26 @@ fun ReperaMobileScreen(
                     val fecha = backStackEntry.arguments?.getString("fecha").orEmpty()
                     val nombre = backStackEntry.arguments?.getString("nombre")
                         .orEmpty().ifBlank { "Entreno" }
-                    val draft = remember(fecha, nombre) {
+                    val requestId=androidx.compose.runtime.saveable.rememberSaveable(accountId,fecha,nombre) {java.util.UUID.randomUUID().toString()}
+                    val draft = remember(accountId,fecha, nombre,requestId) {
                         RoutineEntry(
-                            id = java.util.UUID.randomUUID().toString(),
+                            id = requestId,
                             title = nombre,
                             supported = true,
                             scheduledDate = fecha,
                             blocks = emptyList())
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
-                    RoutineBlocksEditorScreen(
+                    RoutineBlocksEditorScreen(accountId=accountId,
                         routine = draft,
+                        saveStatus=status,
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
                         onTitleSuggested = { t -> oneOffTitle = t },
                         onReplace = { drafts ->
-                            onSaveOneOffRoutine(oneOffTitle ?: nombre, drafts, fecha)
-                            navController.popBackStack()
+                            onSaveOneOffRoutine(oneOffTitle ?: nombre, drafts, fecha,draft.id) {navController.popBackStack()}
                         },
                         onBack = { navController.popBackStack() }
                     )
@@ -763,8 +831,14 @@ fun ReperaMobileScreen(
                     if (entry == null) {
                         LaunchedEffect(Unit) { navController.popBackStack() }
                     } else {
+                        var quick by rememberSaveable(entry.id,accountId) {mutableStateOf(false)}
+                        if(quick) QuickLogSheet(entry,accountId,busy,loadGuideProvider(entry.id,8,null)?.lastSession?.sets?.lastOrNull(),{quick=false}) {rows,notes,requestId ->
+                            onSaveQuickSets(entry.id,rows,notes,requestId) {quick=false}
+                        }
                         ExerciseDetailScreen(
                             entry = entry,
+                            onQuickLog={quick=true},
+                            onToggleFavorite={onSetExerciseFavorite(entry.id,!entry.isFavorite)},
                             testedOneRM = overview?.testedOneRMByExercise?.get(entry.id),
                             estimatedOneRM = overview?.exerciseProgress?.get(entry.id)?.estimatedOneRM,
                             incrementKg = overview?.trainingSettings?.weightIncrementKg ?: 2.5,
@@ -779,6 +853,29 @@ fun ReperaMobileScreen(
                     }
                 }
             }
+            if(expanded && currentRoute=="inicio" && showSettingsPanel) TrailingColumnPanel(onDismiss={showSettingsPanel=false}) {settingsContent()}
+            val panelRoutine=routinePanelId?.let {id -> overview?.routineEntries?.firstOrNull {it.id==id}}
+            if(expanded && currentRoute=="inicio" && routinePanelId!=null) {
+                if(panelRoutine==null) LaunchedEffect(routinePanelId,overview) {routinePanelId=null}
+                else TrailingColumnPanel(onDismiss={routinePanelId=null},closeLabel="‹ Cerrar rutina") {
+                    var suggestedTitle by remember(accountId,panelRoutine.id) {mutableStateOf<String?>(null)}
+                    RoutineBlocksEditorScreen(accountId=accountId,
+                        routine = panelRoutine,
+                        saveStatus=status,
+                        exercises = overview?.exerciseEntries.orEmpty(),
+                        busy = busy,
+                        loadGuideProvider = loadGuideProvider,
+                        importableRoutines = overview?.routineEntries.orEmpty(),
+                        onTitleSuggested = { t -> suggestedTitle=t },
+                        onReplace = { drafts ->
+                            onReplaceRoutineBlocks(panelRoutine.id, drafts,suggestedTitle) {routinePanelId=null}
+                        },
+                        onBack = { routinePanelId=null }
+                    )
+                }
+            }
+            }
+        }
         }
     }
 }
@@ -797,6 +894,8 @@ internal fun SettingsTab(
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onExportJson:()->Unit = {},
     onHealthConnect:()->Unit = {},
+    onPrivateSleepChanged:(Boolean)->Unit = {},
+    onPrivateCycleChanged:(Boolean)->Unit = {},
     onSignOut:()->Unit = {},
     onOpenCenter:()->Unit = {},
     onOpenPro:()->Unit = {},
@@ -823,7 +922,7 @@ internal fun SettingsTab(
         OutlinedButton(onClick=onOpenCenter,enabled=!busy) {Text("Mis centros y entrenadores")}
         proStatus?.let {Text(it)}
         OutlinedButton(onClick=onOpenPro,enabled=!busy) {Text("Repera Pro")}
-        PermissionSettingsSection(onHealthConnect)
+        PermissionSettingsSection(onHealthConnect,onPrivateSleepChanged,onPrivateCycleChanged)
         HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
         OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null) {Text("Historial de entrenamientos")}
         OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null) {Text("Peso corporal")}

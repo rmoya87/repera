@@ -226,7 +226,10 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         state.put("syncRevision", state.optInt("syncRevision", 0) + 1)
         state.put("updatedAt", Instant.now().toString())
         state.put("lastWriterDeviceId", "android-catalog-remote")
-        local.write(state.toString().toByteArray(Charsets.UTF_8))
+        // The catalog fetch/merge may overlap a real training write. Never publish stale state.
+        check(local.replaceIfUnchanged(bytes,state.toString().toByteArray(Charsets.UTF_8))) {
+            "El historial cambió durante la actualización del catálogo; se reintentará"
+        }
         return true
     }
 

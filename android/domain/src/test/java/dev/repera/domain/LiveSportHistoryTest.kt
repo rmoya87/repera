@@ -28,6 +28,18 @@ class LiveSportHistoryTest {
         assertEquals("09:05", LiveSportHistory.formatDuration(545.0))
     }
 
+    @Test fun sportRecordsUseOnlyRecordedValuesOfThatSport() {
+        val a = session("running", 1800.0, 5000.0).copy(liveKilometerSplitsSeconds = listOf(310.0, 295.0, Double.NaN, 0.0))
+        val b = session("running", 3600.0, 3700.0).copy(liveKilometerSplitsSeconds = listOf(300.0))
+        val other = session("cycling", 9999.0, 90000.0).copy(liveKilometerSplitsSeconds = listOf(100.0))
+        val r = LiveSportHistory.records(LiveSport.RUNNING, listOf(a, b, other))
+        assertEquals(5000.0, r.longestDistanceMeters!!, 0.001)
+        assertEquals(295.0, r.fastestRecordedKilometerSeconds!!, 0.001)
+        assertEquals(3600.0, r.longestActiveSeconds!!, 0.001)
+        val none = LiveSportHistory.records(LiveSport.RUNNING, listOf(session("running", null, null)))
+        assertNull(none.longestDistanceMeters); assertNull(none.fastestRecordedKilometerSeconds); assertNull(none.longestActiveSeconds)
+    }
+
     @Test fun gpsSportSummarizesKilometers() {
         val sessions = listOf(
             session("running", 1800.0, 5000.0),
@@ -116,7 +128,7 @@ class LiveSportHistoryTest {
     }
 
     @Test fun catalogPropertyCountsMatchFixedAppleReference() {
-        assertEquals(36, LiveSport.entries.size)
+        assertEquals(53, LiveSport.entries.size)
         assertEquals(19, LiveSport.entries.count { it.usesGPS })
         assertEquals(15, LiveSport.entries.count { it.displaysSpeed })
         assertEquals(6, LiveSport.entries.count { it.tracksElevation })

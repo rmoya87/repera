@@ -13,10 +13,15 @@ class ProfileSettingsTest {
         ProfileSettings.apply(state,ProfileSettings(" ",null))
         assertEquals(ProfileSettings(),ProfileSettings.read(state))
     }
-    @Test fun invalidNameDoesNotPartiallyOverwriteSnapshot() {
+    @Test fun invalidAvatarDoesNotPartiallyOverwriteSnapshot() {
         val state=JSONObject().put("settings",JSONObject().put("profileDisplayName","Antes"))
         val before=state.toString()
-        try {ProfileSettings.apply(state,ProfileSettings("x".repeat(101)));fail()} catch(_:IllegalArgumentException) {}
+        try {ProfileSettings.apply(state,ProfileSettings("Nuevo","x".repeat(300_001)));fail()} catch(_:IllegalArgumentException) {}
         assertEquals(before,state.toString())
+    }
+    @Test fun longNameIsStoredLocallyAndOnlyPublicSyncTruncates() {
+        val state=JSONObject()
+        ProfileSettings.apply(state,ProfileSettings("x".repeat(101)))
+        assertEquals("x".repeat(101),ProfileSettings.read(state).displayName)
     }
 }

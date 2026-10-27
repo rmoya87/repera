@@ -27,7 +27,7 @@ class LiveRouteGuidance(private val points: List<WorkoutRoutePoint>, private val
         val meters=(remaining/10).roundToInt()*10
         val display="${next.instruction} aprox. en $meters m"
         val speech=if(remaining<=(if(sport.isCycling)120 else 70) && announced.add(next.routeIndex))
-            "Dentro de $meters metros, ${next.instruction.lowercase()}." else null
+            LiveSpokenPhrases.turn(meters,next.spokenDirection) else null
         return Cue(display,speech)
     }
 }

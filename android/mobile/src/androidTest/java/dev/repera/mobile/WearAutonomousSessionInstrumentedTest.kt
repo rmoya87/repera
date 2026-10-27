@@ -97,4 +97,37 @@ class WearAutonomousSessionInstrumentedTest {
         repo.adoptWearSession(plan)
         assertFalse(repo.adoptWearSession(other))
     }
+    @Test fun finishRetryIsIdempotentAndNeverFinishesADifferentActiveSession() {
+        val c=InstrumentationRegistry.getInstrumentation().targetContext
+        val user="test-wear-finish-${UUID.randomUUID()}"
+        seedRoutine(c,user,"a",LocalDate.now().dayOfWeek.value)
+        val repo=WorkoutRepository(c,user)
+        val plan=repo.todayPlanSession()!!
+        assertTrue(repo.adoptWearSession(plan))
+        val id=plan.getString("id")
+        assertFalse(repo.finishWearSession("other"))
+        assertEquals(id,repo.active()!!.id)
+        assertTrue(repo.finishWearSession(id))
+        assertTrue(repo.finishWearSession(id))
+        assertNull(repo.active())
+        assertEquals(1,JSONObject(String(LocalSnapshotStore(c,user).read()!!)).getJSONArray("workouts").length())
+    }
+    @Test fun staleSessionPayloadCannotResurrectFinishedOrDeletedWorkout() {
+        val c=InstrumentationRegistry.getInstrumentation().targetContext
+        val user="test-wear-resurrection-${UUID.randomUUID()}"
+        seedRoutine(c,user,"a",LocalDate.now().dayOfWeek.value)
+        val repo=WorkoutRepository(c,user);val plan=repo.todayPlanSession()!!;val id=plan.getString("id")
+        assertTrue(repo.adoptWearSession(plan));assertTrue(repo.finishWearSession(id))
+        assertFalse(repo.adoptWearSession(plan));assertNull(repo.active())
+        assertTrue(runCatching {repo.logWearSet(id,0,UUID.randomUUID().toString(),5,20.0,sessionPayload=plan)}.isFailure)
+        assertNull(repo.active())
+        repo.deleteWorkout(id)
+        assertFalse(repo.adoptWearSession(plan));assertNull(repo.active())
+        val mirror=WorkoutMirrorStore(c,user)
+        mirror.acknowledgeDeletes(setOf(id))
+        assertTrue(mirror.pendingDeletes().isEmpty())
+        assertFalse(repo.adoptWearSession(plan));assertNull(repo.active())
+        val finished=org.json.JSONObject(plan.toString()).put("finishedAt",java.time.Instant.now().toString())
+        assertEquals(0,repo.mergeRecoveredWorkoutsFromSupabase(listOf(finished)))
+    }
 }

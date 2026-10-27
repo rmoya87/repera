@@ -65,8 +65,11 @@ class SupabaseIdentity(
     private fun execute(request: Request): Session {
         http.newCall(request).execute().use { response ->
             // Do not echo auth responses or tokens into errors or device logs.
-            if (!response.isSuccessful)
-                throw IllegalStateException("Supabase Auth HTTP ${response.code}: revisa Google Client IDs")
+            if (!response.isSuccessful) {
+                val errorCode = runCatching { JSONObject(response.body?.string().orEmpty()).optString("error_code") }
+                    .getOrNull()?.takeIf { it.isNotBlank() }
+                throw AuthHttpException(response.code, errorCode)
+            }
             return parseSession(JSONObject(response.body?.string() ?: error("Respuesta vacía")))
         }
     }
@@ -89,4 +92,15 @@ class SupabaseIdentity(
             return Session(userId, token, refresh, expiry, System.currentTimeMillis() / 1000)
         }
     }
+}
+
+/** Fallo HTTP de Supabase Auth. Nunca incluye cuerpo ni tokens en el mensaje. */
+class AuthHttpException(val httpCode: Int, val errorCode: String?) :
+    IllegalStateException("Supabase Auth HTTP $httpCode: revisa Google Client IDs")
+
+/** Apple isUnrecoverableAuthError: solo una revocación confirmada exige iniciar sesión de nuevo; la red u otros fallos no. */
+object SupabaseAuthErrors {
+    private val unrecoverable = setOf("session_not_found", "refresh_token_not_found", "user_banned")
+    fun isUnrecoverable(error: Throwable): Boolean =
+        error is AuthHttpException && error.errorCode in unrecoverable
 }

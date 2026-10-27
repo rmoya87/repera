@@ -58,6 +58,12 @@ object LiveGPXParser {
 /** Indicaciones orientativas de polilínea, no navegación vial ni calles. */
 object LiveGPXTurnDetection {
     data class Turn(val routeIndex: Int, val metersAlongRoute: Double, val angleDegrees: Double) {
+        /** Spoken wording (Apple live main): lowercase verb phrase, "cambia de sentido" above 145 degrees. */
+        val spokenDirection: String get() = when {
+            abs(angleDegrees) > 145 -> "cambia de sentido"
+            angleDegrees > 0 -> "gira a la derecha"
+            else -> "gira a la izquierda"
+        }
         val instruction: String get() = when {
             abs(angleDegrees) > 145 -> "Cambio de sentido"
             angleDegrees > 0 -> "Gira a la derecha"

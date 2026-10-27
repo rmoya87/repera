@@ -1,6 +1,8 @@
 package dev.repera.mobile
 
 import android.content.Context
+import androidx.health.connect.client.HealthConnectFeatures
+import androidx.health.connect.client.records.SkinTemperatureRecord
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.Record
@@ -10,10 +12,18 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
+import androidx.health.connect.client.records.MenstruationFlowRecord
+import androidx.health.connect.client.records.MenstruationPeriodRecord
+import androidx.health.connect.client.records.OvulationTestRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.RespiratoryRateRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import dev.repera.domain.HealthMuscleMapper
@@ -32,10 +42,14 @@ data class DailyEnergyPoint(val date: LocalDate, val kcal: Double)
 /** Lote de salud para el snapshot de Progreso. */
 data class RecoveryRead(
     val nights: List<dev.repera.domain.RecoverySleepNight>,
-    val vitals: List<dev.repera.domain.RecoveryEngine.DailyVitals>
+    val vitals: List<dev.repera.domain.RecoveryEngine.DailyVitals>,
+    val menstrualDays:List<LocalDate> = emptyList(),
+    val positiveOvulationTests:List<LocalDate> = emptyList()
 )
 
 data class ExternalHealthHistoryEntry(val id:String,val title:String,val startMillis:Long,val endMillis:Long,val minutes:Double,val sourcePackage:String)
+
+data class ExternalHealthDetail(val entry:ExternalHealthHistoryEntry,val heart:List<Pair<Long,Int>>,val activeKcal:Double?)
 
 data class HealthSamples(
     val heartRateDays: List<DailyHeartRatePoint>,
@@ -52,19 +66,32 @@ data class HealthSamples(
 
 class HealthConnectReader(private val context: Context) {
     companion object {
+        val optionalVitalPermissions = setOf(
+            HealthPermission.getReadPermission(RespiratoryRateRecord::class),
+            HealthPermission.getReadPermission(OxygenSaturationRecord::class))
+        /** Distancia por sesión (Apple workoutMovementMetrics). Se declara en el manifiesto pero NO entra en
+         *  requestedPermissions(): no se pide automáticamente hasta que el propietario decida; solo se lee si ya está concedido. */
+        val optionalMovementPermissions = setOf(HealthPermission.getReadPermission(DistanceRecord::class))
         val permissions = setOf(
             HealthPermission.getReadPermission(StepsRecord::class),
             HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
             HealthPermission.getReadPermission(HeartRateRecord::class),
             HealthPermission.getReadPermission(ExerciseSessionRecord::class),
             HealthPermission.getWritePermission(ExerciseSessionRecord::class),
-            HealthPermission.getReadPermission(SleepSessionRecord::class),
             HealthPermission.getReadPermission(
                 HeartRateVariabilityRmssdRecord::class),
             HealthPermission.getReadPermission(RestingHeartRateRecord::class),
             HealthPermission.getReadPermission(WeightRecord::class),
             HealthPermission.getWritePermission(WeightRecord::class)
         )
+
+        internal fun historyPermissionsIfAvailable(available:Boolean):Set<String> =
+            if(available) setOf(HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY) else emptySet()
+
+        fun hasReadablePermission(granted:Set<String>):Boolean = granted.any {it in permissions + optionalVitalPermissions + setOf(
+            HealthPermission.getReadPermission(SleepSessionRecord::class),HealthPermission.getReadPermission(MenstruationFlowRecord::class),
+            HealthPermission.getReadPermission(OvulationTestRecord::class),HealthPermission.getReadPermission(MenstruationPeriodRecord::class),
+            HealthPermission.getReadPermission(SkinTemperatureRecord::class)) && it !in setOf(HealthPermission.getWritePermission(WeightRecord::class),HealthPermission.getWritePermission(ExerciseSessionRecord::class))}
 
         /** Health Connect EXERCISE_TYPE_* → claves de HealthMuscleMapper
          *  (mismas familias que HKWorkoutActivityType en iOS). */
@@ -119,13 +146,24 @@ class HealthConnectReader(private val context: Context) {
         }
     }
 
+    fun requestedPermissions():Set<String> {
+        val settings=PrivateRecoverySettings(context)
+        val skinPermission=if(available() && runCatching {HealthConnectClient.getOrCreate(context).features.getFeatureStatus(HealthConnectFeatures.FEATURE_SKIN_TEMPERATURE)==HealthConnectFeatures.FEATURE_STATUS_AVAILABLE}.getOrDefault(false) && settings.sleepEnabled()) setOf(HealthPermission.getReadPermission(SkinTemperatureRecord::class)) else emptySet()
+        // Optional extension only. Refusal never disables already granted record reads.
+        val historyPermission=historyPermissionsIfAvailable(available() && runCatching {
+            HealthConnectClient.getOrCreate(context).features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY)==HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+        }.getOrDefault(false))
+        return permissions + optionalVitalPermissions + skinPermission + historyPermission + (if(settings.sleepEnabled()) setOf(HealthPermission.getReadPermission(SleepSessionRecord::class)) else emptySet()) +
+            (if(settings.cycleEnabled()) setOf(HealthPermission.getReadPermission(MenstruationFlowRecord::class),HealthPermission.getReadPermission(MenstruationPeriodRecord::class),HealthPermission.getReadPermission(OvulationTestRecord::class)) else emptySet())
+    }
+
     fun available() = HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
 
     suspend fun hasPermissions(): Boolean {
         if (!available()) return false
         val granted = HealthConnectClient.getOrCreate(context)
             .permissionController.getGrantedPermissions()
-        return granted.containsAll(permissions)
+        return hasReadablePermission(granted)
     }
 
     suspend fun readToday(): TodayHealth = readDay(LocalDate.now())
@@ -134,14 +172,18 @@ class HealthConnectReader(private val context: Context) {
         check(available()) { "Health Connect no está disponible en este dispositivo" }
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
-        require(granted.containsAll(permissions)) { "Debes autorizar Salud para leer actividad" }
         val zone = ZoneId.systemDefault()
         val start = day.atStartOfDay(zone).toInstant()
         val now = minOf(day.plusDays(1).atStartOfDay(zone).toInstant(),Instant.now())
         if(start>=now) return TodayHealth(null,null)
+        val metrics=buildSet {
+            if(HealthPermission.getReadPermission(StepsRecord::class) in granted) add(StepsRecord.COUNT_TOTAL)
+            if(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class) in granted) add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+        }
+        if(metrics.isEmpty()) return TodayHealth(null,null)
         val result = client.aggregate(
             AggregateRequest(
-                metrics = setOf(StepsRecord.COUNT_TOTAL, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
+                metrics = metrics,
                 timeRangeFilter = TimeRangeFilter.between(start, now)
             )
         )
@@ -158,6 +200,27 @@ class HealthConnectReader(private val context: Context) {
      *  consulta expandida de overlappingWorkout iOS), muestras de FC con su
      *  origen y kcal con su origen. La decisión la toma SessionHealthMatcher
      *  (reglas portadas de Apple); aquí solo se lee. */
+    /** Reads the linked record by id. Only Found or Unreadable are produced: the Health Connect error that
+     *  means "record does not exist" was not verified on a device, so every failure is treated as unknown. */
+    private suspend fun lookupLinkedRecord(recordId: String): dev.repera.domain.SessionHealthMatcher.LinkLookup = try {
+        val client = HealthConnectClient.getOrCreate(context)
+        if (!client.permissionController.getGrantedPermissions().contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class)))
+            dev.repera.domain.SessionHealthMatcher.LinkLookup.Unreadable
+        else {
+            val it = client.readRecord(ExerciseSessionRecord::class, recordId).record
+            dev.repera.domain.SessionHealthMatcher.LinkLookup.Found(dev.repera.domain.SessionHealthMatcher.CandidateSession(
+                id = it.metadata.id, startEpochMs = it.startTime.toEpochMilli(), endEpochMs = it.endTime.toEpochMilli(),
+                packageName = it.metadata.dataOrigin.packageName, clientRecordId = it.metadata.clientRecordId,
+                exerciseTypeKey = exerciseTypeKey(it.exerciseType),
+                observedDurationMinutes = HealthWorkoutMinutes.measured(it.startTime.toEpochMilli(), it.endTime.toEpochMilli(),
+                    it.segments.filter { segment -> segment.segmentType == androidx.health.connect.client.records.ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE }
+                        .map { segment -> segment.startTime.toEpochMilli() to segment.endTime.toEpochMilli() })))
+        }
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        dev.repera.domain.SessionHealthMatcher.LinkLookup.Unreadable
+    }
+
     private suspend fun readSessionCandidates(startEpochMs: Long, endEpochMs: Long): List<dev.repera.domain.SessionHealthMatcher.CandidateSession> {
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
@@ -172,7 +235,12 @@ class HealthConnectReader(private val context: Context) {
                 id = it.metadata.id,
                 startEpochMs = it.startTime.toEpochMilli(),
                 endEpochMs = it.endTime.toEpochMilli(),
-                packageName = it.metadata.dataOrigin.packageName
+                packageName = it.metadata.dataOrigin.packageName,
+                clientRecordId=it.metadata.clientRecordId,
+                exerciseTypeKey=exerciseTypeKey(it.exerciseType),
+                observedDurationMinutes=HealthWorkoutMinutes.measured(it.startTime.toEpochMilli(),it.endTime.toEpochMilli(),
+                    it.segments.filter {segment ->segment.segmentType==androidx.health.connect.client.records.ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE}
+                        .map {segment ->segment.startTime.toEpochMilli() to segment.endTime.toEpochMilli()})
             )
         }
     }
@@ -223,19 +291,38 @@ class HealthConnectReader(private val context: Context) {
      *  existente se conserva (iOS sí lee FC de ventana sin workout). */
     private suspend fun matchedSession(sessionId: String?, startEpochMs: Long, endEpochMs: Long,
                                        linkedRecordId: String?): dev.repera.domain.SessionHealthMatcher.CandidateSession? {
-        val candidates = readSessionCandidates(startEpochMs, endEpochMs)
-        // Vínculo persistido primero (fetchWorkout(uuid) iOS), pero solo se
-        // reusa si pertenece a ESTA sesión y el registro sigue válido; si no,
-        // matching por ventana. Un vínculo sin sessionId no es verificable y
-        // no se fía ciegamente.
-        if (sessionId != null) {
-            dev.repera.domain.SessionHealthMatcher.validStoredLink(
-                sessionId, startEpochMs, endEpochMs, linkedRecordId,
-                candidates, context.packageName)?.let { return it }
+        // Persisted link first, read BY ID (Apple fetchWorkout(uuid)), so editing the session time does not
+        // swap it for another record. Unreadable (no permission / transient error) never reassociates.
+        if (sessionId != null && !linkedRecordId.isNullOrBlank()) {
+            when (val r = dev.repera.domain.SessionHealthMatcher.resolveStoredLink(
+                sessionId, linkedRecordId, lookupLinkedRecord(linkedRecordId), context.packageName)) {
+                is dev.repera.domain.SessionHealthMatcher.LinkResolution.Use -> return r.record
+                dev.repera.domain.SessionHealthMatcher.LinkResolution.KeepLinkUnresolved -> return null
+                dev.repera.domain.SessionHealthMatcher.LinkResolution.FallBackToWindow -> {}
+            }
         }
+        val candidates = readSessionCandidates(startEpochMs, endEpochMs)
         return (dev.repera.domain.SessionHealthMatcher.associate(
-            startEpochMs, endEpochMs, candidates, context.packageName)
+            startEpochMs, endEpochMs, dev.repera.domain.SessionHealthMatcher.eligibleForSession(sessionId,candidates,context.packageName), context.packageName)
             as? dev.repera.domain.SessionHealthMatcher.Association.Matched)?.session
+    }
+
+    /** Exact provider ID is re-read before using its range/source. No window guessed from UI. */
+    suspend fun readExternalDetail(expected:ExternalHealthHistoryEntry):ExternalHealthDetail? {
+        if(!available()) return null
+        val client=HealthConnectClient.getOrCreate(context)
+        val granted=client.permissionController.getGrantedPermissions()
+        if(HealthPermission.getReadPermission(ExerciseSessionRecord::class) !in granted) return null
+        val record=client.readRecord(ExerciseSessionRecord::class,expected.id).record
+        if(record.metadata.id!=expected.id || record.metadata.dataOrigin.packageName!=expected.sourcePackage ||
+            record.startTime.toEpochMilli()!=expected.startMillis || record.endTime.toEpochMilli()!=expected.endMillis) return null
+        val evidence=readSessionEvidence(expected.startMillis,expected.endMillis)
+        // An exact external record does not grant ownership of another app's readings.
+        val heart=evidence.heart.filter {it.originPackage==expected.sourcePackage}
+        val series=(dev.repera.domain.SessionHealthMatcher.mergeHeartRate(heart) as? dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged)?.series.orEmpty()
+        val kcal=evidence.kcal.filter {it.originPackage==expected.sourcePackage && it.startMs>=expected.startMillis && it.endMs<=expected.endMillis}
+            .sumOf {it.kcal}.takeIf {it.isFinite() && it>0}
+        return ExternalHealthDetail(expected,series,kcal)
     }
 
     /** Serie temporal de FC de una sesión (epoch ms → lpm) para la curva
@@ -290,8 +377,43 @@ class HealthConnectReader(private val context: Context) {
             maxHeartRateBpm = bpm.maxOrNull(),
             heartRateBpmSamples = bpm,
             activeEnergyKcal = kcal,
-            durationMinutes = (endEpochMs - startEpochMs) / 60000.0
+            durationMinutes = dev.repera.domain.SessionHealthMatcher.observedDurationMinutes(matched),
+            sourceRecordId = matched.id
         )
+    }
+
+    /** Pasos y distancia de la sesión de Salud asociada (reglas de asociación idénticas a readSessionSample:
+     *  sin asociación o ambigua no se lee nada). «Asociado» = mismo origen que la sesión asociada dentro de su rango;
+     *  si no hay muestras de ese origen, solo se usa la ventana cuando UN ÚNICO origen aporta datos en el rango (`usesTimeWindow=true`); con varios orígenes no se suma ni se elige: sin dato (fail-closed).
+     *  Cada lectura exige su permiso ya concedido; no se solicita ni se estima nada. */
+    suspend fun readSessionMovement(startEpochMs: Long, endEpochMs: Long, linkedRecordId: String? = null,
+                                    linkedSessionId: String? = null): dev.repera.domain.SessionMovement? {
+        if (!available() || endEpochMs <= startEpochMs) return null
+        val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId) ?: return null
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        val canSteps = HealthPermission.getReadPermission(StepsRecord::class) in granted
+        val canDistance = HealthPermission.getReadPermission(DistanceRecord::class) in granted
+        if (!canSteps && !canDistance) return null
+        val range = TimeRangeFilter.between(Instant.ofEpochMilli(matched.startEpochMs), Instant.ofEpochMilli(matched.endEpochMs))
+        suspend fun total(origins: Set<String>, steps: Boolean): Double? {
+            val r = client.aggregate(AggregateRequest(setOf(if (steps) StepsRecord.COUNT_TOTAL else DistanceRecord.DISTANCE_TOTAL),
+                range, origins.map { DataOrigin(it) }.toSet()))
+            return if (steps) r[StepsRecord.COUNT_TOTAL]?.toDouble() else r[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+        }
+        // Un origen por vez: nunca se suman apps distintas (pueden guardar los mismos pasos/distancia).
+        suspend fun origins(steps: Boolean): Set<String> =
+            if (steps) client.readAllRecords(StepsRecord::class, range).map { it.metadata.dataOrigin.packageName }.toSet()
+            else client.readAllRecords(DistanceRecord::class, range).map { it.metadata.dataOrigin.packageName }.toSet()
+        suspend fun figures(steps: Boolean): Pair<Double?, Double?> {
+            val own = total(setOf(matched.packageName), steps)
+            val others = origins(steps)
+            val perOrigin = others.mapNotNull { o -> total(setOf(o), steps)?.let { o to it } }.toMap()
+            return own to dev.repera.domain.SessionMovementMetrics.windowTotal(perOrigin)
+        }
+        val (ownSteps, winSteps) = if (canSteps) figures(true) else null to null
+        val (ownDist, winDist) = if (canDistance) figures(false) else null to null
+        return dev.repera.domain.SessionMovementMetrics.resolve(matched.exerciseTypeKey, ownSteps, winSteps, ownDist, winDist)
     }
 
     /** Lecturas de los últimos `days` días para Progreso (misma ventana
@@ -305,33 +427,25 @@ class HealthConnectReader(private val context: Context) {
             .atStartOfDay(zone).toInstant()
         val now = Instant.now()
 
-        val heartRateDays = mutableMapOf<LocalDate, Triple<Double, Double, Double>>()
-        val heartRateCounts = mutableMapOf<LocalDate, Int>()
+        val heartSamples=mutableListOf<Pair<Long,Double>>()
         if (granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) {
-            val response = client.readAllRecords(
-                HeartRateRecord::class, TimeRangeFilter.between(start, now))
-            for (record in response) {
-                val day = record.startTime.atZone(zone).toLocalDate()
-                val bpm = record.samples.map { it.beatsPerMinute }
-                if (bpm.isEmpty()) continue
-                val acc = heartRateDays[day]
-                val n = heartRateCounts[day] ?: 0
-                heartRateDays[day] = Triple(
-                    minOf(acc?.first ?: Double.MAX_VALUE, bpm.min().toDouble()),
-                    (acc?.second ?: 0.0) + bpm.average() * bpm.size,
-                    maxOf(acc?.third ?: 0.0, bpm.max().toDouble()))
-                heartRateCounts[day] = n + bpm.size
+            client.readAllRecords(HeartRateRecord::class,TimeRangeFilter.between(start,now)).forEach {record ->
+                record.samples.filter {it.time>=start && it.time<=now}.forEach {heartSamples.add(it.time.toEpochMilli() to it.beatsPerMinute.toDouble())}
             }
         }
 
         val energyDays = mutableMapOf<LocalDate, Double>()
         if (granted.contains(HealthPermission.getReadPermission(
                 ActiveCaloriesBurnedRecord::class))) {
-            val response = client.readAllRecords(
-                ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, now))
-            for (record in response) {
-                val day = record.startTime.atZone(zone).toLocalDate()
-                energyDays[day] = (energyDays[day] ?: 0.0) + record.energy.inKilocalories
+            // Calendar buckets preserve 23/25-hour days and allocate intervals across midnight.
+            // Ask Health Connect for its aggregate rather than summing overlapping raw sources.
+            val response = client.aggregateGroupByPeriod(AggregateGroupByPeriodRequest(
+                metrics=setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
+                timeRangeFilter=TimeRangeFilter.between(start.atZone(zone).toLocalDateTime(),now.atZone(zone).toLocalDateTime()),
+                timeRangeSlicer=java.time.Period.ofDays(1)))
+            for (bucket in response) {
+                bucket.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+                    ?.takeIf {it.isFinite() && it>=0}?.let {energyDays[bucket.startTime.toLocalDate()]=it}
             }
         }
 
@@ -367,14 +481,7 @@ class HealthConnectReader(private val context: Context) {
         }
 
         return HealthSamples(
-            heartRateDays = heartRateDays.map { (day, acc) ->
-                val n = heartRateCounts[day] ?: 0
-                DailyHeartRatePoint(
-                    date = day,
-                    avgBpm = if (n > 0) acc.second / n else 0.0,
-                    minBpm = if (acc.first == Double.MAX_VALUE) 0.0 else acc.first,
-                    maxBpm = acc.third)
-            }.sortedBy { it.date },
+            heartRateDays = DailyHeartRates.points(heartSamples,zone),
             energyDays = energyDays.map { (day, kcal) -> DailyEnergyPoint(day, kcal) }
                 .sortedBy { it.date },
             externalActivities = externalActivities.sortedBy { it.epochMillis },
@@ -412,7 +519,7 @@ class HealthConnectReader(private val context: Context) {
         val now = Instant.now()
 
         val stageSamples = mutableListOf<dev.repera.domain.SleepStageSample>()
-        if (granted.contains(HealthPermission.getReadPermission(
+        if (PrivateRecoverySettings(context).sleepEnabled() && granted.contains(HealthPermission.getReadPermission(
                 SleepSessionRecord::class))) {
             val response = client.readAllRecords(
                 SleepSessionRecord::class, TimeRangeFilter.between(start, now))
@@ -465,7 +572,24 @@ class HealthConnectReader(private val context: Context) {
                 rest.add(record.time.toEpochMilli() to record.beatsPerMinute.toDouble())
             }
         }
-        val daysSet = (hrv + rest).map {
+        val breathing=mutableListOf<Pair<Long,Double>>()
+        if(HealthPermission.getReadPermission(RespiratoryRateRecord::class) in granted) {
+            client.readAllRecords(RespiratoryRateRecord::class,TimeRangeFilter.between(start,now)).forEach {breathing.add(it.time.toEpochMilli() to it.rate)}
+        }
+        val oxygen=mutableListOf<Pair<Long,Double>>()
+        if(HealthPermission.getReadPermission(OxygenSaturationRecord::class) in granted) {
+            client.readAllRecords(OxygenSaturationRecord::class,TimeRangeFilter.between(start,now)).forEach {oxygen.add(it.time.toEpochMilli() to it.percentage.value)}
+        }
+        val wrist=mutableListOf<Pair<Long,Double>>()
+        if(PrivateRecoverySettings(context).sleepEnabled() && HealthPermission.getReadPermission(SkinTemperatureRecord::class) in granted && client.features.getFeatureStatus(HealthConnectFeatures.FEATURE_SKIN_TEMPERATURE)==HealthConnectFeatures.FEATURE_STATUS_AVAILABLE) {
+            client.readAllRecords(SkinTemperatureRecord::class,TimeRangeFilter.between(start,now)).forEach {record ->
+                record.deltas.forEach {sample ->
+                    dev.repera.domain.WristTemperature.observedCelsius(record.baseline?.inCelsius,sample.delta.inCelsius,
+                        record.measurementLocation==SkinTemperatureRecord.MEASUREMENT_LOCATION_WRIST,sample.time.toEpochMilli(),stageSamples)?.let {wrist.add(sample.time.toEpochMilli() to it)}
+                }
+            }
+        }
+        val daysSet = (hrv + rest + breathing + oxygen + wrist).map {
             Instant.ofEpochMilli(it.first).atZone(zone).toLocalDate()
         }.toSortedSet()
         val vitals = daysSet.map { day ->
@@ -474,9 +598,29 @@ class HealthConnectReader(private val context: Context) {
                 hrvMilliseconds = medianForDay(hrv, day, zone,
                     5.0..300.0, beforeMorning = true),
                 restingHeartRateBpm = medianForDay(rest, day, zone,
-                    30.0..130.0, beforeMorning = true))
+                    30.0..130.0, beforeMorning = true),
+                respiratoryRateBpm=medianForDay(breathing,day,zone,6.0..40.0,beforeMorning=true),
+                oxygenSaturationPercent=medianForDay(oxygen,day,zone,0.0..100.0,beforeMorning=false),
+                wristTemperatureCelsius=medianForDay(wrist,day,zone,25.0..42.0,beforeMorning=false))
         }
-        return RecoveryRead(nights = nights, vitals = vitals)
+        val menstrualDays=mutableSetOf<LocalDate>()
+        val positiveTests=mutableListOf<LocalDate>()
+        if(PrivateRecoverySettings(context).cycleEnabled()) {
+            val cycleStart=LocalDate.now(zone).minusDays(230).atStartOfDay(zone).toInstant()
+            val filter=TimeRangeFilter.between(cycleStart,now)
+            if(HealthPermission.getReadPermission(MenstruationFlowRecord::class) in granted) {
+                client.readAllRecords(MenstruationFlowRecord::class,filter).forEach {menstrualDays.add(it.time.atZone(zone).toLocalDate())}
+            }
+            if(HealthPermission.getReadPermission(MenstruationPeriodRecord::class) in granted) {
+                client.readAllRecords(MenstruationPeriodRecord::class,filter).forEach {record ->
+                    menstrualDays.addAll(dev.repera.domain.observedMenstrualDays(record.startTime,record.endTime,zone))
+                }
+            }
+            if(HealthPermission.getReadPermission(OvulationTestRecord::class) in granted) {
+                client.readAllRecords(OvulationTestRecord::class,filter).filter {it.result==OvulationTestRecord.RESULT_POSITIVE}.forEach {positiveTests.add(it.time.atZone(zone).toLocalDate())}
+            }
+        }
+        return RecoveryRead(nights = nights, vitals = vitals,menstrualDays=menstrualDays.sorted(),positiveOvulationTests=positiveTests.sorted())
     }
 
     /** Muestras de peso corporal, más reciente primero
@@ -496,7 +640,7 @@ class HealthConnectReader(private val context: Context) {
     }
 
     /** Escribe un peso en Salud (saveBodyMass de iOS). */
-    suspend fun saveBodyMass(kg: Double, epochMillis: Long, owner:String) {
+    suspend fun saveBodyMass(kg: Double, epochMillis: Long, owner:String,stillAuthorized:()->Boolean = {true}) {
         require(kg.isFinite() && kg>0 && owner.isNotBlank())
         check(available()) { "Health Connect no está disponible en este dispositivo" }
         val client = HealthConnectClient.getOrCreate(context)
@@ -505,6 +649,7 @@ class HealthConnectReader(private val context: Context) {
             WeightRecord::class))) { "Falta el permiso de escritura de peso" }
         val instant = Instant.ofEpochMilli(epochMillis)
         val offset = ZoneId.systemDefault().rules.getOffset(instant)
+        check(stillAuthorized()) {"La cuenta cambió antes de guardar peso en Salud"}
         client.insertRecords(listOf(WeightRecord(
             time = instant, zoneOffset = offset,
             weight = androidx.health.connect.client.units.Mass.kilograms(kg),

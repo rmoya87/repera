@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -151,4 +153,24 @@ class WearVisualVerificationInstrumentedTest {
         save("wear_entreno_de_hoy", compose.onRoot().captureToImage())
     }
 
+    @Test fun wodFinishUsesCommonConsumerWithoutInventingScore() {
+        val session=WatchSessionSummary("wod-session","WOD",false,false,"Remo",1,1,0,null,null,"AMRAP",true,listOf("500 m Remo"))
+        var finished:String?=null
+        compose.setContent {WearFrame {WearHomeContent(
+            WearHomeState(session,false,null,null,false,null,null,0,false,0,0,null,null,60,"meters",0,0,false,null),
+            WearHomeCallbacks(onFinishSession={finished=it.sessionId}),Modifier.fillMaxSize())}}
+        scrollHastaTexto("Terminar sesión")
+        compose.onNodeWithText("Terminar sesión").performClick()
+        org.junit.Assert.assertEquals("wod-session",finished)
+        save("wear_wod_finish_consumer",compose.onRoot().captureToImage())
+    }
+    @Test fun pausedStrengthCannotConfirmSet() {
+        val session=WatchSessionSummary("pause-session","Fuerza",true,true,"Sentadilla",1,1,0,5,20.0,null,false,emptyList())
+        compose.setContent {WearFrame {WearHomeContent(
+            WearHomeState(session,false,null,null,false,null,null,0,true,0,5,20.0,2.0,60,"reps",0,0,false,null),
+            WearHomeCallbacks(),Modifier.fillMaxSize())}}
+        scrollHastaTexto("Confirmar serie")
+        compose.onNodeWithText("Confirmar serie").assertIsNotEnabled()
+        save("wear_paused_confirmation",compose.onRoot().captureToImage())
+    }
 }

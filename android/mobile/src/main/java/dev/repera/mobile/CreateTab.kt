@@ -106,7 +106,7 @@ internal fun CreateTab(
                         // Gate de límite Gratis de rutinas (paridad iOS:
                         // canCreateLibraryRoutine(isNew: true)). Las rutinas
                         // nuevas cuentan contra el límite; editar no pasa por aquí.
-                        if (subscriptions != null &&
+                        if (schedule.scheduledDate==null && subscriptions != null &&
                             !subscriptions.canCreateLibraryRoutine(isNew = true).allowed
                         ) {
                             subscriptions.presentPaywall(

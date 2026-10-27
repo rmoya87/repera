@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import kotlinx.coroutines.sync.withLock
 import android.accounts.Account
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -69,18 +70,24 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var pendingReviewSessionId: String? = null
     private var wodTimer by mutableStateOf<WodTimerState?>(null)
     private var todayHealth by mutableStateOf<TodayHealth?>(null)
+    private var healthAccess by mutableStateOf(HealthAccessState.UNKNOWN)
     private var healthSamples by mutableStateOf<HealthSamples?>(null)
     private var recoveryRead by mutableStateOf<RecoveryRead?>(null)
+    private var privateHealthRevision=0L
     private val credentialManager by lazy { CredentialManager.create(this) }
     private val centerGate=AccountRevisionGate()
-    private var verifiedSupabase: SupabaseIdentity.Session? = null
+    private var verifiedSupabaseState by mutableStateOf<SupabaseIdentity.Session?>(null)
+    private var verifiedSupabase: SupabaseIdentity.Session?
+        get() = verifiedSupabaseState
         set(value) {
             if(centerGate.update(value?.userId)) {
                 centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
                 centerDirectory=emptyList();centerDirectorySearching=false;centerDirectoryGeneration++
-                todayHealth=null;healthSamples=null;recoveryRead=null
+                todayHealth=null;healthSamples=null;recoveryRead=null;healthAccess=HealthAccessState.UNKNOWN
+                pendingReview=null;pendingReviewSessionId=null
+                clearAIAccessState(); resetManualMirrorSync()
             }
-            field=value
+            verifiedSupabaseState=value
         }
     private var lastCatalogCheckAt = 0L
     private var catalogRefreshRunning = false
@@ -108,16 +115,94 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization"))
         )
     }
+    /** Durable A-B-A identity guard for asynchronous account work. */
+    private fun accountWorkGuard(owner:String,userId:String):()->Boolean {
+        val store=SessionStore(this)
+        val stamp=store.identityRevision()
+        return {
+            val current=store.load()
+            store.identityRevision()==stamp && current?.uniqueId==owner && current.userId==userId
+        }
+    }
+
     /** Espejo Supabase de entrenos terminados (port BusinessWorkoutSyncStore). */
+    private var manualMirrorSyncing by mutableStateOf(false)
+    private var manualMirrorLastAt by mutableStateOf<String?>(null)
+    private var manualMirrorCount by mutableStateOf(0)
+    private var manualMirrorError by mutableStateOf<String?>(null)
+
+    /** Apple "Sincronizar ahora": igual que el espejo automático, pero con estado y error visibles. */
+    private fun resetManualMirrorSync() {
+        manualMirrorSyncing = false; manualMirrorLastAt = null; manualMirrorCount = 0; manualMirrorError = null
+    }
+
+    private fun syncWorkoutMirrorNow() {
+        if (manualMirrorSyncing) return
+        val session = verifiedSupabase
+        val uniqueId = profile?.uniqueId
+        if (session == null || uniqueId == null) { manualMirrorError = ManualMirrorSyncText.NOT_CONNECTED; return }
+        val authorized = accountWorkGuard(uniqueId, session.userId)
+        manualMirrorError = null; manualMirrorSyncing = true
+        lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val session = runCatching { refreshedSessionBlocking(uniqueId) { authorized() } }.getOrNull()?.second?.also {
+                        withContext(Dispatchers.Main) { if (authorized()) verifiedSupabase = it }
+                    } ?: session
+                    // Apple persistAndFlush before "Sincronizar ahora": rows still in the Play debounce are saved first.
+                    val repo = WorkoutRepository(this@MainActivity, uniqueId, authorized)
+                    pendingLiveRef.getAndSet(null)?.let { repo.persistLiveRows(it.sessionId, it.index, it.rows, it.unit) }
+                    WorkoutMirrorStore(this@MainActivity, session.userId, stillAuthorized = authorized)
+                        .sync(session, repo)
+                }
+            }
+            if (profile?.uniqueId == uniqueId && verifiedSupabase?.userId == session.userId) {
+                val r = result.getOrNull()
+                if (r != null && r.ok) {
+                    manualMirrorLastAt = java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM,java.time.format.FormatStyle.SHORT)
+                        .format(java.time.ZonedDateTime.now())
+                    manualMirrorCount = r.mirroredCount
+                } else manualMirrorError = r?.error ?: result.exceptionOrNull()?.localizedMessage ?: "No se pudo sincronizar con Supabase."
+                manualMirrorSyncing = false
+            }
+        }
+    }
+
+    private val sessionRefreshLock = Any()
+
+    /** Renueva el JWT si caduca pronto, serializado entre todos los usos (Apple: un solo refresh token rotatorio a la vez).
+     *  Devuelve el token válido y la sesión rotada (null si no hizo falta). Bloqueante: llamar desde IO. */
+    private fun refreshedSessionBlocking(accountId: String, currentAccount: () -> Boolean): Pair<String, SupabaseIdentity.Session?> =
+        synchronized(sessionRefreshLock) {
+            val storedRevision = sessionStore.identityRevision()
+            val current = sessionStore.load()
+            check(current != null && current.uniqueId == accountId)
+            if (current.expiresWithin(90)) {
+                val rotated = SupabaseIdentity().refresh(current.refreshToken)
+                check(currentAccount()) {"La cuenta cambió durante la renovación"}
+                check(sessionStore.saveIfCurrent(storedRevision, current.uniqueId, current.userId, current.copy(
+                    userId = rotated.userId,
+                    accessToken = rotated.accessToken,
+                    refreshToken = rotated.refreshToken,
+                    expiresAtEpochSeconds = rotated.expiresAtEpochSeconds
+                ))) {"La sesión cambió durante la renovación"}
+                rotated.accessToken to rotated
+            } else current.accessToken to null
+        }
+
     private fun syncWorkoutMirror() {
         val session = verifiedSupabase ?: return
         val uniqueId = profile?.uniqueId ?: return
+        val authorized=accountWorkGuard(uniqueId,session.userId)
         lifecycleScope.launch {
             // El espejo nunca bloquea la app: un fallo se reintenta en el
             // siguiente arranque/refresco y no se muestra en la UI.
             withContext(Dispatchers.IO) {
-                WorkoutMirrorStore(this@MainActivity, session.userId)
-                    .sync(session, WorkoutRepository(this@MainActivity, uniqueId))
+                val session = runCatching { refreshedSessionBlocking(uniqueId) { authorized() } }.getOrNull()?.second?.also {
+                    withContext(Dispatchers.Main) { if (authorized()) verifiedSupabase = it }
+                } ?: session
+                WorkoutMirrorStore(this@MainActivity, session.userId,stillAuthorized=authorized)
+                    .sync(session, WorkoutRepository(this@MainActivity, uniqueId, authorized))
             }
         }
     }
@@ -126,9 +211,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun syncAITrainingContext() {
         val session = verifiedSupabase ?: return
         val uniqueId = profile?.uniqueId ?: return
+        val authorized=accountWorkGuard(uniqueId,session.userId)
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
-                AITrainingContextStore(this@MainActivity, session.userId)
+                AITrainingContextStore(this@MainActivity, session.userId,stillAuthorized=authorized)
                     .sync(session, WorkoutRepository(this@MainActivity, uniqueId))
             }
         }
@@ -152,12 +238,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private fun refreshAIPrograms() {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         if (aiProgramsLoading) return
         aiProgramsLoading = true
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                AITrainingProgramsStore().refresh(session)
+                AITrainingProgramsStore(stillAuthorized=authorized).refresh(session)
             }
+            if(!current()) return@launch
             when (result) {
                 is AITrainingProgramsStore.LoadResult.Loaded -> {
                     aiPrograms = result.programs; aiProgramsError = null
@@ -172,12 +263,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun changeAIProgramStatus(program: AITrainingProgramsStore.Program,
                                       status: String) {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         if (aiProgramsUpdatingId != null) return
         aiProgramsUpdatingId = program.id
         lifecycleScope.launch {
             val failure = withContext(Dispatchers.IO) {
-                AITrainingProgramsStore().changeStatus(session, program, status)
+                AITrainingProgramsStore(stillAuthorized=authorized).changeStatus(session, program, status)
             }
+            if(!current()) return@launch
             if (failure != null) aiProgramsError = failure
             aiProgramsUpdatingId = null
             refreshAIPrograms()
@@ -191,27 +287,37 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private fun refreshSharing() {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         lifecycleScope.launch {
             val map = withContext(Dispatchers.IO) {
                 runCatching {
-                    WorkoutMirrorStore(this@MainActivity, session.userId)
+                    WorkoutMirrorStore(this@MainActivity, session.userId,stillAuthorized=authorized)
                         .refreshSharing(session)
                 }.getOrNull()
             }
+            if(!current()) return@launch
             if (map != null) sharingByCenter = map
         }
     }
 
     private fun setSharing(orgId: String, enabled: Boolean) {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         if (sharingUpdating) return
         sharingUpdating = true
         val linked = centerSnapshot?.athleteCenterIds ?: emptySet()
         lifecycleScope.launch {
             val failure = withContext(Dispatchers.IO) {
-                WorkoutMirrorStore(this@MainActivity, session.userId)
+                WorkoutMirrorStore(this@MainActivity, session.userId,stillAuthorized=authorized)
                     .setSharing(session, orgId, enabled, linked)
             }
+            if(!current()) return@launch
             if (failure == null) {
                 sharingByCenter = sharingByCenter + (orgId to enabled)
             } else {
@@ -245,14 +351,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private fun refreshAIAccess() {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         val uniqueId = profile?.uniqueId ?: return
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 val repository = WorkoutRepository(this@MainActivity, uniqueId)
-                val store = AIChangeRequestStore(this@MainActivity, session.userId)
+                val store = AIChangeRequestStore(this@MainActivity, session.userId,stillAuthorized=authorized)
                 store.syncCustomExercises(session, repository)
-                AIAccessStore().refresh(session) to store.refresh(session)
+                AIAccessStore(stillAuthorized=authorized).refresh(session) to store.refresh(session)
             }
+            if(!current()) return@launch
             when (val tokens = result.first) {
                 is AIAccessStore.LoadResult.Loaded -> {
                     aiTokens = tokens.tokens; aiError = null
@@ -270,12 +381,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private fun createAIToken(label: String, expiry: String, canWrite: Boolean) {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         if (aiBusy) return
         aiBusy = true; aiError = null; aiSuccess = null
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                AIAccessStore().create(session, label, expiry, canWrite)
+                AIAccessStore(stillAuthorized=authorized).create(session, label, expiry, canWrite)
             }
+            if(!current()) return@launch
             when (result) {
                 is AIAccessStore.CreateResult.Created -> {
                     // El plano solo vive en este estado hasta cerrar el diálogo.
@@ -290,12 +406,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private fun revokeAIToken(tokenId: String) {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         if (aiBusy) return
         aiBusy = true; aiError = null; aiSuccess = null
         lifecycleScope.launch {
             val failure = withContext(Dispatchers.IO) {
-                AIAccessStore().revoke(session, tokenId)
+                AIAccessStore(stillAuthorized=authorized).revoke(session, tokenId)
             }
+            if(!current()) return@launch
             if (failure == null) {
                 aiSuccess = "Token revocado. Ya no permite acceder a Repera."
                 refreshAIAccess()
@@ -307,16 +428,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun decideAIChange(change: AIChangeRequestStore.Change,
                                approve: Boolean) {
         val session = verifiedSupabase ?: return
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(owner,session.userId)
+        fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
         val uniqueId = profile?.uniqueId ?: return
         if (aiChangeBusy) return
         aiChangeBusy = true; aiChangeError = null
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                AIChangeRequestStore(this@MainActivity, session.userId).decide(
+                AIChangeRequestStore(this@MainActivity, session.userId,stillAuthorized=authorized).decide(
                     session, change, approve,
                     WorkoutRepository(this@MainActivity, uniqueId),
-                    WorkoutMirrorStore(this@MainActivity, session.userId))
+                    WorkoutMirrorStore(this@MainActivity, session.userId,stillAuthorized=authorized))
             }
+            if(!current()) return@launch
             when (result) {
                 is AIChangeRequestStore.DecideResult.Applied -> {
                     aiSuccess = "Cambio aplicado."
@@ -359,20 +485,29 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             })
     }
 
+    private val pendingHealthRequest=PendingAccountRequest()
     private val requestHealthPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        if (granted.containsAll(HealthConnectReader.permissions)) {
+        if(!pendingHealthRequest.consume(profile?.uniqueId,centerGate.revision)) return@registerForActivityResult
+        refreshHealthAccess()
+        if (HealthConnectReader.hasReadablePermission(granted)) {
             loadHealthToday()
         } else {
             todayHealth = null
-            status = "No se ha autorizado la lectura de Salud"
+            status = "No hay permisos de lectura de Salud concedidos"
         }
     }
 
+    private var pendingDriveOwner:String?=null
+    private var pendingDriveRevision:Long?=null
     private val driveConsent = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
+        val owner=pendingDriveOwner
+        val revision=pendingDriveRevision
+        pendingDriveOwner=null;pendingDriveRevision=null
+        if(owner==null || revision==null || profile?.uniqueId!=owner || centerGate.revision!=revision) return@registerForActivityResult
         val resultIntent = result.data
         if (result.resultCode == RESULT_OK && resultIntent != null) {
             runCatching {
@@ -380,7 +515,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     .getAuthorizationResultFromIntent(resultIntent)
                     .accessToken
             }.onSuccess { token ->
-                if (!token.isNullOrBlank()) syncWithDrive(token)
+                if (!token.isNullOrBlank()) syncWithDrive(token,owner,revision)
                 else { status = "No se recibió acceso a Drive"; busy = false; syncing = false }
             }.onFailure {
                 status = "No se pudo autorizar Drive: " + it.localizedMessage
@@ -484,7 +619,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     override fun onResume() {
         super.onResume()
         val user = profile
-        if (user != null) refreshCatalogSilently(user.uniqueId)
+        if (user != null) {
+            // Apple ensureUsableSession on return to foreground: a verified session whose JWT is about to expire is
+            // renewed here too, so a revoked refresh token sends the app back to login instead of failing silently.
+            val needsRenewal = verifiedSupabase != null &&
+                sessionStore.load()?.expiresWithin(SESSION_REFRESH_MARGIN_SECONDS) == true
+            if ((verifiedSupabase == null || needsRenewal) && !busy && !restoringSession) restoreStoredSession()
+            refreshCatalogSilently(user.uniqueId);refreshHealthAccess()
+        }
+    }
+
+    /** Real availability + granted-read check; never inferred from missing data. */
+    private fun refreshHealthAccess() {
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        lifecycleScope.launch {
+            val state=withContext(Dispatchers.IO) {
+                runCatching {
+                    val reader=HealthConnectReader(this@MainActivity)
+                    if(!reader.available()) HealthAccessState.UNAVAILABLE
+                    else if(reader.hasPermissions()) HealthAccessState.GRANTED else HealthAccessState.NOT_GRANTED
+                }.getOrDefault(HealthAccessState.UNKNOWN)
+            }
+            if(profile?.uniqueId==owner && centerGate.revision==revision) healthAccess=state
+        }
     }
 
     private var externalRoute by mutableStateOf<String?>(null)
@@ -505,7 +663,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         restoreStoredSession()
         lifecycleScope.launch { subscriptions.start() }
         setContent {
-            CompositionLocalProvider(LocalSubscriptions provides subscriptions) {
+            val sessionMovementProvider: suspend (String) -> dev.repera.domain.SessionMovement? = { sessionId ->
+                val uid = profile?.uniqueId
+                val revision = centerGate.revision
+                if (uid == null) null else {
+                    val reader = HealthConnectReader(this)
+                    runCatching {
+                        if (!reader.available() || !reader.hasPermissions()) return@runCatching null
+                        val repo = WorkoutRepository(this, uid)
+                        val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
+                        reader.readSessionMovement(range.first, range.second,
+                            linkedRecordId = repo.healthRecordId(sessionId), linkedSessionId = sessionId)
+                    }.getOrNull().takeIf { profile?.uniqueId == uid && centerGate.revision == revision }
+                }
+            }
+            CompositionLocalProvider(LocalSubscriptions provides subscriptions, LocalSessionMovement provides sessionMovementProvider, LocalManualMirrorSync provides ManualMirrorSyncState(manualMirrorSyncing, verifiedSupabase != null, manualMirrorLastAt, manualMirrorCount, manualMirrorError, ::syncWorkoutMirrorNow), LocalRemovePendingSet provides { id: String -> runWorkoutAction { removePendingSet(id) } }, LocalEditPendingSet provides { id: String, reps: Int, kg: Double? -> runWorkoutAction { editPendingSet(id, reps, kg) } }, LocalPersistLiveRows provides { sid: String, index: Int, rows: List<ActiveSessionDraft.Row>, unit: String? -> persistLiveRowsNow(sid, index, rows, unit) }) {
             if (restoringSession) {
                 LaunchSplashScreen()
             } else if (profile == null || !onboarding.isComplete) {
@@ -569,6 +741,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 heartSeriesProvider = { sessionId ->
                     val uid = profile?.uniqueId
+                    val revision=centerGate.revision
                     if (uid == null) emptyList() else {
                         val reader = HealthConnectReader(this)
                         runCatching {
@@ -580,7 +753,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             reader.readSessionHeartSeries(range.first, range.second,
                                 linkedRecordId = WorkoutRepository(this, uid).healthRecordId(sessionId),
                                 linkedSessionId = sessionId)
-                        }.getOrDefault(emptyList())
+                        }.getOrDefault(emptyList()).takeIf {profile?.uniqueId==uid && centerGate.revision==revision}.orEmpty()
                     }
                 },
                 loadGuideProvider = { exerciseId, targetReps, targetRir ->
@@ -591,6 +764,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         exerciseId, targetReps, targetRir)
                 },
                 todayHealth = todayHealth,
+                healthAccess = healthAccess,
                 dayHealthProvider = {day ->
                     val owner=profile?.uniqueId
                     val revision=centerGate.revision
@@ -600,7 +774,25 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     }.getOrNull()}
                     data.takeIf {profile?.uniqueId==owner && centerGate.revision==revision}
                 },
+                externalHealthDetail = {entry ->
+                    val owner=profile?.uniqueId;val revision=centerGate.revision
+                    val detail=withContext(Dispatchers.IO) {runCatching {HealthConnectReader(this@MainActivity).readExternalDetail(entry)}.getOrNull()}
+                    detail.takeIf {profile?.uniqueId==owner && centerGate.revision==revision}
+                },
                 onHealthConnect = ::connectHealth,
+                onPrivateSleepChanged = {enabled ->
+                    privateHealthRevision++
+                    // Clear private samples before any reload; an earlier in-flight read is discarded below.
+                    recoveryRead=recoveryRead?.copy(nights=emptyList(),vitals=recoveryRead?.vitals.orEmpty().map {it.copy(wristTemperatureCelsius=null)})
+                    profile?.uniqueId?.let {id ->lifecycleScope.launch {reloadFor(id)}}
+                    if(enabled) launchHealthPermissionsForCurrentAccount()
+                },
+                onPrivateCycleChanged = {enabled ->
+                    privateHealthRevision++
+                    recoveryRead=recoveryRead?.copy(menstrualDays=emptyList(),positiveOvulationTests=emptyList())
+                    profile?.uniqueId?.let {id ->lifecycleScope.launch {reloadFor(id)}}
+                    if(enabled) launchHealthPermissionsForCurrentAccount()
+                },
                 activeWorkout = activeWorkout,
                 wodTimer = wodTimer,
                 onWodTimerAction = ::changeWodTimer,
@@ -612,42 +804,58 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { updateRoutineDetails(id, title, schedule) }
                 },
                 onDeleteRoutine = { id -> runWorkoutAction { deleteRoutine(id) } },
-                onCopyPreviousWeek = {
+                onRemoveScheduledRoutine = { id -> runWorkoutAction { removeScheduledRoutine(id) } },
+                onAssignRoutineToDate = { id, date -> runWorkoutAction { assignRoutineToDate(id, date) } },
+                onCopyPreviousWeek = { week ->
                     var copied = 0
                     runWorkoutAction(onSuccess = {
-                        status = if (copied == 0) "No hay entrenos nuevos que copiar" else "$copied entrenos copiados"
-                    }) { copied = copyPreviousWeekSchedule() }
+                        status = if (copied == 0) "La semana anterior está vacía o los días correspondientes ya están ocupados."
+                            else "Se añadieron $copied entreno${if (copied == 1) "" else "s"} de la semana anterior, sin modificar los días ya programados."
+                    }) { copied = copyPreviousWeekSchedule(week) }
                 },
-                onClearWeeklySchedule = { runWorkoutAction { clearWeeklySchedule() } },
-                onReplaceRoutineBlocks = { id, drafts ->
-                    runWorkoutAction {
-                        replaceRoutineBlocks(id, drafts) { before ->
-                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                onClearWeeklySchedule = { week -> runWorkoutAction { clearScheduledWeek(week) } },
+                onReplaceRoutineBlocks = { id, drafts, title, saved ->
+                    runWorkoutAction(onSuccess=saved) {
+                        replaceRoutineBlocks(id, drafts,suggestedTitle=title) { before ->
+                            subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
+                            subscriptions.canCreateCustomExercise(true).allowed
+                        }
+                    }
+                },
+                onCreateTemplate = {title,drafts,schedule,requestId,saved ->
+                    if(permitNewTemplate(isNew=!overviewForTemplateRetry(requestId))) runWorkoutAction(onSuccess=saved) {
+                        createRoutineFromDrafts(title,drafts,schedule,routineId=requestId,
+                            canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) {before ->
+                            subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0,before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
                     }
                 },
                 onCreateRoutine = { title, format, entries, minutes, rounds, schedule, interval, work, rest, ladder ->
-                    runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
-                        schedule, interval, work, rest, ladder) }
+                    if(schedule.scheduledDate!=null || permitNewTemplate()) runWorkoutAction { createRoutine(title, format, entries, minutes, rounds,
+                        schedule, interval, work, rest, ladder,
+                            canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
-                onCreateRoutineFromScan = { title, blocks ->
-                    runWorkoutAction { createRoutineFromScan(title, blocks) }
+                onCreateRoutineFromScan = { title, blocks, requestId, saved ->
+                    val existing=overviewForTemplateRetry(requestId)
+                    if(permitNewTemplate(isNew=!existing)) runWorkoutAction(onSuccess=saved) { createRoutineFromScan(title, blocks,routineId=requestId,
+                        canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
-                onStartSessionFromDrafts = { title, drafts, fav ->
-                    runWorkoutAction(onSuccess = { beginLocationCapture() }) {
+                onStartSessionFromDrafts = { title, drafts, fav, requestId, saved ->
+                    if(!fav || activeWorkout?.draftRequestId==requestId || permitNewTemplate()) runWorkoutAction(onSuccess = { beginLocationCapture();saved() }) {
                         startSessionFromDrafts(title, drafts, fav,
-                            subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed) { before ->
-                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                            subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed,requestId=requestId,
+                            canSaveFavorite={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) { before ->
+                            subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
                     }
                 },
-                onSaveOneOffRoutine = { title, drafts, dayIso ->
-                    runWorkoutAction {
+                onSaveOneOffRoutine = { title, drafts, dayIso, requestId, saved ->
+                    runWorkoutAction(onSuccess=saved) {
                         createRoutineFromDrafts(title, drafts,
-                            RoutineSchedule(scheduledDate = dayIso)) { before ->
-                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                            RoutineSchedule(scheduledDate = dayIso),routineId=requestId) { before ->
+                            subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
                     }
@@ -702,9 +910,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onAIDecide = ::decideAIChange,
                 onAIDismissCreated = { aiCreatedToken = null },
                 onAICopyCreated = ::copyCreatedAIToken,
+                onPlayWod={id,request,done ->runWorkoutAction(onSuccess={beginLocationCapture();done()}) {
+                    startWodTemplate(id,request,subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed)
+                }},
+                onToggleWodFavorite={id ->runWorkoutAction {toggleWodTemplateFavorite(id)}},
                 onAddWodTemplate = { templateId ->
                     val template = dev.repera.domain.CatalogWods.template(templateId)
-                    if (template != null) runWorkoutAction { createWodRoutine(template) }
+                    if (template != null && permitNewTemplate()) runWorkoutAction { createWodRoutine(template,
+                        canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
                 onWodScore = { rounds, reps, seconds ->
                     runWorkoutAction { recordWodScore(rounds, reps, seconds) }
@@ -720,6 +933,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 },
                 onDeleteWodMovement = { id ->
                     runWorkoutAction { deleteWodMovementSet(id) }
+                },
+                onSaveQuickSets = {id,rows,notes,requestId,onSaved ->
+                    runWorkoutAction(onSuccess={onSaved();refineFinishedSessionWithHealth(requestId)}) {logQuickSets(id,rows,notes,requestId)}
                 },
                 onQuickLog = { id ->
                     runWorkoutAction(onSuccess = { beginLocationCapture() }) { startQuickLog(id) }
@@ -776,7 +992,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                                 // Local save succeeds even if Health is unavailable or permission was denied.
                                 withContext(Dispatchers.IO) {runCatching {
                                     if(profile?.uniqueId==owner && centerGate.revision==revision)
-                                        HealthConnectReader(this@MainActivity).saveBodyMass(value,millis,owner)
+                                        HealthConnectReader(this@MainActivity).saveBodyMass(value,millis,owner,stillAuthorized={profile?.uniqueId==owner && centerGate.revision==revision})
                                 }}
                             }
                         }
@@ -796,12 +1012,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { selectActiveExercise(index) }
                 },
                 onUpdateActiveNotes = { notes -> runWorkoutAction { updateActiveSessionNotes(notes) } },
-                onSaveActiveFavorite = { runWorkoutAction { saveActiveSessionAsFavorite() } },
+                onSaveActiveFavorite = { runWorkoutAction { saveActiveSessionAsFavorite {count ->
+                    subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed
+                } } },
                 activeEditorDraft = {runCatching {profile?.uniqueId?.let { WorkoutRepository(this@MainActivity,it).activeRoutineForEditing() }}.getOrNull()},
-                onUpdateActivePlan = {id,blocks,done ->runWorkoutAction(onSuccess=done) {
-                    updateActiveSessionPlan(id,blocks) {before ->
-                        subscriptions.syncCounts(snapshot?.routines ?: 0,before)
-                        subscriptions.canCreateCustomExercise(true).allowed
+                onUpdateActivePlan = {sessionId,id,blocks,done ->runWorkoutAction(onSuccess=done) {
+                    updateActiveSessionPlan(id,blocks,expectedSessionId=sessionId,
+                        canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) {before ->
+                        subscriptions.policy.copy(customExerciseCount=before).canCreateCustomExercise(true).allowed
                     }
                 }},
                 onNext = { runWorkoutAction { next() } },
@@ -838,8 +1056,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
                   } else
                     runWorkoutAction {
-                        updateFinishedWorkout(workoutId, edit) { before ->
-                            subscriptions.syncCounts(snapshot?.routines ?: 0, before)
+                        updateFinishedWorkout(workoutId, edit,
+                            canSaveFavorite={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) { before ->
+                            subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
                     }
@@ -897,35 +1116,54 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             runOnUiThread {
                 val signedIn = profile
                 if (signedIn == null || verifiedSupabase == null || busy) return@runOnUiThread
+                val revision=centerGate.revision
+                fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
+                busy=true
                 lifecycleScope.launch {
+                    try {
                     val finished = withContext(Dispatchers.IO) {
                         runCatching {
-                            val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
-                            if (repo.active()?.id == sessionId) {
+                            val repo=WorkoutRepository(this@MainActivity,signedIn.uniqueId)
+                            if(repo.active()?.id==sessionId) {
                                 StrengthRestService.cancel(this@MainActivity)
-                                val route = locationTracker.stopRouteTracking()
-                                repo.finish()
-                                if (route.isNotEmpty()) repo.attachRoutePoints(sessionId, route)
+                                val route=locationTracker.stopRouteTracking()
+                                if(!repo.finishWearSession(sessionId)) return@runCatching false
+                                if(route.isNotEmpty()) repo.attachRoutePoints(sessionId,route)
                                 true
-                            } else false
+                            } else repo.finishWearSession(sessionId)
                         }.getOrDefault(false)
                     }
-                    if (finished) {
+                    if(!current()) return@launch
+                    if(finished) {
+                        val ack=JSONObject().put("sessionId",sessionId).put("status","saved").toString().toByteArray(Charsets.UTF_8)
+                        wearMessages.sendMessage(event.sourceNodeId,"/repera/session-finish-ack",ack)
                         reloadFor(signedIn.uniqueId)
+                        DriveSyncWorker.syncNow(this@MainActivity)
+                        if(verifiedSupabase!=null) syncWorkoutMirror()
                         refineFinishedSessionWithHealth(sessionId)
                     }
+                    } finally {if(current()) busy=false}
                 }
             }
             return
         }
         if (event.path == "/repera/session-pause") {
-            val paused = runCatching {
-                JSONObject(String(event.data, Charsets.UTF_8)).optBoolean("paused", true)
-            }.getOrDefault(true)
+            val command=WearPauseCommand.parse(event.data) ?: return
             runOnUiThread {
-                if (activeWorkout?.wod != null && !busy) {
-                    changeWodTimer(if (paused) "pause" else "start")
+                if (command.targets(activeWorkout?.id,activeWorkout?.index) && activeWorkout?.wod != null && !busy) {
+                    changeWodTimer(if (command.paused) "pause" else "start")
                     refreshWodTimer()
+                }
+            }
+            return
+        }
+        if (event.path == "/repera/select-exercise") {
+            val command=WearSelectCommand.parse(event.data) ?: return
+            runOnUiThread {
+                val active=activeWorkout
+                if (!busy && command.targets(active?.id,active?.index,active?.total)) {
+                    StrengthRestService.cancel(this)
+                    runWorkoutAction { selectActiveExercise(command.toIndex) }
                 }
             }
             return
@@ -968,6 +1206,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 sendWearAck(event.sourceNodeId, id, "rejected")
                 return@runOnUiThread
             }
+            val revision=centerGate.revision
+            fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
             busy = true
             lifecycleScope.launch {
                 val result = runCatching {
@@ -979,14 +1219,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
                             sessionId, exerciseIndex, id, quantity, weight, rir,
                             durationSeconds = duration, quantityUnit = unit,
-                            deficitCm = deficit, sessionPayload = sessionPayload
+                            deficitCm = deficit, sessionPayload = sessionPayload,warmup=payload.optBoolean("warmup",false),toFailure=payload.optBoolean("toFailure",false),
+                            onNewSet={
+                                if(current()) wearRest?.let { (name, seconds) ->
+                                    StrengthRestService.start(this@MainActivity, name, dev.repera.domain.StrengthRestPolicy.seconds(seconds,payload.optBoolean("warmup",false)),snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
+                                }
+                            }
                         )
-                        wearRest?.let { (name, seconds) ->
-                            StrengthRestService.start(this@MainActivity, name, seconds,snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
-                        }
                     }
-                    reloadFor(signedIn.uniqueId)
+                    if(current()) reloadFor(signedIn.uniqueId)
                 }
+                if(!current()) return@launch
                 if (result.isSuccess) {
                     sendWearAck(event.sourceNodeId, id, "saved")
                     DriveSyncWorker.syncNow(this@MainActivity)
@@ -1021,10 +1264,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun syncAITrainingInbox() {
         val session = verifiedSupabase ?: return
         val uniqueId = profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val authorized=accountWorkGuard(uniqueId,session.userId)
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                AITrainingInbox().sync(session, WorkoutRepository(this@MainActivity, uniqueId))
+                AITrainingInbox(stillAuthorized=authorized).sync(session, WorkoutRepository(this@MainActivity, uniqueId))
             }
+            if(!authorized() || profile?.uniqueId!=uniqueId || centerGate.revision!=revision) return@launch
             aiInboxPending = result.pending
             aiInboxConflicts = result.conflicts
             if (result.error != null) {
@@ -1102,15 +1348,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     private fun restoreStoredSession() {
+        val storedRevision=sessionStore.identityRevision()
         val stored = sessionStore.load() ?: return
         if (busy) return
+        val screenRevision=centerGate.revision
+        fun current()=sessionStore.identityRevision()==storedRevision && centerGate.revision==screenRevision
         busy = true
         restoringSession = true
         lifecycleScope.launch {
             try {
                 val session = withContext(Dispatchers.IO) {
                     if (stored.expiresWithin(SESSION_REFRESH_MARGIN_SECONDS)) {
-                        SupabaseIdentity().refresh(stored.refreshToken)
+                        synchronized(sessionRefreshLock) { SupabaseIdentity().refresh(stored.refreshToken) }
                     } else {
                         SupabaseIdentity.Session(
                             userId = stored.userId,
@@ -1121,9 +1370,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         )
                     }
                 }
-                verifiedSupabase = session
-                refreshCenter()
-                sessionStore.save(
+                if(!current()) return@launch
+                check(sessionStore.saveIfCurrent(storedRevision,stored.uniqueId,stored.userId,
                     SessionStore.StoredSession(
                         uniqueId = stored.uniqueId,
                         email = stored.email,
@@ -1133,7 +1381,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         refreshToken = session.refreshToken,
                         expiresAtEpochSeconds = session.expiresAtEpochSeconds
                     )
-                )
+                )) {"La sesión cambió durante la restauración"}
+                verifiedSupabase = session
+                refreshCenter()
                 profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)
@@ -1141,13 +1391,22 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 syncSupabaseMirrors()
                 reloadFor(stored.uniqueId)
                 refreshCatalogSilently(stored.uniqueId)
-            } catch (_: Exception) {
-                // Expired or revoked refresh token: back to the login screen.
+            } catch (error: Exception) {
+                if(!current()) return@launch
+                if(!SupabaseAuthErrors.isUnrecoverable(error)) {
+                    // Apple: red u otro fallo temporal NO es logout. Se conserva la sesión cifrada y los datos locales;
+                    // la cuenta remota queda sin verificar hasta reintentar (onResume).
+                    profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
+                    status = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
+                    reloadFor(stored.uniqueId)
+                    return@launch
+                }
+                // Revoked refresh token or session confirmed by Supabase: back to the login screen.
                 LiveActivityRuntime.stopAll()
                 LiveActivityService.stop(this@MainActivity)
-                sessionStore.clear()
+                sessionStore.clearIfCurrent(storedRevision,stored.uniqueId,stored.userId)
                 aiPlansRealtime.stop()
-                verifiedSupabase = null
+                verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
                 centerSnapshot = null
                 centerError = null
@@ -1218,7 +1477,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
             } catch (error: Exception) {
                 aiPlansRealtime.stop()
-                verifiedSupabase = null
+                verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
                 centerSnapshot = null
                 centerError = null
@@ -1240,33 +1499,40 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
      *  (presentIfPending iOS). */
     private fun refineFinishedSessionWithHealth(sessionId: String) {
         val signedIn = profile ?: return
+        val revision=centerGate.revision
+        fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
         val reader = HealthConnectReader(this)
         if (!reader.available()) return
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
                 runCatching {
+                    if(!current()) return@runCatching
                     val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                     val info = repo.sessionTitleAndRange(sessionId) ?: return@runCatching
-                    val linked = HealthConnectWriter(this@MainActivity)
+                    if(!current()) return@runCatching
+                    val linked = HealthConnectWriter(this@MainActivity,stillAuthorized={current()})
                         .syncFinishedSession(sessionId, info.first,
-                            info.second, info.third, repo.healthRecordId(sessionId))
-                    if (linked != null && repo.healthRecordId(sessionId) == null) {
+                            info.second, info.third, repo.healthRecordId(sessionId),
+                            HealthConnectWriter.exerciseTypeFor(repo.liveSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)))
+                    if (current() && linked != null && repo.healthRecordId(sessionId) == null) {
                         repo.setHealthRecordId(sessionId, linked)
                     }
                 }
             }
+            if(!current()) return@launch
             val updated = withContext(Dispatchers.IO) {
                 runCatching {
-                    if (!reader.hasPermissions()) return@runCatching null
+                    if (!current() || !reader.hasPermissions()) return@runCatching null
                     val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                     val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
                     val sample = reader.readSessionSample(range.first, range.second,
                         repo.healthRecordId(sessionId), sessionId)
-                    if (!sample.hasUsableSignal) return@runCatching null
+                    if (!current() || !sample.hasUsableSignal) return@runCatching null
                     WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                         .refineSessionReviewWithCardio(sessionId, sample)
                 }.getOrNull()
             }
+            if (!current()) return@launch
             if (updated != null) {
                 if (pendingReviewSessionId == sessionId) pendingReview = updated
                 reloadFor(signedIn.uniqueId)
@@ -1274,43 +1540,63 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
-    private fun connectHealth() {
-        if (profile == null || busy) return
-        val reader = HealthConnectReader(this)
-        if (!reader.available()) {
-            status = "Health Connect no está disponible"
-            return
-        }
-        lifecycleScope.launch {
-            try {
-                if (reader.hasPermissions()) loadHealthToday()
-                else requestHealthPermissions.launch(HealthConnectReader.permissions)
-            } catch (error: Exception) {
-                todayHealth = null
-                status = "No se pudo conectar Salud: " + error.localizedMessage
-            }
-        }
-    }
-
-    private fun loadHealthToday() {
+    private fun launchHealthPermissionsForCurrentAccount() {
         val owner=profile?.uniqueId ?: return
         val revision=centerGate.revision
         fun current()=profile?.uniqueId==owner && centerGate.revision==revision
         lifecycleScope.launch {
             try {
                 val reader=HealthConnectReader(this@MainActivity)
+                if(!reader.available()) {if(current()) status="Health Connect no está disponible";return@launch}
+                val requested=reader.requestedPermissions()
+                val granted=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity).permissionController.getGrantedPermissions()
+                if(!current()) return@launch
+                if(granted.containsAll(requested)) loadHealthToday()
+                else {
+                    if(pendingHealthRequest.begin(owner,revision)) requestHealthPermissions.launch(requested)
+                }
+            } catch(error:Exception) {
+                if(current()) {pendingHealthRequest.clear();todayHealth=null;status="No se pudo conectar Salud: "+error.localizedMessage}
+            }
+        }
+    }
+
+    private fun connectHealth() {
+        if(profile==null || busy) return
+        launchHealthPermissionsForCurrentAccount()
+    }
+
+    private fun loadHealthToday() {
+        val owner=profile?.uniqueId ?: return
+        val revision=centerGate.revision
+        val sleepAtStart=PrivateRecoverySettings(this).sleepEnabled()
+        val cycleAtStart=PrivateRecoverySettings(this).cycleEnabled()
+        val privateRevision=privateHealthRevision
+        fun current()=profile?.uniqueId==owner && centerGate.revision==revision
+        lifecycleScope.launch {
+            try {
+                val reader=HealthConnectReader(this@MainActivity)
+                if(!current()) return@launch
                 val today=withContext(Dispatchers.IO) {reader.readToday()}
+                if(!current()) return@launch
                 val samples=withContext(Dispatchers.IO) {runCatching {reader.readSamples(370,
                     HealthExclusionSnapshot.windows(LocalSnapshotStore(this@MainActivity,owner).read()))}.getOrNull()}
-                val recovery=withContext(Dispatchers.IO) {runCatching {reader.readRecovery(45)}.getOrNull()}
                 if(!current()) return@launch
-                todayHealth=today;healthSamples=samples;recoveryRead=recovery
+                val recovery=withContext(Dispatchers.IO) {runCatching {reader.readRecovery(370)}.getOrNull()}
+                if(!current()) return@launch
+                todayHealth=today;healthSamples=samples
+                val settings=PrivateRecoverySettings(this@MainActivity)
+                recoveryRead=recovery?.copy(
+                    nights=if(sleepAtStart && privateRevision==privateHealthRevision && settings.sleepEnabled()) recovery.nights else emptyList(),
+                    vitals=recovery.vitals.map {if(sleepAtStart && privateRevision==privateHealthRevision && settings.sleepEnabled()) it else it.copy(wristTemperatureCelsius=null)},
+                    menstrualDays=if(cycleAtStart && privateRevision==privateHealthRevision && settings.cycleEnabled()) recovery.menstrualDays else emptyList(),
+                    positiveOvulationTests=if(cycleAtStart && privateRevision==privateHealthRevision && settings.cycleEnabled()) recovery.positiveOvulationTests else emptyList())
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val weights=reader.readBodyMass()
                         if(current()) {
                             val localOnly=WorkoutRepository(this@MainActivity,owner).mergeHealthBodyWeights(weights)
-                            localOnly.forEach {(millis,kg) -> if(current()) runCatching {reader.saveBodyMass(kg,millis,owner)}}
+                            localOnly.forEach {(millis,kg) -> if(current()) runCatching {reader.saveBodyMass(kg,millis,owner,stillAuthorized={current()})}}
                         }
                     }
                 }
@@ -1325,6 +1611,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun authorizeDrive() {
         val signedIn = profile ?: return
         if (busy) return
+        val owner=signedIn.uniqueId
+        val revision=centerGate.revision
+        fun current()=profile?.uniqueId==owner && centerGate.revision==revision
         busy = true
         syncing = true
         status = "Solicitando acceso a Drive…"
@@ -1336,6 +1625,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
         Identity.getAuthorizationClient(this).authorize(builder.build())
             .addOnSuccessListener { result ->
+                if(!current()) return@addOnSuccessListener
                 if (result.hasResolution()) {
                     val pending = result.pendingIntent
                     if (pending == null) {
@@ -1343,6 +1633,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         syncing = false
                         status = "Drive requiere consentimiento"
                     } else {
+                        pendingDriveOwner=owner;pendingDriveRevision=revision
                         driveConsent.launch(IntentSenderRequest.Builder(pending.intentSender).build())
                     }
                 } else {
@@ -1351,28 +1642,33 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         busy = false
                         syncing = false
                         status = "No se recibió acceso a Drive"
-                    } else syncWithDrive(token)
+                    } else syncWithDrive(token,owner,revision)
                 }
             }
             .addOnFailureListener {
+                if(!current()) return@addOnFailureListener
                 busy = false
                 syncing = false
                 status = "No se pudo conectar Drive: " + it.localizedMessage
             }
     }
 
-    private fun syncWithDrive(oneTimeToken: String) {
-        val signedIn = profile ?: run { busy = false; syncing = false; return }
+    private fun syncWithDrive(oneTimeToken: String,owner:String,revision:Long) {
+        fun current()=profile?.uniqueId==owner && centerGate.revision==revision
+        if(!current()) return
         syncing = true
         status = "Sincronizando…"
         lifecycleScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    val store = LocalSnapshotStore(this@MainActivity, signedIn.uniqueId)
-                    val outcome = DriveSnapshotService(oneTimeToken, store).synchronize()
+                    check(current()) {"La cuenta cambió durante la autorización de Drive"}
+                    val store = LocalSnapshotStore(this@MainActivity, owner)
+                    val outcome = DriveSnapshotService(oneTimeToken, store, stillAuthorized={current()}).synchronize()
                     outcome to StateOverview.fromBytes(store.read(), healthSamples, recoveryRead)
                 }
-                reloadFor(signedIn.uniqueId)
+                if(!current()) return@launch
+                reloadFor(owner)
+                if(!current()) return@launch
                 status = when (result.first) {
                     DriveSnapshotService.Outcome.Empty -> "Drive no tiene aún datos de Repera"
                     DriveSnapshotService.Outcome.Unchanged -> "Datos actualizados"
@@ -1382,10 +1678,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         "Copias distintas: no se han sobrescrito los datos"
                 }
             } catch (error: Exception) {
-                status = "Sincronización incompleta: " + error.localizedMessage
+                if(current()) status = "Sincronización incompleta: " + error.localizedMessage
             } finally {
-                busy = false
-                syncing = false
+                if(current()) {busy = false;syncing = false}
             }
         }
     }
@@ -1393,6 +1688,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     /** Silent background check when the app becomes active. Only publish UI changes
      * after a complete cache download and atomic private-state reconciliation. */
     private fun refreshCatalogSilently(accountId: String) {
+        val accountRevision=centerGate.revision
+        fun currentAccount()=profile?.uniqueId==accountId && centerGate.revision==accountRevision
         val now = System.currentTimeMillis()
         if (catalogRefreshRunning || now - lastCatalogCheckAt < 60_000L) return
         if (profile?.uniqueId != accountId) return
@@ -1403,31 +1700,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // The foreground may refresh an expired encrypted session without
                 // presenting an interactive Google prompt. Headless workers never do.
                 val (token, rotatedSession) = withContext(Dispatchers.IO) {
-                    val current = sessionStore.load()
-                    check(current != null && current.uniqueId == accountId)
-                    if (current.expiresWithin(90)) {
-                        val rotated = SupabaseIdentity().refresh(current.refreshToken)
-                        sessionStore.save(current.copy(
-                            userId = rotated.userId,
-                            accessToken = rotated.accessToken,
-                            refreshToken = rotated.refreshToken,
-                            expiresAtEpochSeconds = rotated.expiresAtEpochSeconds
-                        ))
-                        rotated.accessToken to rotated
-                    } else current.accessToken to null
+                    refreshedSessionBlocking(accountId) { currentAccount() }
                 }
-                if (rotatedSession != null && profile?.uniqueId == accountId) {
+                if (rotatedSession != null && currentAccount()) {
                     verifiedSupabase = rotatedSession
                 }
                 val changed = withContext(Dispatchers.IO) {
+                    check(currentAccount()) {"La cuenta cambió durante la lectura del catálogo"}
                     val feed = RemoteExerciseCatalog(this@MainActivity)
                     val updated = feed.refresh(token)
-                    if (updated) {
+                    if (updated && currentAccount()) {
                         // Incoming events are already durable in the feed cache.
                         feed.applyToAccount(accountId)
                     } else false
                 }
-                if (changed && profile?.uniqueId == accountId) {
+                if (changed && currentAccount()) {
                     reloadFor(accountId)
                     DriveSyncWorker.syncNow(this@MainActivity)
                 }
@@ -1469,7 +1756,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         // propios (isCustom) del estado real.
         overview?.let {
             subscriptions.syncCounts(
-                libraryRoutines = it.routines,
+                libraryRoutines = it.libraryRoutineCount,
                 customExercises = it.exerciseEntries.count { e -> e.isCustom }
             )
         }
@@ -1520,14 +1807,69 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             return
         }
         val signedIn = profile ?: return
+        val revision=centerGate.revision
+        fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
+                if(!current()) return@withContext
                 val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                 val info = repo.activeSessionOutdoorInfo() ?: return@withContext
                 val pin = locationTracker.capturePin()
+                if(!current()) return@withContext
                 if (pin != null) repo.attachLocationPin(info.sessionId, pin)
                 if (locationTracker.shouldTrackRoute(info.title, info.exerciseNames)) {
                     locationTracker.startRouteTracking(info.sessionId)
+                }
+            }
+        }
+    }
+
+    private fun overviewForTemplateRetry(requestId:String):Boolean {
+        val owner=profile?.uniqueId ?: return false
+        return runCatching {WorkoutRepository(this,owner).routinesSnapshot().any {it.optString("id")==requestId}}.getOrDefault(false)
+    }
+
+    /** UI entry gates are repeated at the owner of persistence, never grant Pro locally. */
+    private fun permitNewTemplate(isNew:Boolean=true):Boolean {
+        if(subscriptions.canCreateLibraryRoutine(isNew).allowed) return true
+        subscriptions.presentPaywall(dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
+            feature=dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
+        return false
+    }
+
+    private class PendingLive(val sessionId: String, val index: Int, val rows: List<ActiveSessionDraft.Row>, val unit: String?)
+    private val pendingLiveRef = java.util.concurrent.atomic.AtomicReference<PendingLive?>(null)
+    private val liveRowsLock = kotlinx.coroutines.sync.Mutex()
+
+    /** Editable Play rows (Apple persistActiveLiveDraft). The newest rows are held in memory immediately, so no edit can be
+     *  lost; they are saved ~600 ms later, or earlier by any other workout action (runWorkoutAction takes them first).
+     *  Does not take the `busy` lock, so typing keeps focus. */
+    private fun persistLiveRowsNow(sessionId: String, index: Int, rows: List<ActiveSessionDraft.Row>, unit: String?) {
+        val signedIn = profile ?: return
+        pendingLiveRef.set(PendingLive(sessionId, index, rows, unit))
+        val revision = centerGate.revision
+        val durable = SessionStore(this)
+        val identityRevision = durable.identityRevision()
+        fun current() = profile?.uniqueId == signedIn.uniqueId && centerGate.revision == revision &&
+            durable.identityRevision() == identityRevision
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(600)
+            liveRowsLock.withLock {
+                var waited = 0
+                while (busy && waited < 50) { kotlinx.coroutines.delay(100); waited++ }
+                val pending = pendingLiveRef.getAndSet(null) ?: return@withLock
+                try {
+                    withContext(Dispatchers.IO) {
+                        check(current()) { "La cuenta cambió antes de guardar las series" }
+                        WorkoutRepository(this@MainActivity, signedIn.uniqueId, stillAuthorized = { current() })
+                            .persistLiveRows(pending.sessionId, pending.index, pending.rows, pending.unit)
+                    }
+                    if (!current()) return@withLock
+                    reloadFor(signedIn.uniqueId)
+                    if (!current()) return@withLock
+                    DriveSyncWorker.syncNow(this@MainActivity)
+                } catch (error: Exception) {
+                    if (current()) status = error.localizedMessage ?: "No se pudieron guardar las series"
                 }
             }
         }
@@ -1538,12 +1880,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val signedIn = profile ?: return
         if (busy) return
         val revision=centerGate.revision
-        fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
+        val durable=SessionStore(this)
+        val identityRevision=durable.identityRevision()
+        fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision &&
+            durable.identityRevision()==identityRevision
         busy = true
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    WorkoutRepository(this@MainActivity, signedIn.uniqueId).action()
+                    check(current()) {"La cuenta cambió antes de iniciar la acción"}
+                    val repository = WorkoutRepository(this@MainActivity, signedIn.uniqueId,stillAuthorized={current()})
+                    // Editable Play rows still waiting for their debounce are saved first, so an action never loses them.
+                    pendingLiveRef.getAndSet(null)?.let { repository.persistLiveRows(it.sessionId, it.index, it.rows, it.unit) }
+                    repository.action()
                 }
                 if(!current()) return@launch
                 reloadFor(signedIn.uniqueId)
@@ -1601,7 +1950,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 // UI still returns to login; existing account files stay isolated.
             } finally {
                 aiPlansRealtime.stop()
-                verifiedSupabase = null
+                verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
                 sessionStore.clear()
                 RemoteExerciseCatalogWorker.cancel(this@MainActivity)
@@ -1630,7 +1979,12 @@ data class RecoveryState(
     val readiness: dev.repera.domain.RecoveryEngine.TrainingReadiness?,
     val sleepIndex: Int?,
     val lastNightHours: Double?,
-    val recentAverageSleepHours: Double?
+    val recentAverageSleepHours: Double?,
+    val nights:List<dev.repera.domain.RecoverySleepNight> = emptyList(),
+    val vitals:List<dev.repera.domain.RecoveryEngine.DailyVitals> = emptyList(),
+    val menstrualDays:List<java.time.LocalDate> = emptyList(),
+    val positiveOvulationTests:List<java.time.LocalDate> = emptyList(),
+    val trend:List<dev.repera.domain.ProgressDayPoint> = emptyList()
 )
 
 data class StateOverview(
@@ -1667,8 +2021,13 @@ data class StateOverview(
     val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList(),
     val testedOneRMByExercise:Map<String,Double> = emptyMap(),
     val externalHealthHistory:List<ExternalHealthHistoryEntry> = emptyList(),
-    val sessionScoresByRange:Map<String,List<dev.repera.domain.ProgressDayPoint>> = emptyMap()
+    val sessionScoresByRange:Map<String,List<dev.repera.domain.ProgressDayPoint>> = emptyMap(),
+    val wodTemplateFavorites:Set<String> = emptySet(),
+    internal val wodLibraryHistory:Map<String,List<WodLibraryResult>> = emptyMap()
 ) {
+    /** Apple counts all undated templates, including recurring assignments, not one-offs. */
+    val libraryRoutineCount:Int get()=routineEntries.count {it.scheduledDate==null}
+
     companion object {
         fun fromBytes(bytes: ByteArray?, health: HealthSamples? = null,
                       recovery: RecoveryRead? = null): StateOverview? {
@@ -1791,11 +2150,22 @@ data class StateOverview(
                         liveSportID = session.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" },
                         activeDurationSeconds = session.optDouble("activeDurationSeconds",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         recordedDistanceMeters = session.optDouble("recordedDistanceMeters",Double.NaN).takeIf { it.isFinite() && it >= 0 },
+                        routineId = session.optString("routineId").takeIf { it.isNotBlank() && it != "null" },
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
                         }.orEmpty(),
                         editableBlocksJson = runCatching {
                             CompletedWorkoutEditing.blocksFrom(session, null).toString()
+                        }.getOrNull(),
+                        scoreSessionJson = runCatching {
+                            val slim = org.json.JSONObject().put("wodResults", session.optJSONArray("wodResults") ?: org.json.JSONArray())
+                            val ex = session.optJSONArray("exercises") ?: org.json.JSONArray()
+                            val exs = org.json.JSONArray()
+                            for (i in 0 until ex.length()) ex.getJSONObject(i).let { e ->
+                                exs.put(org.json.JSONObject().put("blockId", e.optString("blockId"))
+                                    .put("loggedSets", e.optJSONArray("loggedSets") ?: org.json.JSONArray()))
+                            }
+                            slim.put("exercises", exs).toString()
                         }.getOrNull(),
                         routePoints = session.optJSONArray("routePoints")?.let { rp ->
                             (0 until rp.length()).mapNotNull { i ->
@@ -1873,7 +2243,9 @@ data class StateOverview(
                                                             ps.getDouble("targetWeightKg") else null,
                                                         targetRir = if (ps.has("targetRir") &&
                                                             !ps.isNull("targetRir"))
-                                                            ps.getDouble("targetRir") else null
+                                                            ps.getDouble("targetRir") else null,
+                                                        targetDurationSeconds=if(ps.has("targetDurationSeconds") && !ps.isNull("targetDurationSeconds")) ps.getInt("targetDurationSeconds") else null,
+                                                        sourceJson=EditorBlockOps.plannedSetUnknownFields(ps)
                                                     )
                                                 }
                                             }
@@ -1965,34 +2337,34 @@ data class StateOverview(
                         instructions = ex.optJSONArray("instructions")?.let { arr ->
                             (0 until arr.length()).map { arr.getString(it) }
                         }.orEmpty(),
-                        isCustom = ex.optBoolean("isCustom"))
+                        isCustom = ex.optBoolean("isCustom"),mobilityHold=ex.optString("sportTag")=="Movilidad" && ex.optString("catalogId") in setOf("mobility-14","mobility-15","mobility-16","mobility-20","mobility-21","mobility-30","mobility-31","mobility-32","mobility-36","mobility-38","mobility-39","mobility-40","mobility-41","mobility-42","mobility-44","mobility-46","mobility-60","mobility-61","mobility-62","mobility-67","mobility-70","mobility-80"))
                 }.sortedBy { it.name }
             }
             val recoveryState = recovery?.let { rec ->
                 val stats = ProgressSnapshotBuilder.statsWorkouts(json)
-                val lastNight = rec.nights.lastOrNull()
-                val recentNights = rec.nights.takeLast(7)
+                val lastNight = dev.repera.domain.RecoverySleepSummary.lastNight(rec.nights, java.time.Instant.now(),java.time.ZoneId.systemDefault())
+                val recentNights = rec.nights.takeLast(14)
                 val avg = if (recentNights.isEmpty()) null
                     else recentNights.map { it.hours }.average()
-                val observed = health?.externalActivities?.map {
+                val observed = health?.externalHistory?.map {
                     dev.repera.domain.RecoveryEngine.ObservedActivity(
-                        epochMillis = it.epochMillis,
-                        durationMinutes = it.durationMinutes,
-                        isCardio = dev.repera.domain.HealthMuscleMapper
-                            .isCardio(it.type))
+                        epochMillis=it.endMillis,durationMinutes=it.minutes,
+                        isCardio=health.externalActivities.firstOrNull {activity ->activity.epochMillis==it.startMillis}?.let {activity ->dev.repera.domain.HealthMuscleMapper.isCardio(activity.type)} ?: false)
                 } ?: emptyList()
                 RecoveryState(
-                    readiness = dev.repera.domain.RecoveryEngine.trainingReadiness(
+                    readiness = if(lastNight?.day==java.time.LocalDate.now()) dev.repera.domain.RecoveryEngine.trainingReadiness(
                         nowMillis = System.currentTimeMillis(),
                         sleepHours = lastNight?.hours,
                         recentAverageSleepHours = avg,
                         workouts = stats,
                         vitalHistory = rec.vitals,
-                        observedActivities = observed),
+                        observedActivities = observed) else null,
                     sleepIndex = dev.repera.domain.RecoveryEngine.sleepIndex(
                         lastNight?.hours, avg),
                     lastNightHours = lastNight?.hours,
-                    recentAverageSleepHours = avg
+                    recentAverageSleepHours = avg,
+                    nights=rec.nights,vitals=rec.vitals,menstrualDays=rec.menstrualDays,positiveOvulationTests=rec.positiveOvulationTests,
+                    trend=RecoveryTrend.points(rec.nights,rec.vitals,stats,observed,java.time.Instant.now(),java.time.ZoneId.systemDefault())
                 )
             }
             val archiveForMinutes=json.optJSONArray("workouts") ?: org.json.JSONArray()
@@ -2013,7 +2385,7 @@ data class StateOverview(
             health?.externalActivities.orEmpty().forEach {s ->val day=java.time.Instant.ofEpochMilli(s.epochMillis).atZone(zone).toLocalDate()
                 minutesByDay[day]=(minutesByDay[day] ?: 0.0)+s.durationMinutes
                 countsByDay[day]=(countsByDay[day] ?: 0)+1}
-            return StateOverview(
+            return StateOverview(wodLibraryHistory=WodLibraryHistory.read(json),wodTemplateFavorites=WodTemplateFavorites.read(json),
                 sessionScoresByRange=dev.repera.domain.ProgressTimeRange.entries.associate {it.wire to SessionScoreProgress.points(json,it,trainingSettings.weekStartsOnMonday)},
                 dayWorkoutMinutes=minutesByDay,dayWorkoutCounts=countsByDay,
                 dayEnergyKcal=health?.energyDays.orEmpty().associate {it.date to it.kcal},
@@ -2136,7 +2508,8 @@ data class ExerciseEntry(
     val detailDescription: String? = null,
     val instructions: List<String> = emptyList(),
     val isCustom: Boolean = false,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val mobilityHold:Boolean = false
 ) {
     /** Nombre visible como en Apple: SportExerciseNames.displayName canoniza
      * CrossFit/Halterofilia al inglés sin tocar el nombre persistido ni el ID. */
@@ -2171,10 +2544,13 @@ data class WorkoutHistoryEntry(
     val notes: String? = null,
     /** Bloques editables (con ids) para el editor de contenido; null si no se pudieron derivar. */
     val editableBlocksJson: String? = null,
+    /** Sesión mínima (bloques, wodResults, sets registrados) para mostrar/editar la marca WOD; null si no hay. */
+    val scoreSessionJson: String? = null,
     val liveKilometerSplitsSeconds: List<Double> = emptyList(),
     val liveSportID: String? = null,
     val activeDurationSeconds: Double? = null,
-    val recordedDistanceMeters: Double? = null
+    val recordedDistanceMeters: Double? = null,
+    val routineId: String? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,

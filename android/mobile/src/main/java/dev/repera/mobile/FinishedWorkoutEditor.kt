@@ -6,6 +6,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
 import android.app.DatePickerDialog
@@ -35,7 +37,7 @@ internal fun FinishedWorkoutEditorSection(
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
     onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit
 ) {
-    var editing by remember(workout.id) { mutableStateOf(false) }
+    var editing by remember(accountId, workout.id) { mutableStateOf(false) }
     val hasRoute = workout.routePoints.size >= 2
     if (!editing) {
         if (!hasRoute && workout.locationPin != null) {
@@ -54,18 +56,23 @@ internal fun FinishedWorkoutEditorSection(
         return
     }
     // Borrador: se reinicia cada vez que se entra en edición.
-    var title by remember(workout.id) { mutableStateOf(workout.title) }
-    var startIso by remember(workout.id) { mutableStateOf(workout.startedAtIso) }
-    var endIso by remember(workout.id) { mutableStateOf(workout.finishedAtIso) }
-    var notes by remember(workout.id) { mutableStateOf(workout.notes.orEmpty()) }
-    var pin by remember(workout.id) { mutableStateOf(workout.locationPin) }
-    var pinEdited by remember(workout.id) { mutableStateOf(false) }
+    var title by remember(accountId, workout.id) { mutableStateOf(workout.title) }
+    var startIso by remember(accountId, workout.id) { mutableStateOf(workout.startedAtIso) }
+    var endIso by remember(accountId, workout.id) { mutableStateOf(workout.finishedAtIso) }
+    var notes by remember(accountId, workout.id) { mutableStateOf(workout.notes.orEmpty()) }
+    var pin by remember(accountId, workout.id) { mutableStateOf(workout.locationPin) }
+    var pinEdited by remember(accountId, workout.id) { mutableStateOf(false) }
     // Borrador del CONTENIDO: copia JSON con ids; solo se escribe al Guardar.
-    val blocks = remember(workout.id) {
+    val blocks = remember(accountId, workout.id) {
         workout.editableBlocksJson?.let { runCatching { org.json.JSONArray(it) }.getOrNull() }
     }
-    var contentVersion by remember(workout.id) { mutableIntStateOf(0) }
-    var contentDirty by remember(workout.id) { mutableStateOf(false) }
+    // Marca WOD completada (Apple changingScore): borrador de visualización; al guardar se reproducen las ediciones.
+    var scoreSession by remember(accountId, workout.id) {
+        mutableStateOf(workout.scoreSessionJson?.let { runCatching { org.json.JSONObject(it) }.getOrNull() })
+    }
+    val scoreEdits = remember(accountId, workout.id) { mutableStateListOf<WorkoutRepository.ScoreEdit>() }
+    var contentVersion by remember(accountId, workout.id) { mutableIntStateOf(0) }
+    var contentDirty by remember(accountId, workout.id) { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Editar", style = MaterialTheme.typography.titleMedium)
@@ -85,6 +92,35 @@ internal fun FinishedWorkoutEditorSection(
                 FinishedContentEditor(blocks, exerciseCatalog, onEdited = { contentDirty = true }) { contentDirty = true; contentVersion++ }
             }
         }
+        val scoreBase = scoreSession
+        if (blocks != null && scoreBase != null) {
+            for (bi in 0 until blocks.length()) {
+                val b = blocks.getJSONObject(bi)
+                val cap = dev.repera.domain.WodFormat.fromWire(b.optString("wodFormat"))?.capture?.name
+                if (cap != "TOTAL_REPS" && cap != "ELAPSED_TIME") continue
+                val fmt = dev.repera.domain.WodFormat.fromWire(b.optString("wodFormat"))
+                val fields = if (cap == "TOTAL_REPS") buildList {
+                    add(CompletedWorkoutEditing.ScoreField.REPS to "Repeticiones")
+                    if (fmt == dev.repera.domain.WodFormat.AMRAP || fmt == dev.repera.domain.WodFormat.DEATH_BY)
+                        add(CompletedWorkoutEditing.ScoreField.ROUNDS to "Rondas")
+                } else listOf(CompletedWorkoutEditing.ScoreField.MINUTES to "Minutos", CompletedWorkoutEditing.ScoreField.SECONDS to "Segundos")
+                Text("Resultado · ${b.optString("title")}", style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((field, label) in fields) {
+                        val current = CompletedWorkoutEditing.scoreValue(b, scoreBase, field)
+                        OutlinedTextField(value = current.toString(), label = { Text(label) }, singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                            onValueChange = { raw ->
+                                val v = raw.filter { it.isDigit() }.take(5).toIntOrNull() ?: 0
+                                scoreSession = CompletedWorkoutEditing.changingScore(scoreBase, b, field, v)
+                                scoreEdits.add(WorkoutRepository.ScoreEdit(b.optString("id"), field, v))
+                            },
+                            modifier = Modifier.weight(1f).testTag("edit_score_${b.optString("id")}_${field.name}"))
+                    }
+                }
+                if (cap == "ELAPSED_TIME") Text("Tiempo real empleado (no el time cap).", style = MaterialTheme.typography.bodySmall)
+            }
+        }
         OutlinedTextField(value = notes, onValueChange = { notes = it },
             label = { Text("Notas: cómo te sentiste, molestias…") }, minLines = 2, maxLines = 5,
             modifier = Modifier.fillMaxWidth().testTag("edit_notes"))
@@ -100,7 +136,7 @@ internal fun FinishedWorkoutEditorSection(
                     title = title, startedAtIso = startIso, finishedAtIso = endIso,
                     notes = notes, pinEdited = pinEdited, pin = pin,
                     blocksJson = if (contentDirty) blocks?.toString() else null,
-                    saveAsFavorite = saveAsFavorite))
+                    saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList()))
                 editing = false
             }) { Text("Guardar") }
             TextButton(modifier = Modifier.testTag("edit_cancel"),
@@ -148,6 +184,7 @@ private fun FinishedContentEditor(
         for (b in 0 until blocks.length()) {
             DragReorderItem(b, blkHeights, blocks.length(),
                 onDrop = { _, t -> if (t != b && EditorBlockOps.moveBlock(blocks, b, t)) onChanged() },
+                onMoveTo = { t -> if (EditorBlockOps.moveBlock(blocks, b, t)) onChanged() },
                 onBounds = { top, bottom -> geo.blocks[b] = top to bottom }) { handle ->
             val block = blocks.getJSONObject(b)
             var title by remember(block.optString("id")) { mutableStateOf(block.optString("title")) }
@@ -185,6 +222,7 @@ private fun FinishedContentEditor(
                     onDrop = { cy, t -> handleItemDrop(blocks, geo, b, item.optString("id"), i, items, cy, t,
                         { id -> nameById[id] ?: "Ejercicio" },
                         { null }, onChanged) },
+                    onMoveTo = { t -> if (EditorBlockOps.reorder(items, i, t)) onChanged() },
                     onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[item.optString("id")] = top to bottom }) { handle ->
                 SwipeRemove(item.optString("id"), "ex_swipe", { val ix = (0 until items.length()).firstOrNull { items.getJSONObject(it).optString("id") == item.optString("id") }; if (ix != null) { items.remove(ix); onChanged() } }) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -351,6 +389,7 @@ private fun WodMovementsEditor(
                 mv.optString("exerciseId").takeIf { x -> x.isNotBlank() && catalog.any { c -> c.id == x } }
                     ?: catalog.firstOrNull { c -> c.name.equals(mv.optString("name"), true) }?.id
                     ?: mv.optString("name").trim().takeIf { n -> n.isNotEmpty() }?.let { n -> EditorBlockOps.PENDING_PREFIX + n } }, onChanged) },
+            onMoveTo = { t -> if (EditorBlockOps.reorder(moves, i, t)) onChanged() },
             onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[id] = top to bottom }) { handle ->
         SwipeRemove(id, "mv_swipe", { val ix = (0 until moves.length()).firstOrNull { moves.getJSONObject(it).optString("id") == id }; if (ix != null) { moves.remove(ix); onChanged() } }) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -509,6 +548,7 @@ internal fun DragReorderItem(
     index: Int, heights: androidx.compose.runtime.snapshots.SnapshotStateMap<Int, Int>, count: Int,
     onDrop: (centerRootY: Float, target: Int) -> Unit,
     onBounds: (top: Float, bottom: Float) -> Unit = { _, _ -> },
+    onMoveTo: ((target: Int) -> Unit)? = null,
     content: @Composable (Modifier) -> Unit
 ) {
     var dy by remember { mutableStateOf(0f) }
@@ -559,7 +599,13 @@ internal fun DragReorderItem(
             },
             onDragCancel = { dragging = false; dy = 0f; dyFinger = 0f })
     }
+    // Reordering must not depend on a long-press drag only. The actions carry an explicit
+    // target INDEX (no row geometry), and exist only where the caller supplies onMoveTo.
+    val moveActions = if (onMoveTo == null) emptyList() else moveActionTargets(index, count).map { (label, target) ->
+        androidx.compose.ui.semantics.CustomAccessibilityAction(label) { onMoveTo(target); true }
+    }
     Column(Modifier
+        .semantics { customActions = moveActions }
         .zIndex(if (dy != 0f) 1f else 0f)
         .graphicsLayer { translationY = dy }
         .onSizeChanged { heights[index] = it.height; sizePx = it }
@@ -567,6 +613,12 @@ internal fun DragReorderItem(
             val p = c.positionInRoot().y
             top = p; bottom = p + c.size.height; onBounds(top, bottom)
         }) { content(handle) }
+}
+
+/** Accessible move actions for a row: label to explicit neighbouring index. Pure and testable. */
+internal fun moveActionTargets(index: Int, count: Int): List<Pair<String, Int>> = buildList {
+    if (index > 0 && index < count) add("Mover arriba" to index - 1)
+    if (index in 0 until count - 1) add("Mover abajo" to index + 1)
 }
 
 /** Índice destino de un arrastre vertical (regla del punto medio sobre alturas reales). Pura y testeable. */

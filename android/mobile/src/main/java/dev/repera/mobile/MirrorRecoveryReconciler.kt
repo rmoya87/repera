@@ -10,8 +10,8 @@ import org.json.JSONObject
  * (rutinas, sesión activa, ajustes, pesos, entreno recuperado y luego editado, entreno no recuperado, catálogo distinto)
  * devuelve [Result.NotApplicable] y sigue el camino normal con su Conflict.
  *
- * Resultado: se toma el documento de Drive y se re-funden (solo añadir) los entrenos recuperados que Drive no tiene,
- * con revisión superior para que local gane y suba; así una descarga nunca descarta entrenos recuperados.
+ * Resultado: solo se toma Drive si ya contiene todos los entrenos recuperados idénticos.
+ * Si falta alguno no se puede distinguir alta nueva de borrado remoto: conserva el conflicto.
  */
 internal object MirrorRecoveryReconciler {
     sealed interface Result {
@@ -52,14 +52,5 @@ internal object MirrorRecoveryReconciler {
     }
 
     /** Como isVirgin de DriveSnapshotService, ignorando workouts y los tres campos de versión que cada save() actualiza. */
-    internal fun isPristineExceptWorkouts(state: JSONObject): Boolean {
-        fun emptyArray(key: String) = state.optJSONArray(key)?.length() == 0
-        fun emptyObject(key: String) = state.optJSONObject(key)?.length() == 0
-        val exercises = state.optJSONArray("exercises") ?: return false
-        return emptyArray("routines") && emptyArray("bodyWeights") && emptyArray("favoriteTimers") &&
-            emptyObject("settings") && emptyObject("exerciseLoadPrefs") &&
-            state.optJSONObject("activeSession") == null &&
-            (exercises.length() == 196 || exercises.length() == 278 || exercises.length() == 280) &&
-            (0 until exercises.length()).none { exercises.getJSONObject(it).optBoolean("isCustom") }
-    }
+    internal fun isPristineExceptWorkouts(state: JSONObject): Boolean = PristineCatalogState.exceptWorkouts(state)
 }

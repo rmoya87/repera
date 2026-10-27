@@ -21,10 +21,19 @@ class AIChangeRequestStore(
     context: Context,
     private val userId: String,
     private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(20, TimeUnit.SECONDS).build()
+        .callTimeout(20, TimeUnit.SECONDS).build(),
+    private val stillAuthorized:()->Boolean={true}
 ) {
     private val prefs = context.getSharedPreferences(
         "repera.ai.change.acks.$userId", Context.MODE_PRIVATE)
+
+    private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante el acceso IA"}
+    private fun executeAuthorized(request:Request):okhttp3.Response {
+        authorize()
+        val response=http.newCall(request).execute()
+        try {authorize()} catch(error:Exception) {response.close();throw error}
+        return response
+    }
 
     data class Change(
         val id: String,
@@ -65,6 +74,8 @@ class AIChangeRequestStore(
 
     fun refresh(session: SupabaseIdentity.Session): RefreshResult {
         return try {
+            authorize()
+            check(session.userId==userId) {"La cuenta no corresponde a las solicitudes IA"}
             val url = BuildConfig.SUPABASE_URL +
                 "/rest/v1/ai_athlete_change_requests" +
                 "?select=id,operation,target_id,expected_updated_at,payload,created_at" +
@@ -73,14 +84,15 @@ class AIChangeRequestStore(
                 .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
                 .header("Authorization", "Bearer " + session.accessToken)
                 .get().build()
-            val rows = http.newCall(request).execute().use { response ->
+            val rows = executeAuthorized(request).use { response ->
                 val body = response.body?.string().orEmpty()
+                authorize()
                 if (!response.isSuccessful)
                     throw IllegalStateException("HTTP " + response.code)
                 JSONArray(body)
             }
             // Replay de ACKs: el cambio local se aplicó pero faltó confirmarlo.
-            val awaiting = awaitingAck().toMutableSet()
+            val awaiting = awaitingAck()
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i)
                 val id = row.getString("id")
@@ -88,11 +100,10 @@ class AIChangeRequestStore(
                     runCatching {
                         decideRemote(session, id, "applied",
                             "Aplicado localmente tras consentimiento")
-                        awaiting.remove(id)
+                        removeAck(id)
                     }
                 }
             }
-            saveAcks(awaiting)
             val pending = (0 until rows.length())
                 .map { rows.getJSONObject(it) }
                 .filter { !awaiting.contains(it.getString("id")) }
@@ -118,6 +129,13 @@ class AIChangeRequestStore(
                approve: Boolean, repository: WorkoutRepository,
                mirror: WorkoutMirrorStore): DecideResult {
         return try {
+            authorize()
+            check(session.userId==userId) {"La cuenta no corresponde a las solicitudes IA"}
+            if(change.id in awaitingAck()) {
+                decideRemote(session,change.id,"applied","Aplicado localmente tras consentimiento")
+                removeAck(change.id)
+                return DecideResult.Applied
+            }
             if (!approve) {
                 decideRemote(session, change.id, "rejected",
                     "Rechazado por el deportista")
@@ -132,6 +150,7 @@ class AIChangeRequestStore(
                         .firstOrNull { it.optString("id") == targetId }
                         ?: return DecideResult.Failed(
                             "El entrenamiento ya no está disponible en este dispositivo.")
+                    val localDigest=WorkoutMirrorStore.canonicalDigest(local)
                     // Revisión remota: la IA razonó sobre esta versión exacta.
                     val expected = change.expectedUpdatedAt
                         ?: return DecideResult.Failed(
@@ -151,18 +170,21 @@ class AIChangeRequestStore(
                         return DecideResult.Failed(
                             "La revisión del entrenamiento cambió. Rechaza la solicitud y pide una nueva.")
                     }
+                    authorize()
                     if (change.operation == "delete_workout") {
-                        mirror.noteDeleted(targetId)
-                        repository.deleteWorkout(targetId)
+                        authorize()
+                        repository.deleteWorkout(targetId,expectedLocalDigest=localDigest)
                     } else {
                         val patches = parseSetChanges(change.payload)
+                        authorize()
                         repository.applyAIWorkoutPatch(targetId,
                             change.payload.optString("title").ifBlank { null },
-                            patches)
+                            patches,expectedLocalDigest=localDigest)
                     }
                 }
                 "create_exercise", "update_exercise", "delete_exercise" -> {
                     val p = change.payload
+                    authorize()
                     when (change.operation) {
                         "create_exercise" -> {
                             val name = p.optString("name")
@@ -220,6 +242,8 @@ class AIChangeRequestStore(
     fun syncCustomExercises(session: SupabaseIdentity.Session,
                             repository: WorkoutRepository): Boolean {
         return try {
+            authorize()
+            check(session.userId==userId) {"La cuenta no corresponde a las solicitudes IA"}
             val custom = repository.customExercisesSnapshot()
             if (custom.size > 1000) return false
             val rows = JSONArray()
@@ -258,7 +282,7 @@ class AIChangeRequestStore(
                     .post(batch.toString()
                         .toRequestBody("application/json".toMediaType()))
                     .build()
-                http.newCall(request).execute().use { response ->
+                executeAuthorized(request).use { response ->
                     if (!response.isSuccessful)
                         throw IllegalStateException("HTTP " + response.code)
                 }
@@ -272,8 +296,9 @@ class AIChangeRequestStore(
                 .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
                 .header("Authorization", "Bearer " + session.accessToken)
                 .get().build()
-            val stored = http.newCall(storedRequest).execute().use { response ->
+            val stored = executeAuthorized(storedRequest).use { response ->
                 val body = response.body?.string().orEmpty()
+                authorize()
                 if (!response.isSuccessful)
                     throw IllegalStateException("HTTP " + response.code)
                 JSONArray(body)
@@ -290,7 +315,7 @@ class AIChangeRequestStore(
                         .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
                         .header("Authorization", "Bearer " + session.accessToken)
                         .delete().build()
-                    http.newCall(deleteRequest).execute().use { response ->
+                    executeAuthorized(deleteRequest).use { response ->
                         if (!response.isSuccessful)
                             throw IllegalStateException("HTTP " + response.code)
                     }
@@ -310,8 +335,9 @@ class AIChangeRequestStore(
             .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
-        http.newCall(request).execute().use { response ->
+        executeAuthorized(request).use { response ->
             val body = response.body?.string().orEmpty()
+                authorize()
             if (!response.isSuccessful || JSONArray(body).length() == 0) return null
             val row = JSONArray(body).getJSONObject(0)
             return row.optString("updated_at").ifBlank { null } to
@@ -335,7 +361,7 @@ class AIChangeRequestStore(
             .header("Prefer", "return=minimal")
             .patch(payload.toString().toRequestBody("application/json".toMediaType()))
             .build()
-        http.newCall(request).execute().use { response ->
+        executeAuthorized(request).use { response ->
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
         }
@@ -360,26 +386,24 @@ class AIChangeRequestStore(
         }
     }
 
-    private fun awaitingAck(): Set<String> =
-        prefs.getStringSet("acks", emptySet()) ?: emptySet()
-
-    private fun queueAck(id: String) {
-        val set = awaitingAck().toMutableSet()
-        set.add(id)
-        saveAcks(set)
+    private fun awaitingAck(): Set<String> = synchronized(ackLock) {
+        prefs.getStringSet("acks", emptySet())?.toSet() ?: emptySet()
     }
 
-    private fun removeAck(id: String) {
-        val set = awaitingAck().toMutableSet()
-        set.remove(id)
-        saveAcks(set)
+    private fun queueAck(id: String) = synchronized(ackLock) {
+        saveAcks(awaitingAck()+id)
+    }
+
+    private fun removeAck(id: String) = synchronized(ackLock) {
+        saveAcks(awaitingAck()-id)
     }
 
     private fun saveAcks(set: Set<String>) {
-        prefs.edit().putStringSet("acks", set).apply()
+        check(prefs.edit().putStringSet("acks", set).commit()) {"No se pudo guardar la confirmación pendiente"}
     }
 
     companion object {
+        private val ackLock=Any()
         internal fun parseInstant(value: String?): Instant? {
             if (value.isNullOrBlank()) return null
             var v = value.replace(" ", "T")

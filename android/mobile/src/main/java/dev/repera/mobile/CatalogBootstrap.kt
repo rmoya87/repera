@@ -26,6 +26,8 @@ object CatalogBootstrap {
             .put("updatedAt", "1970-01-01T00:00:00Z")
             .put("syncRevision", 0)
             .put("lastWriterDeviceId", "")
-        local.write(state.toString().toByteArray(Charsets.UTF_8))
+        check(local.replaceIfUnchanged(null,state.toString().toByteArray(Charsets.UTF_8))) {
+            "Ya existe un historial; no se sobrescribirá"
+        }
     }
 }

@@ -22,7 +22,7 @@ class AIPlansRealtimeListenerTest {
             .getJSONArray("postgres_changes").getJSONObject(0)
         assertEquals("INSERT", change.getString("event"))
         assertEquals("ai_training_plans", change.getString("table"))
-        assertEquals("eq.uid-1", change.getString("filter"))
+        assertEquals("owner_id=eq.uid-1", change.getString("filter"))
     }
 
     @Test
@@ -81,5 +81,11 @@ class AIPlansRealtimeListenerTest {
     fun malformedJsonIgnored() {
         assertNull(AIPlansRealtimeListener.parseServerEvent("not-json", topic))
         assertNull(AIPlansRealtimeListener.parseServerEvent("{}", topic))
+    }
+    @Test fun wrongTableOnMatchingTopicDoesNotTriggerImport() {
+        val message=JSONObject().put("topic",topic).put("event","postgres_changes")
+            .put("payload",JSONObject().put("data",JSONObject().put("type","INSERT")
+                .put("schema","public").put("table","other_table")))
+        assertNull(AIPlansRealtimeListener.parseServerEvent(message.toString(),topic))
     }
 }

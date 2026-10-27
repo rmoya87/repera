@@ -33,7 +33,9 @@ internal object CatalogRefreshMigration {
         check(seed.length() == EXPECTED_CATALOG) { "Catálogo semilla incompleto" }
         val changed = mergeSeedIntoState(seed, state)
         if (!changed) return false
-        store.write(state.toString().toByteArray(Charsets.UTF_8))
+        check(store.replaceIfUnchanged(bytes,state.toString().toByteArray(Charsets.UTF_8))) {
+            "El historial cambió durante la migración del catálogo; vuelve a intentarlo"
+        }
         return true
     }
 
@@ -84,9 +86,8 @@ internal object CatalogRefreshMigration {
         // importado). Jamás se elimina un id referenciado ni una entrada custom.
         val seedIds = (0 until seed.length()).map { seed.getJSONObject(it).getString("id") }.toSet()
         val referenced = mutableSetOf<String>()
-        for (section in listOf("routines", "workouts")) {
-            val arr = state.optJSONArray(section) ?: continue
-            collectExerciseIds(arr, referenced)
+        listOf("routines","workouts","activeSession").forEach {section ->
+            collectExerciseIds(state.opt(section),referenced)
         }
         val groups = mutableMapOf<String, MutableList<Int>>()
         for (i in 0 until catalog.length()) {
@@ -158,13 +159,13 @@ internal object CatalogRefreshMigration {
         }
         return true
     }
-    private fun collectExerciseIds(node: org.json.JSONArray, into: MutableSet<String>) {
-        for (i in 0 until node.length()) {
-            val item = node.optJSONObject(i) ?: continue
-            item.optString("exerciseId").takeIf { it.isNotBlank() }?.let(into::add)
-            for (key in item.keys()) {
-                val child = item.optJSONArray(key)
-                if (child != null) collectExerciseIds(child, into)
+    private fun collectExerciseIds(node:Any?,into:MutableSet<String>) {
+        when(node) {
+            is org.json.JSONArray -> (0 until node.length()).forEach {collectExerciseIds(node.opt(it),into)}
+            is JSONObject -> {
+                node.optString("exerciseId").takeIf {it.isNotBlank()}?.let(into::add)
+                node.optJSONObject("exercise")?.optString("id")?.takeIf {it.isNotBlank()}?.let(into::add)
+                node.keys().forEach {key ->collectExerciseIds(node.opt(key),into)}
             }
         }
     }

@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import dev.repera.mobile.CompletedWorkoutEditing.ScoreField as SF
 
 /** Casos de CompletedWorkoutEditingTests.swift sobre fixtures JSON (sin dispositivo). */
 class CompletedWorkoutEditingTest {
@@ -94,17 +95,37 @@ class CompletedWorkoutEditingTest {
         assertEquals(0, u.getInt("currentIndex"))
     }
 
-    @Test fun addedSetOnLoggedExerciseGetsFinishedAtAsCompletedAt() {
+    @Test fun addedUnconfirmedSetIsNotTurnedIntoLoggedSet() {
         val s = strengthSession()
         val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
         blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0).getJSONArray("plannedSets")
             .put(planned("extra", 3, 20.0))
         val u = CompletedWorkoutEditing.applying("Fuerza", blocks, s, catalog)
         val sets = u.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets")
+        // Apple live main: solo los UUID ya registrados son resultados; la serie nueva queda prescrita.
+        assertEquals(1, sets.length())
+        assertTrue((0 until sets.length()).none { sets.getJSONObject(it).getString("id") == "extra" })
+        val planned = u.getJSONArray("exercises").getJSONObject(0).getJSONArray("plannedSets")
+        assertTrue((0 until planned.length()).any { planned.getJSONObject(it).getString("id") == "extra" })
+        assertEquals(5, u.getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
+    }
+
+    /** Apple testRemovingRecordedSetFromCompletedEditorDoesNotTurnPendingIntoPerformed. */
+    @Test fun removingRecordedSetDoesNotTurnPendingIntoPerformed() {
+        val s = strengthSession()
+        val e1 = s.getJSONArray("exercises").getJSONObject(0)
+        e1.put("plannedSets", JSONArray().put(planned("p1", 5)).put(planned("p1b", 5)))
+        e1.put("loggedSets", JSONArray().put(logged("p1", 5, 30.0, 2.0)))
+        val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
+        val sets = blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0).getJSONArray("plannedSets")
         assertEquals(2, sets.length())
-        assertEquals("extra", sets.getJSONObject(1).getString("id"))
-        assertEquals("2026-10-20T11:00:00Z", sets.getJSONObject(1).getString("completedAt"))
-        assertEquals(5 + 3, u.getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
+        val kept = JSONArray().put(sets.getJSONObject(1))
+        blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0).put("plannedSets", kept)
+        val u = CompletedWorkoutEditing.applying("Fuerza", blocks, s, catalog)
+        val ue = u.getJSONArray("exercises").getJSONObject(0)
+        assertEquals(0, ue.getJSONArray("loggedSets").length())
+        assertEquals(1, ue.getJSONArray("plannedSets").length())
+        assertEquals(5, ue.getJSONArray("plannedSets").getJSONObject(0).getInt("targetReps"))
     }
 
     private fun wodSession(withScore: Boolean): JSONObject {
@@ -138,12 +159,30 @@ class CompletedWorkoutEditingTest {
         assertEquals(0, u.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets").length())
     }
 
-    @Test fun changingWodFormatDropsIncompatibleStoredScore() {
+    @Test fun changingWodFormatKeepsRealResultWithItsOwnFormat() {
         val s = wodSession(true)
         val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
         blocks.getJSONObject(0).put("wodFormat", "amrap")
         val u = CompletedWorkoutEditing.applying("Circuito", blocks, s, JSONArray().put(ex("bu", "Burpees")))
+        // Apple live main: cambiar de formato NO borra un resultado real; conserva su formato/unidades.
+        assertEquals(1, u.getJSONArray("wodResults").length())
+        assertEquals("forTime", u.getJSONArray("wodResults").getJSONObject(0).getString("format"))
+        assertEquals(250, u.getJSONArray("wodResults").getJSONObject(0).getInt("elapsedSeconds"))
+    }
+
+    @Test fun deletingTheBlockDeletesItsResult() {
+        val s = wodSession(true)
+        val u = CompletedWorkoutEditing.applying("Circuito", JSONArray(), s, JSONArray())
         assertEquals(0, u.getJSONArray("wodResults").length())
+    }
+
+    @Test fun missingBlockFormatIsRecoveredFromRecordedResult() {
+        val s = wodSession(true)
+        s.getJSONArray("routineBlocks").getJSONObject(0).remove("wodFormat")
+        val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
+        assertEquals("forTime", blocks.getJSONObject(0).getString("wodFormat"))
+        val u = CompletedWorkoutEditing.applying("Circuito", blocks, s, JSONArray().put(ex("bu", "Burpees")))
+        assertEquals(250, u.getJSONArray("wodResults").getJSONObject(0).getInt("elapsedSeconds"))
     }
 
     @Test fun exerciseWithoutBlockInSnapshotGetsOwnBlock() {
@@ -196,7 +235,127 @@ class CompletedWorkoutEditingTest {
         assertEquals(listOf(10, 9, 8, 8, 8), (0 until 5).map { e.getJSONArray("plannedSets").getJSONObject(it).getInt("targetReps") })
         assertEquals(5, e.getInt("blockRounds"))
         // Las series registradas se reconstruyen con las prescritas (Apple), con completedAt = finishedAt.
-        assertEquals(5, e.getJSONArray("loggedSets").length())
-        assertEquals("2026-10-20T11:00:00Z", e.getJSONArray("loggedSets").getJSONObject(4).getString("completedAt"))
+        // Apple live main: los ids derivados son nuevos, por tanto NO se convierten en LoggedSet.
+        assertEquals(0, e.getJSONArray("loggedSets").length())
+    }
+
+    @Test fun scoreEditUpdatesRftTimeWithLimitsAndKeepsOtherFormatResult() {
+        val s = wodSession(true)
+        s.getJSONArray("wodResults").put(JSONObject().put("id", "w1").put("format", "amrap").put("totalReps", 99))
+        val block = CompletedWorkoutEditing.blocksFrom(s, null).getJSONObject(0)
+        assertEquals(4, CompletedWorkoutEditing.scoreValue(block, s, CompletedWorkoutEditing.ScoreField.MINUTES))
+        assertEquals(10, CompletedWorkoutEditing.scoreValue(block, s, CompletedWorkoutEditing.ScoreField.SECONDS))
+        var u = CompletedWorkoutEditing.changingScore(s, block, CompletedWorkoutEditing.ScoreField.MINUTES, 999)
+        assertEquals(180 * 60 + 10, u.getJSONArray("wodResults").let { a -> (0 until a.length()).map { a.getJSONObject(it) }.first { it.optString("format") == "forTime" }.getInt("elapsedSeconds") })
+        u = CompletedWorkoutEditing.changingScore(u, block, CompletedWorkoutEditing.ScoreField.SECONDS, 75)
+        val rs = u.getJSONArray("wodResults")
+        assertEquals(2, rs.length())
+        assertEquals(180 * 60 + 59, (0 until 2).map { rs.getJSONObject(it) }.first { it.optString("format") == "forTime" }.getInt("elapsedSeconds"))
+        assertEquals(99, (0 until 2).map { rs.getJSONObject(it) }.first { it.optString("format") == "amrap" }.getInt("totalReps"))
+        // El original no se muta; reps sobre un formato por tiempo se ignoran.
+        assertEquals(250, s.getJSONArray("wodResults").getJSONObject(0).getInt("elapsedSeconds"))
+        assertEquals(u.toString(), CompletedWorkoutEditing.changingScore(u, block, CompletedWorkoutEditing.ScoreField.REPS, 5).toString())
+    }
+
+    @Test fun legacyAmrapSingleSetScoreIsInferredForDisplayOnly() {
+        val s = wodSession(false)
+        s.getJSONArray("routineBlocks").getJSONObject(0).put("wodFormat", "amrap")
+        s.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets")
+            .put(JSONObject().put("id", "l1").put("reps", 87))
+        val block = CompletedWorkoutEditing.blocksFrom(s, null).getJSONObject(0)
+        assertEquals(87, CompletedWorkoutEditing.scoreValue(block, s, CompletedWorkoutEditing.ScoreField.REPS))
+        assertEquals(0, s.getJSONArray("wodResults").length())
+        val u = CompletedWorkoutEditing.changingScore(s, block, CompletedWorkoutEditing.ScoreField.ROUNDS, 12)
+        assertEquals(12, u.getJSONArray("wodResults").getJSONObject(0).getInt("roundsCompleted"))
+        assertEquals(87, u.getJSONArray("wodResults").getJSONObject(0).getInt("totalReps"))
+        assertEquals(1, u.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets").length())
+    }
+
+    /** Apple testUntypedLegacyRepsSurviveChangingToElapsedTime. */
+    @Test fun untypedLegacyRepsSurviveChangingToElapsedTime() {
+        val s = wodSession(false)
+        s.getJSONArray("routineBlocks").getJSONObject(0).put("wodFormat", "amrap")
+        s.put("wodResults", JSONArray().put(JSONObject().put("id", "w1").put("totalReps", 8).put("roundsCompleted", 4)))
+        val block = CompletedWorkoutEditing.blocksFrom(s, null).getJSONObject(0).put("wodFormat", "forTime")
+        assertNull(CompletedWorkoutEditing.editableScore(block, s))
+        val u = CompletedWorkoutEditing.changingScore(s, block, CompletedWorkoutEditing.ScoreField.MINUTES, 6)
+        val rs = u.getJSONArray("wodResults")
+        assertEquals(2, rs.length())
+        val all = (0 until 2).map { rs.getJSONObject(it) }
+        assertEquals(8, all.first { !it.has("format") || it.optString("format").isBlank() }.getInt("totalReps"))
+        assertEquals(360, all.first { it.optString("format") == "forTime" }.getInt("elapsedSeconds"))
+    }
+
+    /** Apple testAllGlobalWODFormatsAllowEditingAndPersistingResultWithNoPriorScore (sin ida y vuelta Codable). */
+    @Test fun allGlobalWodFormatsAllowEditingAndPersistingResultWithNoPriorScore() {
+        listOf("amrap", "deathBy", "maxEffort", "forTime", "chipper", "afap", "ladder", "buyInCashOut").forEach { fmt ->
+            val s = wodSession(false)
+            s.getJSONArray("routineBlocks").getJSONObject(0).put("wodFormat", fmt)
+            assertEquals(fmt, 0, s.getJSONArray("wodResults").length())
+            val block = CompletedWorkoutEditing.blocksFrom(s, null).getJSONObject(0)
+            val totalReps = dev.repera.domain.WodFormat.fromWire(fmt)!!.capture == dev.repera.domain.ResultCapture.TOTAL_REPS
+            var edited = s
+            if (totalReps) {
+                edited = CompletedWorkoutEditing.changingScore(edited, block, SF.REPS, 11)
+                assertEquals(fmt, 11, CompletedWorkoutEditing.scoreValue(block, edited, SF.REPS))
+                if (fmt == "amrap" || fmt == "deathBy") edited = CompletedWorkoutEditing.changingScore(edited, block, SF.ROUNDS, 5)
+            } else {
+                edited = CompletedWorkoutEditing.changingScore(edited, block, SF.MINUTES, 12)
+                edited = CompletedWorkoutEditing.changingScore(edited, block, SF.SECONDS, 37)
+                assertEquals(fmt, 12, CompletedWorkoutEditing.scoreValue(block, edited, SF.MINUTES))
+                assertEquals(fmt, 37, CompletedWorkoutEditing.scoreValue(block, edited, SF.SECONDS))
+            }
+            val blocks = CompletedWorkoutEditing.blocksFrom(edited, null)
+            val saved = CompletedWorkoutEditing.applying("Registrado", blocks, edited, JSONArray().put(ex("bu", "Burpees")))
+            val rs = saved.getJSONArray("wodResults")
+            assertEquals(fmt, 1, rs.length())
+            val r = rs.getJSONObject(0)
+            assertEquals(fmt, fmt, r.optString("format"))
+            assertEquals(fmt, if (totalReps) 11 else null, if (r.has("totalReps")) r.getInt("totalReps") else null)
+            assertEquals(fmt, if (fmt == "amrap" || fmt == "deathBy") 5 else null, if (r.has("roundsCompleted")) r.getInt("roundsCompleted") else null)
+            assertEquals(fmt, if (!totalReps) 757 else null, if (r.has("elapsedSeconds")) r.getInt("elapsedSeconds") else null)
+            val exs = saved.getJSONArray("exercises")
+            assertTrue((0 until exs.length()).all { exs.getJSONObject(it).getJSONArray("loggedSets").length() == 0 })
+            assertEquals(edited.getString("id"), saved.getString("id"))
+        }
+    }
+
+    /** Apple testMixedScannedBlocksKeepRFTAMRAPScoresAndEMOMDraftSeriesAfterEditing (JSON, sin Codable). */
+    @Test fun mixedScannedBlocksKeepRftAmrapScoresAndEmomExplicitSeriesAfterEditing() {
+        val burpee = ex("bu", "Burpees")
+        fun blk(id: String, fmt: String) = JSONObject().put("id", id).put("title", id).put("kind", "wod").put("wodFormat", fmt)
+            .put("movements", JSONArray().put(JSONObject().put("id", "m$id").put("exerciseId", "bu").put("name", "Burpees").put("reps", 8)))
+        val rft = blk("rft", "forTime").put("rounds", 3)
+        val amrap = blk("amrap", "amrap").put("timeCapMinutes", 10)
+        val emom = blk("emom", "emom").put("emomIntervalSeconds", 120).put("rounds", 4)
+        fun entry(id: String, b: String, fmt: String, sets: JSONArray) = JSONObject().put("id", id).put("exercise", burpee)
+            .put("plannedSets", sets).put("loggedSets", JSONArray()).put("completedReps", 0).put("isCompleted", false)
+            .put("blockId", b).put("blockKind", "wod").put("wodFormat", fmt).put("blockHeader", b)
+        val emomSets = JSONArray().put(planned("e1", 6)).put(planned("e2", 6)).put(planned("e3", 6)).put(planned("e4", 6))
+            .put(planned("e5", 9, 12.0))
+        val s = JSONObject().put("id", "mix").put("title", "Pizarra").put("phase", "finished")
+            .put("startedAt", "2026-10-20T10:00:00Z").put("finishedAt", "2026-10-20T11:00:00Z").put("currentIndex", 0)
+            .put("routineBlocks", JSONArray().put(rft).put(amrap).put(emom))
+            .put("wodResults", JSONArray()
+                .put(JSONObject().put("id", "rft").put("format", "forTime").put("elapsedSeconds", 533))
+                .put(JSONObject().put("id", "amrap").put("format", "amrap").put("totalReps", 4).put("roundsCompleted", 6)))
+            .put("exercises", JSONArray().put(entry("x1", "rft", "forTime", JSONArray().put(planned("r1", 8))))
+                .put(entry("x2", "amrap", "amrap", JSONArray().put(planned("a1", 8))))
+                .put(entry("x3", "emom", "emom", emomSets)))
+        val rftBlock = CompletedWorkoutEditing.blocksFrom(s, null).getJSONObject(0)
+        val corrected = CompletedWorkoutEditing.changingScore(s, rftBlock, SF.SECONDS, 21)
+        val stored = CompletedWorkoutEditing.applying("Pizarra", CompletedWorkoutEditing.blocksFrom(corrected, null), corrected, JSONArray().put(burpee))
+        val rs = stored.getJSONArray("wodResults")
+        fun res(id: String) = (0 until rs.length()).map { rs.getJSONObject(it) }.first { it.getString("id") == id }
+        assertEquals(501, res("rft").getInt("elapsedSeconds"))
+        assertEquals(6, res("amrap").getInt("roundsCompleted"))
+        assertEquals(4, res("amrap").getInt("totalReps"))
+        val ex2 = stored.getJSONArray("exercises").getJSONObject(2)
+        assertEquals(5, ex2.getJSONArray("plannedSets").length())
+        assertEquals(0, ex2.getJSONArray("loggedSets").length())
+        val blocks = stored.getJSONArray("routineBlocks")
+        assertEquals(3, blocks.getJSONObject(0).getInt("rounds"))
+        assertEquals(10, blocks.getJSONObject(1).getInt("timeCapMinutes"))
+        assertEquals(5, blocks.getJSONObject(2).getJSONArray("movements").getJSONObject(0).optJSONArray("explicitPlannedSets")?.length() ?: -1)
     }
 }

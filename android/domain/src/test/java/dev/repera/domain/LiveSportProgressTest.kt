@@ -89,15 +89,15 @@ class LiveSportProgressTest {
     }
 
     @Test fun catalogKeepsAllPersistedIdsAndGroups() {
-        // IDs persistidos de Apple: 36 deportes, 8 grupos, orden conservado.
-        assertEquals(36, LiveSport.entries.size)
-        assertEquals(8, LiveSport.groups.size)
+        // IDs persistidos de Apple: 53 deportes (live main), 10 grupos, orden conservado.
+        assertEquals(53, LiveSport.entries.size)
+        assertEquals(10, LiveSport.groups.size)
         for (sport in LiveSport.entries) {
             assertEquals(sport, LiveSport.byId(sport.id))
             assertTrue(LiveSport.groups.contains(sport.group))
         }
-        // El set cardio de Apple tiene 29 deportes: ni golf, ni fuerza, ni pilates.
-        assertEquals(29, LiveSport.cardioLiveSports.size)
+        // El set cardio de Apple (live main) tiene 45 deportes: ni golf, ni fuerza, ni pilates.
+        assertEquals(45, LiveSport.cardioLiveSports.size)
         assertFalse(LiveSport.cardioLiveSports.contains("golf"))
         assertFalse(LiveSport.cardioLiveSports.contains("strength"))
         assertFalse(LiveSport.cardioLiveSports.contains("pilates"))

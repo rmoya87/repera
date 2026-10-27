@@ -47,7 +47,10 @@ data class MuscleStimulusExercise(
     val secondaryRegions: List<String> = emptyList(),
     val bodyPart: String? = null,
     val muscleGroup: String? = null,
-    val sets: List<MuscleStimulusSet> = emptyList()
+    val sets: List<MuscleStimulusSet> = emptyList(),
+    /** Apple MuscleCompletedWODStimulus: 1.0 cuando es un WOD completado (bloque WOD o con score global) sin ninguna
+     *  serie de trabajo registrada y no es movilidad; 0.0 en otro caso. Equivalente de carga, nunca un LoggedSet. */
+    val completedWodSetEquivalent: Double = 0.0
 ) {
     val weights: Map<String, Double>
         get() = MuscleTaxonomy.muscleWeights(
@@ -118,8 +121,12 @@ object MuscleMapEngine {
                         hardSets += set.fatigueSetEquivalent
                     }
                 }
-                if (hardSets <= 0) continue
-                val capped = min(hardSets, 12.0)
+                // Algunos EMOM/AMRAP guardan resultado y check sin series: equivalente conservador (x0.7),
+                // jamás una «serie dura» (no aplica con hardOnly).
+                val completedWod = if (hardOnly) 0.0 else entry.completedWodSetEquivalent
+                val recordedOrEstimated = if (hardSets > 0) hardSets else completedWod * 0.7
+                if (recordedOrEstimated <= 0) continue
+                val capped = min(recordedOrEstimated, 12.0)
                 for ((slug, w) in entry.weights) {
                     val hl = halfLifeHours[slug] ?: 30.0
                     val retained = capped * w * 0.5.pow(ageHours / hl)
@@ -180,10 +187,11 @@ object MuscleMapEngine {
             if (workout.epochMillis < weekAgo) continue
             for (entry in workout.exercises) {
                 if (entry.sportTag == "Movilidad") continue
-                val sets = entry.sets.count { !it.isWarmup && it.reps > 0 }
-                if (sets <= 0) continue
+                val sets = entry.sets.count { !it.isWarmup && it.reps > 0 }.toDouble()
+                val counted = if (sets > 0) sets else if (hardOnly) 0.0 else entry.completedWodSetEquivalent
+                if (counted <= 0) continue
                 for ((slug, w) in entry.weights) {
-                    weekly[slug] = (weekly[slug] ?: 0.0) + w * sets
+                    weekly[slug] = (weekly[slug] ?: 0.0) + w * counted
                 }
             }
         }

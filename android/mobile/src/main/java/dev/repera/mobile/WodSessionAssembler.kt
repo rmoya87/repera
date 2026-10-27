@@ -41,8 +41,9 @@ object WodSessionAssembler {
                 .put("name", name)
                 .put("muscleGroup", "WOD")
                 .put("isCustom", true)
+            // Apple SessionController.from: SessionExercise.id = id del movimiento de la rutina.
             val sessionMovement = JSONObject()
-                .put("id", UUID.randomUUID().toString())
+                .put("id", move.optString("id").ifBlank { UUID.randomUUID().toString() })
                 .put("exercise", exercise)
                 .put("plannedSets", plannedSets(move))
                 .put("loggedSets", JSONArray())

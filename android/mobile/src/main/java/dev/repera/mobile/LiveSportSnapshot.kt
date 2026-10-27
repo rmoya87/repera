@@ -25,7 +25,10 @@ internal object LiveSportSnapshot {
                 recordedDistanceMeters = measured("recordedDistanceMeters"),
                 averageHeartRateBpm = measured("appleAverageHeartRateBpm"),
                 activeEnergyKcal = measured("appleActiveEnergyKcal"),
-                liveRouteID = s.optString("liveRouteID").takeIf { it.isNotBlank() && it != "null" })
+                liveRouteID = s.optString("liveRouteID").takeIf { it.isNotBlank() && it != "null" },
+                liveKilometerSplitsSeconds = s.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
+                    (0 until a.length()).map { a.optDouble(it, Double.NaN) }.filter { it.isFinite() && it > 0 }
+                }.orEmpty())
         }
     }
 }

@@ -3,7 +3,7 @@ import org.json.*
 import org.junit.Test
 import org.junit.Assert.*
 class ActiveSessionPlanTest {
- private fun e(id:String,block:String,reps:Int=0)=JSONObject().put("id",id).put("blockId",block)
+ private fun e(id:String,block:String,reps:Int=0)=JSONObject().put("id","$id-$block").put("blockId",block)
   .put("exercise",JSONObject().put("id",id).put("name",id))
   .put("loggedSets",JSONArray().apply {if(reps>0) put(JSONObject().put("id","set-$block-$id").put("reps",reps))})
   .put("completedReps",reps).put("isCompleted",reps>0)
@@ -28,5 +28,24 @@ class ActiveSessionPlanTest {
   assertEquals(5,session.getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
   assertEquals(0,session.getJSONArray("exercises").getJSONObject(1).getInt("completedReps"))
   assertEquals(1,session.getInt("currentIndex"))
+ }
+ @Test fun stableItemIdsKeepResultsWhenRepeatedExerciseIsReordered() {
+  fun item(id:String,reps:Int)=JSONObject().put("id",id).put("blockId","b").put("exercise",JSONObject().put("id","sq").put("name","Sentadilla"))
+   .put("loggedSets",JSONArray().apply {if(reps>0) put(JSONObject().put("id","s$id").put("reps",reps))}).put("completedReps",reps).put("isCompleted",reps>0)
+  val session=JSONObject().put("currentIndex",1).put("exercises",JSONArray().put(item("i1",5)).put(item("i2",8)))
+  val fresh=JSONObject().put("routineBlocks",JSONArray()).put("exercises",JSONArray().put(item("i2",0)).put(item("i1",0)))
+  ActiveSessionPlan.refresh(session,fresh)
+  val r=session.getJSONArray("exercises")
+  assertEquals(8,r.getJSONObject(0).getInt("completedReps"));assertEquals(5,r.getJSONObject(1).getInt("completedReps"))
+  assertEquals(0,session.getInt("currentIndex"))
+ }
+ @Test fun legacyRandomIdsStillMatchByExerciseOnce() {
+  fun item(id:String,reps:Int)=JSONObject().put("id",id).put("blockId","b").put("exercise",JSONObject().put("id","sq").put("name","Sentadilla"))
+   .put("loggedSets",JSONArray()).put("completedReps",reps).put("isCompleted",reps>0)
+  val session=JSONObject().put("currentIndex",0).put("exercises",JSONArray().put(item("old1",5)).put(item("old2",8)))
+  val fresh=JSONObject().put("routineBlocks",JSONArray()).put("exercises",JSONArray().put(item("n1",0)).put(item("n2",0)))
+  ActiveSessionPlan.refresh(session,fresh)
+  val r=session.getJSONArray("exercises")
+  assertEquals(5,r.getJSONObject(0).getInt("completedReps"));assertEquals(8,r.getJSONObject(1).getInt("completedReps"))
  }
 }

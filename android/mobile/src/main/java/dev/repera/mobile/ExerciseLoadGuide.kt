@@ -133,7 +133,7 @@ object ExerciseLoadGuide {
                 PlannedSetDraft(
                     targetReps = set.reps,
                     targetWeightKg = scaled,
-                    targetRir = set.rir ?: fallbackRir
+                    targetRir = set.rir ?: fallbackRir,targetDurationSeconds=set.durationSeconds
                 )
             }
         } else {
@@ -141,7 +141,7 @@ object ExerciseLoadGuide {
                 PlannedSetDraft(
                     targetReps = set.reps,
                     targetWeightKg = kg,
-                    targetRir = set.rir ?: fallbackRir
+                    targetRir = set.rir ?: fallbackRir,targetDurationSeconds=set.durationSeconds
                 )
             }
         }
@@ -153,7 +153,7 @@ object ExerciseLoadGuide {
             PlannedSetDraft(
                 targetReps = set.reps,
                 targetWeightKg = set.weightKg,
-                targetRir = set.rir
+                targetRir = set.rir,targetDurationSeconds=set.durationSeconds
             )
         }
 

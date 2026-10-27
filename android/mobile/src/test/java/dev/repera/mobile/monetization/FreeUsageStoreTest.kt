@@ -77,4 +77,36 @@ class FreeUsageStoreTest {
         assertFalse(store.consumeBoardScan("attempt-4", isPro = true))
         assertEquals(0, store.state.boardScansConsumed)
     }
+    @Test fun `stale instances cannot lose consumption or double same attempt`() {
+        val a=FreeUsageStore.forAccount(dir);a.load()
+        val b=FreeUsageStore.forAccount(dir);b.load()
+        assertTrue(a.consumeBoardScan("a",false))
+        assertTrue(b.consumeBoardScan("b",false))
+        assertFalse(a.consumeBoardScan("b",false))
+        val c=FreeUsageStore.forAccount(dir);c.load()
+        assertEquals(2,c.state.boardScansConsumed)
+        assertEquals(setOf("a","b"),c.state.consumedAttemptIDs.toSet())
+    }
+    @Test fun `parallel instances keep exactly the monthly limit`() {
+        val start=java.util.concurrent.CountDownLatch(1)
+        val threads=(0 until 12).map {index ->Thread {
+            val store=FreeUsageStore.forAccount(dir)
+            start.await();store.consumeBoardScan("parallel-$index",false)
+        }}
+        threads.forEach {it.start()};start.countDown();threads.forEach {it.join()}
+        val final=FreeUsageStore.forAccount(dir);final.load()
+        assertEquals(4,final.state.boardScansConsumed)
+        assertEquals(4,final.state.consumedAttemptIDs.distinct().size)
+    }
+    @Test fun `failed consumption persistence does not claim in-memory success`() {
+        val store=FreeUsageStore.forAccount(dir);store.load()
+        assertTrue(store.consumeBoardScan("first",false))
+        val blockedTemp=File(dir,"free_usage.json.new");blockedTemp.mkdirs()
+        assertTrue(runCatching {store.consumeBoardScan("failed",false)}.isFailure)
+        assertEquals(1,store.state.boardScansConsumed)
+        assertEquals(listOf("first"),store.state.consumedAttemptIDs)
+        blockedTemp.delete()
+        assertTrue(store.consumeBoardScan("failed",false))
+        assertEquals(2,store.state.boardScansConsumed)
+    }
 }

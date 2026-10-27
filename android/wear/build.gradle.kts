@@ -21,6 +21,8 @@ android {
 }
 dependencies {
     implementation(project(":domain"))
+    // Play Services brings Fragment1.1; ActivityResult permissions require modern Fragment.
+    implementation("androidx.fragment:fragment:1.8.9")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.foundation:foundation")

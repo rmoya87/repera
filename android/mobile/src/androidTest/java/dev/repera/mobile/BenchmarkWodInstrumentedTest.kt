@@ -76,4 +76,24 @@ class BenchmarkWodInstrumentedTest {
             .getJSONArray("routines")
         assertEquals(31, routines.length())
     }
+    @Test fun libraryPlayIsEphemeralAndSameRequestNeverDuplicatesSavedWork() {
+        val ctx=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val owner="wod-play-${java.util.UUID.randomUUID()}"
+        val local=LocalSnapshotStore(ctx,owner)
+        local.write(org.json.JSONObject().put("exercises",org.json.JSONArray())
+            .put("routines",org.json.JSONArray()).put("workouts",org.json.JSONArray()).toString().toByteArray())
+        val repo=WorkoutRepository(ctx,owner)
+        val first=repo.startWodTemplate("fran","library-request")
+        val before=local.read()!!
+        val again=repo.startWodTemplate("fran","library-request")
+        org.junit.Assert.assertEquals(first.id,again.id)
+        org.junit.Assert.assertArrayEquals(before,local.read())
+        val state=org.json.JSONObject(String(before))
+        org.junit.Assert.assertEquals(0,state.getJSONArray("routines").length())
+        org.junit.Assert.assertEquals(0,state.getJSONArray("exercises").length())
+        org.junit.Assert.assertEquals(0,state.getJSONArray("workouts").length())
+        org.junit.Assert.assertEquals(0,state.getJSONObject("activeSession").getJSONArray("wodResults").length())
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) {repo.startWodTemplate("cindy","other-request")}
+        org.junit.Assert.assertArrayEquals(before,local.read())
+    }
 }

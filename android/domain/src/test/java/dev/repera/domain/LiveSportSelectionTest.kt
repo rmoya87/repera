@@ -2,12 +2,12 @@ package dev.repera.domain
 import org.junit.Test
 import org.junit.Assert.*
 class LiveSportSelectionTest {
-    @Test fun legacyIdsStillDecodeButAreNotSelectable() {
+    @Test fun legacyIdsStillDecodeAndAreSelectableAsFallback() {
         assertEquals(LiveSport.GRAVEL,LiveSport.byId("gravel"))
         assertEquals(LiveSport.OTHER,LiveSport.byId("other"))
-        assertEquals(34,LiveSport.selectableCases.size)
-        assertFalse(LiveSport.GRAVEL in LiveSport.selectableCases)
-        assertFalse(LiveSport.OTHER in LiveSport.selectableCases)
+        assertEquals(53,LiveSport.selectableCases.size)
+        assertTrue(LiveSport.GRAVEL in LiveSport.selectableCases)
+        assertTrue(LiveSport.OTHER in LiveSport.selectableCases)
         assertEquals("Ciclismo de carretera",LiveSport.CYCLING.title)
         assertEquals("Ciclismo de montaña",LiveSport.MOUNTAIN_BIKE.title)
         assertEquals("Entrenamiento",LiveSport.STRENGTH.title)

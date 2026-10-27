@@ -177,4 +177,19 @@ class AITrainingInboxTest {
             inbox.buildRoutine(plan(payload), resolver)
         }
     }
+    @Test fun invalidLaterBlockNeverCallsMutatingCatalogResolver() {
+        val payload=strengthPayload()
+        payload.getJSONArray("blocks").put(JSONObject().put("kind","unknown").put("title","Invalid"))
+        var calls=0
+        assertThrows(Exception::class.java) {
+            inbox.buildRoutine(plan(payload)) {_,_ ->calls++;"would-create"}
+        }
+        assertEquals(0,calls)
+    }
+
+    @Test fun validPayloadResolvesEachExerciseOnlyAfterValidation() {
+        var calls=0
+        val (_,blocks)=inbox.buildRoutine(plan(strengthPayload())) {_,_ ->calls++;"real-id"}
+        assertEquals(1,calls);assertEquals("real-id",blocks.single().exercises.single().exerciseId)
+    }
 }

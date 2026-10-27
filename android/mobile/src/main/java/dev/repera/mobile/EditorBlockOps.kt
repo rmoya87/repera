@@ -127,17 +127,27 @@ object EditorBlockOps {
 
     fun draftSetsToJson(sets: List<PlannedSetDraft>): JSONArray = JSONArray().apply {
         sets.forEach { s ->
-            put(JSONObject().put("id", s.id ?: UUID.randomUUID().toString()).put("targetReps", s.targetReps)
-                .apply { s.targetWeightKg?.let { put("targetWeightKg", it) }; s.targetRir?.let { put("targetRir", it) } })
+            put((s.sourceJson?.let(::JSONObject) ?: JSONObject()).put("id",s.id ?: UUID.randomUUID().toString()).put("targetReps",s.targetReps)
+                .apply {
+                    if(s.targetWeightKg==null) remove("targetWeightKg") else put("targetWeightKg",s.targetWeightKg)
+                    if(s.targetRir==null) remove("targetRir") else put("targetRir",s.targetRir)
+                    if(s.targetDurationSeconds==null) remove("targetDurationSeconds") else put("targetDurationSeconds",s.targetDurationSeconds)
+                })
         }
     }
+
+    fun plannedSetUnknownFields(o:JSONObject):String? = JSONObject(o.toString()).apply {
+        listOf("id","targetReps","targetWeightKg","targetRir","targetDurationSeconds").forEach(::remove)
+    }.takeIf {it.length()>0}?.toString()
 
     fun jsonToDraftSets(a: JSONArray): List<PlannedSetDraft> = (0 until a.length()).map {
         val o = a.getJSONObject(it)
         PlannedSetDraft(o.optInt("targetReps", 8),
             if (o.has("targetWeightKg") && !o.isNull("targetWeightKg")) o.getDouble("targetWeightKg") else null,
             if (o.has("targetRir") && !o.isNull("targetRir")) o.getDouble("targetRir") else null,
-            o.optString("id").ifBlank { null })
+            o.optString("id").ifBlank { null },
+            if(o.has("targetDurationSeconds") && !o.isNull("targetDurationSeconds")) o.getInt("targetDurationSeconds") else null,
+            plannedSetUnknownFields(o))
     }.ifEmpty { listOf(PlannedSetDraft(8)) }
 
     /**

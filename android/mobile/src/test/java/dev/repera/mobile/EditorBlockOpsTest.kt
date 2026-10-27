@@ -245,4 +245,21 @@ class LadderTemplateExecutionTest {
         org.junit.Assert.assertEquals(listOf(21, 21, 15, 15, 9, 9), reps)
         org.junit.Assert.assertEquals("ladder", out.getJSONObject(0).getString("wodFormat"))
     }
+
+    @Test fun moveActionTargetsAreExplicitNeighbourIndexes() {
+        assertEquals(listOf("Mover abajo" to 1), moveActionTargets(0, 3))
+        assertEquals(listOf("Mover arriba" to 0, "Mover abajo" to 2), moveActionTargets(1, 3))
+        assertEquals(listOf("Mover arriba" to 1), moveActionTargets(2, 3))
+        assertEquals(emptyList<Pair<String, Int>>(), moveActionTargets(0, 1))
+    }
+
+    @Test fun neighbourTargetsReorderWithoutGeometry() {
+        val arr = org.json.JSONArray(listOf("a", "b", "c"))
+        val (_, up) = moveActionTargets(2, 3).first()
+        assertTrue(EditorBlockOps.reorder(arr, 2, up))
+        assertEquals("[\"a\",\"c\",\"b\"]", arr.toString())
+        val (_, down) = moveActionTargets(0, 3).first()
+        assertTrue(EditorBlockOps.moveBlock(arr, 0, down))
+        assertEquals("[\"c\",\"a\",\"b\"]", arr.toString())
+    }
 }

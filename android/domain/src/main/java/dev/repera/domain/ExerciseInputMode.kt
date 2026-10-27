@@ -63,6 +63,10 @@ object ExerciseInput {
             .any { n.contains(it) }
         if (rowing || cardio || (eq.contains("trineo") && n.contains("sled")))
             return ExerciseInputMode.MACHINE_WORK
+        // Burpee variants and bands never imply an external load in kilograms.
+        if (n.contains("burpee")) return ExerciseInputMode.REPS_ONLY
+        if ((eq.contains("banda") || eq.contains("goma")) &&
+            !eq.contains("mancuerna") && !eq.contains("barra")) return ExerciseInputMode.REPS_ONLY
         val isHspu = n.contains("hspu") || n.contains("fondos en pino") ||
             n.contains("pino flex") || (n.contains("handstand") &&
             listOf("push", "press", "fond").any { n.contains(it) })
@@ -70,8 +74,14 @@ object ExerciseInput {
         val isPull = listOf("dominad", "pull up", "pullup", "chin up", "muscle up")
             .any { n.contains(it) } || n == "mu" || n.startsWith("mu ")
         if (isPull) return ExerciseInputMode.LOAD_REPS
+        val externalLoad = listOf("kettlebell", "mancuerna", "dumbbell", "barbell", "barra,", "disco",
+            "saco", "lastre", "trineo", "yoke", "polea").any {eq.contains(it)}
+        val support = listOf("cajon", "step", "anillas", "barra de dominadas", "barra fija",
+            "cuerda de trepa", "pegboard", "paralelas", "pared", "banco", "rueda abdominal",
+            "ghd", "plataforma elevada").any {eq.contains(it)}
+        if (support && !externalLoad) return ExerciseInputMode.REPS_ONLY
         if (eq.contains("peso corporal") || (eq.isEmpty() &&
-            ((target ?: "").lowercase().contains("cardiovascular") || group == "Cardio")) ||
+            ((target ?: "").lowercase().contains("cardiovascular") || group.equals("cardio", ignoreCase = true))) ||
             listOf("toes to", "burpee", "box jump", "salto al caj", "sit up", "air squat",
                 "pistol", "hollow", "l sit", "handstand")
                 .any { n.contains(it) }) return ExerciseInputMode.REPS_ONLY

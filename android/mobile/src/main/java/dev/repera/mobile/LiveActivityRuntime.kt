@@ -51,16 +51,17 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                 latestKilometerReport = "Km $km · " + if (state.sport.displaysSpeed)
                     "%.1f km/h".format(3600 / seconds) else
                     dev.repera.domain.LiveSportHistory.formatDuration(seconds) + " min/km"
-                val spoken = spokenGuidanceEnabled && voice.speak("Has completado el kilómetro $km. " +
-                    if (state.sport.displaysSpeed) "Tu velocidad media ha sido de %.1f kilómetros por hora.".format(3600 / seconds)
-                    else "Lo has hecho en ${seconds.toInt() / 60} minutos y ${seconds.toInt() % 60} segundos.")
-                if (!spoken) notifyGuidance("Kilómetro $km completado", latestKilometerReport.orEmpty())
+                // Apple (live main): el kilómetro se encola aunque suene un giro y NUNCA se sustituye por una notificación.
+                if (spokenGuidanceEnabled) voice.speak(
+                    dev.repera.domain.LiveSpokenPhrases.kilometer(km, seconds, state.sport.displaysSpeed), queue = true)
             }
             guidance?.update(update.point)?.let { cue ->
                 upcomingTurn = cue.display
                 cue.speech?.let {
-                    val spoken = spokenGuidanceEnabled && voice.speak(it)
-                    if (!spoken) notifyGuidance("Giro orientativo del GPX", cue.display)
+                    // Apple (live main): con voz activa el giro se anuncia solo por audio, aunque la locución falle,
+                    // y nunca se sustituye por una notificación; sin voz, el aviso visual en segundo plano es opcional.
+                    if (spokenGuidanceEnabled) voice.speak(it, queue = true)
+                    else notifyGuidance("Giro orientativo del GPX", cue.display)
                 }
             }
             checkpoint();publish()

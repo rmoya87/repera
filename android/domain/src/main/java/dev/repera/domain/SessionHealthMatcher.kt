@@ -40,8 +40,15 @@ object SessionHealthMatcher {
         val startEpochMs: Long,
         val endEpochMs: Long,
         val packageName: String,
-        val clientRecordId: String? = null
+        val clientRecordId: String? = null,
+        val observedDurationMinutes:Double?=null,
+        /** Clave de tipo de ejercicio (HealthConnectReader.exerciseTypeKey), solo informativa. */
+        val exerciseTypeKey:String?=null
     )
+
+    fun observedDurationMinutes(candidate:CandidateSession):Double? =
+        candidate.observedDurationMinutes?.takeIf {it.isFinite() && it>=0}
+            ?: ((candidate.endEpochMs-candidate.startEpochMs)/60000.0).takeIf {it>0}
 
     sealed interface Association {
         data class Matched(val session: CandidateSession) : Association
@@ -92,7 +99,9 @@ object SessionHealthMatcher {
             return best.candidate
         }
         val external = ranked.filter { it.candidate.packageName != ownPackageName }
-        pick(external)?.let { return Association.Matched(it) }
+        if(external.isNotEmpty()) {
+            return pick(external)?.let {Association.Matched(it)} ?: Association.Ambiguous
+        }
         val own = ranked.filter { it.candidate.packageName == ownPackageName }
         pick(own)?.let { return Association.Matched(it) }
         // Había candidatos que pasaban umbrales pero sin ganador claro.
@@ -141,8 +150,50 @@ object SessionHealthMatcher {
             rec.clientRecordId != null &&
             rec.clientRecordId == HealthSessionLink.clientRecordId(sessionId)
         if (ownsIt) return rec
+        if(rec.packageName==ownPackageName && rec.clientRecordId!=null) return null
         return if (associate(sessionStartMs, sessionEndMs, listOf(rec), ownPackageName)
             is Association.Matched) rec else null
+    }
+
+    /** Result of reading the persisted link's record by id (not by the session window). */
+    sealed interface LinkLookup {
+        data class Found(val record: CandidateSession) : LinkLookup
+        /** The provider answered and the record does not exist. */
+        data object Gone : LinkLookup
+        /** Permission denied or a transient failure: nothing is known about the record. */
+        data object Unreadable : LinkLookup
+    }
+
+    sealed interface LinkResolution {
+        /** Persisted identity wins, even when the session time was edited outside the record's window. */
+        data class Use(val record: CandidateSession) : LinkResolution
+        /** No link, a verified missing record, or a record owned by another session: normal window matching. */
+        data object FallBackToWindow : LinkResolution
+        /** Link kept; unknown right now. Do not read from or reassociate to another record. */
+        data object KeepLinkUnresolved : LinkResolution
+    }
+
+    /** Apple (live main): a persisted link is fetched by id and is not replaced by a workout that merely
+     *  overlaps an edited time. Only a verified absence frees the session for window matching. */
+    fun resolveStoredLink(sessionId: String, storedRecordId: String?, lookup: LinkLookup, ownPackageName: String): LinkResolution {
+        if (storedRecordId.isNullOrBlank()) return LinkResolution.FallBackToWindow
+        return when (lookup) {
+            LinkLookup.Unreadable -> LinkResolution.KeepLinkUnresolved
+            LinkLookup.Gone -> LinkResolution.FallBackToWindow
+            is LinkLookup.Found -> {
+                val rec = lookup.record
+                if (rec.id != storedRecordId) LinkResolution.KeepLinkUnresolved
+                else if (rec.packageName == ownPackageName && rec.clientRecordId != null &&
+                    rec.clientRecordId != HealthSessionLink.clientRecordId(sessionId)) LinkResolution.FallBackToWindow
+                else LinkResolution.Use(rec)
+            }
+        }
+    }
+
+    /** Explicit app ownership cannot be guessed away from a coincident time window. */
+    fun eligibleForSession(sessionId:String?,candidates:List<CandidateSession>,ownPackageName:String):List<CandidateSession> {
+        val expected=sessionId?.let {HealthSessionLink.clientRecordId(it)}
+        return candidates.filterNot {it.packageName==ownPackageName && it.clientRecordId!=null && it.clientRecordId!=expected}
     }
 
     /** Orden de decisión de syncWorkoutToHealth (HealthKitStore.finishWorkout
@@ -167,8 +218,10 @@ object SessionHealthMatcher {
         candidates.firstOrNull {
             it.packageName == ownPackageName && it.clientRecordId == wantedClientId
         }?.let { return LinkDecision.UseExisting(it.id) }
+        // Explicit ownership of another Repera session cannot be overridden by a time overlap.
+        val eligible=eligibleForSession(sessionId,candidates,ownPackageName)
         return when (val a = associate(
-            sessionStartMs, sessionEndMs, candidates, ownPackageName)) {
+            sessionStartMs, sessionEndMs, eligible, ownPackageName)) {
             is Association.Matched -> LinkDecision.UseExisting(a.session.id)
             Association.Ambiguous -> LinkDecision.Skip
             Association.None -> LinkDecision.Insert

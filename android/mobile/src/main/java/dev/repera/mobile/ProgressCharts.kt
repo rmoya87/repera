@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -63,6 +64,12 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
             if (charts.calories.isNotEmpty()) {
                 Text("Calorías activas · ${charts.caloriesTotal.toInt()} kcal en el rango",
                     style = MaterialTheme.typography.bodyMedium)
+                // Apple ProgressTrendCards (live main): Media/día, Periodo ant., Variación. Compile-only UI.
+                Text("Media/día " + dev.repera.domain.CalorieAverageStats.kcalLabel(charts.caloriesDailyAverage) +
+                    " · Periodo ant. " + dev.repera.domain.CalorieAverageStats.kcalLabel(charts.previousCaloriesDailyAverage) +
+                    " · Variación " + dev.repera.domain.CalorieAverageStats.changeLabel(
+                        dev.repera.domain.CalorieAverageStats.change(charts.caloriesDailyAverage, charts.previousCaloriesDailyAverage)),
+                    style = MaterialTheme.typography.bodySmall)
                 val color = MaterialTheme.colorScheme.primary
                 val values = charts.calories.map { it.value }
                 Canvas(modifier = Modifier
@@ -70,12 +77,17 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
                     .height(96.dp)
                     .padding(top = 8.dp)) {
                     val maxV = (values.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
-                    val barWidth = size.width / values.size
+                    val firstDay=charts.calories.first().day
+                    val lastDay=charts.calories.last().day
+                    val span=(lastDay.toEpochDay()-firstDay.toEpochDay()).coerceAtLeast(0)
+                    val smallestGap=charts.calories.zipWithNext {a,b ->(b.day.toEpochDay()-a.day.toEpochDay()).coerceAtLeast(1)}.minOrNull() ?: 1
+                    val barWidth=if(span==0L) size.width/3 else size.width*(smallestGap.toFloat()/(span+smallestGap))
                     values.forEachIndexed { i, v ->
                         val h = (v / maxV * size.height).toFloat()
+                        val center=barWidth/2+DayChartPositions.dateFraction(firstDay,lastDay,charts.calories[i].day)*(size.width-barWidth)
                         drawRect(
                             color = color,
-                            topLeft = Offset(i * barWidth + barWidth * 0.15f,
+                            topLeft = Offset(center-barWidth*0.35f,
                                 size.height - h),
                             size = androidx.compose.ui.geometry.Size(
                                 barWidth * 0.7f, h)
@@ -99,9 +111,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
                     val minV = points.minOf { it.minBpm }
                     val maxV = points.maxOf { it.maxBpm }
                     val span = (maxV - minV).coerceAtLeast(1.0)
-                    fun x(i: Int) =
-                        if (points.size == 1) size.width / 2f
-                        else i * size.width / (points.size - 1)
+                    fun x(i: Int) = DayChartPositions.dateFraction(points.first().day,points.last().day,points[i].day)*size.width
                     fun y(v: Double) =
                         size.height - ((v - minV) / span * size.height).toFloat()
                     // Banda mín-máx.
@@ -123,9 +133,8 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
                     }
                     drawPath(avg, color = line, style = Stroke(width = 3f))
                 }
-                val first = charts.heartRate.first()
-                val last = charts.heartRate.last()
-                Text("${first.minBpm.toInt()}-${last.maxBpm.toInt()} ppm (mín-máx del rango)",
+                val extrema=heartPlotRange(charts.heartRate)!!
+                Text("${extrema.first.toInt()}-${extrema.second.toInt()} ppm (mín-máx del rango)",
                     style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -402,7 +411,7 @@ internal fun DayPointLineChart(
     val maxV = bounds?.endInclusive ?: maxOf(points.maxOf { it.value },goal ?: Double.NEGATIVE_INFINITY)
     val span = (maxV - minV).coerceAtLeast(1e-9)
     val firstDay = points.first().day
-    val midDay = points[points.size / 2].day
+    val midDay = DayChartPositions.midpoint(points)
     val lastDay = points.last().day
     val shortFormatter = java.time.format.DateTimeFormatter
         .ofPattern("d MMM", java.util.Locale("es", "ES"))
@@ -414,6 +423,9 @@ internal fun DayPointLineChart(
         .testTag("day_point_line_chart")
         .semantics(mergeDescendants = true) {
             contentDescription = description
+            if(interactive) customActions = listOf(
+                androidx.compose.ui.semantics.CustomAccessibilityAction("Punto anterior") {selected = ChartSelectionStep.step(selected,-1,points.size);true},
+                androidx.compose.ui.semantics.CustomAccessibilityAction("Punto siguiente") {selected = ChartSelectionStep.step(selected,1,points.size);true})
         }) {
         selected?.let { i ->
             Text("${points[i].day.format(reperaDayFormatter)}: " +
@@ -446,9 +458,7 @@ internal fun DayPointLineChart(
                 .pointerInput(points,interactive) {
                     if(!interactive) return@pointerInput
                     detectTapGestures { offset ->
-                        val idx = if (points.size == 1) 0
-                        else ((offset.x / size.width) * (points.size - 1))
-                            .roundToInt().coerceIn(0, points.size - 1)
+                        val idx = DayChartPositions.nearest(points,offset.x / size.width)
                         selected = if (selected == idx) null else idx
                     }
                 }
@@ -456,14 +466,11 @@ internal fun DayPointLineChart(
                     if(!interactive) return@pointerInput
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
-                        val idx = if (points.size == 1) 0
-                        else ((change.position.x / size.width) * (points.size - 1))
-                            .roundToInt().coerceIn(0, points.size - 1)
+                        val idx = DayChartPositions.nearest(points,change.position.x / size.width)
                         selected = idx
                     }
                 }) {
-                fun x(i: Int) = if (points.size == 1) size.width / 2f
-                    else i * size.width / (points.size - 1)
+                fun x(i: Int) = DayChartPositions.fraction(points,i)*size.width
                 fun y(v: Double) =
                     size.height - ((v - minV) / span * size.height * 0.85f)
                         .toFloat() - size.height * 0.075f

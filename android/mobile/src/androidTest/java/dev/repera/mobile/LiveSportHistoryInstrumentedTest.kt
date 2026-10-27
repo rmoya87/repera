@@ -73,8 +73,8 @@ class LiveSportHistoryInstrumentedTest {
 
     @Test fun savedSplitsUseActiveTimeNotWallClock() {
         compose.setContent { MaterialTheme { LiveKilometerSplitsSection(listOf(300.0, 312.0)) } }
-        compose.onNodeWithText("05:00 min/km").assertIsDisplayed()
-        compose.onNodeWithText("05:12 min/km").assertIsDisplayed()
+        compose.onNodeWithText("5:00/km").assertIsDisplayed()
+        compose.onNodeWithText("5:12/km").assertIsDisplayed()
     }
     @Test fun routeEvolutionExcludesIncompleteAttemptsFromBestTimeAndChart() {
         val route = LiveSavedRoute(id = "route", title = "Parque", sportID = "running", isFavorite = true,

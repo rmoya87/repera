@@ -18,7 +18,8 @@ internal object WorkoutHistorySets {
         val rir: Double? = null
     )
 
-    fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject): List<EffectiveSet> {
+    fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject,
+                          includeWodPrescribed: Boolean = false): List<EffectiveSet> {
         val logged = exercise.optJSONArray("loggedSets") ?: JSONArray()
         val actual = (0 until logged.length()).mapNotNull { n ->
             val set = logged.getJSONObject(n)
@@ -46,7 +47,9 @@ internal object WorkoutHistorySets {
         if (actual.isNotEmpty()) return actual
         // A score-only WOD has no work-set history. Its prescribed movement targets
         // must not become artificial confirmed sets after the global score is saved.
-        if (exercise.optString("blockKind") == "wod" ||
+        // includeWodPrescribed: Apple StatsEngine has no WOD exclusion (live main), so the
+        // exercise-progress consumers opt in; muscle load and display lines keep the exclusion.
+        if ((exercise.optString("blockKind") == "wod" && !includeWodPrescribed) ||
             exercise.optJSONObject("exercise")?.optString("sportTag") == "Movilidad")
             return emptyList()
         val finished = workout.optString("phase") == "finished" ||
@@ -60,6 +63,24 @@ internal object WorkoutHistorySets {
                 set.optInt("targetReps"), valueOrNull(set, "targetWeightKg"),
                 resolvedUnit(set, exercise))
         }
+    }
+
+    /** Apple StatsEngine.confirmedWorkSets (live main 26 Oct): regla única de estadísticas. Sesión sin finalizar = nada;
+     *  series de trabajo registradas mandan; si solo hay calentamientos registrados NO se confirman las cargas
+     *  prescritas; sin registros, una sesión finalizada acepta lo prescrito (effectiveWorkSets). */
+    fun confirmedWorkSets(workout: JSONObject, exercise: JSONObject,
+                          includeWodPrescribed: Boolean = false): List<EffectiveSet> {
+        val finished = workout.optString("phase") == "finished" ||
+            (workout.has("finishedAt") && !workout.isNull("finishedAt") && workout.optString("finishedAt").isNotBlank())
+        if (!finished) return emptyList()
+        val effective = effectiveWorkSets(workout, exercise, includeWodPrescribed)
+        val logged = exercise.optJSONArray("loggedSets") ?: JSONArray()
+        val anyWork = (0 until logged.length()).any { n ->
+            val set = logged.getJSONObject(n)
+            set.optString("phase", "work") != "warmup" && (set.optInt("reps") > 0 || set.optInt("durationSeconds") > 0)
+        }
+        if (!anyWork && logged.length() > 0) return emptyList()
+        return effective
     }
 
     fun displayLines(workout: JSONObject, exercise: JSONObject): List<String> {

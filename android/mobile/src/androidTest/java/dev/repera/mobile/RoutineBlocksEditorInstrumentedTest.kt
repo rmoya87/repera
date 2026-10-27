@@ -196,4 +196,30 @@ class RoutineBlocksEditorInstrumentedTest {
         assertEquals(15, m.getInt("reps")); assertFalse(m.has("repScheme")); assertFalse(m.has("explicitPlannedSets"))
         assertEquals("banda", m.getString("scaleAlternative")); assertEquals("mv-1", m.getString("id"))
     }
+    @Test fun mobilityPlannedDurationAndFutureFieldsSurviveSaveReadEditRoundTrip() {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val account="duration-fixture-"+UUID.randomUUID()
+        val local=LocalSnapshotStore(ctx,account)
+        val hold=JSONObject().put("id","hold").put("name","Plancha lateral")
+            .put("muscleGroup","Core").put("sportTag","Movilidad").put("catalogId","mobility-14")
+        val dynamic=JSONObject().put("id","dynamic").put("name","Gato vaca")
+            .put("muscleGroup","Espalda").put("sportTag","Movilidad").put("catalogId","mobility-1")
+        local.write(JSONObject().put("exercises",JSONArray().put(hold).put(dynamic))
+            .put("routines",JSONArray()).put("workouts",JSONArray()).put("syncRevision",0).toString().toByteArray())
+        val repo=WorkoutRepository(ctx,account)
+        val original=PlannedSetDraft(1,null,2.0,"set",75,"{\"future\":true}")
+        val id=repo.createRoutine("Movilidad","strength",listOf(RoutineDraftEntry("hold",1,1,null,plannedSets=listOf(original)),RoutineDraftEntry("dynamic",8,1)))
+        fun sets(index:Int)=JSONObject(String(local.read()!!)).getJSONArray("routines").getJSONObject(0)
+            .getJSONArray("blocks").getJSONObject(0).getJSONArray("exercises").getJSONObject(index).getJSONArray("plannedSets")
+        assertEquals(75,sets(0).getJSONObject(0).getInt("targetDurationSeconds"))
+        assertEquals(60,sets(1).getJSONObject(0).getInt("targetDurationSeconds"))
+        val read=StateOverview.fromBytes(local.read()!!)!!.routineEntries.single().blocks.single().entries.first().plannedSets!!.single()
+        assertEquals(original,read)
+        repo.replaceRoutineBlocks(id,listOf(RoutineBlockDraft(format="strength",entries=listOf(
+            RoutineDraftEntry("hold",1,1,null,plannedSets=listOf(read.copy(targetDurationSeconds=90)))))))
+        assertEquals(90,sets(0).getJSONObject(0).getInt("targetDurationSeconds"))
+        assertEquals("set",sets(0).getJSONObject(0).getString("id"))
+        assertTrue(sets(0).getJSONObject(0).getBoolean("future"))
+    }
+
 }

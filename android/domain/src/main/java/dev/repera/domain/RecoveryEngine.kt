@@ -342,3 +342,20 @@ fun combineSleepNights(
         )
     }.sortedBy { it.day }
 }
+
+/** Old observations stay in history but cannot become today's recovery advice. */
+object RecoverySleepSummary {
+    fun lastNight(nights:List<RecoverySleepNight>,now:Instant,zone:ZoneId):RecoverySleepNight? =
+        nights.maxByOrNull {it.day}?.takeIf {
+            val date=it.day.atStartOfDay(zone).toInstant()
+            !date.isAfter(now) && java.time.Duration.between(date,now)<=java.time.Duration.ofHours(48)
+        }
+}
+
+/** An interval ending at midnight does not mark the following day. Apple caps expansion at 10 days. */
+fun observedMenstrualDays(start: Instant,end: Instant,zone: ZoneId): List<LocalDate> {
+    val first=start.atZone(zone).toLocalDate()
+    val last=maxOf(start,end.minusNanos(1)).atZone(zone).toLocalDate()
+    val span=(last.toEpochDay()-first.toEpochDay()).coerceIn(0,10)
+    return (0..span).map {first.plusDays(it)}
+}

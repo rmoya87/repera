@@ -87,4 +87,35 @@ class ActivePlanEditingInstrumentedTest {
   assertThrows(IllegalArgumentException::class.java) {repo.updateActiveSessionPlan(draft.id,emptyList())}
   assertArrayEquals(before,local.read()!!)
  }
+ @Test fun standaloneActiveEditorChecksTemplateQuotaBeforeCreatingAnythingAndRejectsStaleSession() {
+  val context=InstrumentationRegistry.getInstrumentation().targetContext
+  val account="active-plan-gate-"+java.util.UUID.randomUUID()
+  val storage=LocalSnapshotStore(context,account)
+  storage.write(JSONObject().put("exercises",JSONArray().put(JSONObject().put("id","a").put("name","Sentadilla")))
+   .put("routines",JSONArray()).put("workouts",JSONArray()).toString().toByteArray())
+  val repo=WorkoutRepository(context,account);val active=repo.startQuickLog("a");val draft=repo.activeRoutineForEditing()
+  assertEquals(draft.id,repo.activeRoutineForEditing().id)
+  val blocks=listOf(RoutineBlockDraft(format="strength",entries=listOf(RoutineDraftEntry("a",5))))
+  val before=storage.read()!!
+  assertThrows(IllegalStateException::class.java) {repo.updateActiveSessionPlan(draft.id,blocks,expectedSessionId=active.id,canCreateTemplate={false})}
+  assertArrayEquals(before,storage.read()!!)
+  assertThrows(IllegalStateException::class.java) {repo.updateActiveSessionPlan(draft.id,blocks,expectedSessionId="other")}
+  assertArrayEquals(before,storage.read()!!)
+  repo.updateActiveSessionPlan(draft.id,blocks,expectedSessionId=active.id,canCreateTemplate={true})
+  assertEquals(draft.id,JSONObject(String(storage.read()!!)).getJSONObject("activeSession").getString("routineId"))
+  repo.updateActiveSessionPlan(draft.id,blocks,expectedSessionId=active.id,canCreateTemplate={false})
+  assertEquals(1,JSONObject(String(storage.read()!!)).getJSONArray("routines").length())
+ }
+ @Test fun activeEditorCannotOverwriteAnotherExistingRoutineWithUnrelatedDraftId() {
+  val context=InstrumentationRegistry.getInstrumentation().targetContext
+  val account="active-plan-unrelated-"+java.util.UUID.randomUUID();val local=LocalSnapshotStore(context,account)
+  local.write(JSONObject().put("exercises",JSONArray().put(JSONObject().put("id","a").put("name","Sentadilla")))
+   .put("routines",JSONArray()).put("workouts",JSONArray()).toString().toByteArray())
+  val repo=WorkoutRepository(context,account)
+  val unrelated=repo.createRoutine("No tocar","strength",listOf(RoutineDraftEntry("a",5)))
+  val active=repo.startQuickLog("a");val before=local.read()!!
+  assertThrows(IllegalStateException::class.java) {repo.updateActiveSessionPlan(unrelated,
+   listOf(RoutineBlockDraft(format="strength",entries=listOf(RoutineDraftEntry("a",8)))),expectedSessionId=active.id)}
+  assertArrayEquals(before,local.read()!!)
+ }
 }

@@ -37,7 +37,7 @@ class WeeklyScheduleInstrumentedTest {
             }
         }}
         compose.onNodeWithTag("diary_schedule_menu").performClick()
-        compose.onNodeWithText("Copiar semana pasada").performClick()
+        compose.onNodeWithText("Copiar semana anterior").performClick()
         compose.runOnIdle {assertEquals(1,copied);assertEquals(3,JSONObject(String(local.read()!!)).getJSONArray("routines").length())}
         compose.onNodeWithTag("diary_schedule_menu").performClick()
         compose.onNodeWithText("Vaciar programación").performClick()

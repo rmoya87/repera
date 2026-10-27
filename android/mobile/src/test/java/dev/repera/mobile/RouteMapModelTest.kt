@@ -20,14 +20,24 @@ class RouteMapModelTest {
     }
 
     @Test fun speedColorMatchesIosGradient() {
-        // Extremos: verde lento (0.2, 0.82, 0.2) y rojo rápido (1.0, 0.27, 0.23)
-        // → bytes con truncamiento: 0.27*255=68=0x44, 0.23*255=58=0x3A.
-        assertEquals(0xFF33D133, RouteMapModel.speedColor(0.0, 0.0, 10.0))
-        assertEquals(0xFFFF443A, RouteMapModel.speedColor(10.0, 0.0, 10.0))
-        // Punto medio exacto: amarillo (t=0.5 → u=0 del segundo tramo).
-        assertEquals(0xFFFFD100, RouteMapModel.speedColor(5.0, 0.0, 10.0))
+        // Apple live main HistoryView.speedColor: four stops, bytes truncated like Color(red:green:blue:) -> (v*255).toLong().
+        fun argb(r: Double, g: Double, b: Double) = 0xFF000000L or ((r*255).toLong() shl 16) or ((g*255).toLong() shl 8) or (b*255).toLong()
+        assertEquals(argb(0.15, 0.88, 0.30), RouteMapModel.speedColor(0.0, 0.0, 10.0))
+        assertEquals(argb(0.10, 0.84, 0.42), RouteMapModel.speedColor(0.0, 0.0, 10.0, water = true))
+        assertEquals(argb(0.96, 0.18, 0.13), RouteMapModel.speedColor(10.0, 0.0, 10.0))
+        assertEquals(argb(0.96, 0.18, 0.13), RouteMapModel.speedColor(10.0, 0.0, 10.0, water = true))
+        // t = 1/3 and 2/3 are the inner stops (floating point: allow one byte).
+        val third = RouteMapModel.speedColor(10.0 / 3, 0.0, 10.0)
+        assertTrue(kotlin.math.abs(((third shr 8) and 0xFF) - (0.87*255).toLong()) <= 1)
+        // t = 0.5: halfway between stops 2 and 3 (1.0,0.87,0.10)-(1.0,0.48,0.06) -> (1.0,0.675,0.08).
+        assertEquals(argb(1.0, 0.675, 0.08), RouteMapModel.speedColor(5.0, 0.0, 10.0))
         // Span degenerado: se usa 0.1 como en iOS, sin NaN.
         RouteMapModel.speedColor(3.0, 3.0, 3.0)
+    }
+
+    @Test fun waterPaletteOnlyChangesTheSlowStop() {
+        org.junit.Assert.assertNotEquals(RouteMapModel.speedColor(0.0, 0.0, 10.0), RouteMapModel.speedColor(0.0, 0.0, 10.0, water = true))
+        assertEquals(RouteMapModel.speedColor(10.0, 0.0, 10.0), RouteMapModel.speedColor(10.0, 0.0, 10.0, water = true))
     }
 
     @Test fun gapsPausesAndImpossibleJumpsNeverCreateConnectingSegments() {

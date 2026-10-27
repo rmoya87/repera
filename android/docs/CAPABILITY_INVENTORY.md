@@ -1,5 +1,9 @@
 # Inventario consolidado de capacidades iOS → Android (24/10 21:40)
 
+> Registro histórico, no estado vigente ni lista completa. La auditoría posterior encontró
+> omisiones originales, especialmente Watch; "cubierto" abajo no certifica paridad.
+> Consultar PARITY_MATRIX_APPLE_37837401.md y PARITY_DELTA_APPLE_FC3EF7E1.md.
+
 Método: barrido de TODOS los fuentes Swift de main — `Apps/Repera/Sources`
 (99 ficheros), `Apps/ReperaWatch/Sources` (5) y `Packages/ReperaDomain/Sources`
 (50) — contrastando cada pieza por concepto contra `android/`, verificando uso
@@ -88,7 +92,7 @@ confirmado por `CatalogQualityTests` en main independientemente de HEADs
 concretos de runs antiguos. Este inventario es base auditada PENDIENTE de
 revalidación continua contra el main vigente, no cierre definitivo.
 
-## Watch (5 ficheros): cubierto## Watch (5 ficheros): cubierto
+## Watch (5 ficheros): inventario histórico parcial, no cierre
 
 `ReperaWatchApp` → `WearMainActivity`; `WatchSessionHub`/`WatchSessionView` →
 `WearHomeContent` + pantallas de sesión; `WatchConnectivityClient` → bridge

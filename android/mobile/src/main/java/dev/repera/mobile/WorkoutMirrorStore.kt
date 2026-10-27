@@ -26,8 +26,10 @@ class WorkoutMirrorStore(
     context: Context,
     private val userId: String,
     private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(30, TimeUnit.SECONDS).build()
+        .callTimeout(30, TimeUnit.SECONDS).build(),
+    private val stillAuthorized: () -> Boolean = { true }
 ) {
+    private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante la sincronización del espejo"}
     private val prefs = context.getSharedPreferences(
         "repera.mirror.$userId", Context.MODE_PRIVATE)
 
@@ -42,15 +44,43 @@ class WorkoutMirrorStore(
     )
 
     /** Llamar ANTES de borrar un entreno: el tombstone sobrevive a cortes. */
-    fun noteDeleted(id: String) {
-        val pending = pendingDeletes().toMutableSet()
-        if (pending.add(id)) {
-            prefs.edit().putStringSet(KEY_DELETED, pending).apply()
-        }
+    fun noteDeleted(id: String) = synchronized(deletionLock) {
+        require(id.isNotBlank())
+        val pending = pendingDeletes() + id
+        val deleted = deletedIds() + id
+        check(prefs.edit().putStringSet(KEY_DELETED,pending).putStringSet(KEY_DELETED_HISTORY,deleted).commit()) {"No se pudo guardar el borrado pendiente"}
     }
 
-    fun pendingDeletes(): Set<String> =
-        prefs.getStringSet(KEY_DELETED, emptySet()) ?: emptySet()
+    fun pendingDeletes(): Set<String> = synchronized(deletionLock) {
+        prefs.getStringSet(KEY_DELETED, emptySet())?.toSet() ?: emptySet()
+    }
+
+    /** Keep local refusal even after the server acknowledged the tombstone. */
+    fun deletedIds():Set<String> = synchronized(deletionLock) {
+        (prefs.getStringSet(KEY_DELETED_HISTORY,emptySet())?.toSet() ?: emptySet()) + pendingDeletes()
+    }
+
+    /** Diario de reset (ResetCoordinator): persistencia sincrona por cuenta. */
+    fun loadResetIntent(): String? = synchronized(deletionLock) { prefs.getString(KEY_RESET_INTENT, null) }
+    fun storeResetIntent(json: String) = synchronized(deletionLock) {
+        check(prefs.edit().putString(KEY_RESET_INTENT, json).commit()) {"No se pudo guardar la intencion de reset"}
+    }
+    fun clearResetIntent() = synchronized(deletionLock) {
+        check(prefs.edit().remove(KEY_RESET_INTENT).commit()) {"No se pudo borrar la intencion de reset"}
+    }
+
+    /** Ids que NO se pueden recuperar/subir/adoptar: borrados confirmados, pendientes y los de un reset en curso. */
+    fun blockedIds(): Set<String> = synchronized(deletionLock) {
+        deletedIds() + (loadResetIntent()?.let { runCatching {
+            val a = JSONObject(it).getJSONArray("ids"); (0 until a.length()).map { i -> a.getString(i) }
+        }.getOrDefault(emptyList()) } ?: emptyList())
+    }
+
+    internal fun acknowledgeDeletes(ids:Set<String>) = synchronized(deletionLock) {
+        // Another local delete may have happened while the network upload was in flight.
+        check(prefs.edit().putStringSet(KEY_DELETED,pendingDeletes()-ids)
+            .putStringSet(KEY_DELETED_HISTORY,deletedIds()+ids).commit()) {"No se pudo confirmar el borrado"}
+    }
 
     private fun fingerprints(): MutableMap<String, String> {
         val raw = prefs.getString(KEY_FINGERPRINTS, null) ?: return mutableMapOf()
@@ -61,6 +91,7 @@ class WorkoutMirrorStore(
     }
 
     private fun saveFingerprints(map: Map<String, String>) {
+        authorize()
         val json = JSONObject()
         map.forEach { (k, v) -> json.put(k, v) }
         prefs.edit().putString(KEY_FINGERPRINTS, json.toString()).apply()
@@ -69,6 +100,9 @@ class WorkoutMirrorStore(
     fun sync(session: SupabaseIdentity.Session,
              repository: WorkoutRepository): Result {
         return try {
+            authorize()
+            check(session.userId==userId) {"La cuenta no corresponde al espejo"}
+            repository.recoverPendingReset()
             val remote = fetchRemote(session)
             val seen = fingerprints()
             val existing = remote.associateBy { it.getString("id") }
@@ -77,20 +111,20 @@ class WorkoutMirrorStore(
             // 0) Recuperación remota→local: un segundo dispositivo puede
             //    tener entrenos que este aún no conoce. Sólo IDs nunca
             //    vistos, no borrados y con payload íntegro.
-            val localIds = repository.finishedWorkoutsSnapshot()
-                .map { it.optString("id") }.toSet()
-            // Con Drive sincronizando no se recupera ni se marca nada como visto: se reintenta en el siguiente ciclo.
-            val recovered = if (CloudSyncGate.isDriveSyncRunning()) emptyList()
-                else selectRecoverable(remote, localIds, deletionIDs, seen)
-            val recoveredCount = if (recovered.isEmpty()) 0 else {
-                // Primero se funde y solo después se marcan como vistos: si el merge falla, se reintenta.
-                // Procedencia ANTES del merge: si falla, no se funde nada y se reintenta; sobrar entradas es inocuo.
-                repository.recordMirrorRecovered(recovered.associate { it.getString("id") to canonicalDigest(it) })
-                val merged = repository.mergeRecoveredWorkoutsFromSupabase(recovered)
-                recovered.forEach { seen[it.getString("id")] = canonicalDigest(it) }
-                saveFingerprints(seen)
-                merged
-            }
+            val recoveredCount=CloudSyncGate.recoverUnlessDrive {
+                authorize()
+                val localIds=repository.finishedWorkoutsSnapshot().map {it.optString("id")}.toSet()
+                val recovered=selectRecoverable(remote,localIds,blockedIds()+repository.mirrorBlockedIds(),seen)
+                if(recovered.isEmpty()) 0 else {
+                    authorize()
+                    repository.recordMirrorRecovered(recovered.associate {it.getString("id") to canonicalDigest(it)})
+                    authorize()
+                    val merged=repository.mergeRecoveredWorkoutsFromSupabase(recovered)
+                    recovered.forEach {seen[it.getString("id")]=canonicalDigest(it)}
+                    saveFingerprints(seen)
+                    merged
+                }
+            } ?: 0
 
             // 1) Tombstones: propagan borrados aunque se hicieran sin red.
             var tombstoned = 0
@@ -107,7 +141,8 @@ class WorkoutMirrorStore(
                 }
                 upsert(session, rows)
                 tombstoned = rows.length()
-                prefs.edit().putStringSet(KEY_DELETED, emptySet()).apply()
+                authorize()
+                acknowledgeDeletes(deletionIDs)
                 deletionIDs.forEach { seen.remove(it) }
             }
 
@@ -117,9 +152,10 @@ class WorkoutMirrorStore(
             val uploads = JSONArray()
             val digests = mutableMapOf<String, String>()
             var restoredBlocks = 0
+            val blockedNow = blockedIds() + repository.mirrorBlockedIds()
             for (workout in repository.finishedWorkoutsSnapshot()) {
                 val id = workout.optString("id")
-                if (id.isBlank() || deletionIDs.contains(id)) continue
+                if (id.isBlank() || id in blockedNow) continue
                 val remoteRow = existing[id]
                 if (remoteRow != null && !remoteRow.isNull("deleted_at")) continue
                 val clean = privatize(workout)
@@ -196,8 +232,11 @@ class WorkoutMirrorStore(
                 .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
                 .header("Authorization", "Bearer " + session.accessToken)
                 .get().build()
+            authorize()
             http.newCall(request).execute().use { response ->
+                authorize()
                 val body = response.body?.string().orEmpty()
+                authorize()
                 if (!response.isSuccessful)
                     throw IllegalStateException("HTTP " + response.code)
                 val page = JSONArray(body)
@@ -226,7 +265,9 @@ class WorkoutMirrorStore(
                 .header("Prefer", "resolution=merge-duplicates")
                 .post(batch.toString().toRequestBody("application/json".toMediaType()))
                 .build()
+            authorize()
             http.newCall(request).execute().use { response ->
+                authorize()
                 if (!response.isSuccessful)
                     throw IllegalStateException("HTTP " + response.code)
             }
@@ -243,7 +284,9 @@ class WorkoutMirrorStore(
             .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
+        authorize()
         http.newCall(request).execute().use { response ->
+            authorize()
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
             val rows = JSONArray(response.body?.string().orEmpty())
@@ -279,7 +322,9 @@ class WorkoutMirrorStore(
                 .toRequestBody("application/json".toMediaType()))
             .build()
         return try {
+            authorize()
             http.newCall(request).execute().use { response ->
+                authorize()
                 if (response.isSuccessful) null
                 else "No se ha podido cambiar el permiso de compartir " +
                     "resultados: HTTP " + response.code
@@ -291,6 +336,7 @@ class WorkoutMirrorStore(
     }
 
     companion object {
+        private val deletionLock=Any()
         /** Filas remotas recuperables: no borradas, IDs desconocidos localmente, sin tombstone pendiente, nunca vistas y con payload íntegro. */
         internal fun selectRecoverable(
             remote: List<JSONObject>, localIds: Set<String>, deletionIDs: Set<String>, seen: Map<String, String>
@@ -308,7 +354,9 @@ class WorkoutMirrorStore(
         }
 
         private const val KEY_FINGERPRINTS = "fingerprints"
+        private const val KEY_RESET_INTENT = "reset-intent"
         private const val KEY_DELETED = "deleted"
+        private const val KEY_DELETED_HISTORY = "deleted-history"
 
         private val PRIVATE_KEYS = listOf(
             "notes", "sessionReview", "locationPin", "routePoints",

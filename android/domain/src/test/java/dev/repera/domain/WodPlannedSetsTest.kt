@@ -17,6 +17,14 @@ class WodPlannedSetsTest {
         assertEquals(ex, WodPlannedSets.forMovement(WodFormat.EMOM, 5, listOf(mv), mv))
     }
 
+    /** Legacy rule kept on purpose: Android writers (EditorBlockOps.exerciseToMovement, CompletedWorkoutEditing.movementFor,
+     *  ActiveSessionDraft) can write [] meaning "derive". Apple live main reads [] as "user deleted all sets";
+     *  that reading is NOT active here until old data can be told apart. */
+    @Test fun emptyExplicitStillDerivesFromFormatLegacy() {
+        val mv = m("a", reps = 10, kg = 40.0, explicit = emptyList())
+        assertEquals(4, WodPlannedSets.forMovement(WodFormat.EMOM, 4, listOf(mv), mv).size)
+    }
+
     @Test fun restMovementHasNoSets() {
         val r = m("r", rest = true)
         assertTrue(WodPlannedSets.forMovement(WodFormat.EMOM, 5, listOf(r), r).isEmpty())

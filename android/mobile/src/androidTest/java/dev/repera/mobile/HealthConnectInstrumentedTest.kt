@@ -74,4 +74,17 @@ class HealthConnectInstrumentedTest {
         }
         Unit
     }
+    @org.junit.Test fun partialReadGrantsDoNotRequireUnrelatedWriteAccess() {
+        val read=androidx.health.connect.client.permission.HealthPermission.getReadPermission(androidx.health.connect.client.records.HeartRateRecord::class)
+        val write=androidx.health.connect.client.permission.HealthPermission.getWritePermission(androidx.health.connect.client.records.ExerciseSessionRecord::class)
+        org.junit.Assert.assertTrue(HealthConnectReader.hasReadablePermission(setOf(read)))
+        org.junit.Assert.assertFalse(HealthConnectReader.hasReadablePermission(setOf(write)))
+        org.junit.Assert.assertFalse(HealthConnectReader.hasReadablePermission(emptySet()))
+    }
+    @org.junit.Test fun historyExtensionIsFeatureGatedAndNotARecordGrant() {
+        val permission=androidx.health.connect.client.permission.HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY
+        assertTrue(HealthConnectReader.historyPermissionsIfAvailable(false).isEmpty())
+        org.junit.Assert.assertEquals(setOf(permission),HealthConnectReader.historyPermissionsIfAvailable(true))
+        assertFalse(HealthConnectReader.hasReadablePermission(setOf(permission)))
+    }
 }

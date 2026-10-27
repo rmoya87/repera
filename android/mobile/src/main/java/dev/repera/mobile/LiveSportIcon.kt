@@ -33,5 +33,15 @@ internal val LiveSport.materialIcon: ImageVector get() = when (this) {
     LiveSport.DANCE -> Icons.Outlined.MusicNote
     LiveSport.PILATES, LiveSport.YOGA, LiveSport.MOBILITY -> Icons.Outlined.SelfImprovement
     LiveSport.SKATEBOARDING -> Icons.Outlined.Skateboarding
+    LiveSport.BOXING, LiveSport.KICKBOXING, LiveSport.MARTIAL_ARTS, LiveSport.WRESTLING -> Icons.Outlined.SportsMma
+    LiveSport.BADMINTON, LiveSport.PICKLEBALL, LiveSport.SQUASH -> Icons.Outlined.SportsTennis
+    LiveSport.FUNCTIONAL_STRENGTH, LiveSport.CORE_TRAINING -> Icons.Outlined.FitnessCenter
+    LiveSport.ELLIPTICAL -> Icons.Outlined.DirectionsRun
+    LiveSport.STAIR_CLIMBING -> Icons.Outlined.Stairs
+    LiveSport.AMERICAN_FOOTBALL -> Icons.Outlined.SportsFootball
+    LiveSport.BASEBALL, LiveSport.SOFTBALL -> Icons.Outlined.SportsBaseball
+    LiveSport.HOCKEY -> Icons.Outlined.SportsHockey
+    LiveSport.LACROSSE -> Icons.Outlined.Sports
+    LiveSport.RUGBY -> Icons.Outlined.SportsRugby
     LiveSport.OTHER -> Icons.Outlined.Sports
 }

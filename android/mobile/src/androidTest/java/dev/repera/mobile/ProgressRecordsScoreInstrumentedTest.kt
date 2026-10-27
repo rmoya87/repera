@@ -30,7 +30,7 @@ class ProgressRecordsScoreInstrumentedTest {
    LazyColumn {item {ProgressExercisesCard(exercises) {selected=it}}}
   }}}
   compose.onNodeWithText("Ejercicio 5").assertDoesNotExist()
-  compose.onNodeWithText("Ver todos los ejercicios (6)").performScrollTo().performClick()
+  compose.onNodeWithText("Ver más").performScrollTo().performClick()
   compose.onNodeWithText("Ejercicio 5").performScrollTo().performClick()
   compose.runOnIdle {assertEquals("e5",selected)}
  }

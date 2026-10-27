@@ -106,4 +106,11 @@ class ExerciseArtResolverTest {
             captionCount = 9) { it in exists }
         assertEquals(listOf("art_cf_pistol"), frames)
     }
+    @Test fun missingHeroKeepsOneExistingStepButInsufficientCaptionsNeverInventHero() {
+        assertEquals(listOf("art_missing_1"),ExerciseArtResolver.framesFor("Example","art_missing") {it=="art_missing_1"})
+        assertEquals(emptyList<String>(),ExerciseArtResolver.framesFor("Example","art_missing",captionCount=1) {it in setOf("art_missing_1","art_missing_2")})
+    }
+    @Test fun mobilityMissingHeroDoesNotFallBackToAnOrphanSingleStep() {
+        assertEquals(emptyList<String>(),ExerciseArtResolver.framesFor("Mobility","art_missing",isMobility=true) {it=="art_missing_1"})
+    }
 }

@@ -20,19 +20,43 @@ import java.util.UUID
  * No synthetic workouts, no inferred Health Connect readings, no skipped WOD blocks.
  * A WOD requires the Swift-equivalent planner and is explicitly rejected for now.
  */
-class WorkoutRepository(private val context: Context, private val googleId: String) {
+class WorkoutRepository(private val context: Context, private val googleId: String,
+    private val stillAuthorized:()->Boolean = {true}) {
     private val local = LocalSnapshotStore(context, googleId)
+    private val loadedStates=java.util.WeakHashMap<JSONObject,ByteArray>()
     // Espejo remoto: noteDeleted solo toca SharedPreferences (outbox), sin red.
     private val mirror = WorkoutMirrorStore(context, googleId)
     private val prefs = context.getSharedPreferences("repera.local.writer", Context.MODE_PRIVATE)
+    private val reviewPrefs=context.getSharedPreferences("repera.review."+java.security.MessageDigest.getInstance("SHA-256")
+        .digest(googleId.toByteArray(Charsets.UTF_8)).joinToString("") {"%02x".format(it)},Context.MODE_PRIVATE)
     private val writerId: String by lazy {
         prefs.getString("writerId", null) ?: UUID.randomUUID().toString().also {
             prefs.edit().putString("writerId", it).apply()
         }
     }
 
+    @Synchronized fun toggleWodTemplateFavorite(id:String) {
+        val state=requireState();WodTemplateFavorites.toggle(state,id);save(state)
+    }
+
     @Synchronized fun clearWeeklySchedule() {
         val state = requireState(); WeeklyScheduleActions.clear(state); save(state)
+    }
+    /** Vaciar semana visible (Apple clearWeeklySchedule(for:)) y, sin cambiar el comportamiento legacy, también el plan semanal por weekday/rotación. */
+    @Synchronized fun clearScheduledWeek(week: LocalDate) {
+        val state = requireState()
+        WeeklyScheduleActions.clearWeek(state, week); WeeklyScheduleActions.clear(state); save(state)
+    }
+    @Synchronized fun removeScheduledRoutine(id: String) {
+        val state = requireState()
+        if (WeeklyScheduleActions.removeScheduled(state, id)) save(state)
+    }
+    /** Apple assignRoutine(_:toDate:): adds an independent dated copy; recurrence and legacy weekday routines untouched. */
+    @Synchronized fun assignRoutineToDate(templateId: String, date: LocalDate): Boolean {
+        val state = requireState()
+        val id = WeeklyScheduleActions.assignTemplateToDate(state, templateId, date) ?: return false
+        save(state)
+        return id.isNotBlank()
     }
     @Synchronized fun copyPreviousWeekSchedule(today: LocalDate = LocalDate.now()): Int {
         val state = requireState()
@@ -135,10 +159,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         emomIntervalSeconds: Int = 60,
         workSeconds: Int = 20,
         restSeconds: Int = 10,
-        ladderScheme: List<Int>? = null
+        ladderScheme: List<Int>? = null,
+        canCreateTemplate:(Int)->Boolean = {true}
     ): String {
         val cleaned = title.trim()
-        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
+        require(cleaned.isNotBlank()) { "Escribe un título válido" }
         // buyInCashOut es un formato plano más en el modelo iOS (las secciones
         // buy-in / trabajo / cash-out se componen como BLOQUES separados de la
         // rutina, no como estructura anidada del formato).
@@ -170,6 +195,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
         val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
         val state = requireState()
+        requireTemplateSlot(state,schedule,canCreateTemplate)
         val catalog = state.getJSONArray("exercises")
         val byId = (0 until catalog.length()).associate {
             val exercise = catalog.getJSONObject(it)
@@ -193,6 +219,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (schedule.timeMinutes != null)
             nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
         state.getJSONArray("routines").put(nativeRoutine)
         save(state)
         return id
@@ -250,17 +277,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                             (ps.targetWeightKg.isFinite() && ps.targetWeightKg >= 0))
                         require(ps.targetRir == null ||
                             (ps.targetRir.isFinite() && ps.targetRir >= 0))
-                        val set = JSONObject().put("id", ps.id ?: UUID.randomUUID().toString())
-                            .put("targetReps", if (isMobilityHold(movement)) 1 else ps.targetReps)
-                        if (isMobilityHold(movement)) set.put("targetDurationSeconds", 30)
-                        ps.targetWeightKg?.let { set.put("targetWeightKg", it) }
-                        ps.targetRir?.let { set.put("targetRir", it) }
+                        require(ps.targetDurationSeconds==null || ps.targetDurationSeconds in 1..86400)
+                        val set=EditorBlockOps.draftSetsToJson(listOf(ps)).getJSONObject(0)
+                            .put("targetReps",if(isMobilityHold(movement)) 1 else ps.targetReps)
+                        if(movement.optString("sportTag")=="Movilidad" && ps.targetDurationSeconds==null)
+                            set.put("targetDurationSeconds",if(isMobilityHold(movement)) 30 else 60)
                         planned.put(set)
                     }
                 } else repeat(entry.sets) {
                     val set = JSONObject().put("id", UUID.randomUUID().toString())
                         .put("targetReps", if (isMobilityHold(movement)) 1 else entry.quantity)
-                    if (isMobilityHold(movement)) set.put("targetDurationSeconds", 30)
+                    if(movement.optString("sportTag")=="Movilidad") set.put("targetDurationSeconds",if(isMobilityHold(movement)) 30 else 60)
                     if (entry.weightKg != null) set.put("targetWeightKg", entry.weightKg)
                     planned.put(set)
                 }
@@ -342,18 +369,43 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         title: String,
         blocks: List<dev.repera.domain.RoutineBlock>,
         schedule: RoutineSchedule = RoutineSchedule(),
-        routineId: String? = null
+        routineId: String? = null,
+        canCreateTemplate:(Int)->Boolean = {true}
     ): String {
+        val state=requireState()
+        if(routineId!=null) {
+            require(routineId.isNotBlank())
+            val routines=state.getJSONArray("routines")
+            if((0 until routines.length()).any {routines.getJSONObject(it).optString("id")==routineId}) return routineId
+        }
+        requireTemplateSlot(state,schedule,canCreateTemplate)
+        val id=appendScannedRoutine(state,title,blocks,schedule,routineId,null)
+        save(state)
+        return id
+    }
+
+    private fun requireTemplateSlot(state:JSONObject,schedule:RoutineSchedule,allowed:(Int)->Boolean) {
+        if(schedule.scheduledDate!=null) return
+        val routines=state.getJSONArray("routines")
+        val count=(0 until routines.length()).count {routines.getJSONObject(it).isNull("scheduledDate")}
+        check(allowed(count)) {"Has alcanzado el límite de rutinas. Revisa tu plan antes de guardar otra plantilla."}
+    }
+
+    private fun appendScannedRoutine(state:JSONObject,title:String,
+        blocks:List<dev.repera.domain.RoutineBlock>,schedule:RoutineSchedule,
+        routineId:String?,maxBlocks:Int?):String {
         val cleaned = title.trim()
-        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
-        require(blocks.size in 1..10) { "La rutina necesita entre 1 y 10 bloques" }
+        require(cleaned.isNotBlank()) { "Escribe un título válido" }
+        // Apple saveRoutine no limita bloques; solo la ruta IA tiene el tope explícito 1...12 (AITrainingInboxStore:321).
+        require(blocks.isNotEmpty() && (maxBlocks==null || blocks.size<=maxBlocks)) {
+            if(maxBlocks==null) "La rutina necesita al menos un bloque" else "La rutina necesita entre 1 y $maxBlocks bloques"
+        }
         require(schedule.scheduledDate == null || schedule.weekday == null) {
             "Un entreno no puede ser semanal y de fecha concreta a la vez"
         }
         require(schedule.weekday == null || schedule.weekday in 1..7)
         require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
         val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
-        val state = requireState()
         val catalog = state.getJSONArray("exercises")
         val knownIds = (0 until catalog.length())
             .map { catalog.getJSONObject(it).getString("id") }.toSet()
@@ -380,7 +432,29 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (schedule.timeMinutes != null)
             nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
         state.getJSONArray("routines").put(nativeRoutine)
+        return id
+    }
+
+    /** One local CAS for the catalog additions and the complete AI routine. */
+    @Synchronized internal fun importAiRoutine(planId:String,schedule:RoutineSchedule,
+        stillAuthorized:()->Boolean={true},
+        build:((String,String?)->String)->Pair<String,List<dev.repera.domain.RoutineBlock>>):String {
+        require(planId.isNotBlank() && schedule.scheduledDate!=null)
+        check(stillAuthorized()) {"La cuenta cambió antes de importar el plan"}
+        val state=requireState()
+        val routines=state.getJSONArray("routines")
+        check((0 until routines.length()).none {i -> routines.getJSONObject(i).let {
+            it.optString("id")!=planId && it.optString("scheduledDate").take(10)==schedule.scheduledDate
+        }}) {"Ya existe un entreno para ese día"}
+        if((0 until routines.length()).any {routines.getJSONObject(it).optString("id")==planId}) return planId
+        val (title,blocks)=build {name,key ->
+            check(stillAuthorized()) {"La cuenta cambió durante la importación"}
+            resolveCatalogExerciseInState(state,name,key,"Otros")
+        }
+        val id=appendScannedRoutine(state,title,blocks,schedule,planId,12)
+        check(stillAuthorized()) {"La cuenta cambió antes de guardar el plan"}
         save(state)
         return id
     }
@@ -416,8 +490,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         name: String,
         catalogKey: String? = null,
         muscleGroup: String = "Otros"
+
     ): String {
-        val state = requireState()
+        val state=requireState()
+        val before=state.getJSONArray("exercises").length()
+        val id=resolveCatalogExerciseInState(state,name,catalogKey,muscleGroup)
+        if(state.getJSONArray("exercises").length()!=before) save(state)
+        return id
+    }
+
+    private fun resolveCatalogExerciseInState(state:JSONObject,name:String,catalogKey:String?,muscleGroup:String):String {
         val catalog = state.getJSONArray("exercises")
         if (catalogKey != null) {
             for (i in 0 until catalog.length()) {
@@ -441,12 +523,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("equipment", JSONObject.NULL)
             .put("targetMuscle", "")
             .put("isCustom", true))
-        save(state)
         return id
     }
 
     @Synchronized fun replaceRoutineBlocks(
-        id: String, blocks: List<RoutineBlockDraft>, canCreateCustom: (Int) -> Boolean = { true }
+        id: String, blocks: List<RoutineBlockDraft>, suggestedTitle:String? = null,
+        canCreateCustom: (Int) -> Boolean = { true }
     ) {
         val state = requireState()
         val routines = state.getJSONArray("routines")
@@ -454,6 +536,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .map { routines.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
         routine.put("blocks", validatedDraftBlocks(materializePendingCustoms(blocks, state, canCreateCustom), state))
+        suggestedTitle?.let {
+            val title=it.trim()
+            require(title.isNotBlank()) {"Escribe un título válido"}
+            routine.put("title",title)
+        }
         save(state)
     }
 
@@ -462,7 +549,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     private fun validatedDraftBlocks(
         blocks: List<RoutineBlockDraft>, state: JSONObject
     ): JSONArray {
-        require(blocks.size in 1..10) { "La rutina necesita entre 1 y 10 bloques" }
+        require(blocks.isNotEmpty()) { "La rutina necesita al menos un bloque" }
         val catalog = state.getJSONArray("exercises")
         val byId = (0 until catalog.length()).associate {
             val exercise = catalog.getJSONObject(it)
@@ -512,15 +599,24 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         title: String,
         drafts: List<RoutineBlockDraft>,
         schedule: RoutineSchedule = RoutineSchedule(),
+        routineId:String? = null,
+        canCreateTemplate:(Int)->Boolean = {true},
         canCreateCustom: (Int) -> Boolean = { true }
     ): String {
         val cleaned = title.trim()
-        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
+        require(cleaned.isNotBlank()) { "Escribe un título válido" }
         require(schedule.scheduledDate == null || schedule.weekday == null) {
             "Un entreno no puede ser semanal y de fecha concreta a la vez"
         }
+        require(schedule.weekday == null || schedule.weekday in 1..7)
+        require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
         val state = requireState()
-        val id = UUID.randomUUID().toString()
+        val id = routineId ?: UUID.randomUUID().toString()
+        require(id.isNotBlank())
+        if(routineId!=null && (0 until state.getJSONArray("routines").length()).any {
+            state.getJSONArray("routines").getJSONObject(it).optString("id")==id
+        }) return id
+        requireTemplateSlot(state,schedule,canCreateTemplate)
         val nativeRoutine = JSONObject()
             .put("id", id)
             .put("title", cleaned)
@@ -534,6 +630,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (schedule.timeMinutes != null)
             nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
         state.getJSONArray("routines").put(nativeRoutine)
         save(state)
         return id
@@ -667,7 +764,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      */
     @Synchronized fun createWodRoutine(
         template: dev.repera.domain.WodTemplate,
-        schedule: RoutineSchedule = RoutineSchedule()
+        schedule: RoutineSchedule = RoutineSchedule(),
+        canCreateTemplate:(Int)->Boolean = {true}
     ): String {
         require(template.movements.isNotEmpty()) { "La plantilla no tiene movimientos" }
         require(template.movements.size <= 200) { "Demasiados movimientos" }
@@ -677,6 +775,24 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         require(schedule.weekday == null || schedule.weekday in 1..7)
         require(schedule.timeMinutes == null || schedule.timeMinutes in 0..1439)
         val state = requireState()
+        requireTemplateSlot(state,schedule,canCreateTemplate)
+        val nativeRoutine=buildWodTemplateRoutine(state,template)
+        val id=nativeRoutine.getString("id")
+        val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
+        if (scheduledDay != null) {
+            nativeRoutine.put("scheduledDate", scheduledDay.toString())
+        } else if (schedule.weekday != null) {
+            nativeRoutine.put("weekday", schedule.weekday)
+        }
+        if (schedule.timeMinutes != null)
+            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
+        state.getJSONArray("routines").put(nativeRoutine)
+        save(state)
+        return id
+    }
+
+    private fun buildWodTemplateRoutine(state:JSONObject,template:dev.repera.domain.WodTemplate):JSONObject {
         val catalog = state.getJSONArray("exercises")
         val byName = (0 until catalog.length()).associate {
             val exercise = catalog.getJSONObject(it)
@@ -717,17 +833,26 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("blocks", JSONArray().put(block))
             .put("progression", "off")
             .put("isFavorite", false)
-        val scheduledDay = schedule.scheduledDate?.let { LocalDate.parse(it) }
-        if (scheduledDay != null) {
-            nativeRoutine.put("scheduledDate", scheduledDay.toString())
-        } else if (schedule.weekday != null) {
-            nativeRoutine.put("weekday", schedule.weekday)
+        return nativeRoutine
+    }
+
+    /** Library play is ephemeral: no saved template or template quota is involved. */
+    @Synchronized fun startWodTemplate(templateId:String,requestId:String,allowAdvanced:Boolean=false):ActiveWorkout {
+        require(requestId.isNotBlank())
+        requireNoLiveActivity()
+        val template=dev.repera.domain.CatalogWods.template(templateId) ?: error("WOD no encontrado")
+        val state=requireState()
+        val current=state.optJSONObject("activeSession")
+        if(current?.optString("draftRequestId")==requestId) return summarize(current)
+        check(current==null) {"Ya existe una sesión activa"}
+        val history=state.getJSONArray("workouts")
+        check((0 until history.length()).none {history.getJSONObject(it).optString("draftRequestId")==requestId}) {
+            "Este inicio ya está guardado en el historial"
         }
-        if (schedule.timeMinutes != null)
-            nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
-        state.getJSONArray("routines").put(nativeRoutine)
-        save(state)
-        return id
+        val routine=buildWodTemplateRoutine(state,template)
+        val session=assembleSession(state,routine,allowAdvanced,applyDefaultPolicy=true).put("draftRequestId",requestId)
+        state.put("activeSession",session);save(state)
+        return summarize(session)
     }
 
     @Synchronized fun active(): ActiveWorkout? {
@@ -750,17 +875,28 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun startSessionFromDrafts(
         title: String, drafts: List<RoutineBlockDraft>, saveAsFavorite: Boolean,
         allowAdvancedProgression: Boolean = true,
+        requestId:String? = null,
+        canSaveFavorite:(Int)->Boolean = {true},
         canCreateCustom: (Int) -> Boolean = { true }
     ): ActiveWorkout {
         requireNoLiveActivity()
         val state = loadOrNull() ?: error("Importa primero un historial o crea tus datos locales")
+        requestId?.let {id ->
+            require(id.isNotBlank())
+            state.optJSONObject("activeSession")?.takeIf {it.optString("draftRequestId")==id}?.let {return summarize(it)}
+            val archive=state.getJSONArray("workouts")
+            check((0 until archive.length()).none {archive.getJSONObject(it).optString("draftRequestId")==id}) {
+                "Este borrador ya se guardó como entrenamiento terminado. Consulta el historial."
+            }
+        }
         check(state.isNull("activeSession")) { "Ya existe una sesión activa" }
+        if(saveAsFavorite) requireTemplateSlot(state,RoutineSchedule(),canSaveFavorite)
         val cleaned = title.trim().ifEmpty { "Mi entreno" }
-        require(cleaned.length <= 100) { "Escribe un título válido" }
         val routine = JSONObject().put("id", UUID.randomUUID().toString()).put("title", cleaned)
             .put("blocks", validatedDraftBlocks(materializePendingCustoms(drafts, state, canCreateCustom), state))
             .put("progression", "off").put("isFavorite", saveAsFavorite)
         val session = assembleSession(state, routine, allowAdvancedProgression, applyDefaultPolicy = true)
+        requestId?.let {session.put("draftRequestId",it)}
         if (saveAsFavorite) state.getJSONArray("routines").put(routine)
         state.put("activeSession", session)
         save(state)
@@ -869,8 +1005,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 if (policy != dev.repera.domain.ProgressionPolicy.OFF) {
                     plannedSets = progressedPlannedSets(entry.getString("exerciseId"), plannedSets, policy, history, incrementKg)
                 }
+                // Apple SessionController.from: SessionExercise.id = id del ítem de la rutina.
                 val item = JSONObject()
-                    .put("id", UUID.randomUUID().toString())
+                    .put("id", entry.optString("id").ifBlank { UUID.randomUUID().toString() })
                     .put("exercise", JSONObject(exercise.toString()))
                     .put("plannedSets", plannedSets)
                     .put("loggedSets", JSONArray())
@@ -902,6 +1039,41 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("wodResults", JSONArray())
             .put("routineBlocks", JSONArray(blocks.toString()))
             .put("routePoints", JSONArray())
+    }
+
+    /** Direct ficha log: one atomic archive write, never steals the active session. */
+    @Synchronized fun logQuickSets(exerciseId:String,rows:List<QuickLogRow>,notes:String?,requestId:String):String {
+        require(requestId.isNotBlank())
+        val state=requireState();val archive=state.getJSONArray("workouts")
+        if((0 until archive.length()).any {archive.getJSONObject(it).optString("id")==requestId}) return requestId
+        val catalog=state.getJSONArray("exercises")
+        val exercise=(0 until catalog.length()).map {catalog.getJSONObject(it)}.firstOrNull {it.optString("id")==exerciseId} ?: error("Ejercicio no encontrado")
+        val mode=inputMode(exercise);val unit=rows.firstOrNull()?.unit ?: error("Añade una serie")
+        val normalized=QuickLogRows.validate(rows,mode,ExerciseInput.defaultQuantityUnit(exercise.getString("name"),exercise.optString("equipment")),ExerciseInput.supportsCaloriesAndMeters(exercise.getString("name"),exercise.optString("equipment")),isMobilityHold(exercise))
+        val now=Instant.now();val logged=JSONArray();val planned=JSONArray()
+        normalized.forEach {row ->
+            val set=JSONObject().put("id",UUID.randomUUID().toString()).put("reps",row.quantity)
+                .put("completedAt",now.toString()).put("phase","work").put("kind","straight").put("toFailure",false)
+                .put("quantityUnit",row.unit).put("drops",JSONArray()).put("clusters",JSONArray())
+            row.weightKg?.takeIf {it>0}?.let {set.put("weightKg",it)}
+            row.deficitCm?.takeIf {it>0}?.let {set.put("deficitCm",it)}
+            row.durationSeconds?.let {set.put("durationSeconds",it)}
+            logged.put(set)
+            planned.put(JSONObject().put("id",UUID.randomUUID().toString()).put("targetReps",row.quantity).apply {row.weightKg?.takeIf {it>0}?.let {put("targetWeightKg",it)}})
+        }
+        val entry=JSONObject().put("id",UUID.randomUUID().toString()).put("exercise",JSONObject(exercise.toString()))
+            .put("plannedSets",planned).put("loggedSets",logged).put("completedReps",normalized.sumOf {it.quantity}).put("isCompleted",true).put("quantityUnit",unit)
+        val seconds=maxOf(60,normalized.size*90)
+        val session=JSONObject().put("id",requestId).put("title","Apuntar · "+exercise.getString("name"))
+            .put("phase","finished").put("startedAt",now.minusSeconds(seconds.toLong()).toString()).put("finishedAt",now.toString())
+            .put("exercises",JSONArray().put(entry)).put("currentIndex",0).put("wodResults",JSONArray()).put("routePoints",JSONArray())
+            .put("appleDurationSeconds",seconds)
+        notes?.trim()?.takeIf {it.isNotBlank()}?.let {session.put("notes",it)}
+        archive.put(session)
+        val review=SessionReviewSupport.attachToFinishedSession(state,session)
+        save(state)
+        if(review!=null) reviewPrefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,requestId).apply()
+        return requestId
     }
 
     /**
@@ -1184,7 +1356,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val list=state.getJSONArray("routines")
         val routine=(0 until list.length()).map {list.getJSONObject(it)}
             .firstOrNull {it.optString("id")==session.optString("routineId")}
+            // Apple (live main): the session's own blocks are newer than the reusable template.
+            ?.let {template ->session.optJSONArray("routineBlocks")?.takeIf {it.length()>0}
+                ?.let {blocks ->JSONObject(template.toString()).put("blocks",JSONArray(blocks.toString()))} ?: template}
             ?: ActiveSessionFavorite.template(session).apply {
+                put("id",UUID.nameUUIDFromBytes(("active-editor:"+session.getString("id")).toByteArray(Charsets.UTF_8)).toString())
                 put("isFavorite",false)
                 // Editor preserves current quantity units and explicit WOD prescriptions.
                 val entries=session.getJSONArray("exercises")
@@ -1197,24 +1373,28 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     }
 
     @Synchronized fun updateActiveSessionPlan(
-        draftId:String, blocks:List<RoutineBlockDraft>, canCreateCustom:(Int)->Boolean = {true}
+        draftId:String, blocks:List<RoutineBlockDraft>,expectedSessionId:String?=null,
+        canCreateTemplate:(Int)->Boolean = {true},canCreateCustom:(Int)->Boolean = {true}
     ): ActiveWorkout {
         val state=requireState();val session=requireActive(state)
+        check(expectedSessionId==null || session.optString("id")==expectedSessionId) {"La sesión cambió durante la edición"}
         val routines=state.getJSONArray("routines")
         val existing=(0 until routines.length()).map {routines.getJSONObject(it)}.firstOrNull {it.optString("id")==draftId}
+        check(existing==null || session.optString("routineId")==draftId) {"La rutina de la sesión cambió durante la edición"}
+        if(existing==null) requireTemplateSlot(state,RoutineSchedule(),canCreateTemplate)
         val routine=existing ?: JSONObject().put("id",draftId).put("title",session.optString("title"))
             .put("progression","off").put("isFavorite",false)
         routine.put("blocks",validatedDraftBlocks(materializePendingCustoms(blocks,state,canCreateCustom),state))
         val fresh=assembleSession(state,routine,allowAdvanced=false)
         ActiveSessionPlan.refresh(session,fresh)
-        if(existing==null) routines.put(routine)
+        if(existing==null) {routines.put(routine);session.put("routineId",draftId)}
         save(state)
         return summarize(session)
     }
 
-    @Synchronized fun saveActiveSessionAsFavorite(): ActiveWorkout {
+    @Synchronized fun saveActiveSessionAsFavorite(canCreateTemplate:(Int)->Boolean = {true}): ActiveWorkout {
         val state=requireState()
-        ActiveSessionFavorite.save(state)
+        ActiveSessionFavorite.save(state,canCreateTemplate)
         save(state)
         return summarize(requireActive(state))
     }
@@ -1226,6 +1406,47 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         session.put("currentIndex",index).put("phase","ready")
         save(state); return summarize(session)
     }
+    /** Apple ReperaStore.updateActiveExerciseDraft: persists edited planned sets (and optionally recorded sets by id) of the
+     *  active session in one save. Returns false when nothing changed. Not called from any Play UI yet. */
+    @Synchronized fun updateActiveExerciseDraft(id: String, plannedSets: JSONArray, quantityUnit: String?, performedSets: JSONArray? = null): Boolean {
+        val state = requireState(); val session = requireActive(state)
+        val changedPlan = ActiveSessionDraft.update(session, id, plannedSets, quantityUnit)
+        val changedResults = performedSets?.let { ActiveSessionDraft.replaceRecordedSets(session, id, it) } ?: false
+        if (!changedPlan && !changedResults) return false
+        save(state); return true
+    }
+
+    /**
+     * Apple persistActiveLiveDraft: ONE save of the edited live rows of the current exercise: planned sets (revise) plus
+     * recorded sets by id (recorded). The caller must only call this after the user edited the exercise, so untouched
+     * suggestions are never saved as results. WOD blocks are excluded (their rows live in the WOD editor).
+     */
+    @Synchronized internal fun persistLiveRows(sessionId: String, exerciseIndex: Int, rows: List<ActiveSessionDraft.Row>, quantityUnit: String?): ActiveWorkout? {
+        val state = requireState()
+        val changed = ActiveSessionDraft.applyRows(state, sessionId, exerciseIndex, rows, quantityUnit, nowISO8601()) { inputMode(it) } ?: return null
+        if (changed) save(state)
+        return summarize(state.getJSONObject("activeSession"))
+    }
+
+    /** "Quitar serie" for a pending (not yet recorded) planned set of the current exercise. Recorded sets use deleteCurrentSet. */
+    @Synchronized fun removePendingSet(setId: String): ActiveWorkout {
+        val state = requireState(); val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Usa el editor WOD para estos movimientos" }
+        check(ActiveSessionDraft.removePending(session, exercise.getString("id"), setId)) { "Serie pendiente no encontrada" }
+        save(state); return summarize(session)
+    }
+
+    /** Edits reps/weight of a pending planned set of the current exercise (Apple live row edit, planned part only). */
+    @Synchronized fun editPendingSet(setId: String, reps: Int, weightKg: Double?): ActiveWorkout {
+        val state = requireState(); val session = requireActive(state)
+        val exercise = session.getJSONArray("exercises").getJSONObject(session.getInt("currentIndex"))
+        check(exercise.optString("blockKind") != "wod") { "Usa el editor WOD para estos movimientos" }
+        val byWeight = inputMode(exercise.getJSONObject("exercise")).showsWeight
+        check(ActiveSessionDraft.editPending(session, exercise.getString("id"), setId, reps, weightKg, byWeight)) { "Serie pendiente no encontrada o sin cambios" }
+        save(state); return summarize(session)
+    }
+
     @Synchronized fun updateActiveSessionNotes(notes: String) {
         val state = requireState(); val session = requireActive(state)
         val trimmed = notes.trim()
@@ -1500,6 +1721,18 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return name to rest
     }
 
+    /** Finish retries acknowledge an already archived matching ID without creating a session. */
+    @Synchronized fun finishWearSession(sessionId:String):Boolean {
+        require(sessionId.isNotBlank())
+        val state=requireState()
+        val archive=state.getJSONArray("workouts")
+        if((0 until archive.length()).any {archive.getJSONObject(it).let {w ->w.optString("id")==sessionId && w.optString("phase")=="finished"}}) return true
+        val active=state.optJSONObject("activeSession") ?: return false
+        if(active.optString("id")!=sessionId) return false
+        finishInPlace(state,active)
+        return true
+    }
+
     @Synchronized fun finish(): Unit {
         val state = requireState()
         finishInPlace(state, requireActive(state))
@@ -1527,6 +1760,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if(personal?.optJSONArray("exercises")?.length()?.let {it>0}==true) return personal
         val assigned=professional.firstOrNull {it.scheduledDate==today.toString() && it.status=="scheduled" &&
             it.prescription?.optInt("schemaVersion")==1 && (it.prescription.optJSONArray("blocks")?.length() ?: 0)>0} ?: return null
+        return try {projectProfessionalWatchPlan(state,assigned)} catch(_:org.json.JSONException) {null}
+    }
+
+    private fun projectProfessionalWatchPlan(state:JSONObject,assigned:BusinessCenterStore.ProfessionalSession):JSONObject? {
         // Apple professionalWorkoutForWatchToday: clone catalog for resolution,
         // no writes, no personal catalog/routine additions and no progression.
         val temporary=JSONObject(state.toString())
@@ -1537,9 +1774,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             val prescribed=source.getJSONObject(i);val wod=prescribed.optString("kind")=="wod"
             val block=JSONObject().put("id",prescribed.getString("id")).put("title",prescribed.optString("title"))
                 .put("kind",if(wod) "wod" else "strength").put("exercises",JSONArray()).put("movements",JSONArray())
-            val format=prescribed.optString("wodFormat").let {raw -> when(raw.lowercase().replace("_","")) {
-                "rft","fortime" -> "forTime";"every","emom" -> "emom";else -> raw
-            }}
+            val format=dev.repera.domain.ProfessionalWodFormat.normalize(prescribed.optString("wodFormat"))
             if(format.isNotEmpty() && format!="null") block.put("wodFormat",format)
             listOf("rounds","timeCapMinutes").forEach {key -> if(prescribed.has(key) && !prescribed.isNull(key)) block.put(key,prescribed.get(key))}
             val entries=prescribed.optJSONArray(if(wod) "movements" else "exercises") ?: JSONArray()
@@ -1579,6 +1814,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (id.isBlank() || exercises == null || exercises.length() == 0) return false
         if (sessionJson.optInt("currentIndex") !in 0 until exercises.length()) return false
         val state = loadOrNull() ?: return false
+        val archive=state.optJSONArray("workouts") ?: JSONArray()
+        if((0 until archive.length()).any {archive.getJSONObject(it).optString("id")==id}) return false
+        if(id in mirror.blockedIds()) return false
         val active = state.optJSONObject("activeSession")
         if (active != null) return active.optString("id") == id
         state.put("activeSession", JSONObject(sessionJson.toString()))
@@ -1596,7 +1834,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         weightKg: Double?, rir: Double? = null,
         durationSeconds: Int? = null, quantityUnit: String? = null,
         deficitCm: Int? = null,
-        sessionPayload: JSONObject? = null
+        sessionPayload: JSONObject? = null, warmup:Boolean=false,toFailure:Boolean=false,
+        onNewSet:(()->Unit)?=null
     ): Boolean {
         require(sessionId.isNotBlank() && setId.isNotBlank() && exerciseIndex >= 0)
         require(quantity > 0 && quantity <= 10000)
@@ -1635,9 +1874,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         check(exercise.optString("blockKind") != "wod" && !exercise.optBoolean("isCompleted")) {
             "El reloj solo puede registrar series de fuerza abiertas"
         }
-        logCurrentSet(quantity, weightKg, rir = rir, warmup = false, setId = setId,
+        logCurrentSet(quantity, weightKg, rir = rir, warmup = warmup, toFailure=toFailure, setId = setId,
             quantityUnit = quantityUnit, durationSeconds = durationSeconds,
             deficitCm = deficitCm)
+        runCatching {onNewSet?.invoke()} // Notification failure cannot undo a persisted set.
         return true
     }
 
@@ -1792,7 +2032,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         schedule: RoutineSchedule
     ) {
         val cleaned = title.trim()
-        require(cleaned.isNotBlank() && cleaned.length <= 100) { "Escribe un título válido" }
+        require(cleaned.isNotBlank()) { "Escribe un título válido" }
         require(schedule.scheduledDate == null || schedule.weekday == null) {
             "Un entreno no puede ser semanal y de fecha concreta a la vez"
         }
@@ -1815,6 +2055,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (schedule.timeMinutes != null)
             routine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
         save(state)
     }
 
@@ -1971,6 +2212,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .map { archive.getJSONObject(it).optString("id") }.toMutableSet()
         var imported = 0
         for (session in recovered) {
+            if(session.optString("id") in mirror.blockedIds()) continue
             if (session.isNull("finishedAt")) continue
             if (!known.add(session.optString("id"))) continue
             archive.put(JSONObject(session.toString()))
@@ -2007,10 +2249,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * drop/rest-pause no se tocan si el parche cambia reps (igual que iOS).
      */
     @Synchronized fun applyAIWorkoutPatch(
-        workoutId: String, title: String?, setChanges: List<AISetPatch>
+        workoutId: String, title: String?, setChanges: List<AISetPatch>,
+        expectedLocalDigest:String?=null
     ) {
         val state = requireState()
         val workout = findWorkout(state, workoutId)
+        check(expectedLocalDigest==null || WorkoutMirrorStore.canonicalDigest(workout)==expectedLocalDigest) {
+            "El entrenamiento local cambió mientras se revisaba la propuesta IA"
+        }
         if (title != null) workout.put("title", title)
         for (patch in setChanges) {
             val exercise = findSessionExercise(workout, patch.exerciseEntryId)
@@ -2050,17 +2296,45 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     }
 
     /** Elimina un entreno registrado (solo tras consentimiento explícito). */
-    @Synchronized fun deleteWorkout(id: String) {
+    @Synchronized fun deleteWorkout(id: String,expectedLocalDigest:String?=null) {
         // Tombstone ANTES de borrar (paridad ReperaStore.deleteWorkout iOS): el
         // espejo no debe resucitar el registro en el próximo sync.
-        mirror.noteDeleted(id)
         val state = requireState()
         val archive = state.getJSONArray("workouts")
         val index = (0 until archive.length()).firstOrNull {
             archive.getJSONObject(it).optString("id") == id
         } ?: error("Entreno no encontrado")
+        check(expectedLocalDigest==null || WorkoutMirrorStore.canonicalDigest(archive.getJSONObject(index))==expectedLocalDigest) {
+            "El entrenamiento local cambió mientras se revisaba la propuesta IA"
+        }
+        check(stillAuthorized()) {"La cuenta cambió antes de borrar el entrenamiento"}
+        mirror.noteDeleted(id)
         archive.remove(index)
         save(state)
+    }
+
+    /**
+     * INTERNO, SIN UI, SIN USO EN PRODUCCION. Sustituye al prototipo anterior (tombstones antes de guardar, inseguro).
+     * Usa el diario ResetCoordinator con puertos reales: intencion -> save CAS -> tombstones -> borrar intencion.
+     * No es una implementacion utilizable de "Borrar todo": faltan epoca global, otras instalaciones, reloj y decisiones de producto
+     * (ver android/docs/RESET_USER_DATA_CONTRACT.md).
+     */
+    internal fun resetUserDataJournaledForTests(resetId: String): ResetCoordinator.Outcome =
+        ResetCoordinator(resetPorts()).reset(resetId)
+
+    /** Ids bloqueados en el almacen de tombstones de ESTE repositorio (clave = id de cuenta Google; ver doc de reset). */
+    fun mirrorBlockedIds(): Set<String> = mirror.blockedIds()
+
+    /** Reconciliacion idempotente tras un corte; la llama el sync del espejo antes de usar tombstones. */
+    fun recoverPendingReset(): ResetCoordinator.Recovery = ResetCoordinator(resetPorts()).recover()
+
+    private fun resetPorts() = object : ResetPorts {
+        override fun loadIntent() = mirror.loadResetIntent()
+        override fun storeIntent(json: String) = mirror.storeResetIntent(json)
+        override fun clearIntent() = mirror.clearResetIntent()
+        override fun readState(): JSONObject? = loadOrNull()
+        override fun saveState(state: JSONObject): Boolean = try { save(state); true } catch (e: IllegalStateException) { false }
+        override fun noteDeleted(id: String) = mirror.noteDeleted(id)
     }
 
     /** Ejercicios personalizados actuales (copia) para el espejo IA. */
@@ -2236,8 +2510,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         /** Bloques editados (JSON, con ids) del editor de contenido; null = contenido intacto. */
         val blocksJson: String? = null,
         /** «Favorito» de DayEditorView al editar un entreno terminado: copia independiente (ids nuevos), nunca la misma rutina. */
-        val saveAsFavorite: Boolean = false
+        val saveAsFavorite: Boolean = false,
+        /** Ediciones de la marca WOD completada (Apple changingScore), reproducidas en orden tras el contenido. */
+        val scoreEdits: List<ScoreEdit> = emptyList()
     )
+    data class ScoreEdit(val blockId: String, val field: CompletedWorkoutEditing.ScoreField, val value: Int)
 
     /**
      * [canCreateCustom] recibe el nº de ejercicios personalizados existentes y decide si se puede
@@ -2245,12 +2522,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      */
     @Synchronized fun updateFinishedWorkout(
         workoutId: String, edit: FinishedWorkoutEdit,
+        canSaveFavorite:(Int)->Boolean = {true},
         canCreateCustom: (Int) -> Boolean = { true }
     ): Boolean {
         val state = loadOrNull() ?: return false
         val archive = state.optJSONArray("workouts") ?: return false
         val target = (0 until archive.length()).map { archive.getJSONObject(it) }
             .firstOrNull { it.optString("id") == workoutId } ?: return false
+        if(edit.saveAsFavorite) requireTemplateSlot(state,RoutineSchedule(),canSaveFavorite)
         val start = edit.startedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
         var end = edit.finishedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
         if (start != null && end != null && end.isBefore(start)) end = start.plusSeconds(60)
@@ -2283,6 +2562,15 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 cleanTitle, EditorBlockOps.resolvePending(draftBlocks, idByName), target, catalogArr)
             for (key in listOf("exercises", "routineBlocks", "wodResults", "currentIndex"))
                 target.put(key, applied.get(key))
+        }
+        if (edit.scoreEdits.isNotEmpty()) {
+            val blocksNow = CompletedWorkoutEditing.blocksFrom(target, null)
+            var working: JSONObject = target
+            for (e in edit.scoreEdits) {
+                val b = (0 until blocksNow.length()).map { blocksNow.getJSONObject(it) }.firstOrNull { it.optString("id") == e.blockId } ?: continue
+                working = CompletedWorkoutEditing.changingScore(working, b, e.field, e.value)
+            }
+            target.put("wodResults", working.optJSONArray("wodResults") ?: JSONArray())
         }
         target.put("title", cleanTitle)
         if (start != null) target.put("startedAt", start.toString())
@@ -2396,11 +2684,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         // Valoración post-entreno (paridad ReperaStore.attachSessionReview iOS):
         // se calcula con todo el historial y se persiste dentro de la sesión.
         val review = SessionReviewSupport.attachToFinishedSession(state, session)
+        save(state)
         if (review != null) {
-            prefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,
+            reviewPrefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,
                 session.optString("id")).apply()
         }
-        save(state)
     }
 
     /** Id del registro de Health Connect vinculado a la sesión
@@ -2434,6 +2722,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     }
 
     /** Título + ventana de la sesión para la escritura en Salud. */
+    /** liveSportID de una sesión archivada (null si es clásica o no existe). */
+    @Synchronized fun liveSportId(sessionId: String): String? {
+        val archive = loadOrNull()?.optJSONArray("workouts") ?: return null
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") != sessionId) continue
+            return session.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" }
+        }
+        return null
+    }
+
     @Synchronized fun sessionTitleAndRange(sessionId: String): Triple<String, Long, Long>? {
         val state = loadOrNull() ?: return null
         val archive = state.optJSONArray("workouts") ?: return null
@@ -2477,7 +2776,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     ): dev.repera.domain.SessionReview? {
         val state = loadOrNull() ?: return null
         val updated = SessionReviewSupport.refineWithCardio(state, sessionId, sample)
-            ?: return null
+        val energy = SessionReviewSupport.applyMeasuredEnergy(state, sessionId, sample.activeEnergyKcal, sample.sourceRecordId)
+        if (updated == null && !energy) return null
         save(state)
         return updated
     }
@@ -2485,9 +2785,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     /** Valoración pendiente de mostrar tras terminar (pendingSessionReview iOS).
      *  Se consume una sola vez. */
     @Synchronized fun consumePendingReview(): Pair<String, SessionReview>? {
-        val id = prefs.getString(SessionReviewSupport.PREFS_PENDING_KEY, null)
+        val id = reviewPrefs.getString(SessionReviewSupport.PREFS_PENDING_KEY, null)
             ?: return null
-        prefs.edit().remove(SessionReviewSupport.PREFS_PENDING_KEY).apply()
+        reviewPrefs.edit().remove(SessionReviewSupport.PREFS_PENDING_KEY).apply()
         val state = loadOrNull() ?: return null
         val archive = state.optJSONArray("workouts") ?: return null
         for (i in 0 until archive.length()) {
@@ -2504,13 +2804,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     /** Recalcula notas de todos los entrenos si la fórmula cambió
      *  (refreshSessionReviewsIfNeeded iOS). */
     @Synchronized fun refreshSessionReviewsIfNeeded() {
-        val stored = prefs.getInt(SessionReviewSupport.PREFS_VERSION_KEY, 0)
+        val stored = reviewPrefs.getInt(SessionReviewSupport.PREFS_VERSION_KEY, 0)
         val state = loadOrNull() ?: return
         if (SessionReviewSupport.refreshAllIfNeeded(state, stored)) {
             save(state)
         }
         if (stored < SessionReviewSupport.FORMULA_VERSION) {
-            prefs.edit().putInt(SessionReviewSupport.PREFS_VERSION_KEY,
+            reviewPrefs.edit().putInt(SessionReviewSupport.PREFS_VERSION_KEY,
                 SessionReviewSupport.FORMULA_VERSION).apply()
         }
     }
@@ -2543,9 +2843,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         .withZone(ZoneOffset.UTC)
         .format(Instant.now())
 
-    private fun loadOrNull(): JSONObject? = local.read()?.let { bytes ->
+    private fun loadOrNull(): JSONObject? {
+        check(stillAuthorized()) {"La cuenta cambió antes de leer el historial"}
+        return local.read()?.let { bytes ->
         LocalSnapshotStore.validate(bytes)
-        JSONObject(String(bytes, Charsets.UTF_8))
+        JSONObject(String(bytes, Charsets.UTF_8)).also {loadedStates[it]=bytes}
+    }
+
     }
 
     private fun requireState() = loadOrNull() ?: error("No hay estado local")
@@ -2553,14 +2857,49 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         state.optJSONObject("activeSession") ?: error("No hay sesión activa")
 
     private fun save(state: JSONObject) {
+        check(stillAuthorized()) {"La cuenta cambió antes de guardar el historial"}
         state.put("syncRevision", state.optInt("syncRevision", 0) + 1)
         state.put("updatedAt", nowISO8601())
         state.put("lastWriterDeviceId", writerId)
-        local.write(state.toString().toByteArray(Charsets.UTF_8))
+        val expected=loadedStates[state] ?: error("Estado sin origen verificable")
+        val replacement=state.toString().toByteArray(Charsets.UTF_8)
+        check(local.replaceIfUnchanged(expected,replacement)) {
+            "El historial cambió durante esta acción. No se sobrescribió; vuelve a intentarlo."
+        }
+        loadedStates[state]=replacement
     }
 
     private fun copyIfPresent(source: JSONObject, target: JSONObject, vararg keys: String) {
         for (key in keys) if (source.has(key) && !source.isNull(key)) target.put(key, source.get(key))
+    }
+
+    /** Rows of the Apple-style editable Play list; null when the classic form must be used (WOD, no basic recorder, or
+     *  a logged work set that is not a straight set, because rows are matched to planned sets by position). */
+    private fun liveRowsOf(current: JSONObject): List<LiveRowSummary>? {
+        if (current.optString("blockKind") == "wod") return null
+        val mode = inputMode(current.getJSONObject("exercise"))
+        if (!mode.basicRecorderAvailable) return null
+        val logged = current.optJSONArray("loggedSets") ?: JSONArray()
+        val plan = current.optJSONArray("plannedSets") ?: JSONArray()
+        val work = (0 until logged.length()).map { logged.getJSONObject(it) }.filter { it.optString("phase", "work") == "work" }
+        if (work.any { it.optString("kind", "straight") != "straight" }) return null
+        fun d(o: JSONObject, k: String) = if (o.has(k) && !o.isNull(k)) o.getDouble(k) else null
+        val deficitMode = mode == ExerciseInputMode.HSPU_DEFICIT
+        val done = work.map { set ->
+            LiveRowSummary(set.getString("id"), set.optInt("reps"), d(set, "weightKg"),
+                if (set.has("deficitCm") && !set.isNull("deficitCm")) set.getInt("deficitCm") else null,
+                set.optInt("durationSeconds").takeIf { set.has("durationSeconds") && it > 0 }, d(set, "rir"), true)
+        }
+        val pending = (work.size until plan.length()).mapNotNull { n ->
+            val p = plan.getJSONObject(n); val id = p.optString("id")
+            if (id.isBlank()) null else {
+                val target = d(p, "targetWeightKg")
+                LiveRowSummary(id, p.optInt("targetReps"), if (deficitMode) null else target,
+                    if (deficitMode) target?.toInt() else null,
+                    p.optInt("targetDurationSeconds").takeIf { p.has("targetDurationSeconds") && it > 0 }, d(p, "targetRir"), false)
+            }
+        }
+        return done + pending
     }
 
     private fun summarize(session: JSONObject): ActiveWorkout {
@@ -2631,6 +2970,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         } else null
         return ActiveWorkout(
             id = session.getString("id"),
+            draftRequestId=session.optString("draftRequestId").takeIf {it.isNotBlank()},
+            routineId=session.optString("routineId").takeIf {it.isNotBlank() && it!="null"},
             title = session.getString("title"),
             index = index,
             total = exercises.length(),
@@ -2656,6 +2997,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 current.getJSONObject("exercise").getString("name"),
                 current.getJSONObject("exercise").optString("equipment")),
             wod = wod,
+            liveRows = liveRowsOf(current),
+            quantityCap = QuickLogInput.quantityCap(inputMode(current.getJSONObject("exercise"))),
             isFavorite = loadOrNull()?.optJSONArray("routines")?.let { list ->
                 (0 until list.length()).any {list.getJSONObject(it).optString("id")==session.optString("routineId") && list.getJSONObject(it).optBoolean("isFavorite")}
             } ?: false,
@@ -2665,6 +3008,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 ActiveExerciseNavigation(n,entry.getJSONObject("exercise").exerciseDisplayName(),
                     entry.optString("blockId"),entry.optString("blockKind"),entry.optBoolean("isCompleted"))
             },
+            pendingSets = if (current.optString("blockKind") == "wod") emptyList()
+                else (finishedWork until plan.length()).mapNotNull { n ->
+                    val p = plan.getJSONObject(n); val id = p.optString("id")
+                    if (id.isBlank()) null else PendingSetSummary(id, p.optInt("targetReps"),
+                        if (p.has("targetWeightKg") && !p.isNull("targetWeightKg")) p.getDouble("targetWeightKg") else null)
+                },
             sets = (0 until logged.length()).map { n ->
                 val set = logged.getJSONObject(n)
                 WorkoutSetSummary(
@@ -2722,8 +3071,16 @@ data class ActiveWorkout(
     val wod: WodExecution? = null,
     val isFavorite: Boolean = false,
     val notes: String? = null,
-    val navigationEntries: List<ActiveExerciseNavigation> = emptyList()
+    val navigationEntries: List<ActiveExerciseNavigation> = emptyList(),
+    val draftRequestId:String? = null,
+    val pendingSets: List<PendingSetSummary> = emptyList(),
+    val liveRows: List<LiveRowSummary>? = null,
+    val quantityCap: Int = 50,
+    val routineId: String? = null
 )
+data class PendingSetSummary(val id:String,val reps:Int,val weightKg:Double?)
+/** Apple live row: a recorded straight work set (completed) or a pending planned set. null liveRows = use the classic form. */
+data class LiveRowSummary(val id:String,val reps:Int,val weightKg:Double?,val deficitCm:Int?,val durationSeconds:Int?,val rir:Double?,val completed:Boolean)
 data class ActiveExerciseNavigation(val index:Int,val name:String,val blockId:String,val blockKind:String,val completed:Boolean)
 
 data class WodExecution(
@@ -2792,7 +3149,9 @@ data class PlannedSetDraft(
     val targetReps: Int,
     val targetWeightKg: Double? = null,
     val targetRir: Double? = null,
-    val id: String? = null
+    val id: String? = null,
+    val targetDurationSeconds:Int? = null,
+    val sourceJson:String? = null
 )
 
 /** Mirrors Swift Routine: one-off dates and weekly templates are mutually exclusive. */

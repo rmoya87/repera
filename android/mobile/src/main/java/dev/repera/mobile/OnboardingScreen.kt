@@ -212,7 +212,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
     ) { notificationsGranted = notificationsGranted(context) }
     val healthLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { granted -> healthGranted = granted.containsAll(HealthConnectReader.permissions) }
+    ) { granted -> healthGranted = HealthConnectReader.hasReadablePermission(granted) }
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { locationGranted = locationGranted(context) }

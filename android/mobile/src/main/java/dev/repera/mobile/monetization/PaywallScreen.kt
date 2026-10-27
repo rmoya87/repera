@@ -1,5 +1,8 @@
 package dev.repera.mobile.monetization
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -259,6 +262,7 @@ private fun PlanRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
+            .semantics { role = androidx.compose.ui.semantics.Role.RadioButton; this.selected = selected }
             .border(
                 width = 1.5.dp,
                 color = if (selected) brandGreen else androidx.compose.ui.graphics.Color.Transparent,
