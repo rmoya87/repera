@@ -353,3 +353,14 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  explicito:no convierte intensidad enplannedsets typed enesta unidad.
 -2tests nuevos,domain504/504,93XMLcompleta22:29verde.Mobilepost295pendiente;
  ultimoTODAS647/162post293+assemble42s, Wear8/1reejecutada22:26.
+
+## Evolucion real ejercicio 22:38
+- ExerciseProgressView chartBlock/chartYDomain corte:altura220(antes120),
+ CatmullRom azul0A84FF,dominio paddingmax8%/1 ytope1RM incluye mitadvalor.
+ Xyseleccion porfechaobservada,noindiceordinal;inset8dp protegeextremos.
+-2tests puros domainbounds/calendarspacing,renderchart220/full1000alto1400
+ inspeccionados sinrecorte. Fixtureviejo1000x470recortaba chart ampliado,
+ ajustadoaltura prueba,no resultado produccion. Todasetiquetasvisibles.
+- Paridadparcial explicita:axes/grid,empty<2 ytarjeta interior aun difieren;
+ unamuestra conserva punto sin tendencia,noafirmarFullchart. Mobilefocalizado
+ verde;completa+assemblepostestaunidadpendientes. Sin cambiardatoshistoricos.

@@ -327,40 +327,34 @@ internal fun ExerciseEvolutionSection(
             } else {
                 val line = MaterialTheme.colorScheme.primary
                 val ceilingColor=MaterialTheme.colorScheme.onSurfaceVariant
-                fun selectAt(x:Float,width:Int) {
-                    selectedPoint=if(points.size==1) 0 else ((x/width.coerceAtLeast(1))*(points.size-1)).toInt().coerceIn(points.indices)
+                fun selectAt(x:Float,width:Int,inset:Float) {
+                    selectedPoint=ExerciseChartGeometry.nearest(points,((x-inset)/(width-2*inset).coerceAtLeast(1f)))
                 }
                 androidx.compose.foundation.Canvas(modifier = Modifier
-                    .fillMaxWidth().height(120.dp).testTag("exercise_evolution_chart")
+                    .fillMaxWidth().height(220.dp).testTag("exercise_evolution_chart")
                     .semantics {
                         contentDescription="Evolución de ${points.size} registros"
                         customActions=listOf(
                             androidx.compose.ui.semantics.CustomAccessibilityAction("Punto anterior") {selectedPoint=ChartSelectionStep.step(selectedPoint,-1,points.size);true},
                             androidx.compose.ui.semantics.CustomAccessibilityAction("Punto siguiente") {selectedPoint=ChartSelectionStep.step(selectedPoint,1,points.size);true})
                     }
-                    .pointerInput(points) {detectTapGestures {selectAt(it.x,size.width)}}
-                    .pointerInput(points) {detectHorizontalDragGestures {change,_ -> selectAt(change.position.x,size.width)}}) {
-                    val minV = minOf(points.minOf { it.value },ceiling ?: Double.MAX_VALUE)
-                    val maxV = maxOf(points.maxOf { it.value },ceiling ?: 0.0)
-                    val span = (maxV - minV).coerceAtLeast(1e-9)
-                    fun x(i: Int) = if (points.size == 1) size.width / 2f
-                        else i * size.width / (points.size - 1)
-                    fun y(v: Double) =
-                        size.height - ((v - minV) / span * size.height * 0.9f).toFloat() - size.height * 0.05f
+                    .pointerInput(points) {detectTapGestures {selectAt(it.x,size.width,8.dp.toPx())}}
+                    .pointerInput(points) {detectHorizontalDragGestures {change,_ -> selectAt(change.position.x,size.width,8.dp.toPx())}}) {
+                    val (minV,maxV)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
+                    val span=maxV-minV
+                    fun x(i:Int)=8.dp.toPx()+ExerciseChartGeometry.fraction(points,i)*(size.width-16.dp.toPx()).coerceAtLeast(0f)
+                    fun y(v:Double)=size.height-((v-minV)/span*size.height).toFloat()
                     ceiling?.let {drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(0f,y(it)),androidx.compose.ui.geometry.Offset(size.width,y(it)),strokeWidth=2f,
                         pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f,8f)))}
                     selectedPoint?.let {i -> drawLine(ceilingColor,androidx.compose.ui.geometry.Offset(x(i),0f),androidx.compose.ui.geometry.Offset(x(i),size.height),strokeWidth=2f)}
-                    val path = androidx.compose.ui.graphics.Path()
-                    points.forEachIndexed { i, p ->
-                        if (i == 0) path.moveTo(x(i), y(p.value))
-                        else path.lineTo(x(i), y(p.value))
-                    }
-                    drawPath(path, color = line,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
-                    points.forEachIndexed { i, p ->
-                        drawCircle(color = line, radius = 5f,
-                            center = androidx.compose.ui.geometry.Offset(x(i), y(p.value)))
-                    }
+                    val observed=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
+                    val path=androidx.compose.ui.graphics.Path()
+                    path.moveTo(observed.first().x,observed.first().y)
+                    ReadinessCurve.segments(observed).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+                    drawPath(path,color=androidx.compose.ui.graphics.Color(0xFF0A84FF),
+                        style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))
+                    // One observation has no line or trend; keep its location visible.
+                    if(points.size==1) drawCircle(color=line,radius=3.dp.toPx(),center=androidx.compose.ui.geometry.Offset(x(0),y(points[0].value)))
                 }
                 ceiling?.let {Text("Tope 1RM · ${dev.repera.domain.ReperaNumberFormat.decimal(it)} kg",style=MaterialTheme.typography.bodySmall)}
                 val last = points[selectedPoint ?: points.lastIndex]

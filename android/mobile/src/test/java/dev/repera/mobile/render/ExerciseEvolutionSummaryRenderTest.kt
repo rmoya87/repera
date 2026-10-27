@@ -29,7 +29,7 @@ import java.io.FileOutputStream
  *  fuerza) sobre el grafico. Previsualizacion JVM, NO dispositivo. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w1000dp")
+@Config(sdk = [35], qualifiers = "w1000dp-h1400dp")
 class ExerciseEvolutionSummaryRenderTest {
 
     @get:Rule
@@ -66,6 +66,10 @@ class ExerciseEvolutionSummaryRenderTest {
         composeRule.onNodeWithText("Veces").assertIsDisplayed()
         composeRule.onNodeWithText("100 kg").assertIsDisplayed()
         composeRule.onNodeWithText("14").assertIsDisplayed()
+        val chart=composeRule.onNodeWithTag("exercise_evolution_chart").captureToImage().asAndroidBitmap()
+        File("build/reports/render").mkdirs()
+        FileOutputStream("build/reports/render/exercise-evolution-curve.png").use {chart.compress(Bitmap.CompressFormat.PNG,100,it)}
+        org.junit.Assert.assertEquals(220,chart.height)
         val bmp = composeRule.onNodeWithTag("evowrap").captureToImage().asAndroidBitmap()
         File("build/reports/render").mkdirs()
         FileOutputStream("build/reports/render/evolution-summary-tiles.png").use {
