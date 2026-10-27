@@ -33,6 +33,10 @@ struct TrainingLiveActivityWidget: Widget {
                             }
                             reperaMark(isOnYellow: false)
                         }
+                        if let cue = context.state.navigation,
+                           context.state.phase != .completed {
+                            navigationStrip(cue, compact: true)
+                        }
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             islandMetric(value: timer(context.state), title: "Duración")
                             islandMetric(value: Text(context.state.primaryValue), title: context.state.primaryLabel)
@@ -43,7 +47,7 @@ struct TrainingLiveActivityWidget: Widget {
                     .padding(.top, 2)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    if !context.state.subtitle.isEmpty {
+                    if context.state.navigation == nil, !context.state.subtitle.isEmpty {
                         Text(context.state.subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -52,7 +56,8 @@ struct TrainingLiveActivityWidget: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
+                Image(systemName: context.state.navigation?.symbol ??
+                    (context.state.phase == .paused ? "pause.fill" : context.state.symbol))
                     .resizable()
                     .scaledToFit()
                     .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
@@ -62,14 +67,21 @@ struct TrainingLiveActivityWidget: Widget {
                 // La anchura de .timer es expansiva si se mide sin restricciones.
                 // Un ancho compacto explícito impide que el widget reclame
                 // espacio extra en la Dynamic Island para duraciones largas.
-                timer(context.state)
+                Group {
+                    if let meters = context.state.navigation?.distanceMeters {
+                        Text(distanceLabel(meters))
+                    } else {
+                        timer(context.state)
+                    }
+                }
                     .monospacedDigit()
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .frame(width: 44, alignment: .trailing)
             } minimal: {
-                Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
+                Image(systemName: context.state.navigation?.symbol ??
+                    (context.state.phase == .paused ? "pause.fill" : context.state.symbol))
                     .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
             }
             .widgetURL(destination(for: context.attributes))
@@ -108,6 +120,13 @@ struct TrainingLiveActivityWidget: Widget {
             .background(context.state.phase == .paused ? pauseYellow :
                         context.state.phase == .completed ? green : Color.black)
 
+            if let cue = context.state.navigation,
+               context.state.phase != .completed {
+                navigationStrip(cue, compact: false)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+            }
+
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 lockMetric(value: timer(context.state), title: "Duración")
                 lockMetric(value: Text(context.state.primaryValue), title: context.state.primaryLabel)
@@ -130,6 +149,48 @@ struct TrainingLiveActivityWidget: Widget {
             }
         }
         .background(.black)
+    }
+
+    /// Giro/calle para ruta GPX. Se adapta al ancho del bloqueo y la isla
+    /// expandida, sin desplazar las tres métricas de la sesión.
+    private func navigationStrip(
+        _ cue: TrainingActivityAttributes.ContentState.NavigationCue,
+        compact: Bool
+    ) -> some View {
+        HStack(spacing: compact ? 8 : 12) {
+            Image(systemName: cue.symbol)
+                .font(.system(size: compact ? 22 : 31, weight: .bold))
+                .frame(width: compact ? 28 : 38)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(cue.instruction)
+                    .font(.system(size: compact ? 14 : 17, weight: .bold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                if let street = cue.street {
+                    Text("Hacia \(street)")
+                        .font(.system(size: compact ? 11 : 13, weight: .medium))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let distance = cue.distanceMeters {
+                Text(distanceLabel(distance))
+                    .font(.system(size: compact ? 13 : 17, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, compact ? 9 : 12)
+        .padding(.vertical, compact ? 8 : 11)
+        .background(green, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func distanceLabel(_ meters: Int) -> String {
+        meters >= 1_000
+            ? String(format: "%.1f km", Double(meters) / 1_000)
+            : "\(max(0, meters)) m"
     }
 
     private func timer(_ state: TrainingActivityAttributes.ContentState) -> Text {

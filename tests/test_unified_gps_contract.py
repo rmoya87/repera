@@ -19,6 +19,10 @@ class UnifiedGPSContracts(unittest.TestCase):
         cls.store = (SOURCES / "ReperaStore.swift").read_text()
         cls.health = (SOURCES / "HealthKitStore.swift").read_text()
         cls.activity = (SOURCES / "WorkoutLiveActivityCoordinator.swift").read_text()
+        cls.widget = (ROOT / "Apps" / "ReperaRestWidget" /
+                      "TrainingLiveActivityWidget.swift").read_text()
+        cls.attributes = (ROOT / "Apps" / "Shared" /
+                          "TrainingActivityAttributes.swift").read_text()
         cls.domain = (DOMAIN / "Models.swift").read_text()
 
     def test_single_active_core_location_sensor(self):
@@ -71,6 +75,33 @@ class UnifiedGPSContracts(unittest.TestCase):
         self.assertIn("locationType: outdoor ? .outdoor : .indoor", self.store)
         self.assertIn("activityType: workoutHealthType(for: session)", self.store)
         self.assertIn('secondaryLabel: outdoor ? "Distancia (km)" : "Series"', self.activity)
+
+
+    def test_loaded_route_keeps_navigation_on_screen(self):
+        self.assertIn(
+            "showingMetrics = recorder.sport.usesGPS && recorder.chosenRoute == nil",
+            self.live,
+        )
+        self.assertNotIn("recorder.upcomingTurnMeters != nil", self.live)
+        self.assertIn("if recorder.chosenRoute != nil {", self.live)
+        self.assertIn("Sigue el recorrido", self.live)
+        self.assertIn("Fuera de ruta", self.live)
+
+    def test_giro_remains_active_at_junction_and_street_is_not_guessed(self):
+        self.assertIn("$0.metersAlongRoute >= along - 12", self.live)
+        self.assertIn("MKReverseGeocodingRequest(location:", self.live)
+        self.assertIn("request.mapItems", self.live)
+        self.assertIn("streetRequest?.cancel()", self.live)
+        self.assertIn("if let street = recorder.upcomingTurnStreet", self.live)
+
+    def test_navigation_cue_and_metrics_reach_live_activity_widget(self):
+        self.assertIn("public var navigation: NavigationCue?", self.attributes)
+        self.assertIn("navigation: navigation", self.live)
+        self.assertIn("navigation: phase == .completed ? nil : navigation", self.activity)
+        self.assertIn("navigationStrip(cue, compact: true)", self.widget)
+        self.assertIn("navigationStrip(cue, compact: false)", self.widget)
+        self.assertIn("lockMetric(value: timer(context.state)", self.widget)
+        self.assertIn("islandMetric(value: timer(context.state)", self.widget)
 
 
 if __name__ == "__main__":

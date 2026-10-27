@@ -25,11 +25,35 @@ public struct TrainingActivityAttributes: ActivityAttributes {
         public var secondaryValue: String
         public var secondaryLabel: String
 
+        /// Solo próxima maniobra y calle orientativa: nunca se comparten puntos GPS.
+        public struct NavigationCue: Codable, Hashable, Sendable {
+            public var instruction: String
+            public var street: String?
+            public var distanceMeters: Int?
+            public var symbol: String
+            public var isOffRoute: Bool
+
+            public init(
+                instruction: String, street: String? = nil, distanceMeters: Int? = nil,
+                symbol: String = "arrow.up", isOffRoute: Bool = false
+            ) {
+                self.instruction = instruction
+                self.street = street
+                self.distanceMeters = distanceMeters
+                self.symbol = symbol
+                self.isOffRoute = isOffRoute
+            }
+        }
+
+        /// nil para entrenamientos sin ruta; opcional para decodificar estados previos.
+        public var navigation: NavigationCue?
+
         public init(
             phase: Phase, title: String, symbol: String, subtitle: String,
             timerAnchor: Date, elapsedSeconds: Int,
             primaryValue: String, primaryLabel: String,
-            secondaryValue: String, secondaryLabel: String
+            secondaryValue: String, secondaryLabel: String,
+            navigation: NavigationCue? = nil
         ) {
             self.phase = phase
             self.title = title
@@ -41,6 +65,7 @@ public struct TrainingActivityAttributes: ActivityAttributes {
             self.primaryLabel = primaryLabel
             self.secondaryValue = secondaryValue
             self.secondaryLabel = secondaryLabel
+            self.navigation = navigation
         }
     }
 

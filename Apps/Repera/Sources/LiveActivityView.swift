@@ -731,6 +731,21 @@ final class LiveActivityRecorder: NSObject {
     private(set) var upcomingTurnSymbol: String = "arrow.up"
     private(set) var followingTurnMeters: Int?
     private(set) var followingTurnSymbol: String?
+    private(set) var upcomingTurnStreet: String?
+    private var streetNamesByTurn: [Int: String] = [:]
+    private var lastStreetTurnIndex: Int?
+    @ObservationIgnored private var streetRequest: MKReverseGeocodingRequest?
+    /// El widget recibe únicamente la próxima maniobra; no recibe el GPX.
+    var navigationCue: TrainingActivityAttributes.ContentState.NavigationCue? {
+        guard sport.usesGPS, chosenRoute != nil else { return nil }
+        return .init(
+            instruction: upcomingTurnInstruction ?? upcomingTurn ??
+                (phase == .idle ? "Ruta cargada" : "Esperando ubicación"),
+            street: upcomingTurnStreet, distanceMeters: upcomingTurnMeters,
+            symbol: upcomingTurnSymbol,
+            isOffRoute: upcomingTurn?.hasPrefix("Fuera de ruta") == true
+        )
+    }
     private var lastKilometerBoundarySeconds: TimeInterval = 0
     private var previousFixActiveSeconds: TimeInterval?
     private var selectedRouteDistance: [Double] = []
@@ -913,6 +928,7 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .idle, !isStartCountingDown else { return }
         sport = selection
         chosenRoute = nil
+        prepareRouteNavigation()
         UserDefaults.standard.set(selection.rawValue, forKey: "repera.live.lastSport")
     }
 
@@ -923,17 +939,72 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func prepareRouteNavigation() {
+        clearStreetCue()
+        streetNamesByTurn = [:]
         let points = chosenRoute?.points ?? []
         selectedRouteDistance = LiveGPXTurnDetection.cumulative(points)
         selectedRouteTurns = LiveGPXTurnDetection.detect(
             points, along: selectedRouteDistance
         )
         announcedTurnIndices = []
-        upcomingTurn = nil
+        upcomingTurn = chosenRoute == nil ? nil : "Ruta cargada"
         upcomingTurnInstruction = nil
         upcomingTurnMeters = nil
+        upcomingTurnSymbol = "arrow.up"
         followingTurnMeters = nil
         followingTurnSymbol = nil
+        if let coordinate = currentCoordinate, chosenRoute != nil {
+            updateUpcomingTurn(position: CLLocation(
+                latitude: coordinate.latitude, longitude: coordinate.longitude
+            ))
+        }
+    }
+
+    private func clearStreetCue() {
+        streetRequest?.cancel()
+        streetRequest = nil
+        lastStreetTurnIndex = nil
+        upcomingTurnStreet = nil
+    }
+
+    /// Consulta una vez por maniobra la vía situada DESPUÉS del giro. Los nombres
+    /// proceden de MapKit y pueden faltar (senderos, GPX sin calles o sin red).
+    /// Nunca sustituimos la geometría del GPX por una ruta de coche distinta.
+    private func resolveStreet(for turn: LiveRouteTurn, on route: LiveSavedRoute) {
+        guard lastStreetTurnIndex != turn.routeIndex else { return }
+        clearStreetCue()
+        lastStreetTurnIndex = turn.routeIndex
+        if let cached = streetNamesByTurn[turn.routeIndex] {
+            upcomingTurnStreet = cached
+            return
+        }
+        let targetDistance = turn.metersAlongRoute + 25
+        let targetIndex = (turn.routeIndex..<route.points.count).first {
+            selectedRouteDistance[$0] >= targetDistance
+        } ?? min(turn.routeIndex + 1, route.points.count - 1)
+        let point = route.points[targetIndex]
+        guard let request = MKReverseGeocodingRequest(location: CLLocation(
+            latitude: point.latitude, longitude: point.longitude
+        )) else { return }
+        streetRequest = request
+        let routeID = route.id
+        let turnIndex = turn.routeIndex
+        Task { @MainActor [weak self] in
+            let places = try? await request.mapItems
+            guard let self, self.chosenRoute?.id == routeID,
+                  self.lastStreetTurnIndex == turnIndex,
+                  !request.isCancelled else { return }
+            self.streetRequest = nil
+            guard let street = places?.first?.address?.shortAddress?
+                .components(separatedBy: ",").first?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                !street.isEmpty else { return }
+            self.streetNamesByTurn[turnIndex] = street
+            self.upcomingTurnStreet = street
+            if self.phase == .recording || self.phase == .paused {
+                self.updateLiveActivity()
+            }
+        }
     }
 
     /// Precarga el punto azul sin iniciar ni registrar todavía una sesión.
@@ -950,6 +1021,11 @@ final class LiveActivityRecorder: NSObject {
                     latitude: pin.latitude, longitude: pin.longitude
                 )
                 self?.gpsMessage = nil
+                if self?.chosenRoute != nil {
+                    self?.updateUpcomingTurn(position: CLLocation(
+                        latitude: pin.latitude, longitude: pin.longitude
+                    ))
+                }
             }
         }
     }
@@ -1014,7 +1090,11 @@ final class LiveActivityRecorder: NSObject {
         lastKilometerBoundarySeconds = 0
         previousFixActiveSeconds = nil
         announcedTurnIndices = []
-        upcomingTurn = nil
+        if let coordinate = currentCoordinate, chosenRoute != nil {
+            updateUpcomingTurn(position: CLLocation(
+                latitude: coordinate.latitude, longitude: coordinate.longitude
+            ))
+        }
         lastPublishedDistanceMeters = 0
         currentSpeedMps = nil
         currentCourseDegrees = nil
@@ -1227,6 +1307,11 @@ final class LiveActivityRecorder: NSObject {
         currentCourseDegrees = nil
         currentCoordinate = nil
         upcomingTurn = nil
+        upcomingTurnInstruction = nil
+        upcomingTurnMeters = nil
+        followingTurnMeters = nil
+        followingTurnSymbol = nil
+        clearStreetCue()
         kilometerSplits = []
         latestKilometerReport = nil
         previousFixActiveSeconds = nil
@@ -1401,14 +1486,16 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func updateUpcomingTurn(position: CLLocation) {
-        guard let route = chosenRoute, route.points.count >= 3,
+        guard let route = chosenRoute, route.points.count >= 2,
               selectedRouteDistance.count == route.points.count
         else {
             upcomingTurn = nil
             upcomingTurnInstruction = nil
             upcomingTurnMeters = nil
+            upcomingTurnSymbol = "arrow.up"
             followingTurnMeters = nil
             followingTurnSymbol = nil
+            clearStreetCue()
             return
         }
         // Un GPX puede superar 20 000 puntos. Limitar el trabajo GPS a
@@ -1426,25 +1513,46 @@ final class LiveActivityRecorder: NSObject {
                 bestIndex = index
             }
         }
+        // Refinar el vértice: los puntos saltados en un GPX denso pueden
+        // coincidir exactamente con el cruce o el final del recorrido.
+        for index in max(0, bestIndex - step)...min(route.points.count - 1, bestIndex + step) {
+            let point = route.points[index]
+            let d = position.distance(
+                from: CLLocation(latitude: point.latitude, longitude: point.longitude)
+            )
+            if d < nearestMeters {
+                nearestMeters = d
+                bestIndex = index
+            }
+        }
         guard nearestMeters < 55 else {
             upcomingTurn = "Fuera de ruta · revisa el mapa"
-            upcomingTurnInstruction = nil
+            upcomingTurnInstruction = phase == .idle
+                ? "Acércate al recorrido" : "Fuera de ruta"
             upcomingTurnMeters = nil
+            upcomingTurnSymbol = "exclamationmark.triangle.fill"
             followingTurnMeters = nil
             followingTurnSymbol = nil
+            clearStreetCue()
             return
         }
         let along = selectedRouteDistance[bestIndex]
+        // Mantener el letrero hasta rebasar el giro: antes se ocultaba
+        // en los últimos ocho metros, justo cuando más se necesitaba.
         guard let next = selectedRouteTurns.first(where: {
-            $0.routeIndex > bestIndex && $0.metersAlongRoute > along + 8
+            $0.metersAlongRoute >= along - 12
         }) else {
             upcomingTurn = "Sigue el recorrido"
-            upcomingTurnInstruction = nil
+            upcomingTurnInstruction = (selectedRouteDistance.last ?? 0) - along < 35
+                ? "Llegando al final" : "Sigue el recorrido"
             upcomingTurnMeters = nil
+            upcomingTurnSymbol = "arrow.up"
             followingTurnMeters = nil
             followingTurnSymbol = nil
+            clearStreetCue()
             return
         }
+        resolveStreet(for: next, on: route)
         let remaining = max(0, next.metersAlongRoute - along)
         upcomingTurnInstruction = next.instruction
         upcomingTurnMeters = Int((remaining / 10).rounded() * 10)
@@ -1463,7 +1571,8 @@ final class LiveActivityRecorder: NSObject {
         } else {
             let meters = Int((remaining / 10).rounded() * 10)
             upcomingTurn = "\(next.instruction) aprox. en \(meters) m"
-            if remaining <= (sport.isCycling ? 120 : 70),
+            if phase == .recording,
+               remaining <= (sport.isCycling ? 120 : 70),
                !announcedTurnIndices.contains(next.routeIndex) {
                 announcedTurnIndices.insert(next.routeIndex)
                 // La guía procede solo de la geometría GPX: no sustituye
@@ -1524,10 +1633,12 @@ final class LiveActivityRecorder: NSObject {
         let elapsed = durationSeconds
         let distance = recordedDistanceMeters
         let kmh = averageSpeedKmh
+        let navigation = status == .completed ? nil : navigationCue
         Task {
             await WorkoutLiveActivityCoordinator.shared.updateFree(
                 startedAt: startedAt, sport: sport, phase: status,
-                elapsedSeconds: elapsed, distanceMeters: distance, speedKmh: kmh
+                elapsedSeconds: elapsed, distanceMeters: distance, speedKmh: kmh,
+                navigation: navigation
             )
         }
     }
@@ -1718,7 +1829,9 @@ struct LiveActivityView: View {
         .onChange(of: recorder.phase) { previous, next in
             // Al terminar la cuenta, cambiar a Métricas como antes al iniciar.
             if previous == .idle && next == .recording {
-                showingMetrics = recorder.sport.usesGPS
+                // Con GPX seleccionado iniciar en modo navegador, no ocultar
+                // los giros cambiando automáticamente a Métricas.
+                showingMetrics = recorder.sport.usesGPS && recorder.chosenRoute == nil
             }
         }
         .onChange(of: scenePhase) { _, next in
@@ -1862,9 +1975,7 @@ struct LiveActivityView: View {
                 if landscape {
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 12) {
-                            if recorder.phase == .recording,
-                               recorder.chosenRoute != nil,
-                               recorder.upcomingTurnMeters != nil {
+                            if recorder.chosenRoute != nil {
                                 navigationDirectionsBanner
                             }
                             mapStatusMessages
@@ -1903,9 +2014,7 @@ struct LiveActivityView: View {
                     VStack(spacing: 12) {
                         ZStack(alignment: .topLeading) {
                             mapHeader
-                            if recorder.phase == .recording,
-                               recorder.chosenRoute != nil,
-                               recorder.upcomingTurnMeters != nil {
+                            if recorder.chosenRoute != nil {
                                 navigationDirectionsBanner
                                     .padding(.trailing, 64)
                             }
@@ -1957,13 +2066,6 @@ struct LiveActivityView: View {
             .padding(.vertical, 8)
             .glassEffect(.regular, in: .capsule)
         }
-        if let offRoute = recorder.offRouteMeters, offRoute > 60 {
-            Label("Fuera del recorrido · \(Int(offRoute)) m", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .glassEffect(.regular, in: .capsule)
-        }
         if let gpsMessage = recorder.gpsMessage, recorder.phase == .idle {
             Text(gpsMessage)
                 .font(.caption.weight(.medium))
@@ -1974,23 +2076,30 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Indicaciones orientativas basadas en los giros del GPX, sin inventar nombres de calles.
+    /// Navegación GPX: indicación visible incluso sin giro inmediato.
     private var navigationDirectionsBanner: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(spacing: 7) {
                 Image(systemName: recorder.upcomingTurnSymbol)
-                    .font(.system(size: 45, weight: .bold))
-                Text("\(recorder.upcomingTurnMeters ?? 0) m")
-                    .font(.system(size: 18, weight: .bold))
-                    .monospacedDigit()
+                    .font(.system(size: 43, weight: .bold))
+                if let distance = recorder.upcomingTurnMeters {
+                    Text(navigationDistanceLabel(distance))
+                        .font(.system(size: 18, weight: .bold))
+                        .monospacedDigit()
+                }
             }
-            .frame(width: 88)
+            .frame(width: 76)
 
-            VStack(alignment: .leading, spacing: 7) {
-                Text(recorder.upcomingTurnInstruction ?? "Sigue la ruta")
-                    .font(.system(size: 22, weight: .bold))
-                    .lineLimit(3)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(recorder.navigationCue?.instruction ?? "Ruta cargada")
+                    .font(.system(size: 21, weight: .bold))
+                    .lineLimit(2)
                     .minimumScaleFactor(0.8)
+                if let street = recorder.upcomingTurnStreet {
+                    Text("Hacia \(street)")
+                        .font(.system(size: 16, weight: .medium))
+                        .lineLimit(2)
+                }
                 if let meters = recorder.followingTurnMeters,
                    let symbol = recorder.followingTurnSymbol {
                     HStack(spacing: 6) {
@@ -1998,19 +2107,25 @@ struct LiveActivityView: View {
                         Image(systemName: symbol)
                         Text("\(meters) m").monospacedDigit()
                     }
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .foregroundStyle(.black)
-        .padding(.vertical, 18)
-        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.accent,
                     in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(recorder.upcomingTurn ?? "Indicaciones de la ruta")
+    }
+
+    private func navigationDistanceLabel(_ meters: Int) -> String {
+        meters >= 1_000
+            ? String(format: "%.1f km", Double(meters) / 1_000)
+            : "\(max(0, meters)) m"
     }
 
     /// Descartar encima, GPS y Métricas debajo. GPS solo al alejarse del centro.
@@ -2301,6 +2416,31 @@ struct LiveActivityView: View {
                 .frame(height: 68)
                 .padding(.horizontal, OG.topBarHorizontalInset)
                 .padding(.top, 14)
+                if recorder.chosenRoute != nil, recorder.phase != .idle {
+                    HStack(spacing: 9) {
+                        Image(systemName: recorder.upcomingTurnSymbol)
+                            .font(.title2.weight(.bold))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(recorder.navigationCue?.instruction ?? "Sigue el recorrido")
+                                .font(.subheadline.weight(.bold))
+                            if let street = recorder.upcomingTurnStreet {
+                                Text("Hacia \(street)")
+                                    .font(.caption)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 4)
+                        if let meters = recorder.upcomingTurnMeters {
+                            Text(navigationDistanceLabel(meters))
+                                .font(.subheadline.weight(.bold))
+                                .monospacedDigit()
+                        }
+                    }
+                    .foregroundStyle(.black)
+                    .padding(12)
+                    .background(OG.accent, in: .rect(cornerRadius: 14))
+                    .padding(.horizontal, OG.topBarHorizontalInset)
+                }
 
                 Spacer(minLength: 16)
                 Text(formattedTime(recorder.duration(at: timeline.date)))

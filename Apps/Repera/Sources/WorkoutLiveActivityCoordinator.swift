@@ -18,7 +18,8 @@ final class WorkoutLiveActivityCoordinator {
     /// En vivo: métricas GPS verificadas. Pausas descontadas del tiempo activo.
     func updateFree(
         startedAt: Date, sport: LiveSport, phase: TrainingActivityAttributes.ContentState.Phase,
-        elapsedSeconds: TimeInterval, distanceMeters: Double, speedKmh: Double?
+        elapsedSeconds: TimeInterval, distanceMeters: Double, speedKmh: Double?,
+        navigation: TrainingActivityAttributes.ContentState.NavigationCue? = nil
     ) async {
         let key = "free:" + String(Int64(startedAt.timeIntervalSince1970 * 1000))
         let elapsed = max(0, Int(elapsedSeconds.rounded(.down)))
@@ -41,7 +42,8 @@ final class WorkoutLiveActivityCoordinator {
             primaryValue: isGPS ? pace : "—",
             primaryLabel: isGPS ? (sport.displaysSpeed ? "Veloc. media" : "Ritmo medio") : "FC (ppm)",
             secondaryValue: isGPS ? String(format: "%.2f", max(0, distanceMeters) / 1000) : "—",
-            secondaryLabel: isGPS ? "Distancia (km)" : "Kcal"
+            secondaryLabel: isGPS ? "Distancia (km)" : "Kcal",
+            navigation: phase == .completed ? nil : navigation
         )
         await upsert(id: key, isPlanned: false, state: state)
     }
