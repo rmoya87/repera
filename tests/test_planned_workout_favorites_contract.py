@@ -48,7 +48,7 @@ class PlannedWorkoutFavoritesContractTests(unittest.TestCase):
         self.assertIn("guard saveRoutine(favorite) else { return nil }", STORE)
 
     def test_star_and_one_off_editor_surface_freemium_failure(self):
-        self.assertIn("guard store.setRoutineFavorite(", PREVIEW)
+        self.assertIn("return store.setRoutineFavorite(", PREVIEW)
         self.assertIn("presentFavoriteLimitPaywall()", PREVIEW)
         oneoff = EDITOR.split("case .oneOff:\n            var draft = routine", 1)[1].split(
             "case .favorite:", 1
