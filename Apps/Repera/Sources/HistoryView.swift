@@ -344,6 +344,26 @@ struct WorkoutDetailView: View {
             _ = store.ensureSessionReview(for: sessionId)
             draft = store.state.workouts.first(where: { $0.id == sessionId })
             guard let session = draft else { return }
+            #if DEBUG
+            // Diagnóstico sin datos personales si un WOD histórico todavía
+            // muestra el alias antiguo: permite leer los escalares OCR reales,
+            // el UUID original y la ficha a la que resuelve la app.
+            for entry in session.exercises {
+                let raw = entry.exercise.name
+                let key = raw.lowercased()
+                guard key.contains("bt") || key.contains("t2") || key.contains("ttb")
+                    || key.contains("toes") else { continue }
+                let scalars = raw.unicodeScalars.map {
+                    String(format: "%04X", $0.value)
+                }.joined(separator: " ")
+                let resolved = store.historicalDisplayExercise(entry.exercise)
+                NSLog(
+                    "REPERA_ALIAS_DEBUG raw=%@ scalars=%@ savedUUID=%@ matched=%@ matchedUUID=%@",
+                    raw, scalars, entry.exercise.id.uuidString,
+                    resolved.name, resolved.id.uuidString
+                )
+            }
+            #endif
             let extras = await health.sessionHealthExtras(for: session)
             guard !Task.isCancelled else { return }
             healthExtras = extras
