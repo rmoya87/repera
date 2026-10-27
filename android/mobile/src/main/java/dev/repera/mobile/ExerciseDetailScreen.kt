@@ -48,6 +48,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -67,6 +70,7 @@ internal fun ExerciseDetailScreen(
     onToggleFavorite:(()->Unit)? = null,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
+    exerciseSummary: (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
     highlightSessionId: String? = null,
     highlightInstanceId: String? = null,
     sessionAppearances: (exerciseId: String, highlightSessionId: String,
@@ -214,7 +218,8 @@ internal fun ExerciseEvolutionSection(
     entry: ExerciseEntry,
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint>,
-    testedOneRM:Double?,onSetTestedOneRM:(Double?)->Unit,busy:Boolean
+    testedOneRM:Double?,onSetTestedOneRM:(Double?)->Unit,busy:Boolean,
+    summary: dev.repera.domain.ExerciseHistorySummary? = null
 ) {
     val metrics = ExerciseProgressMetric.available(
         if (entry.loggingStyle == "machineWork") "machineWork"
@@ -236,6 +241,68 @@ internal fun ExerciseEvolutionSection(
         Column(modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Evolución", style = MaterialTheme.typography.titleLarge)
+            // Apple 025828b5/1b5d4eea (ExerciseEvolutionPanel.summaryTiles):
+            // fichas centradas valor 18 semibold + etiqueta 11 sobre surface2.
+            // El tope 1RM ya vive en TestedOneRMEditor (misma funcion que el
+            // topeOneRMTile editable de Apple, no se duplica).
+            summary?.let { h ->
+                val isMobility = entry.sportTag == "Movilidad"
+                val isMobilityHold = entry.mobilityHold
+                val style = when (entry.loggingStyle) {
+                    "machineWork" -> "machineWork"
+                    "repsAndTime" -> "repsAndTime"
+                    else -> "loadAndReps"
+                }
+                val isStrength = !isMobility && style == "loadAndReps"
+                fun fmtDur(sec: Int): String {
+                    val m = sec / 60; val ss = sec % 60
+                    return if (ss == 0) "$m:00" else "%d:%02d".format(m, ss)
+                }
+                if (isMobility) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EvoTile(if (isMobilityHold) "Mejor sostén" else "Duración máx.",
+                            h.bestDurationSeconds?.let { fmtDur(it) } ?: "—", Modifier.weight(1f))
+                        if (!isMobilityHold) {
+                            EvoTile("Reps máx.", h.bestReps?.toString() ?: "—", Modifier.weight(1f))
+                        }
+                        EvoTile("Sesiones", if (h.hasData) "${h.timesPerformed}" else "—", Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EvoTile("Último tiempo", h.lastDurationSeconds?.let { fmtDur(it) } ?: "—", Modifier.weight(1f))
+                        if (!isMobilityHold) {
+                            EvoTile("Últimas reps", h.lastReps?.toString() ?: "—", Modifier.weight(1f))
+                        }
+                    }
+                } else if (isStrength) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EvoTile("Máx.", h.maxWeightKg?.let {
+                            dev.repera.domain.ReperaNumberFormat.decimal(it) + " kg" } ?: "—", Modifier.weight(1f))
+                        EvoTile("e1RM", h.estimatedOneRM?.let {
+                            dev.repera.domain.ReperaNumberFormat.decimal(it) + " kg" } ?: "—", Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        EvoTile("Reps máx.", h.bestReps?.toString() ?: "—", Modifier.weight(1f))
+                        EvoTile("Veces", if (h.hasData) "${h.timesPerformed}" else "—", Modifier.weight(1f))
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (style == "machineWork") {
+                            EvoTile("Cal máx.", h.bestCalories?.toString() ?: "—", Modifier.weight(1f))
+                            EvoTile("m máx.", h.bestMeters?.toString() ?: "—", Modifier.weight(1f))
+                        } else {
+                            EvoTile("Reps máx.", h.bestReps?.toString() ?: "—", Modifier.weight(1f))
+                            EvoTile("Tiempo", h.bestDurationSeconds?.let { fmtDur(it) } ?: "—", Modifier.weight(1f))
+                        }
+                        EvoTile("Veces", if (h.hasData) "${h.timesPerformed}" else "—", Modifier.weight(1f))
+                    }
+                    if (style == "machineWork" || entry.loggingStyle == "repsAndTime") {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            EvoTile("Mejor tiempo", h.bestDurationSeconds?.let { fmtDur(it) } ?: "—", Modifier.weight(1f))
+                            EvoTile("Última", h.lastQuantityLabel ?: "—", Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
             if(entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime")
                 TestedOneRMEditor(testedOneRM,busy,onSetTestedOneRM)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -303,6 +370,26 @@ internal fun ExerciseEvolutionSection(
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
+}
+
+/** Apple 025828b5 evoTile: valor 18 semibold + etiqueta 11 medium label3,
+ *  centrados, fondo surface2 redondeado. */
+@Composable
+private fun EvoTile(title: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier
+        .background(MaterialTheme.colorScheme.surfaceVariant,
+            androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+        .padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth())
+        Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth())
     }
 }
 

@@ -23,7 +23,19 @@ data class ExerciseHistorySummary(
     val lastReps: Int? = null,
     val lastQuantityUnit: String? = null,
     val lastDurationSeconds: Int? = null
-)
+) {
+    val hasData: Boolean get() = timesPerformed > 0
+
+    /** 1:1 StatsEngine.swift lastQuantityLabel. */
+    val lastQuantityLabel: String? get() {
+        val reps = lastReps ?: return null
+        return when (lastQuantityUnit) {
+            "calories" -> "$reps cal"
+            "meters" -> "$reps m"
+            else -> if (lastWeightKg != null) "$reps reps" else "$reps"
+        }
+    }
+}
 
 /** Tipos reducidos de entrada para las estadísticas (adaptados desde el
  *  snapshot JSON en mobile). Semántica 1:1 con StatsEngine.swift (iOS). */

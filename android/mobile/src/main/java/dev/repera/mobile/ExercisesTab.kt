@@ -100,6 +100,7 @@ internal fun ExercisesTab(
     accountId: String = "", onArchiveChanged: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() },
+    exerciseSummary:(String)->dev.repera.domain.ExerciseHistorySummary? = { null },
     exerciseSeries:(String,ExerciseProgressMetric,ExerciseProgressRange)->List<ExerciseProgressPoint> = {_,_,_->emptyList()},
     onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
     wodFavorites:Set<String> = emptySet(),
@@ -180,6 +181,7 @@ internal fun ExercisesTab(
                     incrementKg=overview?.trainingSettings?.weightIncrementKg ?: 2.5,
                     onSetTestedOneRM={onSetTestedOneRM(entry.id,it)},busy=busy,onQuickLog={quickLogId=entry.id},
                     onToggleFavorite={onSetExerciseFavorite(entry.id,!entry.isFavorite)},
+                    exerciseSummary=exerciseSummary,
                     exerciseSeries=exerciseSeries,onBack=close)
             })
         return
@@ -543,7 +545,7 @@ Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
                             estimatedOneRM=overview?.exerciseProgress?.get(selected.id)?.estimatedOneRM,
                             incrementKg=overview?.trainingSettings?.weightIncrementKg ?: 2.5,
                             onSetTestedOneRM={onSetTestedOneRM(selected.id,it)},busy=busy,
-                            onQuickLog={quickLogId=selected.id},exerciseSeries=exerciseSeries,
+                            onQuickLog={quickLogId=selected.id},exerciseSummary=exerciseSummary,exerciseSeries=exerciseSeries,
                             onToggleFavorite={onSetExerciseFavorite(selected.id,!selected.isFavorite)},
                             onBack={selectedExerciseId=null})
                     }

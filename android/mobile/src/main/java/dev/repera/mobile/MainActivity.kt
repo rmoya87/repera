@@ -710,6 +710,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 status = status,
                 overview = snapshot,
                 onSetTestedOneRM = { id,value -> runWorkoutAction { setTestedOneRM(id,value) } },
+                exerciseSummary = { exerciseId ->
+                    val uid = profile?.uniqueId
+                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
+                    if (bytes == null) null else dev.repera.domain.StatsEngine.exerciseHistory(
+                        exerciseId,
+                        workouts = ProgressSnapshotBuilder.statsWorkouts(
+                            org.json.JSONObject(String(bytes, Charsets.UTF_8))))
+                },
                 exerciseSeries = { exerciseId, metric, range ->
                     val uid = profile?.uniqueId
                     val bytes = uid?.let { LocalSnapshotStore(this, it).read() }

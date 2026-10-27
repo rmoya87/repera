@@ -163,6 +163,7 @@ fun ReperaMobileScreen(
     onDeleteSet: (String) -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
+    exerciseSummary: (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
     exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     sessionAppearances: (exerciseId: String, highlightSessionId: String,
@@ -665,6 +666,7 @@ fun ReperaMobileScreen(
                         requestedLibraryMode=libraryModeRequest,onLibraryModeRequestConsumed={libraryModeRequest=null},
                         onPlayWod={id,request ->onPlayWod(id,request) {navigateTab("inicio")}},
                         wodFavorites=overview?.wodTemplateFavorites.orEmpty(),onToggleWodFavorite=onToggleWodFavorite,
+                        exerciseSummary=exerciseSummary,
                         exerciseSeries=exerciseSeries,onSetTestedOneRM=onSetTestedOneRM,
                         heartSeriesProvider = heartSeriesProvider,
                         onUpdateFinishedWorkout = onUpdateFinishedWorkout,
@@ -852,6 +854,7 @@ fun ReperaMobileScreen(
                             incrementKg = overview?.trainingSettings?.weightIncrementKg ?: 2.5,
                             onSetTestedOneRM = {onSetTestedOneRM(entry.id,it)},
                             busy = busy,
+                            exerciseSummary = exerciseSummary,
                             exerciseSeries = exerciseSeries,
                             highlightSessionId = highlightSessionId,
                             highlightInstanceId = highlightInstanceId,
