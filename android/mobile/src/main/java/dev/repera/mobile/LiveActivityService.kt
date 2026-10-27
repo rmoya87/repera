@@ -55,7 +55,12 @@ internal class LiveActivityService : Service() {
         // Tras relanzar el proceso: si la grabación se interrumpió de forma
         // imprevista (snapshot <= 2 h en RECORDING), el GPS se restaura con
         // bridging acotado sin pulsar Iniciar (ca3c0383). No-op en pausa.
-        r.resumeInterruptedRecordingIfNeeded()
+        // Apple 32e169eb: una sesión Play programada activa es dueña del
+        // sensor; no compiten dos reanudaciones GPS.
+        val plannedSessionActive = runCatching {
+            WorkoutRepository(this, account).activeSessionOutdoorInfo() != null
+        }.getOrDefault(false)
+        if (!plannedSessionActive) r.resumeInterruptedRecordingIfNeeded()
         if (!ticking) {ticking=true;handler.post(tick)}
         return START_NOT_STICKY
     }
