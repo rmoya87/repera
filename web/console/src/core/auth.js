@@ -112,7 +112,8 @@ export class ReperaAuthAPI {
  }
  async changeOwnEmail(email){
   const address=String(email||'').trim().toLowerCase();
-  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(address)||address.length>180)throw Error('Introduce un correo electrónico válido');
+  if(!/^[^ @]+@[^ @]+[.][^ @]+$/.test(address)||address.length>180)
+   throw Error('Introduce un correo electrónico válido');
   const token=await this.token();if(!token)throw Error('Inicia sesión');
   return this.#request('/auth/v1/user',{method:'PUT',token,body:{email:address}});
  }
@@ -122,7 +123,7 @@ export class ReperaAuthAPI {
   const objectPath=user.id+'/avatar.jpg';
   const url=await this.#uploadStorage('profile-avatars',objectPath,blob,true);
   const result=await this.#authorized('profiles?id=eq.'+encodeURIComponent(user.id)+'&select=id,avatar_url',
-   {method:'PATCH',prefer:'return=representation',body:{avatar_url:url}});
+   {method:'PATCH',prefer:'return=representation',body:{avatar_url:url+'?v='+Date.now()}});
   if(!result?.length)throw Error('No se pudo actualizar el perfil con la foto');
   return url;
  }
