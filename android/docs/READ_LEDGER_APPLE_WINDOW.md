@@ -203,3 +203,10 @@ el Cue Android no lo expone. Anotado, sin portar aún.
 - Ranking conservado para consultas no disciplina: param por defecto y tests de regresión (defaultUnchanged -1, wrongDiscipline -1, name match > discipline match).
 - Tests REALES XML: domain 388/388 (386+2 nuevos), mobile 462/462 REAL XML.
 - Matrix: 9f89e59f → verified-with-fix (tree169).
+
+## tree170 (10:41) — b46562cc + ba692f65 VERIFICADOS por paridad de datos (sin fix)
+- Método: extractor propio del repo (android/tools/extract_catalog.py, implementa orden nombre-primero post-b46562cc) regenerado contra bd4d7637 → 288 entradas; comparación campo a campo (name, muscleGroup, catalogId, detailDescription, equipment, instructions, sportTag) con catalog_seed.json → 0 diffs. Segunda reimplementación independiente en Python de spanishByName/spanishAlias/translateSentence: 206 desc + 208 instrucciones coincidentes, 0 diffs. check_catalog_parity.py oficial: PASS (288 entradas, 196 ids preservados, esquemas v3/v5).
+- b46562cc (orden nombre-primero): único caso discriminante en toda la tabla = "Back rack reverse lunge" (alias "Zancadas inversas con barra", textos distintos); el seed Android lleva el texto del orden NUEVO. Verified.
+- ba692f65 (fallback CatalogMovilidad): mobility_seed.json 82/82 lleva verbatim detailedDescription/detailedInstructions de Apple (raw + sufijo "Ejercicio de movilidad controlada para…"); la vía translateSentence produce el mismo texto (descripciones raw ya en español, phrasePairs solo inglés). Verified.
+- Nota: las 2 entradas HYROX (Burpee Broad Jump, Sandbag Lunges) no tienen catalogId en Apple bd4; los hyrox-* de Android son identidad propia por diseño (README android/tools, esquema v3). No es divergencia.
+- matrix actualizada: b46562cc, ba692f65 → verified. Scratch b46562cc eliminado.
