@@ -1,5 +1,14 @@
 # Repera
 
+**Pagos**: también existe `business_client_payments` para futuros cobros B2C, separado del ledger B2B y sin webhook configurado; consultar `20261027131000_platform_client_payment_ledger.sql`.
+
+## Repera Business: administrador global (2026-10-27)
+
+La consola Business autenticada incorpora un panel independiente de plataforma (gimnasios, entrenadores, clientes agregados, fichas y configuraciones públicas, alta diferida de negocios, auditoría, pagos B2B y acceso delegado temporal de 30 minutos). El frontend está en `web/console/src/ui/platform-admin.js`; el backend se rige por `supabase/migrations/20261027120000_platform_admin_console.sql`. La delegación no comparte credenciales ni tokens con el propietario y conserva restricciones sobre datos privados.
+
+**Sin integración de pagos real:** las solicitudes de plan no equivalen a cobros, y las tablas de pagos no reciben transacciones hasta configurar webhooks verificados de Stripe Billing y Connect. El sistema web conectado y la base de datos no implican por sí solos que la consola esté desplegada en IONOS. Detalles: `docs/business/ESTADO_DESARROLLO.md`, `docs/business/SEGURIDAD.md` y `docs/business/BASE_DATOS.md`.
+
+
 App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (SDK oficial iOS + sesión Supabase), UI **SwiftUI Liquid Glass** (iOS 27+).
 
 Última actualización: 2026-10-26 (sesiones múltiples por día, Comenzar con más deportes HealthKit, eliminación de series por swipe y estado de copia Supabase; Android/Wear sigue en su rama).
