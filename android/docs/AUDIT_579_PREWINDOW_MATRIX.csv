@@ -1,6 +1,6 @@
 commit|date|subject|areas|candidate_android_ports_heuristic|status
-fc3ef7e1|2026-10-26T00:52:39+01:00|Center empty Routines card in expanded Diary layout|ios-app|8e27b8d5|unverified
-7e5c480b|2026-10-26T00:49:19+01:00|Quick log becomes Apuntar ejercicio with numeric keypad and glass cards|ios-app||unverified
+fc3ef7e1|2026-10-26T00:52:39+01:00|Center empty Routines card in expanded Diary layout|ios-app|8e27b8d5|verified-n/a 13:36: layout Diario expandido — Diario eliminado en Apple (c5aae1cc 26oct) y Android (rama work/tree158-diario-removal); commit queda superseded
+7e5c480b|2026-10-26T00:49:19+01:00|Quick log becomes Apuntar ejercicio with numeric keypad and glass cards|ios-app||verified-ported 13:36: QuickLogSheet Android existe (Apuntar ejercicio, teclado numerico Decimal/Number, QuickLogDefaults/Draft/Rows); glass cards = chrome iOS, equivalente Material en Android
 96efb7b6|2026-10-26T00:38:25+01:00|Adaptive right-column Settings, routines and exercise actions|ios-app|1633bbd8 88803012|unverified
 c0b0eae9|2026-10-26T00:18:57+01:00|Fix DUO layout backgrounds, diary and exercise panes|ios-app||unverified
 f457e61f|2026-10-25T23:52:08+01:00|Adapt DUO landscape and GPS/navigation UI|ios-app||unverified
