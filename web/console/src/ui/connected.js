@@ -14,9 +14,10 @@ const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminAthletes=[],adminSettings={},
 adminAccount={},adminEditPlan='',adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[],
 adminSelectedAthlete='',adminCenterDetail=null,adminAthleteDetail=null,adminAthleteWorkouts=[],
+adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWorkouts=null,adminActivityLoading=false,
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -63,7 +64,7 @@ function enhanceWorkspace(own){
  root.querySelector('[data-workspace-section="clients"]')?.remove();
  root.querySelector('[data-workspace-section="services"]')?.remove();
  const attach=(tab,html)=>{const node=document.createElement('div');node.dataset.workspaceSection=tab;node.innerHTML=html;root.append(node);};
- attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates}));
+ attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager}));
  attach('clients',renderClient360({clients,selected:selectedClientId,passes,bookings,occurrences,sessions:professionalSessions,notices,sharedHistory,manager,role:own.get(selectedOrg)}));
  const members=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Mi cuenta':'Profesional '+m.user_id.slice(0,8)}));
  // A pre-registration center has no real owner/staff yet. The real actor can operate
@@ -92,6 +93,8 @@ function enhanceWorkspace(own){
    pending:adminPending,history:adminHistory,plans:planCatalog,selectedOrg:adminSelectedOrg,
    selectedAthlete:adminSelectedAthlete,centerDetail:adminCenterDetail,
    athleteData:adminAthleteDetail,athleteWorkouts:adminAthleteWorkouts,collapsed:adminNavCollapsed,
+   activityMonth:adminActivityMonth,activityDays:adminActivityDays,
+   activityDay:adminActivityDay,activityDayWorkouts:adminActivityWorkouts,activityLoading:adminActivityLoading,
    settings:adminSettings,account:adminAccount,editingPlan:adminEditPlan,
    filter:adminFilter,busy,error,notice,email:user.email||''});
   return;
@@ -133,12 +136,15 @@ async function finalizePendingRegistration(){
  }catch{sessionStorage.removeItem(PENDING_REGISTRATION_KEY);}
 }
 async function loadSelectedOrg(){
- if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];legalProfile=null;return;}
+ if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
  [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
  auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),
  auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg),auth.workoutTemplates(selectedOrg),
  auth.organizationTrial(selectedOrg),auth.classDetails(selectedOrg),auth.groupList(selectedOrg),auth.groupMembers(selectedOrg),auth.clientNotifications(selectedOrg)]);
  legalProfile=await auth.legalProfile(selectedOrg);
+ const role=delegation?'admin':memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role;
+ enrollmentRequests=['owner','admin'].includes(role)?
+  await auth.enrollmentRequests(selectedOrg):[];
 }
 async function reload(){
  // The platform role must be resolved independently of tenant membership RLS.
@@ -176,6 +182,7 @@ app.addEventListener('click',async event=>{
  const platformTab=event.target.closest('[data-admin-tab]');
  if(platformTab){adminTab=platformTab.dataset.adminTab;adminSelectedOrg='';adminSelectedAthlete='';
   adminCenterDetail=null;adminAthleteDetail=null;adminAthleteWorkouts=[];
+  adminActivityDays=[];adminActivityDay='';adminActivityWorkouts=null;
   error=notice='';render();return;}
  const platformButton=event.target.closest('[data-admin-action]');
  if(platformButton){
@@ -195,16 +202,48 @@ app.addEventListener('click',async event=>{
   if(command==='back-org'){adminSelectedOrg='';adminCenterDetail=null;render();return;}
   if(command==='view-athlete'){
    adminSelectedAthlete=platformButton.dataset.id;adminSelectedOrg='';adminCenterDetail=null;
-   adminAthleteDetail=null;adminAthleteWorkouts=[];adminTab='athletes';error=notice='';render();
+   adminAthleteDetail=null;adminAthleteWorkouts=[];adminActivityDays=[];
+   adminActivityDay='';adminActivityWorkouts=null;adminTab='athletes';error=notice='';render();
    try{
     [adminAthleteDetail,adminAthleteWorkouts]=await Promise.all([
      auth.platformAdminAthleteDetail(adminSelectedAthlete),
      auth.platformAdminAthleteWorkouts(adminSelectedAthlete,0,30)]);
+    const recent=adminAthleteWorkouts[0]?.started_at;
+    adminActivityMonth=recent?new Date(recent).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}).slice(0,7):
+     new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}).slice(0,7);
+    adminActivityDays=await auth.platformAdminAthleteActivity(adminSelectedAthlete,adminActivityMonth);
+    adminActivityDay=adminActivityDays.at(-1)?.day||'';
+    adminActivityWorkouts=adminActivityDay?
+     await auth.platformAdminAthleteDay(adminSelectedAthlete,adminActivityDay):[];
    }catch(e){error=e.message||'No se pudo cargar la ficha del atleta';}
    render();return;
   }
+  if(command==='athlete-month'&&!busy&&adminSelectedAthlete){
+   const step=Number(platformButton.dataset.step)||0;
+   if(Math.abs(step)!==1)return;
+   const [y,m]=(adminActivityMonth||new Date().toISOString().slice(0,7)).split('-').map(Number);
+   adminActivityMonth=new Date(Date.UTC(y,m-1+step,1)).toISOString().slice(0,7);
+   adminActivityDay='';adminActivityWorkouts=null;adminActivityDays=[];adminActivityLoading=true;render();
+   try{
+    adminActivityDays=await auth.platformAdminAthleteActivity(adminSelectedAthlete,adminActivityMonth);
+    adminActivityDay=adminActivityDays.at(-1)?.day||'';
+    adminActivityWorkouts=adminActivityDay?
+     await auth.platformAdminAthleteDay(adminSelectedAthlete,adminActivityDay):[];
+   }catch(e){error=e.message||'No se pudo consultar el mes seleccionado';adminActivityWorkouts=[];}
+   finally{adminActivityLoading=false;render();}
+   return;
+  }
+  if(command==='athlete-day'&&!busy&&adminSelectedAthlete){
+   const day=platformButton.dataset.day||'';
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!day.startsWith(adminActivityMonth))return;
+   adminActivityDay=day;adminActivityWorkouts=null;adminActivityLoading=true;render();
+   try{adminActivityWorkouts=await auth.platformAdminAthleteDay(adminSelectedAthlete,day);}
+   catch(e){error=e.message||'No se pudo consultar ese día';adminActivityWorkouts=[];}
+   finally{adminActivityLoading=false;render();}
+   return;
+  }
   if(command==='back-athletes'){
-   adminSelectedAthlete='';adminAthleteDetail=null;adminAthleteWorkouts=[];render();return;
+   adminSelectedAthlete='';adminAthleteDetail=null;adminAthleteWorkouts=[];adminActivityDays=[];adminActivityDay='';adminActivityWorkouts=null;render();return;
   }
   if(command==='more-athlete-workouts'&&!busy&&adminSelectedAthlete){
    busy=true;render();
