@@ -880,8 +880,20 @@ struct DayEditorView: View {
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 draft.title = "Entreno"
             }
-            // One-off (fecha) no cuenta como plantilla de biblioteca.
-            _ = store.saveRoutine(draft)
+            let wantsFavorite = draft.isFavorite
+            // El plan con fecha y el favorito de la biblioteca tienen IDs
+            // independientes. No marcar el calendario como favorito hasta
+            // que la nueva plantilla se haya guardado de verdad.
+            draft.isFavorite = store.state.routines.first(where: { $0.id == draft.id })?.isFavorite ?? false
+            guard store.saveRoutine(draft) else {
+                presentRoutineLimitPaywall()
+                return
+            }
+            guard store.setRoutineFavorite(draft.id, isFavorite: wantsFavorite) else {
+                routine.isFavorite = false
+                presentRoutineLimitPaywall()
+                return
+            }
             closeEditor()
         case .favorite:
             var draft = routine
