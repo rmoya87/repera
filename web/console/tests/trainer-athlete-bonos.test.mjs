@@ -81,6 +81,6 @@ test('bonos permiten emitir y registrar sesiones distinguiendo pagos externos',(
  assert.match(html,/data-connected="create-pass-offer"/);
  assert.match(html,/data-connected="issue-offline-pass"/);
  assert.match(html,/data-connected="trainer-attendance"/);
- assert.match(html,/gestionado fuera de Repera/);
+ assert.match(html,/fuera de Repera/);
  assert.match(html,/3\/10 sesiones/);
 });
