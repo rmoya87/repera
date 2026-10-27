@@ -157,44 +157,7 @@ internal fun ExerciseDetailScreen(
             }
         }
         item {
-            // Apple 49febc33: tarjeta "Músculos y equipo" con filas Músculo /
-            // También / Equipo / Disciplina, chips con glifos corporales.
-            val primary = entry.targetMuscle.ifBlank { entry.muscleGroup }
-            val seen = mutableSetOf(primary.lowercase())
-            val secondaries = entry.secondaryMuscles.mapNotNull { raw ->
-                dev.repera.domain.MuscleTaxonomy.canonical(raw) ?: return@mapNotNull null
-                val label = dev.repera.domain.MuscleTaxonomy.displayName(raw)
-                val key = label.lowercase()
-                if (key.isEmpty() || key in seen) return@mapNotNull null
-                seen.add(key); label
-            }
-            // detailMeta iOS: aparatos separados por coma, en chips propios.
-            val equipments = entry.equipment.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            val sports = entry.disciplineTags.filter { it.isNotBlank() }
-            if (primary.isNotBlank()) {
-                Card(colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        MetaChipRow("Músculo") {
-                            MuscleMetaChip(primary, primary, emphasized = true)
-                        }
-                        if (secondaries.isNotEmpty()) MetaChipRow("También") {
-                            secondaries.forEach { MuscleMetaChip(it, it, emphasized = false) }
-                        }
-                        if (equipments.isNotEmpty()) MetaChipRow("Equipo") {
-                            equipments.forEach { eq ->
-                                IconMetaChip(eq, ExerciseCategorySymbols.equipmentSymbol(eq))
-                            }
-                        }
-                        if (sports.isNotEmpty()) MetaChipRow("Disciplina") {
-                            sports.forEach { sp ->
-                                IconMetaChip(sp, ExerciseCategorySymbols.discipline(sp))
-                            }
-                        }
-                    }
-                }
-            }
+            MuscleEquipmentCard(entry)
         }
         entry.detailDescription?.let { description ->
             item {
@@ -418,6 +381,48 @@ private fun SessionAppearanceBlock(row: SessionAppearance, emphasizeDate: Boolea
             }
             row.setLines.forEach { line ->
                 Text(line, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** Apple 49febc33: tarjeta "Músculos y equipo" con filas Músculo / También /
+ *  Equipo / Disciplina, chips con glifos corporales. Interna para permitir
+ *  render headless inspeccionable. */
+@Composable
+internal fun MuscleEquipmentCard(entry: ExerciseEntry) {
+    val primary = entry.targetMuscle.ifBlank { entry.muscleGroup }
+    val seen = mutableSetOf(primary.lowercase())
+    val secondaries = entry.secondaryMuscles.mapNotNull { raw ->
+        dev.repera.domain.MuscleTaxonomy.canonical(raw) ?: return@mapNotNull null
+        val label = dev.repera.domain.MuscleTaxonomy.displayName(raw)
+        val key = label.lowercase()
+        if (key.isEmpty() || key in seen) return@mapNotNull null
+        seen.add(key); label
+    }
+    // detailMeta iOS: aparatos separados por coma, en chips propios.
+    val equipments = entry.equipment.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    val sports = entry.disciplineTags.filter { it.isNotBlank() }
+    if (primary.isBlank()) return
+    Card(colors = CardDefaults.cardColors(
+        containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            MetaChipRow("Músculo") {
+                MuscleMetaChip(primary, primary, emphasized = true)
+            }
+            if (secondaries.isNotEmpty()) MetaChipRow("También") {
+                secondaries.forEach { MuscleMetaChip(it, it, emphasized = false) }
+            }
+            if (equipments.isNotEmpty()) MetaChipRow("Equipo") {
+                equipments.forEach { eq ->
+                    IconMetaChip(eq, ExerciseCategorySymbols.equipmentSymbol(eq))
+                }
+            }
+            if (sports.isNotEmpty()) MetaChipRow("Disciplina") {
+                sports.forEach { sp ->
+                    IconMetaChip(sp, ExerciseCategorySymbols.discipline(sp))
+                }
             }
         }
     }

@@ -3,6 +3,7 @@ package dev.repera.mobile.render
 import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
+import dev.repera.mobile.ExerciseEntry
 import dev.repera.mobile.MuscleChipGlyph
 import org.junit.Rule
 import org.junit.Test
@@ -84,13 +86,40 @@ class MuscleGlyphRenderTest {
         for (muscle in muscles) {
             val bitmap = composeRule.onNodeWithTag("glyph_" + muscle)
                 .captureToImage().asAndroidBitmap()
-            val out = saveBitmap("glyph_" + muscle.replace(" ", "_"), bitmap)
+            val out = saveBitmap("glyph_" + java.text.Normalizer.normalize(
+                muscle, java.text.Normalizer.Form.NFD)
+                .replace(Regex("[^A-Za-z0-9]"), "_"), bitmap)
             val ink = inkPixels(bitmap)
             assert(ink > 8) {
                 "Glifo '$muscle' renderizo vacio ($ink px) en ${out.absolutePath}" }
             rendered.add(out.absolutePath + ":" + ink)
         }
         println("RENDERED_GLYPHS=" + rendered.joinToString(","))
+    }
+
+    @Test
+    fun muscleEquipmentCardRendersAllRows() {
+        val entry = ExerciseEntry(
+            id = "render-fixture", name = "Press de banca",
+            supportsBasicInput = true, allowsWeight = true,
+            muscleGroup = "Pecho", equipment = "Barra, Banco",
+            targetMuscle = "Pecho",
+            secondaryMuscles = listOf("triceps", "deltoides", "full body"),
+            disciplineTags = listOf("Halterofilia"))
+        composeRule.setContent {
+            MaterialTheme {
+                Surface {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier.width(360.dp).testTag("card")) {
+                        dev.repera.mobile.MuscleEquipmentCard(entry)
+                    }
+                }
+            }
+        }
+        val bitmap = composeRule.onNodeWithTag("card").captureToImage().asAndroidBitmap()
+        val out = saveBitmap("card_musculos_equipo", bitmap)
+        assert(inkPixels(bitmap) > 200) {
+            "Tarjeta renderizo vacia en ${out.absolutePath}" }
     }
 
     @Test
