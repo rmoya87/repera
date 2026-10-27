@@ -328,7 +328,8 @@ internal fun ProgressTab(
                 Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
                 Text("Sin mediciones en el periodo.")
                 WeightStatTiles(null, overview?.healthGoals?.weightKg)
-                EmptyHealthChartAxes(40.0,100.0)
+                val goal=overview?.healthGoals?.weightKg
+                EmptyHealthChartAxes(goal?.minus(2) ?: 60.0,goal?.plus(2) ?: 90.0,210.dp)
             }}}
             if (topic=="Actividad" && pro && snapshot.weightPoints.isNotEmpty()) {
                 item {

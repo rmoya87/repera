@@ -61,4 +61,16 @@ class WeightTilesRenderTest {
   FileOutputStream("build/reports/render/weight-preview.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
  }
 
+ @Test fun emptyWeightAxesKeepChartHeightWithoutInventingSamples() {
+  rule.setContent {MaterialTheme {Surface(Modifier.testTag("empty-weight-root")) {Column {dev.repera.mobile.EmptyHealthChartAxes(60.0,90.0,210.dp)}}}}
+  val axes=rule.onNodeWithTag("empty_health_chart_axes").fetchSemanticsNode().boundsInRoot
+  assertEquals(210f,axes.height,1f)
+  rule.onNodeWithText("60").assertExists()
+  rule.onNodeWithText("90").assertExists()
+  rule.onNodeWithTag("day_point_line_chart").assertDoesNotExist()
+  val bmp=rule.onNodeWithTag("empty-weight-root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/weight-empty.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+ }
+
 }

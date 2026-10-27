@@ -569,10 +569,10 @@ internal fun DayPointLineChart(
 }
 
 @Composable
-internal fun EmptyHealthChartAxes(low:Double,high:Double) {
+internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.compose.ui.unit.Dp=96.dp) {
     val axis=MaterialTheme.colorScheme.onSurfaceVariant
     Text(formatWeight(high),style=MaterialTheme.typography.bodySmall)
-    Canvas(Modifier.fillMaxWidth().height(96.dp).testTag("empty_health_chart_axes")) {
+    Canvas(Modifier.fillMaxWidth().height(plotHeight).testTag("empty_health_chart_axes")) {
         drawLine(axis,Offset(0f,0f),Offset(0f,size.height),2f)
         drawLine(axis,Offset(0f,size.height),Offset(size.width,size.height),2f)
     }
