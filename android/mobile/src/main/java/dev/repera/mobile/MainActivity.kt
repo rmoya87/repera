@@ -220,13 +220,25 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    /** Apple 63f9cead: con un entreno activo se difieren las sincronizaciones
+     *  no esenciales y se reanudan al terminar; la grabación nunca se bloquea. */
+    private var deferredMirrorSync = false
+
     /** Espejo IA + bandeja: tras establecer sesión o refrescar. */
     private fun syncSupabaseMirrors() {
+        if (activeWorkout != null) { deferredMirrorSync = true; return }
+        deferredMirrorSync = false
         syncAITrainingInbox()
         syncWorkoutMirror()
         syncAITrainingContext()
         refreshSharing()
         refreshAIPrograms()
+    }
+
+    /** Reanuda la sincronización diferida cuando el entreno activo termina
+     *  (Apple onChange(hasWorkoutInProgress): wasRecording && !isRecording). */
+    private fun resumeDeferredMirrorSyncIfNeeded() {
+        if (activeWorkout == null && deferredMirrorSync) syncSupabaseMirrors()
     }
 
     // ---- Programas IA (port AITrainingProgramsView) ----
@@ -1773,6 +1785,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
         activeWorkout = active
         refreshWodTimer()
+        resumeDeferredMirrorSyncIfNeeded()
         // Local persistence is the source of truth. A missing/disconnected watch
         // must not make a saved training action appear to have failed.
         withContext(Dispatchers.IO) {
