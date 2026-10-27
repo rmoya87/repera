@@ -701,9 +701,11 @@ app.addEventListener('submit',async event=>{
     selectedTemplateId=null;notice='Plantilla guardada en tu biblioteca.';
    }else if(editingSessionId){
     await auth.updateProfessionalSession({id:editingSessionId,date:data.get('date'),title:data.get('title'),instructions:data.get('instructions'),prescription});
+    await auth.setProfessionalSessionTime(editingSessionId,String(data.get('time')||''));
     editingSessionId=null;notice='Cambios del entrenamiento individual guardados.';
    }else{
-    await auth.publishProfessionalSession({orgId:selectedOrg,clientId:data.get('client'),date:data.get('date'),title:data.get('title'),instructions:data.get('instructions'),prescription});
+    const sessionId=await auth.publishProfessionalSession({orgId:selectedOrg,clientId:data.get('client'),date:data.get('date'),title:data.get('title'),instructions:data.get('instructions'),prescription});
+    await auth.setProfessionalSessionTime(sessionId,String(data.get('time')||''));
     selectedTemplateId=null;notice='Entrenamiento profesional publicado.';
    }
    await reload();
