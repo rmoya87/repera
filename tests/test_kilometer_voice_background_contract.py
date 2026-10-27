@@ -97,27 +97,26 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         )[0]
         self.assertIn(".frame(width: 28)", header)
         self.assertIn(".lineLimit(2)", header)
-        self.assertIn(".minimumScaleFactor(0.7)", header)
-        self.assertIn(".frame(height: 60, alignment: .center)", header)
-        self.assertIn(".lineLimit(1).minimumScaleFactor(0.7)", header)
+        self.assertIn(".minimumScaleFactor(0.68)", header)
         self.assertIn("GeometryReader { header in", header)
-        self.assertIn("width: min(112, max(44, header.size.width - 240))", header)
+        self.assertIn("width: min(126, max(48, header.size.width - 240))", header)
         self.assertIn("Spacer(minLength: 0)", header)
         self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", header)
         self.assertIn(".frame(maxWidth: .infinity, alignment: .trailing)", header)
         self.assertIn(".fixedSize(horizontal: true, vertical: false)", header)
+        self.assertNotIn('Text("En pausa")', header)
+        self.assertNotIn('Text("Grabando actividad")', header)
         actions = LIVE.split("private var metricsTrailingActions: some View", 1)[1].split(
             "private var selectionCircleBackground: Color", 1
         )[0]
         self.assertIn("HStack(spacing: 6)", actions)
-        self.assertEqual(actions.count("metricsActionPlaceholder\n"), 4)
+        self.assertNotIn("metricsActionPlaceholder", actions)
         self.assertIn("if recorder.phase == .recording {", actions)
         self.assertEqual(actions.count("if recorder.phase == .paused {"), 2)
-        self.assertLess(actions.index('"flag.checkered"'), actions.index('"pause.fill"'))
-        self.assertIn("Color.clear", actions)
-        self.assertIn(".frame(width: 44, height: 44)", actions)
-        self.assertIn(".accessibilityHidden(true)", actions)
-        self.assertIn(".allowsHitTesting(false)", actions)
+        # Al pausar, Finalizar aparece ANTES de Audio: los 3 últimos no se mueven.
+        self.assertLess(actions.index('"flag.checkered"'), actions.index("if showGuidanceToggle"))
+        self.assertLess(actions.index("guidanceSymbol"), actions.index('metricsCircleButton("map"'))
+        self.assertLess(actions.index('metricsCircleButton("map"'), actions.index('"pause.fill"'))
 
     def test_three_seconds_countdown_reuses_timer_sound_before_gps_starts(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
@@ -125,8 +124,15 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("RestFeedback.tick(remaining: remaining, sound: true, haptic: true)", timer)
         self.assertIn("RestFeedback.restComplete(sound: true, haptic: true)", timer)
         self.assertIn("RestFeedback.tick(remaining: preCountdown, sound: true, haptic: true)", timer)
-        self.assertIn("AudioServicesPlaySystemSound(1057)", feedback)
-        self.assertIn("AudioServicesPlaySystemSound(1007)", feedback)
+        self.assertIn("import AVFoundation", feedback)
+        self.assertIn("AVAudioPlayer(data: data)", feedback)
+        self.assertIn("private static let shortTone = makeTone(duration: 0.16)", feedback)
+        self.assertIn("private static let completedTone = makeTone(duration: 0.82)", feedback)
+        self.assertIn("if sound { playTone(shortTone, duration: 0.16) }", feedback)
+        self.assertIn("if sound { playTone(completedTone, duration: 0.82) }", feedback)
+        self.assertIn("sin(2 * Double.pi * 392 * seconds)", feedback)
+        self.assertNotIn("AudioServicesPlaySystemSound", feedback)
+        self.assertIn("if session.mode != .spokenAudio", feedback)
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
             "func cancelStartCountdown()", 1
         )[0]
@@ -150,6 +156,35 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)", finish)
         self.assertNotIn("speakNavigation(", finish)
         self.assertIn("stopGuidanceAudio()", finish)
+
+    def test_weather_row_uses_tall_icons_left_of_title_and_value(self):
+        cardio = (ROOT / "Apps/Repera/Sources/CardioRouteComponents.swift").read_text(encoding="utf-8")
+        stat = cardio.split("private func weatherStat(", 1)[1].split(
+            "private func loadWeather()", 1
+        )[0]
+        self.assertIn("HStack(alignment: .center, spacing: 9)", stat)
+        self.assertIn("Image(systemName: symbol)", stat)
+        self.assertIn(".frame(width: 30, height: 44)", stat)
+        self.assertIn("VStack(alignment: .leading, spacing: 3)", stat)
+        self.assertIn("Text(title)", stat)
+        self.assertIn("Text(value ??", stat)
+        self.assertNotIn('Link("Apple Weather"', stat)
+        self.assertIn("AsyncImage(url: mark)", cardio)
+        self.assertIn("attribution.legalPageURL", cardio)
+        self.assertIn("attribution.combinedMarkLightURL", cardio)
+        self.assertIn("attribution.combinedMarkDarkURL", cardio)
+
+    def test_route_preview_gives_top_curve_breathing_room(self):
+        history = (ROOT / "Apps/Repera/Sources/HistoryView.swift").read_text(encoding="utf-8")
+        route = history.split("struct HealthWorkoutRouteMap: View", 1)[1]
+        camera = route.split("private var cameraPosition: MapCameraPosition", 1)[1].split(
+            "private var modes:", 1
+        )[0]
+        self.assertIn("let preview = !isInteractive", camera)
+        self.assertIn("latitudeRange * 0.05", camera)
+        self.assertIn("preview ? 2.15 : 1.65", camera)
+        self.assertIn("preview ? 1.85 : 1.65", camera)
+        self.assertIn("MKCoordinateRegion(", camera)
 
     def test_native_background_modes_are_present_in_source_and_xcodegen(self):
         info = plistlib.loads((ROOT / "Apps/Repera/Resources/Info.plist").read_bytes())
