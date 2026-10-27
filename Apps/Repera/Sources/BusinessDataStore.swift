@@ -519,21 +519,41 @@ final class BusinessDataStore {
     func leave(_ org: BusinessOrganization) async -> Bool {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return false }
         isSubmitting = true
+        errorMessage = nil
         defer { isSubmitting = false }
         do {
-            try await client.rpc(
+            // The RPC returns the authoritative confirmation. A successful result
+            // must not be misclassified as failure because a refresh was running.
+            let removed: Bool = try await client.rpc(
                 "leave_org_as_athlete",
                 params: ["p_org": org.id.uuidString]
-            ).execute()
-            await refresh()
-            guard !athleteCenterIds.contains(org.id) else {
-                errorMessage = "La desvinculación no se ha confirmado. Inténtalo de nuevo."
+            ).execute().value
+            guard removed else {
+                errorMessage = "No se ha confirmado la desvinculación. Inténtalo de nuevo."
                 return false
             }
+
+            // Drop all stale reads started before the membership was revoked.
+            refreshRevision &+= 1
+            isLoading = false
+            athleteCenterIds.remove(org.id)
+            centers.removeAll { $0.id == org.id }
+            passes.removeAll { $0.orgId == org.id }
+            passOffers.removeAll { $0.orgId == org.id }
+            bookings.removeAll { $0.orgId == org.id }
+            occurrences.removeAll { $0.orgId == org.id }
+            trainingSessions.removeAll { $0.orgId == org.id }
+            personalNotices.removeAll { $0.orgId == org.id }
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.professionalPlansChanged"), object: nil
+            )
             await BusinessWorkoutSyncStore.shared.refreshSharing()
+            await refresh()
+            // The unlink already succeeded in the database even if the
+            // subsequent network refresh could not fetch remaining centers.
             return true
         } catch {
-            errorMessage = "No se ha podido desvincular: \(error.localizedDescription)"
+            errorMessage = "No se ha podido desvincular: \\(error.localizedDescription)"
             return false
         }
     }
