@@ -60,7 +60,10 @@ import androidx.compose.ui.platform.testTag
  onConsentRequested:(String)->Unit,
  onClose:()->Unit) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-   Text(entry.title,style=MaterialTheme.typography.titleLarge)
+   Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    ExternalHealthActivityIcon(entry.exerciseTypeKey)
+    Text(entry.title,style=MaterialTheme.typography.titleLarge)
+   }
    Text(Instant.ofEpochMilli(entry.startMillis).atZone(ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter))
    Text("${entry.minutes.toInt()} min registrados · Health Connect")
    Text("Fuente: ${entry.sourcePackage}",style=MaterialTheme.typography.bodySmall)

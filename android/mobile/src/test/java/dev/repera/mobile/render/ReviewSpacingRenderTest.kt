@@ -85,6 +85,29 @@ class ReviewSpacingRenderTest {
     }
 
     @Test
+    fun importedActivityIcons() {
+        composeRule.setContent {
+            MaterialTheme(colorScheme = reperaColorScheme(false)) {
+                Surface(Modifier.testTag("externalicons")) {
+                    androidx.compose.foundation.layout.Column {
+                        listOf("surfingSports","paddleSports","sailing","downhillSkiing",
+                            "crossCountrySkiing","snowboarding","skatingSports","volleyball","climbing","other").forEach { key ->
+                            androidx.compose.foundation.layout.Row(
+                                modifier=Modifier.then(Modifier),
+                                verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                                dev.repera.mobile.ExternalHealthActivityIcon(key)
+                                androidx.compose.material3.Text(key)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        save(composeRule.onNodeWithTag("externalicons").captureToImage().asAndroidBitmap(),
+            "external-activity-icons.png")
+    }
+
+    @Test
     fun homeAddWorkoutButtonSeparated() {
         composeRule.setContent {
             MaterialTheme(colorScheme = reperaColorScheme(false)) {

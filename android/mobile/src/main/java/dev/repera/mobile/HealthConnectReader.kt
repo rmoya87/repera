@@ -47,7 +47,7 @@ data class RecoveryRead(
     val positiveOvulationTests:List<LocalDate> = emptyList()
 )
 
-data class ExternalHealthHistoryEntry(val id:String,val title:String,val startMillis:Long,val endMillis:Long,val minutes:Double,val sourcePackage:String)
+data class ExternalHealthHistoryEntry(val id:String,val title:String,val startMillis:Long,val endMillis:Long,val minutes:Double,val sourcePackage:String,val exerciseTypeKey:String="other")
 
 data class ExternalHealthDetail(val entry:ExternalHealthHistoryEntry,val heart:List<Pair<Long,Int>>,val activeKcal:Double?)
 
@@ -500,7 +500,7 @@ class HealthConnectReader(private val context: Context) {
                 if (minutes <= 0) continue
                 externalHistory.add(ExternalHealthHistoryEntry(record.metadata.id,
                     record.title?.takeIf {it.isNotBlank()} ?: exerciseTypeKey(record.exerciseType),
-                    record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),minutes,record.metadata.dataOrigin.packageName))
+                    record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),minutes,record.metadata.dataOrigin.packageName,exerciseTypeKey(record.exerciseType)))
                 externalActivities.add(HealthMuscleMapper.ExternalActivity(
                     epochMillis = record.startTime.toEpochMilli(),
                     type = exerciseTypeKey(record.exerciseType),
