@@ -823,7 +823,12 @@ final class ReperaStore: NSObject {
         let base = SessionController.from(routine: routine, exercises: state.exercises)
         let allowAdvanced = featureAccess?().canAccess(.advancedStrengthProgression) ?? false
         let session: WorkoutSession
-        if allowAdvanced {
+        // Una plantilla favorita es una prescripción explícita. Al pulsar Play
+        // no sustituir ni homogeneizar los kg/reps de sus distintas series
+        // con sugerencias automáticas basadas en sesiones anteriores.
+        let usesExactPrescription = routine.isFavorite || routine.favoriteTemplateId != nil
+            || routine.progression == .off
+        if allowAdvanced && !usesExactPrescription {
             let applied = ProgressionEngine.applySuggestions(
                 to: base,
                 routine: routine,
@@ -2821,7 +2826,10 @@ final class ReperaStore: NSObject {
             title: source.title, scheduledDate: date,
             scheduledTimeMinutes: source.scheduledTimeMinutes,
             blocks: source.blocks.map { $0.duplicatingContent() },
-            progression: source.progression, isFavorite: false
+            // Crear desde Favoritos debe reproducir fielmente todas las
+            // prescripciones, aunque exista historial para este ejercicio.
+            progression: source.isFavorite ? .off : source.progression,
+            isFavorite: false
         )
         _ = saveRoutine(copy)
     }
