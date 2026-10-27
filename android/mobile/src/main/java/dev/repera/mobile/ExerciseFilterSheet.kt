@@ -71,6 +71,9 @@ internal fun ExerciseFilterContent(filters:List<String>,filter:String,sort:Strin
                 ExerciseFacetRow(value,icon,selected) {onFilter(value)}
             }
         }
+        if(sort!="Alfabético" || filter!="Todos") TextButton(onClick={
+            onSort("Alfabético");onFilter("Todos")
+        }) {Text("Restablecer opciones")}
         Spacer(Modifier.height(16.dp))
     }
 }

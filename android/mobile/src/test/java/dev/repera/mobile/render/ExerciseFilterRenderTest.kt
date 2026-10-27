@@ -40,6 +40,9 @@ class ExerciseFilterRenderTest {
   val bmp=rule.onNodeWithTag("filter-root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/exercise-filters.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+  rule.onNodeWithText("Restablecer opciones").performClick()
+  rule.runOnIdle {assertEquals("Alfabético",sort);assertEquals("Todos",filter);assertFalse(closed)}
+  rule.onNodeWithText("Restablecer opciones").assertDoesNotExist()
   rule.onNodeWithContentDescription("Cerrar filtros").performClick()
   rule.runOnIdle {assertTrue(closed)}
  }
