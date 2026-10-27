@@ -192,7 +192,7 @@ struct HomeView: View {
         let reserved = Set(selectedDayBusinessBookings.map(\.occurrenceId))
         return businessData.trainingSessions.filter {
             $0.scheduledDate == day &&
-                $0.sourceOccurrenceId.map { !reserved.contains($0) } ?? true
+                ($0.sourceOccurrenceId.map { !reserved.contains($0) } ?? true)
         }
     }
 
