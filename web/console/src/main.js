@@ -1,3 +1,3 @@
-// Repera Business runs exclusively against authenticated Supabase data.
-// The former ?demo=1 route must never load seeded businesses, users or payments.
+// Repera Business always opens the authenticated Supabase console.
+// Offline fixtures cannot be selected from a URL or the local launcher.
 import './ui/connected.js';
