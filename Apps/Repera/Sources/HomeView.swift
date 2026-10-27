@@ -196,6 +196,19 @@ struct HomeView: View {
         }
     }
 
+    private var businessCalendarSignature: String {
+        let training = businessData.trainingSessions.map {
+            "\($0.id.uuidString):\($0.scheduledDate):\($0.status)"
+        }
+        let reservations = businessData.bookings.map {
+            "\($0.id.uuidString):\($0.occurrenceId.uuidString):\($0.status)"
+        }
+        let occurrences = businessData.occurrences.map {
+            "\($0.id.uuidString):\($0.startsAt):\($0.status)"
+        }
+        return (training + reservations + occurrences).sorted().joined(separator: "|")
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -252,6 +265,9 @@ struct HomeView: View {
                 if !expanded { showSettingsPanel = false }
             }
             .refreshable { await businessData.refresh(); rebuildWeekChrome() }
+            .onChange(of: businessCalendarSignature) { _, _ in
+                rebuildWeekChrome()
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("repera.professionalPlansChanged"))) { _ in
                 rebuildWeekChrome()
             }
