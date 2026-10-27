@@ -2003,6 +2003,23 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
+    /** El favorito de un entreno completado se mantiene tras cerrar y reabrir
+     *  el detalle (paridad isWorkoutFavorite iOS, c5aae1cc). */
+    @Synchronized fun isWorkoutFavorite(id: String): Boolean {
+        val state = loadOrNull() ?: return false
+        return WorkoutFavoriteSupport.isWorkoutFavorite(state, id)
+    }
+
+    /** Marca o desmarca entrenos registrados sin modificar la programación
+     *  original (paridad toggleWorkoutFavorite iOS, c5aae1cc). Las sesiones
+     *  sueltas conservan el ID de su plantilla favorita para no duplicarla. */
+    @Synchronized fun toggleWorkoutFavorite(id: String): Boolean {
+        val state = loadOrNull() ?: return false
+        if (!WorkoutFavoriteSupport.toggleWorkoutFavorite(state, id)) return false
+        save(state)
+        return true
+    }
+
     /** Marca o desmarca un ejercicio como favorito (paridad LibraryView iOS). */
     @Synchronized fun setExerciseFavorite(id: String, favorite: Boolean) {
         val state = requireState()
