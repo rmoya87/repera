@@ -117,7 +117,7 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
  </span><div><h2>${esc(c.name)}</h2><p>${esc(c.email)} · ${c.user_id?'Cuenta vinculada':'Invitación pendiente'} </p></div>
  ${trainer?`<div class="business-profile-orientation"><span class="pa-eyebrow">Orientación de entrenamiento</span>${renderAthleteGuidance(logged,sharedHistory.length)}</div>`:''}
- ${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}${manager&&trainer&&c.status!=='cancelled'?button('Finalizar relación','end-client',c.id):''}</div>`;
+ ${manager&&trainer&&c.status==='active'?button('Registrar sesión','trainer-session',c.id):''}${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}${manager&&trainer&&c.status!=='cancelled'?button('Finalizar relación','end-client',c.id):''}</div>`;
  let body='';
  if(clientSection==='training'){
   if(trainer){
