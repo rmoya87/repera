@@ -1,5 +1,14 @@
 ## Administración global (2026-10-27)
 
+## Vinculación atleta-centro y calendario de actividades — 27/10/2026
+
+- `organization_athlete_requests`: `org_id`, `athlete_id`, `pass_kind`, `note`, estado `pending/accepted/rejected/cancelled` y datos de decisión. Una solicitud pendiente por atleta/centro. RPCs `request_org_athlete_link`, `business_enrollment_requests` y `business_decide_enrollment`; las escrituras requieren funciones validadas, sin DML directo desde el navegador.
+- `private.platform_admin_directory` devuelve `status` (operativo active/suspended) por separado de `registration_status` (pending/claimed).
+- `platform_admin_athlete_activity(uuid,date)` lista días y contadores del mes de `athlete_workouts`, con huso `Europe/Madrid`; `platform_admin_athlete_day(uuid,date)` entrega el detalle de hasta 100 registros del día con bloques, ejercicios, series y resultados, autorizado y auditado.
+- `business_bulk_training_batches`: clave de idempotencia y resultados de publicación. `business_publish_training_bulk` valida permisos del centro, clientes activos y vinculados, plantilla real, fechas, días laborales, hasta 20 clientes, 56 días y 120 sesiones; invoca al publicador nativo de prescripciones. Todo en una transacción, sin escritura de workout completado.
+- Migraciones `20261027181000_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas al Supabase de Repera. Sin cobros simulados.
+
+
 ## Fichas 360 y plazo de prueba configurable (2026-10-27)
 
 Migración 20261027170000_platform_admin_detail_views.sql: RPCs public.platform_admin_center_detail(uuid), public.platform_admin_athlete_detail(uuid), y public.platform_admin_athlete_workouts(uuid,integer,integer). Son wrappers de invocador con ejecución validada por administrador en funciones privadas, devuelve perfil y actividad profesional, identidad, últimos accesos y entrenamientos paginados. La auditoría registra cada lectura, pero no contenido privado. No revela secretos de sesión ni métricas clínicas.
