@@ -1,5 +1,14 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Directorio global y Storage previo a altas (27/10/2026)
+
+- El listado de cuentas y avatares es exclusivo del `platform_admin` validado en SQL por rol y correo confirmado. Ni `auth.users` ni `profiles` se hacen públicamente consultables. Se prohíbe desde la función el acceso anónimo o con usuario normal, verificado con prueba 42501. El directorio no devuelve información clínica, nutricional ni de entrenamientos.
+- `platform_settings` está protegido por RLS sin permisos REST directos; las modificaciones solo entran por una función privada auditada y validada. URLs requieren HTTPS y los correos validan formato y longitud.
+- Las imágenes de prealta se optimizan en navegador y se suben al bucket público de imagen comercial limitado a JPEG y 1 MB. La política exige rol plataforma y que la carpeta coincida con un UUID de alta pendiente creada por ese actor; el RPC valida existencia y ruta antes de asociarla. No se conceden permisos SELECT adicionales sobre datos de cuentas personales.
+- Los avatares personales utilizan el bucket `profile-avatars` con política vinculada a `auth.uid()`; solo se modifica `display_name` y `avatar_url` del propio perfil. Los cambios de correo/contraseña usan GoTrue con JWT del usuario actual, nunca la service role.
+- Las fotos públicas pueden proceder de OAuth; se renderizan solo enlaces HTTPS y su contenido se escapa al generar HTML. Quedan pendientes pruebas browser E2E de subida/reemplazo en todos los navegadores de destino.
+
+
 ## Reparación RLS de membresías — 27/10/2026
 
 **Incidente real (403):** la política `memberships_platform_delegated_read` incluía un subquery directo de `platform_admin_delegations`. Aunque no existiese delegación activa, PostgreSQL evaluaba la expresión de la política y el rol `authenticated` no podía leer la tabla (correctamente denegada). El error afectaba al listado de membresías de todos los negocios y al arranque del panel.

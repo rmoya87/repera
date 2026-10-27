@@ -11,8 +11,9 @@ import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescripti
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[];
-let adminFilter={search:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
+let adminTab='home',adminSelectedOrg='',delegation=null,adminDirectory=[],adminAthletes=[],adminSettings={},
+adminAccount={},adminEditPlan='',adminFinances={payments:[],intents:[]},adminPending=[],adminHistory=[];
+let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
 let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],sharedHistory=[],selectedClientId=null,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='';
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
@@ -82,8 +83,9 @@ function enhanceWorkspace(own){
  root.querySelectorAll('[data-workspace-section]').forEach(el=>{el.style.display=el.dataset.workspaceSection===activeTab?'':'none';});
 }function render(){
  if(user&&platformRole==='platform_admin'&&!delegation&&view!=='password'){
-  app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,finance:adminFinances,
+  app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,athletes:adminAthletes,finance:adminFinances,
    pending:adminPending,history:adminHistory,plans:planCatalog,selectedOrg:adminSelectedOrg,
+   settings:adminSettings,account:adminAccount,editingPlan:adminEditPlan,
    filter:adminFilter,busy,error,notice,email:user.email||''});
   return;
  }
@@ -135,11 +137,14 @@ async function reload(){
  // A broken business query must never hide the administrator's global console.
  const profile=await auth.myProfile();
  platformRole=profile?.role||null;
+ adminAccount={...(profile||{}),avatar_url:profile?.avatar_url||user?.user_metadata?.avatar_url||null,
+  display_name:profile?.display_name||user?.user_metadata?.name||''};
  planCatalog=await auth.businessPlans();
  if(platformRole==='platform_admin'){
-  [delegation,adminDirectory,adminFinances,adminPending,adminHistory]=await Promise.all([
-   auth.platformAdminCurrentDelegation(),auth.platformAdminDirectory(),
-   auth.platformAdminFinances(),auth.platformAdminPending(),auth.platformAdminHistory()]);
+  [delegation,adminDirectory,adminAthletes,adminFinances,adminPending,adminHistory,adminSettings]=await Promise.all([
+   auth.platformAdminCurrentDelegation(),auth.platformAdminDirectory(),auth.platformAdminAthletes(),
+   auth.platformAdminFinances(),auth.platformAdminPending(),auth.platformAdminHistory(),
+   auth.platformAdminSettings()]);
   platformOrgs=[];
   if(!delegation){
    organizations=[];memberships=[];invitations=[];selectedOrg=null;
@@ -149,7 +154,7 @@ async function reload(){
   delegation=null;
   // Only the verified owner claims a prepared business, never a platform operator.
   await auth.claimPlatformProvisioning();
-  adminDirectory=[];adminFinances={payments:[],client_payments:[],intents:[]};
+  adminDirectory=[];adminAthletes=[];adminSettings={};adminFinances={payments:[],client_payments:[],intents:[]};
   adminPending=[];adminHistory=[];platformOrgs=[];
  }
  const [orgs,members,invites]=await Promise.all([
@@ -167,13 +172,18 @@ app.addEventListener('click',async event=>{
   const command=platformButton.dataset.adminAction;
   if(command==='view-org'){adminSelectedOrg=platformButton.dataset.id;render();return;}
   if(command==='back-org'){adminSelectedOrg='';render();return;}
-  if(command==='go-gyms'){adminTab='gyms';adminSelectedOrg='';render();return;}
-  if(command==='go-trainers'){adminTab='trainers';adminSelectedOrg='';render();return;}
+  if(command==='go-centers'){adminTab='centers';adminSelectedOrg='';render();return;}
+  if(command==='go-athletes'){adminTab='athletes';adminSelectedOrg='';render();return;}
+  if(command==='open-account'){adminTab='account';adminSelectedOrg='';render();return;}
+  if(command==='new-plan'){adminTab='plans';adminEditPlan='new';render();return;}
+  if(command==='edit-plan'){adminEditPlan=adminEditPlan===platformButton.dataset.id?'':platformButton.dataset.id;render();return;}
+  if(command==='cancel-plan-edit'){adminEditPlan='';render();return;}
+  if(command==='logout-admin'){app.querySelector('[data-action="logout"]')?.click();return;}
   if(command==='go-payments'){adminTab='payments';adminSelectedOrg='';render();return;}
   if(command==='go-provision'){adminTab='provision';adminSelectedOrg='';render();return;}
   if(command==='export-payments'){
    const content=paymentCSV(adminDirectory,adminFinances,adminFilter),blob=new Blob(['\uFEFF'+content],{type:'text/csv;charset=utf-8'});
-   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='repera-pagos-b2b.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);return;
+   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='repera-pagos-'+(adminFilter.paymentScope==='b2c'?'centros-b2c':'plataforma-b2b')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);return;
   }
   if(command==='exit-delegation'&&!busy){
    busy=true;render();try{await auth.platformAdminEndDelegation();delegation=null;selectedOrg=null;activeTab='overview';adminTab='home';adminSelectedOrg='';await reload();notice='Has vuelto a la administración global.';}catch(e){error=e.message||'No se pudo cerrar la delegación';}finally{busy=false;render();}return;
@@ -219,12 +229,13 @@ app.addEventListener('click',async event=>{
  if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
 app.addEventListener('input',event=>{
- const filter=event.target.closest('[data-admin-filter="search"]');
+ const filter=event.target.closest('[data-admin-filter="search"],[data-admin-filter="athleteSearch"]');
  if(filter){
-  adminFilter.search=filter.value;
+  const key=filter.dataset.adminFilter;
+  adminFilter[key]=filter.value;
   const at=filter.selectionStart;
   render();
-  const replacement=app.querySelector('[data-admin-filter="search"]');replacement?.focus();
+  const replacement=app.querySelector('[data-admin-filter="'+key+'"]');replacement?.focus();
   if(typeof at==='number')replacement?.setSelectionRange(at,at);
   return;
  }
@@ -235,6 +246,23 @@ app.addEventListener('input',event=>{
  }
 });
 app.addEventListener('change',async event=>{
+ if(event.target.matches('[data-admin-image-file]')){
+  const preview=app.querySelector('[data-admin-image-preview]'),file=event.target.files?.[0];
+  if(preview&&file&&['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024){
+   const url=URL.createObjectURL(file);
+   preview.src=url;preview.hidden=false;
+   preview.onload=()=>URL.revokeObjectURL(url);
+  }
+  return;
+ }
+ if(event.target.matches('[data-provision-kind]')){
+  const kind=event.target.value,selector=app.querySelector('form[data-admin-form="provision"] select[name="plan"]');
+  if(selector){
+   for(const option of selector.options)option.hidden=!!option.dataset.audience&&option.dataset.audience!==kind;
+   if(selector.selectedOptions[0]?.hidden)selector.value='';
+  }
+  return;
+ }
  const platformFilter=event.target.closest('[data-admin-filter]');
  if(platformFilter){adminFilter[platformFilter.dataset.adminFilter]=platformFilter.value;render();return;}
  if(event.target.name==='kind'&&event.target.closest('form[data-connected="create"]')){
@@ -251,12 +279,19 @@ app.addEventListener('submit',async event=>{
  if(platformForm){
   event.preventDefault();if(busy||platformRole!=='platform_admin'||delegation)return;
   const action=platformForm.dataset.adminForm,values=new FormData(platformForm);
-  if(action==='status'&&!confirm('¿Confirmas el cambio de estado de este negocio?'))return;
+  if(action==='status'&&!confirm('¿Confirmas el cambio de estado de este centro?'))return;
   busy=true;error=notice='';render();
   try{
    if(action==='provision'){
-    await auth.platformAdminProvision({name:values.get('name'),kind:values.get('kind'),email:values.get('email'),plan:values.get('plan')});
-    adminTab='provision';notice='Alta preparada. El propietario deberá iniciar sesión con el correo verificado para completar el registro.';
+    const kind=String(values.get('kind')||'');
+    const created=await auth.platformAdminProvision({
+     name:values.get('name'),kind,email:values.get('email'),plan:values.get('plan')});
+    const file=values.get('avatarFile');
+    if(file?.size){
+     try{await auth.uploadPlatformPendingBrand({provisioningId:created,kind,file});notice='Centro preparado con su imagen. El propietario debe confirmar su correo e iniciar sesión.';}
+     catch(imageError){notice='Centro preparado, pero no se guardó la imagen: '+(imageError.message||'error de subida')+'. Podrás actualizarla desde la ficha del negocio.';}
+    }else notice='Centro preparado. El propietario debe confirmar su correo e iniciar sesión.';
+    adminTab='provision';
    }
    if(action==='status'){
     await auth.platformAdminSetStatus({orgId:values.get('org_id'),status:values.get('status'),reason:values.get('reason')});
@@ -265,7 +300,28 @@ app.addEventListener('submit',async event=>{
    if(action==='delegate'){
     await auth.platformAdminDelegate({orgId:values.get('org_id'),reason:values.get('reason')});
     adminSelectedOrg='';selectedOrg=values.get('org_id');activeTab='overview';
-    notice='Acceso delegado iniciado. Todas las operaciones mantienen tu identidad de administrador.';
+    notice='Acceso delegado iniciado. Las acciones mantienen tu identidad de administrador.';
+   }
+   if(action==='platform-settings'){
+    await auth.platformAdminSaveSettings(Object.fromEntries(values.entries()));
+    notice='Configuración de plataforma guardada.';
+   }
+   if(action==='account-profile'){
+    await auth.updateOwnProfile({displayName:values.get('display_name')});
+    const file=values.get('avatarFile');
+    if(file?.size)await auth.uploadOwnAvatar(file);
+    notice='Tu perfil se ha actualizado.';
+   }
+   if(action==='account-email'){
+    await auth.changeOwnEmail(values.get('email'));
+    notice='Cambio de correo solicitado. Revisa los mensajes de confirmación que envía Supabase.';
+   }
+   if(action==='account-password'){
+    await auth.changePassword(values.get('password'));
+    await auth.signOut();
+    user=null;platformRole=null;adminAccount={};view='login';
+    notice='Contraseña actualizada. Inicia sesión de nuevo para continuar.';
+    return;
    }
    await reload();
   }catch(e){error=e.message||'No se pudo completar la operación';}
@@ -384,6 +440,7 @@ app.addEventListener('submit',async event=>{
    if(action==='save-plan'||action==='new-plan'){
     if(platformRole!=='platform_admin')throw Error('No autorizado');
     await auth.saveBusinessPlan(Object.fromEntries(data.entries()),{newPlan:action==='new-plan'});
+    adminEditPlan='';
     await reload();notice=action==='new-plan'?'Nuevo plan añadido':'Plan actualizado';
    }
  }catch(e){error=e.message||'No se pudo completar la operación';}

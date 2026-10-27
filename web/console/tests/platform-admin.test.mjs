@@ -14,22 +14,60 @@ const base={orgs,finance:{payments:[],intents:[]},pending:[],history:[],plans:[]
 
 test('La navegación del administrador es independiente y evita HTML inyectado',()=>{
  const output=renderPlatformAdmin({...base,tab:'home',email:'admin@example.org'});
- for(const label of ['Gimnasios','Entrenadores','Usuarios y clientes','Pagos','Soporte','Auditoría','Planes y precios'])
+ for(const label of ['Centros','Atletas','Pagos','Soporte','Auditoría','Planes y precios'])
   assert.ok(output.includes(label),label);
  assert.ok(output.includes('11')); // 8 + 3 relaciones activas
  assert.ok(!output.includes('<script>'));
  assert.ok(output.includes('repera'));
 });
 
-test('Directorio separa gimnasios y entrenadores, filtra por estado y búsqueda',()=>{
- const gyms=renderPlatformAdmin({...base,tab:'gyms',filter:{...base.filter,search:'Gimnasio'}});
- assert.match(gyms,/Gimnasio &lt;script&gt;/);
+test('Centros unifica los tipos y filtra con columna de categoría',()=>{
+ const all=renderPlatformAdmin({...base,tab:'centers'});
+ assert.match(all,/Coach/);
+ assert.match(all,/Entrenador personal/);
+ assert.match(all,/Gimnasio &lt;script&gt;/);
+ assert.match(all,/Tipo/);
+ const gyms=renderPlatformAdmin({...base,tab:'centers',filter:{...base.filter,search:'Gimnasio'}});
  assert.doesNotMatch(gyms,/Coach<\/button>/);
- const suspended=renderPlatformAdmin({...base,tab:'trainers',filter:{...base.filter,status:'suspended'}});
+ const suspended=renderPlatformAdmin({...base,tab:'centers',filter:{...base.filter,status:'suspended'}});
  assert.match(suspended,/Coach/);
  assert.match(suspended,/Suspendido/);
- const blank=renderPlatformAdmin({...base,tab:'gyms',filter:{...base.filter,search:'sin-coincidencia'}});
- assert.match(blank,/No se encontraron negocios/);
+ const blank=renderPlatformAdmin({...base,tab:'centers',filter:{...base.filter,search:'sin-coincidencia'}});
+ assert.match(blank,/No hay centros con esos filtros/);
+});
+
+test('Atletas incluye perfiles sin gimnasio, avatares y administradores',()=>{
+ const athletes=[{name:'Atleta sin centro',id:'x',email:'atleta@example.org',center_count:0,
+    avatar_url:'https://example.org/athlete.jpg',confirmed:true,created_at:'2026-10-27'},
+   {name:'Admin',id:'y',email:'admin@example.org',center_count:0,platform_role:'platform_admin',confirmed:true}];
+ const html=renderPlatformAdmin({...base,tab:'athletes',athletes});
+ assert.match(html,/Atleta sin centro/);
+ assert.match(html,/Sin centro/);
+ assert.match(html,/athlete.jpg/);
+ assert.match(html,/Administrador de plataforma/);
+});
+
+test('Configuración de plataforma y cuenta permiten acciones reales',()=>{
+ const settings=renderPlatformAdmin({...base,tab:'admin-settings',settings:{support_email:'help@example.org'}});
+ assert.match(settings,/data-admin-form="platform-settings"/);
+ assert.match(settings,/help@example.org/);
+ const account=renderPlatformAdmin({...base,tab:'account',email:'admin@example.org',
+  account:{display_name:'Administrador',avatar_url:'https://example.org/admin.jpg'}});
+ assert.match(account,/data-admin-form="account-profile"/);
+ assert.match(account,/data-admin-form="account-password"/);
+ assert.match(account,/data-admin-form="account-email"/);
+ assert.match(account,/admin.jpg/);
+ assert.doesNotMatch(account,/Supabase conectado/);
+});
+
+test('Planes se muestran agrupados y se edita solo un formulario',()=>{
+ const plan={plan_key:'gym_one',title:'Gimnasio Pro',audience:'gym',monthly_price_cents:3900,is_active:true,display_order:1};
+ const html=renderPlatformAdmin({...base,tab:'plans',plans:[plan]});
+ assert.match(html,/Gimnasios y centros/);
+ assert.match(html,/data-admin-action="edit-plan"/);
+ assert.doesNotMatch(html,/data-connected="save-plan"/);
+ const edit=renderPlatformAdmin({...base,tab:'plans',plans:[plan],editingPlan:'gym_one'});
+ assert.match(edit,/data-connected="save-plan"/);
 });
 
 test('Detalle incorpora configuración, estado y delegación motivada',()=>{

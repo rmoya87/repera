@@ -1,5 +1,14 @@
 # Repera
 
+## Repera Business — Centros, Atletas y cuenta de administración (27/10/2026)
+
+La consola `web/console/` presenta «Centros» como directorio común de gimnasios y entrenadores, con tipo visible e imagen. «Atletas» consulta un directorio global de cuentas verificadas o pendientes, incluidas personas sin centro asociado, a través de un RPC de plataforma protegido; solo se muestran datos de cuenta, vinculación y avatar público, no registros deportivos privados. El icono/nombre del administrador se encuentra en el pie del menú lateral y abre el perfil (nombre, imagen, correo sujeto a confirmación y contraseña).
+
+Los planes se muestran como un catálogo agrupado y solo se despliega el formulario que se edita. Configuración de plataforma ahora permite guardar contactos de soporte, facturación y enlaces legales mediante RPCs. Las altas preparadas de centros admiten fotografía optimizada y guardada en Storage `business-branding` dentro de una carpeta con acceso limitado al administrador solicitante; cuando el propietario reclama el centro, la foto se conserva.
+
+Migraciones aplicadas en Repera: `20261027143000_business_admin_directory_settings.sql` a `20261027143004_fix_athlete_role_text.sql`. No implican cobros Stripe reales ni despliegue IONOS. Las pruebas automatizadas en navegador siguen pendientes.
+
+
 ## Consola Business siempre conectada (27/10/2026)
 
 Se ha eliminado el selector de demo offline del lanzador `Repera-Business.command`, la ruta de demostración del frontend y su enlace. El inicio autenticado consulta primero el rol de plataforma. La migración `20261027140000_fix_platform_membership_rls.sql` corrige un error RLS de delegaciones que impedía mostrar el panel global aun con una cuenta `platform_admin` válida. La migración está aplicada a Supabase Repera; es necesario actualizar el checkout local desde `origin/main` para ver el frontend nuevo.

@@ -1,5 +1,16 @@
 ## Administración global (2026-10-27)
 
+## Directorio de atletas y perfil de centro (2026-10-27)
+
+El directorio `public.platform_admin_athletes()` es un wrapper `SECURITY INVOKER` que delega en `private.platform_admin_athletes()`, condicionado a `private.is_repera_platform_admin()`. Incluye usuarios de `auth.users` aunque no tengan membresías; nombre público y avatar de `profiles` u OAuth para presentación, correo verificado, fecha de alta y agregados de vinculación. No expone historiales personales ni datos HealthKit. El campo `profiles.role` (enum) se convierte a texto al construir JSON; corrección aplicada en `20261027143004_fix_athlete_role_text.sql`.
+
+`platform_settings` tiene RLS, privilegios directos revocados y RPCs autenticadas `platform_admin_settings` y `platform_admin_update_settings`, con validaciones y auditoría. Los valores editables son correo/URL de soporte, correo de facturación, URL de privacidad y términos.
+
+`platform_org_provisioning.avatar_url` guarda la imagen subida únicamente para un ID de alta pendiente por el administrador verificado. Policy INSERT del bucket existente `business-branding` usa `private.can_upload_pending_business_brand(id)` y exige ruta `pending/{uuid}/logo.jpg` o `trainer.jpg`. RPC `platform_admin_attach_branding` valida que el objeto exista y que la URL coincida exactamente con el proyecto, bucket y negocio de la prealta. Al confirmar su correo y reclamar la prealta, `claim_platform_provisioning` copia la URL a `organizations.avatar_url`.
+
+Las migraciones `20261027143000`–`20261027143004` están versionadas y aplicadas. No se exponen claves `service_role` al frontend.
+
+
 ## Hotfix de RLS — 27/10/2026
 
 Migración **aplicada**: `20261027140000_fix_platform_membership_rls.sql`. Elimina una política redundante sobre `organization_memberships` que generaba `42501 permission denied for table platform_admin_delegations` en operaciones normales. La política `memberships_select_authorized` ya delega comprobación de roles en `private.has_org_role`, incluido el acceso temporal del administrador global. El ledger de delegaciones sigue sin SELECT para `authenticated`. Comprobación de acceso realizada como rol Postgres `authenticated`; listado de membresías y directorio de plataforma responden sin error.
