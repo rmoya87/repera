@@ -131,7 +131,7 @@ function provisioning(pending,plans){
  ${field('email','Correo del futuro propietario','','email','required maxlength="180"')}
  <label class="pa-field"><span>Plan de referencia</span><select name="plan">
  <option value="">Sin plan · prueba gratuita</option>
- ${plans.filter(p=>p.is_active).map(p=>`<option data-audience="${esc(p.audience)}" value="${esc(p.plan_key)}">${esc(p.title)} · ${esc(type(p.audience))} · ${euros(p.monthly_price_cents)}/mes</option>`).join('')}
+ ${plans.filter(p=>p.is_active).map(p=>`<option data-audience="${esc(p.audience)}" value="${esc(p.plan_key)}" ${p.audience!=='gym'?'hidden':''}>${esc(p.title)} · ${esc(type(p.audience))} · ${euros(p.monthly_price_cents)}/mes</option>`).join('')}
  </select></label>
  <p class="pa-muted">Se prepara la ficha. El propietario debe confirmar su correo e iniciar sesión para activarla. Los planes no generan cobros automáticamente.</p>
  <button type="submit" class="pa-button primary">Preparar alta</button></form></section>
