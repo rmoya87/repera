@@ -73,7 +73,7 @@ begin
    'sessions',(select count(*) from public.service_occurrences s where s.org_id=o.id),
    'trial_ends_at',t.trial_ends_at,'paid_plan',t.paid_plan,'paid_until',t.paid_until,
    'status',coalesce(st.status,'active'),'status_reason',coalesce(st.reason,''),
-   'last_activity',(select max(x.created_at) from public.service_bookings x where x.org_id=o.id)
+   'last_activity',(select max(x.booked_at) from public.service_bookings x where x.org_id=o.id)
   ) order by o.created_at desc)
   from public.organizations o left join public.organization_trials t on t.org_id=o.id
   left join public.platform_org_controls st on st.org_id=o.id
