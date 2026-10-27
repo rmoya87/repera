@@ -414,9 +414,8 @@ internal fun WeightPreviewCard(today:LocalDate) {
 @Composable internal fun ProgressWeightCard(points:List<dev.repera.domain.ProgressDayPoint>,delta30d:Double?,goalKg:Double?,accountId:String,busy:Boolean,onLogBodyWeight:(Double)->Unit) {
  if(points.isEmpty()) Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
   Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
-  Text("Sin mediciones en el periodo.")
   WeightStatTiles(null,goalKg)
-  EmptyHealthChartAxes(goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
+  EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
  }} else {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(18.dp),

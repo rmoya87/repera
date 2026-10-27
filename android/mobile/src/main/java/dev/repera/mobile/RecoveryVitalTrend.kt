@@ -18,8 +18,7 @@ import dev.repera.domain.ProgressDayPoint
   }
   if(values.size>=2) DayPointLineChart(values,valueFormat={"${formatWeight(it)} ms"},chartHeight=height,physiologyStyle=true)
   else {
-   EmptyHealthChartAxes(0.0,100.0,height)
-   Text(if(values.isEmpty()) "Sin mediciones de VFC en el periodo" else "Una medición de VFC; aún no hay tendencia",style=MaterialTheme.typography.bodySmall)
+   EmptyHealthChart(if(values.isEmpty()) "Sin mediciones de VFC en el periodo" else "Una medición de VFC; aún no hay tendencia",0.0,100.0,height)
   }
  }
 }

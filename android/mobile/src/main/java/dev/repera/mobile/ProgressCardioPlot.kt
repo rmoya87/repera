@@ -42,8 +42,7 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
    CustomAccessibilityAction("Punto siguiente") {selected=ChartSelectionStep.step(selected,1,points.size);true})
  }) {
   if(points.isEmpty()) {
-   EmptyHealthChartAxes(60.0,160.0,190.dp)
-   Text("Sin ritmo cardíaco de Salud en ${charts.range.title.lowercase()}.",style=MaterialTheme.typography.bodySmall)
+   EmptyHealthChart("Sin ritmo cardíaco de Salud en ${charts.range.title.lowercase()}.",60.0,160.0,190.dp)
   } else {
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].avgBpm)+" lpm",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth()) {

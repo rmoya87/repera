@@ -54,8 +54,7 @@ internal object RecoveryVitalBarGeometry {
    Text(title,style=MaterialTheme.typography.labelMedium)
    Text(values.lastOrNull()?.let {formatted(it.value)} ?: "-",style=MaterialTheme.typography.titleMedium)
    if(values.isEmpty()) {
-    EmptyHealthChartAxes(0.0,100.0,98.dp)
-    Text("Sin datos",style=MaterialTheme.typography.bodySmall)
+    EmptyHealthChart("Sin datos",0.0,100.0,98.dp)
    } else {
     selected?.let {Text(it.day.format(reperaDayFormatter)+": "+formatted(it.value),style=MaterialTheme.typography.labelSmall)}
     Canvas(Modifier.fillMaxWidth().height(98.dp).testTag("physiology_bar_$tag").semantics {

@@ -31,8 +31,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   Text(if(pro) "Evolución de recuperación" else "Evolución de recuperación · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
   if(pro) {
    if(trend.size<2) {
-    EmptyHealthChartAxes(0.0,10.0,readinessHeight)
-    Text("Aún no hay suficientes registros para ver la recuperación.")
+    EmptyHealthChart("Aún no hay suficientes registros para ver la recuperación.",0.0,10.0,readinessHeight)
    } else DayPointLineChart(trend,valueFormat={"${kotlin.math.round(it).toInt()}/10"},bounds=0.0..10.0,readinessStyle=true,chartHeight=readinessHeight)
   } else {
    DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false,chartHeight=readinessHeight)
@@ -45,8 +44,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("Sueño · ${range.title}",style=MaterialTheme.typography.titleMedium)
   if(nights.isEmpty()) {
-   EmptyHealthChartAxes(0.0,10.0,sleepHeight)
-   Text("Sin noches registradas en el periodo. Activa el análisis de descanso en Ajustes para leer sueño.")
+   EmptyHealthChart("Sin noches registradas en el periodo. Activa el análisis de descanso en Ajustes para leer sueño.",0.0,10.0,sleepHeight)
   }
   else {
    Text(if(sleep.outsideRange) "Fuera del periodo seleccionado: últimas noches disponibles" else if(nights.size==1) "Una noche registrada" else "Media del periodo",style=MaterialTheme.typography.bodySmall)

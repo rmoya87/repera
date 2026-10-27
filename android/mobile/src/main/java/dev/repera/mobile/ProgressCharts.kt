@@ -534,3 +534,12 @@ internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.com
         }
     }
 }
+
+/** ProgressEmptyChart keeps the message inside the chart, never a fabricated series. */
+@Composable internal fun EmptyHealthChart(message:String,low:Double,high:Double,height:androidx.compose.ui.unit.Dp) {
+    Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
+        EmptyHealthChartAxes(low,high,height)
+        Text(message,Modifier.padding(horizontal=24.dp),style=MaterialTheme.typography.bodyMedium,
+            color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}

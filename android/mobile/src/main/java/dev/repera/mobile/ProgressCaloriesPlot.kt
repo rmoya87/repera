@@ -52,8 +52,7 @@ internal object ProgressPlotAxis {
    CustomAccessibilityAction("Punto siguiente") {selected=ChartSelectionStep.step(selected,1,points.size);true})
  }) {
   if(points.none {it.value>0}) {
-   EmptyHealthChartAxes(0.0,600.0,210.dp)
-   Text("Sin kcal de Salud en ${charts.range.title.lowercase()}.",style=MaterialTheme.typography.bodySmall)
+   EmptyHealthChart("Sin kcal de Salud en ${charts.range.title.lowercase()}.",0.0,600.0,210.dp)
   } else {
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].value)+" kcal",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth()) {

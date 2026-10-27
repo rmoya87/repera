@@ -34,8 +34,7 @@ internal fun SessionScoreProgressCard(points:List<ProgressDayPoint>,preview:Bool
   }
   if(preview) Text("Datos ficticios, no son tus puntuaciones",style=MaterialTheme.typography.bodySmall)
   if(values.isEmpty()) {
-   EmptyHealthChartAxes(0.0,10.0,205.dp)
-   Text("Todavía no hay puntuaciones basadas en tu historial.",style=MaterialTheme.typography.bodySmall)
+   EmptyHealthChart("Todavía no hay puntuaciones basadas en tu historial.",0.0,10.0,205.dp)
   } else {
    selected?.let {Text(values[it].day.format(reperaDayFormatter)+": "+Math.round(values[it].value)+"/10",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth().semantics {

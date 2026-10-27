@@ -550,3 +550,16 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Focalizados7tests/2XMLverdes49s,compile59s. PNG360kcal/cardio/recovery
  inspeccionados,tickscentrales ytextos/tileslegibles. Suite311pendiente.
 -735/70abiertas,nativopendiente,nopush;domain504/93Wear8/1previos.
+
+## Revision graficos, overlayvacio 00:53 28oct
+- Full311mobile672/163XMLreales70/81/61/64s0fallo/error/omitidos,
+ assemble47sverde. Copia311recuperada baseline+gitam arbol
+ a5e3fd0c9aef24914c1d0d5a1166ff9e6e4291bfidenticooriginal;amboslimpios.
+ Recuento579/50+156/20=735/70,noApps/Packagesdiffacumulado.
+- Mismobloque ysubhuecoya311:mensajevacioahoracentradosobreplot,
+ 24dphorizontal,wrapcentro,onSurfaceVariant. Aplicadokcal/cardio/score/
+ peso/readiness/sleep/VFC/bar tiles,sinserieinventada ni lecturas.
+-12focalizados/3XMLverdes61s,compile72s;PNG360kcal/recoveryinspeccionados,
+ mensajeslegibles/nochoqueticks.Alturasplotintactas.Yticksconserie y
+ greedylabelscontinuaproximados,nativopendiente,no cierreblock.
+- Completa312+assemblependientes;domain504/93Wear8/1previos,nopush.
