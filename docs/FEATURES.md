@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-27
+Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -41,7 +41,7 @@
 
 - **Supabase:** las sesiones terminadas se escriben primero en local/iCloud y se envían a athlete_workout_mirror por usuario con reintentos. Ajustes → Cuenta ofrece Sincronizar ahora y fecha/error del último intento remoto. La sincronización editorial de ejercicios sigue siendo automática e invisible.
 
-Última actualización: 2026-10-26 (sesiones independientes, Comenzar/HealthKit, swipe y sincronización verificable)
+Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
 
 
 - **Persistencia de series mixtas (completadas + pendientes):** al editar un entreno terminado de fuerza, EMOM, Tabata o circuito, la vista muestra todas las series, incluidos los objetivos añadidos o cambiados en Play que aún no se han confirmado. Los UUID de las series realmente registradas se conservan al corregir repeticiones, peso, RIR o duración; los objetivos nuevos no se convierten en resultados. Se pueden quitar objetivos pendientes y eliminar series registradas expresamente sin fabricar datos. La misma estructura sobrevive al guardado/reapertura en JSON local/iCloud.
@@ -338,6 +338,7 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 - La ruta local conserva todos los puntos y precisiones GPS originales, con cortes de señal preservados. En Salud se crea un único entrenamiento por sesión, con su tipo outdoor correcto y `HKWorkoutRouteBuilder` durante la grabación. La asociación se verifica por UUID y no por mero solapamiento horario. Las rutas de Apple Watch no se sobrescriben.
 
 ## Comenzar: deportes GPS y actividad en directo
+- **Ruta cargada y guía en directo (27/10):** el inicio conserva Mapa en primer plano; el letrero verde muestra giros GPX, distancia y, si MapKit la encuentra, vía próxima orientativa. Continúa visible al seguir recto o estar fuera de ruta y se resume también en Métricas. Pantalla bloqueada y Dynamic Island incorporan la maniobra sin retirar duración, ritmo/velocidad y kilómetros; para senderos/sin conexión no se inventan calles.
 
 - La grabación de caminata, carrera y ciclismo comienza desde «Comenzar» y utiliza **Core Location** como fuente única de distancia, puntos y ritmo medio de la sesión. Con ubicación permitida y el modo `location` empaquetado, continúa al bloquear el iPhone o salir de la vista. **Apple Salud no registra ni reconstruye por su cuenta el GPS de una sesión libre de Repera**.
 - Al regresar a primer plano o reabrir «Comenzar», se pide una lectura actual y se actualiza ActivityKit: el ritmo medio se recalcula con distancia GPS válida y **tiempo activo**, sin esperar una visita a la pestaña de métricas. Los datos GPS encolados por iOS se procesan cronológicamente; las pausas y cortes de señal no generan kilómetros ficticios.
@@ -410,7 +411,7 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 
 ## Conexión guiada con asistentes (2026-10-24)
 
-Última actualización: 2026-10-24.
+Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
 

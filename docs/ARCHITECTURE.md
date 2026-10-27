@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-26 (sesiones múltiples, deportes nativos y mirror Supabase)
+Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
 
 ## Series de movilidad (iOS)
 
@@ -281,6 +281,10 @@ El campo histórico `supersetGroup` permanece en el formato Codable para abrir c
 - `PlanView.DayEditorView` y `SessionPreviewView` gestionan el guardado y sus errores; `WorkoutView` conserva `activeSession.routineId` y registra la nueva plantilla en `favoriteRoutineId` para no perder la identidad del origen. `FavoritesHubView` permite reutilizar la plantilla mediante `assignRoutine(_:toDate:)` desde el calendario, manteniendo el inicio inmediato desde Crear general.
 - El borrado del calendario respeta las plantillas vinculadas. Los favoritos fechados antiguos sin `favoriteTemplateId` siguen visibles y se tratan con la política histórica. **Validar en dispositivo** creación/edición, desconexión/iCloud, paywall y reutilización. Ver `docs/FEATURES.md` y tests de contrato.
 
+### Navegación GPX y ActivityKit (27/10/2026)
+- `LiveActivityRecorder` calcula giros del GPX y hace una única consulta `MKReverseGeocodingRequest` por giro (25 m después de la maniobra), con cancelación y descarte de respuestas de otra ruta. Si no devuelve una vía, la guía sigue siendo geométrica y no simula una ruta vial.
+- `TrainingActivityAttributes.ContentState.NavigationCue` transporta únicamente flecha, instrucción, distancia y vía aproximada. `WorkoutLiveActivityCoordinator.updateFree` lo publica junto a duración, ritmo/velocidad y distancia; `TrainingLiveActivityWidget` lo visualiza en bloqueo e isla, sin transferir trazas GPX ni alterar el estado de planes indoor.
+
 ### Motor GPS único para Comenzar y Play (iOS 27)
 
 **Referencia técnica, secuencia completa y matriz de validación:** [GPS_TRACKING.md](GPS_TRACKING.md).
@@ -358,7 +362,7 @@ Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios 
 
 ## Conexión guiada con asistentes (2026-10-24)
 
-Última actualización: 2026-10-24.
+Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
 

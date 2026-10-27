@@ -1,6 +1,6 @@
 # Seguimiento GPS deportivo unificado — Repera iOS
 
-Última actualización: 2026-10-27
+Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
 Estado: implementación integrada en `main` (PR #75); compilación iOS/watchOS y contratos de arquitectura verificados, **validación funcional con iPhone físico pendiente**.
 
 Esta es la referencia técnica para GPS, rutas, Apple Salud, actividad en directo y entrenamientos libres/programados. La descripción de producto está en [FEATURES.md](FEATURES.md) y el contexto general en [ARCHITECTURE.md](ARCHITECTURE.md). La fuente de verdad definitiva es el código.
@@ -118,3 +118,12 @@ Checklist manual imprescindible para dar la función por validada en producción
 Cualquier cambio de filtrado, permisos GPS, cortes de señal, distance filter, validación, checkpoint o precisión se hace en `WorkoutLocationTracker` y se prueba en **Comenzar y Play**. No copiar ese algoritmo a SwiftUI, Watch widgets o HealthKit. Las pantallas deben consumir el mismo estado publicado. Actualizar este documento, `ARCHITECTURE.md`, `FEATURES.md` y las pruebas cuando cambie la semántica.
 
 Referencias internas: [PR #75](https://github.com/rmoya87/repera/pull/75) (GPS unificado) y [PR #73](https://github.com/rmoya87/repera/pull/73) (métricas, voz y mapas). 
+
+
+## Navegación de rutas GPX en Comenzar (27/10/2026)
+
+- Al cargar una ruta y comenzar, la vista permanece en **Mapa** (también en vertical y horizontal); Métricas sigue accesible mediante su botón y conserva una indicación compacta. No se cambia de pantalla automáticamente cuando existe una ruta.
+- El aviso verde de navegación se muestra mientras haya una ruta seleccionada, incluso durante la espera de GPS, al seguir recto, al llegar al final o fuera del recorrido. La próxima maniobra se estima por los ángulos del GPX, no por una ruta de coche recalculada; el rumbo inicial, la precisión GPS y los vértices del archivo afectan a los giros que se pueden detectar.
+- Cuando MapKit devuelve una dirección en el punto situado aproximadamente 25 m después del giro, se presenta el **nombre de la vía orientativo**. La consulta se hace una vez por maniobra y se cancela al cambiar de tramo/ruta. Si no hay calle, cobertura o conectividad, se conserva la flecha y la instrucción sin inventar nombres.
+- ActivityKit comparte únicamente instrucción, símbolo, distancia al giro y calle orientativa, sin enviar coordenadas. La Live Activity adapta el panel a navegación + duración, ritmo/velocidad y kilómetros en pantalla bloqueada y Dynamic Island expandida. La isla compacta prioriza flecha y distancia al próximo giro, y mantiene el cronómetro cuando no hay maniobra con distancia.
+- **Pendiente de validación real en iPhone/TestFlight:** GPX urbano con giro, GPX recto y sendero sin calles, ruta alejada/fuera de ruta, bloqueo/Dynamic Island, permisos GPS, modo apaisado y ausencia de red. iOS limita la cadencia de ActivityKit en segundo plano.
