@@ -1,3 +1,4 @@
+import {renderAthleteActivity} from './athlete-activity.js';
 import {navIcon} from './nav-icons.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -210,28 +211,7 @@ function athletesPage(athletes,filter){
  <td>${a.confirmed?'<span class="pa-pill good">Verificado</span>':'<span class="pa-pill">Sin verificar</span>'}</td><td>${date(a.created_at)}</td></tr>`).join('')):
  empty('No hay atletas con esos filtros','La lista incluye cuentas autenticadas incluso sin centros vinculados.')}</section>`;
 }
-const fieldName=k=>({'reps':'Repeticiones','weight':'Peso','sets':'Series',
- 'duration':'Duración','distance':'Distancia','result':'Resultado','name':'Ejercicio',
- 'exercise':'Ejercicio','rest':'Descanso','time':'Tiempo','score':'Marca',
- 'rounds':'Rondas','notes':'Notas','type':'Tipo','value':'Valor','unit':'Unidad',
- 'target':'Objetivo','actual':'Realizado','prescription':'Prescripción',
- 'completed':'Completado','load':'Carga','unit':'Unidad'})[k]||String(k).replace(/_/g,' ');
-function nested(value,level=0){
- if(value==null)return '<span class="pa-muted">Sin datos</span>';
- if(Array.isArray(value)){
-  if(!value.length)return '<span class="pa-muted">Sin registros</span>';
-  return `<div class="pa-nested-list">${value.slice(0,150).map((item,i)=>`<div class="pa-nested-item">
-  ${typeof item==='object'&&item!==null?nested(item,level+1):`<span class="pa-muted">${i+1}. </span>${esc(readable(item))}`}
-  </div>`).join('')}</div>`;
- }
- if(typeof value==='object'){
-  if(level>6)return '<span class="pa-muted">Detalle anidado</span>';
-  return `<dl class="pa-nested-details">${Object.entries(value).slice(0,75).map(([k,v])=>`<dt>${esc(fieldName(k))}</dt>
-   <dd>${typeof v==='object'&&v!==null?nested(v,level+1):esc(readable(v))}</dd>`).join('')}</dl>`;
- }
- return esc(readable(value));
-}
-function athleteDetail(person,detail,workouts=[],busy=false){
+function athleteDetail(person,detail,workouts=[],busy=false,activity={}){
  const a=detail?.account||person;const rows=detail||{};
  return `${heading('Ficha de atleta','Cuenta, actividad y relaciones con centros',button('Volver a atletas','back-athletes'))}
  <div class="pa-panel pa-center-hero"><div class="pa-identity">${photo(a.avatar_url,a.name,'large')}
@@ -242,6 +222,9 @@ function athleteDetail(person,detail,workouts=[],busy=false){
  ${stat('Reservas',rows.booking_count||0)}
  ${stat('Sesiones profesionales',rows.training_count||0)}
  ${stat('Centros vinculados',(rows.memberships||[]).length)}</div>
+ ${renderAthleteActivity({month:activity.month,days:activity.days,
+  selectedDay:activity.day||workouts[0]?.started_at?.slice(0,10)||'',
+  workouts:activity.workouts??workouts,loading:activity.loading})}
  <div class="pa-layout">
  <section class="pa-panel"><h2>Identidad y cuenta</h2>
  ${details([['Nombre',a.name],['Correo',a.email],['Rol',a.role==='platform_admin'?'Administrador de plataforma':a.role||'Atleta'],
@@ -283,20 +266,7 @@ function athleteDetail(person,detail,workouts=[],busy=false){
  ${rows.reservations?.length?table(['Centro','Fecha','Estado'],rows.reservations.map(t=>`<tr>
  <td>${esc(t.center_name)}</td><td>${stamp(t.booked_at)}</td><td>${statusPill(t.status)}</td></tr>`).join('')):
  empty('Sin reservas','No constan reservas asociadas.')}</section></div>
- <section class="pa-panel"><div class="pa-panel-title"><h2>Entrenamientos registrados (${validNumber(rows.workout_count)})</h2>
- <span class="pa-muted">Fuente: atleta en Supabase, no métricas de HealthKit</span></div>
- ${workouts.length?workouts.map((w,i)=>`<details class="pa-workout-detail">
- <summary><span><strong>${esc(w.title||'Entrenamiento '+(i+1))}</strong><small>
- ${stamp(w.started_at)}${w.finished_at?' · Terminado '+stamp(w.finished_at):''}</small></span>
- <span class="pa-muted">Ver ejercicios y resultados</span></summary>
- <div class="pa-layout"><div><h3>Ejercicios y series</h3>${nested(w.exercises)}</div>
- <div><h3>Resultados WOD</h3>${nested(w.wod_results)}</div></div>
- </details>`).join(''):empty('Sin entrenamientos visibles','Este atleta todavía no ha sincronizado entrenamientos a esta fuente.')}
- ${workouts.length<validNumber(rows.workout_count)?`<div class="pa-load-more">
- <button type="button" class="pa-button" data-admin-action="more-athlete-workouts" ${busy?'disabled':''}>
- ${busy?'Cargando...':'Cargar más entrenamientos'} (${workouts.length}/${rows.workout_count})</button></div>`:''}
- <p class="pa-muted">Esta ficha no muestra información médica privada, secretos de sesión ni otros datos protegidos. Las consultas quedan auditadas.</p>
- </section>`}
+ <p class="pa-muted">Los entrenamientos del calendario muestran solo información útil para el deportista. Los identificadores internos y ajustes técnicos no se presentan.</p>`}
  `;
 }
 function planForm(plan,newPlan=false){
@@ -406,6 +376,7 @@ function accountPage(account,email){
 export function renderPlatformAdmin({
  tab='home',orgs=[],athletes=[],finance={},pending=[],history=[],plans=[],
  selectedOrg='',selectedAthlete='',centerDetail=null,athleteData=null,athleteWorkouts=[],
+ activityMonth='',activityDays=[],activityDay='',activityDayWorkouts=null,activityLoading=false,
  collapsed=false,filter={},settings={},account={},editingPlan='',busy=false,error='',notice='',email=''
 }={}) {
  const o=orgs.find(o=>o.id===selectedOrg);
@@ -415,7 +386,10 @@ export function renderPlatformAdmin({
  'admin-settings':'Configuración',account:'Mi cuenta',provision:'Añadir centro'};
  const displayName=account.display_name||email.split('@')[0]||'Administrador';
  let body='';
- if(a)body=athleteDetail(a,athleteData,athleteWorkouts,busy);
+ if(a)body=athleteDetail(a,athleteData,athleteWorkouts,busy,{
+  month:activityMonth,days:activityDays,day:activityDay,
+  workouts:activityDayWorkouts,loading:activityLoading
+ });
  else if(o)body=organizationDetail(o,{plans,detail:centerDetail});
  else if(tab==='home')body=overview(orgs,finance,history);
  else if(tab==='centers')body=directory(orgs,filter);
