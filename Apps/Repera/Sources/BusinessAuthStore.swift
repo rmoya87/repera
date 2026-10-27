@@ -135,7 +135,7 @@ final class BusinessAuthStore {
         guard let client else {
             isConnected = false
             isMigrationRequired = false
-            lastErrorMessage = "Supabase Repera no está configurado en esta compilación."
+            lastErrorMessage = "No se ha podido iniciar el servicio de Repera en esta versión."
             AuthSessionTrace.event("restoreSession abort: no client")
             return
         }
@@ -408,7 +408,7 @@ final class BusinessAuthStore {
     @discardableResult
     func connect(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async -> Bool {
         guard let client else {
-            lastErrorMessage = "Supabase Repera no está configurado."
+            lastErrorMessage = "No se ha podido iniciar el servicio de Repera."
             isConnected = false
             return false
         }
@@ -481,7 +481,7 @@ final class BusinessAuthStore {
             isConnected = false
             isMigrationRequired = true
             BusinessDataStore.shared.clear()
-            lastErrorMessage = "No se ha podido conectar con Supabase: \(error.localizedDescription)"
+            lastErrorMessage = "No se ha podido conectar con Repera: \(error.localizedDescription)"
             AuthSessionTrace.event("connect FAIL: \(error.localizedDescription)")
             return false
         }
@@ -492,7 +492,7 @@ final class BusinessAuthStore {
     @discardableResult
     func signInWithGoogle() async -> Bool {
         guard let client else {
-            lastErrorMessage = "Supabase Repera no está configurado."
+            lastErrorMessage = "No se ha podido iniciar el servicio de Repera."
             return false
         }
         guard !isConnecting else { return false }
@@ -772,7 +772,7 @@ final class BusinessAuthStore {
         var errorDescription: String? {
             switch self {
             case .identityChanged: "La cuenta Apple ha cambiado."
-            case .profileMissing: "Supabase no ha creado aún el perfil."
+            case .profileMissing: "El perfil todavía no está disponible."
             }
         }
     }
