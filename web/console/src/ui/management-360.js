@@ -1,4 +1,5 @@
-import {renderSharedAthleteSessions} from './athlete-activity.js';
+import {renderSharedAthleteSessions,renderAthleteActivity} from './athlete-activity.js';
+import {renderAthleteInsights,renderAthleteGuidance} from './athlete-insights.js';
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -65,7 +66,25 @@ export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],se
  return `${stats}${quick}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${o.kind==='appointment'?'Cita 1:1':'Clase grupal'} · ${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length}/${o.capacity} plazas</small><span class="business-tile-arrow">Ver detalle →</span></button>`).join(''):'<p>No hay próximas clases programadas.</p>'}</div>`)}`;
 }
-export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',trainer=false,escapeHTML=esc,clientSection='training'}){
+const localDay=x=>{
+ if(!x)return '';
+ const d=new Date(x);return Number.isNaN(d.valueOf())?'':new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+};
+function athleteLoggedRows(rows){
+ return rows.map(r=>({id:r.id,title:r.title,started_at:r.started_at,finished_at:r.finished_at,
+  exercises:Array.isArray(r.result?.exercises)?r.result.exercises:[],
+  wod_results:Array.isArray(r.result?.wodResults)?r.result.wodResults:[]}));
+}
+function trainerDays({sharedHistory,sessions,attendance}){
+ const counts=new Map();
+ const push=d=>{if(d)counts.set(d,(counts.get(d)||0)+1);};
+ sharedHistory.forEach(r=>push(localDay(r.started_at||r.finished_at)));
+ sessions.forEach(s=>push(s.scheduled_date));
+ attendance.forEach(a=>push(localDay(a.performed_at)));
+ return [...counts.entries()].map(([day,count])=>({day,count}));
+}
+
+export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],attendance=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,escapeHTML=esc,clientSection='training'}){
  if(!selected)return show(`<div class="business-panel-head"><div>
  <span class="connected-eyebrow">DEPORTISTAS</span><h2>Clientes</h2>
  <p>Consulta cada ficha y sus entrenamientos autorizados. Las vinculaciones solo se completan al aceptar la invitación.</p></div></div>
@@ -88,6 +107,8 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  const ownPasses=passes.filter(p=>p.client_id===c.id),
  ownBookings=bookings.filter(b=>b.client_id===c.id),
  ownSessions=sessions.filter(s=>s.client_id===c.id&&s.status==='scheduled');
+ const logged=athleteLoggedRows(sharedHistory);
+ const ownAttendance=attendance.filter(a=>a.client_id===c.id);
  const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
  ${[...[['training','Entrenamientos'],['data','Datos']],...(trainer?[]:[['bookings','Reservas']])].map(([id,name])=>
  `<button type="button" data-action="client-section" data-section="${id}" class="${clientSection===id?'active':''}"
@@ -95,20 +116,39 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  const head=`${button('← Volver a clientes','back-clients')}<div class="business-profile-header"><span class="business-avatar large">
  ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
  </span><div><h2>${esc(c.name)}</h2><p>${esc(c.email)} · ${c.user_id?'Cuenta vinculada':'Invitación pendiente'} </p></div>
+ ${trainer?`<div class="business-profile-orientation"><span class="pa-eyebrow">Orientación de entrenamiento</span>${renderAthleteGuidance(logged,sharedHistory.length)}</div>`:''}
  ${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}${manager&&trainer&&c.status!=='cancelled'?button('Finalizar relación','end-client',c.id):''}</div>`;
  let body='';
  if(clientSection==='training'){
-  body=`<div class="business-360-grid">
- <div class="business-detail-panel"><div class="business-panel-head"><h3>Planificación</h3>
- ${button('Añadir entrenamientos','plan-client',c.id)}${trainer?button('Añadir planificación','add-planning',c.id):''}</div>
- ${ownSessions.length?ownSessions.map(s=>`<article class="business-line"><strong>${esc(s.title)}</strong>
- <small>${day(s.scheduled_date)} · ${(s.prescription?.blocks||[]).length} bloques</small>
- ${button('Editar entrenamiento','edit-session',s.id)}${manager?button('Eliminar','delete-session',s.id):''}</article>`).join(''):
- note('Aún no hay entrenamientos planificados.')}</div>
- <div class="business-detail-panel"><h3>Actividad compartida</h3>
- ${sharedHistory.length?`<p>${sharedHistory.length} sesiones compartidas con este centro.</p>
- ${renderSharedAthleteSessions(sharedHistory)}`:
- note('Solo se muestran actividades autorizadas por el atleta. El resto de su historial personal permanece privado.')}</div></div>`;
+  if(trainer){
+   const currentMonth=/^\d{4}-\d{2}$/.test(trainerActivityMonth)?trainerActivityMonth:new Date().toLocaleDateString('sv-SE').slice(0,7);
+   const currentDay=/^\d{4}-\d{2}-\d{2}$/.test(trainerActivityDay)?trainerActivityDay:new Date().toLocaleDateString('sv-SE');
+   const daily=logged.filter(w=>localDay(w.started_at||w.finished_at)===currentDay);
+   const planned=ownSessions.filter(s=>s.scheduled_date===currentDay);
+   body=`<div class="trainer-client-actions">
+    <p>Consulta lo registrado por el atleta y los entrenamientos programados. La actividad personal solo aparece si está compartida con el entrenador.</p>
+    ${manager?button('Crear planificación','add-planning',c.id):''}</div>
+    <div class="pa-athlete-training-grid trainer-client-grid">
+    ${renderAthleteActivity({month:currentMonth,selectedDay:currentDay,
+      days:trainerDays({sharedHistory,sessions:ownSessions,attendance:ownAttendance}),
+      workouts:daily,plannedSessions:planned,athleteId:c.id,actionNamespace:'trainer',
+      canPlan:manager,emptyText:'Los puntos señalan días con actividad compartida, entrenamientos programados o sesiones presenciales.'})}</div>
+    ${ownAttendance.length?`<section class="business-detail-panel trainer-attendance-history"><h3>Sesiones presenciales registradas</h3>
+      <div class="business-attendance-rows">${ownAttendance.slice(0,12).map(a=>`<div class="business-line"><strong>${dateTime(a.performed_at)}</strong><small>${esc(a.note||'Sesión realizada con el entrenador')}</small></div>`).join('')}</div></section>`:''}
+    ${renderAthleteInsights(logged,sharedHistory.length,{showGuidance:false})}`;
+  }else{
+   body=`<div class="business-360-grid">
+   <div class="business-detail-panel"><div class="business-panel-head"><h3>Planificación</h3>
+   ${button('Añadir entrenamientos','plan-client',c.id)}</div>
+   ${ownSessions.length?ownSessions.map(s=>`<article class="business-line"><strong>${esc(s.title)}</strong>
+   <small>${day(s.scheduled_date)} · ${(s.prescription?.blocks||[]).length} bloques</small>
+   ${button('Editar entrenamiento','edit-session',s.id)}${manager?button('Eliminar','delete-session',s.id):''}</article>`).join(''):
+   note('Aún no hay entrenamientos planificados.')}</div>
+   <div class="business-detail-panel"><h3>Actividad compartida</h3>
+   ${sharedHistory.length?`<p>${sharedHistory.length} sesiones compartidas con este centro.</p>
+   ${renderSharedAthleteSessions(sharedHistory)}`:
+   note('Solo se muestran actividades autorizadas por el atleta.')}</div></div>`;
+  }
  }
  if(clientSection==='data'){
   body=`<div class="business-360-grid">
