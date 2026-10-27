@@ -41,4 +41,43 @@ class LiveMapLandscapeRenderTest {
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/live-map-landscape.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
  }
+ @Test fun pausedLandscapeKeepsMetricsAndStatusSeparateWithoutGps() {
+  val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+  val runtime=LiveActivityRuntime.forAccount(context,"render-paused-landscape")
+  // Pure state fixture only: do not call runtime.start(), service or sensors.
+  runtime.state.choose(LiveSport.RUNNING)
+  val now=System.currentTimeMillis()
+  runtime.state.start(now-90_000,"fake-fixture")
+  runtime.state.pause(now)
+  composeRule.setContent {
+   MaterialTheme(colorScheme=reperaColorScheme(false)) {
+    Surface(Modifier.testTag("paused_root")) {
+     LiveActivityScreen("render-paused-landscape",onSaved={},onOpenTools={})
+    }
+   }
+  }
+  composeRule.onNodeWithText("Reanudar").assertExists()
+  val bmp=composeRule.onNodeWithTag("paused_root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/live-map-landscape-paused.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+ }
+ @Test fun recordingLandscapeKeepsMetricsAndStatusSeparateWithoutGps() {
+  val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+  val runtime=LiveActivityRuntime.forAccount(context,"render-recording-landscape")
+  // Pure state fixture only: do not call runtime.start(), service or sensors.
+  runtime.state.choose(LiveSport.RUNNING)
+  val now=System.currentTimeMillis()
+  runtime.state.start(now-90_000,"fake-fixture")
+  composeRule.setContent {
+   MaterialTheme(colorScheme=reperaColorScheme(false)) {
+    Surface(Modifier.testTag("recording_root")) {
+     LiveActivityScreen("render-recording-landscape",onSaved={},onOpenTools={})
+    }
+   }
+  }
+  composeRule.onNodeWithText("Pausar").assertExists()
+  val bmp=composeRule.onNodeWithTag("recording_root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/live-map-landscape-recording.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+ }
 }

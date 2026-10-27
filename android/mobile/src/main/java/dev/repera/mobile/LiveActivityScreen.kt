@@ -271,7 +271,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             onOpenCenter?.let { TextButton(onClick=it) {Text("Center")} }
                         }
                     } else {
-                        Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)) + " · %.2f km".format(state.distanceMeters/1000),
+                        Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)) + " · " + ReperaNumberFormat.decimal(state.distanceMeters/1000,maximumFractionDigits=2) + " km",
                             style=MaterialTheme.typography.titleLarge)
                         // Apple 4ab1d8f9/0eb0cdb6/052f17f4: km actual, metros y ritmo
                         // parcial en vivo tambien en el HUD del mapa (min/km o km/h).
