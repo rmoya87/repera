@@ -237,9 +237,13 @@ export class ReperaAuthAPI {
    p_org:orgId,p_template:templateId,p_clients:clientIds,p_start:start,p_end:end,
    p_weekdays:weekdays,p_request:requestId}});
  }
- async clients(orgId){
+ async clients(orgId,{basic=false}={}){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('clients?select=id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
+  // Minimize the payload for non-manager workspaces. RLS enforces which
+  // rows are visible; this endpoint also avoids loading notes/phone at all.
+  const fields=basic?'id,org_id,user_id,name,email,avatar_url,status,created_at':
+   'id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at';
+  return this.#authorized('clients?select='+fields+'&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
  async addClient({orgId,name,email,userId}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
