@@ -286,9 +286,8 @@ object ProgressSnapshotBuilder {
             monday, now, zone)
         // Apple b4b8f8b8: mismo dia relativo del periodo anterior (bounds.end - 1s),
         // no necesariamente el ultimo dia de la semana o del mes anterior.
-        val previousBounds = range.previousPeriodBounds(now, monday)
         val previousStreak = StatsEngine.consecutiveWeekStreak(dates, externalDates,
-            monday, previousBounds.second.minusDays(1), zone)
+            monday, range.previousPeriodStreakReference(now, monday), zone)
 
         val averageHeartRate = health?.heartRateDays
             ?.filter { range.contains(it.date, now, monday) }

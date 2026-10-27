@@ -33,6 +33,21 @@ class ProgressTimeRangeComparableTest {
         assertEquals(day(2026, 3, 1), end)
     }
 
+    @Test fun streakReferenceUsesSameRelativeDayOfPreviousPeriod() {
+        // Apple b4b8f8b8: bounds.end - 1s, no el ultimo dia del periodo anterior.
+        // Martes 27oct: fin comparable = miercoles 21oct 00:00 -> racha a 20oct.
+        assertEquals(day(2026, 10, 20),
+            ProgressTimeRange.WEEK.previousPeriodStreakReference(now = day(2026, 10, 27)))
+        // Lunes: fin comparable = martes 20oct 00:00 (prevStart+1 dia transcurrido)
+        // -> racha al lunes 19oct (mismo dia relativo), no al lunes 26oct - 7d.
+        assertEquals(day(2026, 10, 19),
+            ProgressTimeRange.WEEK.previousPeriodStreakReference(now = day(2026, 10, 26)))
+        assertEquals(day(2026, 10, 26),
+            ProgressTimeRange.TODAY.previousPeriodStreakReference(now = day(2026, 10, 27)))
+        assertEquals(day(2026, 9, 27),
+            ProgressTimeRange.MONTH.previousPeriodStreakReference(now = day(2026, 10, 27)))
+    }
+
     @Test fun rollingWindowComparesFullPriorWindow() {
         val now = day(2026, 10, 27)
         val (start, end) = ProgressTimeRange.DAYS_90.previousPeriodBounds(now = now)

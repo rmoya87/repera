@@ -97,6 +97,13 @@ enum class ProgressTimeRange(val wire: String) {
         }
     }
 
+    /** Apple b4b8f8b8: racha del periodo anterior evaluada en el mismo dia
+     *  relativo (bounds.end - 1s), no necesariamente el ultimo dia de la semana
+     *  o del mes anterior. */
+    fun previousPeriodStreakReference(now: LocalDate = LocalDate.now(),
+                                      weekStartsOnMonday: Boolean = true): LocalDate =
+        previousPeriodBounds(now, weekStartsOnMonday).second.minusDays(1)
+
     fun containsInPreviousPeriod(date: LocalDate, now: LocalDate = LocalDate.now(),
                                  weekStartsOnMonday: Boolean = true): Boolean {
         val (start, end) = previousPeriodBounds(now, weekStartsOnMonday)
