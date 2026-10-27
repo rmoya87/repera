@@ -288,3 +288,34 @@
  .is-delegated .business-navigation{min-height:auto;max-height:none}
  .is-delegated .business-sidebar-account{margin-top:12px}
 }
+
+/* Readable, privacy-scoped client list and tab navigation */
+.business-client-table-wrap{overflow-x:auto;border:1px solid #dfebe2;border-radius:15px}
+.business-client-table{width:100%;border-collapse:collapse;min-width:550px}
+.business-client-table th{background:#f4faf5;text-align:left;color:#6d8575;font-size:11px;
+ text-transform:uppercase;letter-spacing:.55px;padding:14px 16px}
+.business-client-table td{padding:13px 16px;border-top:1px solid #e8f0ea;font-size:13px}
+.business-client-table tbody tr{cursor:pointer}
+.business-client-table tbody tr:hover,.business-client-table tbody tr:focus-visible{
+ background:#eef9f1;outline:2px solid #8dd6a1;outline-offset:-2px}
+.business-client-person{display:flex;align-items:center;gap:10px}
+.business-client-person strong{font-size:13px}
+.business-client-person .business-avatar{width:39px;height:39px;border-radius:50%;display:grid;
+ place-items:center;background:#e7f8eb;color:#247b42;flex-shrink:0;overflow:hidden}
+.business-client-person .business-avatar img{width:100%;height:100%;object-fit:cover}
+.business-client-add{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto;
+ gap:13px;align-items:end;margin-top:20px;padding:17px;background:#f6fbf7;
+ border:1px solid #dfebe0;border-radius:15px}
+.business-client-add h3{grid-column:1/-1;margin:0;font-size:16px}
+.business-client-add .connected-field{margin:0}
+.business-client-add p{grid-column:1/-1;margin:0}
+.business-client-tabs{display:flex;gap:8px;border-bottom:1px solid #dce8e0;margin:16px 0 20px}
+.business-client-tabs button{padding:12px 17px;background:transparent;border:0;border-bottom:3px solid transparent;
+ font-weight:800;font-size:13px;color:#64816d;cursor:pointer}
+.business-client-tabs button.active{color:#227c43;border-bottom-color:#27ae5c}
+.business-client-summary{display:grid;grid-template-columns:145px minmax(0,1fr);gap:12px;margin-bottom:18px}
+.business-client-summary dt{color:#718775;font-size:12px}
+.business-client-summary dd{margin:0;font-size:12px;font-weight:650;color:#263d2e;overflow-wrap:anywhere}
+@media(max-width:960px){.business-client-add{grid-template-columns:1fr 1fr}.business-client-add button{grid-column:1/-1}}
+@media(max-width:650px){.business-client-add{grid-template-columns:1fr}.business-client-add button{grid-column:auto}
+.business-client-summary{grid-template-columns:110px minmax(0,1fr)}}
