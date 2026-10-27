@@ -332,6 +332,8 @@ struct WorkoutDetailView: View {
         .onAppear { loadDraft() }
         .task(id: sessionId) {
             guard !didHydrateDetail else { return }
+            store.repairHistoricalWODExercisesIfNeeded()
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
             loadDraft()
             _ = store.ensureSessionReview(for: sessionId)
             draft = store.state.workouts.first(where: { $0.id == sessionId })
@@ -1047,6 +1049,8 @@ struct WorkoutDetailView: View {
             }
             ForEach(Array(rows.enumerated()), id: \.element.0) { offset, pair in
                 let exercise = pair.1
+                let display = store.resolvedCatalogExercise(id: exercise.exercise.id)
+                    ?? exercise.exercise
                 if offset > 0 {
                     Divider().overlay(OG.surface3).padding(.leading, 52)
                 }
@@ -1054,9 +1058,9 @@ struct WorkoutDetailView: View {
                     openExerciseDetail(exercise, sessionId: session.id)
                 } label: {
                     HStack(spacing: 12) {
-                        ExerciseThumb(exercise: exercise.exercise, size: 40)
+                        ExerciseThumb(exercise: display, size: 40)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(exercise.exercise.name)
+                            Text(display.name)
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .lineLimit(2)
@@ -1163,7 +1167,8 @@ struct WorkoutDetailView: View {
         showsOuterPadding: Bool
     ) -> some View {
         let visibleSets = visibleLoggedSets(for: exercise, hideScoreArtifact: hideScoreArtifact)
-        let catalogExercise = exercise.exercise
+        let catalogExercise = store.resolvedCatalogExercise(id: exercise.exercise.id)
+            ?? exercise.exercise
         return VStack(alignment: .leading, spacing: 12) {
             Button {
                 if let highlightSessionId {

@@ -432,15 +432,41 @@ final class ReperaStore: NSObject {
         }
     }
 
-    /// Resuelve un id de sesión (a veces UUID huérfano de WOD/pizarra) al ejercicio de catálogo.
+    /// Las sesiones antiguas llevan una COPIA del Exercise, no una referencia viva.
+    /// Al importar BTt/T2B se pudieron guardar con UUIDs temporales (incluso con
+    /// el mismo UUID aún presente en state.exercises). El id no debe prevalecer
+    /// ante el nombre oficial en estos dos alias inequívocos.
+    private func officialHistoricalWODExercise(for snapshot: Exercise) -> Exercise? {
+        let name = CrossFitGlossary.normalize(
+            CrossFitGlossary.resolveCatalogName(snapshot.name)
+        )
+        guard name == "burpee to target" || name == "toes to bar" else { return nil }
+        if let official = state.exercises.first(where: {
+            !$0.isCustom && !$0.isCatalogArchived
+                && CrossFitGlossary.normalize($0.name) == name
+        }) {
+            return official
+        }
+        // Sin sesión de negocio, o antes de que termine la sincronización,
+        // utilizar la ficha oficial incluida en la app (caché de proceso).
+        return Catalog.seed().first {
+            !$0.isCustom && CrossFitGlossary.normalize($0.name) == name
+        }
+    }
+
+    /// Resuelve un ID de sesión contra el catálogo, incluso si existe una
+    /// ficha provisional persistida con el mismo UUID.
     func resolvedCatalogExercise(id: UUID) -> Exercise? {
-        if let hit = state.exercises.first(where: { $0.id == id }) { return hit }
+        if let hit = state.exercises.first(where: { $0.id == id }) {
+            return officialHistoricalWODExercise(for: hit) ?? hit
+        }
         guard let snap = state.workouts
             .lazy
             .flatMap(\.exercises)
             .map(\.exercise)
             .first(where: { $0.id == id })
         else { return nil }
+        if let official = officialHistoricalWODExercise(for: snap) { return official }
         if let match = state.exercises.first(where: {
             ExerciseEquivalence.matchesCatalogIdentity($0, snap)
         }) {
@@ -456,6 +482,19 @@ final class ReperaStore: NSObject {
         for wi in state.workouts.indices {
             for ei in state.workouts[wi].exercises.indices {
                 let snap = state.workouts[wi].exercises[ei].exercise
+                // Reconciliar primero los alias antiguos; comprobar solo el UUID
+                // aquí dejaría bloqueadas para siempre fichas «BTt» / «T2B».
+                if let official = officialHistoricalWODExercise(for: snap) {
+                    if !state.exercises.contains(where: { $0.id == official.id }) {
+                        state.exercises.append(official)
+                        changed = true
+                    }
+                    if snap.id != official.id || snap.name != official.name || snap.isCustom {
+                        state.workouts[wi].exercises[ei].exercise = official
+                        changed = true
+                    }
+                    continue
+                }
                 if state.exercises.contains(where: { $0.id == snap.id }) { continue }
                 guard let match = state.exercises.first(where: {
                     ExerciseEquivalence.matchesCatalogIdentity($0, snap)
@@ -469,6 +508,17 @@ final class ReperaStore: NSObject {
             var activeChanged = false
             for ei in session.exercises.indices {
                 let snap = session.exercises[ei].exercise
+                if let official = officialHistoricalWODExercise(for: snap) {
+                    if !state.exercises.contains(where: { $0.id == official.id }) {
+                        state.exercises.append(official)
+                        changed = true
+                    }
+                    if snap.id != official.id || snap.name != official.name || snap.isCustom {
+                        session.exercises[ei].exercise = official
+                        activeChanged = true
+                    }
+                    continue
+                }
                 if state.exercises.contains(where: { $0.id == snap.id }) { continue }
                 guard let match = state.exercises.first(where: {
                     ExerciseEquivalence.matchesCatalogIdentity($0, snap)
@@ -482,6 +532,13 @@ final class ReperaStore: NSObject {
             }
         }
         return changed
+    }
+
+    /// Reparación idempotente al abrir el detalle de un entreno ya guardado.
+    /// Solo cambia las fichas de catálogo, nunca score, cargas, series o fechas.
+    func repairHistoricalWODExercisesIfNeeded() {
+        guard relinkOrphanSessionExercisesToCatalog() else { return }
+        persist(touchWorkouts: true)
     }
 
     /// Corrige los movimientos WOD de rutinas programadas previamente
