@@ -338,6 +338,12 @@ struct WorkoutDetailView: View {
             guard !isEditing else { return }
             draft = store.state.workouts.first(where: { $0.id == sessionId })
         }
+        .onChange(of: store.workoutsEpoch) { _, _ in
+            // Si termina una recuperación mientras el detalle está abierto,
+            // actualizar el mapa sin obligar a cerrar y reabrir la pantalla.
+            guard !isEditing else { return }
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
+        }
         .task(id: sessionId) {
             guard !didHydrateDetail else { return }
             store.repairHistoricalWODExercisesIfNeeded()
@@ -369,6 +375,16 @@ struct WorkoutDetailView: View {
             let extras = await health.sessionHealthExtras(for: session)
             guard !Task.isCancelled else { return }
             healthExtras = extras
+            // Al abrir un recorrido histórico sin coordenadas, consultar
+            // iCloud por si el documento completo sigue en descarga.
+            if session.routePoints.count < 2,
+               (extras?.routePoints.count ?? 0) < 2,
+               session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
+               !store.isSyncingiCloud {
+                await store.refreshFromiCloud()
+                guard !Task.isCancelled else { return }
+                draft = store.state.workouts.first(where: { $0.id == sessionId })
+            }
             // Refinar una sola vez por apertura, no en cada vuelta de navegación.
             await store.refineSessionReviewWithHealth(sessionId: sessionId)
             guard !Task.isCancelled else { return }
@@ -593,15 +609,14 @@ struct WorkoutDetailView: View {
                 } else if !isEditing,
                           session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
                           (session.recordedDistanceMeters ?? 0) > 0 {
-                    // En otro iPhone/simulador el espejo privado de Supabase
-                    // recupera distancia y parciales, pero no puntos GPS.
-                    // Explicar la ausencia en vez de dibujar una ruta ficticia.
+                    // La distancia puede estar disponible antes que las
+                    // coordenadas. No dibujar un trazado inventado.
                     Section {
                         VStack(alignment: .leading, spacing: 10) {
-                            Label("Recorrido no disponible en este dispositivo", systemImage: "map")
+                            Label("Recorrido pendiente", systemImage: "map")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(OG.label)
-                            Text("Se ha recuperado la distancia, pero los puntos GPS no viajan por Supabase. El recorrido original puede seguir en el iPhone donde se grabó o en su copia de iCloud.")
+                            Text("La distancia está guardada, pero todavía no están disponibles los puntos del recorrido. Comprueba que iCloud esté activado y sincronizado en tus dispositivos.")
                                 .font(.system(size: 13))
                                 .foregroundStyle(OG.label2)
                                 .fixedSize(horizontal: false, vertical: true)
