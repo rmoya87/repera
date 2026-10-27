@@ -27,6 +27,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_unified_gps_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_kilometer_voice_background_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_planned_workout_favorites_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_background_exercise_catalog.py' -v
           python3 - <<'PY'
           from pathlib import Path
