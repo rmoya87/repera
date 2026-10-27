@@ -1123,42 +1123,61 @@ struct WorkoutView: View {
         noteLiveDraftEdited()
     }
 
-    /// Reloj compacto persistente: anotar intervalos sin apagar el EMOM/Tabata.
+    /// Tarjeta compacta: toda la zona informativa reabre el reloj.
+    /// Pausar/Continuar queda junto a Terminar, sin un botón "Ver reloj"
+    /// redundante. El tiempo y la ronda siguen a la vista durante el registro.
     private var minimizedTimerDock: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { context in
             let clock = store.workoutClock
-            HStack(spacing: 12) {
-                Image(systemName: "timer")
-                    .font(.title3.bold())
-                    .foregroundStyle(OG.accent)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(clock.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                        .lineLimit(1)
-                    Text(DurationText.format(clock.displaySeconds(at: context.date)))
-                        .font(.system(size: 23, weight: .bold).monospacedDigit())
-                        .foregroundStyle(OG.label)
-                }
-                Spacer(minLength: 4)
+            HStack(spacing: 8) {
                 Button {
                     clock.showClock()
                 } label: {
-                    Label("Ver reloj", systemImage: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 13, weight: .semibold))
+                    HStack(spacing: 10) {
+                        Image(systemName: "timer")
+                            .font(.title3.bold())
+                            .foregroundStyle(OG.accent)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(clock.isIntervalMode
+                                 ? "Ronda \\(min(clock.displayedRound, clock.displayedRoundsTotal))/\\(clock.displayedRoundsTotal)"
+                                 : clock.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                            Text(DurationText.format(clock.displaySeconds(at: context.date)))
+                                .font(.system(size: 22, weight: .bold).monospacedDigit())
+                                .foregroundStyle(OG.label)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.bordered)
-                .tint(OG.accent)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ver reloj completo")
+
                 Button {
-                    clock.stop()
-                    runningTimerBlockID = nil
+                    clock.handlePrimary()
                 } label: {
-                    Image(systemName: "stop.fill")
-                        .frame(minWidth: 32, minHeight: 32)
+                    Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(minWidth: 40, minHeight: 40)
                 }
                 .buttonStyle(.bordered)
-                .tint(OG.label2)
-                .accessibilityLabel("Detener temporizador")
+                .tint(OG.label)
+                .accessibilityLabel(clock.primaryTitle + " temporizador")
+
+                Button {
+                    clock.finishByUser()
+                } label: {
+                    Text("Terminar")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(minHeight: 40)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .disabled(!clock.canFinishByUser)
+                .accessibilityLabel("Terminar temporizador")
             }
             .padding(12)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
