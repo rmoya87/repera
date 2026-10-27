@@ -110,6 +110,12 @@ export class ReperaAuthAPI {
   return this.#authorized('profiles?id=eq.'+encodeURIComponent(user.id)+'&select=id,display_name,avatar_url',
    {method:'PATCH',prefer:'return=representation',body:{display_name:name}});
  }
+ async changeOwnEmail(email){
+  const address=String(email||'').trim().toLowerCase();
+  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(address)||address.length>180)throw Error('Introduce un correo electrónico válido');
+  const token=await this.token();if(!token)throw Error('Inicia sesión');
+  return this.#request('/auth/v1/user',{method:'PUT',token,body:{email:address}});
+ }
  async uploadOwnAvatar(file){
   const user=await this.currentUser();if(!user?.id)throw Error('Inicia sesión');
   const blob=await this.#compressAvatar(file,2097152);
