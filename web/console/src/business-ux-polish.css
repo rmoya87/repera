@@ -267,7 +267,7 @@
 .is-delegated .connected-heading{display:none!important}
 .is-delegated .business-delegated-workspace{grid-template-rows:minmax(0,1fr)!important}
 .is-delegated .business-navigation{grid-row:1!important;display:flex!important;flex-direction:column;
- min-height:calc(100vh - 50px);max-height:calc(100vh - 40px)}
+ min-height:calc(100vh - 50px);max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}
 .is-delegated .business-delegate-content{grid-row:1!important}
 .is-delegated .business-sidebar-account{display:flex;align-items:center;gap:11px;margin-top:auto;
  border-top:1px solid #e4ede6;padding:13px 5px 0;min-width:0}
