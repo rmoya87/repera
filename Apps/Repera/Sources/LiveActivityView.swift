@@ -364,6 +364,8 @@ final class LiveRoutesStore {
     @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
     @ObservationIgnored private var isCloudSynchronizationRunning = false
     @ObservationIgnored private var cloudSyncRequestedAgain = false
+    @ObservationIgnored private var hadRouteFileAtLaunch = false
+    @ObservationIgnored private var didEditRouteLocally = false
 
     /// Lo más reciente primero; el orden anterior se conserva al migrar sin fecha.
     var latestRoutes: [LiveSavedRoute] {
@@ -410,6 +412,7 @@ final class LiveRoutesStore {
     }()
 
     private init() {
+        hadRouteFileAtLaunch = FileManager.default.fileExists(atPath: storageURL.path)
         if let data = try? Data(contentsOf: storageURL),
            let saved = try? JSONDecoder().decode([LiveSavedRoute].self, from: data) {
             routes = saved
@@ -507,7 +510,7 @@ final class LiveRoutesStore {
         let previous = routes
         routes.append(contentsOf: recovered)
         do {
-            try persist()
+            try persist(markUserAction: false)
         } catch {
             routes = previous
         }
@@ -528,7 +531,9 @@ final class LiveRoutesStore {
         }
     }
 
-    private func persist(scheduleCloud: Bool = true) throws {
+    private func persist(
+        scheduleCloud: Bool = true, markUserAction: Bool = true
+    ) throws {
         let folder = storageURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true
@@ -536,6 +541,7 @@ final class LiveRoutesStore {
         let data = try JSONEncoder().encode(routes)
         try data.write(to: storageURL, options: .atomic)
         if scheduleCloud {
+            if markUserAction { didEditRouteLocally = true }
             iCloudRouteStatus = "Sincronizando rutas con iCloud…"
             requestICloudSynchronization()
         }
@@ -578,7 +584,11 @@ final class LiveRoutesStore {
             // A newly installed phone can see the iCloud directory before
             // the route document metadata arrives. Never replace a missing
             // cloud document with an empty first-install local archive.
-            guard !routes.isEmpty || !deletedIDs.isEmpty else {
+            guard (!routes.isEmpty || !deletedIDs.isEmpty)
+                && (hadRouteFileAtLaunch || didEditRouteLocally) else {
+                // Recovering GPS points from the main iCloud workout state
+                // on a fresh install is NOT a user-created route archive:
+                // do not let it replace imported GPX that is still downloading.
                 iCloudRouteStatus = "Esperando rutas de iCloud…"
                 return
             }
