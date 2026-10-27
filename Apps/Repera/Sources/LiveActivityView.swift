@@ -298,7 +298,7 @@ enum LiveSport: String, CaseIterable, Identifiable {
     }
 }
 
-struct LiveSavedRoute: Identifiable, Codable, Sendable {
+struct LiveSavedRoute: Identifiable, Codable, Sendable, Equatable {
     var id: UUID
     var title: String
     var points: [WorkoutRoutePoint]
@@ -617,22 +617,33 @@ final class LiveRoutesStore {
             }
             return $0.createdAt > $1.createdAt
         }
-        let previous = routes
-        routes = newRoutes
-        do {
-            try persist(scheduleCloud: false)
-        } catch {
-            routes = previous
-            return
+        // A route may contain thousands of GPS coordinates. Avoid encoding
+        // and writing the entire archive on every foreground switch.
+        if newRoutes != routes {
+            let previous = routes
+            routes = newRoutes
+            do {
+                try persist(scheduleCloud: false)
+            } catch {
+                routes = previous
+                return
+            }
         }
         let oldDeleted = deletedIDs
         if erased != oldDeleted {
             UserDefaults.standard.set(erased.map(\.uuidString), forKey: deletedRoutesKey)
         }
-        let archive = LiveRouteCloudArchive(
-            routes: newRoutes, deletedIDs: Array(erased)
-        )
-        let backedUp = await LiveRouteCloudBackup.shared.write(archive)
+        let remoteAlreadyMatches = remote.routes == newRoutes
+            && Set(remote.deletedIDs) == erased
+        let backedUp: Bool
+        if remoteAlreadyMatches {
+            backedUp = true
+        } else {
+            let archive = LiveRouteCloudArchive(
+                routes: newRoutes, deletedIDs: Array(erased)
+            )
+            backedUp = await LiveRouteCloudBackup.shared.write(archive)
+        }
         iCloudRouteStatus = backedUp
             ? "Rutas sincronizadas con iCloud"
             : "Rutas guardadas localmente · iCloud pendiente"
