@@ -200,12 +200,12 @@ function athletesPage(athletes,filter){
  <div class="pa-metrics">${stat('Cuentas registradas',athletes.length)}
  ${stat('Sin centro asociado',athletes.filter(a=>!validNumber(a.center_count)).length)}
  ${stat('Cuentas verificadas',athletes.filter(a=>a.confirmed).length)}</div>
- <section class="pa-panel"><div class="pa-filters">
- ${field('athleteSearch','Buscar atleta',filter.athleteSearch||'','search','data-admin-filter="athleteSearch" placeholder="Nombre o correo"')}
- <span class="pa-filter-count">${list.length} cuentas</span></div>
+ <section class="pa-panel"><div class="pa-athlete-search">
+ <input type="search" aria-label="Buscar atleta" data-admin-filter="athleteSearch" value="${esc(filter.athleteSearch||'')}" placeholder="Buscar por nombre o correo" autocomplete="off">
+ </div>
  ${list.length?table(['Atleta','Email','Centros asociados','Estado','Registro'],
- list.map(a=>`<tr><td><div class="pa-identity">${photo(a.avatar_url,a.name)}
- <div><button type="button" class="pa-text-button" data-admin-action="view-athlete" data-id="${esc(a.id)}">${esc(a.name)}</button>${a.platform_role==='platform_admin'?'<small>Administrador de plataforma</small>':''}</div></div></td>
+ list.map(a=>`<tr class="pa-athlete-row" tabindex="0" role="link" aria-label="Ver ficha de ${esc(a.name)}" data-admin-action="view-athlete" data-id="${esc(a.id)}"><td><div class="pa-identity">${photo(a.avatar_url,a.name)}
+ <div><strong>${esc(a.name)}</strong>${a.platform_role==='platform_admin'?'<small>Administrador de plataforma</small>':''}</div></div></td>
  <td>${esc(a.email||'—')}</td><td>${validNumber(a.center_count)?validNumber(a.center_count):'<span class="pa-muted">Sin centro</span>'}</td>
  <td>${a.confirmed?'<span class="pa-pill good">Verificado</span>':'<span class="pa-pill">Sin verificar</span>'}</td><td>${date(a.created_at)}</td></tr>`).join('')):
  empty('No hay atletas con esos filtros','La lista incluye cuentas autenticadas incluso sin centros vinculados.')}</section>`;
