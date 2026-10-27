@@ -78,6 +78,8 @@ class HealthConnectReader(private val context: Context) {
             HealthPermission.getReadPermission(HeartRateRecord::class),
             HealthPermission.getReadPermission(ExerciseSessionRecord::class),
             HealthPermission.getWritePermission(ExerciseSessionRecord::class),
+            // Apple 435f6992: workoutRoute en la autorizacion de escritura.
+            HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE,
             HealthPermission.getReadPermission(
                 HeartRateVariabilityRmssdRecord::class),
             HealthPermission.getReadPermission(RestingHeartRateRecord::class),
@@ -91,7 +93,7 @@ class HealthConnectReader(private val context: Context) {
         fun hasReadablePermission(granted:Set<String>):Boolean = granted.any {it in permissions + optionalVitalPermissions + setOf(
             HealthPermission.getReadPermission(SleepSessionRecord::class),HealthPermission.getReadPermission(MenstruationFlowRecord::class),
             HealthPermission.getReadPermission(OvulationTestRecord::class),HealthPermission.getReadPermission(MenstruationPeriodRecord::class),
-            HealthPermission.getReadPermission(SkinTemperatureRecord::class)) && it !in setOf(HealthPermission.getWritePermission(WeightRecord::class),HealthPermission.getWritePermission(ExerciseSessionRecord::class))}
+            HealthPermission.getReadPermission(SkinTemperatureRecord::class)) && it !in setOf(HealthPermission.getWritePermission(WeightRecord::class),HealthPermission.getWritePermission(ExerciseSessionRecord::class),HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE)}
 
         /** Health Connect EXERCISE_TYPE_* → claves de HealthMuscleMapper
          *  (mismas familias que HKWorkoutActivityType en iOS). */

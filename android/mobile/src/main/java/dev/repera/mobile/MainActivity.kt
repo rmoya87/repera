@@ -1561,7 +1561,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val linked = HealthConnectWriter(this@MainActivity,stillAuthorized={current()})
                         .syncFinishedSession(sessionId, info.first,
                             info.second, info.third, repo.healthRecordId(sessionId),
-                            HealthConnectWriter.exerciseTypeFor(repo.liveSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)))
+                            HealthConnectWriter.exerciseTypeFor(repo.liveSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)),
+                            repo.sessionRoutePoints(sessionId))
                     if (current() && linked != null && repo.healthRecordId(sessionId) == null) {
                         repo.setHealthRecordId(sessionId, linked)
                     }

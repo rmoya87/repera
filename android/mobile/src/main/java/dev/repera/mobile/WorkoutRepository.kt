@@ -2825,6 +2825,33 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return null
     }
 
+    /** Puntos GPS grabados por Repera de una sesión (exportación a Salud,
+     *  Apple 435f6992). */
+    @Synchronized fun sessionRoutePoints(sessionId: String): List<dev.repera.domain.WorkoutRoutePoint> {
+        val state = loadOrNull() ?: return emptyList()
+        val archive = state.optJSONArray("workouts") ?: return emptyList()
+        for (i in 0 until archive.length()) {
+            val session = archive.optJSONObject(i) ?: continue
+            if (session.optString("id") != sessionId) continue
+            val arr = session.optJSONArray("routePoints") ?: return emptyList()
+            return (0 until arr.length()).mapNotNull { j ->
+                val p = arr.optJSONObject(j) ?: return@mapNotNull null
+                dev.repera.domain.WorkoutRoutePoint(
+                    id = p.optInt("id"),
+                    latitude = p.optDouble("latitude"),
+                    longitude = p.optDouble("longitude"),
+                    recordedAtEpochMs = p.optLong("recordedAtEpochMs"),
+                    speedMps = if (p.has("speedMps")) p.getDouble("speedMps") else null,
+                    altitudeMeters = if (p.has("altitudeMeters")) p.getDouble("altitudeMeters") else null,
+                    horizontalAccuracyMeters = if (p.has("horizontalAccuracyMeters")) p.getDouble("horizontalAccuracyMeters") else null,
+                    verticalAccuracyMeters = if (p.has("verticalAccuracyMeters")) p.getDouble("verticalAccuracyMeters") else null,
+                    isEstimated = if (p.has("isEstimated")) p.getBoolean("isEstimated") else null
+                )
+            }
+        }
+        return emptyList()
+    }
+
     /** Ventana temporal de una sesión (epoch ms inicio/fin) para leer Salud. */
     @Synchronized fun sessionTimeRange(sessionId: String): Pair<Long, Long>? {
         val state = loadOrNull() ?: return null

@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <!-- Apple 435f6992 (HKSeriesType.workoutRoute en share): exportar el track GPS propio. -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE_ROUTE" />
     <uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE" />
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />

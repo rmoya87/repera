@@ -3,7 +3,10 @@ package dev.repera.mobile
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ExerciseRoute
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.time.TimeRangeFilter
 import dev.repera.domain.HealthSessionLink
@@ -36,7 +39,8 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
         startEpochMs: Long,
         endEpochMs: Long,
         storedRecordId: String?,
-        exerciseType: Int = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+        exerciseType: Int = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
+        routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList()
     ): String? {
         if (!stillAuthorized() || !HealthConnectReader(context).available() || endEpochMs <= startEpochMs) return null
         val client = HealthConnectClient.getOrCreate(context)
@@ -69,7 +73,16 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
             when (val decision = SessionHealthMatcher.resolveLink(
                 sessionId, startEpochMs, endEpochMs, storedRecordId,
                 candidates, context.packageName)) {
-                is SessionHealthMatcher.LinkDecision.UseExisting -> return decision.recordId
+                is SessionHealthMatcher.LinkDecision.UseExisting -> {
+                    // Apple 435f6992 attachRecordedRouteIfNeeded: tras vincular,
+                    // el recorrido grabado por Repera se adjunta SOLO a un
+                    // registro PROPIO de ESTA sesion (nunca a rutas de Watch u
+                    // otras apps), una sola vez, y sin perder la ruta local si
+                    // falta permiso.
+                    attachRecordedRouteIfNeeded(client, granted, decision.recordId,
+                        sessionId, routePoints, candidates)
+                    return decision.recordId
+                }
                 SessionHealthMatcher.LinkDecision.Skip -> return null
                 SessionHealthMatcher.LinkDecision.Insert -> Unit
             }
@@ -88,11 +101,84 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
                     device = null,
                     clientRecordId = HealthSessionLink.clientRecordId(sessionId),
                     clientRecordVersion = 0
-                )
+                ),
+                // Apple 435f6992/c7e73a35: el track GPS propio se exporta con la
+                // sesion (exige WRITE_EXERCISE_ROUTE; sin permiso, sin ruta y el
+                // GPX local se mantiene).
+                exerciseRoute = routeFor(granted, routePoints, startEpochMs, endEpochMs)
             )
             if(!stillAuthorized()) return null
             client.insertRecords(listOf(record)).recordIdsList.firstOrNull()
         }.getOrNull()
+    }
+
+    /** ExerciseRoute con los puntos exportables del track grabado, o null sin
+     *  permiso WRITE_EXERCISE_ROUTE / sin >=2 puntos validos. */
+    private fun routeFor(
+        granted: Set<String>,
+        points: List<dev.repera.domain.WorkoutRoutePoint>,
+        startEpochMs: Long,
+        endEpochMs: Long
+    ): ExerciseRoute? {
+        if (!granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE))
+            return null
+        val exportable = dev.repera.domain.RouteHealthExport.exportablePoints(
+            points, startEpochMs, endEpochMs)
+        if (exportable.isEmpty()) return null
+        return ExerciseRoute(exportable.map { p ->
+            ExerciseRoute.Location(
+                time = Instant.ofEpochMilli(p.recordedAtEpochMs),
+                latitude = p.latitude,
+                longitude = p.longitude,
+                horizontalAccuracy = p.horizontalAccuracyMeters?.let { Length.meters(it) },
+                verticalAccuracy = p.verticalAccuracyMeters?.let { Length.meters(it) },
+                altitude = p.altitudeMeters?.let { Length.meters(it) }
+            )
+        })
+    }
+
+    /** Adjunta la ruta grabada al registro PROPIO ya vinculado si aun no tiene
+     *  ruta (idempotente: Salud es la fuente de verdad de la ruta; una ruta ya
+     *  presente jamas se sobrescribe). */
+    private suspend fun attachRecordedRouteIfNeeded(
+        client: HealthConnectClient,
+        granted: Set<String>,
+        recordId: String,
+        sessionId: String,
+        routePoints: List<dev.repera.domain.WorkoutRoutePoint>,
+        candidates: List<SessionHealthMatcher.CandidateSession>
+    ) {
+        if (routePoints.size < 2) return
+        if (!granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE)) return
+        if (!granted.contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class))) return
+        val own = candidates.firstOrNull {
+            it.id == recordId && it.packageName == context.packageName &&
+                it.clientRecordId == HealthSessionLink.clientRecordId(sessionId)
+        } ?: return
+        runCatching {
+            val existing = client.readRecord(ExerciseSessionRecord::class, own.id).record
+            val alreadyHasRoute = (existing.exerciseRouteResult as? ExerciseRouteResult.Data)
+                ?.exerciseRoute?.route?.isNotEmpty() == true
+            if (alreadyHasRoute) return@runCatching
+            val route = routeFor(granted, routePoints,
+                existing.startTime.toEpochMilli(), existing.endTime.toEpochMilli())
+            if (route == null) return@runCatching
+            val updated = ExerciseSessionRecord(
+                startTime = existing.startTime,
+                startZoneOffset = existing.startZoneOffset,
+                endTime = existing.endTime,
+                endZoneOffset = existing.endZoneOffset,
+                exerciseType = existing.exerciseType,
+                title = existing.title,
+                metadata = Metadata.manualEntry(
+                    device = null,
+                    clientRecordId = HealthSessionLink.clientRecordId(sessionId),
+                    clientRecordVersion = existing.metadata.clientRecordVersion + 1
+                ),
+                exerciseRoute = route
+            )
+            client.insertRecords(listOf(updated))
+        }
     }
 
     companion object {
