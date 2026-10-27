@@ -23,8 +23,9 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
 
     def test_icloud_documents_is_enabled_and_route_archive_is_coordinated(self):
         self.assertIn("iCloud.com.app.repera", self.project)
+        self.assertIn("- path: Apps/Repera/Sources/LiveRouteCloudBackup.swift", self.project)
         self.assertIn('private let containerID = "iCloud.com.app.repera"', self.backup)
-        self.assertIn("url(forUbiquityContainerIdentifier: containerID)", self.backup)
+        self.assertIn("forUbiquityContainerIdentifier: containerID", self.backup)
         self.assertIn("struct LiveRouteCloudArchive: Codable, Sendable", self.backup)
         self.assertIn("deletedIDs: [UUID]", self.backup)
         self.assertIn("readingItemAt: url", self.backup)
