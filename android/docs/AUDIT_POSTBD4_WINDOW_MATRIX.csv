@@ -104,7 +104,7 @@ e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise 
 439bafa7|2026-10-26T22:27:10+01:00|Index remote Supabase aliases in exercise search without rebuilding the app|domain||verified-ported 11:53 (alias Supabase en búsqueda: ExerciseAliasSearch publishedAliases, ranking 95/80/60 separado de disciplinas; callsites mobile pendientes compile)
 88db5bb7|2026-10-26T22:27:25+01:00|Resolve OCR and existing WOD movements using persisted Supabase aliases|domain||verified-partial 11:24 (alias persistidos en matching: Lite ya portado tree173 vía SEN.searchAliases; parte catalogExercise pendiente con 6993e330)
 7081dc4a|2026-10-26T22:27:40+01:00|Use dynamic Supabase aliases in all lightweight board scanner paths|domain||verified-ported 11:53 (catalogIndex Android idéntico al final de Apple + archived; única diferencia: customs archivadas también excluidas, más conservador)
-846b75a6|2026-10-26T22:28:03+01:00|Distinguish scheduled days from completed workouts in Diary indicators|ios-app||unverified
+846b75a6|2026-10-26T22:28:03+01:00|Distinguish scheduled days from completed workouts in Diary indicators|ios-app||superseded-n/a 13:15: Apple elimino la UI Diario en c5aae1cc (26oct 23:26, posterior); indicadores desaparecidos en Apple; Android rama diario-removal alineada
 b74ad790|2026-10-26T22:28:54+01:00|Increase GPS heatmap contrast using session speed range and reduced smoothing|ios-app||unverified
 de1a6f0e|2026-10-26T22:30:04+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
 4dde4f78|2026-10-26T22:30:07+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
