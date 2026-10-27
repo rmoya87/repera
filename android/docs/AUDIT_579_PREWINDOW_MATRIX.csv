@@ -249,20 +249,20 @@ c413ac1d|2026-10-24T21:39:03+02:00|Show barbell-lifting Repera mascot in native 
 bb77408a|2026-10-24T21:30:40+02:00|Keep single matching mascot splash during auth restoration|ios-app|178cb079|verified-ported 14:02: mascota consistente durante restauracion — Android tiene assets mascot (hero/running MD5 identicos a Apple) y ReperaMascot.kt; splash de restauracion unico
 c2d69e0e|2026-10-24T21:25:19+02:00|Automatically repair enclosed transparent mascot details on main|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 d02dcf8b|2026-10-24T21:24:53+02:00|Remove obsolete legacy splash image assets|ios-app||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
-1a2c20a0|2026-10-24T21:21:32+02:00|Match launch background to Repera accent green|ios-app|53cca1d2|unverified
-d577f233|2026-10-24T21:21:30+02:00|Redesign launch screen with standalone mascot on brand green|ios-app||unverified
-d61c5d52|2026-10-24T21:09:35+02:00|Tighten AI provider button spacing and hide row separators|ios-app||unverified
-eda7b22c|2026-10-24T21:07:37+02:00|Replace AI icons with user supplied SVG artwork and support dark appearance|ios-app||unverified
-2546b09f|2026-10-24T20:33:18+02:00|Remove obsolete provider setup sheet and pending verification UI|ios-app||unverified
-f58a7e9c|2026-10-24T20:33:06+02:00|Use authentic ChatGPT Claude and Grok vector logos in connection buttons|ios-app||unverified
-59e8e1b4|2026-10-24T20:32:54+02:00|Add authentic vector brand artwork for AI providers|ios-app||unverified
-863c5663|2026-10-24T20:31:26+02:00|Show verified AI connections inline and centralize instructions|ios-app||unverified
-280c54b0|2026-10-24T20:17:27+02:00|Unify ChatGPT Claude and Grok onboarding in AI connections|ios-app||unverified
-a8b1fa2d|2026-10-24T20:05:45+02:00|fix(iOS): use identical sign-in icon frames and button heights|docs-tests,ios-app||unverified
-4605a2e4|2026-10-24T20:00:56+02:00|style(iOS): align Google sign-in button with Apple without shadow|docs-tests,ios-app,other||unverified
-920b8b67|2026-10-24T19:49:47+02:00|fix(art): WGS f2 en linea grafica plana (misma figura/camara que f1/f3)|ios-app||unverified
-1075577b|2026-10-24T19:48:34+02:00|feat(ai): guiar la conexión de Claude con instrucciones y OAuth público|docs-tests,ios-app,other||unverified
-396f9baf|2026-10-24T19:47:41+02:00|fix(art): WGS f2 con codo al empeine (fase 2 visible, alineada con caption)|ios-app|884f606b b337e5b9 bae24174|unverified
+1a2c20a0|2026-10-24T21:21:32+02:00|Match launch background to Repera accent green|ios-app|53cca1d2|verified-n/a 14:05: LaunchBackground colorset nativo iOS
+d577f233|2026-10-24T21:21:30+02:00|Redesign launch screen with standalone mascot on brand green|ios-app||verified-n/a 14:05: LaunchScreen.storyboard nativo iOS
+d61c5d52|2026-10-24T21:09:35+02:00|Tighten AI provider button spacing and hide row separators|ios-app||in-progress 14:05: UI proveedores AI — Android AIAccessScreen.kt (324l) sin onboarding unificado/OAuth/logos; GAP abierto
+eda7b22c|2026-10-24T21:07:37+02:00|Replace AI icons with user supplied SVG artwork and support dark appearance|ios-app||in-progress 14:05: logos SVG proveedores AI — gap: Android AIAccessScreen sin artwork marcas
+2546b09f|2026-10-24T20:33:18+02:00|Remove obsolete provider setup sheet and pending verification UI|ios-app||in-progress 14:05: retirada provider setup sheet — verificar estado equivalente en AIAccessScreen Android (gap onboarding AI)
+f58a7e9c|2026-10-24T20:33:06+02:00|Use authentic ChatGPT Claude and Grok vector logos in connection buttons|ios-app||in-progress 14:05: botones con logos autenticos — gap onboarding AI Android
+59e8e1b4|2026-10-24T20:32:54+02:00|Add authentic vector brand artwork for AI providers|ios-app||in-progress 14:05: artwork marcas AI — gap onboarding AI Android
+863c5663|2026-10-24T20:31:26+02:00|Show verified AI connections inline and centralize instructions|ios-app||in-progress 14:05: conexiones verificadas inline + instrucciones centralizadas — gap onboarding AI Android (sin Instrucciones/OAuth en AIAccessScreen)
+280c54b0|2026-10-24T20:17:27+02:00|Unify ChatGPT Claude and Grok onboarding in AI connections|ios-app||in-progress 14:05: onboarding unificado ChatGPT/Claude/Grok — GAP: Android AIAccessScreen (324l vs Apple 648l) sin flujo unificado
+a8b1fa2d|2026-10-24T20:05:45+02:00|fix(iOS): use identical sign-in icon frames and button heights|docs-tests,ios-app||verified-n/a 14:05: iconos Apple/Google sign-in iOS; Android no tiene Apple sign-in y su boton Google sigue guias de marca (OnboardingScreen.kt:141)
+4605a2e4|2026-10-24T20:00:56+02:00|style(iOS): align Google sign-in button with Apple without shadow|docs-tests,ios-app,other||verified-ported 14:05: boton Google sin sombra/marca oficial — OnboardingScreen.kt:141-178 ya sigue guias de marca Google
+920b8b67|2026-10-24T19:49:47+02:00|fix(art): WGS f2 en linea grafica plana (misma figura/camara que f1/f3)|ios-app||verified-ported 14:05: art_mv_wgs_2 MD5 identico Apple (f733e045)
+1075577b|2026-10-24T19:48:34+02:00|feat(ai): guiar la conexión de Claude con instrucciones y OAuth público|docs-tests,ios-app,other||in-progress 14:05: OAuth publico Claude con instrucciones — GAP: sin OAuth/instrucciones en AIAccessScreen Android
+396f9baf|2026-10-24T19:47:41+02:00|fix(art): WGS f2 con codo al empeine (fase 2 visible, alineada con caption)|ios-app|884f606b b337e5b9 bae24174|verified-ported 14:05: art_mv_wgs_2 MD5 identico Apple (f733e045)
 3f48e581|2026-10-24T19:47:18+02:00|fix(iOS): resolve Google packages before opening generated Xcode project|docs-tests,other||unverified
 6239bd8a|2026-10-24T19:44:15+02:00|fix(art): fase de salto visible en Burpee Broad Jump + captions de fase para WGS e Inchworm|ios-app,packages|884f606b b337e5b9 bae24174|unverified
 00c194a0|2026-10-24T19:38:37+02:00|docs(art): regenerar auditoría con los stems de movilidad/HYROX|docs-tests|0d108eb9 43cfc37f 715b8ec2 7d220949|unverified
