@@ -1,12 +1,19 @@
 # Web Repera (`repera.app`)
 
+## Inicio local exclusivamente conectado (2026-10-27)
+
+`Repera-Business.command` abre `/console/` y utiliza exclusivamente Supabase Auth y PostgREST de Repera. Se ha retirado la opción de demostración y el enlace del encabezado; los parámetros de URL ya no permiten acceder a datos precargados. El administrador global se determina antes de consultar las membresías de negocio, evitando un bloqueo de la consola por reglas RLS de tenants.
+
+Se aplica en la base de datos `20261027140000_fix_platform_membership_rls.sql` para corregir el error de permisos observado al iniciar sesión. Tras actualizar `main`, cerrar el servidor anterior y abrir de nuevo la consola; el navegador recibe archivos versionados. Los ficheros demo heredados quedan desconectados del arranque; los tests unitarios pueden seguir utilizando fixtures sin afectar a producción.
+
+
 ## Administración global de Repera Business (2026-10-27)
 
 La consola conectada `web/console/` dispone de interfaz separada para administradores de plataforma verificados. Inicio, gimnasios, entrenadores, fichas, altas pendientes, planes, pagos B2B, soporte y auditoría están implementados en `src/ui/platform-admin.js`; UI responsive en `src/platform-admin.css`. Las acciones se validan mediante RPC en Supabase y los permisos de negocio delegados caducan a los 30 minutos.
 
 Las altas administrativas quedan pendientes hasta el primer inicio de sesión del propietario con email confirmado. Ni las altas ni la selección de planes envían mensajes, cobran tarjetas ni activan suscripciones. El apartado Pagos muestra **solo** operaciones verificados en `platform_billing_payments` (actualmente sin webhook de Stripe), separadas de las intenciones de compra. La gestión B2C y la facturación legal requieren integración posterior.
 
-Para desarrollo local: `cd web/console && npm test` y `python3 -m http.server 8080`; la demo `?demo=1` permanece aislada del backend real.
+Para desarrollo local: `cd web/console && npm test` y `python3 -m http.server 8080`; el modo de demostración ha sido retirado de la consola.
 
 
 Sitio HTML estático: producto, precios, FAQ de suscripción, privacidad y términos.
