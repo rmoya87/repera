@@ -1744,6 +1744,7 @@ struct LiveActivityView: View {
     /// La cámara visible existe incluso mientras el GPS obtiene su primer punto.
     /// Permite aplicar la inclinación 3D inmediatamente, sin esperar al pin.
     @State private var lastVisibleMapCamera: MapCamera?
+    @State private var hasAppliedStored3DCamera = false
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
     /// Preferencia persistente del mapa de Comenzar: primera apertura plana (2D).
@@ -1787,6 +1788,7 @@ struct LiveActivityView: View {
                     // La preferencia Mapa/Métricas pertenece al usuario,
                     // no a la actividad que acaba de elegir.
                     position = .userLocation(fallback: .automatic)
+                    hasAppliedStored3DCamera = false
                     mapIsCentered = true
                 }
             }
@@ -1956,6 +1958,17 @@ struct LiveActivityView: View {
                 // Capturar cámara también antes del primer GPS, sin obligar
                 // a seleccionar una coordenada fija como fallback.
                 lastVisibleMapCamera = context.camera
+                // Si 3D se restauró desde Ajustes/último uso, la posición
+                // inicial .userLocation de MapKit se crea plana. Forzar su
+                // inclinación una sola vez al obtener la primera cámara.
+                if navigationMapEnabled && !hasAppliedStored3DCamera {
+                    hasAppliedStored3DCamera = true
+                    if let user = recorder.currentCoordinate {
+                        center3DMap(on: user)
+                    } else {
+                        applyNavigationPitch(to: context.camera)
+                    }
+                }
                 guard let user = recorder.currentCoordinate else { return }
                 let center = context.camera.centerCoordinate
                 let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
@@ -2184,19 +2197,26 @@ struct LiveActivityView: View {
     /// es la inclinación de la cámara lo que hace visible la perspectiva.
     private func toggleNavigationMapMode() {
         navigationMapEnabled.toggle()
+        hasAppliedStored3DCamera = true
         mapIsCentered = true
         if let user = recorder.currentCoordinate {
             center3DMap(on: user)
         } else if let camera = lastVisibleMapCamera {
-            position = .camera(MapCamera(
-                centerCoordinate: camera.centerCoordinate,
-                distance: navigationMapEnabled ? min(camera.distance, 500) : max(camera.distance, 450),
-                heading: navigationMapEnabled ? camera.heading : 0,
-                pitch: navigationMapEnabled ? 67 : 0
-            ))
+            applyNavigationPitch(to: camera)
+        } else {
+            // El modo queda guardado y se aplicará al primer encuadre de
+            // MapKit o en cuanto llegue la ubicación sin iniciar la sesión.
+            hasAppliedStored3DCamera = false
         }
-        // Si todavía no hay cámara ni ubicación, la elección queda guardada.
-        // El próximo GPS aplicará center3DMap con pitch 67 automáticamente.
+    }
+
+    private func applyNavigationPitch(to camera: MapCamera) {
+        position = .camera(MapCamera(
+            centerCoordinate: camera.centerCoordinate,
+            distance: navigationMapEnabled ? min(camera.distance, 500) : max(camera.distance, 450),
+            heading: navigationMapEnabled ? camera.heading : 0,
+            pitch: navigationMapEnabled ? 67 : 0
+        ))
     }
 
     /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
