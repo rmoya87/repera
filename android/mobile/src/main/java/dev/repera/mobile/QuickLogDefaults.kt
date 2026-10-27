@@ -4,8 +4,10 @@ import dev.repera.domain.ExerciseInputMode
 
 /** QuickLogSheet.defaultReps/defaultWeight/defaultDurationSeconds in Apple fc3ef7e1. */
 internal object QuickLogDefaults {
- fun row(mode:ExerciseInputMode,unit:String,mobility:Boolean,hold:Boolean,last:LoadGuideSet?):QuickLogRow = QuickLogRow(
+ fun row(mode:ExerciseInputMode,unit:String,mobility:Boolean,hold:Boolean,last:LoadGuideSet?,weightedRepsOrMeters:Boolean=false):QuickLogRow = QuickLogRow(
   quantity=when {
+   // Apple 1d1edc8b defaultReps: metros con lastre empiezan en 20.
+   weightedRepsOrMeters && unit=="meters" -> 20
    mode==ExerciseInputMode.MACHINE_WORK -> if(unit=="meters") 500 else 15
    hold -> 1
    mobility -> last?.reps ?: 8
