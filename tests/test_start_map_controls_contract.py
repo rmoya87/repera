@@ -34,6 +34,50 @@ class StartMapControlsContractTests(unittest.TestCase):
         self.assertIn('label: navigationMapEnabled ? "Cambiar a vista 2D"', live)
         self.assertNotIn('"cube.transparent"', live)
 
+    def test_3d_uses_real_camera_even_before_first_gps_fix(self):
+        live = read_swift("LiveActivityView.swift")
+        self.assertIn("lastVisibleMapCamera = context.camera", live)
+        self.assertIn("private func toggleNavigationMapMode()", live)
+        self.assertIn("navigationMapEnabled.toggle()", live)
+        self.assertIn("else if let camera = lastVisibleMapCamera", live)
+        self.assertIn("centerCoordinate: camera.centerCoordinate", live)
+        self.assertIn("pitch: navigationMapEnabled ? 67 : 0", live)
+        self.assertIn(".mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))", live)
+        self.assertIn("pitch: 67", live)
+        self.assertIn("center3DMap(on: user)", live)
+
+    def test_metrics_button_visible_before_play_and_map_button_returns(self):
+        live = read_swift("LiveActivityView.swift")
+        header = live.split("private var mapHeader: some View", 1)[1].split(
+            "private func center3DMap", 1
+        )[0]
+        self.assertIn('mapCircleButton("chart.bar.xaxis", label: "Ver métricas")', header)
+        self.assertIn("if recorder.sport.usesGPS {", header)
+        self.assertNotIn(
+            'if recorder.phase == .recording || recorder.phase == .paused {\\n'
+            '                    mapCircleButton("chart.bar.xaxis"',
+            header,
+        )
+        actions = live.split("private var metricsTrailingActions: some View", 1)[1].split(
+            "private var selectionCircleBackground", 1
+        )[0]
+        self.assertIn('metricsCircleButton("map", label: "Ver mapa")', actions)
+        self.assertIn("showingMetrics = false", actions)
+
+    def test_play_does_not_change_selection_and_choice_is_remembered(self):
+        live = read_swift("LiveActivityView.swift")
+        self.assertIn(
+            '@AppStorage("repera.live.preferredDisplay.metrics") private var showingMetrics = false',
+            live,
+        )
+        self.assertNotIn("showingMetrics = recorder.sport.usesGPS && recorder.chosenRoute == nil", live)
+        self.assertNotIn(".onChange(of: recorder.phase) { previous, next in", live)
+        self.assertNotIn("@State private var showingMetrics", live)
+        # La selección no se borra al cambiar de deporte, descartar o guardar.
+        self.assertEqual(live.count("showingMetrics = false"), 2)  # valor inicial y Ver mapa
+        self.assertEqual(live.count("showingMetrics = true"), 1)   # botón Ver métricas
+
+
 
 if __name__ == "__main__":
     unittest.main()
