@@ -267,6 +267,7 @@ struct SessionPreviewView: View {
             libraryRoutines: store.libraryRoutineCount,
             customExercises: store.customExerciseCount
         )
+        store.featureAccess = { [subscriptions] in subscriptions.policy }
         if persistVisibleFavorite() { return }
         if store.lastAccessDenial != nil {
             await subscriptions.refreshEntitlementsForFeatureAction()
