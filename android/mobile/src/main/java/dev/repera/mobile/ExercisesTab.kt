@@ -135,6 +135,10 @@ internal fun ExercisesTab(
     // Ordenación de biblioteca por grupo (paridad ExerciseSortMode iOS):
     // por defecto alfabético; búsqueda siempre plana por relevancia.
     var exerciseSort by rememberSaveable { mutableStateOf("Alfabético") }
+    var showingExerciseFilters by rememberSaveable {mutableStateOf(false)}
+    if(showingExerciseFilters) ExerciseFilterSheet(
+        listOf("Favoritos")+ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()),
+        exerciseFilter,exerciseSort,{exerciseFilter=it},{exerciseSort=it},{showingExerciseFilters=false})
     val context = LocalContext.current
     var routeVersion by remember { mutableStateOf(0) }
     var routeError by remember { mutableStateOf<String?>(null) }
@@ -293,44 +297,9 @@ internal fun ExercisesTab(
             )
         }
         item {
-            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Filtro Favoritos (paridad LibraryView iOS), además de los
-                // filtros de catálogo.
-                // Apple 5099d9f1/fdbd3558: iconos ExerciseCategorySymbols en chips.
-                FilterChip(selected = exerciseFilter == "Favoritos",
-                    onClick = { exerciseFilter = "Favoritos" },
-                    leadingIcon = { Icon(Icons.Filled.Star, null, Modifier.size(16.dp)) },
-                    label = { Text("Favoritos") })
-                ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()).forEach { filter ->
-                    val icon = when {
-                        filter == "Todos" -> Icons.Filled.GridView        // square.grid.2x2
-                        filter == "Cardio" -> Icons.Filled.Favorite       // heart
-                        filter == "Hyrox" -> ExerciseCategorySymbols.discipline("HYROX")
-                        else -> ExerciseCategorySymbols.discipline(filter)
-                    }
-                    FilterChip(selected = exerciseFilter == filter,
-                        onClick = { exerciseFilter = filter },
-                        leadingIcon = { Icon(icon, null, Modifier.size(16.dp)) },
-                        label = { Text(filter) })
-                }
-            }
-        }
-        item {
-            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Alfabético", "Músculo", "Material").forEach { mode ->
-                    // Apple fdbd3558: a.circle / figure.stand / dumbbell.
-                    val icon = when (mode) {
-                        "Alfabético" -> Icons.Filled.SortByAlpha
-                        "Músculo" -> ExerciseCategorySymbols.muscle
-                        else -> ExerciseCategorySymbols.equipment
-                    }
-                    FilterChip(selected = exerciseSort == mode,
-                        onClick = { exerciseSort = mode },
-                        leadingIcon = { Icon(icon, null, Modifier.size(16.dp)) },
-                        label = { Text("Orden: " + mode) })
-                }
+            OutlinedButton(onClick={showingExerciseFilters=true},modifier=Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.SortByAlpha,null,Modifier.size(18.dp))
+                Text("Ordenar y filtrar · $exerciseSort · $exerciseFilter",Modifier.padding(start=8.dp))
             }
         }
         val entries = filteredExerciseEntries

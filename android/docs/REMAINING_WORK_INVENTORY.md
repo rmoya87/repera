@@ -138,3 +138,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Mobile622/155XML ejecutada verde. Assemble conjunto --rerun-tasks260 supero
  120s durante compile mobile y fue terminado; no cuenta como verde. Proceso
  Gradle ausente tras corte. Pendiente assemble separado y domain/wear actualizados.
+
+## Filtros biblioteca 19:52
+- b4905ea1 tenia equivalente funcional pero sin contenedor modal. Portado
+  ModalBottomSheet opaco con contenido separado capturable; cabecera/cierre,
+  tarjetas y opciones existentes alfabeticas es-ES. Estado sort/filter
+  independiente y seleccion no cierra. Render360claro inspeccionado.
+- Diferencia de conjunto: Android descubre filtros desde catalogo, Apple lista
+  casos fijos incluyendo WODs/Deportes (Android conserva rutas propias).
+  No cerrar por render ni llamar falta de contraparte a esta diferencia.
