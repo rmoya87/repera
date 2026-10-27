@@ -360,6 +360,7 @@ struct LiveSavedRoute: Identifiable, Codable, Sendable {
 final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
+    private(set) var iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
     private var cloudSyncTask: Task<Void, Never>?
     private var isCloudSynchronizationRunning = false
     private var cloudSyncRequestedAgain = false
@@ -534,7 +535,10 @@ final class LiveRoutesStore {
         )
         let data = try JSONEncoder().encode(routes)
         try data.write(to: storageURL, options: .atomic)
-        if scheduleCloud { requestICloudSynchronization() }
+        if scheduleCloud {
+            iCloudRouteStatus = "Sincronizando rutas con iCloud…"
+            requestICloudSynchronization()
+        }
     }
 
     /// Merge before upload: an iCloud file still downloading must never be
@@ -562,7 +566,10 @@ final class LiveRoutesStore {
             }
         }
         let read = await LiveRouteCloudBackup.shared.read()
-        guard case .ready(let remote) = read else { return }
+        guard case .ready(let remote) = read else {
+            iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
+            return
+        }
 
         let erased = deletedIDs.union(remote.deletedIDs)
         var merged: [UUID: LiveSavedRoute] = [:]
@@ -600,7 +607,10 @@ final class LiveRoutesStore {
         let archive = LiveRouteCloudArchive(
             routes: newRoutes, deletedIDs: Array(erased)
         )
-        _ = await LiveRouteCloudBackup.shared.write(archive)
+        let backedUp = await LiveRouteCloudBackup.shared.write(archive)
+        iCloudRouteStatus = backedUp
+            ? "Rutas sincronizadas con iCloud"
+            : "Rutas guardadas localmente · iCloud pendiente"
     }
 }
 
@@ -3240,9 +3250,14 @@ private struct LiveRouteLibraryPickerView: View {
             List {
                 Section {
                     HStack {
-                        Text("Mis rutas")
-                            .font(.system(size: 31, weight: .bold))
-                            .foregroundStyle(OG.label)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Mis rutas")
+                                .font(.system(size: 31, weight: .bold))
+                                .foregroundStyle(OG.label)
+                            Text(routes.iCloudRouteStatus)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
                         Spacer()
                         Button(action: onClose) {
                             Image(systemName: "xmark")
@@ -3316,6 +3331,7 @@ private struct LiveRouteLibraryPickerView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
+            .refreshable { await routes.synchronizeWithICloud() }
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
