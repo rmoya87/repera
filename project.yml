@@ -55,8 +55,6 @@ targets:
           - LiveActivityView.swift
           - WorkoutLiveActivityCoordinator.swift
           - LiveSportHistoryView.swift
-          - LiveRouteCloudBackup.swift
-      - path: Apps/Repera/Sources/LiveRouteCloudBackup.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
       # Referencias explícitas: XcodeGen no puede omitir estas fuentes del target.
       - path: Apps/Repera/Sources/LiveActivityView.swift
