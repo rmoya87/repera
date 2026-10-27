@@ -361,9 +361,9 @@ final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
     private(set) var iCloudRouteStatus = "Rutas guardadas localmente · iCloud pendiente"
-    private var cloudSyncTask: Task<Void, Never>?
-    private var isCloudSynchronizationRunning = false
-    private var cloudSyncRequestedAgain = false
+    @ObservationIgnored private var cloudSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var isCloudSynchronizationRunning = false
+    @ObservationIgnored private var cloudSyncRequestedAgain = false
 
     /// Lo más reciente primero; el orden anterior se conserva al migrar sin fecha.
     var latestRoutes: [LiveSavedRoute] {
