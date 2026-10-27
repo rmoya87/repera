@@ -1211,12 +1211,9 @@ final class LiveActivityRecorder: NSObject {
             }
         }
         stopGPS()
-        // Guardar el resultado puede cerrar la pantalla antes de que acabe
-        // «Entrenamiento finalizado». Conservar únicamente esa locución hasta
-        // didFinish/didCancel; un siguiente start() la cancelará si procede.
-        if !(saved && phase == .review && spokenGuidanceEnabled) {
-            stopGuidanceAudio()
-        }
+        // El sonido final del temporizador es un SystemSound independiente
+        // del sintetizador; podemos liberar la locución al guardar o descartar.
+        stopGuidanceAudio()
         phase = .idle
         needsInterruptedGPSRecovery = false
         estimatedRecoveryMeters = 0
