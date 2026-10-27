@@ -40,11 +40,18 @@ Apple (que registra sin intervalo); cero reps mantiene la regla (salta/avanza,
 NUNCA registra); WearPendingSetStore lleva intervalIndex en el comando (fluye
 verbatim al telefono). Tests WearWodSeriesTest 6/6 REAL (infra de test unitario
 nueva en el modulo wear: junit+robolectric).
+HECHO unidad 3 (descanso): wearWodRestAfterConfirmedSet - Tabata: blockRest
+(10 por defecto, como Apple); resto formatos: lo que queda del intervalo (0 en
+el borde); null sin reloj del bloque. queueSet lo usa para WOD en vez de
+WatchStrengthRest. Tests +2 (8/8 reloj REAL).
 PENDIENTE:
-- Descanso tras serie WOD confirmada: Apple usa el resto del intervalo; Android
-  usa WatchStrengthRest con blockRestSeconds. Alinear o documentar (no inventar).
 - Validacion visual/runtime Wear ABIERTA (sin emulador KVM): UI "Registrar serie"
   en bloque WOD, estado sin reloj, ack saved/rejected en reloj real.
+- Diferencia funcional MANTENIDA (decision padre 16:00): sin reloj del bloque
+  activo el reloj no registra; no se inventa intervalIndex.
+- Cobertura relajamiento currentIndex (padre 16:00): tests 10/10 telefono -
+  otro bloque misma sesion, otra sesion, bloque desplazado tras fuerza
+  (movementIndex no posicional), reintento mismo setId, cero rechazado.
 
 ## Riesgos / preguntas abiertas
 - recordWodMovement opera sobre currentIndex del telefono: confirmar como se mapea un

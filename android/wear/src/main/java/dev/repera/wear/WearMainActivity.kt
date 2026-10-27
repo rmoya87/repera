@@ -578,7 +578,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         repCounter.reset()
         if (session.prescribedReps == null) repsInput = 0
         persistDraft()
-        val rest=dev.repera.domain.WatchStrengthRest.afterConfirmedSet(session.restSeconds,
+        // Apple 44713457: tras una serie WOD el descanso es el del formato
+        // (Tabata: blockRest; resto: lo que queda de intervalo), no el de fuerza.
+        val rest = if (session.wodUsesSeries)
+            wearWodRestAfterConfirmedSet(wodTimerJson, session.sessionId,
+                session.exerciseIndex, wodTickSeconds) ?: 0
+        else dev.repera.domain.WatchStrengthRest.afterConfirmedSet(session.restSeconds,
             warmupInput,session.recordedSets + if(warmupInput) 0 else 1,session.plannedWorkSets)
         if(rest>0) startRest(rest) else skipRest()
         resendPending()

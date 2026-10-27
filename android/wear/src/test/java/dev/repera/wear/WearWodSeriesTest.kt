@@ -50,6 +50,21 @@ class WearWodSeriesTest {
         assertNull(wearWodIntervalIndex(timer("amrap"), "s1", 1, 125))
     }
 
+    @Test fun restAfterEmomSetIsIntervalRemainder() {
+        // Intervalo 60s, elapsed 125 -> quedan 55s del intervalo 2.
+        assertEquals(55, wearWodRestAfterConfirmedSet(timer("emom"), "s1", 1, 125))
+        // Justo en el borde: sin descanso.
+        assertEquals(0, wearWodRestAfterConfirmedSet(timer("emom"), "s1", 1, 120))
+    }
+
+    @Test fun restAfterTabataSetIsBlockRest() {
+        assertEquals(10, wearWodRestAfterConfirmedSet(timer("tabata"), "s1", 1, 45))
+        // restSeconds explicito manda; sin reloj del bloque no hay descanso derivado.
+        assertEquals(15, wearWodRestAfterConfirmedSet(
+            timer("tabata").put("restSeconds", 15), "s1", 1, 45))
+        assertNull(wearWodRestAfterConfirmedSet(timer("emom", sessionId = "otra"), "s1", 1, 45))
+    }
+
     @Test fun pendingStoreCarriesInterval() {
         val store = WearPendingSetStore(ApplicationProvider.getApplicationContext())
         val id = store.append("s1", 0, 12, 24.0, intervalIndex = 2)
