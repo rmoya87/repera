@@ -251,11 +251,13 @@ struct SessionPreviewView: View {
                 routine.id, isFavorite: !routine.isFavorite
             )
         }
-        if !routine.isFavorite, let saved = store.saveAsFavorite(routine) {
+        // Incluso una rutina efímera que llegue con isFavorite=true necesita
+        // existir de verdad en la biblioteca antes de pintar la estrella.
+        if let saved = store.saveAsFavorite(routine) {
             editedSnapshot = saved
             return true
         }
-        return routine.isFavorite
+        return false
     }
 
     private func toggleVisibleFavorite() async {
