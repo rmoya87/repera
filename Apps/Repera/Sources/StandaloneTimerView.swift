@@ -284,7 +284,9 @@ struct StandaloneTimerView: View {
             .padding(.bottom, 28)
         }
         .background(OG.bg.ignoresSafeArea())
-        .ogScrollingTitleNav()
+        // ScrollView independiente: no usar el margen de listas agrupadas
+        // durante la transición tras cerrar "Añadir entreno".
+        .ogScrollingTitleNav(usesGroupedList: false)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 OGToolbarGlassButton(

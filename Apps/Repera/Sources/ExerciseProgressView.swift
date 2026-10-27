@@ -30,7 +30,7 @@ struct ExerciseProgressView: View {
             .ogReadableColumn()
         }
         .background(OG.bg.ignoresSafeArea())
-        .ogScrollingTitleNav()
+        .ogScrollingTitleNav(usesGroupedList: false)
         .ogDiaryTransparentNav()
     }
 

@@ -462,16 +462,26 @@ extension View {
 
     /// Barra de la subpágina: solo retroceso y acciones, nunca un título
     /// contraíble. El título se dibuja en el primer elemento de List/Form/ScrollView.
-    func ogScrollingTitleNav() -> some View {
-        self
-            // En listas agrupadas SwiftUI añade un margen superior antes de
-            // la primera fila que duplicaba la separación bajo la topbar.
-            // El título sigue dentro del scroll, pero empieza junto al nav.
-            .contentMargins(.top, 0, for: .scrollContent)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.visible, for: .navigationBar)
-            .ogTransparentNav()
+    @ViewBuilder
+    func ogScrollingTitleNav(usesGroupedList: Bool = true) -> some View {
+        if usesGroupedList {
+            self
+                // Solo List/Form: eliminar el espacio automático previo al
+                // título sin modificar los ScrollView ordinarios.
+                .contentMargins(.top, 0, for: .scrollContent)
+                .navigationTitle("")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.visible, for: .navigationBar)
+                .ogTransparentNav()
+        } else {
+            self
+                // ScrollView: respeta el padding de su contenido y no aplica
+                // ajustes de insets al reconstruir el destino de navegación.
+                .navigationTitle("")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.visible, for: .navigationBar)
+                .ogTransparentNav()
+        }
     }
 
     /// Cabecera grande como fila sin superficie propia de List o Form.

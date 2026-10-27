@@ -415,7 +415,7 @@ struct ExerciseDetailView: View {
                     .ogReadableColumn()
                 }
                 .background(OG.bg.ignoresSafeArea())
-                .ogScrollingTitleNav()
+                .ogScrollingTitleNav(usesGroupedList: false)
                 .ogDiaryTransparentNav()
                 .toolbar(showsInlineHeader ? .hidden : .visible, for: .navigationBar)
                 .toolbar {

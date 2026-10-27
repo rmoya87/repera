@@ -4,7 +4,7 @@
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
-- Las páginas con título grande integrado en una List/Form eliminan el margen superior automático de `insetGrouped` mediante `contentMargins(.top, 0, for: .scrollContent)`; la primera fila de título conserva solo 6 pt internos. Esto acerca el texto a los botones sin cambiar su fuente ni fijarlo en la barra.
+- Las páginas con título grande integrado en una List/Form eliminan el margen superior automático de `insetGrouped` mediante `contentMargins(.top, 0, for: .scrollContent)`; la primera fila de título conserva solo 6 pt internos. Esto acerca el texto a los botones sin cambiar su fuente ni fijarlo en la barra. Los ScrollView independientes (como Temporizador y las fichas de ejercicios) omiten expresamente ese modificador de márgenes, conservando únicamente el padding del contenido y la topbar transparente.
 
 - Las topbars de Inicio, Ejercicios, Comenzar, Entreno, Historial y las subpáginas usan un fondo realmente transparente, incluso durante scroll. Las acciones quedan fijas; en Ejercicios se mantienen dos filas de controles, búsqueda y filtros, sin añadir un lienzo opaco.
 - Los títulos grandes bajo la fila de navegación se dibujan dentro del contenido desplazable con el mismo tamaño de fuente: desaparecen al hacer scroll, sin convertirse en títulos pequeños en la barra fija. Los títulos dentro de la propia barra siguen siendo inline.

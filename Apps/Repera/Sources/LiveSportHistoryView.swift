@@ -464,7 +464,7 @@ struct LiveRouteEvolutionView: View {
             .ogReadableColumn()
         }
         .background(OG.bg.ignoresSafeArea())
-        .ogScrollingTitleNav()
+        .ogScrollingTitleNav(usesGroupedList: false)
     }
 
     private func summary(_ name: String, value: String) -> some View {
