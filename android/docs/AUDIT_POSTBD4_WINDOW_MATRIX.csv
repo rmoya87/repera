@@ -63,7 +63,7 @@ c1ef87fe|2026-10-26T19:27:28+01:00|Document Spanish number formatting across iOS
 34d65b45|2026-10-26T19:27:32+01:00|Document Spanish number formatting across iOS and Watch|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
 48f7dc67|2026-10-26T19:30:41+01:00|Fix thousands grouping in workout volume summary|ios-app||unverified
 1b5d4eea|2026-10-26T19:40:24+01:00|Align metric tile labels beside icons across workout summaries and route weather|ios-app+other||unverified
-0dabfdfe|2026-10-26T19:52:51+01:00|Merge pull request #91 from rmoya87/feat/wod-muscle-history-navigation-20261026|ios-app+domain+tests||unverified
+0dabfdfe|2026-10-26T19:52:51+01:00|Merge pull request #91 from rmoya87/feat/wod-muscle-history-navigation-20261026|ios-app+domain+tests||verified-n/a 11:53 (merge PR #91; contenido cubierto por commits constituyentes clasificados individualmente)
 056cba8b|2026-10-26T19:54:01+01:00|Make workout summary tiles fit content without bottom whitespace|ios-app+other||unverified
 602e9c39|2026-10-26T20:01:45+01:00|Compare progress against matching elapsed days of previous period|domain+tests||unverified
 b4b8f8b8|2026-10-26T20:03:40+01:00|Center Progress metric tiles and show aligned previous-period deltas for sessions and elapsed time|ios-app||unverified
@@ -74,10 +74,10 @@ b4b8f8b8|2026-10-26T20:03:40+01:00|Center Progress metric tiles and show aligned
 b3047779|2026-10-26T20:12:23+01:00|Remove redundant try from nonthrowing local persistence checkpoint|ios-app||unverified
 d5c263d3|2026-10-26T20:39:20+01:00|Fix compact workout route stroke and bridge safe GPS gaps using linked GPX; compact WeatherKit attribution|ios-app||unverified
 1c9afcd0|2026-10-26T20:41:56+01:00|Keep linked GPX visual gap guidance in enlarged post-workout map|ios-app||unverified
-e048d814|2026-10-26T21:16:52+01:00|Refine route map strokes and GPS continuity; recognize T2B/BTT; simplify weather attribution|ios-app+domain+tests||unverified
+e048d814|2026-10-26T21:16:52+01:00|Refine route map strokes and GPS continuity; recognize T2B/BTT; simplify weather attribution|ios-app+domain+tests||verified-partial 11:53 (seed BTT + aliases SEN t2bs/t 2 b/btt/burpee a diana portados, REAL XML 2/2; mapa explícito parser BTT cubierto por rutas alias; PENDIENTE route strokes/GPS continuity/weather attribution, ios-app por evaluar)
 505dd6a6|2026-10-26T21:21:48+01:00|Fix workout preview title placement inside native top bar beside close button|ios-app||unverified
 6993e330|2026-10-26T21:33:09+01:00|Add shared catalog resolution for legacy BTT/T2B WOD movement ids|domain||in-progress 11:24 (catalogExercise: reconciliación en display de WODs con ids provisionales; cadena con 88db5bb7/83253491/154fd42b; Android tiene ExerciseEquivalence pero falta análisis de llamante en history)
-cf25922e|2026-10-26T21:33:20+01:00|Resolve old BTT identifiers when starting scheduled workouts|domain||unverified
+cf25922e|2026-10-26T21:33:20+01:00|Resolve old BTT identifiers when starting scheduled workouts|domain||in-progress 11:53 (SessionController Apple usa catalogExercise al iniciar WOD programado; Android ActiveSessionPlan.refresh no re-resuelve contra catálogo — GAP identificado, wiring mobile pendiente compile)
 cde03942|2026-10-26T21:33:33+01:00|Show catalog identity for scheduled BTT in workout preview|ios-app||unverified
 576bf897|2026-10-26T21:33:52+01:00|Resolve catalog exercise in WOD editor for legacy saved aliases|ios-app||unverified
 b78b9601|2026-10-26T21:34:09+01:00|Repair old scheduled WOD aliases during catalog and iCloud hydration|ios-app||unverified
@@ -93,17 +93,17 @@ ea59caff|2026-10-26T21:37:59+01:00|Remove duplicate back arrow and apply adaptiv
 4768dc48|2026-10-26T22:17:45+01:00|Push one exercise detail route from workout preview and return in one back action|ios-app||unverified
 e3f1d652|2026-10-26T22:19:20+01:00|Preserve disclosure chevrons when switching workout exercise rows to single-action buttons|ios-app||unverified
 c6f89c28|2026-10-26T22:20:13+01:00|Prefer official catalog entries over legacy scanned customs when matching board movements|domain||verified-partial 11:24 (BoardImportParser full: sin contraparte Android; el caso Lite ya cubierto en tree173 catalogIndex oficial>custom)
-ca7b1ae2|2026-10-26T22:20:23+01:00|Prioritize official catalog exercises in lightweight board scanner|domain||unverified
+ca7b1ae2|2026-10-26T22:20:23+01:00|Prioritize official catalog exercises in lightweight board scanner|domain||verified-ported 11:53 (catalogIndex tree173 oficial>custom>alias ya cubre; forma final 7081dc4a verificada línea a línea)
 6efd1cec|2026-10-26T22:20:48+01:00|Test mixed-case BTT and T2B repair over same-name legacy custom exercises|tests||unverified
 3684a6ec|2026-10-26T22:21:03+01:00|Regression test lite board scanner with BTT/T2B duplicate legacy custom matches|tests||unverified
 d3e87b65|2026-10-26T22:21:16+01:00|Test full board scanner chooses official BTT and T2B instead of provisional copies|tests||unverified
 e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise thumbnails in workout preview|ios-app||unverified
-220fe294|2026-10-26T22:26:26+01:00|Persist remote exercise aliases in Exercise model with backwards-compatible decoding|domain||unverified
+220fe294|2026-10-26T22:26:26+01:00|Persist remote exercise aliases in Exercise model with backwards-compatible decoding|domain||verified-ported 11:53 (searchAliases persistidas: ExerciseEntry.searchAliases + PublishedCatalogAliases JSON, decode ausente→[] como Apple)
 61185bba|2026-10-26T22:26:36+01:00|Apply Supabase catalog alias arrays to persisted offline Exercise entries|ios-app||unverified
 6552bd80|2026-10-26T22:26:47+01:00|Preserve Supabase alias metadata when enriching local exercises from bundled seed|ios-app||unverified
-439bafa7|2026-10-26T22:27:10+01:00|Index remote Supabase aliases in exercise search without rebuilding the app|domain||unverified
+439bafa7|2026-10-26T22:27:10+01:00|Index remote Supabase aliases in exercise search without rebuilding the app|domain||verified-ported 11:53 (alias Supabase en búsqueda: ExerciseAliasSearch publishedAliases, ranking 95/80/60 separado de disciplinas; callsites mobile pendientes compile)
 88db5bb7|2026-10-26T22:27:25+01:00|Resolve OCR and existing WOD movements using persisted Supabase aliases|domain||verified-partial 11:24 (alias persistidos en matching: Lite ya portado tree173 vía SEN.searchAliases; parte catalogExercise pendiente con 6993e330)
-7081dc4a|2026-10-26T22:27:40+01:00|Use dynamic Supabase aliases in all lightweight board scanner paths|domain||unverified
+7081dc4a|2026-10-26T22:27:40+01:00|Use dynamic Supabase aliases in all lightweight board scanner paths|domain||verified-ported 11:53 (catalogIndex Android idéntico al final de Apple + archived; única diferencia: customs archivadas también excluidas, más conservador)
 846b75a6|2026-10-26T22:28:03+01:00|Distinguish scheduled days from completed workouts in Diary indicators|ios-app||unverified
 b74ad790|2026-10-26T22:28:54+01:00|Increase GPS heatmap contrast using session speed range and reduced smoothing|ios-app||unverified
 de1a6f0e|2026-10-26T22:30:04+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||unverified
@@ -149,8 +149,8 @@ f25f8d90|2026-10-27T08:04:56+01:00|Recognize loaded-distance exercise name varia
 3e87c061|2026-10-27T08:36:41+01:00|fix(ios): remove extra grouped list top spacing below transparent navigation|ios-app+docs||unverified
 22306434|2026-10-27T08:44:40+01:00|fix(ios): isolate timer ScrollView from grouped navigation content margins|ios-app+docs||unverified
 49de3076|2026-10-27T08:57:22+01:00|Relink saved BTt/T2B workout snapshots and display official exercise art in AMRAP history|ios-app||unverified
-0d0ca127|2026-10-27T09:05:14+01:00|Resolve historical BTT T2B by snapshot and de-duplicate identical WOD logged summaries|ios-app+domain+tests||unverified
-0a640da8|2026-10-27T09:23:48+01:00|Remove redundant recorded summary from scored WOD movement list without altering logs|ios-app+domain+tests||unverified
+0d0ca127|2026-10-27T09:05:14+01:00|Resolve historical BTT T2B by snapshot and de-duplicate identical WOD logged summaries|ios-app+domain+tests||in-progress 11:53 (display histórico por snapshot + dedupe resúmenes WOD: officialName portado tree174; hook display Android history pendiente relink/resolución; sin activar)
+0a640da8|2026-10-27T09:23:48+01:00|Remove redundant recorded summary from scored WOD movement list without altering logs|ios-app+domain+tests||in-progress 11:53 (limpieza UI: quita resumen redundante en lista WOD puntuada; revisar duplicación equivalente en history Android)
 ff097bf3|2026-10-27T09:35:26+01:00|Periodically refresh Supabase catalog and relink historic WOD aliases even without new events|ios-app+domain+tests||verified-partial+GAP 11:24 (Android SÍ hidrata remoto: RemoteExerciseCatalogWorker 6h BG + refresh/apply en carga de cuenta MainActivity:1710 ✓ equivalente; SIN equivalente: relink histórico relinkOrphanSessionExercisesToCatalog/relinkScheduledWODMovementsToCatalog — applyToAccount declara «No historical workout edited»; GAP funcional real, solución local preparable sin backend)
 dbf43176|2026-10-27T09:37:25+01:00|Add debug diagnostics for unresolved historical exercise alias identity|ios-app||verified-n/a 11:24 (solo diagnósticos debug en HistoryView iOS; sin delta de comportamiento)
 11ea29a6|2026-10-27T09:42:56+01:00|Refresh remote exercise catalog at app and workout milestones instead of foreground polling|ios-app||verified-ported 11:50 (requestExerciseCatalogRefresh: guard conectado+sin sesión activa, amortiguación 60s heredada; disparadores entrar Ejercicios/abrir Apuntar/guardar entrenamiento cableados en MainActivity/ReperaMobileScreen/ExercisesTab; PENDIENTE compile mobile completo bloqueado 120s)
