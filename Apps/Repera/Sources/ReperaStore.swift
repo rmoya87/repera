@@ -737,12 +737,19 @@ final class ReperaStore: NSObject {
             // Finish the local write before publishing the route-complete
             // version, so another device can retrieve the same GPS points.
             await store.persistAndFlush(state)
+            if store.lastPersistenceError != nil {
+                allowRemoteUpload = false
+                lastiCloudSyncMessage = "No se han podido guardar los recorridos recuperados"
+                return
+            }
             allowRemoteUpload = true
             await store.pushToiCloudIfSafe(state)
             workoutsEpoch &+= 1
             catalogEpoch &+= 1
             publishSessionChrome()
-            lastiCloudSyncMessage = "Recorridos restaurados desde iCloud"
+            lastiCloudSyncMessage = store.lastPersistenceError == nil
+                ? "Recorridos restaurados desde iCloud"
+                : "Recorridos recuperados en este dispositivo; pendiente iCloud"
         case .keptLocal(let shouldUpload):
             allowRemoteUpload = true
             if shouldUpload {
