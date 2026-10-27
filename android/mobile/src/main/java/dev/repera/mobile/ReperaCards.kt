@@ -575,15 +575,13 @@ internal fun WodScoreCard(
     val scoreIsTime = wod.capture == "ELAPSED_TIME"
     // Apple 39a3f7f2/48060202 pendingEnd countdownFinished: al terminar la
     // cuenta atras el editor de resultado reabre con el tiempo cumplido. En
-    // Android el editor es inline y el estado final es derivable (elapsed
-    // persistido >= cap), asi que el prefill cubre tambien la muerte del
-    // proceso: no hace falta persistir pendingEnd para countdownFinished.
-    LaunchedEffect(active.id, active.index, face.finishedIntervals) {
-        if (scoreIsTime && face.finishedIntervals && minutes.isBlank() && seconds.isBlank()) {
-            val cap = face.timeCapSeconds
-            if (cap > 0) { minutes = (cap / 60).toString(); seconds = (cap % 60).toString() }
-        }
-    }
+    // Apple 39a3f7f2 (pendingEnd): en Android el editor es inline y siempre
+    // visible, no hay apertura una unica vez que restaurar. countdownFinished
+    // solo afecta a formatos con cap (captura TOTAL_REPS): Apple tampoco
+    // prefiere nada del reloj ahi. userFinished (For Time): el atleta copia el
+    // elapsed REAL con "Usar tiempo del cronometro" (abajo), equivalente al
+    // prefill de pendingElapsedSeconds de Apple, iniciado por el usuario.
+    // No se prefiere automaticamente nada: un valor inventado seria peor.
     val valid = if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
 

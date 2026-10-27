@@ -1,13 +1,13 @@
-# Inventario de trabajo restante (27 oct 14:46 CET)
+# Inventario de trabajo restante (27 oct 15:52 CET)
 
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
 Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Contadores (reconciliado 14:46 CET)
-- Pre-window: 55 partial + 2 in-progress + 1 verified-partial+gap = 58
+## Contadores (reconciliado 15:52 CET, tras lote persistencia WOD)
+- Pre-window: 48 partial + 2 in-progress + 1 verified-partial+gap = 51
   (los 2 in-progress son 661e65f4/9947c212 zonas FC: bloqueo preservado para decision usuario)
-- Post-window: 31 (20 partial + 4 verified-partial + 2 verified-partial+GAP + 5 GAP)
-- TOTAL abierto: 89 filas + dependencias de validacion
+- Post-window: 26 (15 partial + 4 verified-partial + 2 verified-partial+GAP + 5 GAP)
+- TOTAL abierto: 77 filas + dependencias de validacion
 - Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado), cadena BTT/T2B (6993e330..0a640da8), localizacion numeros post (b8cca90a/04da40ef/a192c38b/bf8de3db portados; 95847d98/fb6de251/af08512c n/a codigo muerto baseline), cluster onboarding AI (f68d77ff: logos OpenAI/Claude/Grok 0-diff, instrucciones 1:1, catalogo conexiones; quedan 5 partial: flujo Desconectar y oauth_client_id), cluster glifos corporales (este lote: 08551cb1/5099d9f1/49febc33/fdbd3558 verified-ported, 3b3792df n/a reorganizacion Xcode, b2f6b934 superseded por eliminacion Diario)
 
 ## Dependencias de validacion (bloquean cierre)
@@ -22,7 +22,7 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
      (conexiones + tokens tras scroll). Acreditan la previsualizacion JVM de esos
      fixtures/tamanos concretos; NO todos los tamanos/temas ni runtime de dispositivo.
      Diffs de glifos verificados por comparacion PROGRAMATICA exhaustiva 9/9 (no muestreo).
-3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 521/521 en 128 suites XML real)
+3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 458/458 en 87 suites XML real, mobile 525/525 en 129 suites XML real)
 
 ## Grupos de gaps principales (pre+post)
 - Onboarding AI unificado: IMPLEMENTACION COMPLETADA (f68d77ff + Desconectar 14:51 + d61c5d52 espaciado 15:11) CON DEPENDENCIAS EXPLICITAS:

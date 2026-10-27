@@ -12,15 +12,15 @@ class WodClockTest {
     }
 
     @Test fun countdownFinishedIsDerivableAfterProcessDeath() {
-        // Apple 39a3f7f2 (pendingEnd countdownFinished): Android no necesita
-        // persistir el motivo — elapsed anclado y persistido >= cap hace el
-        // estado final derivable en cualquier proceso posterior.
+        // Apple 39a3f7f2: la cara final del reloj es derivable del elapsed
+        // anclado y persistido en cualquier proceso posterior (sin persistir
+        // el motivo de fin).
         val spec = WodClockSpec(WodFormat.EMOM, intervalSeconds = 120, plannedIntervals = 4)
         val persistedElapsed = 480 // leido de WodTimerStore tras reiniciar
         val face = WodClock.face(spec, persistedElapsed)
         assertTrue(face.finishedIntervals)
         assertEquals("Finalizado", face.label)
-        assertEquals(480, WodClock.timeCapSeconds(spec)) // prefill del editor
+        assertEquals(480, WodClock.timeCapSeconds(spec)) // cap del formato
     }
 
     @Test fun emomEveryTwoMinutesFourIntervals() {
