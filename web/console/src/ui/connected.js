@@ -501,6 +501,15 @@ app.addEventListener('click',async event=>{
    notice=emailResult.sent?'Invitación enviada por correo. La vinculación queda pendiente de aceptación.':
     'Invitación creada, pero no enviada: '+emailResult.reason+'. La persona podrá aceptarla desde su cuenta verificada.';
   }catch(e){error=e.message;}finally{busy=false;render();}return;}
+ if(action==='toggle-pass-offer'&&!busy){
+  busy=true;error=notice='';render();
+  try{
+   await auth.changeServicePassOffer({id:actionable.dataset.id,isActive:actionable.dataset.active!=='true'});
+   await loadSelectedOrg();notice='Visibilidad del bono actualizada.';
+  }catch(e){error=e.message||'No se pudo actualizar el bono';}
+  finally{busy=false;render();}
+  return;
+ }
  if(action==='choose-plan'&&!busy){
   busy=true;render();try{await auth.subscriptionIntent({orgId:selectedOrg,planKey:actionable.dataset.plan,userId:user.id});notice='Plan seleccionado, pendiente de habilitar la pasarela de pago. No se ha efectuado ningún cargo ni se ha activado el plan.';}catch(e){error=e.message;}finally{busy=false;render();}return;
  }
