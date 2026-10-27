@@ -92,6 +92,16 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(athleteId||''))throw Error('Cuenta inválida');
   return this.#authorized('rpc/platform_admin_athlete_detail',{method:'POST',body:{p_athlete:athleteId}});
  }
+ async platformAdminAthleteActivity(athleteId,month){
+  if(!/^[0-9a-f-]{36}$/i.test(athleteId||'')||!/^[0-9]{4}-[0-9]{2}$/.test(month||''))throw Error('Mes inválido');
+  return this.#authorized('rpc/platform_admin_athlete_activity',{method:'POST',
+    body:{p_athlete:athleteId,p_month:month+'-01'}});
+ }
+ async platformAdminAthleteDay(athleteId,day){
+  if(!/^[0-9a-f-]{36}$/i.test(athleteId||'')||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day||''))throw Error('Día inválido');
+  return this.#authorized('rpc/platform_admin_athlete_day',{method:'POST',
+    body:{p_athlete:athleteId,p_day:day}});
+ }
  async platformAdminAthleteWorkouts(athleteId,offset=0,limit=30){
   if(!/^[0-9a-f-]{36}$/i.test(athleteId||'')||!Number.isInteger(offset)||offset<0||
     !Number.isInteger(limit)||limit<1||limit>50)throw Error('Paginación de entrenamientos inválida');
@@ -201,6 +211,26 @@ export class ReperaAuthAPI {
  }
  async organizations(){
   return this.#authorized('organizations?select=id,name,slug,kind,avatar_url,tagline,is_discoverable,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
+ }
+ async enrollmentRequests(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Centro inválido');
+  return this.#authorized('rpc/business_enrollment_requests',{method:'POST',body:{p_org:orgId}});
+ }
+ async decideEnrollment(requestId,accept){
+  if(!/^[0-9a-f-]{36}$/i.test(requestId||'')||typeof accept!=='boolean')throw Error('Solicitud inválida');
+  return this.#authorized('rpc/business_decide_enrollment',{method:'POST',body:{p_request:requestId,p_accept:accept}});
+ }
+ async bulkPublishTraining({orgId,templateId,clientIds,start,end,weekdays,requestId}){
+  const validId=id=>/^[0-9a-f-]{36}$/i.test(id||'');
+  if(!validId(orgId)||!validId(templateId)||!validId(requestId)||!Array.isArray(clientIds)||
+    clientIds.length<1||clientIds.length>20||clientIds.some(id=>!validId(id))||
+    !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(start||'')||
+    !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(end||'')||
+    !Array.isArray(weekdays)||!weekdays.length||weekdays.some(x=>!Number.isInteger(x)||x<1||x>7))
+   throw Error('Revisa fechas, plantilla y atletas seleccionados');
+  return this.#authorized('rpc/business_publish_training_bulk',{method:'POST',body:{
+   p_org:orgId,p_template:templateId,p_clients:clientIds,p_start:start,p_end:end,
+   p_weekdays:weekdays,p_request:requestId}});
  }
  async clients(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');

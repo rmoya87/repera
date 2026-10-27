@@ -1,5 +1,15 @@
 ## Administración global de Repera — 27/10/2026
 
+## Rediseño de Atletas y experiencia del centro — 27/10/2026
+
+- **Atletas**: la fila completa del directorio abre la ficha con ratón o teclado; buscador accesible sin etiqueta redundante ni contador lateral. Ficha 360 reorganizada con calendario mensual y marcador de días entrenados; al elegir un día muestra entrenamientos reales, bloques, ejercicios, series realizadas, repeticiones/carga/RIR/tiempo y resultados WOD. No se muestran IDs internos, `blockId`, `muscleGroup`, `isFavorite` ni JSON crudo. La imagen del ejercicio solo aparece si tiene correspondencia exacta con el catálogo de iOS, evitando fotos incorrectas. Consultas paginadas y por fecha, con auditoría.
+- **Centro**: el estado operativo `active/suspended` es independiente del registro pendiente del propietario. La ficha permite guardarlo manualmente; el modo administrador delegado conserva JWT real, auditoría y límite temporal. Portada del centro con accesos directos a planificación, deportistas y clases, estilo claro/responsive, sin el onboarding redundante del negocio.
+- **Solicitudes de alumnos**: la RPC que llama iOS (`request_org_athlete_link`) ya existe en Supabase; guarda la solicitud, evita duplicados y exige cuenta verificada. La portada del gimnasio/entrenador lista peticiones con imagen, mensaje, Aceptar/Rechazar y Actualizar. Aceptar vincula de forma atómica la cuenta al cliente y al centro sin crear ingresos ficticios.
+- **Programación rápida**: un formulario en tres pasos (plantilla, selección de atletas, fechas) con modos día, semana y rango, días de la semana, vista previa de sesiones y límites antes de enviar. Publicación masiva atómica, máximo 20 atletas, 8 semanas y 120 entrenamientos; omite sesiones idénticas ya programadas e impide repetir la misma petición. Se conserva el editor individual de bloques y WOD.
+- Migraciones `20261027181000_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas en Supabase Repera. Tests Node `business-athlete-planning.test.mjs`, contratos SQL y comprobaciones de render/sintaxis.
+- Pendiente revisión visual completa en navegador y prueba de solicitud/aceptación con dos cuentas verificadas de distinto rol (Supabase Repera cuenta hoy con una sola cuenta Auth real). GitHub Actions y el despliegue IONOS deben verificarse por separado.
+
+
 ## Mejoras administrador global (27/10/2026)
 
 - Sidebar sin encabezados R repera / PLATAFORMA, plegable con estado persistido; Auditoría oculta del menú pero registro SQL conservado.

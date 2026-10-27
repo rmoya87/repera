@@ -10,10 +10,34 @@ const input=(label,name,value='',type='text',attrs='')=>`<label class="connected
 const select=(label,name,rows,selected='')=>`<label class="connected-field">${label}<select name="${name}">${rows.map(([value,title])=>`<option value="${esc(value)}" ${String(value)===String(selected)?'selected':''}>${esc(title)}</option>`).join('')}</select></label>`;
 const note=t=>`<p class="connected-hint">${esc(t)}</p>`;
 const show=(html)=>`<section class="connected-card business-360">${html}</section>`;
-export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],escapeHTML=esc}){
+export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,escapeHTML=esc}){
  const soon=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at)>new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,8);
  const stats=`<section class="business-stats"><div class="business-stat"><span>Deportistas</span><strong>${clients.length}</strong><small>En esta organización</small></div><div class="business-stat"><span>Sesiones programadas</span><strong>${occurrences.filter(o=>o.status==='active').length}</strong><small>Clases y citas</small></div><div class="business-stat"><span>Entrenamientos publicados</span><strong>${sessions.filter(s=>s.status==='scheduled').length}</strong><small>En diario de deportistas</small></div></section>`;
- return `${stats}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
+ const waiting=requests.filter(r=>r.status==='pending');
+ const inbox=manager?show(`<div class="business-panel-head">
+ <div><span class="connected-eyebrow">Solicitudes de alumnos</span><h2>Quieren entrenar contigo</h2>
+ <p>Las peticiones llegan desde Repera. Acéptalas para añadir al atleta a tu centro y poder planificar sus entrenamientos.</p></div>
+ <div class="business-inbox-tools"><span class="business-inbox-count">${waiting.length} pendientes</span>
+ <button type="button" data-action="refresh-enrollments" class="connected-secondary" aria-label="Actualizar solicitudes">Actualizar</button></div></div>
+ ${waiting.length?`<div class="business-inbox-list">${waiting.map(r=>`
+ <article class="business-enrollment-row">
+ <div class="business-enrollment-avatar">${/^https:\/\//.test(r.avatar_url||'')?`<img src="${esc(r.avatar_url)}" alt="" loading="lazy">`:esc(initials(r.name))}</div>
+ <div class="business-enrollment-text"><strong>${esc(r.name||'Atleta')}</strong><small>${esc(r.email||'—')} · ${r.pass_kind==='appointment'?'Entrenamiento personal':'Clases'}</small>
+ ${r.note?`<p>${esc(r.note)}</p>`:''}</div>
+ <div class="business-enrollment-actions">
+  <button type="button" class="connected-primary" data-action="approve-enrollment" data-id="${esc(r.id)}">Aceptar</button>
+  <button type="button" class="connected-secondary" data-action="reject-enrollment" data-id="${esc(r.id)}">Rechazar</button>
+ </div></article>`).join('')}</div>`:
+ '<div class="business-inbox-empty">No tienes solicitudes pendientes. Las peticiones que envíen desde la app aparecerán aquí automáticamente al actualizar el panel.</div>'}`):'';
+ const quick=manager?`<section class="business-quick-actions" aria-label="Acciones frecuentes del centro">
+  <button type="button" data-workspace="planning"><span class="business-quick-icon" aria-hidden="true">＋</span>
+  <strong>Planificar entrenamientos</strong><small>Un día, semana o varias fechas</small></button>
+  <button type="button" data-workspace="clients"><span class="business-quick-icon" aria-hidden="true">♧</span>
+  <strong>Gestionar deportistas</strong><small>Solicitudes, perfiles y bonos</small></button>
+  <button type="button" data-workspace="services"><span class="business-quick-icon" aria-hidden="true">▦</span>
+  <strong>Clases y reservas</strong><small>Horarios, grupos y aforo</small></button>
+ </section>`:'';
+ return `${stats}${quick}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${o.kind==='appointment'?'Cita 1:1':'Clase grupal'} · ${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length}/${o.capacity} plazas</small><span class="business-tile-arrow">Ver detalle →</span></button>`).join(''):'<p>No hay próximas clases programadas.</p>'}</div>`)}`;
 }
 export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',escapeHTML=esc}){

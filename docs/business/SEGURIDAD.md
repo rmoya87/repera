@@ -1,5 +1,16 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Solicitudes, calendario y planificación masiva — 27/10/2026
+
+Las nuevas RPCs validan actor mediante `auth.uid()`, email confirmado y roles reales. La tabla `organization_athlete_requests` habilita RLS para consultas de solicitante y responsables del centro; el navegador no tiene permisos INSERT/UPDATE directos. `business_decide_enrollment` valida la solicitud pendiente y su organización, impide vinculaciones a otra cuenta y crea membresía `athlete` y ficha vinculada en una transacción.
+
+`business_bulk_training_batches` mantiene el control de idempotencia protegido por RLS y sin escrituras directas de `authenticated`; su función privada valida template y prescripción, atletas vinculados y activos, días y límites, y utiliza la función existente `private.publish_professional_session_v2` para aplicar los permisos al profesional. Nunca se escribe sobre historiales privados de entrenamientos realizados.
+
+Las funciones de calendario y detalle de día de Atleta son exclusivamente de `platform_admin`, con evento de auditoría por lectura y límite por consulta. La web no representa identificadores ni campos técnicos de los ejercicios y escapa el contenido introducido por usuarios. Ninguna clave `service_role` ni token de otro usuario se envía al navegador.
+
+Las dos migraciones 20261027181000 y 20261027182000 están aplicadas. Queda pendiente validar con dos cuentas reales el circuito completo de solicitudes/aceptación y una publicación con datos reales, con las pruebas sobre fixtures segregadas de las cuentas productivas.
+
+
 ## Control de acceso a fichas globales (27/10/2026)
 
 Las RPCs públicas de detalle de centro, atleta y entrenamientos paginados son SECURITY INVOKER con lógica privada SECURITY DEFINER, protegida por private.is_repera_platform_admin. El JWT es el propio del usuario verificado, nunca una credencial de terceros o service_role en navegador. Cada lectura personal y página de entrenamientos crea un evento de auditoría con actor y ámbito; se excluyen contraseñas, tokens, IP y datos médicos de HealthKit.

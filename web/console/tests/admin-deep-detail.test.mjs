@@ -51,14 +51,17 @@ test('Atleta: muestra accesos, vinculaciones, ejercicios y datos estructurados s
  workout_count:1,booking_count:0,training_count:0,memberships:[],client_profiles:[],
  providers:['email'],programs:[],reservations:[],professional_sessions:[],training_profile:null};
  const workout={id:'w',title:'Fuerza <script>alert(1)</script>',started_at:'2026-10-27',
- exercises:[{name:'Sentadilla',sets:[{reps:5,weight:80}]}],wod_results:[]};
+ exercises:[{blockId:'internal-only',blockKind:'strength',blockHeader:'Fuerza principal',
+ exercise:{name:'Sentadilla',muscleGroup:'Piernas',isFavorite:true},loggedSets:[{reps:5,weightKg:80,rir:2}]}],wod_results:[]};
  const html=show({tab:'athletes',selectedAthlete:athleteId,
   athleteData:detail,athleteWorkouts:[workout]});
  assert.match(html,/Último inicio de sesión/);
  assert.match(html,/Entrenamientos registrados/);
  assert.match(html,/Sentadilla/);
  assert.match(html,/80/);
- assert.match(html,/Ver ejercicios y resultados/);
+ assert.match(html,/Calendario de entrenamientos/);
+ assert.match(html,/Series realizadas/);
+ assert.doesNotMatch(html,/blockId|isFavorite|muscleGroup|internal-only/);
  assert.doesNotMatch(html,/<script>/);
  assert.doesNotMatch(html,/data-admin-action="more-athlete-workouts"/);
 });

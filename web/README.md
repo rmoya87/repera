@@ -1,5 +1,14 @@
 # Web Repera (`repera.app`)
 
+## Centro profesional renovado — 27/10/2026
+
+El menú delegado conserva la interfaz clara, navegación lateral y botones directos de Inicio → Deportistas, Entrenamientos y Clases/Reservas. Inicio recibe solicitudes enviadas desde la app con Aceptar/Rechazar/Actualizar. En Entrenamientos hay un planificador rápido de tres pasos con selección de plantilla, deportistas vinculados y modo día/semana/rango; enseña el número calculado de entrenamientos, bloquea solicitudes incompletas y admite máximo 120 sesiones en una operación atómica idempotente. Mantiene el editor completo por bloques para una persona.
+
+El panel global de Atletas enlaza desde cualquier punto de la fila; la ficha muestra calendario, días activos, sesiones, fotografías del catálogo nativo y series, sin variables técnicas. El estado operativo de centros es independiente del registro pendiente del propietario.
+
+Backend protegido por funciones de Supabase y RLS. Migraciones 20261027181000–20261027182000 aplicadas. Para comprobar localmente, `git pull --ff-only origin main`, reiniciar `Repera-Business.command` y recargar la consola. Pendientes navegador E2E, dos usuarios Auth distintos y despliegue IONOS.
+
+
 ## Repera Business Admin: panel renovado (27/10/2026)
 
 Favicon idéntico a AppIcon de iOS en web/assets/repera-app-icon.png. Sidebar sin cabecera duplicada ni Auditoría, plegable y persistente; fichas de centros/atletas completas contra RPCs de Supabase. Estado operativo editable en centro y acceso delegado con un clic, auditado y sin credenciales de terceros. Cinco filtros de Pagos en línea única.
