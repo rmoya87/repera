@@ -501,7 +501,8 @@ internal fun DayPointLineChart(
                         color = line.copy(alpha = 0.5f),
                         start = Offset(x(i), 0f),
                         end = Offset(x(i), size.height),
-                        strokeWidth = 2f
+                        strokeWidth = 2f,
+                        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f,6f))
                     )
                     drawCircle(color = line, radius = 8f,
                         center = Offset(x(i), y(points[i].value)))
@@ -531,7 +532,7 @@ internal fun DayPointLineChart(
 internal fun EmptyHealthChartAxes(low:Double,high:Double) {
     val axis=MaterialTheme.colorScheme.onSurfaceVariant
     Text(formatWeight(high),style=MaterialTheme.typography.bodySmall)
-    Canvas(Modifier.fillMaxWidth().height(96.dp)) {
+    Canvas(Modifier.fillMaxWidth().height(96.dp).testTag("empty_health_chart_axes")) {
         drawLine(axis,Offset(0f,0f),Offset(0f,size.height),2f)
         drawLine(axis,Offset(0f,size.height),Offset(size.width,size.height),2f)
     }

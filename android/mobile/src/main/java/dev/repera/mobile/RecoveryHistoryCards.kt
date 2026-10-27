@@ -23,8 +23,10 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text(if(pro) "Evolución de recuperación" else "Evolución de recuperación · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
   if(pro) {
-   if(trend.size<2) Text("Aún no hay suficientes registros para ver la recuperación.")
-   else DayPointLineChart(trend,valueFormat={"${kotlin.math.round(it).toInt()}/10"},bounds=0.0..10.0)
+   if(trend.size<2) {
+    EmptyHealthChartAxes(0.0,10.0)
+    Text("Aún no hay suficientes registros para ver la recuperación.")
+   } else DayPointLineChart(trend,valueFormat={"${kotlin.math.round(it).toInt()}/10"},bounds=0.0..10.0)
   } else {
    DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,interactive=false)
    Text("No son tus datos de recuperación",style=MaterialTheme.typography.bodySmall)
