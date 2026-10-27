@@ -154,7 +154,7 @@ begin
  values(auth.uid(),'athlete.workouts.read',jsonb_build_object('athlete_id',p_athlete,
   'limit',p_limit,'offset',p_offset));
  return result;
-end $;
+end $$;
 revoke all on function private.platform_admin_athlete_workouts(uuid,integer,integer)
  from public,anon,authenticated;
 grant execute on function private.platform_admin_athlete_workouts(uuid,integer,integer) to authenticated;
