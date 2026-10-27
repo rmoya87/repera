@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+## Mapas de recorridos y franja meteorológica (27/10/2026)
+
+- La tarjeta de recorrido mantiene el mapa nativo MapKit y los tramos coloreados por velocidad, pero aumenta el margen de encuadre **solo en la miniatura no interactiva** (factor de 1,5 a 1,95), evitando cortes de las curvas o del halo junto al borde superior. El mapa ampliado conserva su zoom inicial anterior. Las coordenadas inválidas se excluyen del cálculo de la cámara, no se alteran datos GPS ni distancia registrada.
+- Temperatura, humedad y viento se presentan en tres columnas: **símbolo SF grande a la izquierda**, alineado verticalmente con título + cifra apilados a su derecha. En pantallas estrechas el valor se adapta sin desbordamiento; las líneas separadoras mantienen la misma altura.
+- Desaparece la línea prominente «Apple Weather» bajo la temperatura. WeatherKit exige mantener una marca oficial y enlace legal al mostrar sus datos: queda como **marca cuadrada oficial compacta a la derecha** de la franja, sin invadir los valores, enlazada a `WeatherService.attribution.legalPageURL`. Si el recurso gráfico no carga se usa el nombre corto «Weather». No cambia el origen de los datos ni el tratamiento de su privacidad.
+- El mismo componente se reutiliza en detalles de entrenamientos Repera, Apple Salud y resumen de «Comenzar»; no se realiza ninguna consulta meteorológica adicional por la nueva presentación.
+
+
 Última actualización: 2026-10-27
 
 ## Navegación y leyenda de mapas (27/10/2026)
