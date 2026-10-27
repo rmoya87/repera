@@ -7,6 +7,8 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
 import dev.repera.mobile.ExternalHealthDetailColumn
 import dev.repera.mobile.ExternalHealthHistoryEntry
@@ -64,6 +66,27 @@ class ExternalRouteSheetRenderTest {
         }
         composeRule.waitForIdle()
         capture("external-route-sheet-map.png")
+    }
+
+    @Test fun externalRoutePreviewOpensAndClosesFullscreen() {
+        composeRule.setContent {
+            MaterialTheme {
+                ExternalHealthDetailColumn(entry(),detail=null,loading=false,
+                    routeRead=ExternalRouteRead.Points(listOf(
+                        WorkoutRoutePoint(0,40.0,-3.7,1_100_000L),
+                        WorkoutRoutePoint(1,40.001,-3.699,1_160_000L))),
+                    onConsentLaunch={},consentRequestedFor=null,onConsentRequested={}) {}
+            }
+        }
+        composeRule.onNodeWithContentDescription("Ampliar recorrido de Salud").performClick()
+        composeRule.onNodeWithTag("fullscreen-route-map").assertExists()
+        val bmp=composeRule.onNodeWithTag("fullscreen-route-root").captureToImage().asAndroidBitmap()
+        File("build/reports/render").mkdirs()
+        FileOutputStream("build/reports/render/external-route-fullscreen.png").use {
+            bmp.compress(Bitmap.CompressFormat.PNG,100,it)
+        }
+        composeRule.onNodeWithTag("fullscreen-route-close").performClick()
+        composeRule.onNodeWithTag("fullscreen-route-map").assertDoesNotExist()
     }
 
     @Test fun sheetWithConsentNeeded() {

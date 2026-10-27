@@ -82,8 +82,10 @@ import androidx.compose.ui.platform.testTag
    when(val presented=ExternalRouteSheetModel.present(routeRead)) {
     is ExternalRouteSheetModel.State.Shown -> {
      Text("Recorrido GPS de la fuente",style=MaterialTheme.typography.titleSmall)
-     RouteMapView(points=presented.points,isInteractive=false,
-      modifier=Modifier.fillMaxWidth().height(200.dp))
+     RouteMapTapTarget(label="Ampliar recorrido de Salud",
+      modifier=Modifier.fillMaxWidth().height(200.dp)) { interactive,mapModifier ->
+      RouteMapView(points=presented.points,isInteractive=interactive,modifier=mapModifier)
+     }
     }
     ExternalRouteSheetModel.State.ConsentNeeded -> {
      TextButton(modifier=Modifier.testTag("external_route_consent"),
