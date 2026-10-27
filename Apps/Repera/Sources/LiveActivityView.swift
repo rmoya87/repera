@@ -2234,8 +2234,12 @@ struct LiveActivityView: View {
                     Image(systemName: recorder.sport.symbol)
                         .font(.title2.weight(.medium))
                         .foregroundStyle(OG.accent)
+                        .frame(width: 32)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(recorder.sport.title).font(.headline)
+                        Text(recorder.sport.title)
+                            .font(.headline)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.75)
                         if recorder.phase == .paused {
                             Text("En pausa").font(.caption.weight(.semibold))
                                 .foregroundStyle(OG.orange)
@@ -2244,14 +2248,13 @@ struct LiveActivityView: View {
                                 .font(.caption).foregroundStyle(OG.label2)
                         }
                     }
-                    Spacer(minLength: 4)
-                    // Los controles permanecen a la DERECHA del encabezado.
-                    // Al pausar, Play y Finalizar se sitúan uno junto al otro:
-                    // el grupo crece hacia la izquierda, no hacia abajo.
-                    // Audio y cambio a mapa visibles también ANTES de Iniciar.
-                    // Reutilizamos los controles de la sesión para no duplicar
-                    // botones ni crear otro estado que se pierda al comenzar.
+                    // Dar al nombre todo el ancho libre sin desplazar acciones.
+                    // El mismo título ocupa el mismo espacio en grabación y pausa.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // Cuatro posiciones fijas: Audio, Mapa, Pausa/Play y Finalizar.
+                    // El último hueco queda invisible hasta pausar.
                     metricsTrailingActions
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
@@ -2321,8 +2324,9 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Acciones en la esquina superior derecha de Métricas.
-    /// El orden horizontal es Audio, Mapa, Reanudar y Finalizar. Nunca VStack.
+    /// Cuatro posiciones de 44 pt que no cambian al pausar/reanudar.
+    /// Reservar el hueco de Finalizar durante la grabación evita que Audio,
+    /// Mapa y Pausa/Play se desplacen y cambien el ajuste del nombre del deporte.
     private var metricsTrailingActions: some View {
         HStack(spacing: 8) {
             if showGuidanceToggle {
@@ -2331,11 +2335,15 @@ struct LiveActivityView: View {
                 ) {
                     recorder.toggleSpokenGuidance()
                 }
+            } else {
+                metricsActionPlaceholder
             }
             if recorder.sport.usesGPS {
                 metricsCircleButton("map", label: "Ver mapa") {
                     showingMetrics = false
                 }
+            } else {
+                metricsActionPlaceholder
             }
             if recorder.phase == .recording {
                 sessionMapButton(
@@ -2347,12 +2355,27 @@ struct LiveActivityView: View {
                     "play.fill", label: "Reanudar grabación",
                     background: OG.accent, foreground: .black
                 ) { recorder.resume() }
+            } else {
+                metricsActionPlaceholder
+            }
+            if recorder.phase == .paused {
                 sessionMapButton(
                     "flag.checkered", label: "Finalizar y guardar",
                     background: .black, foreground: .white
                 ) { finishAndShowSave() }
+            } else {
+                metricsActionPlaceholder
             }
         }
+    }
+
+    /// Conserva el espacio de una acción oculta sin crear un área pulsable
+    /// ni un elemento vacío en VoiceOver.
+    private var metricsActionPlaceholder: some View {
+        Color.clear
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
     }
 
     /// Solo los selectores laterales son opacos. La barra general puede seguir
