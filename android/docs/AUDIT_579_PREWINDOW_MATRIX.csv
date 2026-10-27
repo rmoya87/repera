@@ -539,23 +539,23 @@ b46562cc|2026-10-23T06:57:24+02:00|fix(domain): prioritize direct localized desc
 8383c6c7|2026-10-23T06:56:46+02:00|fix(ios): keep legacy exercise artwork and movement step animations|ios-app|830e0009|verified-ported 14:50: arte legacy + animaciones pasos — ExerciseArtResolver legacy (bbjo etc)
 599a9f48|2026-10-23T06:56:44+02:00|fix(domain): preserve exercise equivalence across bilingual rename|packages|c4ee1508 d62566ba f479f0b7|verified-ported 14:50: equivalencia ejercicios tras rename bilingue — ExerciseEquivalence.kt dominio
 f3997b30|2026-10-23T06:56:41+02:00|feat(domain): index Spanish sport aliases and resolve bilingual search|packages|2c6bd9e2 337dbdd7 84dace55 9366aa13|verified-ported 14:50: indice aliases deporte ES + busqueda bilingue — ExerciseAliasSearch.kt
-09546c31|2026-10-23T06:56:39+02:00|fix(ios): migrate catalog display names in place preserving existing UUIDs|ios-app|203dde5a 49a24605 7e092adf e91f4181|unverified
+09546c31|2026-10-23T06:56:39+02:00|fix(ios): migrate catalog display names in place preserving existing UUIDs|ios-app|203dde5a 49a24605 7e092adf e91f4181|verified-n/a 14:55: migracion nombres display in-place conservando UUIDs — Supabase compartida; ids catalogo estables
 a140cabc|2026-10-23T06:56:36+02:00|fix(domain): retain Spanish technique descriptions after sport name localization|packages|ed6883e6|verified 10:57 (orden alias-primero SUPERSEDED por b46562cc nombre-primero; estado final bd4 verificado por paridad de datos 288/288 tree170)
 88dbde3c|2026-10-23T06:56:33+02:00|feat(domain): seed sport exercises with English canonical names|packages|8a9b3b23 baba0785|verified 10:57 (efecto íntegro en contenido de catálogo: seed Android 288/288 == extracción bd4, 0 diffs; evidencia ejecutada tree170)
-c526e51e|2026-10-23T06:55:50+02:00|feat(domain): canonical English sport names with Spanish search aliases|packages|337dbdd7 8a9b3b23 9366aa13 f479f0b7|unverified
-bddc3fd5|2026-10-23T06:53:37+02:00|fix(ios): correct Swift chart builder and interpolation syntax|ios-app||unverified
-b73d77dc|2026-10-23T06:53:04+02:00|feat(ios): recovery selection cursors, empty readiness chart and compact vital tiles|ios-app|42e42f8c 560d1481 9a1c3de2|unverified
-42f02b82|2026-10-23T06:51:55+02:00|feat(ios): interactive dotted chart cursors on cardio, calories and body weight|ios-app|21227679 2366f80e 35a997ba 4e50732c|unverified
-dc8ca766|2026-10-23T06:51:13+02:00|fix(ios): isolate selected exercise results in session preview|ios-app|3d684ce7 73386c03 830e0009 c9190636|unverified
-6186f8c6|2026-10-23T06:51:10+02:00|fix(ios): keep exercise details scoped to selected occurrence|ios-app||unverified
-a0852607|2026-10-23T06:51:08+02:00|fix(ios): route repeated exercise instances independently from workout review|ios-app|1633bbd8 3b2e81e3 5c438ba9|unverified
-ddaffcf3|2026-10-23T06:50:19+02:00|style(ios): display body-weight metrics in tiles|ios-app|35a997ba 7e9021eb b73b4751 d802d0cb|unverified
-2ac224f5|2026-10-23T06:50:16+02:00|fix(ios): show history only under training progress|ios-app|35a997ba 42e42f8c 49bb3e23 701d8505|unverified
-7ba100b8|2026-10-23T06:50:13+02:00|fix(ios): keep exercise navigation bar transparent|ios-app|919824d6 d62566ba|unverified
-160f304c|2026-10-23T06:50:10+02:00|fix(ios): separate workout add action from daily cards|ios-app|fea3d23f|unverified
-135c4a65|2026-10-23T00:31:41+02:00|fix(watch-sync): evitar captura no-Sendable en fallback de WatchConnectivity|watch||unverified
+c526e51e|2026-10-23T06:55:50+02:00|feat(domain): canonical English sport names with Spanish search aliases|packages|337dbdd7 8a9b3b23 9366aa13 f479f0b7|verified-ported 14:55: nombres deporte EN canonicos + aliases ES — ExerciseAliasSearch/SportExerciseNames dominio
+bddc3fd5|2026-10-23T06:53:37+02:00|fix(ios): correct Swift chart builder and interpolation syntax|ios-app||verified-n/a 14:55: sintaxis Swift chart builder
+b73d77dc|2026-10-23T06:53:04+02:00|feat(ios): recovery selection cursors, empty readiness chart and compact vital tiles|ios-app|42e42f8c 560d1481 9a1c3de2|in-progress 14:55: GAP parcial — cursores seleccion recuperacion/grafica readiness vacia/tiles vitales compactos: Android RecoveryTrend sin cursor verificado
+42f02b82|2026-10-23T06:51:55+02:00|feat(ios): interactive dotted chart cursors on cardio, calories and body weight|ios-app|21227679 2366f80e 35a997ba 4e50732c|in-progress 14:55: GAP parcial — cursores punteados cardio/calorias/peso en recuperacion Android (ficha ejercicio si tiene cursor)
+dc8ca766|2026-10-23T06:51:13+02:00|fix(ios): isolate selected exercise results in session preview|ios-app|3d684ce7 73386c03 830e0009 c9190636|verified-ported 14:55: resultados aislados por ejercicio seleccionado — ExerciseSessionAppearance filtrado por bloque
+6186f8c6|2026-10-23T06:51:10+02:00|fix(ios): keep exercise details scoped to selected occurrence|ios-app||verified-ported 14:55: detalles por ocurrencia seleccionada — ActiveSessionPlan identidad estable por id de item
+a0852607|2026-10-23T06:51:08+02:00|fix(ios): route repeated exercise instances independently from workout review|ios-app|1633bbd8 3b2e81e3 5c438ba9|verified-ported 14:55: instancias repetidas enrutadas independientes — ActiveSessionPlan:30-42 (id estable, nunca reasigna de item repetido)
+ddaffcf3|2026-10-23T06:50:19+02:00|style(ios): display body-weight metrics in tiles|ios-app|35a997ba 7e9021eb b73b4751 d802d0cb|partial 14:55: peso corporal en tiles — estilo iOS; verificar tiles Android
+2ac224f5|2026-10-23T06:50:16+02:00|fix(ios): show history only under training progress|ios-app|35a997ba 42e42f8c 49bb3e23 701d8505|partial 14:55: historial solo bajo progreso — verificar jerarquia Progreso Android
+7ba100b8|2026-10-23T06:50:13+02:00|fix(ios): keep exercise navigation bar transparent|ios-app|919824d6 d62566ba|verified-n/a 14:55: barra navegacion transparente SwiftUI
+160f304c|2026-10-23T06:50:10+02:00|fix(ios): separate workout add action from daily cards|ios-app|fea3d23f|partial 14:55: accion añadir separada de tarjetas diarias — verificar DiaryTab/Home Android
+135c4a65|2026-10-23T00:31:41+02:00|fix(watch-sync): evitar captura no-Sendable en fallback de WatchConnectivity|watch||verified-n/a 14:55: captura no-Sendable WatchConnectivity Swift
 9b1b7a10|2026-10-23T00:31:28+02:00|test(watch): comprobar mascot real y limitar ausencia de SF Symbol a pantalla vacía|docs-tests|0c436731 854c7cf7|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-4a82b4b2|2026-10-23T00:29:59+02:00|feat(watch): mascota de Repera y botón Sincronizar inferior con petición fresca y encolada|docs-tests,ios-app,watch||unverified
+4a82b4b2|2026-10-23T00:29:59+02:00|feat(watch): mascota de Repera y botón Sincronizar inferior con petición fresca y encolada|docs-tests,ios-app,watch||in-progress 14:55: GAP — boton Sincronizar inferior con mascota en Watch; Wear muestra estados sync (WearHomeContent:129) sin boton Sincronizar con mascota verificado
 1ae491c9|2026-10-23T00:24:44+02:00|test(watch): presets reales por serie y sincronización directa de plan del día al pulsar botón|docs-tests|7beee4e6 a5eaa421 ba8c05fd|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 6897ac98|2026-10-23T00:24:05+02:00|test(domain): objetivos preconfigurados avanzan por serie, calentamiento no consume objetivos|packages||verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 08b084ef|2026-10-23T00:23:24+02:00|style(watch): pantalla sin planificación sin mensajes de ayuda redundantes|watch||unverified
