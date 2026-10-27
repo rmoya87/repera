@@ -283,6 +283,7 @@ struct HistoryView: View {
 struct WorkoutDetailView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
+    @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Namespace private var routeZoomNamespace
@@ -294,6 +295,7 @@ struct WorkoutDetailView: View {
     @State private var isEditing = false
     @State private var showCompletedEditor = false
     @State private var showDeleteConfirm = false
+    @State private var favoriteSaveError: String?
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
@@ -391,6 +393,14 @@ struct WorkoutDetailView: View {
                     onCancel: { showDeleteConfirm = false }
                 )
             }
+        }
+        .alert("No se ha podido guardar el favorito", isPresented: Binding(
+            get: { favoriteSaveError != nil },
+            set: { if !$0 { favoriteSaveError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
+        } message: {
+            Text(favoriteSaveError ?? "")
         }
     }
 
@@ -802,7 +812,16 @@ struct WorkoutDetailView: View {
             } else {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        store.toggleWorkoutFavorite(sessionId)
+                        guard store.toggleWorkoutFavorite(sessionId) else {
+                            if let decision = store.lastAccessDenial, !decision.allowed {
+                                subscriptions.presentPaywall(
+                                    decision.paywallContext, feature: .unlimitedRoutines
+                                )
+                            } else {
+                                favoriteSaveError = "Este entrenamiento no tiene ejercicios reutilizables o no se ha podido guardar la plantilla. Comprueba sus ejercicios y vuelve a intentarlo."
+                            }
+                            return
+                        }
                         draft = store.state.workouts.first(where: { $0.id == sessionId })
                     } label: {
                         Image(systemName: store.isWorkoutFavorite(sessionId) ? "star.fill" : "star")
