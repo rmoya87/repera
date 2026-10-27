@@ -28,7 +28,7 @@ class HistoricalWorkoutFavoritesContractTests(unittest.TestCase):
         self.assertIn("let template = Self.favoriteTemplate(from: session)", code)
         self.assertIn("guard saveRoutine(template) else { return false }", code)
         self.assertIn("state.workouts[workoutIndex].favoriteRoutineId = template.id", code)
-        self.assertNotIn("setRoutineFavorite(existing.id, isFavorite: !existing.isFavorite)", code)
+        self.assertIn("original.isFavorite", code)
         self.assertIn("return true", code)
 
     def test_recovered_sessions_require_no_current_schedule(self):
