@@ -140,8 +140,17 @@ final class SyncConflictResolverTests: XCTestCase {
         )
         XCTAssertTrue(recovered.workouts.isEmpty)
 
-        var otherWorkout = tracked
-        otherWorkout.title = "Cambiado"
+        let unrelated = WorkoutSession(
+            title: "Otra actividad", exercises: [], phase: .finished,
+            startedAt: start, finishedAt: start.addingTimeInterval(100)
+        )
+        var currentWithOtherID = current
+        currentWithOtherID.workouts = [unrelated]
+        let noCrossWorkoutRoute = SyncConflictResolver.restoringMissingWorkoutRoutes(
+            in: currentWithOtherID, from: cloud
+        )
+        XCTAssertTrue(noCrossWorkoutRoute.workouts[0].routePoints.isEmpty)
+
         var currentWithRoute = current
         currentWithRoute.workouts = [tracked]
         XCTAssertEqual(
@@ -150,7 +159,6 @@ final class SyncConflictResolverTests: XCTestCase {
             ).workouts[0].routePoints,
             tracked.routePoints
         )
-        _ = otherWorkout
     }
 
     func testLegacyZeroRevisionFallsBackToUpdatedAt() {
