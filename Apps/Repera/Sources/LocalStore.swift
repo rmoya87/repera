@@ -341,6 +341,15 @@ actor AppStatePersistence {
                 && picked.updatedAt == cloud.updatedAt
                 && picked.lastWriterDeviceId == cloud.lastWriterDeviceId)
                 || SyncConflictResolver.winner(local: local, remote: cloud) == .remote
+            // A newer, leaner copy may lack GPS already recorded for exactly
+            // the same session on the other device. Keep the winner's other
+            // fields but restore measured points before any upload can erase them.
+            let reconciled = SyncConflictResolver.restoringMissingWorkoutRoutes(
+                in: picked, from: adoptedRemote ? local : cloud
+            )
+            if reconciled != picked {
+                return .reconciledRouteData(reconciled)
+            }
             if adoptedRemote {
                 // Cloud recovery is asynchronous. A workout may start while
                 // downloading: the caller must recheck before replacing local data.
@@ -357,6 +366,7 @@ actor AppStatePersistence {
         case noRemoteDocument
         case corruptRemote
         case adoptedRemote(AppState)
+        case reconciledRouteData(AppState)
         case keptLocal(shouldUpload: Bool)
     }
 }
@@ -553,7 +563,7 @@ final class LocalStore {
                 self.syncPhase = .awaitingRemote
             case .corruptRemote:
                 self.syncPhase = .recoveringCorrupt
-            case .adoptedRemote, .keptLocal, .noRemoteDocument:
+            case .adoptedRemote, .reconciledRouteData, .keptLocal, .noRemoteDocument:
                 self.syncPhase = status == .available ? .ready : .offline
             }
             return outcome
@@ -598,7 +608,7 @@ final class LocalStore {
     func syncFromiCloud(local: AppState) async -> AppState? {
         let outcome = await recoverFromiCloud(local: local)
         switch outcome {
-        case .adoptedRemote(let remote):
+        case .adoptedRemote(let remote), .reconciledRouteData(let remote):
             return remote
         case .keptLocal(let shouldUpload):
             if shouldUpload {
