@@ -229,26 +229,26 @@ bde0f43f|2026-10-24T20:09:29+00:00|Remove temporary original artwork transfer wo
 ed623149|2026-10-24T22:09:19+02:00|Temporarily transfer original Repera mascot for faithful pose transformation|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 512382f7|2026-10-24T20:08:07+00:00|Restore clean solid Repera face and matching running pose from original mascot|ios-app,other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 ca6bfa8d|2026-10-24T22:07:48+02:00|Rebuild both splash mascots from original Repera artwork|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-625f74c1|2026-10-24T22:06:59+02:00|Correct argument parsing newline in splash asset builder|other||unverified
-a94f1626|2026-10-24T22:06:42+02:00|Rebuild original Repera face once; preserve exact facial features in running pose without duplicate shapes|other|e5995989 f479f0b7|unverified
-e74ffd86|2026-10-24T20:02:34+00:00|Finish opaque original mascot and consistent running splash pose|ios-app,other||unverified
+625f74c1|2026-10-24T22:06:59+02:00|Correct argument parsing newline in splash asset builder|other||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+a94f1626|2026-10-24T22:06:42+02:00|Rebuild original Repera face once; preserve exact facial features in running pose without duplicate shapes|other|e5995989 f479f0b7|verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+e74ffd86|2026-10-24T20:02:34+00:00|Finish opaque original mascot and consistent running splash pose|ios-app,other||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
 f689bfdf|2026-10-24T22:02:16+02:00|Rebuild Repera launch artwork with opaque face and clean matching runner|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-da46b4bd|2026-10-24T22:01:51+02:00|Repair original Repera pupils and mouth as solid shapes and remove duplicate runner head parts|other||unverified
-443dd8b1|2026-10-24T19:59:38+00:00|Fix splash transparency and use authentic Repera head on running mascot|ios-app,other||unverified
+da46b4bd|2026-10-24T22:01:51+02:00|Repair original Repera pupils and mouth as solid shapes and remove duplicate runner head parts|other||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+443dd8b1|2026-10-24T19:59:38+00:00|Fix splash transparency and use authentic Repera head on running mascot|ios-app,other||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
 3947e369|2026-10-24T21:59:19+02:00|Run one-time image repair and authentic mascot running composition|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-de0ae459|2026-10-24T21:58:47+02:00|Build corrected opaque Repera hero and running pose with authentic head|other||unverified
+de0ae459|2026-10-24T21:58:47+02:00|Build corrected opaque Repera hero and running pose with authentic head|other||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
 2709141f|2026-10-24T21:49:40+02:00|Replace brittle mascot asset generator with JSON validation for Xcode|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-4db7545b|2026-10-24T21:48:52+02:00|Fix invalid MascotRunning asset catalog JSON causing actool failure|ios-app||unverified
-46be4cc5|2026-10-24T21:47:02+02:00|Force opaque facial features only within hero mascot face, preserve exterior alpha|other|0efffd03 ed3232d9|unverified
-c045bd03|2026-10-24T21:46:09+02:00|Use running Repera mascot during session restoration|ios-app||unverified
-ab42d793|2026-10-24T19:46:05+00:00|Fix transparent enclosed details in launch mascot|ios-app||unverified
+4db7545b|2026-10-24T21:48:52+02:00|Fix invalid MascotRunning asset catalog JSON causing actool failure|ios-app||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+46be4cc5|2026-10-24T21:47:02+02:00|Force opaque facial features only within hero mascot face, preserve exterior alpha|other|0efffd03 ed3232d9|verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+c045bd03|2026-10-24T21:46:09+02:00|Use running Repera mascot during session restoration|ios-app||verified-ported 14:02: mascota consistente durante restauracion — Android tiene assets mascot (hero/running MD5 identicos a Apple) y ReperaMascot.kt; splash de restauracion unico
+ab42d793|2026-10-24T19:46:05+00:00|Fix transparent enclosed details in launch mascot|ios-app||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
 a3072801|2026-10-24T21:45:53+02:00|Add running mascot asset and repair launch face opacity|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 e1621b8d|2026-10-24T21:39:29+02:00|Repair transparent enclosed facial features on both launch mascots|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-c413ac1d|2026-10-24T21:39:03+02:00|Show barbell-lifting Repera mascot in native launch screen|ios-app|53cca1d2|unverified
-88221001|2026-10-24T21:31:08+02:00|Repair larger enclosed transparent eyes and mouth in mascot|other||unverified
-bb77408a|2026-10-24T21:30:40+02:00|Keep single matching mascot splash during auth restoration|ios-app|178cb079|unverified
+c413ac1d|2026-10-24T21:39:03+02:00|Show barbell-lifting Repera mascot in native launch screen|ios-app|53cca1d2|verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+88221001|2026-10-24T21:31:08+02:00|Repair larger enclosed transparent eyes and mouth in mascot|other||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
+bb77408a|2026-10-24T21:30:40+02:00|Keep single matching mascot splash during auth restoration|ios-app|178cb079|verified-ported 14:02: mascota consistente durante restauracion — Android tiene assets mascot (hero/running MD5 identicos a Apple) y ReperaMascot.kt; splash de restauracion unico
 c2d69e0e|2026-10-24T21:25:19+02:00|Automatically repair enclosed transparent mascot details on main|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-d02dcf8b|2026-10-24T21:24:53+02:00|Remove obsolete legacy splash image assets|ios-app||unverified
+d02dcf8b|2026-10-24T21:24:53+02:00|Remove obsolete legacy splash image assets|ios-app||verified-n/a 14:02: splash/mascota nativa iOS (storyboard/asset catalog/alpha repair); mascotas compartidas verificadas MD5 identicas (mascot-hero, mascot-running)
 1a2c20a0|2026-10-24T21:21:32+02:00|Match launch background to Repera accent green|ios-app|53cca1d2|unverified
 d577f233|2026-10-24T21:21:30+02:00|Redesign launch screen with standalone mascot on brand green|ios-app||unverified
 d61c5d52|2026-10-24T21:09:35+02:00|Tighten AI provider button spacing and hide row separators|ios-app||unverified
