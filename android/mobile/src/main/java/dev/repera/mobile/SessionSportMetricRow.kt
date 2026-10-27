@@ -54,9 +54,9 @@ internal fun SessionRangeTiles(title: String, range: SessionSportMetrics.Range?,
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.labelMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tile("Mín", range?.min?.let(dev.repera.domain.ReperaNumberFormat::decimal), unit, Modifier.weight(1f), if (heart) accent else gray)
-            Tile("Media", range?.avg?.let(dev.repera.domain.ReperaNumberFormat::decimal), unit, Modifier.weight(1f), blue)
-            Tile("Máx", range?.max?.let(dev.repera.domain.ReperaNumberFormat::decimal), unit, Modifier.weight(1f), if (heart) red else accent)
+            Tile("Mín", range?.min?.let(dev.repera.domain.ReperaNumberFormat::integer), unit, Modifier.weight(1f), if (heart) accent else gray)
+            Tile("Media", range?.avg?.let(dev.repera.domain.ReperaNumberFormat::integer), unit, Modifier.weight(1f), blue)
+            Tile("Máx", range?.max?.let(dev.repera.domain.ReperaNumberFormat::integer), unit, Modifier.weight(1f), if (heart) red else accent)
         }
     }
 }
