@@ -11,7 +11,30 @@ const input=(label,name,value='',type='text',attrs='')=>`<label class="connected
 const select=(label,name,rows,selected='')=>`<label class="connected-field">${label}<select name="${name}">${rows.map(([value,title])=>`<option value="${esc(value)}" ${String(value)===String(selected)?'selected':''}>${esc(title)}</option>`).join('')}</select></label>`;
 const note=t=>`<p class="connected-hint">${esc(t)}</p>`;
 const show=(html)=>`<section class="connected-card business-360">${html}</section>`;
-export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,escapeHTML=esc}){
+
+function renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth}){
+ const now=new Date(),today=new Date().toLocaleDateString('sv-SE');
+ const visits=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at)>=now).map(o=>({at:o.starts_at,kind:o.kind==='appointment'?'Cita':'Grupo',title:o.title,id:o.id,action:'detail-occurrence',detail:`${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length} reservas`}));
+ const plans=sessions.filter(s=>s.status==='scheduled'&&s.scheduled_date>=today).map(s=>({at:s.scheduled_date+'T12:00:00',kind:'Entrenamiento · sin hora',title:s.title,id:s.client_id,action:'detail-client',detail:clients.find(c=>c.id===s.client_id)?.name||'Deportista'}));
+ const upcoming=[...visits,...plans].sort((a,b)=>a.at.localeCompare(b.at)).slice(0,8);
+ const month=/^\d{4}-\d{2}$/.test(calendarMonth||'')?calendarMonth:today.slice(0,7);
+ const [y,m]=month.split('-').map(Number),first=(new Date(y,m-1,1).getDay()+6)%7,n=new Date(y,m,0).getDate();
+ const title=new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+ const cells=Array.from({length:first+n},(_,i)=>{const d=i-first+1;if(d<1)return '<span class="business-calendar-empty" aria-hidden="true"></span>';
+ const iso=month+'-'+String(d).padStart(2,'0');
+ const matches=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at).toLocaleDateString('sv-SE')===iso);
+ return `<div class="business-calendar-cell"><button class="business-calendar-day" type="button" data-action="new-date-appointment" data-day="${iso}" aria-label="Añadir cita el ${d}">${d}</button>
+ ${matches.map(o=>`<button type="button" class="business-calendar-event" data-action="detail-occurrence" data-id="${esc(o.id)}"><span>${o.kind==='appointment'?'Cita':'Grupo'}</span> ${esc(new Date(o.starts_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))} ${esc(o.title)}</button>`).join('')}</div>`;}).join('');
+ return `<div class="business-home-columns">
+ ${inbox||show('<h2>Quieren entrenar contigo</h2>'+note('No tienes permiso para gestionar solicitudes.'))}
+ ${show(`<div class="business-panel-head"><div><h2>Próximas citas</h2><p>Citas, grupos y entrenamientos planificados.</p></div>${button('Añadir planificación','add-planning')}</div>
+ <div class="business-upcoming">${upcoming.map(o=>`<button class="business-upcoming-item" type="button" data-action="${o.action}" data-id="${esc(o.id)}"><small>${esc(o.kind)} · ${o.kind.includes('sin hora')?day(o.at):dateTime(o.at)}</small><strong>${esc(o.title)}</strong><span>${esc(o.detail)}</span></button>`).join('')||note('No tienes próximas citas ni entrenamientos.')}</div>`)}
+ </div>
+ ${show(`<div class="business-panel-head"><div><h2>Agenda de citas y grupos</h2><p>Selecciona un día libre para crear una cita o un evento para consultar sus detalles.</p></div><div class="heading-actions">${button('‹','calendar-prev')}${button(esc(title),'calendar-today')}${button('›','calendar-next')}</div></div>
+ <div class="business-calendar-weekdays">${['L','M','X','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div><div class="business-calendar-grid">${cells}</div>`)}`;
+}
+
+export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',escapeHTML=esc}){
  const soon=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at)>new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,8);
  const stats=`<section class="business-stats"><div class="business-stat"><span>Deportistas</span><strong>${clients.length}</strong><small>En esta organización</small></div><div class="business-stat"><span>Sesiones programadas</span><strong>${occurrences.filter(o=>o.status==='active').length}</strong><small>Clases y citas</small></div><div class="business-stat"><span>Entrenamientos publicados</span><strong>${sessions.filter(s=>s.status==='scheduled').length}</strong><small>En diario de deportistas</small></div></section>`;
  const waiting=requests.filter(r=>r.status==='pending');
@@ -38,10 +61,11 @@ export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],se
   <button type="button" data-workspace="services"><span class="business-quick-icon" aria-hidden="true">▦</span>
   <strong>Clases y reservas</strong><small>Horarios, grupos y aforo</small></button>
  </section>`:'';
+ if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth});
  return `${stats}${quick}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${o.kind==='appointment'?'Cita 1:1':'Clase grupal'} · ${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length}/${o.capacity} plazas</small><span class="business-tile-arrow">Ver detalle →</span></button>`).join(''):'<p>No hay próximas clases programadas.</p>'}</div>`)}`;
 }
-export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',escapeHTML=esc,clientSection='training'}){
+export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',trainer=false,escapeHTML=esc,clientSection='training'}){
  if(!selected)return show(`<div class="business-panel-head"><div>
  <span class="connected-eyebrow">DEPORTISTAS</span><h2>Clientes</h2>
  <p>Consulta cada ficha y sus entrenamientos autorizados. Las vinculaciones solo se completan al aceptar la invitación.</p></div></div>
@@ -65,21 +89,21 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  ownBookings=bookings.filter(b=>b.client_id===c.id),
  ownSessions=sessions.filter(s=>s.client_id===c.id&&s.status==='scheduled');
  const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
- ${[['training','Entrenamientos'],['data','Datos'],['bookings','Reservas']].map(([id,name])=>
+ ${[...[['training','Entrenamientos'],['data','Datos']],...(trainer?[]:[['bookings','Reservas']])].map(([id,name])=>
  `<button type="button" data-action="client-section" data-section="${id}" class="${clientSection===id?'active':''}"
  aria-current="${clientSection===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
  const head=`<div class="business-profile-header"><span class="business-avatar large">
  ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
  </span><div><h2>${esc(c.name)}</h2><p>${esc(c.email)} · ${c.user_id?'Cuenta vinculada':'Invitación pendiente'} </p></div>
- ${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}</div>`;
+ ${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}${manager&&trainer&&c.status!=='cancelled'?button('Finalizar relación','end-client',c.id):''}</div>`;
  let body='';
  if(clientSection==='training'){
   body=`<div class="business-360-grid">
  <div class="business-detail-panel"><div class="business-panel-head"><h3>Planificación</h3>
- ${button('Añadir entrenamientos','plan-client',c.id)}</div>
+ ${button('Añadir entrenamientos','plan-client',c.id)}${trainer?button('Añadir planificación','add-planning',c.id):''}</div>
  ${ownSessions.length?ownSessions.map(s=>`<article class="business-line"><strong>${esc(s.title)}</strong>
  <small>${day(s.scheduled_date)} · ${(s.prescription?.blocks||[]).length} bloques</small>
- ${button('Editar entrenamiento','edit-session',s.id)}</article>`).join(''):
+ ${button('Editar entrenamiento','edit-session',s.id)}${manager?button('Eliminar','delete-session',s.id):''}</article>`).join(''):
  note('Aún no hay entrenamientos planificados.')}</div>
  <div class="business-detail-panel"><h3>Actividad compartida</h3>
  ${sharedHistory.length?`<p>${sharedHistory.length} sesiones compartidas con este centro.</p>
@@ -96,7 +120,7 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  ${manager?`<form data-connected="client-profile" class="business-form">
  ${input('Nombre','name',c.name,'text','required minlength="2" maxlength="120"')}
  ${input('Correo','email',c.email,'email','required')}
- ${select('Estado','status',['lead','trial','active','paused','cancelled'].map(v=>[v,v]),c.status)}
+ ${select('Estado','status',['lead','trial','active','paused',...(trainer&&c.status!=='cancelled'?[]:['cancelled'])].map(v=>[v,v]),c.status)}
  <input type="hidden" name="client" value="${esc(c.id)}">
  <button type="submit" class="connected-primary">Guardar datos básicos</button></form>`:''}</div>
  <div class="business-detail-panel"><h3>Bonos y saldo</h3>
