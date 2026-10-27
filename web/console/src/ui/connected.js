@@ -141,6 +141,18 @@ function enhanceWorkspace(own){
   if(root&&nav){
    root.classList.add('business-delegated-workspace');
    nav.querySelector('#workspace-org-select')?.closest('label')?.remove();
+   const orgName=escapeHTML(org?.name||'Centro');
+   const logoURL=org?.avatar_url&&/^https:\/\//.test(org.avatar_url)?escapeHTML(org.avatar_url):'';
+   const avatar=logoURL?`<img src="${logoURL}" alt="">`:
+    `<span class="business-sidebar-avatar">${escapeHTML((org?.name||'C').slice(0,1).toUpperCase())}</span>`;
+   nav.insertAdjacentHTML('beforeend',`<div class="business-sidebar-account">
+    ${avatar}<div><strong>${orgName}</strong><small>${org?.kind==='personal_trainer'?'Entrenador personal':'Gimnasio'} · Vista de soporte</small></div>
+    <button type="button" data-workspace="settings" aria-label="Ajustes del centro" title="Ajustes del centro">⚙</button>
+   </div>
+   <div class="business-sidebar-actions">
+    <button type="button" data-admin-action="exit-delegation">Volver a Repera Admin</button>
+    <button type="button" data-action="logout">Cerrar sesión</button>
+   </div>`);
    const content=document.createElement('div');content.className='business-delegate-content';
    root.querySelectorAll('[data-workspace-section]').forEach(section=>content.append(section));
    root.append(content);
