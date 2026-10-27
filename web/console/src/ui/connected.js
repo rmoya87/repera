@@ -50,7 +50,7 @@ function trainerDialogMarkup({manager,members}){
  let title='',inner='';
  if(businessDialog==='bulk'){
   title='Añadir planificación';
-  inner=renderProfessionalPlanning({orgId:selectedOrg,role:manager?'owner':'coach',sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,clientId:selectedClientId,bulkOnly:true});
+  inner=renderProfessionalPlanning({orgId:selectedOrg,role:manager?'owner':(memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role||'athlete'),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,clientId:selectedClientId,bulkOnly:true});
  }else if(businessDialog==='new-appointment'){
   title='Nueva cita o grupo';
   inner=`<form data-connected="service-occurrence" class="business-form">
@@ -131,14 +131,13 @@ function enhanceWorkspace(own){
  attach('settings',`<div data-settings-panel="plan">${renderSubscriptions(org)}</div>`);
  // Entrenador y gimnasio disponen de permisos diferentes.
  if(trainer)root.querySelector('[data-workspace-section="team"]')?.remove();
- if(trainer&&businessDialog==='bulk'){const bulk=root.querySelector('form[data-connected="bulk-training"]');if(bulk)refreshBulkPlanPreview(bulk);}
  const trial=trialStatus();
  if(!trial.active&&!delegation&&activeTab!=='settings'){
   const notice=document.createElement('div');notice.className='connected-error';notice.innerHTML='<strong>Prueba finalizada.</strong> Para seguir administrando el negocio, elige un plan en Configuración. Los pagos todavía no están disponibles.';
   nav.insertAdjacentElement('afterend',notice);
  }
  root.querySelectorAll('[data-workspace-section]').forEach(el=>{el.style.display=el.dataset.workspaceSection===activeTab?'':'none';});
- if(trainer){root.querySelectorAll('[data-settings-panel]').forEach(el=>el.style.display=el.dataset.settingsPanel===settingsSection?'':'none');root.insertAdjacentHTML('beforeend',trainerDialogMarkup({manager,members}));}
+ if(trainer){root.querySelectorAll('[data-settings-panel]').forEach(el=>el.style.display=el.dataset.settingsPanel===settingsSection?'':'none');root.insertAdjacentHTML('beforeend',trainerDialogMarkup({manager,members}));if(businessDialog==='bulk'){const bulk=root.querySelector('form[data-connected="bulk-training"]');if(bulk)refreshBulkPlanPreview(bulk);}}
 }function render(){
  if(user&&platformRole==='platform_admin'&&!delegation&&view!=='password'){
   app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,athletes:adminAthletes,finance:adminFinances,
