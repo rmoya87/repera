@@ -124,6 +124,7 @@ struct SettingsView: View {
                     } label: {
                         HStack(spacing: 9) {
                             Image(systemName: "arrow.triangle.2.circlepath")
+                                .frame(width: 24, alignment: .center)
                                 .rotationEffect(.degrees(workoutSync.isSyncing ? 360 : 0))
                                 .animation(
                                     workoutSync.isSyncing
@@ -140,19 +141,22 @@ struct SettingsView: View {
                         .foregroundStyle(OG.label)
                     }
                     .disabled(workoutSync.isSyncing || !businessAuth.isConnected)
-                    if let failure = localSyncError ?? workoutSync.lastError {
-                        Text(failure)
-                            .font(.caption)
-                            .foregroundStyle(OG.red)
-                    } else if let syncedAt = workoutSync.lastSyncAt {
-                        Text(syncedAt.formatted(date: .numeric, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
-                    } else {
-                        Text("Los entrenos finalizados se guardan localmente y se envían a Supabase al conectarte.")
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
+                    Group {
+                        if let failure = localSyncError ?? workoutSync.lastError {
+                            Text(failure)
+                                .font(.caption)
+                                .foregroundStyle(OG.red)
+                        } else if let syncedAt = workoutSync.lastSyncAt {
+                            Text(syncedAt.formatted(date: .numeric, time: .shortened))
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        } else {
+                            Text("Los entrenos finalizados se guardan localmente y se envían a Supabase al conectarte.")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
                     }
+                    .padding(.leading, 33)
                 }
                 .padding(.vertical, 3)
 
