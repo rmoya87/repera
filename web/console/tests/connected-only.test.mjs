@@ -22,7 +22,7 @@ test('Platform role is resolved before tenant membership query; admin without bu
  assert.ok(reload.indexOf('await auth.myProfile()') < reload.indexOf('auth.memberships()'));
  assert.match(reload,/if\(platformRole==='platform_admin'\)/);
  assert.match(reload,/if\(!delegation\)/);
- assert.match(reload,/adminDirectory,adminFinances,adminPending,adminHistory/);
+ assert.match(reload,/adminDirectory,adminAthletes,adminFinances,adminPending,adminHistory/);
  assert.ok(reload.indexOf('await loadSelectedOrg();return;') < reload.indexOf('auth.memberships()'));
 });
 
