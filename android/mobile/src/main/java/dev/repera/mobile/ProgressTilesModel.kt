@@ -17,17 +17,17 @@ internal object ProgressTilesModel {
     fun minutesDelta(current: Double?, previous: Double?): Int? =
         if (current == null || previous == null) null else roundHalfAway(current - previous)
 
-    /** Apple shows no delta text when it is nil or zero. */
-    fun deltaLabel(delta: Int?): String? = when {
+    /** Apple shows no delta text when it is nil or zero. Apple 79b34354: el delta
+     *  de tiempo se muestra en minutos con unidad ′ y el entero localizado. */
+    fun deltaLabel(delta: Int?, unit: String = ""): String? = when {
         delta == null || delta == 0 -> null
-        delta > 0 -> "+$delta"
-        else -> "$delta"
+        else -> "${if (delta > 0) "+" else ""}${dev.repera.domain.ReperaNumberFormat.integer(delta)}$unit"
     }
 
     fun mobilityDuration(seconds: Int): String =
         if (seconds < 60) "$seconds s" else "${seconds / 60} min ${seconds % 60} s"
 
-    data class Tile(val label: String, val value: String, val delta: Int?)
+    data class Tile(val label: String, val value: String, val delta: Int?, val deltaUnit: String = "")
 
     /** Apple tilesGrid / freeTilesGrid tras 602e9c39: Entrenos, Tiempo TOTAL, Racha.
      *  El tiempo es totalMinutes acumulado real (no media × sesiones), con delta
@@ -39,7 +39,7 @@ internal object ProgressTilesModel {
         val timeDelta = previousTotalMinutes?.let { total - roundHalfAway(it) }
         return listOf(
             Tile("Entrenos", "$sessions", previousSessions?.let { sessions - it }),
-            Tile("Tiempo", time, timeDelta),
+            Tile("Tiempo", time, timeDelta, "′"),
             Tile("Racha", "$streak", streak - previousStreak))
     }
 }

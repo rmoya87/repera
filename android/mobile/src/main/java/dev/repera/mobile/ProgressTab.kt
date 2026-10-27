@@ -204,8 +204,8 @@ internal fun ProgressTab(
                             Card(Modifier.weight(1f)) {Column(Modifier.fillMaxWidth().padding(vertical=12.dp,horizontal=6.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                                 Text(t.label,style=MaterialTheme.typography.labelMedium)
                                 Text(t.value,style=MaterialTheme.typography.headlineMedium,maxLines=1)
-                                Text(ProgressTilesModel.deltaLabel(t.delta) ?: "+0",style=MaterialTheme.typography.labelSmall,
-                                    color=if(ProgressTilesModel.deltaLabel(t.delta)==null) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit) ?: "+0",style=MaterialTheme.typography.labelSmall,
+                                    color=if(ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit)==null) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.onSurfaceVariant)
                             }}}
                             repeat(cols-rowTiles.size) {Spacer(Modifier.weight(1f))}
                         }}}
