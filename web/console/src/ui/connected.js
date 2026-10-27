@@ -261,12 +261,19 @@ app.addEventListener('submit',async event=>{
  if(platformForm){
   event.preventDefault();if(busy||platformRole!=='platform_admin'||delegation)return;
   const action=platformForm.dataset.adminForm,values=new FormData(platformForm);
-  if(action==='status'&&!confirm('¿Confirmas el cambio de estado de este negocio?'))return;
+  if(action==='status'&&!confirm('¿Confirmas el cambio de estado de este centro?'))return;
   busy=true;error=notice='';render();
   try{
    if(action==='provision'){
-    await auth.platformAdminProvision({name:values.get('name'),kind:values.get('kind'),email:values.get('email'),plan:values.get('plan')});
-    adminTab='provision';notice='Alta preparada. El propietario deberá iniciar sesión con el correo verificado para completar el registro.';
+    const kind=String(values.get('kind')||'');
+    const created=await auth.platformAdminProvision({
+     name:values.get('name'),kind,email:values.get('email'),plan:values.get('plan')});
+    const file=values.get('avatarFile');
+    if(file?.size){
+     try{await auth.uploadPlatformPendingBrand({provisioningId:created,kind,file});notice='Centro preparado con su imagen. El propietario debe confirmar su correo e iniciar sesión.';}
+     catch(imageError){notice='Centro preparado, pero no se guardó la imagen: '+(imageError.message||'error de subida')+'. Podrás actualizarla desde la ficha del negocio.';}
+    }else notice='Centro preparado. El propietario debe confirmar su correo e iniciar sesión.';
+    adminTab='provision';
    }
    if(action==='status'){
     await auth.platformAdminSetStatus({orgId:values.get('org_id'),status:values.get('status'),reason:values.get('reason')});
@@ -275,7 +282,28 @@ app.addEventListener('submit',async event=>{
    if(action==='delegate'){
     await auth.platformAdminDelegate({orgId:values.get('org_id'),reason:values.get('reason')});
     adminSelectedOrg='';selectedOrg=values.get('org_id');activeTab='overview';
-    notice='Acceso delegado iniciado. Todas las operaciones mantienen tu identidad de administrador.';
+    notice='Acceso delegado iniciado. Las acciones mantienen tu identidad de administrador.';
+   }
+   if(action==='platform-settings'){
+    await auth.platformAdminSaveSettings(Object.fromEntries(values.entries()));
+    notice='Configuración de plataforma guardada.';
+   }
+   if(action==='account-profile'){
+    await auth.updateOwnProfile({displayName:values.get('display_name')});
+    const file=values.get('avatarFile');
+    if(file?.size)await auth.uploadOwnAvatar(file);
+    notice='Tu perfil se ha actualizado.';
+   }
+   if(action==='account-email'){
+    await auth.changeOwnEmail(values.get('email'));
+    notice='Cambio de correo solicitado. Revisa los mensajes de confirmación que envía Supabase.';
+   }
+   if(action==='account-password'){
+    await auth.changePassword(values.get('password'));
+    await auth.signOut();
+    user=null;platformRole=null;adminAccount={};view='login';
+    notice='Contraseña actualizada. Inicia sesión de nuevo para continuar.';
+    return;
    }
    await reload();
   }catch(e){error=e.message||'No se pudo completar la operación';}
