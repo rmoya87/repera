@@ -1,5 +1,18 @@
 ## Administración global de Repera — 27/10/2026
 
+## Mejora de administración global — 2026-10-27
+
+- **Centros** unifica gimnasios, centros deportivos y entrenadores personales, con columna de tipo, foto/logo, clientes, plan y estado; filtros por categoría, estado y búsqueda.
+- **Atletas** incluye cuentas de `auth.users` con o sin membresía a gimnasio/entrenador, con nombre y avatar (perfil propio o imagen de cuenta OAuth), correo y número de centros asociados. Nunca consulta datos privados de actividad o HealthKit.
+- **Planes y precios**: catálogo agrupado por público con tarjetas compactas. El formulario de edición solo se abre para el plan elegido; alta independiente y validación de precios/limitaciones.
+- **Configuración** global con contactos reales guardados en Supabase, estado de integraciones representado sin fingir conexión a Stripe. Desaparece el indicador «Supabase conectado».
+- **Mi cuenta** abajo a la izquierda, con nombre/avatar y edición de nombre y fotografía, petición de cambio de correo y cambio de contraseña.
+- **Prealta de centros**: imagen JPG/PNG/WebP optimizada en cliente a JPG, subida protegida a `business-branding/pending/{uuid}`; RPC liga URL validada a prealta y la traslada a la organización definitiva durante la reclamación.
+- Los selects nativos ahora comparten altura, tipografía, borde y chevron. Nuevos estilos `platform-admin-polish.css`.
+- Migraciones aplicadas a Supabase: `20261027143000`, `20261027143001`, `20261027143002`, `20261027143003`, `20261027143004`; la última corrige `app_role` a texto en JSON de atletas.
+- Comprobaciones: renderización de diez secciones, actor sin privilegio denegado, recuperación del avatar OAuth sin centro, escritura de configuración en transacción revertida. Aún sin validación visual real del navegador ni tests completos de Stripe.
+
+
 ## Corrección de acceso administrador y retirada de demo — 27/10/2026
 
 - **Incidencia reproducida y reparada en Supabase**: la política `memberships_platform_delegated_read` consultaba `platform_admin_delegations` desde el rol navegador `authenticated`, sin permiso SELECT intencionadamente; impedía leer `organization_memberships` y ocultaba el panel administrativo bajo el mensaje 403. Migración `20261027140000_fix_platform_membership_rls.sql` aplicada. La política original `memberships_select_authorized` ya incorpora acceso delegado mediante `private.has_org_role()` (SECURITY DEFINER).
