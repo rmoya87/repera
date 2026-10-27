@@ -14,7 +14,7 @@ HUB = (SOURCES / "FavoritesHubView.swift").read_text(encoding="utf-8")
 
 class HistoricalWorkoutFavoritesContractTests(unittest.TestCase):
     def test_history_star_checks_success_and_surfaces_paywall_or_error(self):
-        self.assertIn("guard store.toggleWorkoutFavorite(sessionId) else {", HISTORY)
+        self.assertIn("if store.toggleWorkoutFavorite(sessionId) {", HISTORY)
         self.assertIn("store.lastAccessDenial", HISTORY)
         self.assertIn("subscriptions.presentPaywall(", HISTORY)
         self.assertIn("favoriteSaveError", HISTORY)
