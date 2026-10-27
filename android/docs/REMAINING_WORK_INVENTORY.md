@@ -286,3 +286,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - 2tests adicionales:4bloques+no falso header por repwave. Domain493/493,
 93XMLcompleta21:47verde. Mobilepost287TODAS645/162en4lotes+assembleverde;
  mobile postesta unidad pendiente. No runtime/dispositivo acreditado.
+
+## Integracion wire OCR 21:56
+- Post288 mobile TODAS645tests/162XML en4lotes90/102/85/84s,0fallos,
+ sin faltantes;assemble48s verde. No cambios produccion posteriores.
+- Dos regresiones wire nuevas pasan dentro BoardScanImportTest:orphan3x8
+ alias oficial sobrecustom conserva60kg eidentidad plannedSet;ladder/EMOM/
+ partner conservan formato,120s,cap10min eidentidad bloque hastaJSONreview.
+- Clase wire completa5tests ejecutada21:56;resto mobile es ejecucion post288.
+ No afirmar suite monolitica nueva647. Domain493/93XML,Wear8/1siguen verdes
+ con tiempos de sus checkpoints. Parser completo yruntime siguen abiertos.

@@ -85,4 +85,27 @@ class BoardScanImportTest {
         assertFalse(plain.has("targetPercent1RMIsMinimum"))
         assertEquals(60.0, plain.getDouble("targetWeightKg"), 0.001)
     }
+    @Test fun orphanStrengthKeepsSetsLoadAndOfficialAliasInReviewWire() {
+        val official=dev.repera.domain.CatalogExercise("official","Press banca",listOf("BXT-PRO"))
+        val old=dev.repera.domain.CatalogExercise("old","BXT-PRO",emptyList(),isCustom=true)
+        val block=BoardScanLiteParser.parse("3x8 BXT-PRO @60",listOf(old,official)).blocks.single()
+        val wire=BoardScanImport.wireBlock(block)
+        assertEquals("strength",wire.getString("kind"))
+        val entry=wire.getJSONArray("exercises").getJSONObject(0)
+        assertEquals("official",entry.getString("exerciseId"))
+        val sets=entry.getJSONArray("plannedSets")
+        assertEquals(3,sets.length())
+        assertEquals(8,sets.getJSONObject(0).getInt("targetReps"))
+        assertEquals(60.0,sets.getJSONObject(0).getDouble("targetWeightKg"),0.001)
+        assertEquals(block.exercises.single().plannedSets[0].id,sets.getJSONObject(0).getString("id"))
+    }
+    @Test fun explicitHeadersKeepFormatCadenceAndCapInWire() {
+        val blocks=BoardScanLiteParser.parse("21-15-9\nTHRUSTER 40/30\nE2MOM 10'\n5 POWER CLEAN\nPARTNER WOD\n100 CAL ROW").blocks
+        assertEquals(listOf("ladder","emom","partner"),blocks.map {BoardScanImport.wireBlock(it).getString("wodFormat")})
+        val emom=BoardScanImport.wireBlock(blocks[1])
+        assertEquals(120,emom.getInt("emomIntervalSeconds"))
+        assertEquals(10,emom.getInt("timeCapMinutes"))
+        assertEquals(1,emom.getJSONArray("movements").length())
+        assertEquals(blocks[1].id,emom.getString("id"))
+    }
 }
