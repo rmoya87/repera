@@ -361,6 +361,10 @@ app.addEventListener('submit',async event=>{
     await auth.platformAdminSaveSettings(Object.fromEntries(values.entries()));
     notice='Configuración de plataforma guardada.';
    }
+   if(action==='platform-trial'){
+    await auth.platformAdminSaveTrialDays(values.get('trial_days'));
+    notice='Periodo de prueba actualizado para futuras altas.';
+   }
    if(action==='account-profile'){
     await auth.updateOwnProfile({displayName:values.get('display_name')});
     const file=values.get('avatarFile');
