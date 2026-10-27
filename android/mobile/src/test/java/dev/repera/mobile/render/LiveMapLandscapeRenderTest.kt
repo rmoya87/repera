@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.core.app.ApplicationProvider
@@ -27,6 +29,28 @@ import java.io.FileOutputStream
 @Config(sdk=[35],qualifiers="w1000dp-h600dp")
 class LiveMapLandscapeRenderTest {
  @get:Rule val composeRule=createComposeRule()
+ @Test
+ @Config(sdk=[35],qualifiers="w360dp-h900dp")
+ fun routeLibraryEmptyScreenAndCloseReturnToMap() {
+  val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+  LiveActivityRuntime.forAccount(context,"render-empty-library").choose(LiveSport.RUNNING)
+  composeRule.setContent {
+   MaterialTheme(colorScheme=reperaColorScheme(false)) {
+    Surface(Modifier.testTag("library_root")) {
+     LiveActivityScreen("render-empty-library",onSaved={},onOpenTools={})
+    }
+   }
+  }
+  composeRule.onNodeWithText("Rutas").performClick()
+  composeRule.onNodeWithText("Mis rutas").assertExists()
+  composeRule.onNodeWithText("Todavía no hay rutas").assertExists()
+  val bmp=composeRule.onNodeWithTag("library_root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/route-library-empty-screen.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+  composeRule.onNodeWithContentDescription("Cerrar Mis rutas").performClick()
+  composeRule.onNodeWithText("Mis rutas").assertDoesNotExist()
+  composeRule.onNodeWithText("Mapa del recorrido · guía GPX orientativa").assertExists()
+ }
  @Test fun landscapeKeepsMapVisibleBesideControlsWithoutStartingGps() {
   val context=ApplicationProvider.getApplicationContext<android.content.Context>()
   LiveActivityRuntime.forAccount(context,"render-landscape").choose(LiveSport.RUNNING)
