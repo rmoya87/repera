@@ -281,6 +281,14 @@ object BoardScanLiteParser {
                 }
             }
         }
+        // Full parser detectFormatHeader: E2MOM 10' has a 120s cadence,
+        // not a movement named E2MOM. Bounded before multiplying minutes.
+        Regex("^E\\s*(\\d+)\\s*MOM\\b").find(upper)?.let { match ->
+            val minutes=match.groupValues[1].toIntOrNull() ?: return null
+            val total=firstInt(upper.removeRange(match.range)) ?: (minutes.toLong()*5).takeIf {it<=Int.MAX_VALUE}?.toInt() ?: return null
+            if(minutes !in 1..(Int.MAX_VALUE/60) || total<=0) return null
+            return Header(line,WODFormat.EMOM,total,interval=minutes*60)
+        }
         if (upper.startsWith("EMOM")) {
             val mins = firstInt(upper) ?: 10
             return Header(line, WODFormat.EMOM, mins)

@@ -32,4 +32,18 @@ class BoardStrengthLinesTest {
   val archived=bench.copy(isCatalogArchived=true)
   assertNull(BoardStrengthLines.bestMatch("BXT-PRO",listOf(archived)))
  }
+ @Test fun everyTwoMinutesHeaderPreservesCadenceAndGlobalCap() {
+  val result=BoardScanLiteParser.parse("E2MOM 10'\n5 POWER CLEAN")
+  val block=result.blocks.single()
+  assertEquals(WODFormat.EMOM,block.wodFormat)
+  assertEquals(120,block.emomIntervalSeconds)
+  assertEquals(10,block.timeCapMinutes)
+  assertEquals(1,block.movements.size)
+ }
+ @Test fun everyMinutesDefaultAndOverflowRemainBounded() {
+  val block=BoardScanLiteParser.parse("E3MOM\n5 POWER CLEAN").blocks.single()
+  assertEquals(15,block.timeCapMinutes);assertEquals(180,block.emomIntervalSeconds)
+  val extreme=BoardScanLiteParser.parse("E999999999999MOM 10'\n5 POWER CLEAN")
+  assertTrue(extreme.blocks.isNotEmpty())
+ }
 }

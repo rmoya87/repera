@@ -265,3 +265,11 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  SHA256 esperado,validacion inventario/rechazo matriz,replace atomico con
  segunda comprobacion.4/4tests Pythonverdes. Esta nota entra por ese writer,
  no por buffer general compartido. Reescrituras requieren diff separado.
+
+## OCR E2MOM 21:38
+- Subconjunto adicional detectFormatHeader del parser completo corte: E2MOM10'
+ ahora EMOM con intervalo120s/cap10min,antesmovimiento sin cabecera.
+ E3MOM sin total conserva default15min,interval180s. Enteros acotados antes
+ multiplicar ysin truncar input fuera rango.2tests nuevos,domain491/491,
+93XMLcompleta21:38verde. Parser completo sigue GAP. Validacion mobile tras
+ esta unidad pendiente;ultimo645/162XMLyassemble post282 ya verdes.
