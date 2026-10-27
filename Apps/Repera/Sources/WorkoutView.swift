@@ -1519,10 +1519,10 @@ struct WorkoutView: View {
     /// Ni un Stepper ni una altura fija: es una sheet Liquid Glass ajustada
     /// a la geometría de su contenido mediante los modificadores OG.
     private func manualRoundDurationSheet(for setup: ManualRoundSetup) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Configurar temporizador")
-                    .font(.system(size: 21, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(OG.label)
                 Text("Bloque libre · \(setup.rounds) ronda\(setup.rounds == 1 ? "" : "s")")
                     .font(.subheadline)
@@ -1539,7 +1539,7 @@ struct WorkoutView: View {
                 )
                 Divider()
                     .overlay(OG.surface3)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 6)
                 manualRoundTimeRow(
                     title: "Descansar entre rondas",
                     minutes: $manualRoundRestMinutes,
@@ -1583,9 +1583,9 @@ struct WorkoutView: View {
         // Intrinsic vertical size: the sheet must fit these rows, not the
         // other way round. UIKit numeric fields already have exact 48 pt.
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 24)
-        .padding(.top, 30)
-        .padding(.bottom, 22)
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
         .ogFittedHeight()
         .ogFittedSheet()
     }
