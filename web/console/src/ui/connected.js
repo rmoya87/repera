@@ -175,11 +175,14 @@ async function finalizePendingRegistration(){
  sessionStorage.removeItem(PENDING_REGISTRATION_KEY);await reload();
 }
 async function loadSelectedOrg(){
+ let clientAvatars=[];
  if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];return;}
- [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
+ [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices,clientAvatars]=await Promise.all([
  auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),
  auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg),auth.workoutTemplates(selectedOrg),
- auth.organizationTrial(selectedOrg),auth.classDetails(selectedOrg),auth.groupList(selectedOrg),auth.groupMembers(selectedOrg),auth.clientNotifications(selectedOrg)]);
+ auth.organizationTrial(selectedOrg),auth.classDetails(selectedOrg),auth.groupList(selectedOrg),auth.groupMembers(selectedOrg),auth.clientNotifications(selectedOrg),auth.clientAvatars(selectedOrg).catch(()=>[])]);
+ const avatars=new Map(clientAvatars.map(a=>[a.client_id,a.avatar_url]));
+ clients=clients.map(c=>({...c,avatar_url:avatars.get(c.id)||c.avatar_url}));
 }
 async function reload(){
  const [orgs,members,invites,profile]=await Promise.all([auth.organizations(),auth.memberships(),auth.invitations(),auth.myProfile()]);platformRole=profile?.role||null;
