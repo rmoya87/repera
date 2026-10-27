@@ -111,7 +111,8 @@ function loadByMuscle(workouts){
  return load;
 }
 const bodyLevel=score=>score<=0?0:score<.25?1:score<.5?2:score<.85?3:4;
-const palette=['#3b3b3d','#178247','#e5bd32','#e9842a','#df4848'];
+// Colores exactos de Apps/Repera/Sources/Theme.swift (OG.accent/yellow/orange/red).
+const palette=['#3b3b3d','#30d158','#ffd60a','#ff9f0a','#ff453a'];
 function silhouette(workouts){
  const load=loadByMuscle(workouts),inert=new Set(['head','hair','neck','hands','feet','knees','ankles']);
  const view=(name,model)=>{
