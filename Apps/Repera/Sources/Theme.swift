@@ -232,9 +232,6 @@ struct OGPrimaryButton: View {
 struct OGFixedTopBar<Trailing: View>: View {
     var title: String
     var subtitle: String? = nil
-    /// Optional opaque surface for screens whose header joins an edge-to-edge section.
-    /// Nil preserves the existing glass/transparent style on other screens.
-    var backgroundColor: Color? = nil
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
@@ -269,12 +266,6 @@ struct OGFixedTopBar<Trailing: View>: View {
         .padding(.top, OG.topBarTopInset)
         .padding(.bottom, OG.topBarBottomInset)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            // Ausencia de fondo = transparencia real, como la barra de Ejercicios.
-            if let backgroundColor {
-                backgroundColor.ignoresSafeArea(edges: .top)
-            }
-        }
     }
 }
 
@@ -426,25 +417,19 @@ extension View {
         modifier(OGListChromeModifier())
     }
 
-    /// La barra del sistema es translúcida, como la navegación nativa iOS 27.
-    /// El material deja ver y desenfoca el contenido que pasa por debajo;
-    /// sobre nuestras List el lienzo subyacente sigue siendo OG.bg (gris).
-    /// No aplicar un color sólido aquí: hacía la barra opaca al hacer scroll.
-    /// Inicio mantiene su excepción de cabecera propia sobre fondo blanco.
+    /// Transparencia real en reposo y durante scroll: sin material ni fondo opaco.
+    /// Se aplica a la navegación nativa de todas las páginas y subpáginas.
     func ogTransparentNav() -> some View {
-        self
-            .toolbarBackground(.thinMaterial, for: .navigationBar)
-            .toolbarBackground(.automatic, for: .navigationBar)
-    }
-
-    /// Variante de Diario: navegación nativa con acciones visibles y fondo
-    /// transparente incluso cuando se compacta la cabecera al hacer scroll.
-    func ogDiaryTransparentNav() -> some View {
         self.toolbarBackground(.hidden, for: .navigationBar)
     }
 
-    /// Topbar secundario: título large colapsable y barra translúcida
-    /// sobre OG.bg durante scroll; botones nativos permanecen visibles.
+    /// Alias conservado para las vistas que usan el estilo transparente compartido.
+    func ogDiaryTransparentNav() -> some View {
+        self.ogTransparentNav()
+    }
+
+    /// Topbar secundario: los controles nativos permanecen fijos y sin fondo.
+    /// Las pantallas deben mantener el título grande en su contenido desplazable.
     /// Usar cuando hay volver / acciones en la barra (título debajo).
     /// Fuerza la barra visible: Inicio/Progreso ocultan el toolbar del sistema (`ogContentTitleNav`);
     /// sin esto, al pushear Ajustes/Historial queda el hueco del large title sin el texto «Ajustes».
@@ -461,7 +446,6 @@ extension View {
     func ogFixedTopBar(
         _ title: String,
         subtitle: String? = nil,
-        backgroundColor: Color? = nil,
         @ViewBuilder trailing: @escaping () -> some View
     ) -> some View {
         self
@@ -470,7 +454,6 @@ extension View {
                 OGFixedTopBar(
                     title: title,
                     subtitle: subtitle,
-                    backgroundColor: backgroundColor,
                     trailing: trailing
                 )
             }
@@ -480,9 +463,7 @@ extension View {
         ogFixedTopBar(title, subtitle: subtitle) { EmptyView() }
     }
 
-    /// Título propio en el contenido, sin barra nativa.
-    /// La excepción de Inicio conserva la transparencia sobre el fondo blanco
-    /// del calendario; no hereda el OG.bg de las barras que colapsan.
+    /// Título propio en el contenido, sin barra nativa y sin fondo añadido.
     func ogContentTitleNav() -> some View {
         self
             .navigationTitle("")

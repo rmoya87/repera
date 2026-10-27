@@ -306,7 +306,8 @@ struct LibraryView: View {
                         exerciseActionHeader
                         exerciseSearchField
                     }
-                    .background(OG.bg)
+                    // Ambas filas siguen visibles al desplazar la lista,
+                    // pero dejan ver el contenido sin lienzo opaco.
                 }
             }
             .toolbar {

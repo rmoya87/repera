@@ -2700,10 +2700,11 @@ struct HealthWorkoutRouteMap: View {
         .overlay(alignment: .bottomTrailing) {
             if showsSpeedLegend && !cachedRuns.isEmpty {
                 speedLegend
-                    // Dejar libres el aviso legal de MapKit y, en el visor
-                    // completo, la zona del indicador de inicio del iPhone.
+                    // Pegada al borde inferior derecho del mapa pequeño sin
+                    // tapar la atribución (situada al lado izquierdo).
+                    // En pantalla completa se respeta el indicador de inicio.
                     .padding(.trailing, 12)
-                    .padding(.bottom, isInteractive ? 54 : 30)
+                    .padding(.bottom, isInteractive ? 34 : 8)
             }
         }
         .allowsHitTesting(isInteractive)

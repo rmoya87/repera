@@ -292,7 +292,7 @@ struct HomeView: View {
                 if !expanded { showSettingsPanel = false }
             }
             .refreshable { await businessData.refresh() }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), backgroundColor: OG.surface) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
