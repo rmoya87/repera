@@ -318,9 +318,12 @@ internal fun HomeTab(
         item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
         item {TextButton(onClick=onOpenHistory) {Text("Ver historial completo")} }
         item { Text("Historial reciente", style = MaterialTheme.typography.titleMedium) }
+        // Apple 0574e246: en Inicio, los entrenos del dia se leen en orden
+        // cronologico (el mas antiguo arriba); el historial global sigue
+        // mostrando el mas reciente primero.
         val workouts = overview?.completeHistory.orEmpty().filter {entry ->
             entry.startedAtIso?.let {BodyWeightHistory.day(it)}==selectedDay
-        }
+        }.sortedBy { it.startedAtIso ?: "" }
         if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
         items(workouts, key = { it.id }) { workout ->
             WorkoutHistoryCard(workout, busy,
