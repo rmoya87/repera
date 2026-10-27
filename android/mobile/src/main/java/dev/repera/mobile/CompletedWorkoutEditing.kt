@@ -401,7 +401,11 @@ object CompletedWorkoutEditing {
                         if (set.has("targetDurationSeconds") && !set.isNull("targetDurationSeconds")) ls.put("durationSeconds", set.getInt("targetDurationSeconds")) else ls.remove("durationSeconds")
                         if (rir != null) ls.put("rir", rir) else ls.remove("rir")
                         if (prev != null) ls.put("toFailure", rir == 0.0 && prev.optBoolean("toFailure"))
-                        val unit = item.unit ?: prev?.optString("quantityUnit")?.ifBlank { null }
+                        // Apple f7109bd7 (editableSetRow): la unidad editada por
+                        // serie manda sobre la del ejercicio y la previa.
+                        val unit = set.optString("targetQuantityUnit")
+                            .takeIf { it == "reps" || it == "meters" }
+                            ?: item.unit ?: prev?.optString("quantityUnit")?.ifBlank { null }
                         if (unit != null) ls.put("quantityUnit", unit)
                         rebuilt.put(ls)
                     }

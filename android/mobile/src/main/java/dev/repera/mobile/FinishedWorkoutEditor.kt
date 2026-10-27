@@ -260,8 +260,16 @@ private fun FinishedContentEditor(
                 }
                 }
                 val sets = item.optJSONArray("plannedSets") ?: org.json.JSONArray().also { item.put("plannedSets", it) }
+                // Apple f7109bd7 (WorkoutDetailView.editSetColumnHeaders):
+                // «Reps / m» y selector de unidad por serie en recorridos.
+                val exRawName = item.optString("exerciseId").let { id ->
+                    nameById[id] ?: id.removePrefix(EditorBlockOps.PENDING_PREFIX) }
+                val repsOrMeters = dev.repera.domain.ExerciseInput.supportsRepsOrMeters(exRawName)
                 for (s in 0 until sets.length()) {
                     val set = sets.getJSONObject(s)
+                    val setUnit = set.optString("targetQuantityUnit").takeIf { it == "reps" || it == "meters" }
+                        ?: item.optString("quantityUnit").takeIf { it == "reps" || it == "meters" }
+                        ?: dev.repera.domain.ExerciseInput.defaultQuantityUnit(exRawName, null)
                     var reps by remember { mutableStateOf(set.optInt("targetReps").toString()) }
                     var kg by remember { mutableStateOf(
                         if (set.has("targetWeightKg") && !set.isNull("targetWeightKg"))
@@ -270,10 +278,13 @@ private fun FinishedContentEditor(
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
-                        OutlinedTextField(value = reps, label = { Text("Reps") }, singleLine = true,
+                        OutlinedTextField(value = reps,
+                            label = { Text(if (repsOrMeters) "Reps / m" else "Reps") }, singleLine = true,
                             modifier = Modifier.weight(1f).testTag("set_reps_${b}_${i}_$s"),
                             onValueChange = { v ->
-                                reps = v.filter { it.isDigit() }.take(4)
+                                // Apple: tope 100_000 en metros con recorrido.
+                                reps = v.filter { it.isDigit() }
+                                    .take(if (repsOrMeters && setUnit == "meters") 6 else 4)
                                 set.put("targetReps", reps.toIntOrNull() ?: 0)
                                 onEdited()
                             })
@@ -297,6 +308,18 @@ private fun FinishedContentEditor(
                                 if (parsed != null && parsed in 0.0..10.0) set.put("targetRir", parsed) else set.remove("targetRir")
                                 onEdited()
                             })
+                        if (repsOrMeters) {
+                            // Apple: Picker «Unidad de la serie» - solo edicion
+                            // explicita, nunca conversion automatica del historial.
+                            Row {
+                                listOf("reps" to "Repeticiones", "meters" to "Metros").forEach { (u, lbl) ->
+                                    FilterChip(selected = setUnit == u,
+                                        onClick = { set.put("targetQuantityUnit", u); onChanged() },
+                                        label = { Text(lbl) },
+                                        modifier = Modifier.testTag("set_unit_${u}_${b}_${i}_$s"))
+                                }
+                            }
+                        }
                         TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
                             onClick = { sets.remove(s); onChanged() }) { Text("×") }
                     }

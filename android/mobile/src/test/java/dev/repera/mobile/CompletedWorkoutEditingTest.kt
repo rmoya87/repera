@@ -358,4 +358,40 @@ class CompletedWorkoutEditingTest {
         assertEquals(10, blocks.getJSONObject(1).getInt("timeCapMinutes"))
         assertEquals(5, blocks.getJSONObject(2).getJSONArray("movements").getJSONObject(0).optJSONArray("explicitPlannedSets")?.length() ?: -1)
     }
+
+    @Test fun perSetQuantityUnitEditWinsOverExerciseAndPrevious() {
+        // Apple f7109bd7 (editableSetRow): la unidad editada por serie manda;
+        // sin edicion explicita se conserva la registrada (nunca conversion).
+        val lunge = ex("wl", "Walking lunge")
+        val cat = JSONArray().put(lunge)
+        val block = JSONObject().put("id", "b1").put("title", "Bloque A").put("kind", "strength")
+            .put("exercises", JSONArray().put(JSONObject().put("id", "re1")
+                .put("exerciseId", "wl")
+                .put("plannedSets", JSONArray().put(planned("p1", 12, 16.0)))))
+        val ls = logged("l1", 12, 16.0, 2.0).put("quantityUnit", "reps")
+        val session = JSONObject().put("id", "s1").put("title", "Fuerza").put("phase", "finished")
+            .put("startedAt", "2026-10-20T10:00:00Z").put("finishedAt", "2026-10-20T11:00:00Z")
+            .put("currentIndex", 0).put("routePoints", JSONArray())
+            .put("routineBlocks", JSONArray().put(block)).put("wodResults", JSONArray())
+            .put("exercises", JSONArray().put(entry("e1", lunge, "b1", planned("p1", 12, 16.0), ls)))
+
+        // Sin edicion: se conserva "reps".
+        val untouched = CompletedWorkoutEditing.applying("Fuerza",
+            CompletedWorkoutEditing.blocksFrom(session, null), session, cat)
+        assertEquals("reps", untouched.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").getJSONObject(0).getString("quantityUnit"))
+
+        // Edicion explicita de la serie: pasa a "meters".
+        val blocks = CompletedWorkoutEditing.blocksFrom(session, null)
+        blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("plannedSets").getJSONObject(0).put("targetQuantityUnit", "meters")
+        val edited = CompletedWorkoutEditing.applying("Fuerza", blocks, session, cat)
+        val editedSet = edited.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").getJSONObject(0)
+        assertEquals("meters", editedSet.getString("quantityUnit"))
+        // Identidad preservada: mismo LoggedSet, mismos kg/reps.
+        assertEquals("l1", editedSet.getString("id"))
+        assertEquals(16.0, editedSet.getDouble("weightKg"), 0.0)
+        assertEquals(12, editedSet.getInt("reps"))
+    }
 }
