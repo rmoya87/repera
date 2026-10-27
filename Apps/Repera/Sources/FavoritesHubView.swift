@@ -5,6 +5,8 @@ import SwiftUI
 struct FavoritesHubView: View {
     @Environment(ReperaStore.self) private var store
     var onOpenedWorkout: () -> Void
+    /// Las actividades registradas sin series se reabren desde Comenzar.
+    var onOpenSport: ((String) -> Void)? = nil
     /// Desde el + del calendario se reutiliza planificando para ese día.
     /// Desde el hub general, seleccionar sigue iniciando la sesión.
     var targetDate: Date? = nil
@@ -16,7 +18,9 @@ struct FavoritesHubView: View {
     @State private var startFailureMessage: String?
 
     private var hasAnyFavorite: Bool {
-        !store.favoriteRoutines.isEmpty || !store.state.favoriteTimers.isEmpty
+        !store.favoriteRoutines.isEmpty
+            || (targetDate == nil && !store.state.favoriteSportActivities.isEmpty)
+            || !store.state.favoriteTimers.isEmpty
     }
 
     var body: some View {
@@ -106,6 +110,34 @@ struct FavoritesHubView: View {
                 } footer: {
                     if targetDate != nil {
                         Text("Selecciona un favorito para añadir una copia al día elegido sin cambiar la plantilla original.")
+                    }
+                }
+            }
+
+            if targetDate == nil, !store.state.favoriteSportActivities.isEmpty {
+                Section("Actividades") {
+                    ForEach(store.state.favoriteSportActivities) { activity in
+                        Button {
+                            onOpenSport?(activity.sportID)
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(activity.title)
+                                        .foregroundStyle(OG.label)
+                                    Text("Iniciar otra actividad del mismo tipo")
+                                        .font(.caption)
+                                        .foregroundStyle(OG.label2)
+                                }
+                            } icon: {
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(OG.yellow)
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            OGSwipeDeleteButton {
+                                store.removeFavoriteSportActivity(activity.id)
+                            }
+                        }
                     }
                 }
             }
