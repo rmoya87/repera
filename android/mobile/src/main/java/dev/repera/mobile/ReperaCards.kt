@@ -1737,9 +1737,31 @@ internal fun BenchmarkWodPicker(
 /** Resumen y perfil de la ruta GPS de una sesión (CardioRouteComponents iOS).
  *  Distancia/desnivel/splits del dominio; perfil dibujado en Canvas. El mapa
  *  nativo de la ruta es un sub-gap pendiente de componente. */
+/** Apple fafe016a WorkoutMapTapTarget: el preview del mapa no recibe gestos;
+ *  una superficie tactil independiente CAPTURA todo su rectangulo y abre el
+ *  mapa a pantalla completa (interactivo). Generico sobre el contenido del
+ *  mapa, como el original. */
+@Composable
+internal fun RouteMapTapTarget(label: String, modifier: Modifier = Modifier,
+    map: @Composable (interactive: Boolean, modifier: Modifier) -> Unit) {
+    var fullScreen by rememberSaveable { mutableStateOf(false) }
+    Box(modifier) {
+        map(false, Modifier.matchParentSize())
+        Box(modifier = Modifier
+            .matchParentSize()
+            .clickable { fullScreen = true }
+            .semantics { contentDescription = label })
+    }
+    if (fullScreen) {
+        Dialog(onDismissRequest = { fullScreen = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            map(true, Modifier.fillMaxSize().testTag("fullscreen-route-map"))
+        }
+    }
+}
+
 @Composable
 internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>, showComputedSplits: Boolean = true, waterSport: Boolean = false) {
-    var fullScreenRoute by rememberSaveable { mutableStateOf(false) }
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
             dev.repera.domain.CardioRouteAnalysis.Sample(
@@ -1752,25 +1774,13 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Ruta", style = MaterialTheme.typography.titleMedium)
-        // Apple fafe016a: el preview no recibe gestos, pero una superficie
-        // tactil independiente captura TODA la tarjeta y abre el mapa a
-        // pantalla completa (WorkoutMapTapTarget).
-        Box {
-            RouteMapView(points = points, isInteractive = false, waterSport = waterSport,
-                modifier = Modifier.fillMaxWidth().height(180.dp)
-                    .clip(RoundedCornerShape(10.dp)))
-            Box(modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { fullScreenRoute = true }
-                .semantics { contentDescription = "Ampliar recorrido" })
-        }
-        if (fullScreenRoute) {
-            Dialog(onDismissRequest = { fullScreenRoute = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false)) {
-                RouteMapView(points = points, isInteractive = true, waterSport = waterSport,
-                    modifier = Modifier.fillMaxSize())
-            }
+        // Apple fafe016a: preview sin gestos + superficie tactil independiente
+        // que abre el recorrido a pantalla completa.
+        RouteMapTapTarget(label = "Ampliar recorrido",
+            modifier = Modifier.fillMaxWidth().height(180.dp)
+                .clip(RoundedCornerShape(10.dp))) { interactive, mapModifier ->
+            RouteMapView(points = points, isInteractive = interactive, waterSport = waterSport,
+                modifier = mapModifier)
         }
         // Solo los recorridos ya guardados muestran su escala de color (Apple c04c7dd9).
         RouteSpeedLegend(water = waterSport)
