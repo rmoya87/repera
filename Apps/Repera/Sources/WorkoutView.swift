@@ -1463,7 +1463,7 @@ struct WorkoutView: View {
         let planned = store.state.activeSession?.exercises
             .filter { ($0.blockId ?? $0.id) == block }
             .map { $0.plannedSets.count }.max() ?? current.plannedSets.count
-        return min(99, max(1, current.blockRounds ?? planned))
+        return max(1, current.blockRounds ?? planned)
     }
 
     private func manualRoundDurationSheet(for setup: ManualRoundSetup) -> some View {
