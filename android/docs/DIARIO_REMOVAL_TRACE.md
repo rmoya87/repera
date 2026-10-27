@@ -1,4 +1,10 @@
 # Traza eliminación Diario (Apple c5aae1cc) — destino de TODAS las funciones
+> ACTUALIZACION 27oct 12:42 (rama work/tree158-diario-removal, commit 3722c91d):
+> el usuario confirmo que Apple ELIMINO Diario (no lo oculto). En consecuencia esta
+> rama elimina DiaryTab.kt y la ruta composable("diario"); el rollback es via Git,
+> no dentro de la app. Sin borrado de datos ni migraciones. WIP sin validar build/UI.
+> Lo que sigue es la traza original del analisis.
+
 
 Trabajo preparatorio pedido por main (27oct 12:08): NO ejecutar aún; port reversible
 en rama local, sin borrar datos, validación UI pendiente (bloqueo 120s + dispositivo).
