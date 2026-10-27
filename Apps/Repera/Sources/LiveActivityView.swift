@@ -2301,7 +2301,7 @@ struct LiveActivityView: View {
                         // Las cuatro acciones ocupan 194 pt (4 × 44 + 3 × 6),
                         // sin desbordar en dispositivos compactos.
                         .frame(
-                            width: min(112, max(44, header.size.width - 234)),
+                            width: min(112, max(44, header.size.width - 240)),
                             alignment: .leading
                         )
                         Spacer(minLength: 0)
