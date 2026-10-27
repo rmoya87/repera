@@ -195,14 +195,23 @@ async function finalizePendingRegistration(){
 }
 async function loadSelectedOrg(){
  if(!selectedOrg){clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
+ const role=delegation?'admin':
+  memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role;
+ const manager=['owner','admin'].includes(role);
  [clients,occurrences,passes,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
- auth.clients(selectedOrg),auth.serviceOccurrences(selectedOrg),auth.servicePasses(selectedOrg),
- auth.serviceBookings(selectedOrg),auth.professionalSessions(selectedOrg),auth.workoutTemplates(selectedOrg),
- auth.organizationTrial(selectedOrg),auth.classDetails(selectedOrg),auth.groupList(selectedOrg),auth.groupMembers(selectedOrg),auth.clientNotifications(selectedOrg)]);
- legalProfile=await auth.legalProfile(selectedOrg);
- const role=delegation?'admin':memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role;
- enrollmentRequests=['owner','admin'].includes(role)?
-  await auth.enrollmentRequests(selectedOrg):[];
+  auth.clients(selectedOrg,{basic:!manager}),
+  auth.serviceOccurrences(selectedOrg),
+  auth.servicePasses(selectedOrg),
+  auth.serviceBookings(selectedOrg),
+  auth.professionalSessions(selectedOrg),
+  ['owner','admin','coach'].includes(role)?auth.workoutTemplates(selectedOrg):Promise.resolve([]),
+  auth.organizationTrial(selectedOrg),
+  auth.classDetails(selectedOrg),
+  ['owner','admin','coach'].includes(role)?auth.groupList(selectedOrg):Promise.resolve([]),
+  ['owner','admin','coach'].includes(role)?auth.groupMembers(selectedOrg):Promise.resolve([]),
+  auth.clientNotifications(selectedOrg)]);
+ legalProfile=manager?await auth.legalProfile(selectedOrg):null;
+ enrollmentRequests=manager?await auth.enrollmentRequests(selectedOrg):[];
 }
 async function reload(){
  // The platform role must be resolved independently of tenant membership RLS.
