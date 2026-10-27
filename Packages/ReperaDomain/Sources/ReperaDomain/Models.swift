@@ -314,6 +314,21 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         return Self.quantityFieldLabel(name: name, equipment: equipment, style: loggingStyle, unit: defaultQuantityUnit)
     }
 
+    /// Walking lunge puede apuntarse por repeticiones o distancia recorrida,
+    /// conservando la carga externa (kg) en ambas opciones. No cambia la
+    /// unidad de series históricas que ya estuvieran guardadas.
+    public var supportsWeightedRepsOrMeters: Bool {
+        Self.supportsWeightedRepsOrMeters(name: name)
+    }
+
+    public static func supportsWeightedRepsOrMeters(name: String) -> Bool {
+        let key = normalizeExerciseToken(name)
+        return key == "walking lung" || key.hasPrefix("walking lunge")
+            || key.hasPrefix("zancada caminando")
+            || key.hasPrefix("zancadas caminando")
+            || key.hasPrefix("zancadas andando")
+    }
+
     /// Unidad por defecto al apuntar (bike/Ski → cal; remoerg/carrera → m).
     public var defaultQuantityUnit: ExerciseQuantityUnit {
         Self.defaultQuantityUnit(name: name, equipment: equipment)
@@ -334,6 +349,10 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         let eq = normalizeExerciseToken(equipment ?? "")
         let target = (targetMuscle ?? "").lowercased()
         let group = (muscleGroup ?? "").lowercased()
+
+        // Zancadas caminando: kilos + (repeticiones O metros), incluso
+        // si el catálogo las describe como peso corporal.
+        if supportsWeightedRepsOrMeters(name: name) { return .loadAndReps }
 
         if isJumpRope(name: n, equipment: eq) {
             return .repsAndTime
@@ -756,7 +775,8 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     public var deficitCm: Int?
     /// Duración de la serie/intervalo (comba, bike, carrera…).
     public var durationSeconds: Int?
-    /// Interpreta `reps` como Cal / m cuando el estilo es máquina.
+    /// Interpreta `reps` como Cal / m también en ejercicios con carga,
+    /// como Walking lunge (metros + kg).
     public var quantityUnit: ExerciseQuantityUnit?
     public var completedAt: Date
     public var phase: SetPhase
@@ -829,6 +849,9 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     public var displaySummaryLine: String {
         if let unit = quantityUnit, unit != .reps {
             var parts: [String] = ["\(reps) \(unit.shortLabel)"]
+            if let kg = weightKg {
+                parts.append("\(ReperaNumberFormat.decimal(kg)) kg")
+            }
             if let sec = durationSeconds, sec > 0 {
                 parts.append(Self.formatClock(sec))
             }
@@ -859,7 +882,7 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
     /// Equivalente en «series duras» para fatiga: erg/cardio escala por minutos.
     public var fatigueSetEquivalent: Double {
         if isWarmup { return 0.25 }
-        if isMachineQuantity || durationSeconds != nil && weightKg == nil {
+        if (isMachineQuantity || durationSeconds != nil) && weightKg == nil {
             let minutes = Double(max(durationSeconds ?? 60, 30)) / 60.0
             return min(3.0, max(0.5, minutes))
         }

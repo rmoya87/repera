@@ -1238,7 +1238,8 @@ struct WorkoutDetailView: View {
     private func plannedSetSummary(_ planned: PlannedSet, exercise: SessionExercise) -> String {
         let unit = exercise.quantityUnit ?? exercise.exercise.defaultQuantityUnit
         if unit != .reps {
-            return "\(planned.targetReps) \(unit.shortLabel)"
+            let kg = planned.targetWeightKg.map { " · \(ReperaNumberFormat.decimal($0)) kg" } ?? ""
+            return "\(planned.targetReps) \(unit.shortLabel)\(kg)"
         }
         if let kg = planned.targetWeightKg, kg > 0 {
             return "\(planned.targetReps) @ \(ReperaNumberFormat.decimal(kg)) kg"
@@ -1248,7 +1249,7 @@ struct WorkoutDetailView: View {
 
     private func editSetColumnHeaders(exercise: Exercise, showsRemove: Bool) -> some View {
         let style = exercise.loggingStyle
-        let qty = exercise.quantityFieldLabel
+        let qty = exercise.supportsWeightedRepsOrMeters ? "Reps / m" : exercise.quantityFieldLabel
         return HStack(spacing: 8) {
             Color.clear.frame(width: 28)
             switch style {
@@ -1315,7 +1316,7 @@ struct WorkoutDetailView: View {
             index: setIndex,
             summaryLine: set.displaySummaryLine,
             rir: set.rir,
-            showsRIR: !set.isMachineQuantity
+            showsRIR: !set.isMachineQuantity || set.weightKg != nil
         )
     }
 
@@ -1327,15 +1328,34 @@ struct WorkoutDetailView: View {
     ) -> some View {
         let style = exercise.loggingStyle
         let loadField = exercise.loadField
-        let maxReps = style.quantityCap
+        let unit = set.quantityUnit ?? exercise.defaultQuantityUnit
+        let maxReps = exercise.supportsWeightedRepsOrMeters && unit == .meters
+            ? 100_000 : style.quantityCap
         let qtyStep: Int = {
-            if style == .machineWork, (set.quantityUnit ?? exercise.defaultQuantityUnit) == .meters {
+            if style == .machineWork, unit == .meters {
                 return 50
             }
             if style == .repsAndTime { return 5 }
             return 1
         }()
-        return HStack(spacing: 8) {
+        return VStack(alignment: .leading, spacing: 8) {
+            if exercise.supportsWeightedRepsOrMeters {
+                Picker("Unidad de la serie", selection: Binding(
+                    get: { unit },
+                    set: { selected in
+                        // Solo al editar explícitamente: no convertir ni
+                        // reetiquetar registros históricos automáticamente.
+                        mutateSet(exIndex: exIndex, setIndex: setIndex) {
+                            $0.quantityUnit = selected
+                        }
+                    }
+                )) {
+                    Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+                    Text("Metros").tag(ExerciseQuantityUnit.meters)
+                }
+                .pickerStyle(.segmented)
+            }
+            HStack(spacing: 8) {
             Text("S\(setIndex + 1)")
                 .font(.system(size: 12, weight: .bold).monospacedDigit())
                 .foregroundStyle(OG.label3)
@@ -1530,6 +1550,7 @@ struct WorkoutDetailView: View {
                 }
                 .buttonStyle(.plain)
                 .frame(width: 28)
+            }
             }
         }
     }

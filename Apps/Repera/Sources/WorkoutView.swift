@@ -714,7 +714,8 @@ struct WorkoutView: View {
 
     private func setsBoard(_ current: SessionExercise) -> some View {
         let style = current.exercise.loggingStyle
-        let qtyLabel = style == .machineWork ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
+        let qtyLabel = style == .machineWork || current.exercise.supportsWeightedRepsOrMeters
+            ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
         let loadLabel = current.exercise.loadField == .deficitCm
             ? "Déficit cm"
             : (style == .loadAndReps ? "KG" : (current.exercise.isMobility ? "Tiempo" : "Tiempo"))
@@ -750,7 +751,8 @@ struct WorkoutView: View {
 
     private func liveSetRow(index: Int, row: LiveSetRow, current: SessionExercise) -> some View {
         let style = current.exercise.loggingStyle
-        let qtyLabel = style == .machineWork ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
+        let qtyLabel = style == .machineWork || current.exercise.supportsWeightedRepsOrMeters
+            ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
         let previous = store.cachedLastWorkingSession(for: current.exercise.id)?.sets
         let previousSet = (previous?.indices.contains(index) == true) ? previous?[index] : nil
         let firstValue: String = {
@@ -766,7 +768,9 @@ struct WorkoutView: View {
         }()
 
         return VStack(alignment: .leading, spacing: 6) {
-            if index == 0, style == .machineWork, current.exercise.allowsCalorieOrDistanceToggle {
+            if index == 0,
+               current.exercise.supportsWeightedRepsOrMeters
+                   || (style == .machineWork && current.exercise.allowsCalorieOrDistanceToggle) {
                 Picker("Unidad", selection: Binding(
                     get: { liveQuantityUnit },
                     set: { newValue in
@@ -774,7 +778,11 @@ struct WorkoutView: View {
                         noteLiveDraftEdited()
                     }
                 )) {
-                    Text("Cal").tag(ExerciseQuantityUnit.calories)
+                    if current.exercise.supportsWeightedRepsOrMeters {
+                        Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+                    } else {
+                        Text("Cal").tag(ExerciseQuantityUnit.calories)
+                    }
                     Text("Metros").tag(ExerciseQuantityUnit.meters)
                 }
                 .pickerStyle(.segmented)
@@ -868,8 +876,8 @@ struct WorkoutView: View {
             guard row.reps > 0 else { return nil }
             let recordedWeight = entry.exercise.loadField == .weightKg ? row.weightKg : nil
             let recordedDeficit = entry.exercise.loadField == .deficitCm ? row.deficitCm : nil
-            let unit = style == .machineWork ? liveQuantityUnit
-                : (entry.quantityUnit ?? entry.exercise.defaultQuantityUnit)
+            let unit = style == .machineWork || entry.exercise.supportsWeightedRepsOrMeters
+                ? liveQuantityUnit : (entry.quantityUnit ?? entry.exercise.defaultQuantityUnit)
             var result = existingByID[row.id] ?? LoggedSet(
                 id: row.id, reps: row.reps, quantityUnit: unit
             )
@@ -884,7 +892,8 @@ struct WorkoutView: View {
         }
         store.updateActiveExerciseDraft(
             id: id, plannedSets: revised,
-            quantityUnit: style == .machineWork ? liveQuantityUnit : entry.quantityUnit,
+            quantityUnit: style == .machineWork || entry.exercise.supportsWeightedRepsOrMeters
+                ? liveQuantityUnit : entry.quantityUnit,
             performedSets: recorded
         )
     }
@@ -1070,14 +1079,18 @@ struct WorkoutView: View {
 
     private func bumpLiveReps(at index: Int, delta: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
+        let current = store.state.activeSession?.currentExercise?.exercise
+        let cap = current?.supportsWeightedRepsOrMeters == true && liveQuantityUnit == .meters
+            ? 100_000 : (current?.loggingStyle.quantityCap ?? 50)
         liveSets[index].reps = min(cap, max(1, liveSets[index].reps + delta))
         noteLiveDraftEdited()
     }
 
     private func setLiveReps(at index: Int, reps: Int) {
         guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let cap = store.state.activeSession?.currentExercise?.exercise.loggingStyle.quantityCap ?? 50
+        let current = store.state.activeSession?.currentExercise?.exercise
+        let cap = current?.supportsWeightedRepsOrMeters == true && liveQuantityUnit == .meters
+            ? 100_000 : (current?.loggingStyle.quantityCap ?? 50)
         liveSets[index].reps = min(cap, max(1, reps))
         noteLiveDraftEdited()
     }

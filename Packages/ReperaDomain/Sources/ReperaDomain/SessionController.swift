@@ -314,7 +314,8 @@ public struct SessionController: Sendable {
                                 id: move.id,
                                 exercise: exercise,
                                 plannedSets: resolved.plannedSets(for: move),
-                                quantityUnit: exercise.loggingStyle == .machineWork ? move.prescribedQuantityUnit : nil,
+                                quantityUnit: exercise.loggingStyle == .machineWork || exercise.supportsWeightedRepsOrMeters
+                                    ? move.prescribedQuantityUnit : nil,
                                 blockId: resolved.id,
                                 blockKind: .wod,
                                 wodFormat: resolved.wodFormat,
