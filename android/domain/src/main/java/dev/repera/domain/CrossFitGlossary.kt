@@ -694,6 +694,29 @@ object CrossFitGlossary {
             working = pair.third
         }
 
+        // Apple 3432a1a9 (CrossFitGlossary en BoardImportParser.swift): carga
+        // unica explicita — «20m farmer carry 2x24kg», «14 m walking lunges
+        // 16 kg», «Sled push 100kg». No confundir el numero de implementos
+        // (2x) con las reps ni dejar «16kg» en el nombre (romperia el
+        // matching de catalogo). Los pares 24/16 kg ya se consumieron arriba.
+        if (male == null) {
+            Regex("(?:#\\s*)?(?:\\b\\d+\\s*[x×]\\s*)?\\d+(?:[.,]\\d+)?\\s*(?:kg|kgs|kilos?|lb|lbs)\\b",
+                RegexOption.IGNORE_CASE).find(working)?.let { load ->
+                val token = load.value
+                val numeric = token
+                    .replace(Regex("(?i)\\s*(?:kg|kgs|kilos?|lb|lbs)\\s*$"), "")
+                    .replace("#", "")
+                val lastNumber = numeric.split(Regex("[xX×]")).lastOrNull()
+                    ?.trim()?.replace(",", ".")
+                val value = lastNumber?.toDoubleOrNull()
+                if (value != null && value > 0) {
+                    val inPounds = Regex("(?i)lbs?\\s*$").containsMatchIn(token)
+                    male = if (inPounds) Math.round(value * 0.45359237 * 10) / 10.0 else value
+                    working = working.removeRange(load.range)
+                }
+            }
+        }
+
         val equipKeys = equipmentAliases.keys.sortedByDescending { it.length }
         for (key in equipKeys) {
             val pattern = Regex("\\b" + Regex.escape(key) + "\\b", RegexOption.IGNORE_CASE)
