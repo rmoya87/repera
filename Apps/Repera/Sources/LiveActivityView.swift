@@ -1817,6 +1817,9 @@ struct LiveActivityView: View {
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
+    /// Raised by Inicio when its Cargar ruta action is tapped.
+    var routeLibraryOpenRequest: Int = 0
+    @State private var handledRouteLibraryOpenRequest = 0
 
     var body: some View {
         NavigationStack {
@@ -1897,15 +1900,21 @@ struct LiveActivityView: View {
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
+                routes.requestICloudSynchronization()
             } else {
                 recorder.checkpoint()
             }
         }
         .task(id: store.workoutsEpoch) {
             routes.recoverFromSessions(store.state.workouts)
+            await routes.synchronizeWithICloud()
+        }
+        .onChange(of: routeLibraryOpenRequest) { _, _ in
+            openRequestedRouteLibrary()
         }
         .onAppear {
             if scenePhase == .active { recorder.refreshWhenActive() }
+            openRequestedRouteLibrary()
         }
     }
 
@@ -2761,6 +2770,13 @@ struct LiveActivityView: View {
             }
         }
         .foregroundStyle(OG.label)
+    }
+
+    private func openRequestedRouteLibrary() {
+        guard routeLibraryOpenRequest > handledRouteLibraryOpenRequest,
+              recorder.phase == .idle else { return }
+        handledRouteLibraryOpenRequest = routeLibraryOpenRequest
+        routePicker = true
     }
 
     private func importResult(_ result: Result<URL, Error>) {
