@@ -7,14 +7,14 @@ f457e61f|2026-10-25T23:52:08+01:00|Adapt DUO landscape and GPS/navigation UI|ios
 61af552f|2026-10-25T23:41:10+01:00|docs(gps): document unified free/planned GPS and HealthKit architecture|docs-tests,other|89da973e|unverified
 37837401|2026-10-25T21:42:10+01:00|Merge pull request #77 from rmoya87/feat/ios-live-sport-icons-and-sorting|||unverified
 97b48d17|2026-10-25T21:38:58+01:00|fix(iOS): capturar self débilmente en tareas externas de GPS programado|ios-app||unverified
-2eb7cdd5|2026-10-25T21:38:56+01:00|fix(iOS): sustituir HKWorkoutActivityType dance obsoleto por cardioDance|ios-app||unverified
+2eb7cdd5|2026-10-25T21:38:56+01:00|fix(iOS): sustituir HKWorkoutActivityType dance obsoleto por cardioDance|ios-app||verified 10:44 (N/A-equivalente: HK dance obsoleto→cardioDance; Health Connect EXERCISE_TYPE_DANCING no obsoleto, mapping Android ya correcto, healthKey interno consistente)
 56655794|2026-10-25T21:38:53+01:00|fix(iOS): eliminar await innecesario al almacenar muestras GPS en Salud|ios-app||unverified
 2177ca15|2026-10-25T21:36:34+01:00|fix(progress): mantener rachas y heatmap alineados con día de Comenzar|ios-app||unverified
 229d62b8|2026-10-25T21:35:09+01:00|test(progress): sesiones Comenzar y programadas comparten resumen, cardio y heatmap|packages|0c436731 2366f80e 43cfc37f 51e96612|unverified
 9de04e27|2026-10-25T21:34:33+01:00|fix(progress): usar día de inicio de Comenzar también en mapa de actividad|packages|0c436731 e705a49b|unverified
 fffec97a|2026-10-25T21:34:20+01:00|fix(progress): eliminar panel independiente Deportes Comenzar; conservar métricas agregadas|ios-app||unverified
 fff1ef52|2026-10-25T21:24:02+01:00|fix(iOS): iconos deportivos, nombres y orden alfabético; ocultar opciones heredadas|ios-app||unverified
-5890215d|2026-10-25T17:22:43+01:00|feat(iOS): nuevos deportes y métricas nativas (#76)|||unverified
+5890215d|2026-10-25T17:22:43+01:00|feat(iOS): nuevos deportes y métricas nativas (#76)|||verified 10:44 (catálogo LiveSport 53/53 ids, title/symbol/group/usesGPS/isWaterSport/displaysSpeed/tracksElevation/maxGPSMetersPerSecond/healthType 0 diffs vs bd4; resto del merge cubierto por filas propias)
 cba49780|2026-10-25T17:21:24+01:00|Merge main into expanded iOS sports; keep unified GPS architecture|||unverified
 ee525bb3|2026-10-25T16:56:44+01:00|feat(iOS): unified GPS and native HealthKit for free and planned workouts|docs-tests,ios-app,other,packages||unverified
 5e95cc60|2026-10-25T16:36:19+01:00|fix(iOS): usar SurfingSports para windsurf/kitesurf y figura Pilates nativa|ios-app||unverified
@@ -45,7 +45,7 @@ d8c6ee10|2026-10-25T14:00:53+01:00|fix(iOS): locate spoken guidance toggle in Co
 213ce753|2026-10-25T13:49:47+01:00|style(comenzar): centralize spoken alerts toggle in shared kilometer HUD for map and metrics|ios-app||unverified
 c9a8246a|2026-10-25T13:48:25+01:00|feat(comenzar): spoken GPX turns and kilometer splits with accessible in-map mute control|ios-app||unverified
 db2fa8b2|2026-10-25T13:40:21+01:00|style(iOS): show kilometer split inside Comenzar metrics HUD (#68)|||unverified
-e9feae2b|2026-10-25T13:37:57+01:00|refactor(comenzar): require GPS sport for split HUD in running or paused phases|ios-app||unverified
+e9feae2b|2026-10-25T13:37:57+01:00|refactor(comenzar): require GPS sport for split HUD in running or paused phases|ios-app||verified-with-fix tree171 (splits summary añadido al HUD live con guard usesGPS+recording/paused; compile+462/462)
 052f17f4|2026-10-25T13:37:40+01:00|style(comenzar): merge current kilometer split into map metric glass and inline metrics|ios-app||unverified
 06cd21d4|2026-10-25T13:32:03+01:00|feat(iOS): completar navegación GPX orientativa y parciales activos en Comenzar (#67)||0eb1b201 7766e5e9|unverified
 63229c13|2026-10-25T13:18:31+01:00|fix(swift): keep file-private LiveKmSplit storage encapsulated to satisfy access control|ios-app|78f2c432|unverified

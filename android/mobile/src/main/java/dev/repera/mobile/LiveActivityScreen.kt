@@ -375,6 +375,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 }
                 if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),waterSport=state.sport.isWaterSport,
                     plannedPoints=routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty(),onMapRendered=onMapRendered)
+                // Apple (live main) e9feae2b: resumen de parciales en el HUD solo con GPS
+                // y fase recording/paused (en REVIEW se muestra en el bloque de guardado).
+                if (state.phase == LiveActivityState.Phase.RECORDING || state.phase == LiveActivityState.Phase.PAUSED)
+                    LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             runtime.latestKilometerReport?.let { Text(it) }
