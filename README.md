@@ -1,5 +1,10 @@
 # Repera
 
+## Consola Business siempre conectada (27/10/2026)
+
+Se ha eliminado el selector de demo offline del lanzador `Repera-Business.command`, la ruta de demostración del frontend y su enlace. El inicio autenticado consulta primero el rol de plataforma. La migración `20261027140000_fix_platform_membership_rls.sql` corrige un error RLS de delegaciones que impedía mostrar el panel global aun con una cuenta `platform_admin` válida. La migración está aplicada a Supabase Repera; es necesario actualizar el checkout local desde `origin/main` para ver el frontend nuevo.
+
+
 **Pagos**: también existe `business_client_payments` para futuros cobros B2C, separado del ledger B2B y sin webhook configurado; consultar `20261027131000_platform_client_payment_ledger.sql`.
 
 ## Repera Business: administrador global (2026-10-27)
