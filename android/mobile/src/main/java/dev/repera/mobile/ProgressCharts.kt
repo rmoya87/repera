@@ -512,8 +512,8 @@ internal fun DayPointLineChart(
                     // Gradient is anchored to the score axis, not sample order.
                     val brush=androidx.compose.ui.graphics.Brush.verticalGradient(
                         0f to line,0.16f to line,
-                        0.28f to Color(0xFFFFCC00),0.40f to Color(0xFFFFCC00),
-                        0.60f to Color(0xFFFF3B30),1f to Color(0xFFFF3B30),
+                        0.28f to Color(0xFFFFD60A),0.40f to Color(0xFFFFD60A),
+                        0.60f to Color(0xFFFF453A),1f to Color(0xFFFF453A),
                         startY=y(10.0),endY=y(0.0))
                     clipRect {
                         drawPath(curve,brush=brush,style=Stroke(width=3.dp.toPx(),
