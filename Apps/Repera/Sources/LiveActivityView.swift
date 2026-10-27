@@ -362,6 +362,7 @@ final class LiveRoutesStore {
     private(set) var routes: [LiveSavedRoute] = []
     private var cloudSyncTask: Task<Void, Never>?
     private var isCloudSynchronizationRunning = false
+    private var cloudSyncRequestedAgain = false
 
     /// Lo más reciente primero; el orden anterior se conserva al migrar sin fecha.
     var latestRoutes: [LiveSavedRoute] {
@@ -546,9 +547,20 @@ final class LiveRoutesStore {
     }
 
     func synchronizeWithICloud() async {
-        guard !isCloudSynchronizationRunning else { return }
+        // If a star or a fresh GPS route is saved while another iCloud
+        // download is pending, replay once afterward to avoid losing it.
+        if isCloudSynchronizationRunning {
+            cloudSyncRequestedAgain = true
+            return
+        }
         isCloudSynchronizationRunning = true
-        defer { isCloudSynchronizationRunning = false }
+        defer {
+            isCloudSynchronizationRunning = false
+            if cloudSyncRequestedAgain {
+                cloudSyncRequestedAgain = false
+                requestICloudSynchronization()
+            }
+        }
         let read = await LiveRouteCloudBackup.shared.read()
         guard case .ready(let remote) = read else { return }
 
