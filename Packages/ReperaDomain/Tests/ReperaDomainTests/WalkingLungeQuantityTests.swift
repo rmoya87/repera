@@ -16,7 +16,9 @@ final class WalkingLungeQuantityTests: XCTestCase {
         for (name, unit) in [
             ("Sandbag Lunges", ExerciseQuantityUnit.meters),
             ("Farmer carry", .meters), ("Farmer walk", .meters),
-            ("Yoke carry", .meters), ("Sled push", .meters), ("Sled pull", .meters)
+            ("Yoke carry", .meters), ("Sled push", .meters), ("Sled pull", .meters),
+            ("DB Walking Lunges", .reps), ("Sled drag", .meters),
+            ("Farmer's carry", .meters), ("Sandbag carry", .meters)
         ] {
             let exercise = Exercise(name: name, muscleGroup: "Piernas", equipment: "Trineo")
             XCTAssertTrue(exercise.supportsWeightedRepsOrMeters, name)

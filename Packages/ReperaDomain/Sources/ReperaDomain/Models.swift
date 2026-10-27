@@ -326,17 +326,21 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
 
     public static func supportsWeightedRepsOrMeters(name: String) -> Bool {
         let key = normalizeExerciseToken(name)
-        return key == "walking lung" || key.hasPrefix("walking lunge")
-            || key.hasPrefix("zancada caminando") || key.hasPrefix("zancadas caminando")
-            || key.hasPrefix("zancadas andando")
-            || key.hasPrefix("sandbag lunge") || key.hasPrefix("zancadas con saco")
-            || key == "farmer carry" || key == "farmer walk" || key == "farmers carry"
-            || key.hasPrefix("paseo del granjero") || key.hasPrefix("paseo granjero")
-            || key.hasPrefix("yoke carry") || key.hasPrefix("paseo con yugo")
-            || key.hasPrefix("sled push") || key.hasPrefix("sled pull")
-            || key.hasPrefix("empuje de trineo") || key.hasPrefix("arrastre de trineo")
-            || key.hasPrefix("suitcase carry") || key.hasPrefix("overhead carry")
-            || key.hasPrefix("front rack carry") || key.hasPrefix("bear hug carry")
+        let loadedDistancePatterns = [
+            "walking lunge", "zancada caminando", "zancadas caminando",
+            "zancadas andando", "sandbag lunge", "zancadas con saco",
+            "farmer carry", "farmer walk", "farmers carry", "farmer's carry",
+            "paseo del granjero", "paseo granjero",
+            "yoke carry", "yoke walk", "paseo con yugo",
+            "sled push", "sled pull", "sled drag",
+            "empuje de trineo", "arrastre de trineo",
+            "suitcase carry", "overhead carry", "front rack carry",
+            "bear hug carry", "sandbag carry"
+        ]
+        // Admite prefijos de carga del OCR («DB WALKING LUNGE»,
+        // «Heavy sled push») sin habilitar metros en sentadillas normales.
+        return key == "walking lung"
+            || loadedDistancePatterns.contains(where: key.contains)
     }
 
     /// Recorridos sin lastre: la cantidad puede expresarse en repeticiones o m,
@@ -475,9 +479,9 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         // Solo Walking lunge empieza en reps por retrocompatibilidad. Los
         // transportes, empujes y saltos de longitud suelen prescribirse en m.
         if supportsRepsOrMeters(name: name) {
-            if n == "walking lung" || n.hasPrefix("walking lunge")
-                || n.hasPrefix("zancada caminando") || n.hasPrefix("zancadas caminando")
-                || n.hasPrefix("zancadas andando") { return .reps }
+            if n == "walking lung" || n.contains("walking lunge")
+                || n.contains("zancada caminando") || n.contains("zancadas caminando")
+                || n.contains("zancadas andando") { return .reps }
             return .meters
         }
         guard isMachineCardio(name: n, equipment: eq) || isHyroxDistance(name: n) else { return .reps }
