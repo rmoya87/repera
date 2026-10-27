@@ -358,7 +358,7 @@ internal fun ProgressTab(
                                     modifier = Modifier.weight(1f)
                                 )
                                 TextButton(onClick = {
-                                    weightInput.replace(',', '.').toDoubleOrNull()?.let {
+                                    dev.repera.domain.ReperaNumberFormat.parse(weightInput)?.let {
                                         onLogBodyWeight(it)
                                         weightInput = ""
                                     }

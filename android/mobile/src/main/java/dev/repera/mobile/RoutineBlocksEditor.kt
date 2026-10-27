@@ -317,7 +317,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 quantity = entry.quantity.toIntOrNull() ?: return null,
                 sets = entry.sets.toIntOrNull() ?: return null,
                 weightKg = if (entry.weight.isBlank()) null
-                    else entry.weight.replace(',', '.').toDoubleOrNull() ?: return null
+                    else dev.repera.domain.ReperaNumberFormat.parse(entry.weight) ?: return null
             )
             if (format == "strength" && (entry.setsExpanded || entry.untouchedUniform))
                 base.copy(plannedSets = entry.plannedSets.toList())
@@ -851,7 +851,7 @@ internal object PlanEntryMoves {
         if (srcStrength) {
             val sets = if (entry.setsExpanded || entry.untouchedUniform) entry.plannedSets.toList()
             else (1..(entry.sets.toIntOrNull() ?: 1).coerceIn(1, 30)).map {
-                PlannedSetDraft(entry.quantity.toIntOrNull() ?: 8, entry.weight.replace(',', '.').toDoubleOrNull()) }
+                PlannedSetDraft(entry.quantity.toIntOrNull() ?: 8, dev.repera.domain.ReperaNumberFormat.parse(entry.weight)) }
             val unit = entry.unit ?: entry.sourceJson?.let { runCatching { JSONObject(it).optString("quantityUnit") }.getOrNull() }.orEmpty()
             val mv = EditorBlockOps.planStrengthToMovement(entry.itemId, entry.exerciseId,
                 nameById[entry.exerciseId] ?: entry.name.ifBlank { "Ejercicio" }, sets, unit)

@@ -18,7 +18,7 @@ internal fun BodyWeightHistoryScreen(entries:List<BodyWeightHistoryEntry>,busy:B
     onAdd:(Double)->Unit,onDelete:(String)->Unit,accountId:String="") {
     var kgText by rememberSaveable(accountId) {mutableStateOf("")}
     var pendingDelete by remember {mutableStateOf<BodyWeightHistoryEntry?>(null)}
-    val parsed=kgText.replace(',','.').toDoubleOrNull()?.takeIf {it.isFinite() && it in 20.0..400.0}
+    val parsed=dev.repera.domain.ReperaNumberFormat.parse(kgText)?.takeIf {it.isFinite() && it in 20.0..400.0}
     LazyColumn(Modifier.fillMaxSize().testTag("weight_history_list"),contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {Text("Peso corporal",style=MaterialTheme.typography.headlineMedium)}
         item {

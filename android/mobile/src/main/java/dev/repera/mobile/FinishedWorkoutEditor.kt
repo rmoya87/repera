@@ -281,7 +281,7 @@ private fun FinishedContentEditor(
                             modifier = Modifier.weight(1f).testTag("set_kg_${b}_${i}_$s"),
                             onValueChange = { v ->
                                 kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
-                                val parsed = kg.replace(',', '.').toDoubleOrNull()
+                                val parsed = dev.repera.domain.ReperaNumberFormat.parse(kg)
                                 if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                                 onEdited()
                             })
@@ -293,7 +293,7 @@ private fun FinishedContentEditor(
                             modifier = Modifier.weight(1f).testTag("set_rir_${b}_${i}_$s"),
                             onValueChange = { v ->
                                 rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
-                                val parsed = rir.replace(',', '.').toDoubleOrNull()
+                                val parsed = dev.repera.domain.ReperaNumberFormat.parse(rir)
                                 if (parsed != null && parsed in 0.0..10.0) set.put("targetRir", parsed) else set.remove("targetRir")
                                 onEdited()
                             })
@@ -454,7 +454,7 @@ private fun WodMovementsEditor(
                 if (!machine) OutlinedTextField(value = kg, singleLine = true, label = { Text("Kg") },
                     modifier = Modifier.weight(1f).testTag("mv_set_kg_${b}_${i}_$s"),
                     onValueChange = { v -> kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
-                        val parsed = kg.replace(',', '.').toDoubleOrNull()
+                        val parsed = dev.repera.domain.ReperaNumberFormat.parse(kg)
                         if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 if (!machine) {
@@ -463,7 +463,7 @@ private fun WodMovementsEditor(
                     OutlinedTextField(value = rir, singleLine = true, label = { Text("RIR") },
                         modifier = Modifier.weight(1f).testTag("mv_set_rir_${b}_${i}_$s"),
                         onValueChange = { v -> rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
-                            val p = rir.replace(',', '.').toDoubleOrNull()
+                            val p = dev.repera.domain.ReperaNumberFormat.parse(rir)
                             if (p != null && p in 0.0..10.0) set.put("targetRir", p) else set.remove("targetRir")
                             EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 }
@@ -486,7 +486,7 @@ private fun WodMovementsEditor(
             if (!machine) OutlinedTextField(value = male, singleLine = true, label = { Text("Peso H (kg)") },
                 modifier = Modifier.weight(1f).testTag("mv_male_${b}_$i"),
                 onValueChange = { v -> male = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
-                    val p = male.replace(',', '.').toDoubleOrNull()
+                    val p = dev.repera.domain.ReperaNumberFormat.parse(male)
                     if (p != null) {
                         m.put("weightMaleKg", p)
                         // Apple applyMovementWeightToEmptySets: solo series sin peso.
@@ -497,7 +497,7 @@ private fun WodMovementsEditor(
             OutlinedTextField(value = female, singleLine = true, label = { Text("Peso M (kg)") },
                 modifier = Modifier.weight(1f).testTag("mv_female_${b}_$i"),
                 onValueChange = { v -> female = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
-                    val p = female.replace(',', '.').toDoubleOrNull()
+                    val p = dev.repera.domain.ReperaNumberFormat.parse(female)
                     if (p != null) m.put("weightFemaleKg", p) else m.remove("weightFemaleKg"); onEdited() })
             if (!machine) OutlinedTextField(value = dist, singleLine = true, label = { Text("Metros") },
                 modifier = Modifier.weight(1f).testTag("mv_dist_${b}_$i"),

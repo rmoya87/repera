@@ -50,7 +50,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Text("Evolución del recorrido",style=MaterialTheme.typography.titleMedium)
                     Text("${attempts.size} veces · Mejor tiempo: ${fastest?.let {LiveSportHistory.formatDuration(it.activeDurationSeconds!!)} ?: "Sin datos"}")
-                    Text(if(route.distanceKm>0) "%.2f km".format(route.distanceKm) else "Distancia sin datos")
+                    Text(if(route.distanceKm>0) dev.repera.domain.ReperaNumberFormat.decimal(route.distanceKm)+" km" else "Distancia sin datos")
                     if(attempts.size!=eligible.size) Text("Los intentos con un recorrido incompleto no cuentan para el mejor tiempo.",style=MaterialTheme.typography.bodySmall)
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         LiveSportHistory.EvolutionMetric.entries.forEach {option ->

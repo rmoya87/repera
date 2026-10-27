@@ -301,7 +301,7 @@ internal fun ExerciseEvolutionSection(
                             center = androidx.compose.ui.geometry.Offset(x(i), y(p.value)))
                     }
                 }
-                ceiling?.let {Text("Tope 1RM · $it kg",style=MaterialTheme.typography.bodySmall)}
+                ceiling?.let {Text("Tope 1RM · ${dev.repera.domain.ReperaNumberFormat.decimal(it)} kg",style=MaterialTheme.typography.bodySmall)}
                 val last = points[selectedPoint ?: points.lastIndex]
                 Text(java.time.Instant.ofEpochMilli(last.epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter),style=MaterialTheme.typography.bodySmall)
                 Text("${if(selectedPoint==null) "Último" else "Seleccionado"}: ${formatPointValue(selectedMetric, last)} · " +

@@ -164,9 +164,9 @@ internal fun ActiveWorkoutCard(
     var editingDeficit by remember(active.id, active.index) { mutableStateOf("") }
     var editingUnit by remember(active.id, active.index) { mutableStateOf(active.quantityUnit) }
     var editingDuration by remember(active.id, active.index) { mutableStateOf("") }
-    val parsedRir = rirText.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
+    val parsedRir = rirText.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
     val parsedQuantity = quantity.toIntOrNull()
-    val parsedWeight = weight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
+    val parsedWeight = weight.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
     val valid = parsedQuantity != null && parsedQuantity >= 0 &&
         (!active.allowsWeight || weight.isBlank() ||
             (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
@@ -234,7 +234,7 @@ internal fun ActiveWorkoutCard(
                         OutlinedTextField(pendingReps, { pendingReps = it.filter(Char::isDigit) }, label = { Text("Reps") }, singleLine = true, modifier = Modifier.weight(1f))
                         if (active.allowsWeight) OutlinedTextField(pendingWeight, { pendingWeight = it }, label = { Text("kg") }, singleLine = true, modifier = Modifier.weight(1f))
                     }
-                    val kg = pendingWeight.trim().replace(',', '.').takeIf { it.isNotBlank() }?.toDoubleOrNull()
+                    val kg = pendingWeight.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
                     val okKg = pendingWeight.isBlank() || (kg != null && kg.isFinite() && kg >= 0)
                     TextButton(enabled = !busy && okKg && pendingReps.toIntOrNull() != null, onClick = {
                         editPendingSet(pending.id, pendingReps.toInt(), kg); editingPendingId = null }) { Text("Guardar serie pendiente") }
@@ -280,8 +280,8 @@ internal fun ActiveWorkoutCard(
                         modifier = Modifier.fillMaxWidth())
                 }
                 val parsedEdit = editingQuantity.toIntOrNull()
-                val editWeight = editingWeight.trim().replace(',', '.')
-                    .takeIf { it.isNotBlank() }?.toDoubleOrNull()
+                val editWeight = editingWeight.trim()
+                    .takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
                 val editValid = parsedEdit != null &&
                     (!active.allowsDeficit || editingDeficit.isBlank() ||
                         editingDeficit.toIntOrNull()?.let { it in 0..100 } == true) &&
@@ -425,8 +425,8 @@ internal fun ActiveWorkoutCard(
                     val parts = piece.split('x', '×')
                     val reps = parts.getOrNull(0)?.trim()?.toIntOrNull()
                         ?: return@mapNotNull null
-                    val weight = parts.getOrNull(1)?.trim()?.replace(',', '.')
-                        ?.toDoubleOrNull()
+                    val weight = parts.getOrNull(1)?.trim()
+                        ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
                     reps to weight
                 }
             val restSecondsValue = clusterRest.toIntOrNull()
@@ -1409,7 +1409,7 @@ internal fun WorkoutHistoryCard(
                 Text(sport.title, style = MaterialTheme.typography.labelLarge)
                 val summary = buildList {
                     workout.activeDurationSeconds?.let { add(dev.repera.domain.LiveSportHistory.formatDuration(it)) }
-                    workout.recordedDistanceMeters?.takeIf { it > 0 }?.let { add("%.2f km".format(it / 1000)) }
+                    workout.recordedDistanceMeters?.takeIf { it > 0 }?.let { add(dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)+" km") }
                 }
                 if (summary.isNotEmpty()) Text(summary.joinToString(" · "),style=MaterialTheme.typography.bodyMedium)
             }
@@ -1468,14 +1468,13 @@ internal fun WorkoutHistoryCard(
                                         enabled = !busy && quantityValue != null &&
                                             quantityValue >= 0 &&
                                             (editWeight.isBlank() ||
-                                                editWeight.replace(',', '.')
-                                                    .toDoubleOrNull() != null),
+                                                dev.repera.domain.ReperaNumberFormat.parse(editWeight) != null),
                                         onClick = {
                                             onReviseFinishedSet(
                                                 workout.id, exercise.entryId, set.setId,
                                                 quantityValue ?: 0,
                                                 editWeight.takeIf { it.isNotBlank() }
-                                                    ?.replace(',', '.')?.toDoubleOrNull(),
+                                                    ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) },
                                                 editDuration.toIntOrNull())
                                             editingSetId = null
                                         }) { Text("Guardar") }

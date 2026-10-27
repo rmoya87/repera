@@ -41,7 +41,7 @@ internal object QuickLogInput {
  }
  /** Coma o punto; redondeo a 2 decimales, 0..1500. Vacio o no numerico = 0.0 (Apple guarda sin peso cuando <= 0, aqui null). */
  fun weight(text:String):Double? {
-  val v=text.trim().replace(',','.').toDoubleOrNull() ?: 0.0
+  val v=dev.repera.domain.ReperaNumberFormat.parse(text.trim()) ?: 0.0
   if(v.isNaN()||v<=0.0) return null
   val r=Math.floor(v*100.0+0.5)/100.0
   return minOf(MAX_WEIGHT_KG,r).takeIf {it>0.0}
