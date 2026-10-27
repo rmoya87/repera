@@ -106,6 +106,7 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn("Button {\n                    clock.showClock()", dock)
         self.assertIn("clock.displayedRound", dock)
         self.assertIn("clock.displayedRoundsTotal", dock)
+        self.assertIn('clock.subtitle.contains("Descanso")', dock)
         self.assertIn("clock.handlePrimary()", dock)
         self.assertIn("clock.finishByUser()", dock)
         self.assertIn(".disabled(!clock.canFinishByUser)", dock)
