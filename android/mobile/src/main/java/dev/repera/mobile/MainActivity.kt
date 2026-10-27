@@ -1226,12 +1226,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 .takeIf { it in setOf("reps", "calories", "meters") }
             val deficit = if (payload.has("deficitCm") && !payload.isNull("deficitCm"))
                 payload.optInt("deficitCm") else null
+            val interval = if (payload.has("intervalIndex") && !payload.isNull("intervalIndex"))
+                payload.optInt("intervalIndex") else null
             val sessionPayload = payload.optJSONObject("session")
             if (sessionId.isBlank() || exerciseIndex < 0 || quantity !in 1..10000 ||
                 (weight != null && (!weight.isFinite() || weight < 0)) ||
                 (rir != null && (!rir.isFinite() || rir < 0 || rir > 5)) ||
                 (duration != null && duration !in 1..86400) ||
-                (deficit != null && deficit !in 0..100)) {
+                (deficit != null && deficit !in 0..100) ||
+                (interval != null && interval !in 0..100000)) {
                 sendWearAck(event.sourceNodeId, id, "rejected")
                 return@runOnUiThread
             }
@@ -1248,7 +1251,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         WorkoutRepository(this@MainActivity, signedIn.uniqueId).logWearSet(
                             sessionId, exerciseIndex, id, quantity, weight, rir,
                             durationSeconds = duration, quantityUnit = unit,
-                            deficitCm = deficit, sessionPayload = sessionPayload,warmup=payload.optBoolean("warmup",false),toFailure=payload.optBoolean("toFailure",false),
+                            deficitCm = deficit, intervalIndex = interval,
+                            sessionPayload = sessionPayload,warmup=payload.optBoolean("warmup",false),toFailure=payload.optBoolean("toFailure",false),
                             onNewSet={
                                 if(current()) wearRest?.let { (name, seconds) ->
                                     StrengthRestService.start(this@MainActivity, name, dev.repera.domain.StrengthRestPolicy.seconds(seconds,payload.optBoolean("warmup",false)),snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)

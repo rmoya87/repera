@@ -1556,9 +1556,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
 
     /** Explicit per-movement confirmation. Timer intervals never create logged work. */
     @Synchronized fun recordWodMovement(
-        movementIndex: Int, intervalIndex: Int, quantity: Int, weightKg: Double?
+        movementIndex: Int, intervalIndex: Int, quantity: Int, weightKg: Double?,
+        setId: String = UUID.randomUUID().toString()
     ): ActiveWorkout {
         require(movementIndex >= 0 && intervalIndex >= 0 && quantity >= 0)
+        require(setId.isNotBlank())
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0))
         val state = requireState()
         val session = requireActive(state)
@@ -1597,7 +1599,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         require(movementIndex < movements.size) { "Movimiento fuera del bloque" }
         val exercise = movements[movementIndex]
         val set = JSONObject()
-            .put("id", UUID.randomUUID().toString())
+            .put("id", setId)
             .put("reps", quantity)
             .put("completedAt", nowISO8601())
             .put("phase", "work")
@@ -1846,7 +1848,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         sessionId: String, exerciseIndex: Int, setId: String, quantity: Int,
         weightKg: Double?, rir: Double? = null,
         durationSeconds: Int? = null, quantityUnit: String? = null,
-        deficitCm: Int? = null,
+        deficitCm: Int? = null, intervalIndex: Int? = null,
         sessionPayload: JSONObject? = null, warmup:Boolean=false,toFailure:Boolean=false,
         onNewSet:(()->Unit)?=null
     ): Boolean {
@@ -1880,11 +1882,45 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             if (state.optJSONObject("activeSession") == null) requireState() else state
         val active = requireActive(currentState)
         check(active.optString("id") == sessionId) { "La sesión del reloj ya no es la activa" }
+        val exercises = active.getJSONArray("exercises")
+        val exercise = exercises.getJSONObject(exerciseIndex)
+        if (exercise.optString("blockKind") == "wod") {
+            // Apple 44713457: el reloj registra series por movimiento en
+            // EMOM/Tabata/circuito (perMovementSets), una serie por intervalo
+            // confirmado por el atleta; nunca se fabrica una serie.
+            val blockId = exercise.getString("blockId")
+            val current = exercises.getJSONObject(active.getInt("currentIndex"))
+            check(current.optString("blockId") == blockId) {
+                "El bloque activo ha cambiado"
+            }
+            check(!exercise.optBoolean("isCompleted")) {
+                "El bloque WOD ya está cerrado"
+            }
+            val format = WodFormat.fromWire(exercise.getString("wodFormat"))
+            check(format?.capture == ResultCapture.PER_MOVEMENT_SETS) {
+                "Este formato WOD registra un resultado global en el móvil"
+            }
+            requireNotNull(intervalIndex) {
+                "El reloj debe indicar el intervalo de la serie WOD"
+            }
+            var movementIndex = -1
+            var seen = 0
+            for (i in 0 until exercises.length()) {
+                if (exercises.getJSONObject(i).optString("blockId") == blockId) {
+                    if (i == exerciseIndex) { movementIndex = seen; break }
+                    seen++
+                }
+            }
+            check(movementIndex >= 0) { "Movimiento fuera del bloque" }
+            recordWodMovement(movementIndex, intervalIndex, quantity, weightKg,
+                setId = setId)
+            runCatching {onNewSet?.invoke()} // Notification failure cannot undo a persisted set.
+            return true
+        }
         check(active.optInt("currentIndex") == exerciseIndex) {
             "El ejercicio activo ha cambiado"
         }
-        val exercise = active.getJSONArray("exercises").getJSONObject(exerciseIndex)
-        check(exercise.optString("blockKind") != "wod" && !exercise.optBoolean("isCompleted")) {
+        check(!exercise.optBoolean("isCompleted")) {
             "El reloj solo puede registrar series de fuerza abiertas"
         }
         logCurrentSet(quantity, weightKg, rir = rir, warmup = warmup, toFailure=toFailure, setId = setId,
