@@ -14,7 +14,7 @@ export function trainerSeatInfo({clients=[],trials=[],plans=[]}){
   label:paid?paid.title:(inTrial?'Prueba gratuita · hasta 5':'Sin plan activo'),
   paid:!!paid,trial:inTrial};
 }
-export function renderTrainerPassPanel({clients=[],passes=[],offers=[],attendance=[],occurrences=[],seat,
+export function renderTrainerPassPanel({clients=[],passes=[],offers=[],attendance=[],bookings=[],occurrences=[],seat,
  manager=false,busy=false}){
  const linked=clientsActive(clients),activeOffers=offers.filter(o=>o.is_active);
  const selectablePasses=passes.filter(p=>p.status==='active'&&p.kind==='appointment'
