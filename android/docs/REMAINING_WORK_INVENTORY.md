@@ -200,3 +200,10 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  sesion original bajo login original, otro estado va Inicio.
 -3tests modelo/builder, no permisos ni notify real. Sin captura lockscreen,
  sin FGS nuevo/polling; no acredita plataforma/proceso muerto/metricas outdoor.
+
+## Readiness 20:46
+- primaryChartHeight corte220 portado a readiness real/vacio/preview. Preview
+ usa acento plano como HealthRecovery780-808, no gradiente real. Geometria
+ CatmullRom compartida conservada. Renders reales/preview360claro revisados.
+- DUO altura dinamica205..270 segun columna aun pendiente;no afirmar adaptativo
+ completo por altura portrait. Resto metricas no cambia en esta unidad.

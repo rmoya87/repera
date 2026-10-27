@@ -215,4 +215,13 @@ class ReviewSpacingRenderTest {
         save(composeRule.onNodeWithTag("progresswrap").captureToImage().asAndroidBitmap(),
             "progress-history-training.png")
     }
+    @Test fun readinessPreviewUsesPlainAccentAtSameHeight() {
+        composeRule.setContent {MaterialTheme {Surface(Modifier.testTag("readiness_plain_fixture")) {
+            dev.repera.mobile.DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->
+                dev.repera.domain.ProgressDayPoint(LocalDate.of(2026,10,21).plusDays(i.toLong()),v)
+            },bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false)
+        }}}
+        save(composeRule.onNodeWithTag("readiness_plain_fixture").captureToImage().asAndroidBitmap(),"readiness-preview-plain.png")
+    }
+
 }
