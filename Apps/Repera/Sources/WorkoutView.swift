@@ -1139,7 +1139,7 @@ struct WorkoutView: View {
                             .foregroundStyle(OG.accent)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(clock.isIntervalMode
-                                 ? "Ronda \\(min(clock.displayedRound, clock.displayedRoundsTotal))/\\(clock.displayedRoundsTotal)"
+                                 ? "Ronda \(min(clock.displayedRound, clock.displayedRoundsTotal))/\(clock.displayedRoundsTotal)"
                                  : clock.subtitle)
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
@@ -1465,14 +1465,14 @@ struct WorkoutView: View {
             Text("Duración de cada ronda")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(OG.label)
-            Text("Bloque libre · \\(setup.rounds) ronda\\(setup.rounds == 1 ? "" : "s")")
+            Text("Bloque libre · \(setup.rounds) ronda\(setup.rounds == 1 ? "" : "s")")
                 .font(.subheadline)
                 .foregroundStyle(OG.label2)
             Stepper(value: $manualRoundMinutes, in: 0...120) {
                 HStack {
                     Text("Minutos")
                     Spacer()
-                    Text("\\(manualRoundMinutes)")
+                    Text("\(manualRoundMinutes)")
                         .monospacedDigit()
                 }
             }
@@ -1480,7 +1480,7 @@ struct WorkoutView: View {
                 HStack {
                     Text("Segundos")
                     Spacer()
-                    Text("\\(manualRoundSeconds)")
+                    Text("\(manualRoundSeconds)")
                         .monospacedDigit()
                 }
             }
