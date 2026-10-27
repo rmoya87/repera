@@ -30,8 +30,19 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn("current.blockRounds ?? planned", request)
         self.assertIn("map { $0.plannedSets.count }.max()", request)
 
+    def test_new_strength_blocks_have_no_implicit_emom_interval(self):
+        models = (ROOT / "Packages" / "ReperaDomain" / "Sources"
+                  / "ReperaDomain" / "Models.swift").read_text(encoding="utf-8")
+        strength = models.split("public static func strength(title:", 1)[1].split(
+            "/// Copia profunda", 1
+        )[0]
+        self.assertIn("emomIntervalSeconds: nil", strength)
+        self.assertIn("emomIntervalSeconds: Int? = 60", models)
+
     def test_setup_is_presented_before_first_timer_start(self):
-        self.assertIn(".sheet(item: $manualRoundSetup)", PLAY)
+        self.assertIn(".sheet(item: $manualRoundSetup, onDismiss:", PLAY)
+        self.assertIn("confirmedManualRoundStart = nil", PLAY)
+        self.assertIn("startBlockClock(\n                for: current,", PLAY)
         sheet = PLAY.split("private func manualRoundDurationSheet(", 1)[1].split(
             "private func startBlockClock(", 1
         )[0]
@@ -41,7 +52,12 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn(".disabled(manualRoundMinutes == 0 && manualRoundSeconds == 0)", sheet)
         self.assertIn("current.id == setup.exerciseID", sheet)
         self.assertIn("manualRoundMinutes * 60 + manualRoundSeconds", sheet)
-        self.assertIn("startBlockClock(for: current, manualRoundSeconds: seconds, manualRounds: setup.rounds)", sheet)
+        self.assertIn("Stepper(value: $manualRoundRestSeconds, in: 0...600, step: 5)", sheet)
+        self.assertIn('Text("Descanso entre rondas")', sheet)
+        self.assertIn("confirmedManualRoundStart = ConfirmedManualRoundStart(", sheet)
+        self.assertIn("restSeconds: manualRoundRestSeconds", sheet)
+        self.assertIn("manualRoundSetup = nil", sheet)
+        self.assertNotIn("startBlockClock(for: current, manualRoundSeconds: seconds", sheet)
         # Todas las entradas del reloj (botón por bloque, selector y automático)
         # usan el mismo gate; solo el gate dispara configure directamente.
         self.assertGreaterEqual(PLAY.count("requestBlockClockStart(for: current)"), 4)
@@ -56,8 +72,11 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn("current.blockWorkSeconds ?? 20", configured)
         self.assertIn("current.blockRestSeconds ?? 10", configured)
         self.assertIn("current.plannedIntervals ?? current.blockRounds", configured)
-        self.assertIn("manualRoundSeconds\n                ?? current.blockIntervalSeconds ?? current.blockWorkSeconds", configured)
-        self.assertIn("totalIntervals: rounds,", configured)
+        self.assertIn("manualRoundSeconds\n                ?? current.blockWorkSeconds ?? explicitInterval", configured)
+        self.assertIn("customPhaseDurations: phaseDurations", configured)
+        self.assertIn("customPhaseSubtitles: phaseLabels", configured)
+        self.assertIn("customRoundNumbers: phaseRoundNumbers", configured)
+        self.assertIn("customRoundsTotal: rounds", configured)
         self.assertIn("initialCountdown: roundDuration,", configured)
         self.assertIn("intervalMode: true,", configured)
 
@@ -87,14 +106,57 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn("Button {\n                    clock.showClock()", dock)
         self.assertIn("clock.displayedRound", dock)
         self.assertIn("clock.displayedRoundsTotal", dock)
+        self.assertIn('clock.subtitle.contains("Descanso")', dock)
         self.assertIn("clock.handlePrimary()", dock)
         self.assertIn("clock.finishByUser()", dock)
         self.assertIn(".disabled(!clock.canFinishByUser)", dock)
         self.assertNotIn('"Ver reloj"', dock)
         self.assertNotIn("clock.stop()", dock)
         self.assertLess(dock.index("clock.showClock()"), dock.index("clock.handlePrimary()"))
-        self.assertLess(dock.index("clock.handlePrimary()"), dock.index("clock.finishByUser()"))
-        self.assertIn('Text("Terminar")', dock)
+        self.assertLess(dock.index("clock.finishByUser()"), dock.index("clock.handlePrimary()"))
+        self.assertIn('Image(systemName: "flag.checkered")', dock)
+        self.assertIn('Image(systemName: clock.isRunning ? "pause.fill" : "play.fill")', dock)
+        self.assertIn("clock.isRunning ? OG.yellow : OG.accent", dock)
+        self.assertIn(".background(.black, in: Circle())", dock)
+        self.assertIn(".background(OG.surface2, in: Circle())", dock)
+        self.assertIn(".glassEffect(.regular.tint(OG.surface2).interactive(), in: .circle)", dock)
+        self.assertIn(".glassEffect(.regular, in: .rect(cornerRadius: 18))", dock)
+        self.assertNotIn('.background(OG.surface, in: RoundedRectangle(', dock)
+
+    def test_implicit_sixty_second_interval_does_not_skip_free_block_setup(self):
+        request = PLAY.split("private func requestBlockClockStart(", 1)[1].split(
+            "private func manualRoundDurationSheet(", 1
+        )[0]
+        self.assertIn("current.blockIntervalSeconds != 60 || current.wodFormat == .strength", request)
+        self.assertIn("manualRoundRestSeconds = max(0, current.blockRestBetweenRoundsSeconds ?? 0)", request)
+        configured = PLAY.split("private func startBlockClock(", 1)[1].split(
+            "private func metaPill(", 1
+        )[0]
+        self.assertIn("current.blockIntervalSeconds == 60", configured)
+        self.assertIn("&& current.wodFormat == nil", configured)
+
+    def test_work_rest_round_phases_have_no_rest_after_last_round(self):
+        configured = PLAY.split("private func startBlockClock(", 1)[1].split(
+            "private func metaPill(", 1
+        )[0]
+        self.assertIn("for round in 1...rounds", configured)
+        self.assertIn("phaseDurations.append(roundDuration)", configured)
+        self.assertIn("if round < rounds && rest > 0", configured)
+        self.assertIn("phaseDurations.append(rest)", configured)
+        self.assertIn("phaseRoundNumbers.append(round)", configured)
+        self.assertIn('phaseLabels.append("Descanso entre rondas")', configured)
+        self.assertIn("customRoundNumbers: phaseRoundNumbers", configured)
+        self.assertIn("customRoundsTotal: rounds", configured)
+
+    def test_setup_sheet_dismisses_before_fullscreen_clock_is_presented(self):
+        show = PLAY.split(".sheet(item: $manualRoundSetup, onDismiss:", 1)[1].split(
+            ".toolbar {", 1
+        )[0]
+        self.assertIn("confirmedManualRoundStart", show)
+        self.assertIn("current.id == selection.exerciseID", show)
+        self.assertIn("manualRoundRestSeconds: selection.restSeconds", show)
+        self.assertLess(show.index("confirmedManualRoundStart = nil"),
+                        show.index("startBlockClock("))
 
     def test_finish_preserves_elapsed_not_remaining_and_does_not_complete_sets(self):
         self.assertIn("hasStarted && !isPreCountdown && pausedPreCountdownRemaining == nil", CLOCK)
