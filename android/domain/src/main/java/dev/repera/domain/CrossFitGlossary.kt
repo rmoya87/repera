@@ -559,6 +559,71 @@ object CrossFitGlossary {
                            searchAliases: Map<String, String> = emptyMap()): String =
         preferEquipmentVariant(canonicalName(rawName, searchAliases), notes)
 
+    /**
+     * Port de CrossFitGlossary.catalogExercise (Apple 0a640da8; cadena
+     * 6993e330/88db5bb7/83253491/154fd42b/8f3941de): reconcilia movimientos de
+     * WOD guardados que conservan un identificador provisional (BTt/T2B
+     * históricos) con la ficha real del catálogo, sin alterar ejercicios
+     * elegidos manualmente. Diferencias documentadas: CatalogExercise Android
+     * conserva isCatalogArchived para excluir bajas remotas; el Catalog.seed()
+     * de Apple equivale al catálogo empaquetado que el llamante pasa en
+     * [packagedFallback].
+     */
+    fun catalogExercise(
+        move: WODMovement,
+        catalog: List<CatalogExercise>,
+        packagedFallback: List<CatalogExercise> = emptyList()
+    ): CatalogExercise? {
+        if (move.isRest) return null
+        val canonical = resolveCatalogName(move.name, move.notes)
+        val assigned = move.exerciseId?.let { id -> catalog.firstOrNull { it.id == id } }
+        val isKnownAbbreviation =
+            normalize(canonical) in setOf("burpee to target", "toes to bar")
+        val raw = normalize(move.name)
+        // En abreviaturas conocidas, la ficha cuyo NOMBRE es el canónico
+        // prevalece sobre cualquier coincidencia literal con el rótulo antiguo.
+        if (isKnownAbbreviation) {
+            catalog.firstOrNull {
+                !it.isCustom && !it.isCatalogArchived && normalize(it.name) == normalize(canonical)
+            }?.let { return it }
+        }
+        // Para los demás movimientos manda la coincidencia exacta, sin alterar
+        // elecciones manuales ni alias editoriales.
+        catalog.firstOrNull {
+            !it.isCustom && !it.isCatalogArchived && normalize(it.name) == raw &&
+                (!isKnownAbbreviation || raw == normalize(canonical))
+        }?.let { return it }
+        // Una equivalencia exacta publicada por el catálogo corrige también el
+        // UUID provisional de una programación ya guardada.
+        val remoteMatch = catalog.firstOrNull { entry ->
+            !entry.isCustom && !entry.isCatalogArchived && entry.searchAliases.any { normalize(it) == raw }
+        }
+        if (remoteMatch != null &&
+            (!isKnownAbbreviation || normalize(remoteMatch.name) == normalize(canonical))
+        ) return remoteMatch
+        // En abreviaturas antiguas no basta sameName(): un alias puede
+        // considerar equivalente «BTt» aunque sea la ficha equivocada.
+        if (assigned != null && !assigned.isCustom &&
+            (!isKnownAbbreviation || normalize(assigned.name) == normalize(canonical))
+        ) return assigned
+        catalog.firstOrNull {
+            !it.isCustom && !it.isCatalogArchived && normalize(it.name) == normalize(canonical)
+        }?.let { return it }
+        // El catálogo remoto se sincroniza de forma asíncrona: para estas
+        // abreviaturas inequívocas usar la ficha oficial empaquetada COMO
+        // ÚLTIMO RECURSO. El llamante reparará después el enlace persistido.
+        if (isKnownAbbreviation) {
+            packagedFallback.firstOrNull {
+                !it.isCustom && !it.isCatalogArchived && normalize(it.name) == normalize(canonical)
+            }?.let { return it }
+        }
+        if (assigned != null) return assigned
+        return catalog.firstOrNull {
+            ExerciseEquivalence.sameName(it.name, canonical) ||
+                ExerciseEquivalence.sameName(it.name, move.name)
+        }
+    }
+
     /** Parsea una línea de pizarra en un movimiento tipado. */
     fun parseMovementLine(raw: String,
                           searchAliases: Map<String, String> = emptyMap()): ParsedMovementLine {

@@ -231,7 +231,8 @@ data class CatalogExercise(
     val name: String,
     /** Apple (live main) Exercise.searchAliases: alias publicados para matching. */
     val searchAliases: List<String> = emptyList(),
-    val isCustom: Boolean = false
+    val isCustom: Boolean = false,
+    val isCatalogArchived: Boolean = false
 )
 
 /** Línea detectada en una pizarra / TV (OCR). Port de BoardImportLine. */
