@@ -538,3 +538,15 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  aproximadoAndroid3grid/2labels;vacioaxeshelpernoesSwiftcompleto.
 - Completa310/assemblependientes;735/70nativopendiente,nopush,
  domain504/93Wear8/1anteriores. Bloquerevisionabierto.
+
+## Revision graficos, vacios 00:44 28oct
+- Full310mobile672/163XMLreales75/91/68/68s0fallos/errores/omitidos,
+ assemble60sverde. Referenciaanterior,nobateria311.
+- Mismobloque,subhuecovaciohelperconocido310:ProgressEmptyChartcorte
+ ProgressTrendCards6-35:ahora3labelsmin/medio/maxlateral ygridhorizontal
+0.6dpdash3/4,noLvertical/basecontinua. Alturaplotconservadas205/210/190/
+220/128/98seguncaller,sinseriesinventadas. Mensajes aundebajo,nooverlay
+ centralSwift:gapexplicitopendiente,nopixelparity.
+- Focalizados7tests/2XMLverdes49s,compile59s. PNG360kcal/cardio/recovery
+ inspeccionados,tickscentrales ytextos/tileslegibles. Suite311pendiente.
+-735/70abiertas,nativopendiente,nopush;domain504/93Wear8/1previos.
