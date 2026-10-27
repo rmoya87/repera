@@ -86,6 +86,8 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("recorder.phase == .idle", self.live)
         # The selection prepares the course; starting remains an explicit Play.
         self.assertIn("recorder.selectRoute(selected)", self.live)
+        self.assertIn("let sport = LiveSport(rawValue: raw), sport.usesGPS", self.live)
+        self.assertIn("if !recorder.sport.usesGPS { recorder.choose(.walking) }", self.live)
 
     def test_home_calendar_uses_one_planning_index_not_105_queries(self):
         self.assertIn("let lookup = makeCalendarDayLookup()", self.home)
