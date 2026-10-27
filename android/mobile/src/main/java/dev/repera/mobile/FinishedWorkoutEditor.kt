@@ -43,9 +43,11 @@ internal fun FinishedWorkoutEditorSection(
         if (!hasRoute && workout.locationPin != null) {
             Text("Lugar", style = MaterialTheme.typography.titleMedium)
             Text(workout.locationPin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa")
-            PlacePinMap(workout.locationPin.latitude, workout.locationPin.longitude,
-                isInteractive = false,
-                modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)))
+            RouteMapTapTarget(label="Ampliar ubicación",
+                modifier=Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp))) { interactive,mapModifier ->
+                PlacePinMap(workout.locationPin.latitude,workout.locationPin.longitude,
+                    isInteractive=interactive,modifier=mapModifier)
+            }
         }
         workout.notes?.let {
             Text("Notas", style = MaterialTheme.typography.titleMedium)
