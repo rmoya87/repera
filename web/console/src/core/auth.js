@@ -82,6 +82,32 @@ export class ReperaAuthAPI {
   try{return await this.#request('/rest/v1/'+path,{...options,token});}
   catch(e){if(e.status===401)this.clear();throw e;}
  }
+ async platformAdminDirectory(){return this.#authorized('rpc/platform_admin_directory',{method:'POST',body:{}});}
+ async platformAdminFinances(){return this.#authorized('rpc/platform_admin_finances',{method:'POST',body:{}});}
+ async platformAdminHistory(){return this.#authorized('rpc/platform_admin_history',{method:'POST',body:{}});}
+ async platformAdminPending(){return this.#authorized('rpc/platform_admin_pending',{method:'POST',body:{}});}
+ async claimPlatformProvisioning(){return this.#authorized('rpc/claim_platform_provisioning',{method:'POST',body:{}});}
+ async platformAdminProvision({name,kind,email,plan=null}){
+  const n=String(name||'').trim(),address=String(email||'').trim().toLowerCase();
+  if(n.length<2||n.length>120||!['gym','personal_trainer'].includes(kind)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)||address.length>180)
+   throw Error('Revisa el nombre, el tipo y el correo del propietario');
+  return this.#authorized('rpc/platform_admin_provision',{method:'POST',
+   body:{p_name:n,p_kind:kind,p_email:address,p_plan:plan||null}});
+ }
+ async platformAdminSetStatus({orgId,status,reason}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!['active','suspended'].includes(status)||String(reason||'').trim().length<8)
+   throw Error('Indica un estado y un motivo válido');
+  return this.#authorized('rpc/platform_admin_set_status',{method:'POST',
+   body:{p_org:orgId,p_status:status,p_reason:String(reason).trim()}});
+ }
+ async platformAdminDelegate({orgId,reason}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||String(reason||'').trim().length<12)
+   throw Error('Indica el negocio y un motivo de al menos 12 caracteres');
+  return this.#authorized('rpc/platform_admin_delegate',{method:'POST',
+   body:{p_org:orgId,p_reason:String(reason).trim()}});
+ }
+ async platformAdminCurrentDelegation(){return this.#authorized('rpc/platform_admin_current_delegation',{method:'POST',body:{}});}
+ async platformAdminEndDelegation(){return this.#authorized('rpc/platform_admin_end_delegation',{method:'POST',body:{}});}
  async platformOverview(){
   return this.#authorized('rpc/platform_business_overview',{method:'POST',body:{}});
  }
