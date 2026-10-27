@@ -1425,7 +1425,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
     }
 
     public static func strength(title: String = "Bloque 1", exercises: [RoutineExercise] = []) -> RoutineBlock {
-        RoutineBlock(title: title, kind: .strength, exercises: exercises)
+        // El intervalo EMOM por defecto (60 s) NO significa que la fuerza
+        // tenga duración por ronda: la define el atleta al iniciar temporizador.
+        RoutineBlock(title: title, kind: .strength, exercises: exercises, emomIntervalSeconds: nil)
     }
 
     /// Copia profunda con IDs nuevos (bloque, ejercicios, movimientos y series).
