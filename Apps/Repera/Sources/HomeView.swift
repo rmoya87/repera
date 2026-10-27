@@ -70,8 +70,6 @@ struct HomeView: View {
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
-    /// Cargar una ruta siempre lleva a Comenzar; nunca arranca GPS sin Play.
-    var onLoadRoutes: () -> Void = {}
 
     /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
@@ -201,6 +199,19 @@ struct HomeView: View {
         }
     }
 
+    /// A future training plan must update its calendar dot as soon as
+    /// planning is saved, without using the heavyweight workoutsEpoch
+    /// reserved for completed workouts and HealthKit recalculation.
+    private var scheduledCalendarSignature: Int {
+        var hasher = Hasher()
+        for routine in store.state.routines {
+            guard let date = routine.scheduledDate else { continue }
+            hasher.combine(routine.id)
+            hasher.combine(calendar.startOfDay(for: date))
+        }
+        return hasher.finalize()
+    }
+
     private var businessCalendarSignature: Int {
         // Avoid allocating, sorting and joining large strings on every
         // render when a day has several local or professional workouts.
@@ -285,6 +296,9 @@ struct HomeView: View {
             }
             .refreshable { await businessData.refresh(); rebuildWeekChrome() }
             .onChange(of: businessCalendarSignature) { _, _ in
+                rebuildWeekChrome()
+            }
+            .onChange(of: scheduledCalendarSignature) { _, _ in
                 rebuildWeekChrome()
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("repera.professionalPlansChanged"))) { _ in
@@ -766,9 +780,12 @@ struct HomeView: View {
             Text("\(day.num)")
                 .font(.system(size: 17, weight: selected ? .semibold : .medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label)
-            // Solo marcar entrenamientos finalizados (Repera o Apple Salud).
-            // La selección cambia el color del punto, nunca su visibilidad.
-            if hasCompletedWorkout {
+            // Mismo punto para registros pasados y planes de hoy/futuro.
+            // Una planificación antigua sin completar no se convierte en
+            // un registro ficticio ni en una racha conseguida.
+            let isTodayOrFuture = calendar.startOfDay(for: day.date)
+                >= calendar.startOfDay(for: Date())
+            if hasCompletedWorkout || (isTodayOrFuture && day.hasPlan) {
                 Circle()
                     .fill(selected ? OG.onAccent : OG.accent)
                     .frame(width: 4, height: 4)
@@ -1092,23 +1109,6 @@ struct HomeView: View {
             if !hasActive {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
-                Button(action: onLoadRoutes) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Cargar ruta")
-                            .font(.system(size: 15, weight: .semibold))
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(OG.label)
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 48)
-                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Abre Mis rutas en Comenzar para elegir y preparar el recorrido")
             }
         }
         .swipeActionsContainer()
@@ -1679,9 +1679,9 @@ struct HomeView: View {
         healthMinutesByDayKey = minutes.filter { $0.value > 0 }
     }
 
-    /// Fuente única del punto y de la tarjeta del día: únicamente las
-    /// sesiones terminadas de Repera y las actividades completadas de Salud.
-    /// Ni la fecha seleccionada ni una rutina programada aportan un punto.
+    /// Días ya completados: solo registros reales de Repera o Salud.
+    /// Las futuras planificaciones tienen su propio punto de calendario,
+    /// pero no cuentan como entrenos finalizados ni suman a las rachas.
     private func hasCompletedWorkoutOnDay(_ key: String) -> Bool {
         !(workoutsByDayKey[key]?.isEmpty ?? true)
             || !(healthByDayKey[key]?.isEmpty ?? true)
