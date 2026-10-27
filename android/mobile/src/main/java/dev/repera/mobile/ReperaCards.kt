@@ -30,7 +30,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -1755,7 +1757,16 @@ internal fun RouteMapTapTarget(label: String, modifier: Modifier = Modifier,
     if (fullScreen) {
         Dialog(onDismissRequest = { fullScreen = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            map(true, Modifier.fillMaxSize().testTag("fullscreen-route-map"))
+            Box(Modifier.fillMaxSize()) {
+                map(true, Modifier.fillMaxSize().testTag("fullscreen-route-map"))
+                // Apple WorkoutMapZoomDestination: cierre explicito arriba a la
+                // derecha ("Cerrar mapa"), no solo gesto atras/scrim.
+                IconButton(onClick = { fullScreen = false },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 16.dp)
+                        .testTag("fullscreen-route-close")) {
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar mapa")
+                }
+            }
         }
     }
 }

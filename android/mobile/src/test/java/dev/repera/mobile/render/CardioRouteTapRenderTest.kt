@@ -66,6 +66,8 @@ class CardioRouteTapRenderTest {
             .performClick()
         val dialog = composeRule.onNodeWithTag("fullscreen-route-map")
         dialog.assertIsDisplayed()
+        // Apple WorkoutMapZoomDestination: cierre explicito "Cerrar mapa".
+        composeRule.onNodeWithTag("fullscreen-route-close").assertIsDisplayed()
         val bmp = dialog.captureToImage().asAndroidBitmap()
         save(bmp, "tap-target-fullscreen.png")
         // Evidencia pixel: el dialog ocupa toda la pantalla y pinta el mapa interactivo.
@@ -73,6 +75,8 @@ class CardioRouteTapRenderTest {
         assertTrue("fullscreen ancho=$w", w >= 900)
         val px = bmp.getPixel(w / 2, h / 2)
         assertEquals("centro azul (mapa interactivo)", 0xFF0000FF.toInt(), px)
+        composeRule.onNodeWithTag("fullscreen-route-close").performClick()
+        composeRule.onNodeWithTag("fullscreen-route-map").assertDoesNotExist()
     }
 
     @Test
