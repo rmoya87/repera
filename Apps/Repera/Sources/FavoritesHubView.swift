@@ -13,6 +13,7 @@ struct FavoritesHubView: View {
     @State private var editing: Routine?
     @State private var isCreating = false
     @State private var openTimer: FavoriteTimer?
+    @State private var startFailureMessage: String?
 
     private var hasAnyFavorite: Bool {
         !store.favoriteRoutines.isEmpty || !store.state.favoriteTimers.isEmpty
@@ -54,8 +55,18 @@ struct FavoritesHubView: View {
                                 store.assignRoutine(routine.id, toDate: date)
                                 onScheduledWorkout?()
                             } else {
-                                store.startSession(from: routine)
-                                if store.hasActiveSession { onOpenedWorkout() }
+                                if store.state.activeSession != nil {
+                                    onOpenedWorkout()
+                                } else {
+                                    HealthKitStore.shared.lastError = nil
+                                    store.startSession(from: routine)
+                                    if store.state.activeSession?.routineId == routine.id {
+                                        onOpenedWorkout()
+                                    } else {
+                                        startFailureMessage = HealthKitStore.shared.lastError
+                                            ?? "No se ha podido iniciar «\\(routine.title)». Comprueba que no haya otra actividad activa."
+                                    }
+                                }
                             }
                         } label: {
                             Label {
@@ -160,6 +171,14 @@ struct FavoritesHubView: View {
                 embedsNavigationStack: false,
                 usesPageCloseHeader: true
             )
+        }
+        .alert("No se ha podido iniciar el favorito", isPresented: Binding(
+            get: { startFailureMessage != nil },
+            set: { if !$0 { startFailureMessage = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { startFailureMessage = nil }
+        } message: {
+            Text(startFailureMessage ?? "")
         }
         .navigationDestination(item: $openTimer) { timer in
             StandaloneTimerView(
