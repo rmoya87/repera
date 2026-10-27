@@ -1,3 +1,4 @@
+import {renderSharedAthleteSessions} from './athlete-activity.js';
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,34 +41,83 @@ export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],se
  return `${stats}${quick}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${o.kind==='appointment'?'Cita 1:1':'Clase grupal'} · ${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length}/${o.capacity} plazas</small><span class="business-tile-arrow">Ver detalle →</span></button>`).join(''):'<p>No hay próximas clases programadas.</p>'}</div>`)}`;
 }
-export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',escapeHTML=esc}){
- if(!selected){
-  return show(`<div class="business-panel-head"><div><h2>Clientes</h2><p>Selecciona una persona para gestionar ficha, bonos, planificación, clases y comunicaciones.</p></div></div><div class="business-cards">${clients.map(c=>`<button class="business-client-tile" data-action="detail-client" data-id="${esc(c.id)}"><span class="business-avatar">${esc(initials(c.name))}</span><span><strong>${esc(c.name)}</strong><small>${esc(c.email)} · ${esc(c.status)}</small></span><span class="business-tile-arrow">Ver ficha →</span></button>`).join('')||'<p>No hay deportistas. Añade tu primer cliente a continuación.</p>'}</div>${manager?`<form data-connected="client" class="business-form" style="margin-top:22px;max-width:580px"><h3>Nuevo cliente</h3>${input('Nombre completo','name','','text','required minlength="2" maxlength="120"')}${input('Correo electrónico','email','','email','required')}<button type="submit" class="connected-primary">Crear ficha de cliente</button></form>`:''}`);
+export function renderClient360({clients=[],selected=null,passes=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],manager=false,role='',escapeHTML=esc,clientSection='training'}){
+ if(!selected)return show(`<div class="business-panel-head"><div>
+ <span class="connected-eyebrow">DEPORTISTAS</span><h2>Clientes</h2>
+ <p>Consulta cada ficha y sus entrenamientos autorizados. Las vinculaciones solo se completan al aceptar la invitación.</p></div></div>
+ <div class="business-client-table-wrap"><table class="business-client-table"><thead><tr>
+ <th>Atleta</th><th>Correo</th><th>Vinculación</th><th>Estado</th></tr></thead><tbody>
+ ${clients.map(c=>`<tr role="link" tabindex="0" data-action="detail-client" data-id="${esc(c.id)}">
+ <td><div class="business-client-person"><span class="business-avatar">${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?
+ `<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}</span>
+ <strong>${esc(c.name)}</strong></div></td><td>${esc(c.email||'—')}</td>
+ <td>${c.user_id?'Vinculado':'Pendiente de aceptación'}</td><td>${esc(c.status)}</td></tr>`).join('')||
+ '<tr><td colspan="4">Todavía no hay clientes.</td></tr>'}
+ </tbody></table></div>
+ ${manager?`<form data-connected="client" class="business-client-add">
+ <h3>Invitar a un cliente</h3>
+ ${input('Nombre','name','','text','required minlength="2" maxlength="120"')}
+ ${input('Correo electrónico','email','','email','required')}
+ <button type="submit" class="connected-primary">Crear ficha y preparar invitación</button>
+ <p class="connected-hint">El alta queda pendiente hasta que la persona acepte con su correo verificado. El envío del email requiere configurar el proveedor transaccional.</p></form>`:''}`);
+ const c=clients.find(x=>x.id===selected);if(!c)return show('La persona seleccionada no está autorizada para este centro.');
+ const ownPasses=passes.filter(p=>p.client_id===c.id),
+ ownBookings=bookings.filter(b=>b.client_id===c.id),
+ ownSessions=sessions.filter(s=>s.client_id===c.id&&s.status==='scheduled');
+ const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
+ ${[['training','Entrenamientos'],['data','Datos'],['bookings','Reservas']].map(([id,name])=>
+ `<button type="button" data-action="client-section" data-section="${id}" class="${clientSection===id?'active':''}"
+ aria-current="${clientSection===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
+ const head=`<div class="business-profile-header"><span class="business-avatar large">
+ ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
+ </span><div><h2>${esc(c.name)}</h2><p>${esc(c.email)} · ${c.user_id?'Cuenta vinculada':'Invitación pendiente'} </p></div>
+ ${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}</div>`;
+ let body='';
+ if(clientSection==='training'){
+  body=`<div class="business-360-grid">
+ <div class="business-detail-panel"><div class="business-panel-head"><h3>Planificación</h3>
+ ${button('Añadir entrenamientos','plan-client',c.id)}</div>
+ ${ownSessions.length?ownSessions.map(s=>`<article class="business-line"><strong>${esc(s.title)}</strong>
+ <small>${day(s.scheduled_date)} · ${(s.prescription?.blocks||[]).length} bloques</small>
+ ${button('Editar entrenamiento','edit-session',s.id)}</article>`).join(''):
+ note('Aún no hay entrenamientos planificados.')}</div>
+ <div class="business-detail-panel"><h3>Actividad compartida</h3>
+ ${sharedHistory.length?`<p>${sharedHistory.length} sesiones compartidas con este centro.</p>
+ ${renderSharedAthleteSessions(sharedHistory)}`:
+ note('Solo se muestran actividades autorizadas por el atleta. El resto de su historial personal permanece privado.')}</div></div>`;
  }
- const c=clients.find(x=>x.id===selected);if(!c)return show('<p>Esta persona no pertenece a tu organización.</p>');
- const ownPasses=passes.filter(p=>p.client_id===c.id);
- const ownBookings=bookings.filter(b=>b.client_id===c.id&&b.status==='booked');
- const ownSessions=sessions.filter(s=>s.client_id===c.id&&s.status==='scheduled');
- const ownNotices=notices.filter(n=>n.client_id===c.id).slice(0,8);
- const weeks=Array.from({length:4},(_,i)=>{const now=new Date();const end=new Date(now.getTime()-(3-i)*7*86400000);const begin=new Date(end.getTime()-7*86400000);return sharedHistory.filter(h=>{const d=new Date(h.started_at);return d>begin&&d<=end}).length;});
- const activityChart=sharedHistory.length?`<p class="connected-hint">Sesiones compartidas por semana (últimas 4)</p><div class="business-mini-chart">${weeks.map((n,i)=>`<div><span style="height:${Math.max(8,Math.min(90,8+n*14))}px"></span><strong>${n}</strong><small>S${i+1}</small></div>`).join('')}</div>`:'';
-
- const manageForm=manager&&ownPasses.length?`<form data-connected="manage-pass" class="business-form">
- ${select('Bono a modificar','pass',ownPasses.map(p=>[p.id,`${p.kind==='class'?'Clases':'Citas'} · ${p.remaining_credits}/${p.total_credits}`]))}
- ${select('Operación','op',[['add_credits','Ampliar crédito'],['reset_remaining','Reiniciar saldo disponible'],['extend_validity','Ampliar vigencia']])}
- ${input('Sesiones a añadir','amount','1','number','min="1" max="1000"')}
- ${input('Nueva caducidad','until','','date')}
- <button class="connected-secondary">Aplicar ajuste con auditoría</button></form>`:'';
-
- return show(`${button('← Volver a clientes','back-clients')}<div class="business-profile-header"><span class="business-avatar large">${c.avatar_url?`<img src="${esc(c.avatar_url)}" loading="lazy" alt="Avatar">`:esc(initials(c.name))}</span><div><h2>${esc(c.name)}</h2><p>${esc(c.email)} · ${esc(c.status)} · ${c.user_id?'Cuenta Repera vinculada':'Pendiente de vinculación'}</p></div>${manager&&!c.user_id?button('Invitar a Repera','invite-client',c.id):''}</div>
- <div class="business-360-grid">
- <div class="business-detail-panel"><h3>Datos personales</h3>${manager?`<form data-connected="client-profile" class="business-form">${input('Nombre','name',c.name,'text','required minlength="2" maxlength="120"')}${input('Correo','email',c.email,'email','required')}${input('Teléfono','phone',c.phone||'','tel','maxlength="40"')}${input('Avatar (URL)','avatar',c.avatar_url||'','url','maxlength="500"')}${select('Estado','status',['lead','trial','active','paused','cancelled'].map(s=>[s,s]),c.status)}<label class="connected-field">Notas internas<textarea name="notes" maxlength="2000" rows="3">${esc(c.notes||'')}</textarea></label><input type="hidden" name="client" value="${esc(c.id)}"><button class="connected-primary">Guardar ficha</button></form>`:note('Ficha visible, solo propietarios y administradores pueden editarla.')}</div>
- <div class="business-detail-panel"><h3>Bonos y saldo</h3>${ownPasses.map(p=>`<div class="business-line"><strong>${p.kind==='class'?'Bono de clases':'Sesiones personales'}</strong><small>${p.remaining_credits}/${p.total_credits} disponibles · hasta ${day(p.valid_until)} · ${esc(p.status)}</small></div>`).join('')||note('Sin bonos activos.')} ${manageForm} ${manager?`<form data-connected="courtesy-pass" class="business-form">${select('Tipo','kind',[['class','Clases'],['appointment','Citas']])}${input('Sesiones de cortesía','credits','1','number','min="1" max="1000" required')}${input('Caduca','until',new Date(Date.now()+86400000*30).toLocaleDateString('sv-SE'),'date','required')}<input type="hidden" name="client" value="${esc(c.id)}"><button class="connected-secondary">Añadir bono de cortesía</button></form>${note('No se modifica el saldo de un pago: se emite un bono trazable, sin simular cobros.')}`:''}</div>
- <div class="business-detail-panel"><div class="business-panel-head"><h3>Planificación deportiva</h3>${button('Abrir editor','plan-client',c.id)}</div>${ownSessions.map(s=>`<div class="business-line"><strong>${esc(s.title)}</strong><small>${day(s.scheduled_date)} · ${(s.prescription?.blocks||[]).length} bloques</small>${button('Modificar entreno','edit-session',s.id)}</div>`).join('')||note('Todavía no tiene entrenamientos profesionales publicados.')}</div>
- <div class="business-detail-panel"><h3>Inscripciones y clases</h3>${ownBookings.map(b=>{const o=occurrences.find(o=>o.id===b.occurrence_id);return `<div class="business-line"><strong>${esc(o?.title||'Clase')}</strong><small>${dateTime(o?.starts_at)}</small>${button('Ver clase','detail-occurrence',b.occurrence_id)}</div>`}).join('')||note('No tiene reservas activas.')} ${button('Apuntarle a una clase','find-class-for-client',c.id)}</div>
- <div class="business-detail-panel"><h3>Historial y progreso</h3>${sharedHistory.length?`<strong>${sharedHistory.length} entrenamientos compartidos</strong>${activityChart}${sharedHistory.slice(0,15).map(h=>`<div class="business-line"><strong>${esc(h.title)}</strong><small>${dateTime(h.started_at)}</small></div>`).join('')}`:note('El historial privado, los registros y las métricas no están disponibles sin consentimiento del deportista y autorización para este profesional. No mostramos datos ficticios.')}</div>
- <div class="business-detail-panel"><h3>Notificación individual</h3>${c.user_id?`<form data-connected="client-notice" class="business-form"><input type="hidden" name="client" value="${esc(c.id)}">${input('Asunto','title','','text','minlength="2" maxlength="120" required')}<label class="connected-field">Mensaje<textarea name="body" maxlength="1000" minlength="2" required></textarea></label><button class="connected-primary">Guardar aviso para este deportista</button></form>`:note('Invita primero al cliente para vincular su cuenta.')}${ownNotices.map(n=>`<div class="business-line"><strong>${esc(n.title)}</strong><small>${day(n.created_at)} · ${esc(n.body)}</small></div>`).join('')}</div>
- </div>`);
+ if(clientSection==='data'){
+  body=`<div class="business-360-grid">
+ <div class="business-detail-panel"><h3>Datos básicos</h3>
+ <dl class="business-client-summary"><dt>Nombre</dt><dd>${esc(c.name)}</dd>
+ <dt>Correo</dt><dd>${esc(c.email||'—')}</dd>
+ <dt>Cuenta Repera</dt><dd>${c.user_id?'Vinculada':'Pendiente de aceptación'}</dd>
+ <dt>Estado</dt><dd>${esc(c.status)}</dd></dl>
+ ${manager?`<form data-connected="client-profile" class="business-form">
+ ${input('Nombre','name',c.name,'text','required minlength="2" maxlength="120"')}
+ ${input('Correo','email',c.email,'email','required')}
+ ${select('Estado','status',['lead','trial','active','paused','cancelled'].map(v=>[v,v]),c.status)}
+ <input type="hidden" name="client" value="${esc(c.id)}">
+ <button type="submit" class="connected-primary">Guardar datos básicos</button></form>`:''}</div>
+ <div class="business-detail-panel"><h3>Bonos y saldo</h3>
+ ${ownPasses.length?ownPasses.map(p=>`<article class="business-line">
+ <strong>${p.kind==='class'?'Clases':'Citas'}</strong>
+ <small>${p.remaining_credits}/${p.total_credits} disponibles · ${day(p.valid_until)}</small></article>`).join(''):
+ note('Sin bonos activos.')}</div></div>`;
+ }
+ if(clientSection==='bookings'){
+  body=`<div class="business-360-grid">
+ <div class="business-detail-panel"><h3>Reservas recientes</h3>
+ ${ownBookings.length?ownBookings.map(b=>{const o=occurrences.find(o=>o.id===b.occurrence_id);
+ return `<article class="business-line"><strong>${esc(o?.title||'Clase')}</strong>
+ <small>${dateTime(o?.starts_at)} · ${esc(b.status)}</small></article>`;}).join(''):
+ note('Sin reservas.')}</div>
+ <div class="business-detail-panel"><h3>Sesiones profesionales recientes</h3>
+ ${ownSessions.length?ownSessions.map(t=>`<article class="business-line"><strong>${esc(t.title)}</strong>
+ <small>${day(t.scheduled_date)} · ${esc(t.status)}</small></article>`).join(''):
+ note('Sin sesiones profesionales.')}</div></div>`;
+ }
+ return show(head+tabs+body);
 }
 export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[],details=[],groups=[],groupMembers=[],selectedGroup=null,coaches=[],selected=null,classEditor=false,listMode='calendar',calendarMonth='',activeClient=null,manager=false,escapeHTML=esc}){
  const index=new Map(details.map(d=>[d.occurrence_id,d]));

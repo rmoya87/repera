@@ -1,5 +1,14 @@
 # Web Repera (`repera.app`)
 
+## Fichas y navegación del centro (27/10/2026)
+
+Consola global: Atletas -> Ejercicios, Datos, Acceso, Reservas; ejercicios en dos columnas con calendario, carga de sesión y elementos del catálogo; récords e1RM limitados al historial disponible, mapa orientativo y puntuación transparente de actividad. Centros -> Datos, Equipo, Clientes, Facturación, con listas pulsables y control de publicación en búsqueda sin requerir que el propietario ya se haya registrado.
+
+Centro delegado: menú fijo con logotipo del centro y Ajustes/Volver/Cerrar sesión abajo, sin gran cabecera blanca. Clientes como lista; ficha breve con entrenamiento compartido por consentimiento, datos básicos y reservas. Alta de cliente crea invitación pendiente; acepta desde el correo de su propia cuenta; envío por endpoint Resend JWT protegido solo si configurado.
+
+Para emails reales habilitar secretos `RESEND_API_KEY`, `REPERA_INVITE_FROM`, `REPERA_PUBLIC_URL` en Supabase Edge; opcionales `REPERA_IOS_URL`, `REPERA_ANDROID_URL`. No se deben inventar enlaces de App Store o Google Play. Se recomienda validar entrega y enlaces con una cuenta ya registrada y otra nueva antes de producción. El proyecto usa recursos con caché `20261027profiles`.
+
+
 ## Centro profesional renovado — 27/10/2026
 
 El menú delegado conserva la interfaz clara, navegación lateral y botones directos de Inicio → Deportistas, Entrenamientos y Clases/Reservas. Inicio recibe solicitudes enviadas desde la app con Aceptar/Rechazar/Actualizar. En Entrenamientos hay un planificador rápido de tres pasos con selección de plantilla, deportistas vinculados y modo día/semana/rango; enseña el número calculado de entrenamientos, bloquea solicitudes incompletas y admite máximo 120 sesiones en una operación atómica idempotente. Mantiene el editor completo por bloques para una persona.
@@ -187,3 +196,9 @@ Secciones home: hero, pilares, cómo funciona, para quién, funciones, Watch, co
 ## Consentimiento de asistentes · 2026-10-24
 
 Última actualización: 2026-10-24. `pack-ionos.sh` incluye `ai/` para `https://repera.app/ai/`. Usa login Apple/Google con la cuenta de Repera y consentimiento explícito, sin claves manuales. Requiere desplegar el backend y configurar OAuth antes de habilitar los botones; no está publicado automáticamente. Procedimiento: [OAUTH_CONNECTIONS.md](../docs/OAUTH_CONNECTIONS.md).
+
+### Ajustes finales de invitaciones y centros
+
+Los enlaces de email abren `/console/?invitation=<uuid>` y permiten crear una **cuenta de deportista** (correo y contraseña), verificarla y aceptar la invitación sin crear empresa. Los atletas vinculados no acceden al área fiscal, facturación ni consultas administrativas de centros; para entrenadores y recepción la consola pide fichas con campos básicos, sin descargar teléfono ni notas internas. El enlace de verificación conserva el identificador de invitación.
+
+Búsqueda móvil: desde la migración `20261027190000_discoverable_center_excludes_suspended.sql`, un centro suspendido queda oculto aunque conserve `is_discoverable=true`; la consulta privilegiada reside en esquema privado y la RPC pública es `SECURITY INVOKER`. Verificar entrega de emails reales una vez configurado Resend.

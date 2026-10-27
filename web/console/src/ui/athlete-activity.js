@@ -92,7 +92,7 @@ function workoutCard(w,i){
  <span class="pa-record-chevron" aria-hidden="true">⌄</span></summary>
  <div class="pa-record-body">${workoutBlocks(w)}${wodResults(w)}</div></details>`;
 }
-export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],loading=false}={}){
+export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],loading=false,canPlan=false,athleteId=''}={}){
  const safeMonth=/^\d{4}-\d{2}$/.test(month||'')?month:new Date().toLocaleDateString('sv-SE').slice(0,7);
  const [year,m]=safeMonth.split('-').map(Number);
  const first=(new Date(Date.UTC(year,m-1,1)).getUTCDay()+6)%7;
@@ -119,10 +119,26 @@ export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],
   <div class="pa-activity-calendar">${cells}</div>
   <div class="pa-activity-legend"><span class="pa-activity-dot has"></span>Día con entrenamiento <span class="pa-activity-dot"></span>Sin actividad</div>
   </section>
-  <section class="pa-panel pa-activity-workouts"><h2>${selectedDay?'Entrenamientos del '+e(fmtDate(selectedDay+'T12:00:00Z')):'Selecciona un día'}</h2>
+  <section class="pa-panel pa-activity-workouts"><div class="pa-activity-right-heading">
+  <h2>${selectedDay?'Entrenamientos del '+e(fmtDate(selectedDay+'T12:00:00Z')):'Selecciona un día'}</h2>
+  ${canPlan&&selectedDay?`<button type="button" class="pa-button primary"
+  data-admin-action="schedule-athlete" data-id="${e(athleteId)}" data-day="${e(selectedDay)}">+ Añadir entrenamiento</button>`:''}</div>
   ${loading?'<p class="pa-muted">Cargando entrenamientos...</p>':
     !selectedDay?'<p class="pa-muted">Los días señalados en verde tienen actividad registrada.</p>':
     workouts.length?workouts.map(workoutCard).join(''):
    '<div class="pa-activity-none">No hay entrenamientos registrados este día.</div>'}
   </section>`;
+}
+
+/** Read-only training cards for coaches after Supabase verifies sharing consent. */
+export function renderSharedAthleteSessions(rows=[]){
+ const safe=Array.isArray(rows)?rows:[];
+ if(!safe.length)return '<p class="pa-muted">El atleta no ha compartido entrenamientos con este centro o aún no tiene actividad sincronizada.</p>';
+ return `<div class="pa-shared-workouts">${safe.slice(0,30).map((row,index)=>{
+   const data=row?.result&&typeof row.result==='object'?row.result:{};
+   const exercises=Array.isArray(data.exercises)?data.exercises:[];
+   const wod=Array.isArray(data.wodResults)?data.wodResults:[];
+   return workoutCard({title:row.title,started_at:row.started_at,
+    finished_at:row.finished_at,exercises,wod_results:wod},index);
+ }).join('')}</div>`;
 }

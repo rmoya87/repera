@@ -187,6 +187,11 @@ export class ReperaAuthAPI {
   return this.#authorized('rpc/platform_admin_provision',{method:'POST',
    body:{p_name:n,p_kind:kind,p_email:address,p_plan:plan||null}});
  }
+ async platformAdminSetVisibility({orgId,visible}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||typeof visible!=='boolean')throw Error('Visibilidad inválida');
+  return this.#authorized('rpc/platform_admin_set_visibility',{method:'POST',
+   body:{p_org:orgId,p_visible:visible}});
+ }
  async platformAdminSetStatus({orgId,status,reason}){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||!['active','suspended'].includes(status)||String(reason||'').trim().length<8)
    throw Error('Indica un estado y un motivo válido');
@@ -232,9 +237,13 @@ export class ReperaAuthAPI {
    p_org:orgId,p_template:templateId,p_clients:clientIds,p_start:start,p_end:end,
    p_weekdays:weekdays,p_request:requestId}});
  }
- async clients(orgId){
+ async clients(orgId,{basic=false}={}){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('clients?select=id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
+  // Minimize the payload for non-manager workspaces. RLS enforces which
+  // rows are visible; this endpoint also avoids loading notes/phone at all.
+  const fields=basic?'id,org_id,user_id,name,email,avatar_url,status,created_at':
+   'id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at';
+  return this.#authorized('clients?select='+fields+'&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
  async addClient({orgId,name,email,userId}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
@@ -243,6 +252,32 @@ export class ReperaAuthAPI {
  }
  async invitations(){
   return this.#authorized('organization_invitations?select=id,organization_id,email,invited_role,expires_at,accepted_at,cancelled_at,created_at&order=created_at.desc');
+ }
+ async sendOwnerRegistrationEmail(provisioningId){
+  if(!/^[0-9a-f-]{36}$/i.test(provisioningId||''))throw Error('Alta de centro inválida');
+  const token=await this.token();if(!token)throw Error('Inicia sesión');
+  try{
+   const result=await this.#request('/functions/v1/repera-business-invite',{
+    method:'POST',token,body:{provisioningId}});
+   return {sent:result?.sent===true};
+  }catch(e){
+   if(e.status===503)return {sent:false,reason:'Proveedor de correo pendiente de configurar'};
+   if(e.status===502)return {sent:false,reason:'El proveedor no ha confirmado el envío'};
+   throw e;
+  }
+ }
+ async sendInvitationEmail(invitationId){
+  if(!/^[0-9a-f-]{36}$/i.test(invitationId||''))throw Error('Invitación inválida');
+  const token=await this.token();if(!token)throw Error('Inicia sesión');
+  try{
+   const result=await this.#request('/functions/v1/repera-business-invite',{
+    method:'POST',token,body:{invitationId}});
+   return {sent:result?.sent===true};
+  }catch(e){
+   if(e.status===503)return {sent:false,reason:'Proveedor de correo transaccional sin configurar'};
+   if(e.status===502)return {sent:false,reason:'El proveedor de correo no ha confirmado la entrega'};
+   throw e;
+  }
  }
  async issueInvitation({orgId,email,role}){
   email=String(email||'').trim().toLowerCase();

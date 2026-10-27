@@ -1,3 +1,4 @@
+import {renderAthleteInsights} from './athlete-insights.js';
 import {renderAthleteActivity} from './athlete-activity.js';
 import {navIcon} from './nav-icons.js';
 
@@ -23,8 +24,9 @@ const label=(v)=>v==='active'?'Activo':v==='suspended'?'Suspendido':v==='paid'?'
 function statusPill(status){return `<span class="pa-pill ${status==='active'||status==='paid'?'good':status==='suspended'||status==='failed'?'bad':''}">${esc(label(status||'active'))}</span>`;}
 const empty=(title,text)=>`<div class="pa-empty"><strong>${esc(title)}</strong><p>${esc(text)}</p></div>`;
 const table=(heads,rows)=>`<div class="pa-table-wrap"><table class="pa-table"><thead><tr>${heads.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${heads.length}">Sin registros</td></tr>`}</tbody></table></div>`;
-const orgRow=o=>`<tr><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.owner_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}${o.registration_status==='pending'?'<small class="pa-register-pending">Propietario sin registrar</small>':''}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
-const orgTable=orgs=>table(['Centro','Tipo','Clientes','Activos','Plan','Estado','Alta','Acción'],orgs.map(orgRow).join(''));
+const orgRow=o=>`<tr class="pa-center-row pa-athlete-row" role="link" tabindex="0"
+ data-admin-action="view-org" data-id="${esc(o.id)}" aria-label="Ver ${esc(o.name)}"><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.owner_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}${o.registration_status==='pending'?'<small class="pa-register-pending">Propietario sin registrar</small>':''}</td><td>${date(o.created_at)}</td></tr>`;
+const orgTable=orgs=>table(['Centro','Tipo','Clientes','Activos','Plan','Estado','Alta'],orgs.map(orgRow).join(''));
 function heading(title,description,action=''){return `<div class="pa-heading"><div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 const field=(name,title,value='',type='text',extra='')=>`<label class="pa-field"><span>${title}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 const currencyTotal=payments=>payments.filter(p=>p.status==='paid'&&p.currency==='EUR').reduce((sum,p)=>sum+validNumber(p.amount_cents),0);
@@ -45,74 +47,78 @@ const readable=(v)=>v==null||v===''?'—':v===true?'Sí':v===false?'No':typeof v
 const details=(pairs)=>`<dl class="pa-details">${pairs.map(([key,val])=>`<dt>${esc(key)}</dt><dd>${esc(readable(val))}</dd>`).join('')}</dl>`;
 const moneyRow=p=>`<tr><td>${stamp(p.paid_at)}</td><td>${esc(formattedMoney(p.amount_cents,p.currency))}</td><td>${statusPill(p.status)}</td><td>${esc(p.provider)}</td></tr>`;
 const formatListing=(rows)=>rows?.length||0;
-function organizationDetail(o,opts){
- const {plans,detail}=opts;const d=detail||{};
- const suspended=o.status==='suspended';
- const actionLabel=suspended?'Reactivar centro':'Suspender centro';
- return `${heading(esc(o.name),'Ficha completa · '+esc(type(o.kind)),button('Volver a centros','back-org'))}
- <div class="pa-metrics pa-center-metrics">${stat('Clientes registrados',o.client_count||0)}
- ${stat('Clientes activos',o.active_clients||0)}${stat('Equipo',o.member_count||0)}
- ${stat('Sesiones y clases',o.sessions||0)}</div>
- <div class="pa-panel pa-center-hero">
- <div class="pa-identity">${photo(o.avatar_url,o.name,'large')}<div><h2>${esc(o.name)}</h2>
- <p>${esc(type(o.kind))} · <span class="pa-muted">Estado del centro:</span> ${statusPill(o.status)}
- ${o.registration_status==='pending'?'<span class="pa-pill">Propietario pendiente de registro</span>':''}</p></div></div>
- <div class="pa-center-hero-actions"><button type="button" class="pa-button primary" data-admin-action="access-center" data-id="${esc(o.id)}">Entrar como administrador del centro</button></div>
- </div>
- <div class="pa-layout"><section class="pa-panel"><h2>Datos del centro</h2>
- ${details([['Nombre',o.name],['Tipo',type(o.kind)],['Código',o.slug],
- ['Correo público',o.email],['Teléfono',o.phone],['Sitio web',o.website],['Dirección',o.address],
- ['Zona horaria',o.timezone],['Descripción',o.description],
- ['Visibilidad',d.center?.is_discoverable?'Publicado':'No publicado'],
- ['Creado',stamp(d.center?.created_at||o.created_at)],
- ['Última actualización',stamp(d.center?.updated_at)]])}
- </section><section class="pa-panel"><h2>Estado y suscripción</h2>
- ${details([['Registro del propietario',o.registration_status==='pending'?'Pendiente':'Completado'],
- ['Correo del futuro propietario',o.owner_email],['Plan',plans.find(p=>p.plan_key===o.paid_plan)?.title||o.paid_plan||'Sin plan de pago'],
- ['Prueba hasta',date(o.trial_ends_at)],['Pagado hasta',date(o.paid_until)],
- ['Última reserva',stamp(o.last_activity)],['Motivo de suspensión',o.status_reason]])}
- <form class="pa-status-inline" data-admin-form="status"><input type="hidden" name="org_id" value="${esc(o.id)}">
- <label class="pa-field"><span>Estado del centro (editable)</span><select name="status">
+function organizationDetail(o,{plans=[],detail=null,section='data'}={}){
+ const d=detail||{},suspended=o.status==='suspended';
+ const hero=`<div class="pa-athlete-hero pa-panel"><div class="pa-identity">
+ ${photo(o.avatar_url,o.name,'large')}<div><h1>${esc(o.name)}</h1><p>${esc(type(o.kind))}
+ · ${statusPill(o.status)}${o.registration_status==='pending'?'<span class="pa-pill">Propietario pendiente de registro</span>':''}
+ </p></div></div>
+ <button type="button" class="pa-button primary" data-admin-action="access-center" data-id="${esc(o.id)}">
+ Entrar como administrador del centro</button></div>`;
+ const tabs=`<nav class="pa-detail-tabs" aria-label="Ficha del centro">
+ ${[['data','Datos'],['team','Equipo'],['clients','Clientes'],['billing','Facturación']].map(([id,name])=>
+ `<button type="button" data-admin-action="center-section" data-section="${id}" aria-current="${section===id?'page':'false'}"
+ class="${id===section?'active':''}">${name}</button>`).join('')}</nav>`;
+ const metrics=`<div class="pa-metrics pa-center-metrics">
+ ${stat('Clientes',o.client_count||0)}${stat('Activos',o.active_clients||0)}
+ ${stat('Profesionales',o.member_count||0)}${stat('Actividades',o.sessions||0)}</div>`;
+ if(!detail)return hero+tabs+metrics+'<section class="pa-panel">Cargando detalles del centro...</section>';
+ let body='';
+ if(section==='data')body=`<div class="pa-layout"><section class="pa-panel"><h2>Información del centro</h2>
+ ${details([['Nombre',o.name],['Tipo',type(o.kind)],['Correo público',o.email],
+ ['Teléfono',o.phone],['Web',o.website],['Dirección',o.address],
+ ['Zona horaria',o.timezone],['Descripción',o.description],['Creado',stamp(o.created_at)]])}
+ </section><section class="pa-panel"><h2>Estado y visibilidad</h2>
+ <form data-admin-form="status" class="pa-status-inline">
+ <input type="hidden" name="org_id" value="${esc(o.id)}">
+ <label class="pa-field"><span>Estado operativo</span><select name="status">
  <option value="active" ${!suspended?'selected':''}>Activo</option>
- <option value="suspended" ${suspended?'selected':''}>Suspendido</option>
- </select></label><button class="pa-button primary" type="submit">Guardar estado</button></form>
- <p class="pa-muted">Puedes activar o suspender este centro aunque su propietario todavía no haya completado el registro. La situación de su cuenta se muestra por separado.</p></section></div>
- ${!detail?'<section class="pa-panel"><h2>Personas, fiscalidad y operaciones</h2><p>Cargando información del centro...</p></section>':`
- <div class="pa-layout">
- <section class="pa-panel"><h2>Datos fiscales</h2>${d.legal?details([
- ['Tipo de entidad',d.legal.entity_type],['Razón social',d.legal.legal_name],['NIF/CIF',d.legal.tax_id],
- ['Representante',d.legal.representative_name],['Contacto',d.legal.contact_name],
- ['Email de facturación',d.legal.billing_email],['Dirección fiscal',d.legal.billing_address],
- ['Código postal',d.legal.postal_code],['Población',d.legal.city],
- ['Provincia',d.legal.province],['País',d.legal.country]]):empty('Sin datos fiscales','El centro aún no ha completado sus datos legales.')}</section>
- <section class="pa-panel"><h2>Equipo y accesos (${formatListing(d.team)})</h2>
- ${d.team?.length?table(['Persona','Correo','Rol','Estado'],d.team.map(m=>`<tr>
- <td><div class="pa-identity">${photo(m.avatar_url,m.name)}<span>${esc(m.name)}</span></div></td>
- <td>${esc(m.email||'—')}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td></tr>`).join('')):
- empty('Sin equipo asignado','Este centro puede estar pendiente de aceptación.')}</section></div>
- <section class="pa-panel"><h2>Atletas y clientes vinculados (${formatListing(d.clients)})</h2>
- ${d.clients?.length?table(['Persona','Correo','Teléfono','Estado','Cuenta Repera'],d.clients.map(c=>`<tr>
+ <option value="suspended" ${suspended?'selected':''}>Suspendido</option></select></label>
+ <button type="submit" class="pa-button primary">Guardar estado</button></form>
+ <form data-admin-form="center-visibility" class="pa-status-inline">
+ <input type="hidden" name="org_id" value="${esc(o.id)}">
+ <label class="pa-field"><span>Mostrar en búsquedas de la app</span><select name="discoverable">
+ <option value="true" ${d.center?.is_discoverable?'selected':''}>Visible</option>
+ <option value="false" ${!d.center?.is_discoverable?'selected':''}>Oculto</option></select></label>
+ <button type="submit" class="pa-button">Guardar visibilidad</button></form>
+ <p class="pa-muted">El propietario sigue pendiente hasta que confirme su correo y acepte el registro.
+ Publicar el centro permite recibir solicitudes, pero no suplanta ni vincula al futuro propietario.</p>
+ ${o.registration_status==='pending'&&o.provisioning_id?
+ `<button type="button" class="pa-button" data-admin-action="email-owner" data-id="${esc(o.provisioning_id)}">
+ Enviar instrucciones al propietario</button>`:''}
+ ${details([['Correo del propietario',o.owner_email],['Registro',o.registration_status==='pending'?'Pendiente de aceptación':'Completado'],
+ ['Última actividad',stamp(o.last_activity)]])}</section></div>
+ <section class="pa-panel"><h2>Descripción y servicios</h2>${d.services?.length?
+ table(['Servicio','Inicio','Estado'],d.services.map(x=>`<tr><td>${esc(x.title)}</td><td>${stamp(x.starts_at)}</td><td>${statusPill(x.status)}</td></tr>`).join('')):
+ empty('Sin actividades','No hay clases o citas programadas.')}</section>`;
+ if(section==='team')body=`<section class="pa-panel"><h2>Equipo y roles</h2>
+ ${d.team?.length?table(['Persona','Correo','Rol','Estado'],d.team.map(m=>
+ `<tr><td><div class="pa-identity">${photo(m.avatar_url,m.name)}${esc(m.name)}</div></td>
+ <td>${esc(m.email)}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td></tr>`).join('')):
+ empty('Sin profesionales','Todavía no hay propietarios, entrenadores ni personal vinculado.')}
+ <p class="pa-muted">El propietario debe aceptar su alta desde una cuenta con el correo verificado.</p></section>`;
+ if(section==='clients')body=`<section class="pa-panel"><h2>Clientes del centro</h2>
+ ${d.clients?.length?table(['Persona','Correo','Estado'],d.clients.map(c=>
+ `<tr class="pa-athlete-row" ${c.user_id?`data-admin-action="view-athlete" data-id="${esc(c.user_id)}" role="link" tabindex="0"`:''}>
  <td><div class="pa-identity">${photo(c.avatar_url,c.name)}<strong>${esc(c.name)}</strong></div></td>
- <td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td>${statusPill(c.status)}</td><td>
- ${c.user_id?button('Ver atleta','view-athlete',`data-id="${esc(c.user_id)}"`):'<span class="pa-muted">Sin cuenta asociada</span>'}
- </td></tr>`).join('')):empty('Sin clientes','No hay personas vinculadas todavía.')}</section>
- <div class="pa-layout"><section class="pa-panel"><h2>Grupos (${formatListing(d.groups)})</h2>
- ${d.groups?.length?table(['Grupo','Descripción','Fecha'],d.groups.map(g=>`<tr><td>${esc(g.name)}</td>
- <td>${esc(g.description||'—')}</td><td>${date(g.created_at)}</td></tr>`).join('')):
- empty('Sin grupos','Todavía no se han creado grupos.')}</section>
- <section class="pa-panel"><h2>Actividad del centro</h2>
- ${details([['Reservas totales',d.booking_count||0],
- ['Entrenamientos profesionales programados',d.training_count||0],
- ['Clientes con ficha',d.client_count||0]])}
- <h3>Clases y citas recientes</h3>
- ${d.services?.length?table(['Actividad','Inicio','Estado'],d.services.map(x=>`<tr><td>${esc(x.title)}</td>
- <td>${stamp(x.starts_at)}</td><td>${statusPill(x.status)}</td></tr>`).join('')):
- empty('Sin actividades','No existen citas o clases programadas.')}</section></div>
- <section class="pa-panel"><h2>Últimos pagos de la plataforma</h2>
- ${d.payments?.length?table(['Fecha','Importe','Estado','Proveedor'],d.payments.map(moneyRow).join('')):
- empty('Sin pagos registrados','No hay cobros B2B confirmados asociados a este centro.')}</section>`}
- <p class="pa-muted">Los datos se leen de Supabase y su consulta queda auditada. Los entrenamientos individuales solo se muestran en fichas de atleta con acceso administrativo autorizado.</p>
- `;
+ <td>${esc(c.email)}</td><td>${statusPill(c.status)}</td></tr>`).join('')):
+ empty('Sin clientes','No hay atletas asociados a este centro.')}</section>
+ <section class="pa-panel"><h2>Grupos</h2>${d.groups?.length?
+ table(['Nombre','Descripción'],d.groups.map(g=>`<tr><td>${esc(g.name)}</td><td>${esc(g.description)}</td></tr>`).join('')):
+ empty('Sin grupos','Todavía no se han creado grupos.')}</section>`;
+ if(section==='billing')body=`<div class="pa-layout">
+ <section class="pa-panel"><h2>Suscripción</h2>
+ ${details([['Plan',plans.find(p=>p.plan_key===o.paid_plan)?.title||o.paid_plan||'Sin plan contratado'],
+ ['Prueba hasta',date(o.trial_ends_at)],['Pagado hasta',date(o.paid_until)],
+ ['Estado',label(o.status)]])}</section>
+ <section class="pa-panel"><h2>Datos fiscales</h2>
+ ${d.legal?details([['Razón social',d.legal.legal_name],['NIF/CIF',d.legal.tax_id],
+ ['Correo de facturación',d.legal.billing_email],['País',d.legal.country],['Dirección',d.legal.billing_address]]):
+ empty('Sin datos fiscales','No se han registrado todavía.')}</section></div>
+ <section class="pa-panel"><h2>Pagos recientes</h2>${d.payments?.length?
+ table(['Fecha','Importe','Estado','Proveedor'],d.payments.map(moneyRow).join('')):
+ empty('Sin pagos','No hay cobros confirmados en la plataforma.')}</section>`;
+ return hero+tabs+metrics+body;
 }
 function overview(orgs,financial,history){
  const gyms=orgs.filter(o=>o.kind!=='personal_trainer');
@@ -212,63 +218,74 @@ function athletesPage(athletes,filter){
  <td>${a.confirmed?'<span class="pa-pill good">Verificado</span>':'<span class="pa-pill">Sin verificar</span>'}</td><td>${date(a.created_at)}</td></tr>`).join('')):
  empty('No hay atletas con esos filtros','La lista incluye cuentas autenticadas incluso sin centros vinculados.')}</section>`;
 }
-function athleteDetail(person,detail,workouts=[],busy=false,activity={}){
- const a=detail?.account||person;const rows=detail||{};
- return `${heading('Ficha de atleta','Cuenta, actividad y relaciones con centros',button('Volver a atletas','back-athletes'))}
- <div class="pa-panel pa-center-hero"><div class="pa-identity">${photo(a.avatar_url,a.name,'large')}
- <div><h2>${esc(a.name||'Atleta')}</h2><p>${esc(a.email||'—')} · ${esc(a.role==='platform_admin'?'Administrador Repera':'Atleta')}</p></div></div></div>
- ${!detail?'<section class="pa-panel"><h2>Cargando ficha desde Supabase...</h2></section>':`
- <div class="pa-metrics pa-center-metrics">
- ${stat('Entrenamientos',rows.workout_count||0)}
- ${stat('Reservas',rows.booking_count||0)}
- ${stat('Sesiones profesionales',rows.training_count||0)}
- ${stat('Centros vinculados',(rows.memberships||[]).length)}</div>
- ${renderAthleteActivity({month:activity.month,days:activity.days,
-  selectedDay:activity.day||workouts[0]?.started_at?.slice(0,10)||'',
-  workouts:activity.workouts??workouts,loading:activity.loading})}
- <div class="pa-layout">
- <section class="pa-panel"><h2>Identidad y cuenta</h2>
- ${details([['Nombre',a.name],['Correo',a.email],['Rol',a.role==='platform_admin'?'Administrador de plataforma':a.role||'Atleta'],
- ['Creación de cuenta',stamp(a.created_at)],['Última modificación del perfil',stamp(a.profile_updated_at)],
- ['Correo confirmado',stamp(a.email_confirmed_at)]])}</section>
- <section class="pa-panel"><h2>Accesos y autenticación</h2>
- ${details([['Último inicio de sesión',stamp(a.last_sign_in_at)],
- ['Proveedores de acceso',(rows.providers||[]).join(', ')||'Sin proveedores registrados'],
- ['Email verificado',!!a.email_confirmed_at]])}
- <p class="pa-muted">Por seguridad no se exponen contraseñas, sesiones, tokens, IP ni credenciales de terceros.</p>
+function athleteDetail(person,detail,workouts=[],busy=false,activity={},section='exercises'){
+ const a=detail?.account||person,rows=detail||{};
+ const linked=Array.isArray(rows.client_profiles)?rows.client_profiles:[];
+ const actions=`<div class="pa-athlete-actions">
+ <button type="button" class="pa-button primary" data-admin-action="schedule-athlete" data-id="${esc(person.id)}">
+ Añadir plan de entreno</button>
+ ${!linked.length?'<span class="pa-muted">Primero vincula al atleta a un centro para asignarle entrenamientos.</span>':''}</div>`;
+ const header=`<div class="pa-athlete-hero pa-panel"><div class="pa-identity">
+ ${photo(a.avatar_url,a.name,'large')}
+ <div><h1>${esc(a.name||'Atleta')}</h1><p>${esc(a.email||'—')}</p></div></div>${actions}</div>`;
+ const nav=`<nav class="pa-detail-tabs" aria-label="Ficha de atleta">
+ ${[['exercises','Ejercicios'],['data','Datos'],['access','Acceso'],['bookings','Reservas']].map(([id,title])=>
+ `<button type="button" data-admin-action="athlete-section" data-section="${id}"
+ aria-current="${section===id?'page':'false'}" class="${section===id?'active':''}">${title}</button>`).join('')}</nav>`;
+ if(!detail)return header+nav+'<section class="pa-panel">Cargando la información de Supabase...</section>';
+ let body='';
+ if(section==='exercises'){
+  const day=activity.day||workouts[0]?.started_at?.slice(0,10)||'';
+  const canSchedule=linked.length>0;
+  body=`<div class="pa-athlete-training-grid">
+ ${renderAthleteActivity({month:activity.month,days:activity.days,selectedDay:day,
+  workouts:activity.workouts??workouts,loading:activity.loading,
+  canPlan:canSchedule,athleteId:person.id})}
+ </div>
+ ${renderAthleteInsights(workouts,rows.workout_count)}`;
+ }
+ if(section==='data'){
+  body=`<div class="pa-layout"><section class="pa-panel"><h2>Identidad y cuenta</h2>
+ ${details([['Nombre',a.name],['Correo',a.email],['Alta',stamp(a.created_at)],
+ ['Última actualización',stamp(a.profile_updated_at)],
+ ['Estado del correo',a.email_confirmed_at?'Verificado':'Sin verificar'],
+ ['Rol de plataforma',a.role==='platform_admin'?'Administrador':a.role||'Atleta']])}</section>
+ <section class="pa-panel"><h2>Centros y permisos</h2>
+ ${rows.memberships?.length?table(['Centro','Rol','Estado'],rows.memberships.map(m=>
+ `<tr><td>${esc(m.center_name)}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td></tr>`).join('')):
+ empty('Sin centros vinculados','Puede utilizar Repera sin entrenador.')}
  </section></div>
- <div class="pa-layout"><section class="pa-panel"><h2>Centros y roles</h2>
- ${rows.memberships?.length?table(['Centro','Rol','Estado','Acción'],rows.memberships.map(m=>`<tr>
- <td>${esc(m.center_name)}</td><td>${esc(m.role)}</td><td>${statusPill(m.status)}</td>
- <td>${button('Abrir centro','view-org',`data-id="${esc(m.center_id)}"`)}</td></tr>`).join('')):
- empty('Sin centros asociados','Este atleta puede utilizar Repera de forma independiente.')}</section>
- <section class="pa-panel"><h2>Fichas en centros</h2>
- ${rows.client_profiles?.length?table(['Centro','Ficha','Estado'],rows.client_profiles.map(c=>`<tr>
- <td>${esc(c.center_name)}</td><td>${esc(c.name)}</td><td>${statusPill(c.status)}</td></tr>`).join('')):
- empty('Sin fichas de clientes','Ningún centro tiene asociada su cuenta.')}</section></div>
- <div class="pa-layout"><section class="pa-panel"><h2>Perfil de entrenamiento</h2>
- ${rows.training_profile?details([['Objetivo',rows.training_profile.primary_goal],
- ['Nivel',rows.training_profile.experience_level],
- ['Días de entrenamiento/semana',rows.training_profile.training_days_per_week],
- ['Duración por sesión (min)',rows.training_profile.session_minutes],
- ['Coaching habilitado',rows.training_profile.coaching_enabled],
- ['Última actualización',stamp(rows.training_profile.updated_at)]]):
- empty('Sin perfil de entrenamiento','El atleta no ha configurado este apartado.')}</section>
- <section class="pa-panel"><h2>Programas (${formatListing(rows.programs)})</h2>
- ${rows.programs?.length?table(['Programa','Inicio','Estado'],rows.programs.map(p=>`<tr>
- <td>${esc(p.title)}</td><td>${date(p.start_date)}</td><td>${statusPill(p.status)}</td></tr>`).join('')):
- empty('Sin programas','No hay programas guardados.')}</section></div>
- <div class="pa-layout">
+ <div class="pa-layout"><section class="pa-panel"><h2>Fichas de cliente</h2>
+ ${linked.length?table(['Centro','Nombre','Estado'],linked.map(c=>
+ `<tr><td>${esc(c.center_name)}</td><td>${esc(c.name)}</td><td>${statusPill(c.status)}</td></tr>`).join('')):
+ empty('Sin fichas','Ningún centro tiene una ficha asociada.')}</section>
+ <section class="pa-panel"><h2>Preferencias de entrenamiento</h2>
+ ${rows.training_profile?details([
+ ['Objetivo',rows.training_profile.primary_goal],['Experiencia declarada',rows.training_profile.experience_level],
+ ['Días por semana',rows.training_profile.training_days_per_week],
+ ['Duración habitual',rows.training_profile.session_minutes],
+ ['Entrenamiento asistido',rows.training_profile.coaching_enabled]]):
+ empty('Sin preferencias','Todavía no ha configurado sus preferencias.')}</section></div>`;
+ }
+ if(section==='access'){
+  body=`<section class="pa-panel"><h2>Acceso</h2>
+ ${details([['Último inicio de sesión',stamp(a.last_sign_in_at)],
+ ['Cuenta creada',stamp(a.created_at)],['Correo verificado',!!a.email_confirmed_at],
+ ['Métodos de acceso',(rows.providers||[]).join(', ')||'No disponibles']])}
+ <p class="pa-muted">No se exponen contraseñas, tokens, dispositivos privados ni direcciones IP.</p></section>`;
+ }
+ if(section==='bookings'){
+  body=`<div class="pa-layout"><section class="pa-panel"><h2>Reservas recientes</h2>
+ ${rows.reservations?.length?table(['Centro','Fecha','Estado'],rows.reservations.map(b=>
+ `<tr><td>${esc(b.center_name)}</td><td>${stamp(b.booked_at)}</td><td>${statusPill(b.status)}</td></tr>`).join('')):
+ empty('Sin reservas','No hay reservas asociadas a este atleta.')}</section>
  <section class="pa-panel"><h2>Sesiones profesionales recientes</h2>
- ${rows.professional_sessions?.length?table(['Sesión','Centro','Fecha','Estado'],rows.professional_sessions.map(t=>`<tr>
- <td>${esc(t.title)}</td><td>${esc(t.center_name)}</td><td>${date(t.scheduled_date)}</td><td>${statusPill(t.status)}</td></tr>`).join('')):
- empty('Sin sesiones profesionales','No existen sesiones asignadas.')}</section>
- <section class="pa-panel"><h2>Reservas recientes</h2>
- ${rows.reservations?.length?table(['Centro','Fecha','Estado'],rows.reservations.map(t=>`<tr>
- <td>${esc(t.center_name)}</td><td>${stamp(t.booked_at)}</td><td>${statusPill(t.status)}</td></tr>`).join('')):
- empty('Sin reservas','No constan reservas asociadas.')}</section></div>
- <p class="pa-muted">Los entrenamientos del calendario muestran solo información útil para el deportista. Los identificadores internos y ajustes técnicos no se presentan.</p>`}
- `;
+ ${rows.professional_sessions?.length?table(['Sesión','Centro','Fecha','Estado'],rows.professional_sessions.map(t=>
+ `<tr><td>${esc(t.title)}</td><td>${esc(t.center_name)}</td><td>${date(t.scheduled_date)}</td>
+ <td>${statusPill(t.status)}</td></tr>`).join('')):
+ empty('Sin sesiones','No hay sesiones profesionales asignadas.')}</section></div>`;
+ }
+ return header+nav+body;
 }
 function planForm(plan,newPlan=false){
  const p=plan||{},key=esc(p.plan_key||''),audience=p.audience||'personal_trainer';
@@ -378,6 +395,7 @@ export function renderPlatformAdmin({
  tab='home',orgs=[],athletes=[],finance={},pending=[],history=[],plans=[],
  selectedOrg='',selectedAthlete='',centerDetail=null,athleteData=null,athleteWorkouts=[],
  activityMonth='',activityDays=[],activityDay='',activityDayWorkouts=null,activityLoading=false,
+ athleteSection='exercises',centerSection='data',
  collapsed=false,filter={},settings={},account={},editingPlan='',busy=false,error='',notice='',email=''
 }={}) {
  const o=orgs.find(o=>o.id===selectedOrg);
@@ -390,8 +408,8 @@ export function renderPlatformAdmin({
  if(a)body=athleteDetail(a,athleteData,athleteWorkouts,busy,{
   month:activityMonth,days:activityDays,day:activityDay,
   workouts:activityDayWorkouts,loading:activityLoading
- });
- else if(o)body=organizationDetail(o,{plans,detail:centerDetail});
+ },athleteSection);
+ else if(o)body=organizationDetail(o,{plans,detail:centerDetail,section:centerSection});
  else if(tab==='home')body=overview(orgs,finance,history);
  else if(tab==='centers')body=directory(orgs,filter);
  else if(tab==='athletes')body=athletesPage(athletes,filter);

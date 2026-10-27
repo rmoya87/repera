@@ -1,5 +1,14 @@
 ## Administración global (2026-10-27)
 
+## Gestión de visibilidad e invitaciones por correo (27/10/2026)
+
+- Migración 20261027184500_platform_center_visibility.sql: `platform_admin_set_visibility(uuid,boolean)` protege visibilidad con rol platform admin, impide mostrar suspendidos y registra auditoría. `is_discoverable` es independiente de la reclamación de propietario.
+- Migración 20261027185000_business_invitation_email_dispatch.sql: tabla con RLS `business_invitation_email_attempts` y RPC `business_invite_email_payload(uuid)` para obtener centro/correo de invitaciones activas con permisos y límite temporal.
+- Migración 20261027185500_pending_owner_email_recovery.sql: `platform_owner_email_attempts` y `platform_admin_owner_email_payload(uuid)` permiten recuperar alta pendiente por el correo destinado, sin crear membresía owner ni saltarse la verificación.
+
+Las tres migraciones están **aplicadas** en Supabase Repera. La función Edge `repera-business-invite` está desplegada y firmada por JWT, requiere configuración de proveedor antes de enviar realmente. La creación/aceptación sigue utilizando las RPCs existentes `issue_org_invitation` y `accept_org_invitation`; no se vincula al usuario antes de su aceptación.
+
+
 ## Vinculación atleta-centro y calendario de actividades — 27/10/2026
 
 - `organization_athlete_requests`: `org_id`, `athlete_id`, `pass_kind`, `note`, estado `pending/accepted/rejected/cancelled` y datos de decisión. Una solicitud pendiente por atleta/centro. RPCs `request_org_athlete_link`, `business_enrollment_requests` y `business_decide_enrollment`; las escrituras requieren funciones validadas, sin DML directo desde el navegador.

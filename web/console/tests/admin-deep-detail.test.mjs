@@ -30,40 +30,48 @@ test('Barra lateral sin marca repetida, plegable y sin entrada de auditoría',()
  assert.match(show({tab:'home',collapsed:true}),/pa-shell is-collapsed/);
 });
 
-test('Centro: cuatro indicadores, datos fiscales, equipo, clientes y acceso directo',()=>{
+test('Centro: pestañas específicas con estado operativo y visibilidad independientes',()=>{
  const detail={center:{is_discoverable:false},legal:{legal_name:'Centro Fiscal S.L.',tax_id:'ABC123'},
  team:[{name:'Entrenador',email:'coach@example.org',role:'coach',status:'active'}],
  clients:[{name:'Atleta Individual',user_id:athleteId,email:'atleta@example.org',status:'active'}],
- groups:[],services:[],payments:[],booking_count:2,training_count:1,client_count:1};
- const html=show({tab:'centers',selectedOrg:centerId,centerDetail:detail});
- assert.match(html,/pa-center-metrics/);
- assert.match(html,/Centro Fiscal S\.L\./);
- assert.match(html,/coach@example.org/);
- assert.match(html,/atleta@example.org/);
- assert.match(html,/data-admin-action="view-athlete"/);
- assert.match(html,/data-admin-action="access-center"/);
- assert.match(html,/data-admin-form="status"/);
- assert.doesNotMatch(html,/Motivo del acceso delegado|data-admin-form="delegate"/);
+ groups:[],services:[],payments:[]};
+ const common={tab:'centers',selectedOrg:centerId,centerDetail:detail};
+ const datos=show({...common,centerSection:'data'});
+ const equipo=show({...common,centerSection:'team'});
+ const clientes=show({...common,centerSection:'clients'});
+ const cobros=show({...common,centerSection:'billing'});
+ assert.match(datos,/pa-center-metrics/);
+ assert.match(datos,/data-admin-form="center-visibility"/);
+ assert.match(datos,/data-admin-form="status"/);
+ assert.match(datos,/data-admin-action="access-center"/);
+ assert.match(equipo,/coach@example.org/);
+ assert.match(clientes,/atleta@example.org/);
+ assert.match(clientes,/data-admin-action="view-athlete"/);
+ assert.match(cobros,/Centro Fiscal S\.L\./);
+ assert.doesNotMatch(datos,/data-admin-form="delegate"/);
 });
 
-test('Atleta: muestra accesos, vinculaciones, ejercicios y datos estructurados sin inyección',()=>{
+test('Atleta: pestañas, calendario de día, insights y datos privados protegidos',()=>{
  const detail={account:{...athlete,email_confirmed_at:'2026-10-01',last_sign_in_at:'2026-10-25',role:'user'},
  workout_count:1,booking_count:0,training_count:0,memberships:[],client_profiles:[],
- providers:['email'],programs:[],reservations:[],professional_sessions:[],training_profile:null};
- const workout={id:'w',title:'Fuerza <script>alert(1)</script>',started_at:'2026-10-27',
- exercises:[{blockId:'internal-only',blockKind:'strength',blockHeader:'Fuerza principal',
- exercise:{name:'Sentadilla',muscleGroup:'Piernas',isFavorite:true},loggedSets:[{reps:5,weightKg:80,rir:2}]}],wod_results:[]};
- const html=show({tab:'athletes',selectedAthlete:athleteId,
-  athleteData:detail,athleteWorkouts:[workout]});
- assert.match(html,/Último inicio de sesión/);
- assert.match(html,/Entrenamientos registrados/);
+ providers:['email'],reservations:[],professional_sessions:[],training_profile:null};
+ const workout={title:'Fuerza <script>alert(1)</script>',started_at:'2026-10-27',
+ exercises:[{blockId:'internal-only',blockKind:'strength',exercise:{name:'Sentadilla',muscleGroup:'Piernas',isFavorite:true},
+ loggedSets:[{reps:5,weightKg:80,rir:2}]}],wod_results:[]};
+ const common={tab:'athletes',selectedAthlete:athleteId,athleteData:detail,athleteWorkouts:[workout],
+ activityMonth:'2026-10',activityDay:'2026-10-27',activityDayWorkouts:[workout]};
+ const html=show({...common,athleteSection:'exercises'});
+ assert.match(html,/Calendario de entrenamientos/);
+ assert.match(html,/e1RM/);
+ assert.match(html,/pa-muscle-map/);
  assert.match(html,/Sentadilla/);
  assert.match(html,/80/);
- assert.match(html,/Calendario de entrenamientos/);
  assert.match(html,/Series realizadas/);
- assert.doesNotMatch(html,/blockId|isFavorite|muscleGroup|internal-only/);
- assert.doesNotMatch(html,/<script>/);
- assert.doesNotMatch(html,/data-admin-action="more-athlete-workouts"/);
+ assert.doesNotMatch(html,/blockId|isFavorite|muscleGroup|internal-only|<script>/);
+ assert.doesNotMatch(html,/<h1>Ficha de atleta/);
+ assert.match(show({...common,athleteSection:'access'}),/<h2>Acceso<\/h2>/);
+ assert.match(show({...common,athleteSection:'data'}),/Centros y permisos/);
+ assert.match(show({...common,athleteSection:'bookings'}),/Sesiones profesionales recientes/);
 });
 
 test('Los cinco filtros de pagos comparten fila y la auditoría sigue siendo interna',()=>{

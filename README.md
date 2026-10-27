@@ -1,5 +1,16 @@
 # Repera
 
+## Repera Business — fichas por pestañas, planes e invitaciones (27/10/2026)
+
+**Administración · Atletas** abre directamente con avatar, nombre y email, sin encabezado duplicado ni Volver. Pestañas: **Ejercicios** (calendario a la izquierda, sesión a la derecha, botón de añadir sesión o plan), **Datos** (identidad, roles, centros y preferencias), **Acceso** (último login y métodos, sin credenciales) y **Reservas** (reservas y sesiones profesionales). Máximas y e1RM derivadas solo de series realizadas; el mapa corporal representa frecuencia **orientativa** de grupos trabajados, no composición corporal. La puntuación Amateur/Medio/Avanzado mide completitud y variedad de registro, sin acreditar profesionalidad o salud. Para planificar, el atleta debe haber aceptado una vinculación con un centro; se abre entonces el editor profesional nativo en contexto delegado.
+
+**Centros** utiliza filas enteras pulsables y pestañas **Datos, Equipo, Clientes, Facturación**. Datos distingue `status` (operativo) de `registration_status` (propietario pendiente). El administrador puede cambiar visibilidad de búsquedas de la app mediante RPC, sin reclamar la propiedad por el titular; se impide publicar centros suspendidos. También puede solicitar un reenvío de instrucciones al propietario.
+
+**Panel profesional** retira la cabecera superior en modo delegado y sitúa el avatar del negocio y Ajustes, Volver a Administración y Cerrar sesión al pie del menú lateral. **Clientes** se gestiona con un listado y una ficha por pestañas (Entrenamientos, Datos básicos, Reservas). Solo recibe resultados de entrenamientos compartidos explícitamente por el atleta con ese centro y autorizados por Supabase.
+
+La aceptación de invitaciones usa correo verificado y es siempre voluntaria. Hay endpoint transaccional `repera-business-invite` desplegado en Supabase (JWT válido, permisos y rate limiting); **la entrega no queda habilitada sin RESEND_API_KEY, REPERA_INVITE_FROM y REPERA_PUBLIC_URL** en los secretos de la función. Links iOS/Android solo si sus URLs reales están configuradas. El panel muestra «invitación guardada, correo no confirmado» en vez de afirmar envíos falsos. Migraciones `20261027184500`, `20261027185000` y `20261027185500` aplicadas. Quedan pendientes la prueba E2E con varias cuentas y la entrega real de emails.
+
+
 ## Repera Business: actividad por calendario y operativa de entrenador — 27/10/2026
 
 La administración web muestra cada Atleta con fila pulsable, buscador limpio, calendario de días entrenados y fichas maquetadas con las imágenes exactas de ejercicios del catálogo Repera, bloques y series/resultados útiles. Su acceso se controla por rol administrador y se registra. En centros, `status` operativo y `registration_status` de alta se muestran por separado.

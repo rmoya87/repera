@@ -1,5 +1,15 @@
 ## Administración global de Repera — 27/10/2026
 
+## Fichas de atleta y centro; invitaciones de alumnos — 27/10/2026
+
+- Admin Atleta: cabecera solo imagen/nombre/email; pestañas **Ejercicios / Datos / Acceso / Reservas**; calendario + entrenamiento en dos columnas. Series de carga realmente registradas -> máximas y e1RM (Epley para 1–10 reps); mapa esquemático de grupos de ejercicios registrados; valoración orientativa de consistencia de datos, no acreditación de entrenamiento profesional. Sin Programa redundante. Permite abrir planificación del centro para un atleta vinculado y prellenar fecha desde el calendario. Atletas independientes deben aceptar centro antes de la planificación por un entrenador.
+- Admin Centros: fila completa seleccionable, sin columna Acción; pestañas Datos/Equipo/Clientes/Facturación; estado operativo separado de aceptación de propietario. Formulario de visibilidad `platform_admin_set_visibility` validado contra la búsqueda real de app en una transacción revertida; un centro suspendido no puede publicarse. Acción para reenviar instrucciones de registro (no concede rol owner automáticamente).
+- Profesional delegado: cabecera grande oculta; identidad/logo y ajustes/cierre de sesión fijos al pie del menú lateral.
+- Clientes: listado de tabla, ficha simplificada por Entrenamientos/Datos/Reservas. Historial solo por `get_shared_athlete_results`, que valida usuario vinculado, consentimiento y permisos, maquetado en los bloques/series de la app.
+- Invitaciones: alta de cliente crea ficha pending, prepara invitación y solicita email; ya registrados o nuevos deben verificar correo y aceptar para vincularse. Endpoint seguro Resend desplegado, con plantillas HTML y enlaces opcionales iOS/Android. Sin proveedor/remitente/URL de portal configurados, se muestra envío no confirmado; no se inventan emails entregados.
+- Migraciones aplicadas 20261027184500/185000/185500. Nuevo código y pruebas. Faltan verificación visual E2E y entrega transaccional real con secretos/cuentas disponibles.
+
+
 ## Rediseño de Atletas y experiencia del centro — 27/10/2026
 
 - **Atletas**: la fila completa del directorio abre la ficha con ratón o teclado; buscador accesible sin etiqueta redundante ni contador lateral. Ficha 360 reorganizada con calendario mensual y marcador de días entrenados; al elegir un día muestra entrenamientos reales, bloques, ejercicios, series realizadas, repeticiones/carga/RIR/tiempo y resultados WOD. No se muestran IDs internos, `blockId`, `muscleGroup`, `isFavorite` ni JSON crudo. La imagen del ejercicio solo aparece si tiene correspondencia exacta con el catálogo de iOS, evitando fotos incorrectas. Consultas paginadas y por fecha, con auditoría.
@@ -229,3 +239,10 @@ Se incorpora al panel conectado un formulario de alta con identificador derivado
 
 ## Git
 Rama `feat/repera-business-platform`, derivada de `main` en `0f369a65669ef2a9b408eea9477194de7ffb6924`. No fusionar a `main` antes de revisar CI/seguridad. El proyecto Cafesito no se ha tocado.
+
+#### Cierre adicional de integración
+
+- Una invitación recibida desde un email dirige a registro independiente de **atleta**, y la aceptación conserva su correo verificado; ningún formulario le obliga a dar de alta un entrenador o gimnasio.
+- Al entrar como atleta, no se cargan detalles de organización profesionales, datos fiscales, ni endpoints de backoffice. Coach y recepción cargan solo campos básicos de cliente (`id/org_id/user_id/name/email/avatar/status/created_at`) en el navegador; las políticas RLS delimitan qué filas corresponden al coach.
+- Migración 20261027190000: búsqueda móvil ignora centros suspendidos incluso si previamente visibles; wrapper público `SECURITY INVOKER` consulta función interna protegida, evitando dejar una función privilegiada en public.
+- Se añaden pruebas para alta mediante invitación, privacidad del payload en entrenador y exclusión de suspendidos. La ruta completa con dos usuarios verificados y la entrega por proveedor externo siguen pendientes de E2E.
