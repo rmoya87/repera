@@ -32,7 +32,7 @@ class RestPauseClusterRenderTest {
   var clusters by mutableStateOf<List<Pair<Int,Int>>>(emptyList())
   rule.setContent {MaterialTheme {Surface(Modifier.testTag("cluster-root")) {
    Column(Modifier.padding(18.dp)) {
-    RestPauseClusterEditor(clusters,reps,rest,false,{reps=it},{rest=it}) {r,s ->clusters=clusters+(r to s);reps=""}
+    RestPauseClusterEditor(clusters,reps,rest,false,{reps=it},{rest=it},{index ->clusters=clusters.filterIndexed {i,_ ->i!=index}}) {r,s ->clusters=clusters+(r to s);reps=""}
    }
   }}}
   rule.onNodeWithText("Añadir cluster").performClick()
@@ -45,6 +45,9 @@ class RestPauseClusterRenderTest {
   rule.runOnIdle {assertEquals(listOf(8 to 15,5 to 20),clusters)}
   rule.onNodeWithText("1. 8 reps · descanso 15 s").assertIsDisplayed()
   rule.onNodeWithText("2. 5 reps · descanso 20 s").assertIsDisplayed()
+  rule.onNodeWithText("Quitar 1").performClick()
+  rule.runOnIdle {assertEquals(listOf(5 to 20),clusters)}
+  rule.onNodeWithText("1. 5 reps · descanso 20 s").assertIsDisplayed()
   val bmp=rule.onNodeWithTag("cluster-root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/restpause-clusters.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}

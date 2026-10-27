@@ -415,7 +415,7 @@ internal fun ActiveWorkoutCard(
                 }
                 if (technique == "restpause") {
                     RestPauseClusterEditor(pendingClusters,clusterReps,clusterRest,busy,
-                        {clusterReps=it},{clusterRest=it}) {reps,rest ->
+                        {clusterReps=it},{clusterRest=it},{index ->pendingClusters=pendingClusters.filterIndexed {i,_ ->i!=index}}) {reps,rest ->
                         pendingClusters=pendingClusters+(reps to rest);clusterReps=""
                     }
                 }
@@ -437,7 +437,7 @@ internal fun ActiveWorkoutCard(
                 "dropset" -> parsedDrops.isNotEmpty() && parsedDrops.size <= 5 &&
                     parsedDrops.all { it.first in 1..10000 &&
                         (it.second == null || it.second!! >= 0) }
-                "restpause" -> parsedClusters.size in 1..8 &&
+                "restpause" -> parsedClusters.isNotEmpty() && parsedClusters.sumOf {it.first.toLong()}<=Int.MAX_VALUE &&
                     parsedClusters.all { it.first in 1..10000 && it.second in 5..30 }
                 else -> true
             }

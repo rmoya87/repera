@@ -163,3 +163,10 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
   vacia y verifica callback. Test repositorio almacena8reps y15s sin inventar.
 - Tope previo Android8clusters sigue diferencia respecto Apple sin max explicito.
   No cambia ni reescribe registros antiguos.
+
+## Rest-pause 20:05
+- Tope artificial8 eliminado en UI/repositorio, test persiste9clusters18reps.
+  Suma en Long con limite Int evita overflow sin limitar cantidad de clusters.
+- Borrador permite quitar cluster antes de guardar, conserva resto con su
+  descanso individual y renumera. Captura360claro tras quitar inspeccionada.
+  No implica editar registros historicos ni persistir borrador al navegar.

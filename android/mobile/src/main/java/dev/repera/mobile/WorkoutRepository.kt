@@ -1320,7 +1320,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         weightKg: Double? = null,
         rir: Double? = null, toFailure: Boolean = false
     ): ActiveWorkout {
-        require(clusters.size in 1..8) { "El rest-pause necesita al menos 1 mini-serie" }
+        require(clusters.isNotEmpty()) { "El rest-pause necesita al menos 1 mini-serie" }
         clusters.forEach { (reps, rest) ->
             require(reps in 1..10000) { "Repeticiones de mini-serie inválidas" }
             require(rest in 1..600) { "Descanso de mini-serie inválido" }
@@ -1341,7 +1341,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         check(inputMode(movement).showsWeight || weightKg == null) {
             "Este ejercicio no registra peso"
         }
-        val totalReps = clusters.sumOf { it.first }
+        val total=clusters.sumOf {it.first.toLong()}
+        require(total<=Int.MAX_VALUE) {"Demasiadas repeticiones"}
+        val totalReps=total.toInt()
         val set = JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("reps", totalReps)

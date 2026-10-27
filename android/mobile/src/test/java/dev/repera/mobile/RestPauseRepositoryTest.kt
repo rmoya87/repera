@@ -25,5 +25,10 @@ class RestPauseRepositoryTest {
   assertEquals(8,set.getInt("reps"));assertEquals(8,ex.getInt("completedReps"))
   assertEquals(1,set.getJSONArray("clusters").length())
   assertEquals(15,set.getJSONArray("clusters").getJSONObject(0).getInt("restSeconds"))
+  WorkoutRepository(context,user).logRestPauseSet(List(9) {2 to 20},40.0)
+  val second=JSONObject(String(store.read()!!)).getJSONObject("activeSession").getJSONArray("exercises")
+   .getJSONObject(0).getJSONArray("loggedSets").getJSONObject(1)
+  assertEquals(9,second.getJSONArray("clusters").length())
+  assertEquals(18,second.getInt("reps"))
  }
 }
