@@ -39,6 +39,28 @@ public enum SyncConflictResolver: Sendable {
         return candidate == local
     }
 
+    /// Preserve genuine GPS captured in the complete personal iCloud document
+    /// when a newer copy of the same workout only contains summary fields.
+    /// Never create sessions, resurrect deleted IDs or infer coordinates.
+    /// A missing route is the only reason to adopt points from the other copy.
+    public static func restoringMissingWorkoutRoutes(
+        in preferred: AppState, from other: AppState
+    ) -> AppState {
+        var restored = preferred
+        let otherByID = Dictionary(other.workouts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for i in restored.workouts.indices {
+            let id = restored.workouts[i].id
+            guard let original = otherByID[id] else { continue }
+            if restored.workouts[i].routePoints.count < 2, original.routePoints.count >= 2 {
+                restored.workouts[i].routePoints = original.routePoints
+            }
+            if restored.workouts[i].locationPin == nil, let pin = original.locationPin {
+                restored.workouts[i].locationPin = pin
+            }
+        }
+        return restored
+    }
+
     public static func pickNewest(local: AppState?, remote: AppState?) -> AppState? {
         switch (local, remote) {
         case let (l?, r?):
