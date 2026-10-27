@@ -178,28 +178,28 @@ f6e17943|2026-10-25T00:16:08+02:00|Validate decoded bundled PNG instead of bytew
 379d3aec|2026-10-24T23:51:11+02:00|Fix green-only native splash with dedicated opaque barbell illustration and fresh launch storyboard|docs-tests,ios-app,other|53cca1d2 81032145|verified-n/a 13:57: splash verde iOS con storyboard; sin counterpart
 8c0d1e74|2026-10-24T21:50:05+00:00|Create dedicated solid green opaque launch artwork|ios-app||verified-n/a 13:57: arte de launch iOS; assets iOS
 c2975813|2026-10-24T23:49:53+02:00|Generate solid RGB native barbell splash artwork for iOS launch storyboard|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-4aa3943c|2026-10-24T23:45:04+02:00|Replace white native launch with brand-green storyboard showing same barbell mascot as first SwiftUI frame|docs-tests,ios-app,other|53cca1d2 81032145|unverified
-2988bc25|2026-10-24T23:39:43+02:00|Keep barbell splash the same visual scale between native launch and SwiftUI on rotation|ios-app|8080e462|unverified
-d25c7031|2026-10-24T23:38:34+02:00|Preserve stable startup layout and satisfy Repera WindowGroup source contract|ios-app||unverified
+4aa3943c|2026-10-24T23:45:04+02:00|Replace white native launch with brand-green storyboard showing same barbell mascot as first SwiftUI frame|docs-tests,ios-app,other|53cca1d2 81032145|verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
+2988bc25|2026-10-24T23:39:43+02:00|Keep barbell splash the same visual scale between native launch and SwiftUI on rotation|ios-app|8080e462|verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
+d25c7031|2026-10-24T23:38:34+02:00|Preserve stable startup layout and satisfy Repera WindowGroup source contract|ios-app||verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
 90e40c73|2026-10-24T23:34:57+02:00|Update launch architecture documentation for new overhead-barbell image and two-stage startup|docs-tests||verified-n/a 10:46 (solo docs: docs/ARCHITECTURE.md; sin delta de comportamiento)
 07d0ac70|2026-10-24T23:33:42+02:00|Validate newly generated overhead barbell mascot transparency and solid facial details|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-51abfe4d|2026-10-24T23:32:59+02:00|Show new barbell Repera mascot on brand green during native and first SwiftUI launch, then runner|docs-tests,ios-app,other|53cca1d2 81032145|unverified
-5a701ee1|2026-10-24T23:31:38+02:00|Arte: carrusel propio para clean con kettlebell (3 fases)|ios-app,packages|27b93b34|unverified
-2b4d80c1|2026-10-24T23:31:38+02:00|Arte: carrusel propio para snatch con mancuerna (3 fases)|ios-app,packages|27b93b34|unverified
-7293d5d0|2026-10-24T23:31:38+02:00|Arte: carrusel propio para jumping squat (3 fases)|ios-app,packages|27b93b34|unverified
-acc2a12b|2026-10-24T23:31:34+02:00|Arte: carrusel propio para broad jump (3 fases)|ios-app,packages|27b93b34|unverified
-25f562bf|2026-10-24T23:31:34+02:00|Arte: carrusel propio para ball slam (3 fases)|ios-app,packages|27b93b34|unverified
-0ffd4b2f|2026-10-24T23:31:33+02:00|Arte: carrusel propio para pistol squat (3 fases)|ios-app,packages|27b93b34|unverified
-c9910792|2026-10-24T23:31:29+02:00|Arte: carrusel propio para thruster con kettlebell (3 fases)|ios-app,packages|27b93b34|unverified
-37b81416|2026-10-24T23:31:29+02:00|Arte: carrusel propio para thruster con mancuernas (3 fases)|ios-app,packages|27b93b34|unverified
-db1a55b2|2026-10-24T21:31:06+00:00|Install new overhead barbell mascot on native and SwiftUI launch|ios-app||unverified
+51abfe4d|2026-10-24T23:32:59+02:00|Show new barbell Repera mascot on brand green during native and first SwiftUI launch, then runner|docs-tests,ios-app,other|53cca1d2 81032145|verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
+5a701ee1|2026-10-24T23:31:38+02:00|Arte: carrusel propio para clean con kettlebell (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel clean kettlebell — MD5 identicos (art_cf_kb_clean_1..3)
+2b4d80c1|2026-10-24T23:31:38+02:00|Arte: carrusel propio para snatch con mancuerna (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel snatch mancuerna — MD5 identicos (art_cf_db_snatch_1..3)
+7293d5d0|2026-10-24T23:31:38+02:00|Arte: carrusel propio para jumping squat (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel jumping squat — MD5 identicos (art_gy_jump_squat_1..3)
+acc2a12b|2026-10-24T23:31:34+02:00|Arte: carrusel propio para broad jump (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel broad jump — MD5 identicos (art_cf_broad_1..3)
+25f562bf|2026-10-24T23:31:34+02:00|Arte: carrusel propio para ball slam (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel ball slam — MD5 identicos (art_cf_slam_1..3)
+0ffd4b2f|2026-10-24T23:31:33+02:00|Arte: carrusel propio para pistol squat (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel pistol squat — MD5 identicos (art_cf_pistol_1..3)
+c9910792|2026-10-24T23:31:29+02:00|Arte: carrusel propio para thruster con kettlebell (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel thruster kettlebell — MD5 identicos (art_cf_thruster_kb_1..3)
+37b81416|2026-10-24T23:31:29+02:00|Arte: carrusel propio para thruster con mancuernas (3 fases)|ios-app,packages|27b93b34|verified-ported 13:59: carrusel thruster mancuernas — MD5 identicos (art_cf_thruster_db_1..3)
+db1a55b2|2026-10-24T21:31:06+00:00|Install new overhead barbell mascot on native and SwiftUI launch|ios-app||verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
 8f2e5299|2026-10-24T23:30:54+02:00|Install new overhead barbell Repera launch mascot in asset catalog and bundle|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 8fe32833|2026-10-24T23:23:43+02:00|Correct launch contract regression assertion for removed storyboard target|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-bcdcc203|2026-10-24T23:23:03+02:00|Fix black native launch screen with Apple's UILaunchScreen image/color asset configuration|docs-tests,ios-app,other|53cca1d2 bad3ca96|unverified
+bcdcc203|2026-10-24T23:23:03+02:00|Fix black native launch screen with Apple's UILaunchScreen image/color asset configuration|docs-tests,ios-app,other|53cca1d2 bad3ca96|verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
 bfc85684|2026-10-24T23:19:00+02:00|Document active launch storyboard and compatibility with stale XcodeGen project references|docs-tests||verified-n/a 10:46 (solo docs: docs/ARCHITECTURE.md; sin delta de comportamiento)
 e7c65d3c|2026-10-24T23:18:57+02:00|Guard against missing legacy launch storyboard path in old generated Xcode projects|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-d48084cf|2026-10-24T23:18:09+02:00|Restore legacy launch storyboard file for existing Xcode projects while keeping the new splash active|ios-app|87105f26|unverified
-293ccaef|2026-10-24T23:15:32+02:00|Force fresh iOS launch snapshot by renaming storyboard to ReperaLaunchBundle with directly bundled opaque mascot|docs-tests,ios-app,other||unverified
+d48084cf|2026-10-24T23:18:09+02:00|Restore legacy launch storyboard file for existing Xcode projects while keeping the new splash active|ios-app|87105f26|verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
+293ccaef|2026-10-24T23:15:32+02:00|Force fresh iOS launch snapshot by renaming storyboard to ReperaLaunchBundle with directly bundled opaque mascot|docs-tests,ios-app,other||verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
 929dc303|2026-10-24T23:13:47+02:00|Use unambiguous PNG header bytes in packaged launch asset test|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 3cbf45f7|2026-10-24T23:13:16+02:00|Fix native green-only splash by bundling opaque Repera mascot PNG directly and validating compiled app|docs-tests,ios-app,other|53cca1d2 81032145|unverified
 57cca023|2026-10-24T23:07:50+02:00|Validate installed iOS launch storyboard and opaque mascot inside compiled Repera.app|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
