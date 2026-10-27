@@ -208,7 +208,7 @@ internal fun ExercisesTab(
                             value=runCatching { heartSeriesProvider(detail.id) }.getOrDefault(emptyList())
                         }
                         HeartRateCurveSection(detail.id,heartSeriesProvider)
-                        SessionRangeTiles("Frecuencia cardiaca",SessionSportMetrics.heartRange(heart.map {it.second}),"lpm")
+                        SessionRangeTiles("Frecuencia cardiaca",SessionSportMetrics.heartRange(heart.map {it.second}),"lpm",heart=true)
                         if (detail.routePoints.size >= 2) SessionRangeTiles("Altitud",SessionSportMetrics.altitudeRange(detail.routePoints),"m")
                         LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds,
                             detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true,

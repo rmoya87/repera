@@ -183,9 +183,18 @@ private fun applyPlannedOverlay(style:org.maplibre.android.maps.Style,points:Lis
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
                        points: List<WorkoutRoutePoint>, plannedRoute: Boolean,fitCamera:Boolean = true,water:Boolean = false) {
-    val segments = if (plannedRoute) points.zipWithNext().map { (a,b) ->
+    // Vertices enviados al mapa acotados, NUNCA los datos GPS grabados
+    // (Apple f6f13169: maxVertices=450 con stride; evita presion de memoria
+    // al abrir un mapa historico durante una grabacion activa).
+    val rendered = if (!plannedRoute && points.size > 450) {
+        val stride = Math.ceil((points.size - 1) / 449.0).toInt().coerceAtLeast(1)
+        (points.indices step stride).map { points[it] }.let { l ->
+            if (l.last() === points.last()) l else l + points.last()
+        }
+    } else points
+    val segments = if (plannedRoute) rendered.zipWithNext().map { (a,b) ->
         RouteMapModel.Segment(a,b,0xFF0A84FF)
-    } else RouteMapModel.segments(points,water)
+    } else RouteMapModel.segments(rendered,water)
     // Una colección y una capa: no crear miles de capas por cada muestra
     // ni reconstruir un árbol de estilos entero al llegar un punto GPS.
     val features = segments.map { seg ->

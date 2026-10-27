@@ -31,23 +31,32 @@ internal fun SessionSportMetricRow(workout: WorkoutHistoryEntry) {
 }
 
 @Composable
-private fun Tile(title: String, value: String?, unit: String, modifier: Modifier) {
+private fun Tile(title: String, value: String?, unit: String, modifier: Modifier,
+    tint: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.labelSmall)
-        Text(value ?: "—", style = MaterialTheme.typography.titleMedium)
+        Text(value ?: "—", style = MaterialTheme.typography.titleMedium,
+            color = tint)
         Text(unit, style = MaterialTheme.typography.labelSmall)
     }
 }
 
 /** Apple miniStat: Mín / Media / Máx con «—» si falta el dato. Compile-only. */
 @Composable
-internal fun SessionRangeTiles(title: String, range: SessionSportMetrics.Range?, unit: String) {
+internal fun SessionRangeTiles(title: String, range: SessionSportMetrics.Range?, unit: String,
+    heart: Boolean = false) {
+    // Tintes Apple CardioRouteComponents miniStat (9a28ba95): FC Mín=acento
+    // verde, Media=azul, Máx=rojo; Altitud Mín=gris, Media=azul, Máx=acento.
+    val accent = androidx.compose.ui.graphics.Color(0xFF2FA86B)
+    val blue = androidx.compose.ui.graphics.Color(0xFF0A84FF)
+    val red = androidx.compose.ui.graphics.Color(0xFFE5484D)
+    val gray = MaterialTheme.colorScheme.onSurfaceVariant
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.labelMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tile("Mín", range?.min?.toString(), unit, Modifier.weight(1f))
-            Tile("Media", range?.avg?.toString(), unit, Modifier.weight(1f))
-            Tile("Máx", range?.max?.toString(), unit, Modifier.weight(1f))
+            Tile("Mín", range?.min?.let(dev.repera.domain.ReperaNumberFormat::decimal), unit, Modifier.weight(1f), if (heart) accent else gray)
+            Tile("Media", range?.avg?.let(dev.repera.domain.ReperaNumberFormat::decimal), unit, Modifier.weight(1f), blue)
+            Tile("Máx", range?.max?.let(dev.repera.domain.ReperaNumberFormat::decimal), unit, Modifier.weight(1f), if (heart) red else accent)
         }
     }
 }
