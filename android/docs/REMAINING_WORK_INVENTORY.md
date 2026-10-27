@@ -76,3 +76,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Corregida captura generica runCatching al aplicar estilo/capas: esos errores
   ya no activan fallback silencioso. Solo ausencia nativa y fallo de carga de mapa
   notificado por SDK degradan a Canvas. La camara/cartografia nativa siguen abiertas.
+
+## Guardias revisadas 18:56
+- WodTimerStore.update valida blockId ANTES de leer/reasignar el slot; un bloque
+  nuevo en igual indice ya no hereda elapsed. Cambio de sesion elimina pendingEnd
+  ajeno y blockId antiguo; consumePendingEnd usa commit comprobado.4tests nuevos.
+  La politica legacy sin blockId no cambia ni migra datos (00fee1b4 sigue abierta).
+- ExternalHealthDetailSheet: detalle y ruta async, asi como retorno del contract,
+  comprobados con owner+record+identityRevision durable; cierre invalida instancia.
+  Cubre A->B->A y proveedor no cooperativo tras cerrar;3tests del gate puro.
+  Tests de gate no acreditan Activity HC ni ciclo de vida real de dispositivo.

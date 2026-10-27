@@ -17,27 +17,35 @@ import androidx.compose.ui.platform.testTag
  routeReader:(suspend (String)->ExternalRouteRead)? = null,
  onConsentLaunch:((String)->Unit)? = null,
  onClose:()->Unit) {
- var loading by remember(entry.id) {mutableStateOf(true)}
- var detail by remember(entry.id) {mutableStateOf<ExternalHealthDetail?>(null)}
- LaunchedEffect(entry.id) {detail=runCatching {provider(entry)}.getOrNull();loading=false}
- // Ruta GPS de la fuente externa (paridad 6826b9a7): lectura pasiva; el
- // consentimiento por sesion lo lanza el usuario con el boton, nunca solo.
  val ctx=LocalContext.current
+ // Each sheet instance binds owner + record + durable login revision. Closing
+ // invalidates the instance even if a non-cooperative provider returns later.
+ val revision=SessionStore(ctx).identityRevision()
+ val readGate=remember(ownerKey,entry.id,revision) {
+  ExternalHealthReadGate(ownerKey,entry.id,revision)
+ }
+ DisposableEffect(readGate) {onDispose {readGate.invalidate()}}
+ var loading by remember(readGate) {mutableStateOf(true)}
+ var detail by remember(readGate) {mutableStateOf<ExternalHealthDetail?>(null)}
+ LaunchedEffect(readGate) {
+  val result=runCatching {provider(entry)}.getOrNull()
+  if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision())) {
+   detail=result;loading=false
+  }
+ }
  val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
- // ownerKey (cuenta vigente) invalida lectura y consentimiento: si cambia el
- // usuario, todo lo pendiente de la cuenta anterior se descarta.
- var routeRead by remember(entry.id, ownerKey) {mutableStateOf<ExternalRouteRead?>(null)}
- LaunchedEffect(entry.id, ownerKey) {routeRead=runCatching {effectiveRouteReader(entry.id)}.getOrNull()}
- // Guardia de identidad: la ruta consentida solo se pinta si el registro que
- // la pidio sigue siendo el mostrado; si la hoja cambio de entrada (o se
- // recompuso con otra sesion) mientras el sistema mostraba el dialogo, la ruta
- // se descarta, nunca se pinta sobre otra sesion.
- var consentRequestedFor by remember(entry.id) {mutableStateOf<String?>(null)}
+ var routeRead by remember(readGate) {mutableStateOf<ExternalRouteRead?>(null)}
+ LaunchedEffect(readGate) {
+  val result=runCatching {effectiveRouteReader(entry.id)}.getOrNull()
+  if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision())) routeRead=result
+ }
+ var consentRequestedFor by remember(readGate) {mutableStateOf<String?>(null)}
  val consentLauncher=androidx.activity.compose.rememberLauncherForActivityResult(
   androidx.health.connect.client.contracts.ExerciseRouteRequestContract()) { route:androidx.health.connect.client.records.ExerciseRoute? ->
   // Cancelar NO es error: sin ruta nueva se conserva el estado previo (el
   // boton sigue disponible); nunca se sustituye por una ruta anterior.
-  ExternalRouteSheetModel.applyConsentResult(consentRequestedFor,
+  if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision()))
+   ExternalRouteSheetModel.applyConsentResult(consentRequestedFor,
    ExternalRouteSheetModel.consentKey(ownerKey, entry.id),
    route?.toWorkoutRoutePoints())?.let { routeRead = it }
   consentRequestedFor=null
