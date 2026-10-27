@@ -122,8 +122,9 @@ internal fun ActiveWorkoutCard(
     var dropsText by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("")
     }
-    var clustersText by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf("")
+    var clusterReps by remember(active.id, active.index, active.completedSets) {mutableStateOf("")}
+    var pendingClusters by remember(active.id, active.index, active.completedSets) {
+        mutableStateOf<List<Pair<Int,Int>>>(emptyList())
     }
     var clusterRest by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("15")
@@ -413,16 +414,10 @@ internal fun ActiveWorkoutCard(
                         singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (technique == "restpause") {
-                    OutlinedTextField(
-                        value = clustersText,
-                        onValueChange = { clustersText = it.take(40) },
-                        label = { Text("Mini-series en reps (p. ej. 8+5+3)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(
-                        value = clusterRest,
-                        onValueChange = { clusterRest = it.filter(Char::isDigit) },
-                        label = { Text("Descanso entre mini-series (s)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    RestPauseClusterEditor(pendingClusters,clusterReps,clusterRest,busy,
+                        {clusterReps=it},{clusterRest=it}) {reps,rest ->
+                        pendingClusters=pendingClusters+(reps to rest);clusterReps=""
+                    }
                 }
             }
             val parsedDrops = if (technique != "dropset") emptyList() else
@@ -436,18 +431,14 @@ internal fun ActiveWorkoutCard(
                         ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
                     reps to weight
                 }
-            val restSecondsValue = clusterRest.toIntOrNull()
-            val parsedClusters = if (technique != "restpause") emptyList() else
-                clustersText.split('+', ',', ' ').mapNotNull { it.trim().toIntOrNull() }
-                    .map { it to (restSecondsValue ?: 15) }
+            val parsedClusters = if (technique != "restpause") emptyList() else pendingClusters
             val effectiveTechnique = if(warmup || active.durationInput) "normal" else technique
             val validTechnique = when (effectiveTechnique) {
                 "dropset" -> parsedDrops.isNotEmpty() && parsedDrops.size <= 5 &&
                     parsedDrops.all { it.first in 1..10000 &&
                         (it.second == null || it.second!! >= 0) }
                 "restpause" -> parsedClusters.size in 2..8 &&
-                    parsedClusters.all { it.first in 1..10000 } &&
-                    restSecondsValue != null && restSecondsValue in 1..600
+                    parsedClusters.all { it.first in 1..10000 && it.second in 5..30 }
                 else -> true
             }
             Button(

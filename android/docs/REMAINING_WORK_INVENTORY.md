@@ -147,3 +147,11 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Diferencia de conjunto: Android descubre filtros desde catalogo, Apple lista
   casos fijos incluyendo WODs/Deportes (Android conserva rutas propias).
   No cerrar por render ni llamar falta de contraparte a esta diferencia.
+
+## Rest-pause 19:58
+- Reemplazado texto8+5+3+descanso comun por editor clusters individuales con
+  REPS/DESCANSO numericos, boton ancho y lista. Conserva distintos descansos
+  por cluster y valida5..30s como corte. Render360claro y test editando
+ 8reps/15s luego5reps/20s,31s rechazada. No caja dentro de caja.
+- Diferencia ABIERTA: repositorio Android mantiene requisito2..8clusters,
+  Apple puede guardar1; no se cambio validacion persistente en esta unidad.
