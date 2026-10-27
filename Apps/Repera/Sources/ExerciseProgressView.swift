@@ -593,12 +593,20 @@ struct ExerciseHistoryView: View {
     var body: some View {
         Group {
             if sessions.isEmpty {
-                ContentUnavailableView(
-                    "Sin historial",
-                    systemImage: "tray",
-                    description: Text("Las series de este ejercicio aparecerán aquí.")
-                )
-                .foregroundStyle(OG.label2)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        OGScrollablePageTitle(exerciseName)
+                        ContentUnavailableView(
+                            "Sin historial",
+                            systemImage: "tray",
+                            description: Text("Las series de este ejercicio aparecerán aquí.")
+                        )
+                        .foregroundStyle(OG.label2)
+                        .frame(maxWidth: .infinity, minHeight: 260)
+                    }
+                    .padding(.horizontal, OG.pad)
+                    .padding(.top, 8)
+                }
             } else {
                 List {
                     OGScrollablePageTitle(exerciseName).ogScrollingTitleListRow()

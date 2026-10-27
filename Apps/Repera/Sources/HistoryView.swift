@@ -64,12 +64,20 @@ struct HistoryView: View {
         let sections = daySections
         return Group {
             if sections.isEmpty {
-                ContentUnavailableView(
-                    "Sin entrenos",
-                    systemImage: "tray",
-                    description: Text("Las sesiones de Repera y de Apple Salud aparecerán aquí.")
-                )
-                .foregroundStyle(OG.label2)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        OGScrollablePageTitle("Historial")
+                        ContentUnavailableView(
+                            "Sin entrenos",
+                            systemImage: "tray",
+                            description: Text("Las sesiones de Repera y de Apple Salud aparecerán aquí.")
+                        )
+                        .foregroundStyle(OG.label2)
+                        .frame(maxWidth: .infinity, minHeight: 260)
+                    }
+                    .padding(.horizontal, OG.pad)
+                    .padding(.top, 8)
+                }
             } else {
                 List {
                     OGScrollablePageTitle("Historial").ogScrollingTitleListRow()
