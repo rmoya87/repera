@@ -31,7 +31,7 @@ import dev.repera.domain.RotationPlan
     }
     Text("Disponibles",style=MaterialTheme.typography.titleSmall)
     val available=routines.filter {it.id !in current.routineIds && it.weekday==null && it.scheduledDate==null}
-    if(available.isEmpty()) Text("No hay más rutinas. Crea alguna en Diario → Rutinas.")
+    if(available.isEmpty()) Text("No hay más rutinas. Crea alguna desde Añadir entreno → Favoritos.")
     available.forEach { routine ->
         OutlinedButton(enabled=!busy,onClick={onChange(current.copy(routineIds=current.routineIds+routine.id))}) {Text("Añadir ${routine.title}")}
     }
