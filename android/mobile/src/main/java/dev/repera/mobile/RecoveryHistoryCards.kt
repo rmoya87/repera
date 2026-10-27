@@ -74,11 +74,8 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   val rest=vitals.mapNotNull {it.restingHeartRateBpm?.let {v ->ProgressDayPoint(it.day,v)}}
   RecoveryVitalTrend(hrv,physiologyHeight)
   Text("RMSSD de Health Connect no equivale a SDNN de Apple Salud.",style=MaterialTheme.typography.bodySmall)
-  Text("Pulso en reposo",style=MaterialTheme.typography.titleSmall)
-  if(rest.isEmpty()) Text("Sin mediciones de pulso en reposo en el periodo") else DayPointLineChart(rest,valueFormat={"${formatWeight(it)} ppm"})
   val breathing=vitals.mapNotNull {it.respiratoryRateBpm?.let {v ->ProgressDayPoint(it.day,v)}}
-  Text("Respiración",style=MaterialTheme.typography.titleSmall)
-  if(breathing.isEmpty()) Text("Sin mediciones de respiración en el periodo") else DayPointLineChart(breathing,valueFormat={"${formatWeight(it)} resp/min"})
+  RecoveryVitalBars(rest,breathing)
   val oxygen=vitals.mapNotNull {it.oxygenSaturationPercent?.let {v ->ProgressDayPoint(it.day,v)}}
   Text("Saturación de oxígeno",style=MaterialTheme.typography.titleSmall)
   if(oxygen.isEmpty()) Text("Sin mediciones de SpO2 en el periodo") else DayPointLineChart(oxygen,valueFormat={"${formatWeight(it)} %"})

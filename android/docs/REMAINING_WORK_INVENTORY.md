@@ -416,3 +416,16 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  ticks aproximadosAndroid,noSwiftautomatico. No cierres ni validacionnativa.
 - AssembleDebug alcanzado dentrocomandointerrumpido;separadoverdependiente.
  Mobilecompletapost301pendiente;domain504/93Wear8/1anteriores.
+
+## Barras constantes 23:28
+- Post301mobile655/163XMLreales,0errores/fallos/omitidos,4lotes68/76/61/62s.
+ Copia301recuperada baseline+gitam=arbol84d3ec9d57203d4366e08128057996ad6a7d6095.
+- HealthRecovery1000-1090:pulso/respiracionen2barras98dp,radius3dp,
+ cajas12dp/padding10,gap10,escalasindependientes yfecha seleccioncompartida
+ con nearestencadadataset. Tap/drag/accionesaccesibles,nolecturasreales.
+- Diascalendarrealesconhuecos,singledaycentrado,axes0..100+Sin datosvacio.
+ EscalaYAndroid0..max yanchura0.7dia son aproximaciones,noautoscalaSwift.
+- Focalizados10tests/3XMLverdes53s;compilacion59s. PNG360observado,
+ single/vacio yseleccionambas seriesinspeccionadas. Suitecompleta302pendiente.
+- ExtrasSpO2/temperaturaaunlineasredundantes100dp(noportadasen302),
+ latestdaytiles sin cambios.735/70abiertas,no push ni cierre runtime.

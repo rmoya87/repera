@@ -31,4 +31,15 @@ class RecoveryLayoutTest {
   assertEquals(162f,physiologyChartHeightDp(492f,true,true),0.001f)
   assertEquals(128f,physiologyChartHeightDp(300f,true,true),0.001f)
  }
+ @Test fun vitalBarCalendarSpacingAndSharedNearestDay() {
+  val day=java.time.LocalDate.of(2026,10,27)
+  val values=listOf(0L,2L,6L).map {dev.repera.domain.ProgressDayPoint(day.plusDays(it),60.0)}
+  assertEquals(0.5f/7,RecoveryVitalBarGeometry.fraction(values,day),0.001f)
+  assertEquals(2.5f/7,RecoveryVitalBarGeometry.fraction(values,day.plusDays(2)),0.001f)
+  assertEquals(values[1],RecoveryVitalBarGeometry.nearestAt(values,0.4f))
+  assertEquals(values[1],RecoveryVitalBarGeometry.nearest(values,day.plusDays(3)))
+  assertNull(RecoveryVitalBarGeometry.nearest(values,null))
+  assertNull(RecoveryVitalBarGeometry.nearest(emptyList(),day))
+  assertEquals(0.5f,RecoveryVitalBarGeometry.fraction(listOf(values[0]),day),0.001f)
+ }
 }

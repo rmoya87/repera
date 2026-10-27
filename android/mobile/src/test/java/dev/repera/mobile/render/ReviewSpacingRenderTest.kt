@@ -287,4 +287,20 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertEquals(162,composeRule.onNodeWithTag("physiology_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         save(composeRule.onNodeWithTag("physiology_observed_expanded").captureToImage().asAndroidBitmap(),"physiology-observed-expanded.png")
     }
+ @Test fun physiologyBarsShareSelectedDayAcrossIndependentScales() {
+        val day=LocalDate.of(2026,10,21)
+        val rest=listOf(0L to 66.0,2L to 60.0,6L to 58.0).map {dev.repera.domain.ProgressDayPoint(day.plusDays(it.first),it.second)}
+        val breathing=listOf(0L to 16.0,3L to 13.0,6L to 14.0).map {dev.repera.domain.ProgressDayPoint(day.plusDays(it.first),it.second)}
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("physiology_bars_fixture")) {
+            androidx.compose.foundation.layout.Column {
+                dev.repera.mobile.RecoveryVitalBars(rest,breathing)
+                dev.repera.mobile.RecoveryVitalBars(listOf(rest.last()),emptyList())
+            }
+        }}}
+        save(composeRule.onNodeWithTag("physiology_bars_fixture").captureToImage().asAndroidBitmap(),"physiology-bars-observed.png")
+        composeRule.onNodeWithTag("physiology_bar_breathing").performClick()
+        composeRule.onNodeWithText("23 oct 2026: 60 lpm").assertExists()
+        composeRule.onNodeWithText("24 oct 2026: 13 resp/min").assertExists()
+        save(composeRule.onNodeWithTag("physiology_bars_fixture").captureToImage().asAndroidBitmap(),"physiology-bars-selected.png")
+    }
 }
