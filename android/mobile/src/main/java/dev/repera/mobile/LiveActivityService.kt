@@ -19,12 +19,15 @@ internal class LiveActivityService : Service() {
     private val handler=Handler(Looper.getMainLooper())
     private var runtime: LiveActivityRuntime?=null
     private var ticking=false
+    private var binding:LiveServiceBinding?=null
     private val tick=object:Runnable {
         override fun run() {
             val r=runtime ?: return
             if (!ticking) return
-            if (SessionStore(this@LiveActivityService).load()?.uniqueId != r.accountID) {
-                r.stopForAccountChange();stopSelf();return
+            val sessions=SessionStore(this@LiveActivityService)
+            if (binding?.matches(sessions.load()?.uniqueId,sessions.identityRevision(),r.state.gpsSessionID)!=true) {
+                if(binding?.sessionId==r.state.gpsSessionID) r.stopForAccountChange()
+                stopSelf();return
             }
             if (r.state.phase==LiveActivityState.Phase.IDLE || r.state.phase==LiveActivityState.Phase.REVIEW) {
                 stopSelf();return
@@ -37,8 +40,16 @@ internal class LiveActivityService : Service() {
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         val account=intent?.getStringExtra("accountID").orEmpty()
-        if (account.isBlank() || SessionStore(this).load()?.uniqueId!=account) { stopSelf();return START_NOT_STICKY }
-        val r=LiveActivityRuntime.forAccount(this,account);runtime=r
+        if (account.isBlank() || SessionStore(this).load()?.uniqueId!=account) { if(!ticking) stopSelf();return START_NOT_STICKY }
+        val r=LiveActivityRuntime.forAccount(this,account)
+        val sessions=SessionStore(this)
+        val incoming=LiveServiceBinding(account,intent?.getStringExtra("identityRevision"),intent?.getStringExtra("activitySessionID"))
+        if(!incoming.matches(sessions.load()?.uniqueId,sessions.identityRevision(),r.state.gpsSessionID)) {
+            // A stale notification action must not stop or mutate a newer session.
+            if(!ticking) stopSelf()
+            return START_NOT_STICKY
+        }
+        binding=incoming;runtime=r
         val phase=r.state.phase
         if (phase==LiveActivityState.Phase.IDLE || phase==LiveActivityState.Phase.REVIEW) {stopSelf();return START_NOT_STICKY}
         val hasLocation=ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED ||
@@ -66,7 +77,9 @@ internal class LiveActivityService : Service() {
     }
     override fun onDestroy() {
         ticking=false;handler.removeCallbacks(tick)
-        runtime?.let { if(it.state.phase==LiveActivityState.Phase.RECORDING) it.pause() else it.checkpoint(true) }
+        runtime?.takeIf {binding?.sessionId==it.state.gpsSessionID}?.let {
+            if(it.state.phase==LiveActivityState.Phase.RECORDING) it.pause() else it.checkpoint(true)
+        }
         stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy()
     }
     private fun notification(r:LiveActivityRuntime):Notification {
@@ -88,7 +101,10 @@ internal class LiveActivityService : Service() {
             if(paused) add("En pausa")
         }.joinToString(" · ")
         fun action(action:String,code:Int)=PendingIntent.getService(this,code,
-            Intent(this,LiveActivityService::class.java).setAction(action).putExtra("accountID",r.accountID),
+            Intent(this,LiveActivityService::class.java).setAction(action)
+                .setData(android.net.Uri.Builder().scheme("repera-service").authority("live").appendPath(binding?.revision.orEmpty()).appendPath(binding?.sessionId.orEmpty()).build())
+                .putExtra("accountID",r.accountID)
+                .putExtra("identityRevision",binding?.revision).putExtra("activitySessionID",binding?.sessionId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(r.state.sport.title).setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
@@ -103,8 +119,19 @@ internal class LiveActivityService : Service() {
         private const val ACTION_RESUME="dev.repera.live.RESUME"
         private const val ACTION_FINISH="dev.repera.live.FINISH"
         fun startFromVisibleUI(context:Context,accountID:String) {
-            ContextCompat.startForegroundService(context,Intent(context,LiveActivityService::class.java).putExtra("accountID",accountID))
+            val sessions=SessionStore(context)
+            if(sessions.load()?.uniqueId!=accountID) return
+            val runtime=LiveActivityRuntime.forAccount(context,accountID)
+            ContextCompat.startForegroundService(context,Intent(context,LiveActivityService::class.java).putExtra("accountID",accountID)
+                .putExtra("identityRevision",sessions.identityRevision()).putExtra("activitySessionID",runtime.state.gpsSessionID))
         }
         fun stop(context:Context) {context.stopService(Intent(context,LiveActivityService::class.java))}
     }
+}
+
+/** Notification actions are scoped to the original login and activity. */
+internal data class LiveServiceBinding(val owner:String,val revision:String?,val sessionId:String?) {
+    fun matches(currentOwner:String?,currentRevision:String?,currentSession:String?):Boolean =
+        !revision.isNullOrBlank() && !sessionId.isNullOrBlank() && owner==currentOwner &&
+            revision==currentRevision && sessionId==currentSession
 }
