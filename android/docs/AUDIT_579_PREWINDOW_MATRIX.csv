@@ -499,26 +499,26 @@ e1d55bed|2026-10-23T10:27:35+02:00|test(docs): proteger programación unificada 
 b3e3a714|2026-10-23T10:23:33+02:00|fix(ios): extender gris de Inicio e integrar fechas en Tu programación|ios-app||partial 14:44: gris Inicio + fechas en Tu programacion — verificar DiaryTab Android (rama diario pendiente)
 55f013a6|2026-10-23T10:13:58+02:00|fix(charts): mantener tipo Int en escalas X de ejemplos|docs-tests,ios-app||verified-n/a 14:44: tipado Int escalas Swift
 8099d3ad|2026-10-23T10:12:46+02:00|test(docs): cubrir presentación compacta, gráficas y objetivos de Inicio|docs-tests|854c7cf7 c8fbc133|verified-n/a 14:44: tests docs XCTest iOS
-6b3b4480|2026-10-23T10:11:03+02:00|fix(progress): respetar márgenes en ejemplos de recuperación y ejercicio|ios-app||unverified
-b44db55f|2026-10-23T10:10:25+02:00|fix(ios): alinear gráficos de ejemplo dentro de sus ejes|ios-app||unverified
-6002e615|2026-10-23T10:09:35+02:00|fix(ios): ajustar técnicas a ancho completo, barras e interfaz muscular|ios-app||unverified
-96de6679|2026-10-23T09:39:48+02:00|fix(ios): no alterar Rx al mostrar series en edición de historial|docs-tests,ios-app|30d880b0|unverified
-8ce12f30|2026-10-23T09:37:34+02:00|fix(ios): restaurar diseño compacto de Play y edición WOD|docs-tests,ios-app||unverified
-2a2bb3cf|2026-10-23T09:26:15+02:00|fix(ios): incluir WODResultInlineEditor en WorkoutView ya compilado|docs-tests,ios-app||unverified
-29999d3b|2026-10-23T09:00:31+02:00|refactor(progress): aclarar acceso libre al mapa muscular y estado vacío|ios-app|33392370 4f0ad84b 6a26fd06 a00f563c|unverified
+6b3b4480|2026-10-23T10:11:03+02:00|fix(progress): respetar márgenes en ejemplos de recuperación y ejercicio|ios-app||partial 14:47: margenes ejemplos — estilo iOS
+b44db55f|2026-10-23T10:10:25+02:00|fix(ios): alinear gráficos de ejemplo dentro de sus ejes|ios-app||partial 14:47: alinear graficos ejemplo en ejes — estilo iOS; previews Android existen (ProgressExerciseTrendPreview)
+6002e615|2026-10-23T10:09:35+02:00|fix(ios): ajustar técnicas a ancho completo, barras e interfaz muscular|ios-app||partial 14:47: tecnicas ancho completo/interfaz muscular — estilo iOS
+96de6679|2026-10-23T09:39:48+02:00|fix(ios): no alterar Rx al mostrar series en edición de historial|docs-tests,ios-app|30d880b0|verified-n/a 14:47: no alterar Rx al mostrar series — edicion historial SwiftUI; Android FinishedWorkoutEditor propio
+8ce12f30|2026-10-23T09:37:34+02:00|fix(ios): restaurar diseño compacto de Play y edición WOD|docs-tests,ios-app||partial 14:47: diseño compacto Play/edicion WOD — estilo iOS
+2a2bb3cf|2026-10-23T09:26:15+02:00|fix(ios): incluir WODResultInlineEditor en WorkoutView ya compilado|docs-tests,ios-app||verified-n/a 14:47: compilacion Xcode targets iOS
+29999d3b|2026-10-23T09:00:31+02:00|refactor(progress): aclarar acceso libre al mapa muscular y estado vacío|ios-app|33392370 4f0ad84b 6a26fd06 a00f563c|verified-ported 14:47: mapa muscular libre + estado vacio — MuscleBalanceCard accesible + "Sin series en este periodo"
 20245174|2026-10-23T08:58:33+02:00|test(progress): acotar comprobación a vista de recuperación|docs-tests|51e96612 82858176 ae014cd1 fd1a86cd|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 3d66dabd|2026-10-23T08:58:10+02:00|test(progress): proteger previews Pro, gráficos vacíos y equilibrio gratis|docs-tests|2d9ee012 42e42f8c 51e96612 82858176|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 75602c8f|2026-10-23T08:57:33+02:00|docs(progress): documentar previews Pro y equilibrio muscular gratuito|docs-tests|17287def 42e42f8c 4f0ad84b dad6e051|verified-n/a 10:46 (solo docs: docs/FEATURES.md; sin delta de comportamiento)
-10841411|2026-10-23T08:56:28+02:00|fix(progress): graficas de ejercicio sin datos y vista de ejemplo gratuita|ios-app|66a1297e|unverified
-8c19f866|2026-10-23T08:55:29+02:00|Merge PR #45: persist Play results and improve WOD scan|||unverified
-a5294760|2026-10-23T08:55:11+02:00|feat(recovery): mostrar ejemplos Pro y ejes cuando no hay historial|ios-app||unverified
+10841411|2026-10-23T08:56:28+02:00|fix(progress): graficas de ejercicio sin datos y vista de ejemplo gratuita|ios-app|66a1297e|verified-ported 14:47: graficas sin datos + ejemplo gratuita — ProgressExerciseTrendPreview (datos ficticios marcados)
+8c19f866|2026-10-23T08:55:29+02:00|Merge PR #45: persist Play results and improve WOD scan|||verified-ported 14:47: PR45 persist Play results + WOD scan — BoardScanImport/BoardScanScreen + wodResults persistentes
+a5294760|2026-10-23T08:55:11+02:00|feat(recovery): mostrar ejemplos Pro y ejes cuando no hay historial|ios-app||verified-ported 14:47: ejemplos Pro + ejes sin historial — RecoveryPhysiologyPreview (Ejemplo ficticio)
 9046e515|2026-10-23T08:54:20+02:00|test(scan): update photo regression expectations to canonical English sport names|packages|8a9b3b23|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-436013f6|2026-10-23T08:53:51+02:00|feat(progress): liberar equilibrio muscular y mostrar graficas de ejemplo y vacias|ios-app|4f0ad84b|unverified
+436013f6|2026-10-23T08:53:51+02:00|feat(progress): liberar equilibrio muscular y mostrar graficas de ejemplo y vacias|ios-app|4f0ad84b|verified-ported 14:47: equilibrio muscular liberado + graficas ejemplo/vacias — MuscleBalanceCard + previews
 cd99864c|2026-10-23T08:53:27+02:00|test(play): cover inline AMRAP score, per-exercise sets and immediate persistence|docs-tests|2366f80e 3e7e9760 6aa54ee0 8a9b3b23|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-92d6f870|2026-10-23T08:52:59+02:00|fix(play): combine latest per-exercise entry with non-modal persistent block scores|ios-app||unverified
+92d6f870|2026-10-23T08:52:59+02:00|fix(play): combine latest per-exercise entry with non-modal persistent block scores|ios-app||verified-ported 14:47: ultima entrada por ejercicio + scores bloque persistentes — ExerciseSessionAppearance wodResults por bloque
 55acbf90|2026-10-23T08:52:22+02:00|fix(play-scan): integrate BoardScanLiteParserTests.swift on current main|packages||verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-b0fa14ea|2026-10-23T08:52:18+02:00|fix(play-scan): integrate BoardScanLiteParser.swift on current main|packages||unverified
-15faba23|2026-10-23T08:52:14+02:00|fix(play-scan): integrate BoardImportParser.swift on current main|packages||unverified
+b0fa14ea|2026-10-23T08:52:18+02:00|fix(play-scan): integrate BoardScanLiteParser.swift on current main|packages||verified-ported 14:47: BoardScanLiteParser integrado — dominio Android BoardScanLiteParser.kt
+15faba23|2026-10-23T08:52:14+02:00|fix(play-scan): integrate BoardImportParser.swift on current main|packages||verified-ported 14:47: BoardImportParser integrado — BoardScanImport.kt mobile
 9d0cc384|2026-10-23T08:52:11+02:00|fix(play-scan): integrate HistoryView.swift on current main|ios-app||unverified
 44f0939a|2026-10-23T08:52:07+02:00|feat(play): add inline WOD result fields|ios-app|3e7e9760 6aa54ee0|unverified
 af41164d|2026-10-23T08:52:03+02:00|fix(play-scan): integrate ReperaStore.swift on current main|ios-app||unverified
