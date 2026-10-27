@@ -298,7 +298,7 @@ enum LiveSport: String, CaseIterable, Identifiable {
     }
 }
 
-struct LiveSavedRoute: Identifiable, Codable {
+struct LiveSavedRoute: Identifiable, Codable, Sendable {
     var id: UUID
     var title: String
     var points: [WorkoutRoutePoint]
