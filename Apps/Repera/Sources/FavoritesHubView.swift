@@ -5,6 +5,10 @@ import SwiftUI
 struct FavoritesHubView: View {
     @Environment(ReperaStore.self) private var store
     var onOpenedWorkout: () -> Void
+    /// Desde el + del calendario se reutiliza planificando para ese día.
+    /// Desde el hub general, seleccionar sigue iniciando la sesión.
+    var targetDate: Date? = nil
+    var onScheduledWorkout: (() -> Void)? = nil
 
     @State private var editing: Routine?
     @State private var isCreating = false
@@ -43,11 +47,16 @@ struct FavoritesHubView: View {
             }
 
             if !store.favoriteRoutines.isEmpty {
-                Section("Entrenos") {
+                Section {
                     ForEach(store.favoriteRoutines) { routine in
                         Button {
-                            store.startSession(from: routine)
-                            onOpenedWorkout()
+                            if let date = targetDate {
+                                store.assignRoutine(routine.id, toDate: date)
+                                onScheduledWorkout?()
+                            } else {
+                                store.startSession(from: routine)
+                                if store.hasActiveSession { onOpenedWorkout() }
+                            }
                         } label: {
                             Label {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -75,6 +84,12 @@ struct FavoritesHubView: View {
                             .tint(OG.blue)
                             .accessibilityLabel("Editar")
                         }
+                    }
+                } header: {
+                    Text("Entrenos")
+                } footer: {
+                    if targetDate != nil {
+                        Text("Selecciona un favorito para añadir una copia al día elegido sin cambiar la plantilla original.")
                     }
                 }
             }
