@@ -517,10 +517,10 @@ object BoardScanLiteParser {
      * sin pisar nombres canónicos (un alias sí puede desplazar a un custom). */
     private fun catalogIndex(catalog: List<CatalogExercise>): Map<String, CatalogExercise> {
         val index = mutableMapOf<String, CatalogExercise>()
-        for (ex in catalog) if (!ex.isCustom) index[norm(ex.name)] = ex
-        for (ex in catalog) if (ex.isCustom) index.putIfAbsent(norm(ex.name), ex)
+        for (ex in catalog) if (!ex.isCustom && !ex.isCatalogArchived) index[norm(ex.name)] = ex
+        for (ex in catalog) if (ex.isCustom && !ex.isCatalogArchived) index.putIfAbsent(norm(ex.name), ex)
         for (ex in catalog) {
-            if (ex.isCustom) continue
+            if (ex.isCustom || ex.isCatalogArchived) continue
             for (alias in ex.searchAliases) {
                 val key = norm(alias)
                 if (key.isEmpty()) continue

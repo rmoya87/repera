@@ -5501,6 +5501,37 @@
    "sportTag": "CrossFit"
   },
   {
+   "name": "Burpee to target",
+   "muscleGroup": "Pecho",
+   "catalogId": null,
+   "detailDescription": "BTT: burpee seguido de salto vertical para tocar una diana elevada.",
+   "equipment": "Diana elevada",
+   "instructions": [
+    "Realiza un burpee con el pecho al suelo.",
+    "Incorpórate y salta verticalmente.",
+    "Toca la diana con una o ambas manos según el WOD."
+   ],
+   "isCustom": false,
+   "isFavorite": false,
+   "primaryRegions": [
+    "chest",
+    "quadriceps"
+   ],
+   "secondaryMuscles": [
+    "chest",
+    "shoulders",
+    "quads",
+    "core"
+   ],
+   "secondaryRegions": [
+    "deltoids",
+    "abs"
+   ],
+   "targetMuscle": "cardiovascular system",
+   "bodyPart": "full body",
+   "sportTag": "CrossFit"
+  },
+  {
    "name": "Burpee box jump over",
    "muscleGroup": "Piernas",
    "catalogId": null,
@@ -8834,5 +8865,10 @@
    "bodyPart": "upper legs",
    "sportTag": "Movilidad"
   }
- ]
+ ],
+ "post_bd4_additions": {
+  "e048d814": [
+   "Burpee to target"
+  ]
+ }
 }

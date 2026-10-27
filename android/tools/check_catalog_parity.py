@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verifica android/mobile/src/main/assets/catalog_seed.json contra la referencia
 iOS congelada (catalog_reference_ios.json) y las reglas de identidad:
-- 288 entradas, mismo orden y nombres que la referencia iOS.
+- 289 entradas, mismo orden y nombres que la referencia iOS.
 - Campos de contenido iguales a iOS, salvo Movilidad/Hyrox (contenido de
   mobility_seed.json/hyrox_seed.json ya enviado).
 - Ids: los 196 del registry preservados; mobility-*/hyrox-* = UUID v3
@@ -27,7 +27,7 @@ shipped = mob | hyrox
 CONTENT = ['muscleGroup','catalogId','detailDescription','equipment','instructions',
            'primaryRegions','secondaryMuscles','secondaryRegions','targetMuscle','bodyPart','sportTag']
 errors = []
-if len(seed) != 288: errors.append(f'seed tiene {len(seed)} entradas, esperadas 288')
+if len(seed) != 289: errors.append(f'seed tiene {len(seed)} entradas, esperadas 289')
 if [e['name'] for e in seed] != [e['name'] for e in ref]:
     errors.append('el orden/nombres del seed no coinciden con la referencia iOS')
 ids = [e['id'] for e in seed]

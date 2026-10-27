@@ -972,7 +972,7 @@ internal fun RoutineCreatorCard(
         exercises.asSequence()
             .filter { kind != "strength" || it.supportsBasicInput }
             .filter { candidate -> chosen.none { it.id == candidate.id } }
-            .map { entry -> entry to ExerciseAliasSearch.score(search, entry.name, aliases, entry.disciplineTags.joinToString(" ")) }
+            .map { entry -> entry to ExerciseAliasSearch.score(search, entry.name, aliases, entry.disciplineTags.joinToString(" "), entry.searchAliases) }
             .filter { it.second >= 0 }
             .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
                 .thenBy { it.first.name })

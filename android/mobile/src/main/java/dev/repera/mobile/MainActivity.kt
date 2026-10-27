@@ -2336,6 +2336,8 @@ data class StateOverview(
                         secondaryMuscles = ex.optJSONArray("secondaryMuscles")?.let { arr ->
                             (0 until arr.length()).map { arr.getString(it) }
                         }.orEmpty(),
+                        searchAliases = PublishedCatalogAliases.read(ex),
+                        isCatalogArchived = ex.optBoolean("isCatalogArchived"),
                         isFavorite = ex.optBoolean("isFavorite", false),
                         detailDescription = ex.optString("detailDescription")
                             .takeIf { it.isNotBlank() },
@@ -2516,7 +2518,9 @@ data class ExerciseEntry(
     val instructions: List<String> = emptyList(),
     val isCustom: Boolean = false,
     val isFavorite: Boolean = false,
-    val mobilityHold:Boolean = false
+    val mobilityHold:Boolean = false,
+    val searchAliases: List<String> = emptyList(),
+    val isCatalogArchived: Boolean = false
 ) {
     /** Nombre visible como en Apple: SportExerciseNames.displayName canoniza
      * CrossFit/Halterofilia al inglés sin tocar el nombre persistido ni el ID. */

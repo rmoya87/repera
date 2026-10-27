@@ -143,7 +143,7 @@ internal fun ExercisesTab(
             .asSequence()
             .filter { exerciseFilter != "Favoritos" || it.isFavorite }
             .filter { ExerciseCatalogFilters.matches(it, exerciseFilter) }
-            .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases, it.disciplineTags.joinToString(" ")) }
+            .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases, it.disciplineTags.joinToString(" "), it.searchAliases) }
             .filter { it.second >= 0 }
             .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
                 .thenBy { it.first.name })

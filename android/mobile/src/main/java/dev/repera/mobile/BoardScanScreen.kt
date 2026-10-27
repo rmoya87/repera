@@ -94,7 +94,8 @@ internal fun BoardScanScreen(
                 val catalog = (overview?.exerciseEntries ?: emptyList())
                     .map {
                         CatalogExercise(it.id, it.name,
-                            SportExerciseNames.searchAliases(it.name), it.isCustom)
+                            (SportExerciseNames.searchAliases(it.name) + it.searchAliases).distinct(),
+                            it.isCustom, it.isCatalogArchived)
                     }
                 val aliases = ExerciseSearchAssets.load(context)
                 val parsed = withContext(Dispatchers.Default) {

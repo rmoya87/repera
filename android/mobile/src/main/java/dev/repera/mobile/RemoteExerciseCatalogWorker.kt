@@ -162,6 +162,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             val exercise = current ?: JSONObject()
                 .put("id", id).put("isCustom", false).put("isFavorite", false)
             val original = exercise.toString()
+            PublishedCatalogAliases.merge(exercise, remote)
             exercise.put("name", publishedName)
             exercise.put("_remoteCatalogKey", key)
             exercise.put("isCatalogArchived", !remote.optBoolean("is_active", true))

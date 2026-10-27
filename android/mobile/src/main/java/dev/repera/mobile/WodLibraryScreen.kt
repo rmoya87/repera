@@ -17,6 +17,11 @@ import dev.repera.domain.CatalogWods
 internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String>,onToggle:(String)->Unit,onBack:()->Unit,onPlay:(String,String)->Unit = {_,_->},canPlay:Boolean=false,hasActiveSession:Boolean=false,activeRequestId:String?=null,history:Map<String,List<WodLibraryResult>> = emptyMap(),exercises:List<ExerciseEntry> = emptyList(),onExercise:(String)->Unit = {},exerciseDetail:(@Composable (ExerciseEntry,()->Unit)->Unit)? = null) {
     val context=androidx.compose.ui.platform.LocalContext.current
     val aliases=remember(context) {ExerciseSearchAssets.load(context)}
+    val packaged=remember(context) {
+        context.assets.open("catalog_seed.json").bufferedReader().use {
+            packagedWodExercises(org.json.JSONArray(it.readText()))
+        }
+    }
     var sort by rememberSaveable(accountId) {mutableStateOf("Alfabético")}
     var query by rememberSaveable(accountId) {mutableStateOf("")}
     var selectedId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
@@ -58,7 +63,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             }
             item {Text("Movimientos",style=MaterialTheme.typography.titleLarge)}
             items(selected.movements) {move ->
-                val exercise=remember(move.name,exercises) {resolveWodExercise(move.name,exercises,aliases)}
+                val exercise=remember(move.name,exercises) {resolveWodExercise(move.name,exercises,aliases,packaged,notes=move.notes)}
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 WodExerciseThumbnail(exercise,aliases)
                 Column {
@@ -74,7 +79,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
                 listOf("Alfabético","Músculo").forEach {mode ->FilterChip(selected=sort==mode,onClick={sort=mode},label={Text(mode)})}
             }}
             if(matches.isEmpty() && query.isNotBlank()) {
-                val fallback=exercises.map {it to dev.repera.domain.ExerciseAliasSearch.score(query,it.name,aliases,it.disciplineTags.joinToString(" "))}
+                val fallback=exercises.map {it to dev.repera.domain.ExerciseAliasSearch.score(query,it.name,aliases,it.disciplineTags.joinToString(" "), it.searchAliases)}
                     .filter {it.second>=0}.sortedByDescending {it.second}.map {it.first}
                 item {Text("Ejercicios",style=MaterialTheme.typography.titleLarge)}
                 if(fallback.isEmpty()) item {Text("Sin ejercicios coincidentes")}

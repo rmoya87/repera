@@ -613,9 +613,9 @@ object CrossFitGlossary {
         // abreviaturas inequívocas usar la ficha oficial empaquetada COMO
         // ÚLTIMO RECURSO. El llamante reparará después el enlace persistido.
         if (isKnownAbbreviation) {
-            packagedFallback.firstOrNull {
+            return packagedFallback.firstOrNull {
                 !it.isCustom && !it.isCatalogArchived && normalize(it.name) == normalize(canonical)
-            }?.let { return it }
+            }
         }
         if (assigned != null) return assigned
         return catalog.firstOrNull {
