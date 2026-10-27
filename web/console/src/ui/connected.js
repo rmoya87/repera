@@ -467,25 +467,33 @@ app.addEventListener('click',async event=>{
   }
  }
  if(handleEditorClick(event))return;
- const tab=event.target.closest('[data-workspace]');if(tab){activeTab=tab.dataset.workspace;render();return;}
+ const tab=event.target.closest('[data-workspace]');if(tab){activeTab=tab.dataset.workspace;businessDialog='';setWorkspaceRoute();render();return;}
  const mode=event.target.closest('[data-view]');if(mode){view=mode.dataset.view;error=notice='';render();return;}
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
- if(action==='detail-client'){selectedClientId=actionable.dataset.id;clientSection='training';sharedHistory=[];activeTab='clients';render();try{sharedHistory=await auth.sharedClientHistory({orgId:selectedOrg,clientId:selectedClientId});}catch(e){error='El historial privado no está disponible para este profesional.';}render();return;}
- if(action==='back-clients'){sharedHistory=[];selectedClientId=null;activeTab='clients';render();return;}
+ const trainer=trainerActive();
+ const setting=event.target.closest('[data-settings-section]');if(setting){settingsSection=setting.dataset.settingsSection==='plan'?'plan':'profile';render();return;}
+ if(action==='close-business-dialog'||trainer&&(action==='back-classes'||action==='back-groups')){businessDialog='';selectedClassId=null;selectedGroupId=null;render();return;}
+ if(action==='new-date-appointment'&&trainer){dialogDay=actionable.dataset.day;businessDialog='new-appointment';render();return;}
+ if(action==='calendar-today'){calendarMonth='';render();return;}
+ if(action==='add-planning'&&trainer){if(actionable.dataset.id){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;}businessDialog='bulk';render();return;}
+ if(action==='delete-session'&&!busy){if(!confirm('¿Eliminar este entrenamiento programado? No se borrarán actividades ya realizadas por el deportista.'))return;busy=true;render();try{await auth.cancelProfessionalSession(actionable.dataset.id);await loadSelectedOrg();notice='Entrenamiento retirado de la planificación.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
+ if(action==='end-client'&&trainer&&!busy){const client=clients.find(c=>c.id===actionable.dataset.id);if(!client)return;if(!confirm('Confirma que el contrato profesional ya ha vencido. La cuenta personal del deportista y sus suscripciones independientes se conservarán.'))return;busy=true;render();try{await auth.updateClientProfile({orgId:selectedOrg,id:client.id,name:client.name,email:client.email,phone:client.phone||'',notes:client.notes||'',avatar:client.avatar_url||'',status:'cancelled'});await loadSelectedOrg();notice='Relación profesional finalizada; la cuenta personal no se ha cancelado.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
+ if(action==='detail-client'){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;clientSection='training';sharedHistory=[];activeTab='clients';businessDialog='';setWorkspaceRoute();render();try{sharedHistory=await auth.sharedClientHistory({orgId:selectedOrg,clientId:selectedClientId});}catch(e){error='El historial privado no está disponible para este profesional.';}render();return;}
+ if(action==='back-clients'){sharedHistory=[];selectedClientId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;activeTab='clients';setWorkspaceRoute();render();return;}
  if(action==='client-section'){clientSection=actionable.dataset.section||'training';render();return;}
- if(action==='detail-group'){selectedGroupId=actionable.dataset.id;selectedClassId=null;activeTab='services';render();return;}
+ if(action==='detail-group'){selectedGroupId=actionable.dataset.id;selectedClassId=null;if(trainer)businessDialog='group';else activeTab='services';render();return;}
  if(action==='back-groups'){selectedGroupId=null;activeTab='services';render();return;}
- if(action==='detail-occurrence'){selectedGroupId=null;classEditorId=null;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
+ if(action==='detail-occurrence'){selectedGroupId=null;classEditorId=null;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else activeTab='services';render();return;}
  if(action==='back-classes'){classEditorId=null;selectedClassId=null;activeTab='services';render();return;}
- if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab='services';render();return;}
+ if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab=trainer?'overview':'services';setWorkspaceRoute();render();return;}
  if(action==='calendar-mode'){classMode=actionable.dataset.mode==='list'?'list':'calendar';render();return;}
  if(action==='calendar-prev'||action==='calendar-next'){
   const first=(calendarMonth?new Date(calendarMonth+'-01T12:00:00'):new Date());
   first.setDate(1);first.setMonth(first.getMonth()+(action==='calendar-next'?1:-1));
   calendarMonth=first.toLocaleDateString('sv-SE').slice(0,7);render();return;
  }
- if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
- if(action==='plan-client'){planningClientId=actionable.dataset.id;activeTab='planning';selectedTemplateId=null;editingSessionId=null;render();return;}
+ if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else activeTab='services';render();return;}
+ if(action==='plan-client'){planningClientId=actionable.dataset.id;selectedClientId=planningClientId;clientSection='training';activeTab=trainer?'clients':'planning';selectedTemplateId=null;editingSessionId=null;setWorkspaceRoute();render();return;}
  if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='services';classMode='list';notice='Selecciona una clase para inscribir a este deportista con un bono válido.';render();return;}
  if(action==='refresh-enrollments'&&!busy&&selectedOrg){
   busy=true;error='';render();
@@ -542,8 +550,8 @@ app.addEventListener('click',async event=>{
   busy=true;render();try{await auth.removeManagedClient(actionable.dataset.id);await loadSelectedOrg();notice='Participante retirado y crédito devuelto.';}catch(e){error=e.message;}finally{busy=false;render();}return;
  }
  if(action==='new-workout'){selectedTemplateId=null;editingSessionId=null;render();return;}
- if(action==='use-template'){selectedTemplateId=actionable.dataset.id;editingSessionId=null;activeTab='planning';render();return;}
- if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;activeTab='planning';render();return;}
+ if(action==='use-template'){selectedTemplateId=actionable.dataset.id;editingSessionId=null;clientSection='training';activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();return;}
+ if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;const session=professionalSessions.find(s=>s.id===editingSessionId);if(trainer&&session){selectedClientId=session.client_id;planningClientId=selectedClientId;clientSection='training';}activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();return;}
  if(action==='accept-invitation'&&!busy){busy=true;error=notice='';render();try{await auth.acceptInvitation(actionable.dataset.id);await reload();notice='Invitación aceptada. Tu relación con el profesional ya consta en Supabase.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
@@ -619,9 +627,9 @@ app.addEventListener('change',async event=>{
   const imageLabel=f.querySelector('[data-image-label]');if(imageLabel)imageLabel.textContent=event.target.value==='personal_trainer'?'Foto del entrenador':'Logotipo del gimnasio';
   return;
  }
- if(!['connected-org-select','workspace-org-select'].includes(event.target.id))return;selectedOrg=event.target.value||null;selectedClientId=null;selectedClassId=null;selectedGroupId=null;planningClientId=null;sharedHistory=[];activeTab='overview';selectedTemplateId=null;editingSessionId=null;error='';clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];
+ if(!['connected-org-select','workspace-org-select'].includes(event.target.id))return;selectedOrg=event.target.value||null;businessDialog='';selectedClientId=null;selectedClassId=null;selectedGroupId=null;planningClientId=null;sharedHistory=[];activeTab='overview';selectedTemplateId=null;editingSessionId=null;error='';clients=[];occurrences=[];passes=[];bookings=[];professionalSessions=[];templates=[];
  if(selectedOrg){try{await loadSelectedOrg();}catch(e){error=e.message;}}
- render();});
+ setWorkspaceRoute();render();});
 app.addEventListener('submit',async event=>{
  const platformForm=event.target.closest('form[data-admin-form]');
  if(platformForm){
@@ -850,8 +858,9 @@ app.addEventListener('submit',async event=>{
  }catch(e){error=e.message||'No se pudo completar la operación';}
  finally{busy=false;render();}
 });
+window.addEventListener('popstate',async()=>{const old=selectedOrg;restoreWorkspaceRoute();businessDialog='';if(old!==selectedOrg&&user){try{await loadSelectedOrg();}catch(e){error=e.message;}}render();});
 async function boot(){
- busy=true;render();
+ restoreWorkspaceRoute();busy=true;render();
  try{
   if(await auth.acceptRecoveryFragment(globalThis.location?.hash||'')){
    history.replaceState(null,'',location.pathname+location.search);view='password';
