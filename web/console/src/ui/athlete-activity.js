@@ -1,3 +1,4 @@
+import {nativeExerciseArt} from './exercise-art-map.js';
 // Athlete detail is intentionally presentation-only: show user-facing training
 // concepts, never the raw internal IDs, favorite flags or schema field names.
 const e=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
@@ -7,28 +8,14 @@ const fmtDate=v=>v?new Date(v).toLocaleDateString('es-ES',{day:'numeric',month:'
 const fmtClock=v=>v?new Date(v).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'}):'';
 const amount=(n,unit)=>n==null||n===''?'—':(Number.isFinite(Number(n))?new Intl.NumberFormat('es-ES',{maximumFractionDigits:2}).format(Number(n)):String(n))+(unit?' '+unit:'');
 const duration=secs=>{const s=Number(secs);if(!Number.isFinite(s)||s<0)return '—';return Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0');};
-const artworkRules=[
- ['wall ball','art_cf_wall_ball.jpg'],['balon pared','art_cf_wall_ball.jpg'],
- ['thruster','art_cf_thruster.jpg'],['burpee','art_cf_burpee.jpg'],
- ['dominada','art_dominadas.jpg'],['pull up','art_dominadas.jpg'],['pull-up','art_dominadas.jpg'],
- ['peso muerto','art_peso_muerto.jpg'],['deadlift','art_peso_muerto.jpg'],
- ['sentadilla frontal','art_sentadilla_frontal.jpg'],['front squat','art_sentadilla_frontal.jpg'],
- ['sentadilla','art_sentadilla.jpg'],['squat','art_sentadilla.jpg'],
- ['press banca','art_press_banca.jpg'],['bench press','art_press_banca.jpg'],
- ['remo con barra','art_remo_barra.jpg'],['barbell row','art_remo_barra.jpg'],
- ['wall walk','art_cf_wall_walk.jpg'],['box jump','art_cf_box_jump.jpg'],
- ['double under','art_cf_du.jpg'],['salto comba','art_cf_du.jpg'],
- ['ski erg','art_cf_skierg.jpg'],['skierg','art_cf_skierg.jpg'],
- ['remo erg','art_remo_erg.jpg'],['rowing','art_remo_erg.jpg'],
- ['bike','art_bici.jpg'],['bici','art_bici.jpg'],
- ['curl martillo','art_curl_martillo.jpg'],['zancadas','art_cf_walk_lunge.jpg'],
- ['lunge','art_cf_walk_lunge.jpg'],['air squat','art_gy_air_squat.jpg']
-];
-const ascii=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const ascii=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const exactArtNames = new Map(Object.entries(nativeExerciseArt).map(([name,file])=>[ascii(name),file]));
+// Exact match to an artwork verified in the native iOS catalog. Never display a
+// different exercise based on a substring or vague muscle-group similarity.
 function exerciseArt(name){
- const lower=ascii(name);
- const hit=artworkRules.find(([needle])=>lower.includes(needle));
- return hit?'../assets/exercises/'+hit[1]:null;
+ const key=ascii(name);
+ const art=exactArtNames.get(key);
+ return art?'../assets/exercises/'+art+'.jpg':null;
 }
 const setLine=(set,i,planned=false)=>{
  const reps=planned?set.targetReps??set.reps:set.reps??set.targetReps;
