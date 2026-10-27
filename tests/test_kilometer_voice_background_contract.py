@@ -87,6 +87,29 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("pitch: 67", LIVE)
         self.assertIn("center3DMap(on: user)", LIVE)
 
+    def test_metrics_header_stays_fixed_during_recording_and_pause(self):
+        # El texto no cambia de anchura ni genera una tercera línea al aparecer
+        # Finalizar; en ambas fases Pausa/Play comparte la misma posición.
+        header = LIVE.split("private var metricsView: some View", 1)[1].split(
+            "private var metricsTrailingActions: some View", 1
+        )[0]
+        self.assertIn(".frame(width: 32)", header)
+        self.assertIn(".lineLimit(2)", header)
+        self.assertIn(".minimumScaleFactor(0.75)", header)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", header)
+        self.assertIn(".fixedSize(horizontal: true, vertical: false)", header)
+        actions = LIVE.split("private var metricsTrailingActions: some View", 1)[1].split(
+            "private var selectionCircleBackground: Color", 1
+        )[0]
+        self.assertIn("HStack(spacing: 8)", actions)
+        self.assertEqual(actions.count("metricsActionPlaceholder\n"), 4)
+        self.assertIn("if recorder.phase == .recording {", actions)
+        self.assertEqual(actions.count("if recorder.phase == .paused {"), 2)
+        self.assertIn("Color.clear", actions)
+        self.assertIn(".frame(width: 44, height: 44)", actions)
+        self.assertIn(".accessibilityHidden(true)", actions)
+        self.assertIn(".allowsHitTesting(false)", actions)
+
     def test_native_background_modes_are_present_in_source_and_xcodegen(self):
         info = plistlib.loads((ROOT / "Apps/Repera/Resources/Info.plist").read_bytes())
         self.assertTrue({"location", "audio"}.issubset(set(info["UIBackgroundModes"])))
