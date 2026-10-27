@@ -115,7 +115,7 @@ const palette=['#3b3b3d','#178247','#e5bd32','#e9842a','#df4848'];
 function silhouette(workouts){
  const load=loadByMuscle(workouts),inert=new Set(['head','hair','neck','hands','feet','knees','ankles']);
  const view=(name,model)=>{
-  const box=String(model.vb).trim().split(/[,\\s]+/).map(Number);
+  const box=String(model.vb).trim().split(/\s+/).map(Number);
   if(box.length!==4||box.some(n=>!Number.isFinite(n)))return '';
   const shapes=Object.entries(model.p||{}).map(([slug,paths])=>{
    const level=inert.has(slug)?0:bodyLevel(load[slug]||0);
