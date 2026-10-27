@@ -20,6 +20,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  BoxWithConstraints(Modifier.fillMaxWidth()) {
  val columns=adaptiveCardColumns(maxWidth.value,outerHorizontalPaddingDp)
  val readinessHeight=readinessChartHeightDp((maxWidth.value-16f*(columns-1))/columns,columns>1).dp
+ val sleepHeight=sleepChartHeightDp((maxWidth.value-16f*(columns-1))/columns,columns>1).dp
  val cards=mutableListOf<@Composable ()->Unit>()
  cards.add {TrainingReadinessCard(recovery)}
  cards.add {
@@ -40,7 +41,10 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  cards.add {
  Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("Sueño · ${range.title}",style=MaterialTheme.typography.titleMedium)
-  if(nights.isEmpty()) Text("Sin noches registradas en el periodo. Activa el análisis de descanso en Ajustes para leer sueño.")
+  if(nights.isEmpty()) {
+   EmptyHealthChartAxes(0.0,10.0,sleepHeight)
+   Text("Sin noches registradas en el periodo. Activa el análisis de descanso en Ajustes para leer sueño.")
+  }
   else {
    Text(if(sleep.outsideRange) "Fuera del periodo seleccionado: últimas noches disponibles" else if(nights.size==1) "Una noche registrada" else "Media del periodo",style=MaterialTheme.typography.bodySmall)
    Text("${formatWeight(sleep.hours ?: 0.0)} h",style=MaterialTheme.typography.headlineSmall)
@@ -51,7 +55,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
     }
    }
    Text("Profundo ${formatWeight(sleep.deep)} h · REM ${formatWeight(sleep.rem)} h · Ligero/otros ${formatWeight(sleep.light)} h",style=MaterialTheme.typography.bodySmall)
-   DayPointLineChart(nights.map {ProgressDayPoint(it.day,it.hours)},valueFormat={"${formatWeight(it)} h"})
+   RecoverySleepChart(nights,sleepHeight)
    nights.sortedByDescending {it.day}.forEach {night ->
     Text("${night.day.format(reperaDayFormatter)} · ${formatWeight(night.hours)} h",style=MaterialTheme.typography.bodyMedium)
     Text("Profundo: ${formatWeight(night.deepHours)} h · REM: ${formatWeight(night.remHours)} h",style=MaterialTheme.typography.bodySmall)

@@ -221,3 +221,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  CatmullRom2.5dp redondo y clip; mismos pesos ficticios. Sin interaccion.
 - Captura360dp clara inspeccionada, curva/grid/ticks alineados sin cortes.
  No altera grafica real de ejercicio ni acredita validacion de dispositivo.
+
+## Sueño 20:59
+- HealthRecovery1310-1398 corte: RecoverySleepChart sustituye linea generica
+100dp por area/night-sky/CatmullRom2.4dp/altura220 oDUO max220,columna-150.
+ Estado vacio conserva ejes0..10 en igual altura. Datos observados y fechas
+ reales;seleccion tap/drag/accesibilidad;una muestra solo punto centrado.
+- Dominio espejo normal max3.5,min-.6 / min11,max+.7. Diferencia defensiva
+ EXPLICITA: si observacion cae fuera o limites se invierten,se ensancha a
+ min-.6/max+.7 sin cambiar ni esconder noche. Test2h acredita caso.
+- Renders360curva y1000DUO vacio inspeccionados. No prueba nativa.

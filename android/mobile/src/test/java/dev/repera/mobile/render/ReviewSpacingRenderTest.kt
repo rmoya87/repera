@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -242,5 +243,16 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("1").assertExists()
         composeRule.onNodeWithText("7").assertExists()
         save(composeRule.onNodeWithTag("exercise_preview_fixture").captureToImage().asAndroidBitmap(),"exercise-preview-sessions.png")
+    }
+ @Test fun sleepNightSkyObservedCurve() {
+        val today=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("sleep_fixture")) {
+            dev.repera.mobile.RecoverySleepChart(listOf(6.0,7.2,6.7,8.0,7.5).mapIndexed {i,h ->
+                dev.repera.domain.RecoverySleepNight(today.minusDays((4-i).toLong()),h,1.0,1.0)
+            },220.dp)
+        }}}
+        save(composeRule.onNodeWithTag("sleep_fixture").captureToImage().asAndroidBitmap(),"sleep-night-sky.png")
+        composeRule.onNodeWithTag("recovery_sleep_chart").performClick()
+        composeRule.onNodeWithText("25 oct 2026 · 6,7 h").assertExists()
     }
 }
