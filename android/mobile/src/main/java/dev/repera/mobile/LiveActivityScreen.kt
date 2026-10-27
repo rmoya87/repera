@@ -383,8 +383,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
                     Text("Km ${state.activeKilometer} · $current")
                 }
-                if(state.points.size>=2) RouteMapView(state.points,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),waterSport=state.sport.isWaterSport,
-                    plannedPoints=routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty(),onMapRendered=onMapRendered)
+                // Apple c99475d9: si el GPS no adquirio señal, la vista previa de
+                // guardado muestra igualmente el mapa de la ruta elegida,
+                // diferenciada (plannedRoute) del recorrido registrado.
+                val chosenRoutePoints = routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty()
+                val previewRecorded = state.points.size >= 2
+                val previewPoints = if (previewRecorded) state.points else chosenRoutePoints
+                if(previewPoints.size>=2) RouteMapView(previewPoints,isInteractive=false,modifier=Modifier.fillMaxWidth().height(220.dp),waterSport=state.sport.isWaterSport,
+                    plannedRoute=!previewRecorded,
+                    plannedPoints=if (previewRecorded) chosenRoutePoints else emptyList(),onMapRendered=onMapRendered)
                 // Apple (live main) e9feae2b: resumen de parciales en el HUD solo con GPS
                 // y fase recording/paused (en REVIEW se muestra en el bloque de guardado).
                 if (state.phase == LiveActivityState.Phase.RECORDING || state.phase == LiveActivityState.Phase.PAUSED) {
