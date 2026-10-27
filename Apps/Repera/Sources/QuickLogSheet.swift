@@ -128,7 +128,11 @@ struct QuickLogSheet: View {
                     .opacity(canSave ? 1 : 0.4)
                 }
             }
-            .onAppear { seedRows() }
+            .onAppear {
+                seedRows()
+                // Registro rápido: actualizar alias al abrir, sin polling.
+                store.requestExerciseCatalogRefresh()
+            }
         }
         .ogSheetChrome(detents: [.medium, .large])
     }

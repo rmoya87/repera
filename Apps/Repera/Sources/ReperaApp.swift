@@ -237,24 +237,6 @@ struct ReperaApp: App {
     /// all environment, overlay, lifecycle and synchronization modifiers at once.
     private var appScenePhaseContent: some View {
         appLaunchContent
-                // Refresco periódico real SOLO en primer plano. El trabajo BG
-                // sigue siendo oportunista y no garantiza un horario concreto.
-                // Consulta un único ID de evento y descarga datos solo si cambia.
-                .task(id: scenePhase) {
-                    guard scenePhase == .active else { return }
-                    while !Task.isCancelled {
-                        do {
-                            try await Task.sleep(for: .seconds(300))
-                        } catch {
-                            return
-                        }
-                        guard scenePhase == .active,
-                              businessAuth.isConnected,
-                              !businessAuth.requiresReauthentication,
-                              !store.hasWorkoutInProgress else { continue }
-                        await RemoteExerciseCatalogStore.shared.refresh(store: store)
-                    }
-                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
                         if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {

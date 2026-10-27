@@ -56,6 +56,24 @@ final class ReperaStore: NSObject {
 
     func bumpCatalogEpoch() { catalogEpoch &+= 1 }
 
+    /// Refresco del catálogo solicitado por una acción del usuario: entrar
+    /// en Ejercicios, apuntar/registrar o guardar un entrenamiento.
+    /// No hacemos polling en primer plano ni tocamos una sesión en curso.
+    /// RemoteExerciseCatalogStore evita descargas concurrentes y amortigua
+    /// peticiones durante 60 s; si el feed no cambió, reconcilia igualmente
+    /// los alias con el historial local.
+    func requestExerciseCatalogRefresh() {
+        guard BusinessAuthStore.shared.isConnected,
+              !BusinessAuthStore.shared.requiresReauthentication,
+              !hasWorkoutInProgress else { return }
+        Task { @MainActor [weak self] in
+            guard let self, !self.hasWorkoutInProgress,
+                  BusinessAuthStore.shared.isConnected,
+                  !BusinessAuthStore.shared.requiresReauthentication else { return }
+            await RemoteExerciseCatalogStore.shared.refresh(store: self)
+        }
+    }
+
     /// Reenvía al reloj el contexto de sesión tras una corrección del catálogo.
     func notifyCatalogChangedForWatch() { pushActiveToWatch(immediate: true) }
     func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
@@ -1067,6 +1085,7 @@ final class ReperaStore: NSObject {
             "\(result.source.rawValue): \(result.workouts.count) entrenos, \(result.matchedSets) series"
             + (result.createdExercises.isEmpty ? "" : ", \(result.createdExercises.count) ejercicios nuevos")
         persistWorkouts()
+        if !result.workouts.isEmpty { requestExerciseCatalogRefresh() }
         return result
     }
 
@@ -1107,6 +1126,7 @@ final class ReperaStore: NSObject {
             upsertWorkout(session)
             advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
             persistWorkouts()
+            requestExerciseCatalogRefresh()
 
             let sessionId = session.id
             let title = session.title
@@ -1558,6 +1578,7 @@ final class ReperaStore: NSObject {
         attachSessionReview(&saved, present: true)
         upsertWorkout(saved)
         persistWorkouts()
+        requestExerciseCatalogRefresh()
 
         let sessionId = saved.id
         let title = saved.title
@@ -1640,6 +1661,7 @@ final class ReperaStore: NSObject {
         }
         upsertWorkout(draft)
         persistWorkouts()
+        requestExerciseCatalogRefresh()
         if draft.phase == .finished {
             Task {
                 // Una edición permite reintentar una escritura de Salud pendiente.
@@ -2162,6 +2184,8 @@ final class ReperaStore: NSObject {
         }
         persist()
         pushActiveToWatch()
+        // Guardar una planificación también puede contener alias escaneados.
+        requestExerciseCatalogRefresh()
         return true
     }
 

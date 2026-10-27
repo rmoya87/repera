@@ -47,6 +47,9 @@ struct RootTabView: View {
                         onSaved: { date in
                             homeFocusDay = date
                             tab = .home
+                            // Un registro de Comenzar guardado también es un
+                            // evento de refresco (fuera de la grabación activa).
+                            store.requestExerciseCatalogRefresh()
                         },
                         onOpenWorkout: openWorkout,
                         onOpenCenter: showsCenterTab ? { showCenter = true } : nil
@@ -98,6 +101,11 @@ struct RootTabView: View {
         }
         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
         .tint(OG.accent)
+        .onChange(of: tab) { _, newTab in
+            // Solo al entrar en Ejercicios, no mientras permanece abierta.
+            // El refresco es incremental y evita peticiones sucesivas en <60 s.
+            if newTab == .exercises { store.requestExerciseCatalogRefresh() }
+        }
         .task {
             // Nuevo proceso: volver a la pantalla real de grabación.
             // No reabrir Inicio ni iniciar un entrenamiento distinto.
@@ -224,6 +232,9 @@ struct RootTabView: View {
     }
 
     private func openRoutinePreview(_ routine: Routine) {
+        // Entrar en el flujo de registrar un entreno: resolver alias antes
+        // del inicio de la sesión sin interferir con su grabación.
+        store.requestExerciseCatalogRefresh()
         previewRoutine = routine
         flowPath = [.sessionPreview(routineId: routine.id)]
     }
