@@ -81,7 +81,7 @@ function enhanceWorkspace(own){
  }
  root.querySelectorAll('[data-workspace-section]').forEach(el=>{el.style.display=el.dataset.workspaceSection===activeTab?'':'none';});
 }function render(){
- if(user&&platformRole==='platform_admin'&&!delegation){
+ if(user&&platformRole==='platform_admin'&&!delegation&&view!=='password'){
   app.innerHTML=renderPlatformAdmin({tab:adminTab,orgs:adminDirectory,finance:adminFinances,
    pending:adminPending,history:adminHistory,plans:planCatalog,selectedOrg:adminSelectedOrg,
    filter:adminFilter,busy,error,notice,email:user.email||''});
@@ -207,7 +207,7 @@ app.addEventListener('click',async event=>{
  if(action==='use-template'){selectedTemplateId=actionable.dataset.id;editingSessionId=null;activeTab='planning';render();return;}
  if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;activeTab='planning';render();return;}
  if(action==='accept-invitation'&&!busy){busy=true;error=notice='';render();try{await auth.acceptInvitation(actionable.dataset.id);await reload();notice='Invitación aceptada. Tu relación con el profesional ya consta en Supabase.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
- if(action==='logout'){busy=true;render();try{await auth.signOut();user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
+ if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
 app.addEventListener('input',event=>{
  const filter=event.target.closest('[data-admin-filter="search"]');
