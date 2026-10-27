@@ -18,7 +18,7 @@ export function renderProfessionalPlanning(props) {
   return `<div class="recipe-summary">${blocks.length?blocks.map(b=>`<span class="recipe-tag">${escapeHTML(b.title||b.kind)} · ${((b.exercises||[]).length+(b.movements||[]).length)} ejercicios</span>`).join(''):'<span class="recipe-tag">Solo instrucciones</span>'}</div>`;
  };
  const bulkPlan=canEdit?`<section class="business-bulk-builder">
- <div class="business-bulk-head"><span class="business-bulk-tag">PLANIFICACIÓN RÁPIDA</span><h3>Un entrenamiento, varios días y deportistas</h3>
+ <div class="business-bulk-head"><span class="business-bulk-tag">PLANIFICACIÓN RÁPIDA</span><h3>Programa una sesión para varios días o deportistas</h3>
  <p>Elige una plantilla, las personas y el calendario. Publica todo de una sola vez, sin crear sesiones una a una.</p></div>
  ${templates.length&&linked.length?`<form data-connected="bulk-training" class="business-bulk-form">
  <div class="business-bulk-steps">
@@ -46,8 +46,10 @@ export function renderProfessionalPlanning(props) {
  ${['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((name,i)=>`<label><input type="checkbox" name="weekdays" value="${i+1}" checked><span>${name.slice(0,2)}</span></label>`).join('')}
  </div><p class="connected-hint">La selección aplica a cada semana del rango. Máximo 8 semanas y 120 entrenamientos por publicación.</p>
  </fieldset></div>
- <div class="business-bulk-submit"><span>Los días ya publicados con esta plantilla no se duplicarán.</span>
- <button type="submit" class="connected-primary" ${busy?'disabled':''}>Publicar planificación</button></div>
+ <div class="business-bulk-submit"><div class="business-bulk-publish-note">
+ <strong data-bulk-preview aria-live="polite">Selecciona plantilla, atletas y fechas</strong>
+ <small>Las sesiones ya publicadas con esta plantilla no se duplicarán. Límite: 120 por publicación.</small></div>
+ <button type="submit" class="connected-primary" data-bulk-submit disabled>Publicar planificación</button></div>
  </form>`:`<div class="business-bulk-empty">
  ${!templates.length?'Guarda una plantilla con sus bloques antes de planificar varios días.':'Necesitas al menos un deportista vinculado que haya aceptado la solicitud o invitación.'}</div>`}
  </section>`:'';
