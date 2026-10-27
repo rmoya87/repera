@@ -107,6 +107,14 @@ class LiveActivityState {
             point.altitudeMeters?.let(::integrateElevation)
         return true
     }
+    /** Apple 1bb5b704 rebuildElevationFromRoute: al reabrir la app el desnivel
+     *  se reconstruye del recorrido grabado (altitudes ya validadas al
+     *  registrar: precision vertical 0-50 m en WorkoutRoutePoint). */
+    private fun rebuildElevationFromRoute() {
+        elevationGainMeters = 0.0; elevationLossMeters = 0.0; elevationReference = null
+        if (!sport.tracksElevation) return
+        points.forEach { it.altitudeMeters?.let(::integrateElevation) }
+    }
     private fun integrateElevation(altitude: Double) {
         if (!altitude.isFinite() || altitude !in -500.0..9000.0) return
         elevationReference?.let { previous ->
@@ -135,6 +143,7 @@ class LiveActivityState {
         lastBoundarySeconds = snapshot.lastBoundarySeconds; selectedRouteID = snapshot.selectedRouteID
         gpsSessionID = snapshot.gpsSessionID
         estimatedRecoveryMeters = snapshot.estimatedRecoveryMeters
+        rebuildElevationFromRoute()
         val ageMillis = nowMillis - snapshot.savedMillis
         needsInterruptedGPSRecovery = snapshot.phase == Phase.RECORDING &&
             ageMillis >= 0 && ageMillis <= 2 * 60 * 60 * 1000
@@ -148,10 +157,6 @@ class LiveActivityState {
         } else {
             phase = Phase.PAUSED
             pausedMillis = snapshot.pausedMillis ?: snapshot.savedMillis
-        }
-        if (sport.tracksElevation) points.forEach { point ->
-            if (point.verticalAccuracyMeters?.let { it in 0.0..15.0 } == true)
-                point.altitudeMeters?.let(::integrateElevation)
         }
         return true
     }
