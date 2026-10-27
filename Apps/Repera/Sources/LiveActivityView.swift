@@ -2280,33 +2280,19 @@ struct LiveActivityView: View {
                             .font(.title2.weight(.medium))
                             .foregroundStyle(OG.accent)
                             .frame(width: 28)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(recorder.sport.title)
-                                .font(.headline)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.7)
-                            if recorder.phase == .paused {
-                                Text("En pausa").font(.caption.weight(.semibold))
-                                    .foregroundStyle(OG.orange)
-                                    .lineLimit(1).minimumScaleFactor(0.7)
-                            } else {
-                                Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
-                                    .font(.caption).foregroundStyle(OG.label2)
-                                    .lineLimit(1).minimumScaleFactor(0.7)
-                            }
-                        }
-                        // Mantener la misma altura aunque cambie el subtítulo.
-                        .frame(height: 60, alignment: .center)
-                        // El nombre conserva el mismo ancho en ambos estados.
-                        // Las cuatro acciones ocupan 194 pt (4 × 44 + 3 × 6),
-                        // sin desbordar en dispositivos compactos.
-                        .frame(
-                            width: min(112, max(44, header.size.width - 240)),
-                            alignment: .leading
-                        )
+                        Text(recorder.sport.title)
+                            .font(.headline)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.68)
+                            .frame(
+                                width: min(126, max(48, header.size.width - 240)),
+                                height: 54,
+                                alignment: .leading
+                            )
+                        // Separación flexible ENTRE el deporte y la primera
+                        // acción. Audio, Mapa y Pausa/Play van juntos a la
+                        // derecha: ningún hueco invisible entre sus botones.
                         Spacer(minLength: 0)
-                        // Misma alineación derecha que el primer botón de Mapa,
-                        // respetando exactamente el margen horizontal de Mapa.
                         metricsTrailingActions
                             .fixedSize(horizontal: true, vertical: false)
                     }
@@ -2381,39 +2367,29 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Cuatro posiciones fijas de 44 pt alineadas a la derecha. El último
-    /// botón es SIEMPRE Pausa/Reanudar, en la misma columna que la primera
-    /// acción de Mapa. Finalizar ocupa su hueco a la izquierda al pausar,
-    /// sin mover Audio, Mapa ni Pausa/Reanudar.
+    /// Últimas tres posiciones SIEMPRE fijas contra el margen derecho:
+    /// Audio, Mapa y Pausa/Reanudar quedan contiguos con 6 pt de separación.
+    /// Finalizar aparece a su izquierda al pausar, sin mover los tres botones.
     private var metricsTrailingActions: some View {
         HStack(spacing: 6) {
+            if recorder.phase == .paused {
+                sessionMapButton(
+                    "flag.checkered", label: "Finalizar y guardar",
+                    background: .black, foreground: .white
+                ) { finishAndShowSave() }
+            }
             if showGuidanceToggle {
                 metricsCircleButton(
                     guidanceSymbol, label: guidanceAccessibilityLabel
                 ) {
                     recorder.toggleSpokenGuidance()
                 }
-            } else {
-                metricsActionPlaceholder
             }
             if recorder.sport.usesGPS {
                 metricsCircleButton("map", label: "Ver mapa") {
                     showingMetrics = false
                 }
-            } else {
-                metricsActionPlaceholder
             }
-            // Finalizar aparece junto a Reanudar, sin alterar ninguna
-            // posición cuando se pasa de grabando a pausado.
-            if recorder.phase == .paused {
-                sessionMapButton(
-                    "flag.checkered", label: "Finalizar y guardar",
-                    background: .black, foreground: .white
-                ) { finishAndShowSave() }
-            } else {
-                metricsActionPlaceholder
-            }
-            // Extremo derecho: idéntico eje X al botón superior en Mapa.
             if recorder.phase == .recording {
                 sessionMapButton(
                     "pause.fill", label: "Pausar grabación",
@@ -2424,19 +2400,8 @@ struct LiveActivityView: View {
                     "play.fill", label: "Reanudar grabación",
                     background: OG.accent, foreground: .black
                 ) { recorder.resume() }
-            } else {
-                metricsActionPlaceholder
             }
         }
-    }
-
-    /// Conserva el espacio de una acción oculta sin crear un área pulsable
-    /// ni un elemento vacío en VoiceOver.
-    private var metricsActionPlaceholder: some View {
-        Color.clear
-            .frame(width: 44, height: 44)
-            .accessibilityHidden(true)
-            .allowsHitTesting(false)
     }
 
     /// Solo los selectores laterales son opacos. La barra general puede seguir
