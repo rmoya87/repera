@@ -1500,10 +1500,20 @@ public enum CrossFitGlossary {
         let assigned = move.exerciseId.flatMap { id in catalog.first(where: { $0.id == id }) }
         let isKnownAbbreviation = ["burpee to target", "toes to bar"].contains(normalize(canonical))
         let raw = normalize(move.name)
-        // Un nombre oficial exacto siempre prevalece frente a un alias
-        // ambiguo que otra ficha haya podido publicar en Supabase.
+        // BTt/T2B pueden haberse importado hace meses como fichas provisionales,
+        // incluso incorrectamente marcadas como oficiales. En esas dos claves,
+        // la ficha cuyo NOMBRE es realmente el canónico debe prevalecer sobre
+        // cualquier coincidencia literal con el nombre abreviado antiguo.
+        if isKnownAbbreviation,
+           let canonicalOfficial = catalog.first(where: {
+               !$0.isCustom && !$0.isCatalogArchived
+                   && normalize($0.name) == normalize(canonical)
+           }) { return canonicalOfficial }
+        // Para los demás movimientos sigue mandando la coincidencia exacta,
+        // sin alterar elecciones manuales ni alias editoriales.
         if let exactOfficial = catalog.first(where: {
             !$0.isCustom && !$0.isCatalogArchived && normalize($0.name) == raw
+                && (!isKnownAbbreviation || raw == normalize(canonical))
         }) { return exactOfficial }
         let remoteMatch = catalog.first(where: {
             !$0.isCustom && !$0.isCatalogArchived && $0.searchAliases.contains(where: {
@@ -1512,7 +1522,10 @@ public enum CrossFitGlossary {
         })
         // Una equivalencia exacta publicada por el catálogo corrige también
         // el UUID provisional de una programación ya guardada.
-        if let remoteMatch { return remoteMatch }
+        if let remoteMatch,
+           !isKnownAbbreviation || normalize(remoteMatch.name) == normalize(canonical) {
+            return remoteMatch
+        }
         if let assigned, !assigned.isCustom,
            (!isKnownAbbreviation || ExerciseEquivalence.sameName(assigned.name, canonical)) {
             return assigned
