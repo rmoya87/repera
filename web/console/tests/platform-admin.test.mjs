@@ -14,11 +14,12 @@ const base={orgs,finance:{payments:[],intents:[]},pending:[],history:[],plans:[]
 
 test('La navegación del administrador es independiente y evita HTML inyectado',()=>{
  const output=renderPlatformAdmin({...base,tab:'home',email:'admin@example.org'});
- for(const label of ['Centros','Atletas','Pagos','Soporte','Auditoría','Planes y precios'])
+ for(const label of ['Centros','Atletas','Pagos','Soporte','Planes y precios'])
   assert.ok(output.includes(label),label);
  assert.ok(output.includes('11')); // 8 + 3 relaciones activas
  assert.ok(!output.includes('<script>'));
- assert.ok(output.includes('repera'));
+ assert.ok(output.includes('Centro de control'));
+ assert.doesNotMatch(output,/data-admin-tab="audit"/);
 });
 
 test('Centros unifica los tipos y filtra con columna de categoría',()=>{
@@ -70,15 +71,15 @@ test('Planes se muestran agrupados y se edita solo un formulario',()=>{
  assert.match(edit,/data-connected="save-plan"/);
 });
 
-test('Detalle incorpora configuración, estado y delegación motivada',()=>{
- const output=renderPlatformAdmin({...base,tab:'gyms',selectedOrg:id});
- assert.match(output,/Perfil y configuración/);
- assert.match(output,/data-admin-form="delegate"/);
- assert.match(output,/Motivo del acceso delegado/);
+test('Detalle de centro tiene acceso directo y control de estado sin formulario de motivo',()=>{
+ const output=renderPlatformAdmin({...base,tab:'centers',selectedOrg:id});
+ assert.match(output,/Datos del centro/);
+ assert.match(output,/data-admin-action="access-center"/);
+ assert.doesNotMatch(output,/data-admin-form="delegate"/);
+ assert.doesNotMatch(output,/Motivo del acceso delegado/);
  assert.match(output,/data-admin-form="status"/);
- assert.match(output,/30 minutos/);
+ assert.match(output,/pa-center-metrics/);
 });
-
 test('Cobros vacíos nunca simulan ingresos y CSV está escapado',()=>{
  const output=renderPlatformAdmin({...base,tab:'payments'});
  assert.match(output,/No hay cobros verificados/);
