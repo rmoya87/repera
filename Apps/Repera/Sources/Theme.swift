@@ -443,9 +443,9 @@ extension View {
         self.ogTransparentNav()
     }
 
-    /// Topbar secundario: los controles nativos permanecen fijos y sin fondo.
-    /// Las pantallas deben mantener el título grande en su contenido desplazable.
-    /// Usar cuando hay volver / acciones en la barra (título debajo).
+    /// Compatibilidad con pantallas que aún usan título grande nativo.
+    /// Preferir `ogScrollingTitleNav()` y `OGScrollablePageTitle` para que
+    /// el título nunca se contraiga al desplazar.
     /// Fuerza la barra visible: Inicio/Progreso ocultan el toolbar del sistema (`ogContentTitleNav`);
     /// sin esto, al pushear Ajustes/Historial queda el hueco del large title sin el texto «Ajustes».
     func ogPinnedTransparentNav(_ title: String) -> some View {

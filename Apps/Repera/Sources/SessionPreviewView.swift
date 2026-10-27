@@ -90,10 +90,8 @@ struct SessionPreviewView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        // Fondo estable (negro en noche, lienzo claro de día).
-        // El material «automatic» del nav variaba de gris al hacer scroll.
-        .toolbarBackground(OG.bg, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        // Barra de acciones totalmente transparente también durante scroll.
+        .ogTransparentNav()
         .task(id: liveRoutine?.id) {
             guard let routine = liveRoutine else { return }
             // Reconstruir fichas oficiales que falten en un catálogo local

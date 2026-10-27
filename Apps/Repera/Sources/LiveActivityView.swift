@@ -1516,6 +1516,7 @@ private struct LiveSportPicker: View {
             .searchable(text: $query, prompt: "Buscar actividad")
             .navigationTitle("Elegir actividad")
             .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cerrar", systemImage: "xmark") { dismiss() }
@@ -1575,6 +1576,7 @@ struct LiveActivityView: View {
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
             .navigationTitle(recorder.phase == .review ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
             .navigationDestination(isPresented: $showFullScreenRoute) {
                 WorkoutMapZoomDestination(
                     points: fullScreenRoutePoints,
@@ -2936,6 +2938,7 @@ private struct LiveRouteLibraryPickerView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .ogTransparentNav()
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
@@ -2961,6 +2964,7 @@ private struct LiveAllRoutesView: View {
         .ogListChrome()
         .navigationTitle("Todas las rutas")
         .navigationBarTitleDisplayMode(.inline)
+        .ogTransparentNav()
     }
 }
 
@@ -3069,6 +3073,7 @@ private struct LiveRouteEditView: View {
         .ogListChrome()
         .navigationTitle("Editar ruta")
         .navigationBarTitleDisplayMode(.inline)
+        .ogTransparentNav()
         .onAppear {
             guard !initialized,
                   let route = routes.routes.first(where: { $0.id == routeID }) else { return }
@@ -3155,6 +3160,7 @@ private struct LiveRouteSportOptionsView: View {
         .ogListChrome()
         .navigationTitle("Elegir deporte")
         .navigationBarTitleDisplayMode(.inline)
+        .ogTransparentNav()
     }
 }
 
@@ -3349,6 +3355,7 @@ private struct LiveRouteLibraryDetailView: View {
         .background(OG.bg.ignoresSafeArea())
         .navigationTitle(route?.title ?? "Ruta")
         .navigationBarTitleDisplayMode(.inline)
+        .ogTransparentNav()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if let route {
