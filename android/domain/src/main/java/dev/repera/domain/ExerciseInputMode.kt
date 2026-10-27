@@ -46,10 +46,14 @@ object ExerciseInput {
                 "farmer walk", "sandbag lunges"))
             return ExerciseInputMode.LOAD_DISTANCE
         if (n == "burpee broad jump") return ExerciseInputMode.MACHINE_WORK
+        // Apple (live main) Models.isJumpRope: su normalización conserva guiones; la nuestra
+        // los convierte en espacios, así que "double under" ya cubre "double-under".
         if (eq.contains("comba") || n.contains("double under") ||
             n.contains("single under") || n.contains("triple under") ||
             (n.contains("doble") && n.contains("comba")) ||
-            (n.contains("simple") && n.contains("comba")) || n == "du" || n.startsWith("du ")) {
+            (n.contains("simple") && n.contains("comba")) ||
+            (n.contains("triple") && n.contains("comba")) ||
+            n == "du" || n.startsWith("du ") || n.startsWith("su ")) {
             return ExerciseInputMode.REPS_AND_TIME
         }
         val strengthRow = listOf("barra", "mancuerna", "sentado", "menton", "invert",

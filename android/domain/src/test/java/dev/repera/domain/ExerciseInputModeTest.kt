@@ -75,4 +75,12 @@ class ExerciseInputModeTest {
         assertEquals(ExerciseInputMode.HSPU_DEFICIT,ExerciseInput.mode("HSPU","Pared",null,null))
         assertEquals(ExerciseInputMode.REPS_ONLY,ExerciseInput.mode("Custom",null,null,"cardio"))
     }
+
+    @Test fun jumpRopeCoversTripleAndSuPrefixLikeApple() {
+        // Apple Models.isJumpRope (bd4d7637): triples de comba y prefijo "su " también son comba.
+        assertEquals(ExerciseInputMode.REPS_AND_TIME, ExerciseInput.mode("Triples de comba", null, null, null))
+        assertEquals(ExerciseInputMode.REPS_AND_TIME, ExerciseInput.mode("SU x50", null, null, null))
+        assertEquals(ExerciseInputMode.REPS_AND_TIME, ExerciseInput.mode("Single-Under", null, null, null))
+        assertEquals(ExerciseInputMode.REPS_AND_TIME, ExerciseInput.mode("Triple under", null, null, null))
+    }
 }

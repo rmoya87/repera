@@ -162,3 +162,16 @@ Verificación real (diff Apple leído + árbol Android comparado, baseline bd4d7
   LiveActivityScreen) y cómputo con reloj activo (pausedSeconds excluidos, interpolación de cruce
   de km) en domain/LiveActivityState.receive; tests LiveSportHistoryTest + roundtrip snapshot.
 Matriz actualizada: 7/579 verified, resto unverified.
+
+## tree167 — isJumpRope completo + 3 filas más verificadas (27oct 10:21 CET)
+
+- bcb9f677 giros GPX: detect 1:1 ya portado en domain/LiveGPX.kt (ventanas 30m, guard 20m, umbral
+  52 grados, dedup 55m) — confirma la regla vigente 30m del baseline, no la antigua 20m.
+- c02f3ca4 + 97d0bc13 prescripción siguiente serie en Watch: semántica ya cubierta inline en
+  wear/WearMainActivity.kt (work sets consumen prescripción, último target persiste, precarga
+  reps/peso/rir/deficit/duración/unidad). Sin propiedad de dominio compartida; no se añade.
+- d03aaa76 isJumpRope: GAP real encontrado y corregido — faltaban `triple`+comba y prefijo `su `
+  (la normalización Android convierte guiones en espacios, así que las variantes con guion ya
+  estaban cubiertas; Apple conserva guiones y por eso lista ambas). Test nuevo
+  jumpRopeCoversTripleAndSuPrefixLikeApple. ExerciseInputModeTest 8/8; domain COMPLETO 386/386 REAL.
+Matriz: 10 verified + 1 verified-with-fix / 579.
