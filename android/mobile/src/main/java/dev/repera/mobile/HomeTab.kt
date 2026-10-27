@@ -105,6 +105,8 @@ internal fun HomeTab(
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit = {},
     onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
+    /** Apple 3666d1ac: tap de ejercicio en la vista previa del entreno. */
+    onOpenExercise: (String) -> Unit = {},
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
 
     onNavigateCreate: () -> Unit,
@@ -192,7 +194,8 @@ internal fun HomeTab(
                                         preview = false
                                         onRemoveScheduledRoutine(routine.id)
                                     },
-                                    onClose = { preview = false }
+                                    onClose = { preview = false },
+                                    onOpenExercise = onOpenExercise
                                 )
                             }
                         }

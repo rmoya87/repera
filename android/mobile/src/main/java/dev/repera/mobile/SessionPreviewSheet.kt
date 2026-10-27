@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +44,10 @@ fun SessionPreviewSheet(
     onStart: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    /** Apple 3cb329f3/3666d1ac: destino unico administrado por el padre;
+     *  cada fila abre SOLO el ejercicio pulsado. */
+    onOpenExercise: (String) -> Unit = {}
 ) {
     val day = dayLabel(routine)
     Column(
@@ -109,6 +113,11 @@ fun SessionPreviewSheet(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         block.entries.forEach { entry ->
+                            val tappable = entry.exerciseId.isNotBlank()
+                            val entryModifier = if (tappable)
+                                Modifier.fillMaxWidth().clickable { onOpenExercise(entry.exerciseId) }
+                            else Modifier.fillMaxWidth()
+                            Row(entryModifier, verticalAlignment = Alignment.CenterVertically) {
                             val detail = buildString {
                                 append(entry.name)
                                 if (entry.sets > 0 && entry.quantity > 0) {
@@ -120,7 +129,12 @@ fun SessionPreviewSheet(
                                     append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(w)} kg")
                                 }
                             }
-                            Text("· $detail", style = MaterialTheme.typography.bodyMedium)
+                            Text("· $detail", style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f))
+                            // Apple e3f1d652: conservar el chevron de disclosure.
+                            if (tappable) Text("›",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }

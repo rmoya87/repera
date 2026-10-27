@@ -398,6 +398,9 @@ fun ReperaMobileScreen(
                                 "ejercicio/" + entryId + "?sesion=" + sessionId +
                                     "&instancia=" + instanceId)
                         },
+                        onOpenExercise = { exerciseId ->
+                            navController.navigate("ejercicio/$exerciseId")
+                        },
                         onNext = onNext,
                         onSelectActiveExercise = onSelectActiveExercise,
                         onUpdateActiveNotes = onUpdateActiveNotes,
