@@ -92,12 +92,12 @@ function workoutCard(w,i){
  <span class="pa-record-chevron" aria-hidden="true">⌄</span></summary>
  <div class="pa-record-body">${workoutBlocks(w)}${wodResults(w)}</div></details>`;
 }
-const plannedCard=s=>{
+const plannedCard=(s,canEdit=false)=>{
  const blocks=asArray(s.prescription?.blocks);
  const name=s.title||'Entrenamiento programado';
  const time=Number.isInteger(s.scheduled_time_minutes)?String(Math.floor(s.scheduled_time_minutes/60)).padStart(2,'0')+':'+String(s.scheduled_time_minutes%60).padStart(2,'0'):'Sin hora establecida';
  return `<details class="pa-workout-record pa-planned-record"><summary><span class="pa-record-icon" aria-hidden="true">○</span><span><strong>${e(name)}</strong><small>Planificado · ${time}</small></span><span class="pa-record-chevron">⌄</span></summary>
- <div class="pa-record-body">${s.instructions?`<p class="pa-muted">${e(s.instructions)}</p>`:''}
+ <div class="pa-record-body">${canEdit?`<button type="button" class="connected-secondary" data-action="edit-session" data-id="${e(s.id)}">Editar entrenamiento programado</button>`:'' }${s.instructions?`<p class="pa-muted">${e(s.instructions)}</p>`:''}
  ${blocks.length?blocks.map((block,i)=>`<section class="pa-workout-block">
  <div class="pa-workout-block-head"><span class="pa-block-index">${i+1}</span><div><span class="pa-eyebrow">${e(block.kind==='wod'?'WOD':'Fuerza')}</span><h4>${e(block.title||'Bloque '+(i+1))}</h4></div></div>
  <div class="pa-workout-exercises">${asArray(block.kind==='wod'?block.movements:block.exercises).map(ex=>{
@@ -140,7 +140,7 @@ export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],
   data-action="${actionNamespace==='trainer'?'plan-client':'schedule-athlete'}" data-id="${e(athleteId)}" data-day="${e(selectedDay)}">+ Añadir entrenamiento</button>`:''}</div>
   ${loading?'<p class="pa-muted">Cargando entrenamientos...</p>':
     !selectedDay?`<p class="pa-muted">${e(emptyText)}</p>`:
-    workouts.length||plannedSessions.length?`${workouts.map(workoutCard).join('')}${plannedSessions.map(plannedCard).join('')}`:
+    workouts.length||plannedSessions.length?`${workouts.map(workoutCard).join('')}${plannedSessions.map(s=>plannedCard(s,canPlan)).join('')}`:
    '<div class="pa-activity-none">No hay entrenamientos registrados ni programados este día.</div>'}
   </section>`;
 }
