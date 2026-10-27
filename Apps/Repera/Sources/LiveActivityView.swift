@@ -600,11 +600,15 @@ final class LiveRoutesStore {
         let previous = routes
         routes.removeAll { $0.id == id }
         do {
-            try persist()
-            // Update tombstones only once persisted so failures are recoverable.
+            // The tombstone MUST be durable before scheduling an iCloud read.
+            // Otherwise that read can reintroduce the deleted route.
+            try persist(scheduleCloud: false)
             var deleted = deletedIDs
             deleted.insert(id)
-            UserDefaults.standard.set(deleted.map(\.uuidString), forKey: deletedRoutesKey)
+            UserDefaults.standard.set(deleted.map { $0.uuidString }, forKey: deletedRoutesKey)
+            didEditRouteLocally = true
+            iCloudRouteStatus = "Sincronizando rutas con iCloud…"
+            requestICloudSynchronization()
         } catch {
             routes = previous
             throw error
