@@ -37,6 +37,9 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("let archive = try? JSONDecoder().decode", self.backup)
         self.assertIn("else { return .unavailable }", self.backup)
         self.assertIn("case missing", self.backup)
+        self.assertIn("actor LiveRouteCloudBackup", self.live)
+        self.assertIn("struct LiveRouteCloudArchive: Codable, Sendable", self.live)
+
         self.assertIn("return .missing", self.backup)
 
     def test_local_backup_and_cloud_merge_do_not_erase_favorites(self):
@@ -63,6 +66,13 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("if markUserAction { didEditRouteLocally = true }", store)
         self.assertIn("Task.sleep(for: .seconds(2))", store)
         self.assertIn("UserDefaults.standard.set(erased.map { $0.uuidString }", store)
+        remove = store.split("func remove(_ id: UUID) throws {", 1)[1].split(
+            "private func persist(", 1
+        )[0]
+        self.assertIn("try persist(scheduleCloud: false)", remove)
+        self.assertLess(remove.index("UserDefaults.standard.set(deleted.map"),
+                        remove.index("requestICloudSynchronization()"))
+
         self.assertIn("requestICloudSynchronization()", store)
 
     def test_recorded_gps_walking_routes_are_archived_when_saved(self):
