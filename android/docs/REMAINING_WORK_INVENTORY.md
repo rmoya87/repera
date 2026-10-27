@@ -336,3 +336,11 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  se redistribuyen pesos ni se inventan cantidades. No paridadFullcompleta.
 -3tests:split explicito,multiplier intacto,cargaparent intacta. Domain502/502,
 93XMLcompleta22:20verde. Mobilepost293pendiente;ultimo647/162completo291.
+
+## Validacion y recuperacion293 22:27
+- Mobilepost293TODAS647/162XML4lotes76/77/65/64s,0fallos,sin faltantes,
+ assemble42sverde.Domain502/93XMLcompleta22:20.Wear8/8,1XMLREEJECUTADA22:26
+ test ejecutada,no cache,40sverde. Wearassemble anterior21:57.
+- Backup293 recuperado desdeclon limpio65338db7+gitam hasta293:arbol
+3cc8c123295f0dfb4affe46239ad57a7a331621a IDENTICO aloriginal293.
+- Completo parser ydispositivo siguen abiertos.735/70abiertas sin cierres.
