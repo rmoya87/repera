@@ -1,24 +1,23 @@
-# Inventario de trabajo restante (27 oct 15:00 CET)
+# Inventario de trabajo restante (27 oct 14:46 CET)
 
 Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
 Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
 
-## Contadores (reconciliado 14:25 CET)
-- Pre-window: 54 partial + 18 in-progress + 1 verified-partial+gap = 73
-- Post-window: 31 (20 partial + 4 verified-partial + 2 verified-partial+gap + 5 gap; in-progress 14->0)
-- TOTAL abierto: 104 filas + dependencias de validacion
-  (el recuento post de 15:15 no incluia las etiquetas verified-partial/gap; resueltas hoy: 14 in-progress post)
-- Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado), cadena BTT/T2B (6993e330..0a640da8), localizacion numeros post (b8cca90a/04da40ef/a192c38b/bf8de3db portados; 95847d98/fb6de251/af08512c n/a codigo muerto baseline)
+## Contadores (reconciliado 14:46 CET)
+- Pre-window: 60 partial + 2 in-progress + 1 verified-partial+gap = 63
+  (los 2 in-progress son 661e65f4/9947c212 zonas FC: bloqueo preservado para decision usuario)
+- Post-window: 31 (20 partial + 4 verified-partial + 2 verified-partial+GAP + 5 GAP)
+- TOTAL abierto: 94 filas + dependencias de validacion
+- Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado), cadena BTT/T2B (6993e330..0a640da8), localizacion numeros post (b8cca90a/04da40ef/a192c38b/bf8de3db portados; 95847d98/fb6de251/af08512c n/a codigo muerto baseline), cluster onboarding AI (f68d77ff: logos OpenAI/Claude/Grok 0-diff, instrucciones 1:1, catalogo conexiones; quedan 5 partial: flujo Desconectar y oauth_client_id), cluster glifos corporales (este lote: 08551cb1/5099d9f1/49febc33/fdbd3558 verified-ported, 3b3792df n/a reorganizacion Xcode, b2f6b934 superseded por eliminacion Diario)
 
 ## Dependencias de validacion (bloquean cierre)
-1. compile/build mobile+wear COMPLETO (bloqueado por limite 120s por llamada) — REQUISITO antes de integrar/push
-2. Validacion runtime/UI en dispositivo/emulador de todo lo movil desde tree175 (WIP)
-3. Tests runner ligero + domain verdes tras cada implementacion (actual: 457/457 domain, 36/36 runner)
+1. compile/build mobile+wear COMPLETO verde gestionado in-call (assemble OK; confirmar tras cada lote) — REQUISITO antes de integrar/push
+2. Validacion runtime/UI en dispositivo/emulador de todo lo movil desde tree175 (WIP; emulador sin KVM no viable, adb requiere accion del usuario, cloud prohibido)
+3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 507/507 en 123 suites XML real)
 
 ## Grupos de gaps principales (pre+post)
-- Onboarding AI unificado (OAuth/instrucciones/logos): AIAccessScreen 324l vs Apple 648l
-- Zonas FC + anillo intensidad Cardio Progreso (661e65f4/9947c212)
-- Glifos corporales en chips musculo (08551cb1 cluster)
+- Onboarding AI unificado: PARCIAL tras f68d77ff (logos/instrucciones/catalogo portados; falta flujo Desconectar + oauth_client_id en TokenInfo)
+- Zonas FC + anillo intensidad Cardio Progreso (661e65f4/9947c212 — bloqueo decision usuario)
 - Paisaje/dos paneles (calendario 7 dias, secciones, safe areas)
 - Wear fino: Sincronizar+mascota, flecha en descanso, EMOM/Tabata al terminar reloj, frescura planificacion
 - Cursores interactivos graficas recuperacion (b73d77dc/42f02b82)

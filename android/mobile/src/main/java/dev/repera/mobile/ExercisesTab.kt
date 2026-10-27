@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.IconButton
@@ -290,12 +294,21 @@ internal fun ExercisesTab(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Filtro Favoritos (paridad LibraryView iOS), además de los
                 // filtros de catálogo.
+                // Apple 5099d9f1/fdbd3558: iconos ExerciseCategorySymbols en chips.
                 FilterChip(selected = exerciseFilter == "Favoritos",
                     onClick = { exerciseFilter = "Favoritos" },
+                    leadingIcon = { Icon(Icons.Filled.Star, null, Modifier.size(16.dp)) },
                     label = { Text("Favoritos") })
                 ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()).forEach { filter ->
+                    val icon = when {
+                        filter == "Todos" -> Icons.Filled.GridView        // square.grid.2x2
+                        filter == "Cardio" -> Icons.Filled.Favorite       // heart
+                        filter == "Hyrox" -> ExerciseCategorySymbols.discipline("HYROX")
+                        else -> ExerciseCategorySymbols.discipline(filter)
+                    }
                     FilterChip(selected = exerciseFilter == filter,
                         onClick = { exerciseFilter = filter },
+                        leadingIcon = { Icon(icon, null, Modifier.size(16.dp)) },
                         label = { Text(filter) })
                 }
             }
@@ -304,8 +317,15 @@ internal fun ExercisesTab(
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Alfabético", "Músculo", "Material").forEach { mode ->
+                    // Apple fdbd3558: a.circle / figure.stand / dumbbell.
+                    val icon = when (mode) {
+                        "Alfabético" -> Icons.Filled.SortByAlpha
+                        "Músculo" -> ExerciseCategorySymbols.muscle
+                        else -> ExerciseCategorySymbols.equipment
+                    }
                     FilterChip(selected = exerciseSort == mode,
                         onClick = { exerciseSort = mode },
+                        leadingIcon = { Icon(icon, null, Modifier.size(16.dp)) },
                         label = { Text("Orden: " + mode) })
                 }
             }

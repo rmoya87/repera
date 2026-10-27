@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.Star
@@ -154,28 +157,41 @@ internal fun ExerciseDetailScreen(
             }
         }
         item {
-            val facts = buildList {
-                if (entry.muscleGroup.isNotBlank()) add(entry.muscleGroup)
-                if (entry.equipment.isNotBlank()) add(entry.equipment)
-                if (entry.targetMuscle.isNotBlank()) add(entry.targetMuscle)
+            // Apple 49febc33: tarjeta "Músculos y equipo" con filas Músculo /
+            // También / Equipo / Disciplina, chips con glifos corporales.
+            val primary = entry.targetMuscle.ifBlank { entry.muscleGroup }
+            val seen = mutableSetOf(primary.lowercase())
+            val secondaries = entry.secondaryMuscles.mapNotNull { raw ->
+                dev.repera.domain.MuscleTaxonomy.canonical(raw) ?: return@mapNotNull null
+                val label = dev.repera.domain.MuscleTaxonomy.displayName(raw)
+                val key = label.lowercase()
+                if (key.isEmpty() || key in seen) return@mapNotNull null
+                seen.add(key); label
             }
-            if (facts.isNotEmpty()) {
-                Text(facts.joinToString(" · "), style = MaterialTheme.typography.labelLarge)
-            }
-            if (entry.secondaryMuscles.isNotEmpty()) {
-                Text("Secundarios: " + entry.secondaryMuscles.joinToString(", "),
-                    style = MaterialTheme.typography.bodySmall)
-            }
-            // Apple 2b1382f5: chips de disciplina derivados (disciplineTags),
-            // fila "Disciplina" en los metadatos de la ficha.
+            // detailMeta iOS: aparatos separados por coma, en chips propios.
+            val equipments = entry.equipment.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             val sports = entry.disciplineTags.filter { it.isNotBlank() }
-            if (sports.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Disciplina", style = MaterialTheme.typography.labelLarge)
-                    sports.forEach { sport ->
-                        FilterChip(selected = false, onClick = {}, enabled = false,
-                            label = { Text(sport) })
+            if (primary.isNotBlank()) {
+                Card(colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MetaChipRow("Músculo") {
+                            MuscleMetaChip(primary, primary, emphasized = true)
+                        }
+                        if (secondaries.isNotEmpty()) MetaChipRow("También") {
+                            secondaries.forEach { MuscleMetaChip(it, it, emphasized = false) }
+                        }
+                        if (equipments.isNotEmpty()) MetaChipRow("Equipo") {
+                            equipments.forEach { eq ->
+                                IconMetaChip(eq, ExerciseCategorySymbols.equipmentSymbol(eq))
+                            }
+                        }
+                        if (sports.isNotEmpty()) MetaChipRow("Disciplina") {
+                            sports.forEach { sp ->
+                                IconMetaChip(sp, ExerciseCategorySymbols.discipline(sp))
+                            }
+                        }
                     }
                 }
             }
@@ -404,5 +420,50 @@ private fun SessionAppearanceBlock(row: SessionAppearance, emphasizeDate: Boolea
                 Text(line, style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+}
+
+@Composable
+private fun MetaChipRow(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun IconMetaChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape)
+            .padding(horizontal = 12.dp, vertical = 7.dp)) {
+        androidx.compose.material3.Icon(icon, contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
+        Text(label, color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun MuscleMetaChip(label: String, muscle: String, emphasized: Boolean) {
+    val bg = if (emphasized) MaterialTheme.colorScheme.primary
+             else MaterialTheme.colorScheme.surfaceVariant
+    val fg = if (emphasized) MaterialTheme.colorScheme.onPrimary
+             else MaterialTheme.colorScheme.onSurface
+    Row(verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        modifier = Modifier
+            .background(bg, androidx.compose.foundation.shape.CircleShape)
+            .padding(horizontal = 12.dp, vertical = 7.dp)) {
+        MuscleChipGlyph(muscle, emphasized)
+        Text(label, color = fg,
+            style = if (emphasized) MaterialTheme.typography.labelLarge
+                    else MaterialTheme.typography.labelMedium)
     }
 }
