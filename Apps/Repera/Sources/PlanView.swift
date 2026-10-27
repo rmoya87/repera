@@ -339,7 +339,8 @@ struct DayEditorView: View {
                         RoutineExercise(
                             exerciseId: exercise.id,
                             plannedSets: sets,
-                            quantityUnit: style == .machineWork ? exercise.defaultQuantityUnit : nil
+                            quantityUnit: style == .machineWork || exercise.supportsWeightedRepsOrMeters
+                                ? exercise.defaultQuantityUnit : nil
                         )
                     )
                 }
@@ -1192,12 +1193,17 @@ struct DayEditorView: View {
                     }
                 }
 
-                if ex.loggingStyle == .machineWork, ex.allowsCalorieOrDistanceToggle {
-                    Picker("Unidad de cardio", selection: Binding(
+                if ex.supportsWeightedRepsOrMeters
+                    || (ex.loggingStyle == .machineWork && ex.allowsCalorieOrDistanceToggle) {
+                    Picker("Unidad", selection: Binding(
                         get: { routine.blocks[index].exercises[exIndex].quantityUnit ?? ex.defaultQuantityUnit },
                         set: { routine.blocks[index].exercises[exIndex].quantityUnit = $0 }
                     )) {
-                        Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                        if ex.supportsWeightedRepsOrMeters {
+                            Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+                        } else {
+                            Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                        }
                         Text("Metros").tag(ExerciseQuantityUnit.meters)
                     }
                     .pickerStyle(.segmented)
@@ -1210,7 +1216,9 @@ struct DayEditorView: View {
                             ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
                             : ex.quantityFieldLabel)),
                     secondTitle: ex.isMobility ? (ex.isMobilityHold ? nil : "Reps")
-                        : (ex.loggingStyle == .loadAndReps ? "Reps" : nil),
+                        : (ex.loggingStyle == .loadAndReps
+                            ? (ex.supportsWeightedRepsOrMeters
+                                ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
                     showsRIR: ex.loggingStyle.usesRIR
                 )
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
@@ -1222,6 +1230,7 @@ struct DayEditorView: View {
                         set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
                         weightStep: weightStep,
                         exerciseStyle: ex.loggingStyle,
+                        quantityCap: ex.supportsWeightedRepsOrMeters && item.quantityUnit == .meters ? 100_000 : nil,
                         isMobility: ex.isMobility,
                         isMobilityHold: ex.isMobilityHold,
                         previous: {
@@ -2233,12 +2242,18 @@ struct RoutineExerciseEditor: View {
             }
 
             Section {
-                if let exercise, exercise.loggingStyle == .machineWork, exercise.allowsCalorieOrDistanceToggle {
-                    Picker("Unidad de cardio", selection: Binding(
+                if let exercise,
+                   exercise.supportsWeightedRepsOrMeters
+                    || (exercise.loggingStyle == .machineWork && exercise.allowsCalorieOrDistanceToggle) {
+                    Picker("Unidad", selection: Binding(
                         get: { item.quantityUnit ?? exercise.defaultQuantityUnit },
                         set: { item.quantityUnit = $0 }
                     )) {
-                        Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                        if exercise.supportsWeightedRepsOrMeters {
+                            Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+                        } else {
+                            Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                        }
                         Text("Metros").tag(ExerciseQuantityUnit.meters)
                     }
                     .pickerStyle(.segmented)
@@ -2251,7 +2266,9 @@ struct RoutineExerciseEditor: View {
                             : (exercise?.quantityFieldLabel ?? "Reps"))),
                     secondTitle: exercise?.isMobility == true
                         ? (exercise?.isMobilityHold == true ? nil : "Reps")
-                        : (exercise?.loggingStyle == .loadAndReps ? "Reps" : nil),
+                        : (exercise?.loggingStyle == .loadAndReps
+                            ? (exercise?.supportsWeightedRepsOrMeters == true
+                                ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
                     showsRIR: exercise?.loggingStyle.usesRIR ?? false
                 )
                 .listRowBackground(Color.clear)
@@ -2263,6 +2280,8 @@ struct RoutineExerciseEditor: View {
                         set: binding(for: index),
                         weightStep: weightStep,
                         exerciseStyle: exercise?.loggingStyle ?? .loadAndReps,
+                        quantityCap: exercise?.supportsWeightedRepsOrMeters == true && item.quantityUnit == .meters
+                            ? 100_000 : nil,
                         isMobility: exercise?.isMobility ?? false,
                         isMobilityHold: exercise?.isMobilityHold ?? false,
                         previous: {
@@ -2412,6 +2431,7 @@ private struct PlannedSetConfigRow: View {
     @Binding var set: PlannedSet
     var weightStep: Double
     var exerciseStyle: ExerciseLoggingStyle = .loadAndReps
+    var quantityCap: Int? = nil
     var isMobility: Bool = false
     var isMobilityHold: Bool = false
     var previous: ExerciseLastSession.WorkSet? = nil
@@ -2447,12 +2467,12 @@ private struct PlannedSetConfigRow: View {
                         set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
                     }
                 } else if let value = Int(text), value > 0 {
-                    set.targetReps = min(exerciseStyle.quantityCap, value)
+                    set.targetReps = min(quantityCap ?? exerciseStyle.quantityCap, value)
                 }
             },
             onSecondCommit: { text in
                 if let value = Int(text), value > 0 {
-                    set.targetReps = min(exerciseStyle.quantityCap, value)
+                    set.targetReps = min(quantityCap ?? exerciseStyle.quantityCap, value)
                 }
             }
         )
