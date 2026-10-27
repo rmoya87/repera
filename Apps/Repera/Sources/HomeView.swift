@@ -192,7 +192,7 @@ struct HomeView: View {
         let reserved = Set(selectedDayBusinessBookings.map(\\.occurrenceId))
         return businessData.trainingSessions.filter {
             $0.scheduledDate == day &&
-                ($0.sourceOccurrenceId == nil || !reserved.contains($0.sourceOccurrenceId!))
+                $0.sourceOccurrenceId.map { !reserved.contains($0) } ?? true
         }
     }
 
@@ -981,7 +981,7 @@ struct HomeView: View {
                     label: "Entreno " + businessData.centerName(session.orgId),
                     time: session.scheduledTimeMinutes.map { SpanishDate.time(minutesFromMidnight: $0) },
                     symbol: "figure.strengthtraining.traditional",
-                    summary: session.prescription?.blocks.count.map { "\\($0) bloq." } ?? "Entrenador",
+                    summary: session.prescription.map { "\($0.blocks.count) bloq." } ?? "Entrenador",
                     action: { openProfessionalSessionId = session.id }
                 )
                 .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
@@ -991,7 +991,7 @@ struct HomeView: View {
                     businessDayCard(
                         title: occurrence.title,
                         label: (occurrence.kind == "class" ? "Clase " : "Entreno ") + businessData.centerName(occurrence.orgId),
-                        time: BusinessDataStore.date(occurrence.startsAt).map(SpanishDate.time),
+                        time: BusinessDataStore.date(occurrence.startsAt).map { SpanishDate.time($0) },
                         symbol: occurrence.kind == "class" ? "figure.group" : "person.crop.circle",
                         summary: occurrence.kind == "class" ? "Reserva confirmada" : "Cita confirmada",
                         action: { openBusinessBookingId = booking.id }
@@ -1042,7 +1042,7 @@ struct HomeView: View {
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
-                        Text(label + (time.map { " · " + $0 } ?? ""))
+                        Text(label + (time.map { " – " + $0 } ?? ""))
                             .font(.system(size: 12))
                             .foregroundStyle(OG.label2)
                             .lineLimit(2)
