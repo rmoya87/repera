@@ -42,6 +42,9 @@ struct WorkoutView: View {
     @State private var expandedTechniquesExerciseID: UUID?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
+    @State private var manualRoundSetup: ManualRoundSetup?
+    @State private var manualRoundMinutes = 1
+    @State private var manualRoundSeconds = 0
     /// EMOM/Tabata: el reloj ha terminado, pero todavía se pueden registrar series.
     @State private var finishedTimedBlockID: UUID?
     /// Mantener el temporizador del bloque al cambiar entre sus movimientos.
@@ -58,6 +61,15 @@ struct WorkoutView: View {
         var reps: Int
         var rir: Double?
         var completed: Bool
+    }
+
+    /// Petición asociada al ejercicio de origen, no al índice seleccionado:
+    /// si el usuario cambia de bloque mientras el sheet está abierto, no
+    /// se inicia un cronómetro para una prescripción diferente.
+    private struct ManualRoundSetup: Identifiable {
+        let id = UUID()
+        let exerciseID: UUID
+        let rounds: Int
     }
 
     private struct PendingWODConfirm: Identifiable {
@@ -115,6 +127,9 @@ struct WorkoutView: View {
                 .preferredColorScheme(.dark)
                 .background(Color.black.ignoresSafeArea())
                 .statusBarHidden()
+        }
+        .sheet(item: $manualRoundSetup) { setup in
+            manualRoundDurationSheet(for: setup)
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -268,7 +283,7 @@ struct WorkoutView: View {
                 pendingTimerBlockID = nil
                 if let current = store.state.activeSession?.currentExercise,
                    current.blockId == blockID || current.id == blockID {
-                    startBlockClock(for: current)
+                    requestBlockClockStart(for: current)
                 }
             }
         }
@@ -679,7 +694,7 @@ struct WorkoutView: View {
         if store.state.activeSession?.phase == .ready {
             store.confirmCurrentOnWatchStyle()
         }
-        startBlockClock(for: current)
+        requestBlockClockStart(for: current)
     }
 
     /// Las notas se escriben directamente en Play; guardado silencioso y persistente.
@@ -1248,7 +1263,7 @@ struct WorkoutView: View {
                     Button {
                         store.confirmCurrentOnWatchStyle()
                         if usesAutomaticTimer {
-                            startBlockClock(for: current)
+                            requestBlockClockStart(for: current)
                         }
                     } label: {
                         Text("Comenzar")
@@ -1261,7 +1276,7 @@ struct WorkoutView: View {
                     .controlSize(.large)
                 } else if !store.workoutClock.isVisible {
                     Button {
-                        startBlockClock(for: current)
+                        requestBlockClockStart(for: current)
                     } label: {
                         Label("Abrir reloj", systemImage: "timer")
                             .font(.system(size: 16, weight: .semibold))
@@ -1357,6 +1372,8 @@ struct WorkoutView: View {
                 primaryTitle: clock.primaryTitle,
                 onPrimary: { clock.handlePrimary() },
                 onClose: { clock.minimize() },
+                closeSymbol: "chevron.down",
+                closeAccessibilityLabel: "Minimizar reloj",
                 onFinish: clock.canFinishByUser ? { clock.finishByUser() } : nil,
                 showFinish: clock.canFinishByUser
             )
@@ -1400,8 +1417,87 @@ struct WorkoutView: View {
         )
     }
 
+    /// Solo los bloques libres sin duración propia preguntan los segundos
+    /// de cada ronda. Los formatos parametrizados (EMOM, Tabata, circuitos,
+    /// AMRAP, For Time…) conservan su semántica sin configuraciones extra.
+    private func requestBlockClockStart(for current: SessionExercise) {
+        let freeFormat = current.wodFormat == nil || current.wodFormat == .strength
+        let hasPrescribedDuration = (current.blockTimeCapMinutes ?? 0) > 0
+            || (current.blockIntervalSeconds ?? 0) > 0
+            || (current.blockWorkSeconds ?? 0) > 0
+        guard freeFormat && !hasPrescribedDuration else {
+            startBlockClock(for: current)
+            return
+        }
+        let block = current.blockId ?? current.id
+        let plannedRounds = store.state.activeSession?.exercises
+            .filter { ($0.blockId ?? $0.id) == block }
+            .map { $0.plannedSets.count }.max() ?? 0
+        manualRoundMinutes = 1
+        manualRoundSeconds = 0
+        manualRoundSetup = ManualRoundSetup(
+            exerciseID: current.id,
+            rounds: min(99, max(1, current.blockRounds ?? plannedRounds))
+        )
+    }
+
+    private func manualRoundDurationSheet(for setup: ManualRoundSetup) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Duración de cada ronda")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(OG.label)
+            Text("Bloque libre · \\(setup.rounds) ronda\\(setup.rounds == 1 ? "" : "s")")
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+            Stepper(value: $manualRoundMinutes, in: 0...120) {
+                HStack {
+                    Text("Minutos")
+                    Spacer()
+                    Text("\\(manualRoundMinutes)")
+                        .monospacedDigit()
+                }
+            }
+            Stepper(value: $manualRoundSeconds, in: 0...55, step: 5) {
+                HStack {
+                    Text("Segundos")
+                    Spacer()
+                    Text("\\(manualRoundSeconds)")
+                        .monospacedDigit()
+                }
+            }
+            Button {
+                guard let current = store.state.activeSession?.currentExercise,
+                      current.id == setup.exerciseID else {
+                    manualRoundSetup = nil
+                    return
+                }
+                let seconds = manualRoundMinutes * 60 + manualRoundSeconds
+                guard seconds > 0 else { return }
+                manualRoundSetup = nil
+                startBlockClock(for: current, manualRoundSeconds: seconds, manualRounds: setup.rounds)
+            } label: {
+                Text("Iniciar temporizador")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OG.accent)
+            .disabled(manualRoundMinutes == 0 && manualRoundSeconds == 0)
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .presentationDetents([.height(345)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(26)
+        .presentationBackground(OG.surface)
+    }
+
     /// Reloj a pantalla completa para cualquier tipo de bloque (EMOM, AMRAP, fuerza…).
-    private func startBlockClock(for current: SessionExercise) {
+    private func startBlockClock(
+        for current: SessionExercise,
+        manualRoundSeconds: Int? = nil,
+        manualRounds: Int? = nil
+    ) {
         let sound = store.state.settings.restSoundEnabled
         let haptic = store.state.settings.restHapticEnabled
         let format = current.wodFormat
@@ -1414,7 +1510,7 @@ struct WorkoutView: View {
 
         switch format {
         case .emom:
-            let interval = max(15, current.blockIntervalSeconds ?? 60)
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
             let intervals = max(1, current.plannedIntervals ?? current.blockRounds ?? 10)
             store.workoutClock.configure(
                 exercise: current.exercise,
@@ -1429,7 +1525,7 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .circuit:
-            let interval = max(5, current.blockIntervalSeconds ?? 60)
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
             let stations = max(1, store.state.activeSession?.exercises.filter {
                 $0.blockId == current.blockId
             }.count ?? 1)
@@ -1471,7 +1567,7 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .tabata:
-            let work = max(5, current.blockWorkSeconds ?? 20)
+            let work = max(1, current.blockWorkSeconds ?? 20)
             let rest = max(1, current.blockRestSeconds ?? 10)
             let rounds = max(1, current.blockRounds ?? 8)
             store.workoutClock.configure(
@@ -1490,7 +1586,7 @@ struct WorkoutView: View {
             )
         case .deathBy:
             // Un intervalo por minuto; la persona termina cuando falla la ronda.
-            let interval = max(15, current.blockIntervalSeconds ?? 60)
+            let interval = max(1, current.blockIntervalSeconds ?? 60)
             let intervals = max(1, current.plannedIntervals ?? current.blockTimeCapMinutes ?? 30)
             store.workoutClock.configure(
                 exercise: current.exercise,
@@ -1535,7 +1631,23 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .partner, .roundsForQuality, .strength, .none:
-            if let minutes = current.blockTimeCapMinutes, minutes > 0 {
+            if let manualRoundSeconds, manualRoundSeconds > 0 {
+                // Los bloques libres siguen sus series prescritas como rondas
+                // de la misma duración, mostrando el contador verde 1/N.
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.blockHeader ?? current.exercise.name,
+                    subtitle: current.blockHeader ?? "Ronda de fuerza",
+                    countingUp: false,
+                    intervalMode: true,
+                    intervalLength: manualRoundSeconds,
+                    totalIntervals: max(1, manualRounds ?? 1),
+                    initialCountdown: manualRoundSeconds,
+                    allowEarlyIntervalFinish: true,
+                    sound: sound,
+                    haptic: haptic
+                )
+            } else if let minutes = current.blockTimeCapMinutes, minutes > 0 {
                 let seconds = minutes * 60
                 store.workoutClock.configure(
                     exercise: current.exercise,
