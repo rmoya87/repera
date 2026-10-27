@@ -33,7 +33,7 @@ export function renderProfessionalPlanning(props) {
  <div class="business-bulk-select-heading"><strong data-bulk-count>0 deportistas</strong>
  <button class="connected-secondary" type="button" data-action="bulk-select-all">Seleccionar todos</button></div>
  <div class="business-bulk-athletes">${linked.map(c=>`<label class="business-bulk-athlete">
- <input type="checkbox" name="clients" value="${escapeHTML(c.id)}">
+ <input type="checkbox" name="clients" value="${escapeHTML(c.id)}" ${bulkOnly&&c.id===clientId?'checked':''}>
  <span class="business-avatar">${escapeHTML(c.name.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</span>
  <span><strong>${escapeHTML(c.name)}</strong><small>${escapeHTML(c.email||'')}</small></span></label>`).join('')}</div>
  </fieldset>
