@@ -2259,6 +2259,7 @@ data class StateOverview(
                                             sets = planned?.length() ?: 1,
                                             weightKg = if (first?.has("targetWeightKg") == true)
                                                 first.getDouble("targetWeightKg") else null,
+                                            quantityUnit = ex.optString("quantityUnit").ifBlank { null },
                                             plannedSets = planned?.let { arr ->
                                                 (0 until arr.length()).map { si ->
                                                     val ps = arr.getJSONObject(si)
@@ -2293,7 +2294,11 @@ data class StateOverview(
                                                 m.has("calories") -> m.getInt("calories")
                                                 m.has("distanceMeters") -> m.getInt("distanceMeters")
                                                 else -> 1
-                                            }
+                                            },
+                                            weightKg = m.optDouble("weightMaleKg").takeIf { m.has("weightMaleKg") },
+                                            quantityUnit = m.optString("quantityUnit").ifBlank { null }
+                                                ?: if (m.has("distanceMeters")) "meters"
+                                                else if (m.has("calories")) "calories" else null
                                         )
                                     }
                                 }.orEmpty()
@@ -2528,7 +2533,9 @@ data class RoutineBlockEntryInfo(
      *  trae (iOS lo escribe). Round-trip: editar y guardar no lo pierde. */
     val plannedSets: List<PlannedSetDraft>? = null,
     val id: String? = null,
-    val sourceJson: String? = null
+    val sourceJson: String? = null,
+    /** Apple 8a940bc5: unidad planificada (reps/meters) para la vista previa. */
+    val quantityUnit: String? = null
 )
 
 data class ExerciseEntry(

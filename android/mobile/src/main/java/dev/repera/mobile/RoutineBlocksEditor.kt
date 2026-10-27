@@ -508,6 +508,11 @@ private fun BlockEditorCard(
                         isStrength = block.format == "strength",
                         mobility=exercises.firstOrNull {it.id==entry.exerciseId}?.sportTag=="Movilidad",
                         mobilityHold=exercises.firstOrNull {it.id==entry.exerciseId}?.mobilityHold==true,
+                        // Apple 63824a81: el selector de unidad se ofrece a
+                        // supportsWeightedRepsOrMeters (Repeticiones/Metros con
+                        // kg) ademas del cardio Calorias/Metros.
+                        weightedRepsOrMeters = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
+                            dev.repera.domain.ExerciseInput.supportsWeightedRepsOrMeters(ex.name) } == true,
                         unitChoices = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
                             dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(ex.name, ex.equipment) } == true,
                         loadGuideProvider = loadGuideProvider,
@@ -570,6 +575,7 @@ private fun EntryEditorRow(
     moveTargets: List<Pair<Int, String>> = emptyList(),
     onMove: (Int) -> Unit = {},
     unitChoices: Boolean = false,
+    weightedRepsOrMeters: Boolean = false,
     onUp: (() -> Unit)? = null,
     onDown: (() -> Unit)? = null
 ) {
@@ -626,14 +632,21 @@ private fun EntryEditorRow(
                 )
             }
         }
-        if (unitChoices) {
-            // Picker "Unidad de cardio" (Apple): segmentado Calorías / Metros.
+        if (unitChoices || weightedRepsOrMeters) {
+            // Picker "Unidad" (Apple 63824a81): Repeticiones/Metros para
+            // supportsWeightedRepsOrMeters; Calorias/Metros para cardio.
             val src = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-            val current = entry.unit ?: src?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" }
-                ?: if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters")) "meters" else "calories"
+            val current = entry.unit ?: src?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" || it == "reps" }
+                ?: if (weightedRepsOrMeters) dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
+                else if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters")) "meters" else "calories"
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.FilterChip(selected = current == "calories", onClick = { entry.unit = "calories" },
-                    label = { Text("Calorías") }, modifier = Modifier.testTag("plan_unit_calories"))
+                if (weightedRepsOrMeters) {
+                    androidx.compose.material3.FilterChip(selected = current == "reps", onClick = { entry.unit = "reps" },
+                        label = { Text("Repeticiones") }, modifier = Modifier.testTag("plan_unit_reps"))
+                } else {
+                    androidx.compose.material3.FilterChip(selected = current == "calories", onClick = { entry.unit = "calories" },
+                        label = { Text("Calorías") }, modifier = Modifier.testTag("plan_unit_calories"))
+                }
                 androidx.compose.material3.FilterChip(selected = current == "meters", onClick = { entry.unit = "meters" },
                     label = { Text("Metros") }, modifier = Modifier.testTag("plan_unit_meters"))
             }

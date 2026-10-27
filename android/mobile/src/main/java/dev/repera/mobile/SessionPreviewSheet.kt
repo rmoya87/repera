@@ -120,10 +120,17 @@ fun SessionPreviewSheet(
                             Row(entryModifier, verticalAlignment = Alignment.CenterVertically) {
                             val detail = buildString {
                                 append(entry.name)
+                                // Apple 8a940bc5: la vista previa muestra metros
+                                // y kg (14 m · 18 kg), nunca "reps" para metros.
+                                val unitLabel = when (entry.quantityUnit) {
+                                    "meters" -> " m"; "calories" -> " cal"; else -> ""
+                                }
                                 if (entry.sets > 0 && entry.quantity > 0) {
-                                    append(" — ${entry.sets}×${entry.quantity}")
+                                    if (unitLabel.isNotEmpty())
+                                        append(" — ${entry.sets}×${entry.quantity}$unitLabel")
+                                    else append(" — ${entry.sets}×${entry.quantity}")
                                 } else if (entry.quantity > 0) {
-                                    append(" — ${entry.quantity}")
+                                    append(" — ${entry.quantity}$unitLabel")
                                 }
                                 entry.weightKg?.let { w ->
                                     append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(w)} kg")
