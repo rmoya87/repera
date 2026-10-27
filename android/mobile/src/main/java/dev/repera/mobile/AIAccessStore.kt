@@ -29,6 +29,14 @@ class AIAccessStore(
         return response
     }
 
+    /** Proveedor de asistente guiado (port de AIConnectionProvider iOS). */
+    data class AIProvider(
+        val id: String,
+        val name: String,
+        val oauthClientID: String?,
+        val directoryURL: String?
+    )
+
     data class TokenInfo(
         val id: String,
         val label: String,

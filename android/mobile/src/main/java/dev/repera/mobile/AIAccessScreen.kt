@@ -1,10 +1,17 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -91,6 +98,83 @@ fun AIAccessScreen(
         .verticalScroll(rememberScrollState())
         .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+        // Conexiones guiadas (port de connectionSection AIAccessView iOS):
+        // catálogo público + fallback, logo de marca, verificado inline.
+        var providers by remember {
+            mutableStateOf<Pair<List<AIAccessStore.AIProvider>, Boolean>?>(null) }
+        LaunchedEffect(Unit) {
+            providers = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                AIProviderLaunch.fetchProviderCatalog() }
+        }
+        var instructionsFor by remember {
+            mutableStateOf<AIAccessStore.AIProvider?>(null) }
+        Text("Conexiones", style = MaterialTheme.typography.titleMedium)
+        Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (providers?.second == true) {
+            Text("No se pudo comprobar la disponibilidad de las conexiones.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        providers?.first?.forEach { provider ->
+            // Verificado inline (Apple: token activo usado cuyo nombre es el del
+            // proveedor y con oauth_client_id; Android aún no lee
+            // oauth_client_id del endpoint — aproximación documentada).
+            val verified = tokens.orEmpty().any {
+                it.isActive && it.lastUsedAt != null && it.label == provider.name }
+            OutlinedButton(
+                onClick = { if (!verified) instructionsFor = provider },
+                enabled = connected,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                Icon(
+                    androidx.compose.ui.res.painterResource(when (provider.id) {
+                        "chatgpt" -> dev.repera.mobile.R.drawable.ai_logo_openai
+                        "claude" -> dev.repera.mobile.R.drawable.ai_logo_claude
+                        else -> dev.repera.mobile.R.drawable.ai_logo_grok
+                    }),
+                    contentDescription = null,
+                    tint = if (provider.id == "claude") androidx.compose.ui.graphics.Color.Unspecified
+                           else androidx.compose.material3.LocalContentColor.current,
+                    modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(if (verified) "${provider.name} conectado"
+                     else "Continuar con ${provider.name}")
+            }
+        }
+        if (!connected) {
+            Text("Inicia sesión en Repera para conectar tu asistente.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        instructionsFor?.let { provider ->
+            val text = AIProviderLaunch.instructions(provider)
+            val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+            AlertDialog(onDismissRequest = { instructionsFor = null },
+                title = { Text("Instrucciones") },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Text(text, style = MaterialTheme.typography.bodySmall)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
+                        AIProviderLaunch.urlFor(provider.id)?.let { url ->
+                            context.startActivity(android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(url)))
+                        }
+                        instructionsFor = null
+                    }) { Text("Copiar y abrir ${provider.name}") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { instructionsFor = null }) { Text("Cerrar") }
+                })
+        }
 
         Text("Nuevo acceso IA", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
