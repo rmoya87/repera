@@ -164,7 +164,7 @@ final class BusinessWorkoutSyncStore {
         guard await BusinessAuthStore.shared.ensureUsableSession(),
               let client = BusinessAuthStore.shared.apiClient else {
             lastError = BusinessAuthStore.shared.lastErrorMessage
-                ?? "La sesión de Supabase no está disponible. Inicia sesión si es necesario."
+                ?? "La sesión de Repera no está disponible. Inicia sesión si es necesario."
             return false
         }
         guard store.isHydrated, store.didCompleteInitialRemoteSync, !store.isSyncingiCloud else {
@@ -304,7 +304,7 @@ final class BusinessWorkoutSyncStore {
             return true
         } catch {
             guard run == generation else { return false }
-            lastError = "La sincronización con Supabase está pendiente: \(error.localizedDescription)"
+            lastError = "No se han podido sincronizar los entrenamientos: \(error.localizedDescription)"
             // Never mark failed uploads as synced; retries keep local files safe.
             return false
         }
