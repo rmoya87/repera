@@ -23,7 +23,7 @@ const label=(v)=>v==='active'?'Activo':v==='suspended'?'Suspendido':v==='paid'?'
 function statusPill(status){return `<span class="pa-pill ${status==='active'||status==='paid'?'good':status==='suspended'||status==='failed'?'bad':''}">${esc(label(status||'active'))}</span>`;}
 const empty=(title,text)=>`<div class="pa-empty"><strong>${esc(title)}</strong><p>${esc(text)}</p></div>`;
 const table=(heads,rows)=>`<div class="pa-table-wrap"><table class="pa-table"><thead><tr>${heads.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${heads.length}">Sin registros</td></tr>`}</tbody></table></div>`;
-const orgRow=o=>`<tr><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.owner_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
+const orgRow=o=>`<tr><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.owner_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}${o.registration_status==='pending'?'<small class="pa-register-pending">Propietario sin registrar</small>':''}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
 const orgTable=orgs=>table(['Centro','Tipo','Clientes','Activos','Plan','Estado','Alta','Acción'],orgs.map(orgRow).join(''));
 function heading(title,description,action=''){return `<div class="pa-heading"><div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 const field=(name,title,value='',type='text',extra='')=>`<label class="pa-field"><span>${title}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
@@ -55,8 +55,8 @@ function organizationDetail(o,opts){
  ${stat('Sesiones y clases',o.sessions||0)}</div>
  <div class="pa-panel pa-center-hero">
  <div class="pa-identity">${photo(o.avatar_url,o.name,'large')}<div><h2>${esc(o.name)}</h2>
- <p>${esc(type(o.kind))} · ${statusPill(o.status)}
- ${o.registration_status==='pending'?'<span class="pa-pill">Pendiente de aceptación del propietario</span>':''}</p></div></div>
+ <p>${esc(type(o.kind))} · <span class="pa-muted">Estado del centro:</span> ${statusPill(o.status)}
+ ${o.registration_status==='pending'?'<span class="pa-pill">Propietario pendiente de registro</span>':''}</p></div></div>
  <div class="pa-center-hero-actions"><button type="button" class="pa-button primary" data-admin-action="access-center" data-id="${esc(o.id)}">Entrar como administrador del centro</button></div>
  </div>
  <div class="pa-layout"><section class="pa-panel"><h2>Datos del centro</h2>
@@ -72,11 +72,11 @@ function organizationDetail(o,opts){
  ['Prueba hasta',date(o.trial_ends_at)],['Pagado hasta',date(o.paid_until)],
  ['Última reserva',stamp(o.last_activity)],['Motivo de suspensión',o.status_reason]])}
  <form class="pa-status-inline" data-admin-form="status"><input type="hidden" name="org_id" value="${esc(o.id)}">
- <label class="pa-field"><span>Estado operativo</span><select name="status">
- <option value="active" ${!suspended?'selected':''}>Activo${o.registration_status==='pending'?' · registro pendiente':''}</option>
+ <label class="pa-field"><span>Estado del centro (editable)</span><select name="status">
+ <option value="active" ${!suspended?'selected':''}>Activo</option>
  <option value="suspended" ${suspended?'selected':''}>Suspendido</option>
  </select></label><button class="pa-button primary" type="submit">Guardar estado</button></form>
- <p class="pa-muted">El estado operativo es independiente de la aceptación del propietario. El cambio queda registrado automáticamente.</p></section></div>
+ <p class="pa-muted">Puedes activar o suspender este centro aunque su propietario todavía no haya completado el registro. La situación de su cuenta se muestra por separado.</p></section></div>
  ${!detail?'<section class="pa-panel"><h2>Personas, fiscalidad y operaciones</h2><p>Cargando información del centro...</p></section>':`
  <div class="pa-layout">
  <section class="pa-panel"><h2>Datos fiscales</h2>${d.legal?details([
