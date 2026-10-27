@@ -465,25 +465,25 @@ d27bfcf7|2026-10-23T12:09:19+02:00|fix(progress): aplicar transparencia tras el 
 ab0a1b38|2026-10-23T12:08:51+02:00|fix(ios): topbar transparente como Diario y teclado numérico en Temporizador|ios-app||verified-n/a 14:36: topbar transparente SwiftUI + teclado numerico iOS
 13f73a8e|2026-10-23T12:04:09+02:00|test(progress): alinear contrato de zonas con tarjeta Cardio nativa actual|docs-tests|2366f80e 51e96612 7096b167 7beee4e6|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 10624285|2026-10-23T12:02:52+02:00|test(domain): actualizar contratos de WOD id y navegación sin superseries|packages||verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-5a47ad39|2026-10-23T12:02:04+02:00|ci(ios): permitir compilar RevenueCat con Xcode 27 y corregir contrato de fecha|docs-tests,other||unverified
-e04a0a28|2026-10-23T11:59:06+02:00|fix(ios): corregir appleUserID fuera de alcance y restaurar topbar translúcido|docs-tests,ios-app||unverified
-21e26ff2|2026-10-23T11:46:55+02:00|fix(auth): no mostrar pestañas tras logout si sigue caché remota|docs-tests,ios-app|83f12d74|unverified
-06884b8c|2026-10-23T11:46:04+02:00|fix(auth): cierre de sesión explícito impide restaurar caché previa a login Google|ios-app|5be5ecf4|unverified
+5a47ad39|2026-10-23T12:02:04+02:00|ci(ios): permitir compilar RevenueCat con Xcode 27 y corregir contrato de fecha|docs-tests,other||verified-n/a 14:40: CI Xcode/RevenueCat iOS
+e04a0a28|2026-10-23T11:59:06+02:00|fix(ios): corregir appleUserID fuera de alcance y restaurar topbar translúcido|docs-tests,ios-app||verified-n/a 14:40: appleUserID fuera de alcance (Swift) + topbar iOS; Android sin Apple sign-in
+21e26ff2|2026-10-23T11:46:55+02:00|fix(auth): no mostrar pestañas tras logout si sigue caché remota|docs-tests,ios-app|83f12d74|in-progress 14:40: verificar Android no muestra pestañas con cache remota tras logout (modelo signOut scope=local SupabaseIdentity:53; sin prueba directa)
+06884b8c|2026-10-23T11:46:04+02:00|fix(auth): cierre de sesión explícito impide restaurar caché previa a login Google|ios-app|5be5ecf4|in-progress 14:40: verificar que logout explicito impide restaurar cache previa en Android
 6d86a818|2026-10-23T11:44:18+02:00|test(ios): verificar mensajes eliminados, flechas nativas y miniatura Burpee Box Jump Over|docs-tests|39583a69|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-c3d2f246|2026-10-23T11:43:21+02:00|fix(auth): validar dueño local también en restauración de cache y fallback Apple|ios-app|5f5ab590|unverified
+c3d2f246|2026-10-23T11:43:21+02:00|fix(auth): validar dueño local también en restauración de cache y fallback Apple|ios-app|5f5ab590|in-progress 14:40: verificar validacion de dueño local en restauracion de cache Android
 4714ec11|2026-10-23T11:40:54+02:00|test(auth): verificar API getLinkIdentityURL de SDK fijado 2.55.4|docs-tests|39583a69|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-1e284991|2026-10-23T11:40:44+02:00|fix(auth): usar getLinkIdentityURL de supabase-swift 2.55.4 fijado|ios-app||unverified
+1e284991|2026-10-23T11:40:44+02:00|fix(auth): usar getLinkIdentityURL de supabase-swift 2.55.4 fijado|ios-app||verified-n/a 14:40: API supabase-swift especifica; Android usa REST /auth/v1 directo
 efd050ad|2026-10-23T11:39:47+02:00|docs(auth): documentar OAuth Google iOS, redirección y enlace seguro Apple|docs-tests,other|24a2dffb 5be5ecf4|verified-n/a 10:46 (solo docs: README.md,docs/ARCHITECTURE.md,docs/FEATURES.md;…; sin delta de comportamiento)
 de6b6248|2026-10-23T11:37:40+02:00|test(auth): proteger login Google y propiedad de datos al vincular Apple|docs-tests|5be5ecf4|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-d5aaf813|2026-10-23T11:36:33+02:00|fix(auth): no repetir onboarding al cambiar de Apple a Google y proteger identidad|ios-app|2f158245 5be5ecf4|unverified
-d54c9dd0|2026-10-23T11:35:11+02:00|fix(auth): finalizar OAuth nativo antes de dar Google por vinculado|ios-app|24a2dffb 5be5ecf4|unverified
-864650c8|2026-10-23T11:33:00+02:00|feat(auth): acceso Google nativo Supabase con vinculación segura a Apple|ios-app,other|24a2dffb 5be5ecf4|unverified
-aa1abc62|2026-10-23T11:30:36+02:00|fix(ios): quitar instrucción redundante, usar chevrons nativos y recuperar miniatura BBJO|ios-app||unverified
+d5aaf813|2026-10-23T11:36:33+02:00|fix(auth): no repetir onboarding al cambiar de Apple a Google y proteger identidad|ios-app|2f158245 5be5ecf4|verified-n/a 14:40: cambio Apple->Google — Android solo Google sign-in, sin vinculacion Apple
+d54c9dd0|2026-10-23T11:35:11+02:00|fix(auth): finalizar OAuth nativo antes de dar Google por vinculado|ios-app|24a2dffb 5be5ecf4|verified-n/a 14:40: OAuth nativo vinculado a Apple — sin Apple sign-in Android
+864650c8|2026-10-23T11:33:00+02:00|feat(auth): acceso Google nativo Supabase con vinculación segura a Apple|ios-app,other|24a2dffb 5be5ecf4|verified-ported 14:40: acceso Google nativo Supabase — Android OnboardingScreen Google + SupabaseIdentity; vinculacion Apple N/A
+aa1abc62|2026-10-23T11:30:36+02:00|fix(ios): quitar instrucción redundante, usar chevrons nativos y recuperar miniatura BBJO|ios-app||verified-ported 14:40: miniatura BBJO — ExerciseArtData:87 "BBJO"->art_cf_burpee_box identico a Apple; chevrons nativos = iOS
 77d292a1|2026-10-23T11:23:54+02:00|test(ios): proteger fondo gris de barras compactadas e Inicio transparente|docs-tests|854c7cf7|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-94b6435e|2026-10-23T11:22:46+02:00|fix(ios): barra gris en navegación compactada salvo Inicio|docs-tests,ios-app||unverified
-31d835ef|2026-10-23T11:16:51+02:00|fix(play): separar controles de navegación neutros de check verde|ios-app||unverified
-8e4df187|2026-10-23T11:15:23+02:00|test(ios): evitar regresión de margen, cluster, topbar y separadores|docs-tests||unverified
-040227d5|2026-10-23T11:13:27+02:00|fix(editor): separar Volver neutral de confirmación verde y quitar línea al expandir|ios-app|554307bd b7c27be4 d164d03f|unverified
+94b6435e|2026-10-23T11:22:46+02:00|fix(ios): barra gris en navegación compactada salvo Inicio|docs-tests,ios-app||verified-n/a 14:40: barra gris navegacion SwiftUI
+31d835ef|2026-10-23T11:16:51+02:00|fix(play): separar controles de navegación neutros de check verde|ios-app||verified-ported 14:40: controles navegacion neutros separados — ActiveSessionControls.kt (Anterior/Ejercicios/Siguiente TextButtons neutros)
+8e4df187|2026-10-23T11:15:23+02:00|test(ios): evitar regresión de margen, cluster, topbar y separadores|docs-tests||verified-n/a 14:40: tests XCTest iOS
+040227d5|2026-10-23T11:13:27+02:00|fix(editor): separar Volver neutral de confirmación verde y quitar línea al expandir|ios-app|554307bd b7c27be4 d164d03f|partial 14:40: Volver neutral vs confirmacion verde en editor — verificar FinishedWorkoutEditor Android (parcial, revisar)
 b3abae06|2026-10-23T11:12:31+02:00|fix(play): técnicas sin doble margen, clusters compactos y separador de series|ios-app||unverified
 4ba0059e|2026-10-23T11:04:33+02:00|test(progress): validar tarjetas más altas y márgenes verticales de gráficas|docs-tests|51e96612 82858176 fd1a86cd|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 d74afff0|2026-10-23T11:02:41+02:00|refactor(ios): retirar editor Rx duplicado y alinear miniaturas en Play|docs-tests,ios-app|94b27158|unverified
