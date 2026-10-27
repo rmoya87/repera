@@ -237,7 +237,7 @@ function athleteDetail(person,detail,workouts=[],busy=false,activity={},section=
   body=`<div class="pa-athlete-training-grid">
  ${renderAthleteActivity({month:activity.month,days:activity.days,selectedDay:day,
   workouts:activity.workouts??workouts,loading:activity.loading,
-  canPlan,athleteId:person.id})}
+  canPlan:canSchedule,athleteId:person.id})}
  </div>
  ${renderAthleteInsights(workouts,rows.workout_count)}`;
  }
