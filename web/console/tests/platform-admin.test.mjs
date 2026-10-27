@@ -50,6 +50,14 @@ test('Cobros vacíos nunca simulan ingresos y CSV está escapado',()=>{
  assert.match(csv,/1100/);
  assert.match(csv,/Gimnasio <script>/); // safe in CSV, quoted
  assert.match(csv,/Fecha;Negocio;Importe_centimos/);
+ const injection=paymentCSV([{...orgs[0],name:'=CMD(1)'}],{payments:[{org_id:id,amount_cents:150,created_at:'2026-10-25',status:'paid',currency:'EUR',provider:'stripe'}]},{org:'all',paymentStatus:'paid'});
+ assert.ok(injection.includes("'=CMD(1)"),'Excel formulas must not be evaluated');
+ const b2c=paymentCSV(orgs,{payments:[],client_payments:[{org_id:id,amount_cents:2800,created_at:'2026-10-26',status:'paid',currency:'EUR',provider:'stripe_connect'}]},
+  {paymentScope:'b2c',paymentStatus:'paid',org:'all',dateFrom:'2026-10-25'});
+ assert.match(b2c,/2800/);
+ const ignored=paymentCSV(orgs,{client_payments:[{org_id:id,amount_cents:2800,created_at:'2026-10-26',status:'paid',currency:'EUR',provider:'stripe_connect'}]},
+  {paymentScope:'b2c',paymentStatus:'paid',org:'all',dateFrom:'2026-10-27'});
+ assert.ok(!ignored.includes('2800'));
 });
 
 test('Operaciones administrativas solo llaman RPC con JWT y validan argumentos',async()=>{
