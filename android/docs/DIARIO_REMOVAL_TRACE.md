@@ -62,11 +62,11 @@ en rama local, sin borrar datos, validación UI pendiente (bloqueo 120s + dispos
 | Función Android | Destino propuesto | Estado |
 |---|---|---|
 | Plan semanal ver/empezar/quitar del día | Inicio YA lo cubre (strip + preview + remove) | ✓ verificado 12:14 |
-| ＋ Añadir a un día | DayPlusSheet existe (en DiaryTab); llevarlo a Inicio con la fecha seleccionada | POR PORTAR a Inicio |
-| Asignación recurrente L-D / a fecha | Portar diálogos assigningDay/assigningDate a Inicio | POR PORTAR a Inicio (sin esto retirar Diario pierde función) |
-| Biblioteca Rutinas completa | Conservar acceso (Inicio o Favoritos ampliado) | DECISIÓN CONSERVADORA documentada: Apple la eliminó, pero la asignación a día la necesita; mantener acceso hasta que la asignación no dependa de ella |
-| Copiar semana anterior / Vaciar | Retirar del menú (paridad Apple), conservar repository | POR PORTAR (reversible) |
-| Programas IA | Entrada `programas-ia` en nav + tarjeta; llevar tarjeta a Inicio o dejar solo acceso por Ajustes/menú IA | POR DECIDIR en el port |
+| ＋ Añadir a un día | DayPlusSheet existe (en DiaryTab); llevarlo a Inicio con la fecha seleccionada | POR PORTAR a Inicio (= paridad Apple HomeView ＋ por día) |
+| Asignación recurrente L-D / a fecha | YA CUBIERTA por el editor de rutina Android (ReperaCards: chips Sin fecha/Día concreto/Semanal + DatePicker + Hora programada, exclusión mutua scheduledDate/weekday = misma semántica que DayEditorView Apple: Toggle "Programar también en una fecha" + DatePicker + scheduledTimeControls, weekday=nil al fijar fecha) | ✓ verificado 12:28 — NO se añaden diálogos nuevos a Inicio (corrección 12:14: Apple asigna en el EDITOR, los diálogos assigningDay de DiaryTab eran conveniencia extra Android) |
+| Biblioteca Rutinas completa | Conservada TEMPORALMENTE (rotulada divergencia abierta, no cierre): Apple la eliminó como sección pero su flujo de asignación depende del editor; Android la mantiene accesible hasta validar | DIVERGENCIA ABIERTA |
+| Copiar semana anterior / Vaciar | Retirar del menú (paridad Apple: sin destino UI en 0a640da8), repository conserva ambas funciones | POR PORTAR (reversible) |
+| Programas IA | RETIRADA = paridad (sin destino Apple; verificado 0a640da8). Android conserva acceso por la nav `programas-ia` existente | NO se porta a Inicio (corrección 12:14) |
 | OverviewEmptyActions | Ya duplicada en Inicio | ✓ verificado 12:14 |
 | AccountSyncCard | Ya duplicada en Inicio y Ajustes | ✓ verificado 12:14 |
 
@@ -80,15 +80,21 @@ en rama local, sin borrar datos, validación UI pendiente (bloqueo 120s + dispos
   declarar fin ni cumplir condición de push con esta pieza sin validar.
 
 ## F. Plan de ejecución (rama local, reversible, próxima fase)
-1. Portar a Inicio: DayPlusSheet por día seleccionado, diálogos de asignación
-   (weekday recurrente + fecha + "＋ otro entreno"), tarjeta programas IA.
-2. Conservar acceso a la biblioteca Rutinas (decisión conservadora, §D).
-3. Retirar "Copiar semana anterior"/"Vaciar" del menú (repository intacto).
-4. Sacar "diario" del grafo de navegación conservando DiaryTab.kt en el árbol
-   (rollback instantáneo; sin borrar datos: rutinas, weekday, fechadas,
-   favoritos e historial intactos).
+1. Portar a Inicio: DayPlusSheet por día seleccionado (＋ → hoja con Crear
+   entreno con fecha / Favoritos / Temporizador / Escanear), espejo HomeView
+   Apple. El botón "Añadir nuevo entrenamiento" abre esa hoja.
+2. Biblioteca Rutinas: se conserva acceso TEMPORAL, divergencia abierta (§D).
+   La asignación de fecha/weekday YA vive en el editor de rutina (paridad).
+3. "Copiar semana anterior"/"Vaciar" salen con la pestaña (paridad Apple);
+   repository intacto.
+4. Sacar "diario" de la BARRA de pestañas conservando la ruta composable("diario")
+   registrada (navegación vieja disponible hasta validar) y DiaryTab.kt en el
+   árbol. Rollback = restaurar una línea en `tabs`. Sin borrar datos: rutinas,
+   weekday, fechadas, favoritos e historial intactos.
 5. Validación UI/dispositivo bloqueada: el cambio queda como WIP explícito; NO
    cuenta para declarar fin ni para la condición de push.
+6. Nota: Apple dejó texto obsoleto en DayEditorView (.favorite: "selecciónala…
+   desde Diario") tras eliminar Diario — lectura registrada, no guía.
 Resueltos: destino de OverviewEmptyActions/AccountSyncCard (Inicio/Ajustes ✓);
 diálogo de borrado Apple (one-off elimina, plantilla quita del día) — verificar
 que removeScheduledRoutine Android distingue ambos casos al portar el preview.
