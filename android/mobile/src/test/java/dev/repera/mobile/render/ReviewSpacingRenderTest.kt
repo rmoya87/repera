@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -360,5 +361,40 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()
         composeRule.onNodeWithText("24 oct 2026: 721 kcal",useUnmergedTree=true).assertDoesNotExist()
         save(composeRule.onNodeWithTag("health_preview_fixture").captureToImage().asAndroidBitmap(),"health-preview-separate-cards.png")
+    }
+ @Test @Config(sdk=[35],qualifiers="w1000dp-h1400dp") fun activityAllFourCardsShareExpandedGrid() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("activity_grid_fixture")) {
+            val charts=dev.repera.mobile.ProgressPreview.charts(day,true)
+            dev.repera.mobile.ProgressHealthGrid(
+                score={dev.repera.mobile.SessionScoreProgressCard(emptyList(),preview=true)},
+                cardio={dev.repera.mobile.ProgressCardioCard(charts,true)},
+                calories={dev.repera.mobile.ProgressCaloriesCard(charts,true)},
+                weight={dev.repera.mobile.WeightPreviewCard(day)})
+        }}}
+        composeRule.onNodeWithTag("activity_health_columns_2").assertExists()
+        save(composeRule.onNodeWithTag("activity_grid_fixture").captureToImage().asAndroidBitmap(),"activity-health-grid-expanded.png")
+    }
+ @Test @Config(sdk=[35],qualifiers="w360dp-h1800dp") fun activityAllFourCardsStayOrderedNarrow() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("activity_grid_narrow")) {
+            val charts=dev.repera.mobile.ProgressPreview.charts(day,true)
+            dev.repera.mobile.ProgressHealthGrid(
+                score={dev.repera.mobile.SessionScoreProgressCard(emptyList(),preview=true)},
+                cardio={dev.repera.mobile.ProgressCardioCard(charts,true)},
+                calories={dev.repera.mobile.ProgressCaloriesCard(charts,true)},
+                weight={dev.repera.mobile.WeightPreviewCard(day)})
+        }}}
+        composeRule.onNodeWithTag("activity_health_columns_1").assertExists()
+        save(composeRule.onNodeWithTag("activity_grid_narrow").captureToImage().asAndroidBitmap(),"activity-health-grid-narrow.png")
+    }
+ @Test fun relocatedWeightEditorKeepsRecordedInputCallback() {
+        var received:Double?=null
+        composeRule.setContent {MaterialTheme {Surface {
+            dev.repera.mobile.ProgressWeightCard(listOf(dev.repera.domain.ProgressDayPoint(LocalDate.of(2026,10,27),75.0)),null,74.0,"test-owner",false,{received=it})
+        }}}
+        composeRule.onNodeWithText("Peso de hoy (kg)").performTextInput("76,2")
+        composeRule.onNodeWithText("Registrar").performClick()
+        org.junit.Assert.assertEquals(76.2,received!!,0.001)
     }
 }

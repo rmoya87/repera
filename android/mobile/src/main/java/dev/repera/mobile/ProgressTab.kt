@@ -253,14 +253,19 @@ internal fun ProgressTab(
                 })}
             }
             if(topic=="Actividad") {
-            item {
-                if(pro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty())
-                else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true)
-            }
             val charts=if(pro) overview?.chartsByRange?.get(selectedRange) else ProgressPreview.charts(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
             item {
+                Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 if(!pro) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
-                if(charts!=null) ProgressChartsCard(charts,showEmpty=true,preview=!pro)
+                val prepared=charts ?: dev.repera.domain.ProgressPreparedCharts(
+                    dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},overview?.trainingSettings?.weekStartsOnMonday ?: true,
+                    emptyList(),emptyList(),0.0,null,dev.repera.domain.ProgressSeriesGranularity.DAY)
+                ProgressHealthGrid(
+                    score={if(pro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty())
+                        else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true)},
+                    cardio={ProgressCardioCard(prepared,!pro)},calories={ProgressCaloriesCard(prepared,!pro)},
+                    weight={if(!pro) WeightPreviewCard(today) else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)})
+                }
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
             if(healthPrompt!=ProgressHealthPromptKind.NONE) item {
@@ -276,7 +281,6 @@ internal fun ProgressTab(
                 }}
             }
             if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
-            if(!pro) item {WeightPreviewCard(today)}
             }
             if(topic=="Entreno") {
             if (snapshot.heatmapTime.isNotEmpty()) {
@@ -323,54 +327,6 @@ internal fun ProgressTab(
             if(!(subscriptions==null || subscriptions.isPro)) item {dev.repera.mobile.monetization.ProTeaserCard(title="Descubre todo tu progreso",bodyText="Analiza tu evolución por ejercicio y tus marcas personales.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,onClick={
                 subscriptions.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
             })}
-            }
-            if(topic=="Actividad" && pro && snapshot.weightPoints.isEmpty()) item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
-                Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
-                Text("Sin mediciones en el periodo.")
-                WeightStatTiles(null, overview?.healthGoals?.weightKg)
-                val goal=overview?.healthGoals?.weightKg
-                EmptyHealthChartAxes(goal?.minus(2) ?: 60.0,goal?.plus(2) ?: 90.0,210.dp)
-            }}}
-            if (topic=="Actividad" && pro && snapshot.weightPoints.isNotEmpty()) {
-                item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
-                            val last = snapshot.weightPoints.last()
-                            Text("Último: ${formatWeight(last.value)} kg " +
-                                "(${last.day.format(reperaDayFormatter)})")
-                            snapshot.weightDelta30d?.let { delta ->
-                                val sign = if (delta >= 0) "+" else ""
-                                Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
-                                    style = MaterialTheme.typography.bodyMedium)
-                            }
-                            WeightStatTiles(last.value, overview?.healthGoals?.weightKg)
-                            DayPointLineChart(snapshot.weightPoints,goal=overview?.healthGoals?.weightKg,weightStyle=true)
-                            val weightScope=remember(accountId) {org.json.JSONArray(listOf(accountId,"progress-weight-input")).toString()}
-                            val weightSaver=remember(weightScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(weightScope,it)},restore={restoreScopedEditorValue(weightScope,it)})}
-                            var weightInput by rememberSaveable(accountId,stateSaver=weightSaver) { mutableStateOf("") }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(
-                                    value = weightInput,
-                                    onValueChange = { weightInput = it },
-                                    label = { Text("Peso de hoy (kg)") },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal),
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(onClick = {
-                                    dev.repera.domain.ReperaNumberFormat.parse(weightInput)?.let {
-                                        onLogBodyWeight(it)
-                                        weightInput = ""
-                                    }
-                                }, enabled = !busy) { Text("Registrar") }
-                            }
-                        }
-                    }
-                }
             }
         }
         if(topic=="Entreno") {
@@ -453,4 +409,51 @@ internal fun WeightPreviewCard(today:LocalDate) {
         DayPointLineChart(points,goal=74.0,interactive=false,weightStyle=true,weightPreview=true)
         WeightStatTiles(points.lastOrNull()?.value,74.0)
     }}
+}
+
+@Composable internal fun ProgressWeightCard(points:List<dev.repera.domain.ProgressDayPoint>,delta30d:Double?,goalKg:Double?,accountId:String,busy:Boolean,onLogBodyWeight:(Double)->Unit) {
+ if(points.isEmpty()) Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
+  Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
+  Text("Sin mediciones en el periodo.")
+  WeightStatTiles(null,goalKg)
+  EmptyHealthChartAxes(goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
+ }} else {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
+                            val last = points.last()
+                            Text("Último: ${formatWeight(last.value)} kg " +
+                                "(${last.day.format(reperaDayFormatter)})")
+                            delta30d?.let { delta ->
+                                val sign = if (delta >= 0) "+" else ""
+                                Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
+                                    style = MaterialTheme.typography.bodyMedium)
+                            }
+                            WeightStatTiles(last.value, goalKg)
+                            DayPointLineChart(points,goal=goalKg,weightStyle=true)
+                            val weightScope=remember(accountId) {org.json.JSONArray(listOf(accountId,"progress-weight-input")).toString()}
+                            val weightSaver=remember(weightScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(weightScope,it)},restore={restoreScopedEditorValue(weightScope,it)})}
+                            var weightInput by rememberSaveable(accountId,stateSaver=weightSaver) { mutableStateOf("") }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedTextField(
+                                    value = weightInput,
+                                    onValueChange = { weightInput = it },
+                                    label = { Text("Peso de hoy (kg)") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = {
+                                    dev.repera.domain.ReperaNumberFormat.parse(weightInput)?.let {
+                                        onLogBodyWeight(it)
+                                        weightInput = ""
+                                    }
+                                }, enabled = !busy) { Text("Registrar") }
+                            }
+                        }
+                    }
+ }
 }

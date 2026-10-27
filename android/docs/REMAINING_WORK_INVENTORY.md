@@ -509,3 +509,17 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  peso estaenseparadositems,estas2cards aunverticales. Noafirmarreticula
  totalni cierreblock.Yticks/greedylabelsaproximados,nativopendiente.
 - Completa308/assemblependientes;735/70nopush,domain504/93Wear8/1previos.
+
+## Revision graficos, reticula parcial 00:25 28oct
+- Full308mobile667/163XMLreales63/76/63/61s0fallo/error/omitidos,
+ assemble39sverde. No cierre deparidad.
+- Mismobloque revisionconstantes/graficos,subhuecoreticulaglobal4cards
+ conocido308:score/cardio/kcal/pesoahora1componentegrid1/2columnas
+ umbral620,gap12,ordenfuenteenFree/Pro. PermisoSalud yupsellfuera,
+ tras4cards;si chartsausentesconservacardsvacias,nodatosinventados.
+- Pesorealextraidoasin cambiodelregistrocallback/owner/saver;test
+ entrada76,2->callback76.2.3testsrender/editorverdes89s;previosfixtures
+ +BodyWeight/Previewverdes69s. PNG360/1000inspeccionadossinrecortes.
+- Scoresiguegeometria100/130Androidnoportadaalafuente;Yticks/greedylabels
+ aproximados yruntimependientes. Reticula noequivale a todoschartsportados.
+- Completa309+assemblependientes,735/70,nopush,domain504/93Wear8/1previos.
