@@ -125,6 +125,11 @@ object CompletedWorkoutEditing {
             if (w != null) p.put("targetWeightKg", w)
             if (l.has("durationSeconds") && !l.isNull("durationSeconds")) p.put("targetDurationSeconds", l.getInt("durationSeconds"))
             if (l.has("rir") && !l.isNull("rir")) p.put("targetRir", l.getDouble("rir"))
+            // Apple f7109bd7 (editableSetRow, get: set.quantityUnit): el borrador
+            // arranca con la unidad REGISTRADA; sin esto, guardar una edicion de
+            // kg/RIR reetiquetaria la serie a la unidad prescrita del ejercicio.
+            l.optString("quantityUnit").takeIf { it == "reps" || it == "meters" || it == "calories" }
+                ?.let { p.put("targetQuantityUnit", it) }
             if (i < visible.size) visible[i] = p else visible.add(p)
         }
         return JSONArray(visible.map { it })
@@ -404,7 +409,7 @@ object CompletedWorkoutEditing {
                         // Apple f7109bd7 (editableSetRow): la unidad editada por
                         // serie manda sobre la del ejercicio y la previa.
                         val unit = set.optString("targetQuantityUnit")
-                            .takeIf { it == "reps" || it == "meters" }
+                            .takeIf { it == "reps" || it == "meters" || it == "calories" }
                             ?: item.unit ?: prev?.optString("quantityUnit")?.ifBlank { null }
                         if (unit != null) ls.put("quantityUnit", unit)
                         rebuilt.put(ls)

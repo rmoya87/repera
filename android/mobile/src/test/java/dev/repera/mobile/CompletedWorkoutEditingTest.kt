@@ -394,4 +394,72 @@ class CompletedWorkoutEditingTest {
         assertEquals(16.0, editedSet.getDouble("weightKg"), 0.0)
         assertEquals(12, editedSet.getInt("reps"))
     }
+
+    @Test fun prescribedMetersLoggedRepsNotRelabeledByUnrelatedEdit() {
+        // Caso mixto (revision): ejercicio prescrito en metros, serie REGISTRADA
+        // en reps; editar SOLO el kg no debe reetiquetar la unidad.
+        val lunge = ex("wl", "Walking lunge")
+        val cat = JSONArray().put(lunge)
+        val block = JSONObject().put("id", "b1").put("title", "Bloque A").put("kind", "strength")
+            .put("exercises", JSONArray().put(JSONObject().put("id", "re1")
+                .put("exerciseId", "wl").put("quantityUnit", "meters")
+                .put("plannedSets", JSONArray().put(planned("p1", 20, 16.0)))))
+        val ls = logged("l1", 12, 16.0, 2.0).put("quantityUnit", "reps")
+        val session = JSONObject().put("id", "s1").put("title", "Fuerza").put("phase", "finished")
+            .put("startedAt", "2026-10-20T10:00:00Z").put("finishedAt", "2026-10-20T11:00:00Z")
+            .put("currentIndex", 0).put("routePoints", JSONArray())
+            .put("routineBlocks", JSONArray().put(block)).put("wodResults", JSONArray())
+            .put("exercises", JSONArray().put(entry("e1", lunge, "b1", planned("p1", 20, 16.0), ls)))
+
+        val blocks = CompletedWorkoutEditing.blocksFrom(session, null)
+        // Edicion SOLO de kg (sin tocar unidad).
+        blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("plannedSets").getJSONObject(0).put("targetWeightKg", 24.0)
+        val u = CompletedWorkoutEditing.applying("Fuerza", blocks, session, cat)
+        val set = u.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").getJSONObject(0)
+        assertEquals("reps", set.getString("quantityUnit"))
+        assertEquals(24.0, set.getDouble("weightKg"), 0.0)
+    }
+
+    @Test fun mixedRepsAndMetersSetsKeepTheirOwnUnit() {
+        // Varias series del mismo ejercicio con unidades distintas: cada una
+        // conserva la suya al guardar una edicion ajena.
+        val lunge = ex("wl", "Walking lunge")
+        val cat = JSONArray().put(lunge)
+        val block = JSONObject().put("id", "b1").put("title", "Bloque A").put("kind", "strength")
+            .put("exercises", JSONArray().put(JSONObject().put("id", "re1")
+                .put("exerciseId", "wl")
+                .put("plannedSets", JSONArray().put(planned("p1", 12)).put(planned("p2", 20)))))
+        val l1 = logged("l1", 12, 16.0, 2.0).put("quantityUnit", "reps")
+        val l2 = logged("l2", 20, 16.0, 1.0).put("quantityUnit", "meters")
+        val ent = entry("e1", lunge, "b1", planned("p1", 12), l1)
+        ent.getJSONArray("plannedSets").put(planned("p2", 20))
+        ent.getJSONArray("loggedSets").put(l2)
+        val session = JSONObject().put("id", "s1").put("title", "Fuerza").put("phase", "finished")
+            .put("startedAt", "2026-10-20T10:00:00Z").put("finishedAt", "2026-10-20T11:00:00Z")
+            .put("currentIndex", 0).put("routePoints", JSONArray())
+            .put("routineBlocks", JSONArray().put(block)).put("wodResults", JSONArray())
+            .put("exercises", JSONArray().put(ent))
+
+        val blocks = CompletedWorkoutEditing.blocksFrom(session, null)
+        blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("plannedSets").getJSONObject(0).put("targetRir", 3.0)
+        val u = CompletedWorkoutEditing.applying("Fuerza", blocks, session, cat)
+        val sets = u.getJSONArray("exercises").getJSONObject(0).getJSONArray("loggedSets")
+        assertEquals(2, sets.length())
+        assertEquals("reps", sets.getJSONObject(0).getString("quantityUnit"))
+        assertEquals("meters", sets.getJSONObject(1).getString("quantityUnit"))
+    }
+
+    @Test fun draftMutationNeverTouchesStoredSession() {
+        // Cancelar = descartar borrador: mutar el draft no altera la sesion.
+        val s = strengthSession()
+        val before = s.toString()
+        val blocks = CompletedWorkoutEditing.blocksFrom(s, null)
+        blocks.getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("plannedSets").getJSONObject(0)
+            .put("targetWeightKg", 999.0).put("targetQuantityUnit", "meters")
+        assertEquals(before, s.toString())
+    }
 }
