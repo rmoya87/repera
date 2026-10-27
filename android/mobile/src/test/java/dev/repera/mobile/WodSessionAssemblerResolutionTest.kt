@@ -87,4 +87,17 @@ class WodSessionAssemblerResolutionTest {
             .put("movements", JSONArray().put(rest).put(work))
         assertEquals(1, append(b, JSONArray()).length())
     }
+    @Test fun distanceMovementPreservesExplicitRepsInsteadOfDefaultMeters() {
+        val official=ex("carry","Farmer carry")
+        val repsMove=JSONObject().put("id","reps-move").put("name","Farmer carry").put("reps",12)
+        val reps=append(block(repsMove),catalog(official)).getJSONObject(0)
+        assertEquals("reps",reps.getString("quantityUnit"))
+        assertEquals(12,reps.getJSONArray("plannedSets").getJSONObject(0).getInt("targetReps"))
+        val metersMove=JSONObject().put("id","meters-move").put("name","Farmer carry").put("distanceMeters",20)
+        val meters=append(block(metersMove),catalog(official)).getJSONObject(0)
+        assertEquals("meters",meters.getString("quantityUnit"))
+        assertEquals(20,meters.getJSONArray("plannedSets").getJSONObject(0).getInt("targetReps"))
+        assertEquals(0,meters.getJSONArray("loggedSets").length())
+    }
+
 }

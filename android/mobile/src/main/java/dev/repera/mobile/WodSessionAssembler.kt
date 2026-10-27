@@ -94,6 +94,8 @@ object WodSessionAssembler {
                 sessionMovement.put("quantityUnit", "calories")
             else if (move.has("distanceMeters") && !move.isNull("distanceMeters"))
                 sessionMovement.put("quantityUnit", "meters")
+            else if(dev.repera.domain.ExerciseInput.supportsRepsOrMeters(exercise.getString("name")))
+                sessionMovement.put("quantityUnit","reps")
             result.put(sessionMovement)
         }
     }
