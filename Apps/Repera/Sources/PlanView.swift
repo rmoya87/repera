@@ -103,6 +103,7 @@ struct DayEditorView: View {
     @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
     @State private var routineSaveError: String?
+    @State private var isConfirmingSave = false
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
     @State private var completedDetails: WorkoutSession?
@@ -825,6 +826,15 @@ struct DayEditorView: View {
     }
 
     private func confirm() {
+        guard !isConfirmingSave else { return }
+        isConfirmingSave = true
+        Task { @MainActor in
+            defer { isConfirmingSave = false }
+            await confirmWithVerifiedAccess()
+        }
+    }
+
+    private func confirmWithVerifiedAccess() async {
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
             customExercises: store.customExerciseCount
@@ -836,20 +846,24 @@ struct DayEditorView: View {
             if edited.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 edited.title = "Entreno"
             }
+            var detailsToSave = completedDetails
             if saveAsFavorite {
-                // La rutina original puede seguir programada: crear una copia
-                // independiente, nunca sobrescribir su ID con valores ya registrados.
+                // Editar un histórico no debe crear duplicados si ya tiene
+                // una plantilla favorita. Tampoco modifica el plan original.
+                let prior = completedDetails.favoriteRoutineId.flatMap { favoriteID in
+                    store.state.routines.first(where: { $0.id == favoriteID })
+                }
                 let favorite = Routine(
+                    id: prior?.id ?? UUID(),
                     title: edited.title,
                     blocks: edited.blocks.map { $0.duplicatingContent() },
+                    progression: .off,
                     isFavorite: true
                 )
-                guard store.saveRoutine(favorite) else {
-                    presentRoutineLimitPaywall()
-                    return
-                }
+                guard await saveRoutineWithVerifiedAccess(favorite) else { return }
+                detailsToSave.favoriteRoutineId = favorite.id
             }
-            onApplyCompleted(edited, completedDetails)
+            onApplyCompleted(edited, detailsToSave)
             closeEditor()
             return
         }
@@ -876,10 +890,7 @@ struct DayEditorView: View {
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 draft.title = "Rutina"
             }
-            guard store.saveRoutine(draft) else {
-                presentRoutineLimitPaywall()
-                return
-            }
+            guard await saveRoutineWithVerifiedAccess(draft) else { return }
             if let dateToSchedule {
                 store.assignRoutine(draft.id, toDate: dateToSchedule)
             }
@@ -899,13 +910,11 @@ struct DayEditorView: View {
             // independientes. No marcar el calendario como favorito hasta
             // que la nueva plantilla se haya guardado de verdad.
             draft.isFavorite = store.state.routines.first(where: { $0.id == draft.id })?.isFavorite ?? false
-            guard store.saveRoutine(draft) else {
-                presentRoutineLimitPaywall()
-                return
-            }
-            guard store.setRoutineFavorite(draft.id, isFavorite: wantsFavorite) else {
+            guard await saveRoutineWithVerifiedAccess(draft) else { return }
+            guard await setRoutineFavoriteWithVerifiedAccess(
+                draft.id, isFavorite: wantsFavorite
+            ) else {
                 routine.isFavorite = false
-                presentRoutineLimitPaywall()
                 return
             }
             closeEditor()
@@ -915,10 +924,7 @@ struct DayEditorView: View {
             if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 draft.title = "Favorito"
             }
-            guard store.saveRoutine(draft) else {
-                presentRoutineLimitPaywall()
-                return
-            }
+            guard await saveRoutineWithVerifiedAccess(draft) else { return }
             closeEditor()
         case .session:
             var draft = routine
@@ -930,10 +936,7 @@ struct DayEditorView: View {
             }
             draft.isFavorite = saveAsFavorite
             if saveAsFavorite {
-                guard store.saveRoutine(draft) else {
-                    presentRoutineLimitPaywall()
-                    return
-                }
+                guard await saveRoutineWithVerifiedAccess(draft) else { return }
             }
             store.startSession(from: draft)
             // No cerrar ni navegar si había otra sesión activa o HealthKit
@@ -1056,16 +1059,54 @@ struct DayEditorView: View {
         )
     }
 
+    /// No interpretar un estado Gratis antiguo como prueba de que Pro caducó.
+    /// Consultar de nuevo las compras verificadas antes de bloquear una rutina.
+    @discardableResult
+    private func saveRoutineWithVerifiedAccess(_ candidate: Routine) async -> Bool {
+        if store.saveRoutine(candidate) { return true }
+        if store.lastAccessDenial != nil {
+            await subscriptions.refreshEntitlementsForFeatureAction()
+            subscriptions.syncCounts(
+                libraryRoutines: store.libraryRoutineCount,
+                customExercises: store.customExerciseCount
+            )
+            store.featureAccess = { [subscriptions] in subscriptions.policy }
+            if store.saveRoutine(candidate) { return true }
+        }
+        presentRoutineLimitPaywall()
+        return false
+    }
+
+    private func setRoutineFavoriteWithVerifiedAccess(
+        _ routineID: UUID, isFavorite: Bool
+    ) async -> Bool {
+        if store.setRoutineFavorite(routineID, isFavorite: isFavorite) { return true }
+        if store.lastAccessDenial != nil {
+            await subscriptions.refreshEntitlementsForFeatureAction()
+            subscriptions.syncCounts(
+                libraryRoutines: store.libraryRoutineCount,
+                customExercises: store.customExerciseCount
+            )
+            store.featureAccess = { [subscriptions] in subscriptions.policy }
+            if store.setRoutineFavorite(routineID, isFavorite: isFavorite) { return true }
+        }
+        presentRoutineLimitPaywall()
+        return false
+    }
+
     private func presentRoutineLimitPaywall() {
-        if let decision = store.lastAccessDenial, !decision.allowed,
-           !subscriptions.policy.isPro, subscriptions.snapshot.status != .unknown {
+        guard let decision = store.lastAccessDenial, !decision.allowed else {
+            routineSaveError = "No se ha podido guardar la plantilla favorita. El entrenamiento original no se ha modificado."
+            return
+        }
+        if subscriptions.snapshot.status == .unknown && !subscriptions.policy.isPro {
+            routineSaveError = "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
+        } else if subscriptions.policy.isPro {
+            routineSaveError = "No se ha podido guardar la plantilla aunque tu acceso Pro está activo. Inténtalo de nuevo."
+        } else {
             subscriptions.presentPaywall(
                 decision.paywallContext, feature: .unlimitedRoutines
             )
-        } else {
-            routineSaveError = subscriptions.snapshot.status == .unknown && !subscriptions.isPro
-                ? "No hemos podido comprobar tu suscripción. Revisa la conexión o restaura tus compras desde Ajustes."
-                : "El entrenamiento no se ha guardado. Revisa sus datos y vuelve a intentarlo."
         }
     }
 
