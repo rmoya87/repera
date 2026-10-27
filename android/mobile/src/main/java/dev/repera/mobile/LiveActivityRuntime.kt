@@ -44,7 +44,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     val updates = revisions.asStateFlow()
     private val location = LiveLocationSource(app) { update ->
         val splitCount = state.splitsSeconds.size
-        if (state.receive(update.sessionID,update.point,update.distanceMeters)) {
+        if (state.receive(update.sessionID,update.point,update.distanceMeters,update.bridgedPoints)) {
             if (state.splitsSeconds.size > splitCount) {
                 val km = state.splitsSeconds.size
                 val seconds = state.splitsSeconds.last()
@@ -69,7 +69,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     }
     init {
         LiveSport.byId(voicePrefs.getString("lastSport", "running").orEmpty())?.let { state.choose(it) }
-        try { store.read()?.let { state.restore(it);prepareRoute() } }
+        try { store.read()?.let { state.restore(it,System.currentTimeMillis());prepareRoute() } }
         catch (_: Exception) { recoveryBlocked=true;lastError="No se pudo restaurar la actividad. El archivo original se conserva. Descártalo explícitamente antes de iniciar otro." }
     }
     private fun notifyGuidance(title: String, text: String) {
@@ -122,10 +122,19 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { store.write(snapshot);lastSaveMillis=now }
         catch (_: Exception) { lastError="No se pudo guardar el punto de recuperación. Comprueba el almacenamiento." }
     }
-    private fun startGPS() {
+    private fun startGPS(bridgingInterruption: Boolean = false) {
         if (!state.sport.usesGPS) return
-        location.start(state.gpsSessionID,state.sport,state.points,state.distanceMeters)
+        location.start(state.gpsSessionID,state.sport,state.points,state.distanceMeters,
+            bridgingInterruption,state.sport.recoveryMaximumSpeedMps)
         lastError=location.lastError
+    }
+
+    /** Tras relanzar el proceso, restaurar el sensor sin pulsar Iniciar.
+     *  (resumeInterruptedRecordingIfNeeded Apple, ca3c0383) */
+    fun resumeInterruptedRecordingIfNeeded() {
+        if (!state.needsInterruptedGPSRecovery || state.phase != LiveActivityState.Phase.RECORDING) return
+        state.clearInterruptedRecovery()
+        startGPS(bridgingInterruption = true);checkpoint(true);publish()
     }
     fun stopForAccountChange() {
         if (state.phase == LiveActivityState.Phase.RECORDING) pause()

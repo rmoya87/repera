@@ -23,10 +23,11 @@ internal class LiveLocationSource(private val context: Context,
     val isAuthorized get() = ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    fun start(sessionID: String, sport: LiveSport, points: List<WorkoutRoutePoint>, meters: Double): Boolean {
+    fun start(sessionID: String, sport: LiveSport, points: List<WorkoutRoutePoint>, meters: Double,
+        bridgeInterruptedGap: Boolean = false, recoveryMaximumSpeedMps: Double = 2.8): Boolean {
         if (!isAuthorized) { lastError="GPS no autorizado. Seguimos registrando el tiempo.";return false }
         val mgr=manager ?: run { lastError="GPS no disponible. Seguimos registrando el tiempo.";return false }
-        if (!odometer.start(sessionID,System.currentTimeMillis(),sport,points,meters)) {
+        if (!odometer.start(sessionID,System.currentTimeMillis(),sport,points,meters,bridgeInterruptedGap,recoveryMaximumSpeedMps)) {
             lastError="Otro entrenamiento ya está utilizando el GPS.";return false
         }
         try {

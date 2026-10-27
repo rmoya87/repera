@@ -148,6 +148,17 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
             else -> false
         }
 
+    /** Un salto medio tras un cierre debe ser razonable para el deporte.
+     *  No usar el límite más permisivo de picos GPS reales. (Apple 0a640da8) */
+    val recoveryMaximumSpeedMps: Double
+        get() = when (this) {
+            WALKING, HIKING, GOLF -> 2.8
+            RUNNING, TRAIL -> 7.5
+            CYCLING, MOUNTAIN_BIKE, GRAVEL -> 20.0
+            SKIING, SNOWBOARDING, WINDSURFING, KITESURFING -> 35.0
+            else -> minOf(12.0, maxGPSMetersPerSecond)
+        }
+
     /** Evita descartar las muestras auténticas de deportes rápidos como
      *  kitesurf y esquí, manteniendo el filtro de saltos GPS. */
     val maxGPSMetersPerSecond: Double

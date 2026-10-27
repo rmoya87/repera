@@ -34,6 +34,9 @@ class LiveActivityState {
     private var elevationReference: Double? = null
     private var lastBoundarySeconds = 0.0
     private var previousFixActiveSeconds: Double? = null
+    /** True tras restaurar una grabación interrumpida por cierre del proceso;
+     *  el runtime reinicia el GPS con bridging y lo limpia. (Apple ca3c0383) */
+    var needsInterruptedGPSRecovery = false; private set
     val hasElevationSamples: Boolean get() = elevationReference != null
 
     fun choose(sport: LiveSport) {
@@ -69,7 +72,8 @@ class LiveActivityState {
     }
     /** Solo actualizaciones del odómetro ya filtrado; no aceptar regresiones,
      * NaN, ni sesiones antiguas que entreguen callbacks después de descartar. */
-    fun receive(sessionID: String, point: WorkoutRoutePoint, totalDistanceMeters: Double): Boolean {
+    fun receive(sessionID: String, point: WorkoutRoutePoint, totalDistanceMeters: Double,
+        bridgedPoints: List<WorkoutRoutePoint> = emptyList()): Boolean {
         if (phase != Phase.RECORDING || !sport.usesGPS || sessionID != gpsSessionID) return false
         if (!totalDistanceMeters.isFinite() || totalDistanceMeters < distanceMeters) return false
         val before = distanceMeters
@@ -88,7 +92,7 @@ class LiveActivityState {
             splitsSeconds = next
         }
         previousFixActiveSeconds = active
-        points = points + point
+        points = points + bridgedPoints + point
         currentSpeedMps = point.speedMps?.takeIf { it.isFinite() && it >= 0 }
         if (sport.tracksElevation && point.verticalAccuracyMeters?.let { it in 0.0..15.0 } == true)
             point.altitudeMeters?.let(::integrateElevation)
@@ -107,18 +111,33 @@ class LiveActivityState {
         Snapshot(sport.id, phase, it, pausedMillis, pausedSeconds, distanceMeters,
             points.toList(), nowMillis, selectedRouteID, splitsSeconds.toList(), lastBoundarySeconds, gpsSessionID)
     }
-    /** Restauración segura: siempre PAUSA, sin inventar tiempo/distancia en
-     * la interrupción. Apple omite finishedAt en snapshot y hace lo mismo. */
-    fun restore(snapshot: Snapshot): Boolean {
+    /** Restauración segura. Apple (ca3c0383): si el proceso murió grabando y el
+     *  snapshot tiene <= 2 h, la sesión vuelve a GRABAR y el GPS se reinicia con
+     *  bridging acotado; una pausa manual (o snapshot viejo) se mantiene en pausa.
+     *  Apple omite finishedAt en snapshot y no inventa tiempo fuera del bridging. */
+    fun restore(snapshot: Snapshot, nowMillis: Long = 0L): Boolean {
         val restored = LiveSport.byId(snapshot.sportID) ?: return false
         if (snapshot.phase == Phase.IDLE) return false
-        clearMetrics(); sport = restored; phase = Phase.PAUSED
+        clearMetrics(); sport = restored
         startedMillis = snapshot.startedMillis; finishedMillis = null
-        pausedMillis = snapshot.pausedMillis ?: snapshot.savedMillis
         pausedSeconds = snapshot.pausedSeconds; distanceMeters = snapshot.distanceMeters
         points = snapshot.points.toList(); splitsSeconds = snapshot.splitsSeconds.toList()
         lastBoundarySeconds = snapshot.lastBoundarySeconds; selectedRouteID = snapshot.selectedRouteID
         gpsSessionID = snapshot.gpsSessionID
+        val ageMillis = nowMillis - snapshot.savedMillis
+        needsInterruptedGPSRecovery = snapshot.phase == Phase.RECORDING &&
+            ageMillis >= 0 && ageMillis <= 2 * 60 * 60 * 1000
+        if (needsInterruptedGPSRecovery) {
+            phase = Phase.RECORDING; pausedMillis = null
+            // Reconstruye el tiempo activo del último fix auténtico para que los
+            // kilómetros estimados cuenten desde él hasta el próximo contacto GPS.
+            previousFixActiveSeconds = points.lastOrNull()?.let {
+                maxOf(0.0, (it.recordedAtEpochMs - snapshot.startedMillis) / 1000.0 - snapshot.pausedSeconds)
+            }
+        } else {
+            phase = Phase.PAUSED
+            pausedMillis = snapshot.pausedMillis ?: snapshot.savedMillis
+        }
         if (sport.tracksElevation) points.forEach { point ->
             if (point.verticalAccuracyMeters?.let { it in 0.0..15.0 } == true)
                 point.altitudeMeters?.let(::integrateElevation)
@@ -131,9 +150,12 @@ class LiveActivityState {
     fun averageSpeedKmh(nowMillis: Long): Double? =
         if (sport.usesGPS && points.size >= 2 && durationSeconds(nowMillis) > 0)
             max(0.0, distanceMeters / durationSeconds(nowMillis) * 3.6) else null
+    /** El runtime lo llama al reiniciar el GPS con bridging tras el relanzamiento. */
+    fun clearInterruptedRecovery() { needsInterruptedGPSRecovery = false }
     fun discard() {
         phase = Phase.IDLE; startedMillis = null; finishedMillis = null; pausedMillis = null
-        pausedSeconds = 0.0; selectedRouteID = null; gpsSessionID = ""; clearMetrics()
+        pausedSeconds = 0.0; selectedRouteID = null; gpsSessionID = ""
+        needsInterruptedGPSRecovery = false; clearMetrics()
     }
     private fun clearMetrics() {
         distanceMeters = 0.0; points = emptyList(); splitsSeconds = emptyList()
