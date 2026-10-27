@@ -167,6 +167,7 @@ struct LinkedCenterDetailView: View {
     @Environment(BusinessDataStore.self) private var businessData
     let center: BusinessOrganization
     @State private var confirmLeave = false
+    @State private var leaveSheetHeight: CGFloat = 310
     @Environment(\.dismiss) private var dismiss
 
     private var orgPasses: [BusinessPass] {
@@ -270,19 +271,88 @@ struct LinkedCenterDetailView: View {
         .navigationTitle(center.name)
         .navigationBarTitleDisplayMode(.inline)
         .ogTransparentNav()
-        .confirmationDialog(
-            "¿Desvincularte de \(center.name)?",
-            isPresented: $confirmLeave,
-            titleVisibility: .visible
-        ) {
-            Button("Desvincularme", role: .destructive) {
-                Task {
-                    if await businessData.leave(center) {
-                        dismiss()
+        .sheet(isPresented: $confirmLeave) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.badge.xmark")
+                        .font(.system(size: 23, weight: .semibold))
+                        .foregroundStyle(OG.red)
+                        .frame(width: 48, height: 48)
+                        .background(OG.red.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("¿Desvincularte de \\(center.name)?")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Esta acción no se puede deshacer.")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
                     }
                 }
+
+                Text("Perderás el acceso asociado a este entrenador, sus clases y tus bonos. Se cancelarán las reservas futuras. Tus entrenamientos personales y resultados guardados en Repera no se borrarán.")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let error = businessData.errorMessage {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(OG.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    Task {
+                        if await businessData.leave(center) {
+                            confirmLeave = false
+                            dismiss()
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if businessData.isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        }
+                        Text(businessData.isSubmitting ? "Desvinculando…" : "Desvincularme")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(OG.red, in: RoundedRectangle(cornerRadius: 13))
+                }
+                .buttonStyle(.plain)
+                .disabled(businessData.isSubmitting)
+
+                Button("Cancelar") {
+                    confirmLeave = false
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .disabled(businessData.isSubmitting)
             }
-            Button("Cancelar", role: .cancel) {}
+            .padding(.horizontal, 24)
+            .padding(.top, 28)
+            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            leaveSheetHeight = geometry.size.height
+                        }
+                        .onChange(of: geometry.size.height) { _, height in
+                            if height > 0 { leaveSheetHeight = height }
+                        }
+                }
+            }
+            .presentationDetents([.height(max(260, leaveSheetHeight))])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(26)
+            .presentationBackground(OG.surface)
+            .interactiveDismissDisabled(businessData.isSubmitting)
         }
     }
 }
