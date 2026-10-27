@@ -20,17 +20,18 @@ class RouteMapModelTest {
     }
 
     @Test fun speedColorMatchesIosGradient() {
-        // Apple live main HistoryView.speedColor: four stops, bytes truncated like Color(red:green:blue:) -> (v*255).toLong().
+        // Apple HistoryView.speedColor (c04c7dd9): curva pow 0.72 y paradas
+        // (0,1,0.25)/(1,0.98,0)/(1,0.43,0)/(1,0.07,0.15); bytes truncados (v*255).toLong().
         fun argb(r: Double, g: Double, b: Double) = 0xFF000000L or ((r*255).toLong() shl 16) or ((g*255).toLong() shl 8) or (b*255).toLong()
-        assertEquals(argb(0.15, 0.88, 0.30), RouteMapModel.speedColor(0.0, 0.0, 10.0))
-        assertEquals(argb(0.10, 0.84, 0.42), RouteMapModel.speedColor(0.0, 0.0, 10.0, water = true))
-        assertEquals(argb(0.96, 0.18, 0.13), RouteMapModel.speedColor(10.0, 0.0, 10.0))
-        assertEquals(argb(0.96, 0.18, 0.13), RouteMapModel.speedColor(10.0, 0.0, 10.0, water = true))
-        // t = 1/3 and 2/3 are the inner stops (floating point: allow one byte).
+        assertEquals(argb(0.0, 1.0, 0.25), RouteMapModel.speedColor(0.0, 0.0, 10.0))
+        assertEquals(argb(0.0, 1.0, 0.45), RouteMapModel.speedColor(0.0, 0.0, 10.0, water = true))
+        assertEquals(argb(1.0, 0.07, 0.15), RouteMapModel.speedColor(10.0, 0.0, 10.0))
+        assertEquals(argb(1.0, 0.07, 0.15), RouteMapModel.speedColor(10.0, 0.0, 10.0, water = true))
+        // t=(1/3)^0.72≈0.454: entre paradas 2 y 3, verde ≈ 0.78 (un byte de margen).
         val third = RouteMapModel.speedColor(10.0 / 3, 0.0, 10.0)
-        assertTrue(kotlin.math.abs(((third shr 8) and 0xFF) - (0.87*255).toLong()) <= 1)
-        // t = 0.5: halfway between stops 2 and 3 (1.0,0.87,0.10)-(1.0,0.48,0.06) -> (1.0,0.675,0.08).
-        assertEquals(argb(1.0, 0.675, 0.08), RouteMapModel.speedColor(5.0, 0.0, 10.0))
+        assertTrue(kotlin.math.abs(((third shr 8) and 0xFF) - (0.782*255).toLong()) <= 1)
+        // t=0.5^0.72≈0.607: entre paradas 2 y 3 -> (1.0, 0.528, 0.0).
+        assertEquals(argb(1.0, 0.528, 0.0), RouteMapModel.speedColor(5.0, 0.0, 10.0))
         // Span degenerado: se usa 0.1 como en iOS, sin NaN.
         RouteMapModel.speedColor(3.0, 3.0, 3.0)
     }
@@ -42,9 +43,17 @@ class RouteMapModelTest {
 
     @Test fun gapsPausesAndImpossibleJumpsNeverCreateConnectingSegments() {
         val a=pt(40.0,-3.7,3.0)
-        assertTrue(RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=31))).isEmpty())
+        // Apple d5c263d3 visualBridge: un hueco de 31s y ~11 m a ritmo plausible
+        // SI se puentea, pero solo como tramo estimado (discontinuo, rotulado).
+        val bridged=RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=31)))
+        assertEquals(1,bridged.size)
+        assertTrue(bridged[0].estimated)
+        // Huecos que el puente no cubre: mismo instante, salto imposible, hueco
+        // >30 min y hueco largo sin GPX a mas de 6 m/s.
         assertTrue(RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=0))).isEmpty())
         assertTrue(RouteMapModel.segments(listOf(a,pt(41.0,-3.7,3.0,seconds=10))).isEmpty())
+        assertTrue(RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=1801))).isEmpty())
+        assertTrue(RouteMapModel.segments(listOf(a,pt(40.02,-3.7,null,seconds=60))).isEmpty())
         val valid=RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,seconds=10)))
         assertEquals(1,valid.size)
     }

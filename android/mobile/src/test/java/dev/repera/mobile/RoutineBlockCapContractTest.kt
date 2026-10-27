@@ -10,7 +10,7 @@ import java.io.File
 class RoutineBlockCapContractTest {
  private val repo=File("src/main/java/dev/repera/mobile/WorkoutRepository.kt").readText()
  @Test fun onlyTheAiPathPassesABlockCap() {
-  val calls=Regex("""appendScannedRoutine\(state,title,blocks,schedule,(\w+),(\w+)\)""").findAll(repo).map {it.groupValues[2]}.toList()
+  val calls=Regex("""appendScannedRoutine\(state,title,\w+,schedule,(\w+),(\w+)\)""").findAll(repo).map {it.groupValues[2]}.toList()
   assertEquals(listOf("12","null"),calls.sorted())
   assertEquals(2,calls.size)
  }

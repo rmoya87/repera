@@ -14,9 +14,17 @@ class QuickLogInputTest {
   assertEquals(99,QuickLogInput.quantityCap(REPS_ONLY));assertEquals(50,QuickLogInput.quantityCap(LOAD_REPS))
  }
  @Test fun weightRoundsTwoDecimalsClampsAndEmptyMeansNoWeight() {
-  assertEquals(42.5,QuickLogInput.weight("42,5")!!,0.0);assertEquals(42.57,QuickLogInput.weight("42.567")!!,1e-9)
-  assertEquals(1500.0,QuickLogInput.weight("2000")!!,0.0);assertEquals(1500.0,QuickLogInput.weight("Infinity")!!,0.0)
-  assertNull(QuickLogInput.weight(""));assertNull(QuickLogInput.weight("x"));assertNull(QuickLogInput.weight("-3"));assertNull(QuickLogInput.weight("0"));assertNull(QuickLogInput.weight("0.001"))
+  assertEquals(42.5,QuickLogInput.weight("42,5")!!,0.0)
+  // Apple QuickLogSheet:177 usa ReperaNumberFormat.parse: "42.567" encaja el
+  // patrón de miles es_ES (1-3 dígitos + grupos de 3) => 42567 => cap 1500.
+  assertEquals(1500.0,QuickLogInput.weight("42.567")!!,0.0)
+  assertEquals(42.57,QuickLogInput.weight("42,567")!!,1e-9)
+  assertEquals(1500.0,QuickLogInput.weight("2000")!!,0.0)
+  // parse rechaza no finitos (isFinite), como Apple: "Infinity" no es peso.
+  assertNull(QuickLogInput.weight("Infinity"))
+  assertNull(QuickLogInput.weight(""));assertNull(QuickLogInput.weight("x"));assertNull(QuickLogInput.weight("-3"));assertNull(QuickLogInput.weight("0"))
+  // "0.001" tambien encaja el patron de miles es_ES ("0001" = 1), igual que en Apple.
+  assertEquals(1.0,QuickLogInput.weight("0.001")!!,0.0)
   assertNull(QuickLogInput.weight("NaN"))
  }
  @Test fun typedValuesThatUsedToBeRejectedAreNowCappedAndStillValidate() {
