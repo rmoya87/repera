@@ -303,7 +303,9 @@ struct DayEditorView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .alert("No se ha podido guardar el entrenamiento", isPresented: Binding(
+        .alert(
+            saveAsFavorite ? "No se ha podido guardar el favorito" : "No se ha podido guardar el entrenamiento",
+            isPresented: Binding(
             get: { routineSaveError != nil },
             set: { if !$0 { routineSaveError = nil } }
         )) {
