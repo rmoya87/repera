@@ -64,7 +64,10 @@ private data class TabSpec(val route: String, val label: String, val icon: Image
 
 private val tabs = listOf(
     TabSpec("inicio", "Inicio", Icons.Outlined.Home),
-    TabSpec("diario", "Diario", Icons.Outlined.CalendarMonth),
+    // Diario fuera de la barra (paridad Apple c5aae1cc). La ruta
+    // composable("diario") sigue REGISTRADA y DiaryTab.kt en el árbol hasta
+    // validación UI: rollback = restaurar esta línea. Divergencia abierta:
+    // la biblioteca Rutinas conserva acceso temporal (DIARIO_REMOVAL_TRACE).
     TabSpec("en-vivo", "Comenzar", Icons.Outlined.AddCircleOutline),
     TabSpec("progreso", "Progreso", Icons.Outlined.TrendingUp),
     TabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
@@ -418,7 +421,15 @@ fun ReperaMobileScreen(
                         onRemoveScheduledRoutine = onRemoveScheduledRoutine,
                         onOpenClock = {
                             if (activeWorkout?.wod != null) navController.navigate("reloj")
-                        }
+                        },
+                        onDayPlusCreate = { dayIso, dayName ->
+                            navController.navigate(
+                                "rutina-nueva?fecha=" + dayIso + "&nombre=" +
+                                    Uri.encode("Entreno · " + dayName))
+                        },
+                        onDayPlusFavorites = { navController.navigate("favoritos") },
+                        onDayPlusTimer = { navController.navigate("temporizador") },
+                        onDayPlusScan = { navController.navigate("escaner") }
                     )
                 }
                 composable("diario") {
