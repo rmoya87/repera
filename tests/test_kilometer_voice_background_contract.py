@@ -127,10 +127,16 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("import AVFoundation", feedback)
         self.assertIn("AVAudioPlayer(data: data)", feedback)
         self.assertIn("private static let shortTone = makeTone(duration: 0.16)", feedback)
-        self.assertIn("private static let completedTone = makeTone(duration: 0.82)", feedback)
+        self.assertIn("private static let completedTone = makeTone(duration: 0.49)", feedback)
         self.assertIn("if sound { playTone(shortTone, duration: 0.16) }", feedback)
-        self.assertIn("if sound { playTone(completedTone, duration: 0.82) }", feedback)
-        self.assertIn("sin(2 * Double.pi * 392 * seconds)", feedback)
+        self.assertIn("if sound { playTone(completedTone, duration: 0.49) }", feedback)
+        self.assertIn("sin(2 * Double.pi * 523.25 * seconds)", feedback)
+        self.assertIn("sin(2 * Double.pi * 1046.5 * seconds)", feedback)
+        # 0,49 s es el punto medio entre el pitido breve de 0,16 s
+        # y el aviso largo anterior de 0,82 s.
+        self.assertAlmostEqual((0.16 + 0.82) / 2, 0.49)
+        self.assertNotIn("makeTone(duration: 0.82)", feedback)
+        self.assertNotIn("392 * seconds", feedback)
         self.assertNotIn("AudioServicesPlaySystemSound", feedback)
         self.assertIn("if session.mode != .spokenAudio", feedback)
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
