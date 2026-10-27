@@ -26,3 +26,10 @@ internal data class PlannedWorkoutStatus(
         }
     }
 }
+
+/** Pure reopen guard: old notification never opens a different login/session. */
+internal object PlannedWorkoutReopen {
+    fun valid(owner:String?,revision:String?,session:String?,expectedOwner:String?,expectedRevision:String?,expectedSession:String?):Boolean =
+        !owner.isNullOrBlank() && !revision.isNullOrBlank() && !session.isNullOrBlank() &&
+            owner==expectedOwner && revision==expectedRevision && session==expectedSession
+}

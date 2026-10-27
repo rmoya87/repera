@@ -669,9 +669,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if(intent.hasExtra("plannedSession")) {
             val sessions=SessionStore(this)
             val owner=sessions.load()?.uniqueId
-            if(owner!=intent.getStringExtra("plannedOwner") || sessions.identityRevision()!=intent.getStringExtra("plannedRevision")) return "inicio"
             val activeId=owner?.let {runCatching {LocalSnapshotStore(this,it).read()?.let {b ->org.json.JSONObject(String(b,Charsets.UTF_8)).optJSONObject("activeSession")?.optString("id")}}.getOrNull()}
-            if(activeId!=intent.getStringExtra("plannedSession")) return "inicio"
+            if(!PlannedWorkoutReopen.valid(owner,sessions.identityRevision(),activeId,intent.getStringExtra("plannedOwner"),intent.getStringExtra("plannedRevision"),intent.getStringExtra("plannedSession"))) return "inicio"
         }
         return LiveNavigationTarget.route(uri.host)
     }
@@ -2047,7 +2046,6 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     private fun signOut() {
-        PlannedWorkoutNotification.cancel(this)
         if (busy) return
         busy = true
         lifecycleScope.launch {
@@ -2064,6 +2062,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
                 sessionStore.clear()
+                PlannedWorkoutNotification.cancel(this@MainActivity)
                 RemoteExerciseCatalogWorker.cancel(this@MainActivity)
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.

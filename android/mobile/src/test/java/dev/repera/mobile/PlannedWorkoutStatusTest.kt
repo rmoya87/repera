@@ -17,4 +17,12 @@ class PlannedWorkoutStatusTest {
   assertNull(PlannedWorkoutStatus.fromState(JSONObject().put("activeSession",session().put("finishedAt","2026-10-27T19:00:00Z"))))
   assertNull(PlannedWorkoutStatus.fromState(JSONObject().put("activeSession",session().put("startedAt","invalid"))))
  }
+ @Test fun reopenRequiresSameLoginAndSession() {
+  assertTrue(PlannedWorkoutReopen.valid("a","r1","s1","a","r1","s1"))
+  assertFalse(PlannedWorkoutReopen.valid("a","r2","s1","a","r1","s1"))
+  assertFalse(PlannedWorkoutReopen.valid("a","r1","s2","a","r1","s1"))
+  assertFalse(PlannedWorkoutReopen.valid("b","r1","s1","a","r1","s1"))
+  assertFalse(PlannedWorkoutReopen.valid(null,null,null,null,null,null))
+ }
+
 }
