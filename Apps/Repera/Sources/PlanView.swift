@@ -1214,7 +1214,9 @@ struct DayEditorView: View {
                         ? (ex.loadField == .deficitCm ? "Déficit" : "KG")
                         : (ex.loggingStyle == .machineWork
                             ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
-                            : ex.quantityFieldLabel)),
+                            : (ex.supportsRepsOrMeters
+                                ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
+                                : ex.quantityFieldLabel))),
                     secondTitle: ex.isMobility ? (ex.isMobilityHold ? nil : "Reps")
                         : (ex.loggingStyle == .loadAndReps
                             ? (ex.supportsRepsOrMeters
@@ -1734,7 +1736,7 @@ private struct InlineWODMovementSets: View {
         VStack(alignment: .leading, spacing: 12) {
             if loggingStyle == .machineWork || isWeightedDistance { cardioUnitPicker }
             OGSetEntryHeader(
-                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
+                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork || isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
                 secondTitle: loggingStyle == .loadAndReps
                     ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                 showsRIR: loggingStyle.usesRIR
@@ -1980,7 +1982,7 @@ struct WODMovementEditor: View {
                 Section {
                     if loggingStyle == .machineWork || isWeightedDistance { cardioUnitPicker }
                     OGSetEntryHeader(
-                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork ? movement.prescribedQuantityUnit.shortLabel : (loggingStyle == .repsAndTime ? "Veces" : "Reps")),
+                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork || isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : (loggingStyle == .repsAndTime ? "Veces" : "Reps")),
                         secondTitle: loggingStyle == .loadAndReps
                     ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                         showsRIR: loggingStyle.usesRIR
@@ -2305,7 +2307,9 @@ struct RoutineExerciseEditor: View {
                         ? (exercise?.loadField == .deficitCm ? "Déficit" : "KG")
                         : (exercise?.loggingStyle == .machineWork
                             ? (item.quantityUnit ?? exercise?.defaultQuantityUnit ?? .calories).shortLabel
-                            : (exercise?.quantityFieldLabel ?? "Reps"))),
+                            : (exercise?.supportsRepsOrMeters == true
+                                ? (item.quantityUnit ?? exercise?.defaultQuantityUnit ?? .reps).shortLabel
+                                : (exercise?.quantityFieldLabel ?? "Reps")))),
                     secondTitle: exercise?.isMobility == true
                         ? (exercise?.isMobilityHold == true ? nil : "Reps")
                         : (exercise?.loggingStyle == .loadAndReps

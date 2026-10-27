@@ -100,6 +100,21 @@ final class WalkingLungeQuantityTests: XCTestCase {
         XCTAssertTrue(weighted.contains { $0.quantityUnit == .meters && $0.plannedSets.first?.targetWeightKg == 16 })
     }
 
+    func testFullBoardParserAlsoKeepsDistanceAndSingleLoad() {
+        let blocks = BoardImportParser.parseBlocks(
+            ocrText: "AMRAP 10'\n20 m SLED PUSH 100kg\n15 m FARMER CARRY 2x24kg",
+            catalog: Catalog.seed()
+        )
+        guard let moves = blocks.first?.movements, moves.count == 2 else {
+            XCTFail("El parser completo no mantuvo los dos movimientos")
+            return
+        }
+        XCTAssertEqual(moves[0].distanceMeters, 20)
+        XCTAssertEqual(moves[0].weightMaleKg, 100)
+        XCTAssertEqual(moves[1].distanceMeters, 15)
+        XCTAssertEqual(moves[1].weightMaleKg, 24)
+    }
+
     func testDistanceWODKeepsWeightForAllPlannedSets() {
         let move = WODMovement(
             name: "Walking lunge", distanceMeters: 14, weightMaleKg: 18

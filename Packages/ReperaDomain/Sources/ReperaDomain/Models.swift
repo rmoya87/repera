@@ -1243,8 +1243,11 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
         if let c = calories { parts.append("\(c) cal") }
         parts.append(name.uppercased())
         if let male = weightMaleKg {
-            let female = weightFemaleKg.map { "\(ReperaNumberFormat.decimal($0))" } ?? "—"
-            parts.append("\(ReperaNumberFormat.decimal(male))/\(female)")
+            if let female = weightFemaleKg {
+                parts.append("\(ReperaNumberFormat.decimal(male))/\(ReperaNumberFormat.decimal(female)) kg")
+            } else {
+                parts.append("\(ReperaNumberFormat.decimal(male)) kg")
+            }
         }
         var line = parts.joined(separator: " ")
         if let scaleAlternative, !scaleAlternative.isEmpty {
