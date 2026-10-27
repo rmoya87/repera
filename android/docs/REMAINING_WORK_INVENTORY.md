@@ -176,3 +176,13 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  WeightPreviewCard con aviso ficticio explicito y Actual/Objetivo/Delta
  derivadas del mismo fixture. Fondo surface distingue tiles surfaceVariant.
  Render360claro inspeccionado; no acredita todas las curvas/margenes previews.
+
+## Unidades Play 20:13
+- f7109bd7: faltaba toggle reps/m en ActiveWorkout/LiveSetRows/formulario
+ clasico/correccion, aunque QuickLog/history si lo tenian. Portado flag y
+ etiquetas, se rechazan calorias para estos nombres. logCurrentSet y
+ reviseCurrentSet ya no rechazan metros en LOAD_REPS o reps en MACHINE_WORK
+ cuando supportsRepsOrMeters.3tests repositorio cubren nombres distintos.
+- Render LiveSetRows360claro inspeccionado; test prueba que solo tap explicito
+ cambia unidad20reps->20metros sin convertir cantidad ni16kg. Duracion
+ heredada LOAD_DISTANCE se conserva, diferencia con estilo Apple registrada.

@@ -181,7 +181,7 @@ internal fun ActiveWorkoutCard(
         (!active.allowsDeficit || deficit.isBlank() ||
             (deficit.toIntOrNull()?.let { it in 0..100 } == true)) &&
         (toFailure || warmup || rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
-        validDuration && (unit in if (active.cardioToggle) setOf("calories", "meters")
+        validDuration && (unit in if(active.repsMetersToggle) setOf("reps","meters") else if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
     Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -273,10 +273,11 @@ internal fun ActiveWorkoutCard(
                         label = { Text("Corregir déficit HSPU (cm)") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth())
                 }
-                if (active.cardioToggle) {
+                if (active.cardioToggle || active.repsMetersToggle) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = editingUnit == "calories",
-                            onClick = { editingUnit = "calories" }, label = { Text("Cal") })
+                        val first=if(active.repsMetersToggle) "reps" else "calories"
+                        FilterChip(selected = editingUnit == first,
+                            onClick = { editingUnit = first }, label = { Text(if(active.repsMetersToggle) "Reps" else "Cal") })
                         FilterChip(selected = editingUnit == "meters",
                             onClick = { editingUnit = "meters" }, label = { Text("m") })
                     }
@@ -343,10 +344,11 @@ internal fun ActiveWorkoutCard(
                     label = { Text("Déficit HSPU (cm, opcional)") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
             }
-            if (active.cardioToggle) {
+            if (active.cardioToggle || active.repsMetersToggle) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = unit == "calories",
-                        onClick = { unit = "calories" }, label = { Text("Calorías") })
+                    val first=if(active.repsMetersToggle) "reps" else "calories"
+                    FilterChip(selected = unit == first,
+                        onClick = { unit = first }, label = { Text(if(active.repsMetersToggle) "Repeticiones" else "Calorías") })
                     FilterChip(selected = unit == "meters",
                         onClick = { unit = "meters" }, label = { Text("Metros") })
                 }

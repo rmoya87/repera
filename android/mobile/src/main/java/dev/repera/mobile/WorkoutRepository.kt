@@ -1223,7 +1223,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .takeIf { it in setOf("reps", "calories", "meters") }
             ?: ExerciseInput.defaultQuantityUnit(
                 movement.getString("name"), movement.optString("equipment"))
-        if (inputMode == ExerciseInputMode.LOAD_DISTANCE) {
+        if(ExerciseInput.supportsRepsOrMeters(movement.getString("name"))) {
+            check(unit in setOf("reps","meters")) {"Unidad incompatible con el ejercicio"}
+        } else if (inputMode == ExerciseInputMode.LOAD_DISTANCE) {
             // Apple 1d1edc8b/f7109bd7: los recorridos alternan reps/metros.
             check(unit == "meters" || ExerciseInput.supportsRepsOrMeters(
                 movement.getString("name")) && unit == "reps") {
@@ -1994,7 +1996,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (weightKg == null) original.remove("weightKg") else original.put("weightKg", weightKg)
         if (deficitCm == null) original.remove("deficitCm") else original.put("deficitCm", deficitCm)
         if (quantityUnit != null) {
-            if (inputMode(movement) == ExerciseInputMode.LOAD_DISTANCE) {
+            if(ExerciseInput.supportsRepsOrMeters(movement.getString("name"))) {
+                check(quantityUnit in setOf("reps","meters"))
+            } else if (inputMode(movement) == ExerciseInputMode.LOAD_DISTANCE) {
                 check(quantityUnit == "meters" || ExerciseInput.supportsRepsOrMeters(
                     movement.getString("name")) && quantityUnit == "reps")
             } else if (inputMode(movement) == ExerciseInputMode.MACHINE_WORK) {
@@ -3096,12 +3100,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             durationInput = inputMode(current.getJSONObject("exercise")) in
                 setOf(ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME,
                     ExerciseInputMode.LOAD_DISTANCE),
+            repsMetersToggle = ExerciseInput.supportsRepsOrMeters(current.getJSONObject("exercise").getString("name")),
             cardioToggle = ExerciseInput.supportsCaloriesAndMeters(
                 current.getJSONObject("exercise").getString("name"),
                 current.getJSONObject("exercise").optString("equipment")),
             wod = wod,
             liveRows = liveRowsOf(current),
-            quantityCap = QuickLogInput.quantityCap(inputMode(current.getJSONObject("exercise"))),
+            quantityCap = if(ExerciseInput.supportsRepsOrMeters(current.getJSONObject("exercise").getString("name"))) 100_000 else QuickLogInput.quantityCap(inputMode(current.getJSONObject("exercise"))),
             isFavorite = loadOrNull()?.optJSONArray("routines")?.let { list ->
                 (0 until list.length()).any {list.getJSONObject(it).optString("id")==session.optString("routineId") && list.getJSONObject(it).optBoolean("isFavorite")}
             } ?: false,
@@ -3179,7 +3184,8 @@ data class ActiveWorkout(
     val pendingSets: List<PendingSetSummary> = emptyList(),
     val liveRows: List<LiveRowSummary>? = null,
     val quantityCap: Int = 50,
-    val routineId: String? = null
+    val routineId: String? = null,
+    val repsMetersToggle:Boolean = false
 )
 data class PendingSetSummary(val id:String,val reps:Int,val weightKg:Double?)
 /** Apple live row: a recorded straight work set (completed) or a pending planned set. null liveRows = use the classic form. */

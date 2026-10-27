@@ -58,13 +58,13 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
   if(edited) persist(active.id,active.index,LiveRowEdit.toDraftRows(rows.toList()),unit)
  }
  Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-  if(active.cardioToggle) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-   listOf("calories" to "Calorías","meters" to "Metros").forEach {(v,l) ->FilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
+  if(active.cardioToggle || active.repsMetersToggle) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+   listOf((if(active.repsMetersToggle) "reps" to "Repeticiones" else "calories" to "Calorías"),"meters" to "Metros").forEach {(v,l) ->FilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
   }
   rows.forEachIndexed {i,row ->
    key(row.id) {Card {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
     Text("Serie ${i+1}",style=MaterialTheme.typography.titleSmall)
-    QuickNumericField(row.reps.toString(),when(unit) {"calories"->"Calorías";"meters"->"Metros";else->if(active.durationInput&&!active.mobility) "Veces" else "Repeticiones"},true) {v ->rows[i]=LiveRowEdit.reps(rows[i],v,active.quantityCap);touch()}
+    QuickNumericField(row.reps.toString(),when(unit) {"calories"->"Calorías";"meters"->"Metros";else->if(active.durationInput&&!active.mobility) "Veces" else "Repeticiones"},true) {v ->rows[i]=LiveRowEdit.reps(rows[i],v,if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap);touch()}
     if(active.allowsDeficit) QuickNumericField((row.deficitCm?:0).toString(),"Déficit HSPU (cm)",true) {v ->rows[i]=LiveRowEdit.deficit(rows[i],v);touch()}
     else if(active.allowsWeight) QuickNumericField(row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),"Peso (kg)",true,decimal=true) {v ->rows[i]=LiveRowEdit.weight(rows[i],v);touch()}
     if(active.durationInput) QuickNumericField((row.durationSeconds?:0).toString(),"Duración (segundos)",true) {v ->rows[i]=LiveRowEdit.duration(rows[i],v);touch()}
