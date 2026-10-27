@@ -114,7 +114,7 @@ d38719b2|2026-10-26T22:30:14+01:00|Test Supabase-driven aliases for OCR, search 
 7dff0470|2026-10-26T23:12:39+01:00|Set Repera TestFlight version to 1.0 (39) after build 38 upload|other||unverified
 3eb312a1|2026-10-26T23:12:51+01:00|Protect TestFlight build number from stale Xcode scheme pre-action settings|other||unverified
 087455df|2026-10-26T23:13:06+01:00|Test version sync rejects stale TestFlight 38 and preserves newer builds|other||unverified
-c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout favorites with stable push navigation|ios-app+domain||unverified
+c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout favorites with stable push navigation|ios-app+domain||verified-partial+GAP 12:08 17a0fb87: capa de datos favoritos persistentes (WorkoutFavoriteSupport + delegados repository, 6 tests REAL 13/13 lote ligero; límite conservador abierto: sin plantilla vacía); GAP/decisión pendiente: reestructura UI (eliminar pestaña Diario, StartHub, Home, botón favorito en historial) requiere validación UI bloqueada
 5206065e|2026-10-26T23:30:01+01:00|Keep add-workout page top aligned and test workout favorite persistence|ios-app+tests||unverified
 7825652f|2026-10-26T23:31:14+01:00|Remove obsolete Diario copy from shared workout editor|ios-app||unverified
 c04c7dd9|2026-10-26T23:32:49+01:00|feat(iOS): show color-speed legend on saved workout route maps|ios-app||unverified
