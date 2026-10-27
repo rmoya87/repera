@@ -107,23 +107,23 @@ a647975e|2026-10-25T11:29:46+01:00|build(sports): register route evolution Swift
 33863f92|2026-10-25T11:28:32+01:00|feat(exercises): sports filter history, GPS favorites, repeat-route stats and evolution charts|ios-app|b2188237 ee110a08|verified-ported 13:49: historial con filtro deportes, favoritos GPS, stats de repeticion por ruta (recentRoutes) y graficas de evolucion (LiveRouteEvolutionScreen)
 202e4f90|2026-10-25T11:26:28+01:00|feat(live): align close X in My Routes and link saved activities to favorite GPS route|ios-app|5185df09|verified-ported 13:49: actividades guardadas vinculadas a ruta GPS favorita (liveRouteID en sesion + LiveRoutesStore); alineacion X = cosmetico
 363249d9|2026-10-25T11:25:30+01:00|feat(domain): persist optional favorite route identity for repeated GPS sessions|packages|5185df09 7e41fb5f bd95abd8|verified-ported 13:49: liveRouteID opcional persistido en sesion (saveLiveActivity:124 put liveRouteID; snapshot selectedRouteID)
-07b05ee2|2026-10-25T11:18:52+01:00|feat(iOS): full-screen Liquid Glass En vivo map and route import fixes (#61)||6b68264c|unverified
-092195c8|2026-10-25T11:15:04+01:00|feat(map): acquire a single preview GPS fix before starting, without recording a workout|ios-app|1633bbd8 62c85083 7b50ea61|unverified
-5bcda360|2026-10-25T11:13:07+01:00|fix(routes): persist long GPX paths atomically on disk, migrate old routes, preserve UI default after saving|ios-app||unverified
-04eb6662|2026-10-25T11:11:56+01:00|fix(gps): suppress transient CoreLocation operation errors and validate GPX with actionable Spanish messages|ios-app||unverified
-0425a481|2026-10-25T11:10:45+01:00|feat(live): fullscreen MapKit with floating Liquid Glass HUD, contextual metrics and Strava-like action dock|ios-app||unverified
-d5ad682c|2026-10-25T10:57:29+01:00|fix(iOS): restore En vivo sources in Xcode target and Swift 6 ActivityKit (#60)|||unverified
-b5afc5d8|2026-10-25T10:52:21+01:00|fix(activitykit): tolerate non-Sendable Activity handle under Swift 6 concurrency|ios-app||unverified
+07b05ee2|2026-10-25T11:18:52+01:00|feat(iOS): full-screen Liquid Glass En vivo map and route import fixes (#61)||6b68264c|verified-ported 13:51: mapa En vivo pantalla completa (Box fillMaxSize + controlsOverlay) y fixes de importacion GPX; Liquid Glass = chrome iOS (Material en Android)
+092195c8|2026-10-25T11:15:04+01:00|feat(map): acquire a single preview GPS fix before starting, without recording a workout|ios-app|1633bbd8 62c85083 7b50ea61|verified-ported 13:51: fix GPS de preview unico antes de iniciar sin registrar (previewPosition con caducidad 15s, LiveActivityScreen:187)
+5bcda360|2026-10-25T11:13:07+01:00|fix(routes): persist long GPX paths atomically on disk, migrate old routes, preserve UI default after saving|ios-app||verified-ported 13:51: persistencia atomica GPX largos (temp+rename en commit, LiveRoutesStore:84-90), migracion de rutas antiguas (recoverFromSessions), default UI preservado
+04eb6662|2026-10-25T11:11:56+01:00|fix(gps): suppress transient CoreLocation operation errors and validate GPX with actionable Spanish messages|ios-app||verified-ported 13:51: errores transitorios GPS suprimidos (catch tipados en LiveLocationSource sin ruido) + validacion GPX con mensajes accionables en español (LiveGPX.kt:52)
+0425a481|2026-10-25T11:10:45+01:00|feat(live): fullscreen MapKit with floating Liquid Glass HUD, contextual metrics and Strava-like action dock|ios-app||verified-ported 13:51: mapa fullscreen con HUD flotante, metricas contextuales y dock de acciones (rama mapa 183-270); Liquid Glass = chrome
+d5ad682c|2026-10-25T10:57:29+01:00|fix(iOS): restore En vivo sources in Xcode target and Swift 6 ActivityKit (#60)|||verified-n/a 13:51: fuentes en target Xcode + Swift 6 ActivityKit; build system iOS
+b5afc5d8|2026-10-25T10:52:21+01:00|fix(activitykit): tolerate non-Sendable Activity handle under Swift 6 concurrency|ios-app||verified-n/a 13:51: Sendable Activity Swift 6; concurrencia iOS especifica
 50da8451|2026-10-25T10:51:06+01:00|fix(xcode): ensure En vivo sources are included in test_xcode_sources.py|docs-tests|40c61fc9|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
-1f52916b|2026-10-25T10:51:02+01:00|fix(xcode): ensure En vivo sources are included in Repera-Xcode.command|other||unverified
-55a3e6f9|2026-10-25T10:50:59+01:00|fix(xcode): ensure En vivo sources are included in check_xcode_sources.py|other||unverified
-f530bb83|2026-10-25T10:50:55+01:00|fix(xcode): ensure En vivo sources are included in project.yml|other||unverified
-cdd0ee86|2026-10-25T10:43:22+01:00|feat(iOS): En vivo y Live Activities universales para Repera (#59)|||unverified
+1f52916b|2026-10-25T10:51:02+01:00|fix(xcode): ensure En vivo sources are included in Repera-Xcode.command|other||verified-n/a 13:51: fuentes en Repera-Xcode.command; build iOS
+55a3e6f9|2026-10-25T10:50:59+01:00|fix(xcode): ensure En vivo sources are included in check_xcode_sources.py|other||verified-n/a 13:51: fuentes en check_xcode_sources.py; build iOS
+f530bb83|2026-10-25T10:50:55+01:00|fix(xcode): ensure En vivo sources are included in project.yml|other||verified-n/a 13:51: fuentes en project.yml; build iOS
+cdd0ee86|2026-10-25T10:43:22+01:00|feat(iOS): En vivo y Live Activities universales para Repera (#59)|||verified 13:51: merge #59 — contenido clasificado individualmente (En vivo universal, Live Activities = widgets iOS parciales ya anotados)
 cbf44c51|2026-10-25T10:40:59+01:00|test(xcodegen): verify new catalog source in Repera target, stale builds and split app root|docs-tests|14fbdb97 2366f80e 2e02be93 343b6892|verified-n/a 10:46 (solo tests Apple; sin delta de comportamiento en el commit)
 f33bb3b4|2026-10-25T10:40:54+01:00|fix(healthkit): provide explicit HKWorkout type in external workout reconciliation|ios-app|0efffd03|unverified
 78750418|2026-10-25T10:39:01+01:00|fix(ios): keep native BG refresh plist and Xcode regeneration preflight consistent|docs-tests||verified-n/a 10:46 (solo docs: docs/MAINTENANCE.md; sin delta de comportamiento)
-9f6102c5|2026-10-25T10:38:58+01:00|fix(ios): keep native BG refresh plist and Xcode regeneration preflight consistent|ios-app||unverified
-5bda1b8c|2026-10-25T10:38:54+01:00|fix(ios): keep native BG refresh plist and Xcode regeneration preflight consistent|other||unverified
+9f6102c5|2026-10-25T10:38:58+01:00|fix(ios): keep native BG refresh plist and Xcode regeneration preflight consistent|ios-app||verified-n/a 13:51: plist BG refresh + preflight Xcode; build iOS
+5bda1b8c|2026-10-25T10:38:54+01:00|fix(ios): keep native BG refresh plist and Xcode regeneration preflight consistent|other||verified-n/a 13:51: duplicado de 9f6102c5 (mismo fix); build iOS
 48a07ce5|2026-10-25T10:38:23+01:00|fix(tests): correct regex escapes when extracting Xcode Compile Sources phases|other||unverified
 751ccdfe|2026-10-25T10:37:58+01:00|test(xcodegen): fail early if iOS remote catalog file is absent from actual Compile Sources|other|52adeb63 b08a288a d50474cb|unverified
 ebe7c33f|2026-10-25T10:37:36+01:00|fix(xcodegen): add remote catalog store explicitly to iOS Compile Sources|other|52adeb63 b08a288a|unverified
