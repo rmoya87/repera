@@ -336,25 +336,49 @@ function plansPage(plans,editingKey){
  <p class="pa-muted">Precios mensuales sin IVA. Stripe y la activación de suscripciones reales siguen pendientes de integración.</p>`;
 }
 function settingsPage(settings,orgs,plans){
- return `${heading('Configuración','Información operativa y datos de contacto de la plataforma Repera.')}
+ return `${heading('Configuración','Ajustes operativos de Repera y situación de las integraciones de plataforma.')}
  <div class="pa-layout">
- <section class="pa-panel"><h2>Contactos y enlaces</h2><p>Se guardan en Supabase y sirven como datos de referencia para atención y operaciones.</p>
+ <section class="pa-panel"><h2>Atención, facturación y textos legales</h2>
+ <p>Estos datos se guardan en Supabase y pueden actualizarse desde la consola.</p>
  <form class="pa-form" data-admin-form="platform-settings">
- ${field('support_email','Correo de soporte',settings.support_email||'','email','maxlength="180" placeholder="Correo del equipo de soporte"')}
+ ${field('support_email','Correo de soporte',settings.support_email||'','email','maxlength="180"')}
  ${field('support_url','Centro de ayuda (URL)',settings.support_url||'','url','maxlength="500" placeholder="https://..."')}
  ${field('billing_email','Correo de facturación',settings.billing_email||'','email','maxlength="180"')}
  ${field('privacy_url','Política de privacidad',settings.privacy_url||'','url','maxlength="500"')}
  ${field('terms_url','Términos y condiciones',settings.terms_url||'','url','maxlength="500"')}
- <button type="submit" class="pa-button primary">Guardar configuración</button></form></section>
- <section class="pa-panel"><h2>Estado de operaciones</h2>
- <dl class="pa-details"><dt>Centros registrados</dt><dd>${orgs.length}</dd>
- <dt>Planes visibles</dt><dd>${plans.filter(p=>p.is_active).length}</dd>
- <dt>Gestión de identidad</dt><dd>Supabase Auth</dd>
- <dt>Suscripciones reales</dt><dd>Pendiente de Stripe Billing</dd>
- <dt>Cobros de centros</dt><dd>Pendiente de Stripe Connect</dd>
- <dt>Acceso delegado</dt><dd>Temporal, auditado y revocable</dd></dl>
- <p>Los ajustes de la cuenta personal, nombre, avatar y contraseña se gestionan desde tu perfil en la parte inferior del menú lateral.</p>
- ${button('Abrir mi perfil','open-account')}</section></div>`;
+ <button type="submit" class="pa-button primary">Guardar contactos y enlaces</button></form>
+ </section>
+ <section class="pa-panel"><h2>Altas y pruebas gratuitas</h2>
+ <p>Configura cuánto dura la prueba cuando un usuario crea o reclama un centro. No altera pruebas ya iniciadas.</p>
+ <form class="pa-form" data-admin-form="platform-trial">
+ ${field('trial_days','Días de prueba gratuita',settings.trial_days??7,'number','required min="1" max="60" step="1"')}
+ <button type="submit" class="pa-button primary">Guardar periodo de prueba</button>
+ </form>
+ <h3>Estado de la plataforma</h3>
+ ${details([['Centros registrados',orgs.length],
+ ['Planes disponibles',plans.filter(p=>p.is_active).length],
+ ['Autenticación','Supabase Auth'],
+ ['Acceso de administración','Delegación temporal auditada'],
+ ['Control de permisos','Roles y políticas RLS'],
+ ['Estado de los pagos reales','Sin conexión operativa a Stripe']])}
+ ${button('Configurar mi cuenta','open-account')}</section></div>
+ <section class="pa-panel"><h2>Integraciones y preparación para producción</h2>
+ <p>El sistema distingue lo que ya gestiona desde la consola de las integraciones que necesitan credenciales, backend o procedimientos adicionales.</p>
+ <div class="pa-settings-readiness">
+ <div><strong>Identidad, roles y seguridad</strong><p>Inicio de sesión, políticas RLS, acceso administrativo temporal y registro técnico de operaciones.</p>
+ <span class="pa-pill good">Configurado</span></div>
+ <div><strong>Planes y pruebas</strong><p>Catálogo comercial y duración de prueba configurables. No se cobran automáticamente las suscripciones.</p>
+ <span class="pa-pill good">Configurado</span></div>
+ <div><strong>Stripe Billing / Connect</strong><p>Faltan pasarela, webhooks firmados, conciliación, reembolsos y suscripciones reales.</p>
+ <span class="pa-pill">Integración pendiente</span></div>
+ <div><strong>Emails y notificaciones</strong><p>Faltan plantillas transaccionales y validación del proveedor para comunicaciones automáticas de negocio.</p>
+ <span class="pa-pill">Integración pendiente</span></div>
+ <div><strong>Facturas, privacidad y retención</strong><p>Los enlaces legales son configurables; el ciclo fiscal, solicitudes RGPD y reglas de conservación requieren workflows completos.</p>
+ <span class="pa-pill">Integración pendiente</span></div>
+ <div><strong>Monitorización y continuidad</strong><p>Requiere alertas de errores, métricas de disponibilidad y verificación de backups y restauración.</p>
+ <span class="pa-pill">Integración pendiente</span></div>
+ </div></section>
+ <p class="pa-muted">Los eventos de auditoría siguen guardándose automáticamente en Supabase aunque no tengan un apartado independiente en el menú.</p>`;
 }
 function accountPage(account,email){
  const name=account?.display_name||email.split('@')[0]||'Administrador';
