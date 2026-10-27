@@ -116,7 +116,7 @@ d38719b2|2026-10-26T22:30:14+01:00|Test Supabase-driven aliases for OCR, search 
 087455df|2026-10-26T23:13:06+01:00|Test version sync rejects stale TestFlight 38 and preserves newer builds|other||unverified
 c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout favorites with stable push navigation|ios-app+domain||verified-partial+GAP 12:08 17a0fb87: capa de datos favoritos persistentes (WorkoutFavoriteSupport + delegados repository, 6 tests REAL 13/13 lote ligero; límite conservador abierto: sin plantilla vacía); GAP/decisión pendiente: reestructura UI (eliminar pestaña Diario, StartHub, Home, botón favorito en historial) requiere validación UI bloqueada
 5206065e|2026-10-26T23:30:01+01:00|Keep add-workout page top aligned and test workout favorite persistence|ios-app+tests||unverified
-7825652f|2026-10-26T23:31:14+01:00|Remove obsolete Diario copy from shared workout editor|ios-app||unverified
+7825652f|2026-10-26T23:31:14+01:00|Remove obsolete Diario copy from shared workout editor|ios-app||verified-ported 13:13 (rama diario-removal): unica referencia de copy a Diario actualizada; editor Android sin otras referencias
 c04c7dd9|2026-10-26T23:32:49+01:00|feat(iOS): show color-speed legend on saved workout route maps|ios-app||unverified
 103c85da|2026-10-26T23:34:41+01:00|Restore compact add-workout sheet and push Favorites as a separate page|ios-app||unverified
 4d9d39a2|2026-10-26T23:39:57+01:00|Unify add workout destinations as push pages and restore compact bottom sheet|ios-app||unverified
