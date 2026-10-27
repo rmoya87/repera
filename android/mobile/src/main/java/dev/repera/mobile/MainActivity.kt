@@ -430,9 +430,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             if(!current()) return@launch
             if (failure == null) {
-                aiSuccess = "Token revocado. Ya no permite acceder a Repera."
+                // Apple 0a640da8: sin mensaje de exito; solo refresca la lista.
                 refreshAIAccess()
-            } else aiError = failure
+            } else aiError = "No se pudo desconectar: " + failure
             aiBusy = false
         }
     }

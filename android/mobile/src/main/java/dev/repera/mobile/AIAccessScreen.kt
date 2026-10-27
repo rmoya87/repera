@@ -58,6 +58,19 @@ internal val aiExpiryOptions = listOf(
     "7d" to "7 días", "30d" to "30 días", "90d" to "90 días",
     "365d" to "1 año", "unlimited" to "Ilimitado")
 
+// Apple lastUseLabel: "Último uso: <fecha abreviada, hora corta>"
+internal fun aiLastUseLabel(token: AIAccessStore.TokenInfo): String? {
+    val raw = token.lastUsedAt ?: return null
+    val date = runCatching { java.time.Instant.parse(raw) }.getOrNull()
+        ?: runCatching {
+            java.time.OffsetDateTime.parse(raw).toInstant() }.getOrNull()
+        ?: return null
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm",
+        java.util.Locale("es", "ES"))
+    return "Último uso: " + fmt.format(
+        date.atZone(java.time.ZoneId.systemDefault()))
+}
+
 internal fun aiExpiryLabel(token: AIAccessStore.TokenInfo): String {
     if (token.revokedAt != null) return "Revocado"
     val raw = token.expiresAt ?: return "Sin caducidad"
@@ -109,6 +122,8 @@ fun AIAccessScreen(
         }
         var instructionsFor by remember {
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
+        var disconnectingProvider by remember {
+            mutableStateOf<AIAccessStore.AIProvider?>(null) }
         Text("Conexiones", style = MaterialTheme.typography.titleMedium)
         Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
             style = MaterialTheme.typography.bodySmall,
@@ -119,13 +134,15 @@ fun AIAccessScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         providers?.first?.forEach { provider ->
-            // Verificado inline (Apple: token activo usado cuyo nombre es el del
-            // proveedor y con oauth_client_id; Android aún no lee
-            // oauth_client_id del endpoint — aproximación documentada).
-            val verified = tokens.orEmpty().any {
-                it.isActive && it.lastUsedAt != null && it.label == provider.name }
+            // Apple 0a640da8 connectedToken: oauth_client_id del catálogo debe
+            // existir y coincidir con un token hasConnected (activo + usado).
+            val verified = provider.oauthClientID != null && tokens.orEmpty().any {
+                it.oauthClientID == provider.oauthClientID && it.hasConnected }
             OutlinedButton(
-                onClick = { if (!verified) instructionsFor = provider },
+                onClick = {
+                    if (verified) disconnectingProvider = provider
+                    else instructionsFor = provider
+                },
                 enabled = connected,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)) {
@@ -148,6 +165,25 @@ fun AIAccessScreen(
             Text("Inicia sesión en Repera para conectar tu asistente.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Apple 0a640da8: confirmationDialog "Desconectar asistente".
+        disconnectingProvider?.let { provider ->
+            val token = tokens.orEmpty().firstOrNull {
+                it.oauthClientID == provider.oauthClientID &&
+                    provider.oauthClientID != null && it.hasConnected }
+            AlertDialog(onDismissRequest = { disconnectingProvider = null },
+                title = { Text("Desconectar asistente") },
+                text = { Text("Se revocará el acceso del asistente a tu cuenta de Repera.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        disconnectingProvider = null
+                        if (token != null) onRevoke(token.id)
+                    }) { Text("Desconectar " + provider.name,
+                        color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { disconnectingProvider = null }) { Text("Cancelar") }
+                })
         }
         instructionsFor?.let { provider ->
             val text = AIProviderLaunch.instructions(provider)
@@ -223,7 +259,7 @@ fun AIAccessScreen(
         ) { Text(if (busy) "Creando acceso…" else "Crear token") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-        Text("Mis tokens", style = MaterialTheme.typography.titleMedium)
+        Text("Mis conexiones", style = MaterialTheme.typography.titleMedium)
         when {
             tokens == null -> CircularProgressIndicator()
             tokens.isEmpty() -> Text("No tienes tokens de IA creados.",
@@ -237,7 +273,11 @@ fun AIAccessScreen(
                             Text(token.label,
                                 style = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier.weight(1f))
-                            Text(if (token.isActive) "Activo" else "Inactivo",
+                            // Apple: Conectado / Pendiente de conexión / Desconectado
+                            Text(if (token.isActive)
+                                    (if (token.hasConnected) "Conectado"
+                                     else "Pendiente de conexión")
+                                 else "Desconectado",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (token.isActive) brandGreen
                                     else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -246,17 +286,42 @@ fun AIAccessScreen(
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(if (token.canWrite) "Lectura y escritura"
-                            else "Solo lectura",
+                        // Apple: scopes training:write
+                        Text(if (token.canWrite) "Puede consultar y preparar entrenamientos"
+                            else "Puede consultar tus entrenamientos",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(aiExpiryLabel(token),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        aiLastUseLabel(token)?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        // Apple: la caducidad se oculta en conexiones OAuth
+                        if (token.oauthClientID == null) {
+                            Text(aiExpiryLabel(token),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         if (token.isActive) {
+                            // Apple: "Abrir {provider}" solo con hasConnected +
+                            // oauth_client_id y proveedor del catálogo por nombre
+                            val openProvider = if (token.hasConnected &&
+                                    token.oauthClientID != null)
+                                providers?.first?.firstOrNull { it.name == token.label }
+                            else null
+                            if (openProvider != null &&
+                                openProvider.id in listOf("chatgpt", "claude")) {
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                TextButton(onClick = {
+                                    val url = if (openProvider.id == "chatgpt")
+                                        "https://chatgpt.com/" else "https://claude.ai/"
+                                    context.startActivity(android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(url)))
+                                }, enabled = !busy) { Text("Abrir " + openProvider.name) }
+                            }
                             TextButton(onClick = { onRevoke(token.id) },
                                 enabled = !busy) {
-                                Text("Revocar token",
+                                Text("Desconectar",
                                     color = MaterialTheme.colorScheme.error)
                             }
                         }

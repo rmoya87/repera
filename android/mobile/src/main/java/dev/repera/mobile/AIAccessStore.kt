@@ -45,8 +45,14 @@ class AIAccessStore(
         val expiresAt: String?,
         val revokedAt: String?,
         val lastUsedAt: String?,
-        val scopes: List<String>?
+        val scopes: List<String>?,
+        // Apple 0a640da8: columna aditiva oauth_client_id (rollout escalonado:
+        // puede no existir aun en el esquema -> fallback sin ella).
+        val oauthClientID: String? = null
     ) {
+        // Apple: hasConnected = isActive && lastUsedAt != nil
+        val hasConnected: Boolean
+            get() = isActive && lastUsedAt != null
         val isActive: Boolean
             get() {
                 if (revokedAt != null) return false
@@ -69,8 +75,21 @@ class AIAccessStore(
     }
 
     fun refresh(session: SupabaseIdentity.Session): LoadResult {
+        // Apple 0a640da8: select con oauth_client_id; si la columna aun no
+        // existe (PostgREST 42703, rollout escalonado), reintento sin ella.
+        val withOAuth = runRefresh(session, withOAuthClientId = true)
+        if (withOAuth is LoadResult.Failed && withOAuth.message.contains("42703")) {
+            return runRefresh(session, withOAuthClientId = false)
+        }
+        return withOAuth
+    }
+
+    private fun runRefresh(session: SupabaseIdentity.Session,
+                           withOAuthClientId: Boolean): LoadResult {
+        val select = "id,label,token_prefix,created_at,expires_at,revoked_at," +
+            "last_used_at,scopes" + (if (withOAuthClientId) ",oauth_client_id" else "")
         val url = BuildConfig.SUPABASE_URL + "/rest/v1/ai_access_tokens" +
-            "?select=id,label,token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes" +
+            "?select=" + select +
             "&owner_id=eq.${session.userId}&order=created_at.desc"
         val request = Request.Builder().url(url)
             .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
@@ -81,7 +100,9 @@ class AIAccessStore(
                 val body = response.body?.string().orEmpty()
                 authorize()
                 if (!response.isSuccessful) {
-                    return LoadResult.Failed("No se pudieron obtener los tokens: HTTP " + response.code)
+                    // Incluir el cuerpo: PostgREST devuelve {"code":"42703",...}
+                    return LoadResult.Failed("No se pudieron obtener los tokens: HTTP " +
+                        response.code + " " + body.take(200))
                 }
                 LoadResult.Loaded(parseTokens(JSONArray(body)))
             }
@@ -162,7 +183,8 @@ class AIAccessStore(
                     lastUsedAt = row.optString("last_used_at").ifBlank { null },
                     scopes = row.optJSONArray("scopes")?.let { scopes ->
                         (0 until scopes.length()).map { scopes.getString(it) }
-                    }
+                    },
+                    oauthClientID = row.optString("oauth_client_id").ifBlank { null }
                 )
             }
     }
