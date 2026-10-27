@@ -18,6 +18,7 @@ struct SessionPreviewView: View {
     /// Copia de trabajo tras editar; si nil, se usa `routine`.
     @State private var editedSnapshot: Routine?
     @State private var showDeleteConfirm = false
+    @State private var startFailureMessage: String?
 
     private var active: WorkoutSession? { store.state.activeSession }
 
@@ -48,6 +49,18 @@ struct SessionPreviewView: View {
 
     var body: some View {
         List {
+            // Título y fecha forman parte del contenido desplazable,
+            // nunca de la barra de navegación ni de un safeAreaInset fijo.
+            VStack(alignment: .leading, spacing: 8) {
+                OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
+                if active == nil, !dayLabel.isEmpty {
+                    Text("Entreno · \\(dayLabel)")
+                        .font(.system(size: 15))
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            .ogScrollingTitleListRow()
+
             if let active {
                 Section {
                     Button {
@@ -87,12 +100,9 @@ struct SessionPreviewView: View {
             }
         }
         .ogListChrome()
-        // Barra nativa solo para acciones: no fusionar "Entreno" con la X.
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        // Barra de acciones totalmente transparente también durante scroll.
-        .ogTransparentNav()
+        // La barra nativa contiene exclusivamente cerrar, favorito, editar y Play.
+        // El título de la primera fila desaparece al deslizar la lista.
+        .ogScrollingTitleNav()
         .task(id: liveRoutine?.id) {
             guard let routine = liveRoutine else { return }
             // Reconstruir fichas oficiales que falten en un catálogo local
@@ -126,29 +136,6 @@ struct SessionPreviewView: View {
             }.value
             guard !Task.isCancelled else { return }
             store.restoreMissingOfficialWODExercises(packaged)
-        }
-        // Cabecera explícita bajo la barra (y sobre la lista), nunca detrás
-        // del glass o dentro de la cápsula que contiene el botón Cerrar.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(active != nil ? "Sesión" : "Entreno")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(OG.label)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                    .accessibilityAddTraits(.isHeader)
-                if active == nil, !dayLabel.isEmpty {
-                    Text("Entreno · \(dayLabel)")
-                        .font(.system(size: 15))
-                        .foregroundStyle(OG.label2)
-                }
-            }
-            .frame(maxWidth: OG.contentColumnMaxWidth, alignment: .leading)
-            .padding(.horizontal, OG.pad)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .background(OG.bg)
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -205,14 +192,7 @@ struct SessionPreviewView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        guard let routine = liveRoutine else { return }
-                        if store.hasActiveSession {
-                            // Continuar la sesión activa sin sustituirla por otra.
-                            onStart()
-                            return
-                        }
-                        store.startSession(from: routine)
-                        if store.hasActiveSession { onStart() }
+                        startVisibleRoutine()
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.system(size: 15, weight: .semibold))
@@ -222,6 +202,14 @@ struct SessionPreviewView: View {
                     .accessibilityLabel("Comenzar")
                 }
             }
+        }
+        .alert("No se ha podido iniciar el entreno", isPresented: Binding(
+            get: { startFailureMessage != nil },
+            set: { if !$0 { startFailureMessage = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { startFailureMessage = nil }
+        } message: {
+            Text(startFailureMessage ?? "")
         }
         .sheet(isPresented: $showDeleteConfirm) {
             OGConfirmSheet(
@@ -235,6 +223,27 @@ struct SessionPreviewView: View {
                 onCancel: { showDeleteConfirm = false }
             )
         }
+    }
+
+    /// Usar la rutina que se está viendo (incluida una copia de Favoritos)
+    /// y confirmar el ID real de la sesión creada antes de navegar. Así
+    /// Play nunca se queda silencioso cuando Salud/Watch u otra actividad
+    /// bloquea el inicio.
+    private func startVisibleRoutine() {
+        guard let routine = liveRoutine else { return }
+        if store.state.activeSession != nil {
+            onContinue()
+            return
+        }
+        HealthKitStore.shared.lastError = nil
+        store.startSession(from: routine)
+        guard let started = store.state.activeSession,
+              started.routineId == routine.id else {
+            startFailureMessage = HealthKitStore.shared.lastError
+                ?? "No se ha podido iniciar «\\(routine.title)». Comprueba que no haya otra actividad activa y vuelve a intentarlo."
+            return
+        }
+        onStart()
     }
 
     /// Una estrella solo confirma éxito cuando existe una plantilla persistida.
