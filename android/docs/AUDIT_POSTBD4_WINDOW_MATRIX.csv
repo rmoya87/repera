@@ -21,21 +21,21 @@ ec7057bb|2026-10-26T19:17:16+01:00|Normalize Spanish numeric display and input i
 04adf150|2026-10-26T19:17:24+01:00|Normalize Spanish numeric display and input in HistoryView.swift|ios-app||unverified
 99428cca|2026-10-26T19:17:27+01:00|Normalize Spanish numeric display and input in PlanView.swift|ios-app||unverified
 303453ff|2026-10-26T19:17:29+01:00|Show reconstructed route segments as dashed and labeled in workout history|ios-app||unverified
-2f0f3a2c|2026-10-26T19:17:32+01:00|Normalize Spanish numeric display and input in SettingsView.swift|ios-app||unverified
+2f0f3a2c|2026-10-26T19:17:32+01:00|Normalize Spanish numeric display and input in SettingsView.swift|ios-app||verified-ported 12:32 5d444040: TrainingSettingsSection (incremento kg); WIP sin validar (mobile compile bloqueado)
 45763fd7|2026-10-26T19:17:35+01:00|Normalize Spanish numeric display and input in QuickLogSheet.swift|ios-app||unverified
 89c92059|2026-10-26T19:17:38+01:00|Normalize Spanish numeric display and input in ExerciseProgressView.swift|ios-app||unverified
-936a7e6f|2026-10-26T19:17:43+01:00|Normalize Spanish numeric display and input in HomeView.swift|ios-app||unverified
-3a88f6c2|2026-10-26T19:17:46+01:00|Normalize Spanish numeric display and input in ExerciseLoadGuideCard.swift|ios-app||unverified
+936a7e6f|2026-10-26T19:17:43+01:00|Normalize Spanish numeric display and input in HomeView.swift|ios-app||verified-ported 12:32 5d444040: HomeTab (objetivos integer, sueño decimal); WIP sin validar (mobile compile bloqueado)
+3a88f6c2|2026-10-26T19:17:46+01:00|Normalize Spanish numeric display and input in ExerciseLoadGuideCard.swift|ios-app||verified-ported 12:32 5d444040: SuggestedExerciseLoadCard (kg sugeridos, pasos 5%, Tope 1RM); WIP sin validar (mobile compile bloqueado)
 15daf84f|2026-10-26T19:17:48+01:00|Carry estimated route provenance into Comenzar map preview|ios-app||unverified
 39a3f7f2|2026-10-26T19:18:51+01:00|Restore completed countdown results after process interruption|ios-app||unverified
-7bbf1a17|2026-10-26T19:18:53+01:00|Localize display metrics and sport values in StatsView.swift|ios-app||unverified
-0b450bca|2026-10-26T19:18:57+01:00|Localize display metrics and sport values in ProgressTrendCards.swift|ios-app||unverified
-79b6df9c|2026-10-26T19:19:01+01:00|Localize display metrics and sport values in CardioRouteComponents.swift|ios-app||unverified
-18bcf507|2026-10-26T19:19:06+01:00|Localize display metrics and sport values in LiveActivityView.swift|ios-app||unverified
-f0b2354a|2026-10-26T19:19:09+01:00|Localize display metrics and sport values in LiveSportHistoryView.swift|ios-app||unverified
+7bbf1a17|2026-10-26T19:18:53+01:00|Localize display metrics and sport values in StatsView.swift|ios-app||verified-ported 12:32 5d444040: ReperaCards loadGuide helpers + ProgressTab (volumen/peso); WIP sin validar (mobile compile bloqueado)
+0b450bca|2026-10-26T19:18:57+01:00|Localize display metrics and sport values in ProgressTrendCards.swift|ios-app||verified-ported 12:32 5d444040: BodyWeightHistoryScreen + domain WeightStatsTiles (test re-fijado); WIP sin validar (mobile compile bloqueado)
+79b6df9c|2026-10-26T19:19:01+01:00|Localize display metrics and sport values in CardioRouteComponents.swift|ios-app||verified-ported 12:32 5d444040: ReperaCards CardioRouteSection (distancia, scrub m·km); WIP sin validar (mobile compile bloqueado)
+18bcf507|2026-10-26T19:19:06+01:00|Localize display metrics and sport values in LiveActivityView.swift|ios-app||verified-ported 12:32 5d444040: LiveActivityScreen/Runtime/Service (decimal; incl. hablada y notificación); WIP sin validar (mobile compile bloqueado)
+f0b2354a|2026-10-26T19:19:09+01:00|Localize display metrics and sport values in LiveSportHistoryView.swift|ios-app||verified-ported 12:32 5d444040: LiveSportHistoryScreens (Distancia, Mayor distancia, resumen); WIP sin validar (mobile compile bloqueado)
 90d625c4|2026-10-26T19:19:13+01:00|Localize display metrics and sport values in HealthRecovery.swift|ios-app||unverified
-86b98b4e|2026-10-26T19:19:17+01:00|Localize display metrics and sport values in MuscleBalanceCard.swift|ios-app||unverified
-59620c0d|2026-10-26T19:19:20+01:00|Localize display metrics and sport values in ExerciseDetailView.swift|ios-app||unverified
+86b98b4e|2026-10-26T19:19:17+01:00|Localize display metrics and sport values in MuscleBalanceCard.swift|ios-app||verified-ported 12:32 5d444040: MuscleBalanceCard.formatSets (bug Locale.US eliminado); WIP sin validar (mobile compile bloqueado)
+59620c0d|2026-10-26T19:19:20+01:00|Localize display metrics and sport values in ExerciseDetailView.swift|ios-app||verified-ported 12:32 5d444040: ExerciseDetailScreen (1RM est., RIR); WIP sin validar (mobile compile bloqueado)
 44de89ba|2026-10-26T19:19:23+01:00|Localize display metrics and sport values in WatchSessionView.swift|watch||verified-ported 12:10 (WearHomeContent: Peso kg + RIR via ReperaNumberFormat.decimal; Ajuste fino fusionado en el mismo control; Drop kg sin contraparte Wear) WIP sin validar (Wear no compila en 120s)
 f875e533|2026-10-26T19:20:42+01:00|Infer interrupted kilometre split timing from last verified GPS fix|ios-app||unverified
 00fee1b4|2026-10-26T19:20:57+01:00|Restore planned block timer only for its actual last active exercise|ios-app||unverified
