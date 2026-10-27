@@ -133,7 +133,11 @@ struct TimerNumericInput: View {
                 onFocusLost: { commit() },
                 onCommit: { commit() }
             )
-            .frame(maxWidth: .infinity, minHeight: 48)
+            // El alto debe coincidir con el formulario Temporizador (48 pt).
+            // 'minHeight' dejaba crecer el UIViewRepresentable al recibir
+            // toda la propuesta vertical del sheet de altura adaptable.
+            .frame(height: 48)
+            .frame(maxWidth: .infinity)
             // Mismo teclado personalizado de Repera, con superficie
             // Liquid Glass también en la configuración por rondas.
             .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 12))
