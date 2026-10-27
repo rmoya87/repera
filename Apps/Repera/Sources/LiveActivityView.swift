@@ -2861,6 +2861,10 @@ struct LiveActivityView: View {
                 let data = try Data(contentsOf: url)
                 try routes.addGPX(data: data, name: url.deletingPathExtension().lastPathComponent)
                 guard let route = routes.routes.first else { return }
+                // GPX is spatial data. If entered from Home with a
+                // non-GPS sport selected, prepare walking rather than
+                // hiding the map and starting a non-GPS workout.
+                if !recorder.sport.usesGPS { recorder.choose(.walking) }
                 recorder.selectRoute(route)
                 position = route3DPosition(route.points)
                 mapIsCentered = false
@@ -3165,6 +3169,14 @@ struct LiveActivityView: View {
                 routePicker = false
             },
             onUseRoute: { selected in
+                // A route opened from Inicio may not match the currently
+                // selected non-GPS sport in Comenzar.
+                if let raw = selected.sportID,
+                   let sport = LiveSport(rawValue: raw), sport.usesGPS {
+                    recorder.choose(sport)
+                } else if !recorder.sport.usesGPS {
+                    recorder.choose(.walking)
+                }
                 recorder.selectRoute(selected)
                 position = route3DPosition(selected.points)
                 mapIsCentered = false
