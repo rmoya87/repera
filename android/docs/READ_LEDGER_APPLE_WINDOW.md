@@ -21,7 +21,7 @@ Correction: tree156 listed LibraryView and WorkoutView as unread. That list was 
 | HealthMuscleMapper (75) | partial | native stimuli and overlap rule; isEstimatedIntense compared tree155 |
 | SessionPreviewView (7), StartHubSheet (1) | read (tiny), static | tree106 |
 | HistoryView (534) | read fully, static | tree115, tree132, tree159 (remaining ~400 lines read 2026-10-27 09:36; findings in tree159 section below) |
-| LiveActivityView (782) | partial: route/notification/audio/trace slices | tree132-135; most of the diff unread |
+| LiveActivityView (782) | read fully, static | tree132-135, tree160 (full 1087-line diff re-read 2026-10-27 09:38; findings below) |
 | ReperaStore (406) | partial: migrateLegacyWeeklyPlans, updateActiveExerciseDraft | several sections; persist/sync trigger not audited |
 | BusinessAuthStore (90) | partial | tree108 |
 | LiveSportHistoryView (34) | read, static | tree156 |
@@ -32,7 +32,7 @@ Correction: tree156 listed LibraryView and WorkoutView as unread. That list was 
 
 Not covered by this ledger: the 579 commits older than fc3ef7e1 (only the 37837401 historical matrix) and Packages/ (domain Swift sources; the three Apple domain test files were read tree147/149/151-154, the Swift sources diff is not mapped line by line).
 
-Pending reading kept (per parent, 08:26): LiveActivityView most of 782, ReperaStore (persist/sync-trigger audit), BusinessAuthStore (partial, tree108), HealthMuscleMapper (partial), ActivityHeatmapView (only cellHeight recorded), Packages/ Swift sources not mapped line by line, the 579 older commits (37837401 matrix only), and the four 1-5 line files (done tree159).
+Pending reading kept (per parent, 08:26): ReperaStore (persist/sync-trigger audit), BusinessAuthStore (partial, tree108), HealthMuscleMapper (partial), ActivityHeatmapView (only cellHeight recorded), Packages/ Swift sources not mapped line by line, the 579 older commits (37837401 matrix only), and the four 1-5 line files (done tree159).
 
 ## tree159 (2026-10-27 09:36 CET, reconstructed sandbox): HistoryView rest + 4 tiny files
 
@@ -51,3 +51,16 @@ HistoryView behavioral findings vs Android (mobile/src/main/java/dev/repera/mobi
 8. Purely iOS cosmetics with no Android action: date subtitle moved to an exterior section header, summaryTile extracted to shared WorkoutSummaryTile, HR chart 140->170pt, ogCardListRow padding tweaks, "Colores = velocidad" footer removed (Android never had it).
 
 Window extension pending: origin/main advanced past bd4d7637 (inventoried 2026-10-26 17:28). 21 new commits seen 2026-10-27 09:34 (weighted walking lunges reps/meters, scanner distance parsing, topbar/scroll fixes, BTT T2B snapshot relinks). NOT yet inventoried for parity; extends the user's 3-day review request.
+
+## tree160 (2026-10-27 09:38 CET): LiveActivityView window diff fully read
+
+`git diff fc3ef7e1 bd4d7637 -- Apps/Repera/Sources/LiveActivityView.swift` (1087 diff lines). Reading only, not parity validation.
+
+Already ported (verified in android/ sources): the 21 new LiveSports with groups "Combate"/"Cardio y gimnasio", isSelectable=true for all (gravel/other as fallback), healthKey mapping, isWaterSport, km and turn spoken copies (LiveSpokenPhrases/LiveGPX match the new wording including "cambia de sentido" >145 deg and "Ahora, ..." <=20 m), km queued behind turns, voice-on => never notifications even when speech fails, voice-off => optional background visual notice, audio focus released only when the queue drains.
+
+OPEN gaps found:
+1. Live recording trace color: Apple's LIVE trace palette differs from the history map: land slow stop is BLUE (0.06,0.39,0.98), water is (0.08,0.72,0.31); both go yellow->orange->red. Android reuses RouteMapModel.speedColor (green slow stop for land) for the live trace. Small pure-function port pending.
+2. Live save flow: Apple re-queries Health at save time if the preview read has not finished, and when an external (Apple Watch) workout matches it stores healthKitWorkoutUUID + appleActiveEnergyKcal + appleAverageHeartRateBpm + appleHealthProvenance="healthKitExternal" on the session. Android saveLiveActivity is idempotent by session id and archives the GPX route, but never links Health Connect at save (no healthRecordId/provenance/kcal/HR). OPEN.
+3. Save double-invocation: Apple disables Guardar while isSavingRecordedActivity (async health query). Android save is synchronous and idempotent, but the button is not disabled during save. Minor.
+4. Live screen restructure (Compose work, not started): pause (yellow)/resume (green)/finish (black) circular buttons moved into the map header and a metrics trailing row (order Audio, Map, Resume, Finish, growing left); discard "xmark" removed from active headers; bottom controls emptied during recording/paused/review; landscape adaptive layout (width>height && width>=620, side column min 260 max 390 or 42%); navigation banner restyled (larger type, OG.accent background, black text); metrics idle controls top-left max 360; review uses the same unified "Entreno" card (CardioSplitsView with totals + maxSpeedKmh + healthStats + sport, embedded) and fullscreen map zoom; "Recorrido sin puntos GPS" copy now "La distancia y los parciales se conservan aunque no haya puntos para dibujar el mapa."; summary tiles via shared WorkoutSummaryTile; safe-area padding for map overlay.
+5. Android LiveActivityScreen is a single-column layout with text buttons (Pausar/Reanudar/Finalizar/Descartar) - far from the Apple structure; the DUO/landscape layout is also missing (was "PlanDUOtopbar abierto").
