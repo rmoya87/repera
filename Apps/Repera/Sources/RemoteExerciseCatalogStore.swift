@@ -110,11 +110,10 @@ final class RemoteExerciseCatalogStore {
         var saved = await localSnapshot()
         guard saved.revision > 0 else { return }
         let originalIDs = saved.localIDs
-        if await apply(saved: &saved, to: store) {
-            _ = store.relinkScheduledWODMovementsToCatalog()
-            store.bumpCatalogEpoch()
-            store.persistLocalOnly(immediate: true)
-        }
+        // La revisión remota puede ser la misma, pero los entrenamientos
+        // restaurados desde iCloud conservan UUIDs y nombres anteriores.
+        // Reconciliar siempre el catálogo cacheado Y sus copias históricas.
+        _ = await applyAndRelink(saved: &saved, to: store)
         snapshot = saved
         // Do not rewrite 288 entries on every iCloud restore or app launch.
         if originalIDs != saved.localIDs {
@@ -126,7 +125,12 @@ final class RemoteExerciseCatalogStore {
     func refresh(store: ReperaStore? = nil, force: Bool = false) async {
         guard !isRefreshing, BusinessAuthStore.shared.isConnected,
               let client = BusinessAuthStore.shared.apiClient else { return }
-        if !force, let lastProbeAt, Date().timeIntervalSince(lastProbeAt) < 60 { return }
+        if !force, let lastProbeAt, Date().timeIntervalSince(lastProbeAt) < 60 {
+            // Dos triggers de primer plano en menos de 60 s tampoco deben
+            // impedir aplicar el catálogo ya descargado a las sesiones locales.
+            if let store { await restoreCached(to: store) }
+            return
+        }
         isRefreshing = true
         defer { isRefreshing = false }
 
@@ -144,6 +148,12 @@ final class RemoteExerciseCatalogStore {
             var working = await localSnapshot()
             if working.revision > head { working = DiskSnapshot() }
             guard head > working.revision else {
+                // Sin eventos nuevos NO significa que el estado local esté
+                // enlazado: iCloud o un snapshot antiguo pueden restaurarlo.
+                if let store {
+                    _ = await applyAndRelink(saved: &working, to: store)
+                    snapshot = working
+                }
                 lastSuccessfulSync = Date()
                 lastErrorMessage = nil
                 return
@@ -193,10 +203,7 @@ final class RemoteExerciseCatalogStore {
             try await disk.write(working)
             snapshot = working
             let idsBeforeMerge = working.localIDs
-            if let store, await apply(saved: &working, to: store) {
-                _ = store.relinkScheduledWODMovementsToCatalog()
-                store.bumpCatalogEpoch()
-                store.persistLocalOnly(immediate: true)
+            if let store, await applyAndRelink(saved: &working, to: store) {
                 store.notifyCatalogChangedForWatch()
             }
             snapshot = working
@@ -210,6 +217,23 @@ final class RemoteExerciseCatalogStore {
             lastErrorMessage = error.localizedDescription
             // No alterar el catálogo ni los entrenamientos cuando falla la red.
         }
+    }
+
+    /// Aplicar catálogo y referencias de WOD antiguos es una sola operación
+    /// lógica. Las llamadas anteriores actualizaban solo las plantillas,
+    /// dejando sin reconciliar SessionExercise.exercise de AMRAP ya terminados.
+    @discardableResult
+    private func applyAndRelink(saved: inout DiskSnapshot, to store: ReperaStore) async -> Bool {
+        let catalogChanged = await apply(saved: &saved, to: store)
+        let historyChanged = store.relinkOrphanSessionExercisesToCatalog()
+        let plannedChanged = store.relinkScheduledWODMovementsToCatalog()
+        guard catalogChanged || historyChanged || plannedChanged else { return false }
+        store.bumpCatalogEpoch()
+        if historyChanged { store.bumpWorkoutsEpoch() }
+        // Escribir localmente, sin sustituir sesiones activas ni sus resultados.
+        // Solo cambian referencias y metadatos de ejercicios.
+        store.persistLocalOnly(immediate: true)
+        return true
     }
 
     /// Mezcla por clave editorial + UUID persistente + alias original de la clave.

@@ -9,6 +9,9 @@ final class WODHistoryPresentationTests: XCTestCase {
         for raw in ["T2B", "t2b", "T 2 B", "TTB", "toes-to-bar"] {
             XCTAssertEqual(WODHistoryPresentation.officialName(for: raw), "Toes to bar")
         }
+        // Variantes que OCR produce con grafías indistinguibles.
+        XCTAssertEqual(WODHistoryPresentation.officialName(for: "BTт"), "Burpee to target")
+        XCTAssertEqual(WODHistoryPresentation.officialName(for: "Ｔ２Ｂ"), "Toes to bar")
         XCTAssertNil(WODHistoryPresentation.officialName(for: "Wall ball"))
     }
 

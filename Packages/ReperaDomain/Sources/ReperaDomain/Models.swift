@@ -1711,8 +1711,12 @@ public enum WODHistoryPresentation {
     /// Aliases inequívocos. Deliberadamente no aplica equivalencias difusas a
     /// otros ejercicios que el usuario haya elegido manualmente.
     public static func officialName(for rawName: String) -> String? {
-        let name = rawName.lowercased()
-            .folding(options: [.caseInsensitive, .diacriticInsensitive],
+        // OCR puede insertar Unicode de otros alfabetos con aspecto idéntico
+        // (p. ej. la T cirílica en «BTт»). Transliterar antes de comprobar
+        // equivalencias evita dejar iconos genéricos en sesiones antiguas.
+        let latin = rawName.applyingTransform(.toLatin, reverse: false) ?? rawName
+        let name = latin.lowercased()
+            .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
                      locale: Locale(identifier: "en_US_POSIX"))
             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)

@@ -330,6 +330,12 @@ struct WorkoutDetailView: View {
             }
         }
         .onAppear { loadDraft() }
+        .onChange(of: store.catalogEpoch) { _, _ in
+            // Si llegan los alias mientras el detalle ya está abierto, usar
+            // la sesión reconciliada sin cerrar/recrear la navegación.
+            guard !isEditing else { return }
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
+        }
         .task(id: sessionId) {
             guard !didHydrateDetail else { return }
             store.repairHistoricalWODExercisesIfNeeded()

@@ -460,9 +460,21 @@ final class ReperaStore: NSObject {
     /// Esto evita que una copia de sesión «BTt» vuelva a pintarse como custom
     /// aun cuando el usuario ya tenga los alias correctos en Supabase.
     func historicalDisplayExercise(_ snapshot: Exercise) -> Exercise {
-        officialHistoricalWODExercise(for: snapshot)
-            ?? resolvedCatalogExercise(id: snapshot.id)
-            ?? snapshot
+        if let official = officialHistoricalWODExercise(for: snapshot) {
+            return official
+        }
+        // Último respaldo visual para copias históricas que no encuentran aún
+        // su UUID de catálogo: el nombre canónico permite usar la miniatura
+        // empaquetada y no muestra un ejercicio inexistente «BTt»/«T2B».
+        // La reparación persistente se realiza en la sincronización y al
+        // abrir el detalle; aquí no se modifican datos del usuario.
+        if let officialName = WODHistoryPresentation.officialName(for: snapshot.name) {
+            var display = snapshot
+            display.name = officialName
+            display.isCustom = false
+            return display
+        }
+        return resolvedCatalogExercise(id: snapshot.id) ?? snapshot
     }
 
     /// Resuelve un ID de sesión contra el catálogo, incluso si existe una
