@@ -36,6 +36,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var followingMap by remember { mutableStateOf(true) }
     var recenterToken by remember { mutableStateOf(0) }
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
+    // Apple 3f84691a: el cronometro del mapa/metricas avanza de forma continua
+    // (1 Hz) incluso sin fixes GPS (deporte indoor o senal perdida); la pausa
+    // congela la duracion por diseno (tiempo activo).
+    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.phase) {
+        while (state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
+            kotlinx.coroutines.delay(1000L); nowTick = System.currentTimeMillis()
+        }
+    }
     var previewMessage by remember { mutableStateOf<String?>(null) }
     fun capturePosition() { scope.launch {
         val pin = runCatching { WorkoutLocationTracker(context).capturePin() }.getOrNull()
@@ -249,7 +258,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             onOpenCenter?.let { TextButton(onClick=it) {Text("Center")} }
                         }
                     } else {
-                        Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())) + " · %.2f km".format(state.distanceMeters/1000),
+                        Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)) + " · %.2f km".format(state.distanceMeters/1000),
                             style=MaterialTheme.typography.titleLarge)
                         // Apple 4ab1d8f9/0eb0cdb6/052f17f4: km actual, metros y ritmo
                         // parcial en vivo tambien en el HUD del mapa (min/km o km/h).
@@ -362,7 +371,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             TextButton(onClick=onOpenTools) {Text("Crear entrenamiento")}
             onOpenCenter?.let {TextButton(onClick=it) {Text("Center")}}
         } else {
-            Text(LiveSportHistory.formatDuration(state.durationSeconds(System.currentTimeMillis())),style=MaterialTheme.typography.displayMedium)
+            Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),style=MaterialTheme.typography.displayMedium)
             if(state.sport.usesGPS) {
                 Text("${ReperaNumberFormat.decimal(state.distanceMeters/1000)} km",style=MaterialTheme.typography.headlineSmall)
                 val now = System.currentTimeMillis()
