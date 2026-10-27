@@ -218,3 +218,96 @@ create trigger enforce_trainer_client_limit before insert or update of
  for each row execute function private.enforce_trainer_client_limit();
 revoke all on function private.enforce_trainer_client_limit() from public,anon,authenticated;
 notify pgrst,'reload schema';
+
+
+-- Planificación masiva sin obligar a guardar previamente una plantilla.
+-- El lote es atómico: todas las asignaciones se guardan o ninguna.
+create table if not exists private.business_custom_bulk_requests (
+ request_id uuid primary key,
+ org_id uuid not null,
+ created_by uuid not null,
+ fingerprint text not null,
+ created_count integer not null,
+ skipped_count integer not null,
+ created_at timestamptz not null default now()
+);
+revoke all on private.business_custom_bulk_requests from public,anon,authenticated;
+
+create or replace function private.business_publish_custom_training_bulk(
+ p_org uuid,p_clients uuid[],p_start date,p_end date,p_weekdays integer[],
+ p_title text,p_instructions text,p_prescription jsonb,p_request uuid
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_actor uuid:=auth.uid();v_client uuid;v_day date;
+ v_days integer;v_created integer:=0;v_skipped integer:=0;v_fingerprint text;
+ v_old private.business_custom_bulk_requests%rowtype;
+begin
+ if v_actor is null or p_request is null or not private.has_org_role(
+  p_org,array['owner','admin','coach']::public.organization_role[])
+ then raise exception 'NOT_AUTHORIZED' using errcode='42501';end if;
+ if p_start is null or p_end is null or p_start<current_date
+  or p_end<p_start or p_end>p_start+55 or p_end>current_date+interval '18 months'
+ then raise exception 'INVALID_DATE_RANGE' using errcode='22023';end if;
+ if p_clients is null or cardinality(p_clients) not between 1 and 20
+  or cardinality(array(select distinct unnest(p_clients)))<>cardinality(p_clients)
+  or array_position(p_clients,null) is not null
+ then raise exception 'INVALID_CLIENTS' using errcode='22023';end if;
+ if p_weekdays is null or cardinality(p_weekdays) not between 1 and 7
+  or exists(select 1 from unnest(p_weekdays) d where d not between 1 and 7)
+ then raise exception 'INVALID_WEEKDAYS' using errcode='22023';end if;
+ if length(btrim(coalesce(p_title,''))) not between 2 and 120
+  or length(coalesce(p_instructions,''))>10000
+  or not private.validate_professional_prescription(p_prescription)
+ then raise exception 'INVALID_WORKOUT' using errcode='22023';end if;
+ v_days:=(select count(*) from generate_series(p_start,p_end,interval '1 day') d
+   where extract(isodow from d)::int=any(p_weekdays));
+ if v_days=0 or v_days*cardinality(p_clients)>120 then
+  raise exception 'BULK_LIMIT_EXCEEDED' using errcode='22023';end if;
+ v_fingerprint:=md5(jsonb_build_object(
+  'org',p_org,'clients',p_clients,'start',p_start,'end',p_end,
+  'weekdays',p_weekdays,'title',p_title,'instructions',p_instructions,
+  'prescription',p_prescription)::text);
+ perform pg_advisory_xact_lock(hashtextextended('custom_bulk:'||p_request::text,0));
+ select * into v_old from private.business_custom_bulk_requests
+   where request_id=p_request;
+ if found then
+  if v_old.org_id<>p_org or v_old.created_by<>v_actor
+   or v_old.fingerprint<>v_fingerprint then
+   raise exception 'REQUEST_ID_REUSED' using errcode='23505';end if;
+  return jsonb_build_object('created',v_old.created_count,
+    'skipped',v_old.skipped_count,'replayed',true);
+ end if;
+ foreach v_client in array p_clients loop
+  for v_day in select d::date from generate_series(p_start,p_end,interval '1 day') d
+   where extract(isodow from d)::int=any(p_weekdays) loop
+   if exists(select 1 from public.professional_training_sessions s
+     where s.org_id=p_org and s.client_id=v_client and s.scheduled_date=v_day
+      and s.title=p_title and s.status='scheduled') then
+    v_skipped:=v_skipped+1;
+   else
+    perform private.publish_professional_session_v2(p_org,v_client,v_day,
+       p_title,coalesce(p_instructions,''),gen_random_uuid(),p_prescription);
+    v_created:=v_created+1;
+   end if;
+  end loop;
+ end loop;
+ insert into private.business_custom_bulk_requests(
+  request_id,org_id,created_by,fingerprint,created_count,skipped_count)
+ values(p_request,p_org,v_actor,v_fingerprint,v_created,v_skipped);
+ return jsonb_build_object('created',v_created,'skipped',v_skipped,'replayed',false);
+end $$;
+revoke all on function private.business_publish_custom_training_bulk(
+ uuid,uuid[],date,date,integer[],text,text,jsonb,uuid) from public,anon,authenticated;
+grant execute on function private.business_publish_custom_training_bulk(
+ uuid,uuid[],date,date,integer[],text,text,jsonb,uuid) to authenticated;
+create or replace function public.business_publish_custom_training_bulk(
+ p_org uuid,p_clients uuid[],p_start date,p_end date,p_weekdays integer[],
+ p_title text,p_instructions text,p_prescription jsonb,p_request uuid
+) returns jsonb language sql security invoker set search_path='' as $$
+ select private.business_publish_custom_training_bulk(
+  p_org,p_clients,p_start,p_end,p_weekdays,p_title,p_instructions,p_prescription,p_request)
+$$;
+revoke all on function public.business_publish_custom_training_bulk(
+ uuid,uuid[],date,date,integer[],text,text,jsonb,uuid) from public,anon;
+grant execute on function public.business_publish_custom_training_bulk(
+ uuid,uuid[],date,date,integer[],text,text,jsonb,uuid) to authenticated;
+notify pgrst,'reload schema';
