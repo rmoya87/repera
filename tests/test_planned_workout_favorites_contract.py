@@ -53,8 +53,8 @@ class PlannedWorkoutFavoritesContractTests(unittest.TestCase):
         oneoff = EDITOR.split("case .oneOff:\n            var draft = routine", 1)[1].split(
             "case .favorite:", 1
         )[0]
-        self.assertIn("store.saveRoutine(draft)", oneoff)
-        self.assertIn("store.setRoutineFavorite(draft.id, isFavorite: wantsFavorite)", oneoff)
+        self.assertIn("saveRoutineWithVerifiedAccess(draft)", oneoff)
+        self.assertIn("setRoutineFavoriteWithVerifiedAccess(", oneoff)
         self.assertIn("presentRoutineLimitPaywall()", oneoff)
 
     def test_calendar_reuse_schedules_new_copy(self):
