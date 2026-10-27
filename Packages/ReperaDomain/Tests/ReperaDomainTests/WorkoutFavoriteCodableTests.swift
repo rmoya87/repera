@@ -48,6 +48,34 @@ final class WorkoutFavoriteCodableTests: XCTestCase {
         XCTAssertNotNil(restored.scheduledDate)
     }
 
+    func testSportFavoritesSurvivePersonalStateRoundTrip() throws {
+        let sourceID = UUID()
+        let favorite = FavoriteSportActivity(
+            sourceWorkoutId: sourceID, sportID: "walking", title: "Paseo"
+        )
+        let state = AppState(
+            exercises: [],
+            favoriteSportActivities: [favorite]
+        )
+        let encoded = try JSONEncoder().encode(state)
+        let decoded = try JSONDecoder().decode(AppState.self, from: encoded)
+        XCTAssertEqual(decoded.favoriteSportActivities, [favorite])
+        XCTAssertEqual(decoded.favoriteSportActivities.first?.sourceWorkoutId, sourceID)
+    }
+
+    func testOlderPersonalStateWithoutSportFavoritesStillDecodes() throws {
+        let state = AppState(exercises: [])
+        let data = try JSONEncoder().encode(state)
+        var legacy = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        legacy.removeValue(forKey: "favoriteSportActivities")
+        let restored = try JSONDecoder().decode(
+            AppState.self, from: JSONSerialization.data(withJSONObject: legacy)
+        )
+        XCTAssertTrue(restored.favoriteSportActivities.isEmpty)
+    }
+
     func testLegacyWorkoutsWithoutFavoriteFieldRemainReadable() throws {
         let session = WorkoutSession(title: "Entreno antiguo", exercises: [])
         let data = try JSONEncoder().encode(session)
