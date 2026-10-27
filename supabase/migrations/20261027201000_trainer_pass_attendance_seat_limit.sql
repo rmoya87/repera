@@ -33,13 +33,15 @@ create table if not exists public.business_trainer_attendance (
  org_id uuid not null references public.organizations(id),
  client_id uuid not null,
  pass_id uuid not null,
+ booking_id uuid unique,
  occurrence_id uuid references public.service_occurrences(id),
  request_id uuid not null unique,
  performed_at timestamptz not null default now(),
  recorded_by uuid not null references auth.users(id),
  note text not null default '' check(length(note)<=1000),
  foreign key(org_id,client_id) references public.clients(org_id,id),
- foreign key(org_id,pass_id) references public.service_passes(org_id,id)
+ foreign key(org_id,pass_id) references public.service_passes(org_id,id),
+ foreign key(org_id,booking_id) references public.service_bookings(org_id,id)
 );
 create unique index if not exists business_attendance_once_per_occurrence
  on public.business_trainer_attendance(occurrence_id,client_id)
@@ -115,7 +117,7 @@ create or replace function private.business_record_trainer_attendance(
 ) returns uuid language plpgsql security definer set search_path='' as $$
 declare v_pass public.service_passes%rowtype;
  v_id uuid;v_actor uuid:=auth.uid();v_existing public.business_trainer_attendance%rowtype;
- v_occ public.service_occurrences%rowtype;
+ v_booking uuid;v_occ public.service_occurrences%rowtype;
 begin
  if v_actor is null or p_request is null or length(coalesce(p_note,''))>1000
   or not private.has_org_role(p_org,array['owner','admin']::public.organization_role[])
@@ -145,23 +147,27 @@ begin
   if exists(select 1 from public.business_trainer_attendance a
    where a.occurrence_id=p_occurrence and a.client_id=p_client) then
    raise exception 'ALREADY_RECORDED' using errcode='23505';end if;
-  -- Una reserva existente YA descontó el crédito: no duplicarlo.
-  if exists(select 1 from public.service_bookings b
-    where b.occurrence_id=p_occurrence and b.client_id=p_client and b.status='booked')
-  then raise exception 'BOOKING_ALREADY_DEBITED' using errcode='22023';end if;
+  -- Una reserva existente YA descontó el crédito: registrar asistencia sin doble cobro.
+  select b.id into v_booking from public.service_bookings b
+    where b.occurrence_id=p_occurrence and b.client_id=p_client and b.status='booked'
+    for update;
  end if;
  select * into v_pass from public.service_passes where id=p_pass
     and org_id=p_org and client_id=p_client for update;
- if not found or v_pass.kind<>'appointment' or v_pass.status<>'active'
-  or v_pass.remaining_credits<1 or v_pass.valid_from>now() or v_pass.valid_until<now()
+ if not found or (v_booking is not null and not exists(select 1 from public.service_bookings b where b.id=v_booking and b.pass_id=p_pass))
+  or v_pass.kind<>'appointment' or v_pass.status<>'active'
+  or (v_booking is null and v_pass.remaining_credits<1)
+  or v_pass.valid_from>now() or v_pass.valid_until<now()
  then raise exception 'INSUFFICIENT_PASS' using errcode='22023';end if;
  insert into public.business_trainer_attendance(
-  org_id,client_id,pass_id,occurrence_id,request_id,recorded_by,note
- ) values(p_org,p_client,p_pass,p_occurrence,p_request,v_actor,btrim(coalesce(p_note,'')))
+  org_id,client_id,pass_id,booking_id,occurrence_id,request_id,recorded_by,note
+ ) values(p_org,p_client,p_pass,v_booking,p_occurrence,p_request,v_actor,btrim(coalesce(p_note,'')))
  returning id into v_id;
- update public.service_passes set remaining_credits=remaining_credits-1 where id=p_pass;
- insert into public.service_credit_ledger(org_id,pass_id,attendance_id,event,amount,created_by)
- values(p_org,p_pass,v_id,'trainer_attendance_debit',-1,v_actor);
+ if v_booking is null then
+  update public.service_passes set remaining_credits=remaining_credits-1 where id=p_pass;
+  insert into public.service_credit_ledger(org_id,pass_id,attendance_id,event,amount,created_by)
+  values(p_org,p_pass,v_id,'trainer_attendance_debit',-1,v_actor);
+ end if;
  return v_id;
 end $$;
 revoke all on function private.business_record_trainer_attendance(
