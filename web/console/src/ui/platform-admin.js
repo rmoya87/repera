@@ -236,12 +236,9 @@ function athleteDetail(person,detail,workouts=[],busy=false,activity={},section=
   const canSchedule=linked.length>0;
   body=`<div class="pa-athlete-training-grid">
  ${renderAthleteActivity({month:activity.month,days:activity.days,selectedDay:day,
-  workouts:activity.workouts??workouts,loading:activity.loading})}
+  workouts:activity.workouts??workouts,loading:activity.loading,
+  canPlan,athleteId:person.id})}
  </div>
- <div class="pa-add-day">${canSchedule?
- `<button type="button" class="pa-button" data-admin-action="schedule-athlete"
- data-id="${esc(person.id)}" data-day="${esc(day)}">+ Añadir entrenamiento ${day?'el '+date(day):''}</button>`:
- '<span class="pa-muted">El atleta necesita aceptar su vinculación a un centro para recibir entrenamientos.</span>'}</div>
  ${renderAthleteInsights(workouts,rows.workout_count)}`;
  }
  if(section==='data'){
