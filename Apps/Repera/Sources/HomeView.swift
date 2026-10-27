@@ -70,6 +70,8 @@ struct HomeView: View {
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
+    /// Cargar una ruta siempre lleva a Comenzar; nunca arranca GPS sin Play.
+    var onLoadRoutes: () -> Void = {}
 
     /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
@@ -199,17 +201,29 @@ struct HomeView: View {
         }
     }
 
-    private var businessCalendarSignature: String {
-        let training = businessData.trainingSessions.map {
-            "\($0.id.uuidString):\($0.scheduledDate):\($0.status)"
+    private var businessCalendarSignature: Int {
+        // Avoid allocating, sorting and joining large strings on every
+        // render when a day has several local or professional workouts.
+        var hasher = Hasher()
+        hasher.combine(businessData.trainingSessions.count)
+        for entry in businessData.trainingSessions {
+            hasher.combine(entry.id)
+            hasher.combine(entry.scheduledDate)
+            hasher.combine(entry.status)
         }
-        let reservations = businessData.bookings.map {
-            "\($0.id.uuidString):\($0.occurrenceId.uuidString):\($0.status)"
+        hasher.combine(businessData.bookings.count)
+        for booking in businessData.bookings {
+            hasher.combine(booking.id)
+            hasher.combine(booking.occurrenceId)
+            hasher.combine(booking.status)
         }
-        let occurrences = businessData.occurrences.map {
-            "\($0.id.uuidString):\($0.startsAt):\($0.status)"
+        hasher.combine(businessData.occurrences.count)
+        for occurrence in businessData.occurrences {
+            hasher.combine(occurrence.id)
+            hasher.combine(occurrence.startsAt)
+            hasher.combine(occurrence.status)
         }
-        return (training + reservations + occurrences).sorted().joined(separator: "|")
+        return hasher.finalize()
     }
 
     var body: some View {
@@ -325,17 +339,10 @@ struct HomeView: View {
             // Fondo independiente del topbar: el blanco continúa visualmente
             // desde la zona segura superior hasta calendario + entreno.
             // El componente de navegación y sus controles no se modifican.
-            .background(alignment: .top) {
-                // Cubrir también todo el margen superior derecho del DUO:
-                // una franja fija de 160 pt no alcanzaba el safe area horizontal.
-                OG.bg.ignoresSafeArea()
-                    .overlay(alignment: .top) {
-                        OG.surface
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 360, alignment: .top)
-                            .ignoresSafeArea(edges: [.top, .horizontal])
-                    }
-            }
+            // Do not reveal the system's black background between a topbar
+            // refresh and re-layout of the calendar cards. The content below
+            // still paints its own grouped OG.bg surface.
+            .background(OG.surface.ignoresSafeArea())
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
                 if let focusDay, focusDay != lastAppliedFocusDay {
@@ -1003,7 +1010,7 @@ struct HomeView: View {
         let businessBookings = selectedDayBusinessBookings
         let professionalPlans = selectedDayProfessionalSessions
 
-        VStack(spacing: 6) {
+        LazyVStack(spacing: 6) {
             if hasActive {
                 Button(action: onStart) {
                     dayActionRowContent
@@ -1073,6 +1080,23 @@ struct HomeView: View {
             if !hasActive {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
+                Button(action: onLoadRoutes) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Cargar ruta")
+                            .font(.system(size: 15, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(OG.label)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 48)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Abre Mis rutas en Comenzar para elegir y preparar el recorrido")
             }
         }
         .swipeActionsContainer()
