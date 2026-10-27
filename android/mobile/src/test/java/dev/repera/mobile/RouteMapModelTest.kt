@@ -41,21 +41,38 @@ class RouteMapModelTest {
         assertEquals(RouteMapModel.speedColor(10.0, 0.0, 10.0), RouteMapModel.speedColor(10.0, 0.0, 10.0, water = true))
     }
 
-    @Test fun gapsPausesAndImpossibleJumpsNeverCreateConnectingSegments() {
+    @Test fun gapsPausesAndImpossibleJumpsFollowCutBridgingRules() {
         val a=pt(40.0,-3.7,3.0)
-        // Apple d5c263d3 visualBridge: un hueco de 31s y ~11 m a ritmo plausible
-        // SI se puentea, pero solo como tramo estimado (discontinuo, rotulado).
-        val bridged=RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=31)))
+        // Apple e048d814: ventana GPS 30s -> 45s; 31s y ~11 m a ritmo plausible
+        // es ahora un tramo REAL (antes iba puenteado como estimado).
+        val real31=RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=31)))
+        assertEquals(1,real31.size)
+        assertTrue(!real31[0].estimated)
+        // Apple e048d814: visualBridge cubre huecos de >0s..2h (antes 30 min),
+        // siempre como tramo estimado (discontinuo, rotulado).
+        val bridged=RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=1801)))
         assertEquals(1,bridged.size)
         assertTrue(bridged[0].estimated)
         // Huecos que el puente no cubre: mismo instante, salto imposible, hueco
-        // >30 min y hueco largo sin GPX a mas de 6 m/s.
+        // >2h y hueco largo sin GPX a mas de 6 m/s.
         assertTrue(RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=0))).isEmpty())
         assertTrue(RouteMapModel.segments(listOf(a,pt(41.0,-3.7,3.0,seconds=10))).isEmpty())
-        assertTrue(RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=1801))).isEmpty())
+        assertTrue(RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,3.0,seconds=7201))).isEmpty())
         assertTrue(RouteMapModel.segments(listOf(a,pt(40.02,-3.7,null,seconds=60))).isEmpty())
         val valid=RouteMapModel.segments(listOf(a,pt(40.0001,-3.7,seconds=10)))
         assertEquals(1,valid.size)
+    }
+
+    @Test fun nearStationaryPointsStayAsLegsInsteadOfOpeningGaps() {
+        // Apple e048d814: puntos casi inmoviles (<0.5 m) pertenecen al mismo
+        // recorrido real; descartarlos abria huecos en el dibujo.
+        val a=pt(40.0,-3.7,3.0)
+        val segs=RouteMapModel.segments(listOf(a,pt(40.000001,-3.7,3.0,seconds=5)))
+        assertEquals(1,segs.size)
+        assertTrue(!segs[0].estimated)
+        // Sin velocidad medida el tramo se pinta con el minimo 0.2 (no hueco).
+        val slow=RouteMapModel.segments(listOf(pt(40.0,-3.7),pt(40.000001,-3.7,seconds=10)))
+        assertEquals(1,slow.size)
     }
     @Test fun cameraCentersBoundsWith15xMarginAndMinSpan() {
         val cam = RouteMapModel.camera(listOf(

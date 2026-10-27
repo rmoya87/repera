@@ -22,12 +22,23 @@ internal object RouteMapModel {
         var speeds: List<Double?> = (0 until points.lastIndex).map { i ->
             val a = points[i];val b = points[i+1]
             val seconds = (b.recordedAtEpochMs-a.recordedAtEpochMs)/1000.0
-            if (seconds <= 0 || seconds > 30) null
+            if (seconds <= 0 || !seconds.isFinite()) null
             else {
-                val geometric = dev.repera.domain.LiveGPXTurnDetection.distance(a,b)/seconds
-                if (!geometric.isFinite() || geometric > 25) null
-                else (b.speedMps ?: a.speedMps)?.takeIf { it.isFinite() && it in 0.2..25.0 }
-                    ?: geometric.takeIf { it >= 0.2 }
+                // Apple e048d814 (routeRuns): puntos casi inmoviles NO se descartan;
+                // quitarlos abria huecos en el dibujo del mismo recorrido real.
+                val meters = dev.repera.domain.LiveGPXTurnDetection.distance(a,b)
+                if (meters < 0.5) {
+                    ((b.speedMps ?: a.speedMps)?.takeIf { it.isFinite() } ?: 0.2)
+                        .coerceIn(0.2, 25.0)
+                } else if (seconds <= 45) { // e048d814: ventana 30s -> 45s
+                    val geometric = meters/seconds
+                    if (!geometric.isFinite() || geometric > 25) null
+                    else {
+                        val measured = (b.speedMps ?: a.speedMps)
+                            ?.takeIf { it.isFinite() && it in 0.2..25.0 }
+                        maxOf(0.2, measured ?: geometric)
+                    }
+                } else null
             }
         }
         // Suavizado minimo (Apple b74ad790 makeRun): vecinos ±1 con peso 2 al
@@ -79,14 +90,14 @@ internal object RouteMapModel {
         return legs.map { Segment(it.a, it.b, speedColor(it.speed, minS, maxS, water), it.estimated) }
     }
 
-    /** Apple HistoryView.visualBridge (d5c263d3): solo pantalla, nunca se
-     *  persiste ni sube a Salud. Huecos de 30s..30min y >=0.5m; sin GPX solo
-     *  huecos <=350m a <=6 m/s. Velocidad = media de extremos validos o
-     *  distancia/tiempo acotada 0.2..25. */
+    /** Apple HistoryView.visualBridge (d5c263d3, ventana e048d814): solo
+     *  pantalla, nunca se persiste ni sube a Salud. Huecos de >0s..2h y >=0.5m;
+     *  sin GPX solo huecos <=350m a <=6 m/s. Velocidad = media de extremos
+     *  validos o distancia/tiempo acotada 0.2..25. */
     private fun bridge(first: WorkoutRoutePoint, last: WorkoutRoutePoint,
                        reference: List<WorkoutRoutePoint>): List<Triple<WorkoutRoutePoint,WorkoutRoutePoint,Double>> {
         val seconds = (last.recordedAtEpochMs - first.recordedAtEpochMs) / 1000.0
-        if (seconds <= 30 || seconds > 30 * 60) return emptyList()
+        if (seconds <= 0 || seconds > 2 * 60 * 60) return emptyList()
         val directMeters = dev.repera.domain.LiveGPXTurnDetection.distance(first, last)
         if (directMeters < 0.5 || !directMeters.isFinite()) return emptyList()
         val route = referenceBridge(first, last, seconds, reference)

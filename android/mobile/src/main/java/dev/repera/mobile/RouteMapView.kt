@@ -423,12 +423,13 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
                 fun xy(p: WorkoutRoutePoint) = Offset(
                     (((p.longitude - minLon) / spanLon).toFloat()) * size.width,
                     (1f - ((p.latitude - minLat) / spanLat).toFloat()) * size.height)
-                // Apple d5c263d3/26a625be (compacto): trazo en 3 capas apiladas
-                // (halo 0.23, edge 0.75, core 1.0 del color de velocidad), grosores
-                // 8/4.5/2.8 y dash 4/4 en tramos estimados.
+                // Apple d5c263d3/26a625be + e048d814 (grosores uniformes):
+                // 3 capas apiladas (halo 0.23, edge 0.75, core 1.0 del color de
+                // velocidad), grosores 4/2.25/1.4 y dash 4/4 en tramos estimados
+                // (escala px del Canvas: 1pt ~ 2px como antes).
                 segments.forEach { seg ->
                     val dash = if (seg.estimated) androidx.compose.ui.graphics.PathEffect
-                        .dashPathEffect(floatArrayOf(10f, 10f)) else null
+                        .dashPathEffect(floatArrayOf(8f, 8f)) else null
                     drawLine(Color(seg.argb).copy(alpha = 0.23f), xy(seg.a), xy(seg.b),
                         strokeWidth = 8f, pathEffect = dash)
                     drawLine(Color(seg.argb).copy(alpha = 0.75f), xy(seg.a), xy(seg.b),
