@@ -37,7 +37,8 @@ object BoardScanLiteParser {
 
         fun flush() {
             val cur = current ?: return
-            val structured = structuredIntervalComplex(
+            val orphanStrength=if(cur.header=="Añadir entreno") BoardStrengthLines.block(cur.body,catalog) else null
+            val structured = orphanStrength ?: structuredIntervalComplex(
                 cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog, searchAliases
             ) ?: structuredStrength(
                 cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog

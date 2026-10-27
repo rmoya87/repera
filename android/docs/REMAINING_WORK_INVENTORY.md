@@ -1,242 +1,158 @@
-# Inventario de trabajo restante (27 oct 21:21 CET)
-
-Clasificacion COMPLETA (0 unverified) en ambas matrices; esto NO es cierre funcional.
-Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (579 filas) + AUDIT_POSTBD4_WINDOW_MATRIX.csv.
-
-## Estado vigente (recuento directo 27oct21:21 CET)
--735 filas SHA validas:579prewindow+156postwindow.
--70 abiertas:50prewindow+20postwindow. Abierta = campo6 comienza partial,
- verified-partial o in-progress. Cambiar partial a verified-partial no cierra.
-- Mobile645/645(162XML) ejecutadas TODAS en4lotes+clase faltante21:06..21:14,
- cero fallos/errores. XML consolidados:repera280-mobile-xml.tar.gz. Monolitica
- no cerro120s;un intento AIAccessRenderTest fallo CalledFromWrongThread,
- aislado y despues en lote verde. No se presenta monolitica verde.
-- Domain485/485(92XML) yWear8/8(1XML) REEJECUTADAS21:20 (2tasks test ejecutadas,
- no cache/up-to-date),0fallos/errores por modulo.
-- Assemble mobile280 ejecutado verde21:15 (112s). Wear assemble anterior
- verde UP-TO-DATE19:48,no se presenta como compilacion nueva.
-- HEAD implementacion280=0f5bb404;backup280-full recuperado mediante git am
- en clon limpio65338db7:arbol96a20bcdb590b173f7d50185e230a0341eb46255
- IDENTICO al original. Backup260commits --binary, no net diff.
-- Ultimos cambios271..280: inventario reconciliado;WOD unidades explicitas;
- notificacion programados273/274;Peso210/CatmullRom/vacio275/276;
- readiness220/previewplano277 yDUO205..270278;preview ejercicio eje sesiones
-195/CatmullRom279;sueno night-sky/area/220yDUO280. Renders inspeccionados.
-- Runtime dispositivo,zonas FC decision,parser completo,meteo ruta,rama Diario
- siguen abiertos. Planned lockscreen YA implementado273/274, NO es ausencia
- de superficie;outdoor metricas y validacion nativa quedan abiertos.
-- Cursores readiness y vacio YA portados;no inferir pendiente desde notas viejas.
- Graficas reales ejercicio/cardio/kcal y fisiologia aun difieren del corte.
-- Ninguna nota historica sustituye este recuento ni la matriz viva.
-  No push hasta condicion original y cierre real.
-
-## Dependencias de validacion (bloquean cierre)
-1. compile/build mobile+wear COMPLETO verde gestionado in-call (assemble OK; confirmar tras cada lote) — REQUISITO antes de integrar/push
-2. Validacion runtime/UI en dispositivo/emulador de todo lo movil desde tree175 (WIP; emulador sin KVM no viable, adb requiere accion del usuario, cloud prohibido)
-   - Sub-dependencia explicita (padre 14:47): lo implementado por comparacion de fuente
-     (glifos 20x20, tarjeta "Musculos y equipo", iconos chips biblioteca, onboarding AI)
-     NO esta visualmente validado: 0-diff de coordenadas y assemble no acreditan pixeles.
-     Via intermedia honesta EN MARCHA: Robolectric 4.17 graficos nativos + ui-test-junit4
-     como testImplementation. Renders inspeccionables en mobile/build/reports/render/:
-     12 glifos (MuscleGlyphRenderTest), tarjeta Musculos y equipo, AIAccessScreen
-     (conexiones + tokens tras scroll). Acreditan la previsualizacion JVM de esos
-     fixtures/tamanos concretos; NO todos los tamanos/temas ni runtime de dispositivo.
-     Diffs de glifos verificados por comparacion PROGRAMATICA exhaustiva 9/9 (no muestreo).
-3. Suites COMPLETAS verdes tras cada implementacion: cifras vigentes arriba; las notas cronologicas conservan cifras de su checkpoint, no el estado actual.
-
-## Grupos de gaps principales (pre+post)
-- Onboarding AI unificado: IMPLEMENTACION COMPLETADA (f68d77ff + Desconectar 14:51 + d61c5d52 espaciado 15:11) CON DEPENDENCIAS EXPLICITAS:
-  tarjeta revocada completa sin acreditar visualmente, flujo proveedor verificado->dialogo
-  sin acreditar en app, revision visual del espaciado 6dp nuevo, y validacion runtime global
-- Zonas FC + anillo intensidad Cardio Progreso (661e65f4/9947c212 — bloqueo decision usuario)
-- Paisaje/dos paneles CERRADO 15:40 verificando contra el corte 0a640da8 (varias
-  filas cambiaron tras su commit original): columna 790 solo en listas agrupadas,
-  Home/Progreso full-width expandido, calendario carrusel >7 dias en expandido
-  (cap 472 revertido: Apple lo retiro), margenes 16 uniformes (Apple retiro el
-  +16 paisaje), 96efb7b6 cerrado (PlanView eliminado por Apple en c5aae1cc).
-  Pendiente de este grupo: verificacion visual de pantallas/insets en dispositivo
-- Wear fino: 3/4 items ya cerrados (linea stale): Sincronizar+mascota = 4a82b4b2
-  verified-ported 15:35; flecha en descanso = a4a5d9ce/ea99a5b6 verified-ported 15:35;
-  frescura planificacion = 1d333b42 verified-ported 15:35. ABIERTO real: 44713457
-  captura de series WOD por movimiento YA portada; sigue diferencia sin reloj
-  de bloque activo (44713457) + validacion visual estilo botones (0f528156/604b1293)
-- Cursores interactivos graficas recuperacion IMPLEMENTADOS (b73d77dc/42f02b82), runtime pendiente
-- Estilos parciales a verificar en runtime (margenes, miniaturas, previews)
-- Grupos post-window (no lista de ausencias actuales): widgets/notificacion, Health-ruta, fullscreen map, tap targets/overlay, Health Connect por rango, tiles resumen. Ver cada matriz: varias superficies YA portadas con runtime abierto.
-
-## Evidencia N/A
-Cada fila n/a de las matrices lleva su razon (mecanica iOS nativa, superficie web/MCP/db compartida,
-tipo Swift sin counterpart). Donde la ausencia Android podria ocultar funcion faltante se marco
-partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
-
-## Revision visual 27oct 18:39 (tree239)
-- Selector Progreso 360dp: Recuperacion ya no se corta; se reserva todo el ancho
-  de etiqueta (sin check redundante, paddings 6dp y labelMedium). Fixture claro
-  renderizado e inspeccionado; fuente Apple StatsView mantiene los tres nombres.
-- Rango semanal Progreso: locale es-ES explicito (la app tiene texto espanol fijo),
-  elimina mezcla «Del Oct 26, 2026...». Render real: «Del 26 oct 2026 al 27 oct 2026».
-- DayPointLineChart de un dato: muestra valor + «Una medicion; aun no hay tendencia»
-  + una sola fecha, no linea inventada ni tres fechas repetidas. Semantica contrastada
-  con Apple HealthRecovery.vitalChart (count <2 = estado sin tendencia).
-- Dos dias contiguos: omite fecha central cuando coincide con un extremo.
-- Alcance: JVM tema claro 360dp, no dispositivo ni todos los tamanos/fuentes.
-
-## Fallback mapa 18:53
-- Surface opaca + onSurface garantizan contraste de atribucion tanto claro como
-  oscuro; renders fullscreen360x900 inspeccionados. Canvas ocupa bounds reales
-  (antes180dp fijos incluso en fullscreen) y deja16dp de margen de ruta mas38sp
-  para atribucion, sin trazo recortado ni cruce de texto en el fixture de2puntos.
-- Corregida captura generica runCatching al aplicar estilo/capas: esos errores
-  ya no activan fallback silencioso. Solo ausencia nativa y fallo de carga de mapa
-  notificado por SDK degradan a Canvas. La camara/cartografia nativa siguen abiertas.
-
-## Guardias revisadas 18:56
-- WodTimerStore.update valida blockId ANTES de leer/reasignar el slot; un bloque
-  nuevo en igual indice ya no hereda elapsed. Cambio de sesion elimina pendingEnd
-  ajeno y blockId antiguo; consumePendingEnd usa commit comprobado.4tests nuevos.
-  La politica legacy sin blockId no cambia ni migra datos (00fee1b4 sigue abierta).
-- ExternalHealthDetailSheet: detalle y ruta async, asi como retorno del contract,
-  comprobados con owner+record+identityRevision durable; cierre invalida instancia.
-  Cubre A->B->A y proveedor no cooperativo tras cerrar;3tests del gate puro.
-  Tests de gate no acreditan Activity HC ni ciclo de vida real de dispositivo.
-
-## Paisaje compacto 19:08
-- Fixture pausado620x360: avisos y metricas separados, atribucion libre.
-  Acciones principales visibles; Descartar/Voz quedan bajo scroll del panel.
-  Test hace scroll real y acredita que ambas son alcanzables. Render inspeccionado.
-  No acredita fuentes grandes, todos los plegables ni cartografia nativa.
-
-## Siguiente unidad preparada
-- b73d77dc: HealthRecovery.swift corte0a640da8 trainingRecoveryTrendCard
-  usa curva catmullRom, stroke3 redondo y gradiente vertical por valor0..10:
-  rojo0..0.40, amarillo0.60..0.72, acento0.84..1.0. NO por distancia temporal.
-- Android DayPointLineChart es compartido con otras metricas: agregar opcion
-  especifica de readiness, por defecto lineal/paleta actual. No cambiar otras
-  series. Conservar seleccion por distancia calendario, bounds0..10 y estado
-  sin tendencia de una muestra. Render fixture multidia explicito antes de cierre.
-
-## Readiness 19:15
-- CatmullRom y gradiente por valor PORTADOS (readinessStyle opt-in); render multidia
-  fixture explicito360claro inspeccionado. Suite mobile611/611(150XML).
-  b73d77dc sigue verified-partial por dispositivo;70/735abiertas.
-
-## pendingEnd 19:31
-- 39a3f7f2 contrastada con WorkoutView.swift1362-1397 corte0a640da8.
-  Android conserva checkpoint hasta guardar resultado con exito, no al montar
-  el editor. Salir/volver recupera elapsed medido. Limpieza usa cuenta+revision
-  durable del flujo y bloque original; refresca estado UI tras consumir.
-- Test Compose desmonta/remonta y cambia pending manteniendo edicion manual
-  activa. No acredita persistencia de texto manual al navegar ni Activity real.
-  70/735 siguen abiertas; runtime no sustituido por JVM.
-
-## Servicio WOD 19:40
-- WodTimerService conserva binding owner/session/index/blockId del intent y lo
-  usa en cada tick. Antes omitia blockId pese a la guarda en MainActivity.
-  Slot reemplazado devuelve reloj no-running y detiene servicio.
-- 2tests binding con store real local/doble monotonic cubren bloque nuevo y
-  aislamiento cuenta/sesion. Sin iniciar servicio ni permisos/sensores.
-  No cambia politica legacy sin blockId, no valida ejecucion background real.
-
-## Lifecycle Comenzar 19:43
-- Contrastado WorkoutLiveActivityCoordinator del corte: closedSessionIDs evita
-  resucitar actividad terminada. LiveActivityService lleva owner+revision
-  durable+gpsSessionID en intent/tick, con data URI unica en PendingIntent por
-  login/sesion. Intent antiguo no muta nueva actividad; teardown solo pausa
-  sesion vinculada.3tests gate puro; FGS/NotificationManager real pendientes.
-
-## Correccion documental 19:46
-- En260 un script propio escribio por error el contenido de la matriz prewindow
-  sobre este inventario. Restaurado desde259 y reincorporada solo seccion nueva
-  lifecycle. Evidencia original conservada; no se cambiaron clasificaciones por
-  este error. Recuento desde matrices reales:579+156=735,50+20=70 abiertas.
-- Mobile622/155XML ejecutada verde. Assemble conjunto --rerun-tasks260 supero
- 120s durante compile mobile y fue terminado; no cuenta como verde. Proceso
- Gradle ausente tras corte. Pendiente assemble separado y domain/wear actualizados.
-
-## Filtros biblioteca 19:52
-- b4905ea1 tenia equivalente funcional pero sin contenedor modal. Portado
-  ModalBottomSheet opaco con contenido separado capturable; cabecera/cierre,
-  tarjetas y opciones existentes alfabeticas es-ES. Estado sort/filter
-  independiente y seleccion no cierra. Render360claro inspeccionado.
-- Diferencia de conjunto: Android descubre filtros desde catalogo, Apple lista
-  casos fijos incluyendo WODs/Deportes (Android conserva rutas propias).
-  No cerrar por render ni llamar falta de contraparte a esta diferencia.
-
-## Rest-pause 19:58
-- Reemplazado texto8+5+3+descanso comun por editor clusters individuales con
-  REPS/DESCANSO numericos, boton ancho y lista. Conserva distintos descansos
-  por cluster y valida5..30s como corte. Render360claro y test editando
- 8reps/15s luego5reps/20s,31s rechazada. No caja dentro de caja.
-- Diferencia ABIERTA: repositorio Android mantiene requisito2..8clusters,
-  Apple puede guardar1; no se cambio validacion persistente en esta unidad.
-
-## Rest-pause 20:02
-- Diferencia minimo2 resuelta: permite1cluster. Guardado suma las reps de
-  clusters y ya no exige rellenar campo base independiente. Test Compose de
-  ActiveWorkoutCard recorre seleccion->8reps/15s->Anadir->Registrar con base
-  vacia y verifica callback. Test repositorio almacena8reps y15s sin inventar.
-- Tope previo Android8clusters sigue diferencia respecto Apple sin max explicito.
-  No cambia ni reescribe registros antiguos.
-
-## Rest-pause 20:05
-- Tope artificial8 eliminado en UI/repositorio, test persiste9clusters18reps.
-  Suma en Long con limite Int evita overflow sin limitar cantidad de clusters.
-- Borrador permite quitar cluster antes de guardar, conserva resto con su
-  descanso individual y renumera. Captura360claro tras quitar inspeccionada.
-  No implica editar registros historicos ni persistir borrador al navegar.
-
-## Preview Peso 20:08
--08790a22: preview Free omitia tiles que el corte conserva. Extraida
- WeightPreviewCard con aviso ficticio explicito y Actual/Objetivo/Delta
- derivadas del mismo fixture. Fondo surface distingue tiles surfaceVariant.
- Render360claro inspeccionado; no acredita todas las curvas/margenes previews.
-
-## Unidades Play 20:13
-- f7109bd7: faltaba toggle reps/m en ActiveWorkout/LiveSetRows/formulario
- clasico/correccion, aunque QuickLog/history si lo tenian. Portado flag y
- etiquetas, se rechazan calorias para estos nombres. logCurrentSet y
- reviseCurrentSet ya no rechazan metros en LOAD_REPS o reps en MACHINE_WORK
- cuando supportsRepsOrMeters.3tests repositorio cubren nombres distintos.
-- Render LiveSetRows360claro inspeccionado; test prueba que solo tap explicito
- cambia unidad20reps->20metros sin convertir cantidad ni16kg. Duracion
- heredada LOAD_DISTANCE se conserva, diferencia con estilo Apple registrada.
-
-## Estado programado lockscreen 20:28
--2e9d26fc/b6b7921b: notificacion ongoing con chronometer nativo, titulo,
- ejercicio, progreso y series desde activeSession persistido iniciado.
- Refresco tras guardado durable/reload y cancel al terminar/descarte/logout.
- Verifica owner/revision/snapshot aun vigente antes de efecto; tap solo abre
- sesion original bajo login original, otro estado va Inicio.
--3tests modelo/builder, no permisos ni notify real. Sin captura lockscreen,
- sin FGS nuevo/polling; no acredita plataforma/proceso muerto/metricas outdoor.
-
-## Readiness 20:46
-- primaryChartHeight corte220 portado a readiness real/vacio/preview. Preview
- usa acento plano como HealthRecovery780-808, no gradiente real. Geometria
- CatmullRom compartida conservada. Renders reales/preview360claro revisados.
-- DUO altura dinamica205..270 segun columna aun pendiente;no afirmar adaptativo
- completo por altura portrait. Resto metricas no cambia en esta unidad.
-
-## Readiness DUO 20:49
-- Formula de HealthRecovery corte542-557 ahora calculada desde columna real
- del contenedor existente: max205/min270/(columna-2*16)*2/3; primary220.
- Se aplica a curva real,preview y ejes vacios. No añade padding de relleno.
-- Prueba pura portrait y clamp inferior/intermedio/superior;fixture1000dp
- Free en dos columnas inspeccionada sin cortes. No implica validacion nativa.
-
-## Preview ejercicio 20:52
-- StatsView481-526 corte: Free preview evolucion ahora sesiones1..7 (eje0..8),
- no7fechas inventadas. Ticks1/3/5/7 con grid,dominio35..65,195dp,
- CatmullRom2.5dp redondo y clip; mismos pesos ficticios. Sin interaccion.
-- Captura360dp clara inspeccionada, curva/grid/ticks alineados sin cortes.
- No altera grafica real de ejercicio ni acredita validacion de dispositivo.
-
-## Sueño 20:59
-- HealthRecovery1310-1398 corte: RecoverySleepChart sustituye linea generica
-100dp por area/night-sky/CatmullRom2.4dp/altura220 oDUO max220,columna-150.
- Estado vacio conserva ejes0..10 en igual altura. Datos observados y fechas
- reales;seleccion tap/drag/accesibilidad;una muestra solo punto centrado.
-- Dominio espejo normal max3.5,min-.6 / min11,max+.7. Diferencia defensiva
- EXPLICITA: si observacion cae fuera o limites se invierten,se ensancha a
- min-.6/max+.7 sin cambiar ni esconder noche. Test2h acredita caso.
-- Renders360curva y1000DUO vacio inspeccionados. No prueba nativa.
+commit|date|subject|areas|candidate_android_ports_heuristic|status
+fafe016a|2026-10-26T18:01:00+01:00|Make all workout map previews tappable and put electric routes above the dark map overlay|ios-app||partial 16:24: preview ruta sesion tappable->fullscreen PORTADO como componente generico RouteMapTapTarget (espejo WorkoutMapTapTarget: preview sin gestos + superficie tactil sobre TODO el rectangulo + destino fullscreen interactivo). CardioRouteSection migrado. Tests JVM CardioRouteTapRenderTest 2/2 con mapa falso (MapLibre nativo no carga bajo Robolectric): tap->dialog verificado con captura pixel (preview 1000x180, dialog 1000x470=pantalla completa del display, centro azul). RESUELTO 18:50: preview Health externo usa RouteMapTapTarget y abre/cierra fullscreen (test con mapa fallback JVM); cierre con fondo Surface de contraste. RESUELTO 18:58: pin de historial sin ruta usa RouteMapTapTarget -> PlacePinMap interactivo fullscreen (misma ruta de cierre). Integracion pin nativa pendiente runtime, capas electric/overlay (26a625be), integracion MapLibre real runtime
+1c729659|2026-10-26T18:01:16+01:00|Give Comenzar route previews a dedicated tap target to open fullscreen map|ios-app||done 16:28: preview de guardado (REVIEW) de Comenzar usa RouteMapTapTarget con label 'Abrir recorrido a pantalla completa' -> dialog fullscreen interactivo (mismo componente generico que fafe016a; tests JVM tap->dialog 2/2 con pixel en CardioRouteTapRenderTest). Previews del selector de rutas (cards plannedRoute): sin requisito Apple en estos commits (fafe016a=HistoryView, 1c729659=review), no tocadas. Pendiente runtime MapLibre real
+26a625be|2026-10-26T18:02:10+01:00|Test robust map tap targets and electric route above dark MapKit overlay|other||partial 16:26: capas electric/overlay RESUELTO dentro del renderer aprobado (MapLibre), SIN decision de usuario: velo oscuro (FillLayer negro 0.33, rectangulo acolchado max(0.06,span*4) como Apple) insertado antes del trazo (insercion=orden z: equivale aboveRoads), trazo 3 capas halo/edge/core 4/2.25/1.4 con opacidades 0.23/0.75/1.0 por encima (equivale aboveLabels), dash 4pt absoluto relativo por ancho en estimados; overlay planificado sigue simple. RouteMapLayersContractTest 3/3 (cableado). Tap targets por sesion: resuelto en CardioRouteSection via RouteMapTapTarget; previews en otras superficies pendientes. Fallback canvas sin velo: n/a (no hay mapa base que atenuar) - documentado. Pendiente runtime: orden visual real en mapa
+cd81bd8a|2026-10-26T18:02:30+01:00|Guard tap overlays in saved workouts, Health activities and Comenzar previews|other||verified-n/a 12:46: commit de tests python contrato Apple, sin cambio de producto
+9a28ba95|2026-10-26T18:04:15+01:00|Use green minimum and blue average heart rate in cardio tiles|ios-app||verified-ported 12:46 8014bb68: tintes miniStat FC/altitud en SessionRangeTiles + integer(); WIP sin validar build
+9d4037b8|2026-10-26T18:48:21+01:00|Smooth GPS route corners and speed gradients with connected MapKit polylines|ios-app||partial 16:40: render gradiente PORTADO dentro de MapLibre: polilinea unica por tramo continuo (corte en enlaces estimados) con lineGradient conectado por distancia (paradas por distancia acumulada relativa) en las 3 capas halo/edge/core, join/cap round para esquinas. lineMetrics es opcion de FUENTE: GeoJsonOptions().withLineMetrics(true) en el GeoJsonSource del tramo (corregido tras revision padre; verificado en bytecode SDK 13.7.1: withLineMetrics existe en GeoJsonOptions y NO hay propiedad layout line-metrics en LineLayer/PropertyFactory). RouteMapGradientContractTest 3/3 + RouteMapLayersContractTest 3/3. Estimados: 3 capas discontinuas por tramo continuo, sin gradiente (dash no combina con lineMetrics). PENDIENTE runtime: degradado visual real; NO verificable en JVM (MapLibre nativo no carga bajo Robolectric)
+ae7e9290|2026-10-26T18:49:02+01:00|Document smoothed speed-gradient route maps|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
+2e932715|2026-10-26T18:49:05+01:00|Document smoothed speed-gradient route maps|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
+f6f13169|2026-10-26T18:56:27+01:00|Prioritize active workouts: checkpoint GPS, defer cloud recovery, bound historical map rendering|ios-app||done 16:16 HEAD pendiente: tope 450 vertices (ca3c0383) + checkpoint GPS forzado en onStop (LiveActivityRuntime.checkpointForBackground -> checkpoint(force=true), salta el throttle de 10s; MainActivity.onStop lo invoca) + cache de geometria verificada estructural: state.points es lista inmutable que solo cambia con fix nuevo, LaunchedEffect(points,...) no reconstruye FeatureCollection entre recomposiciones; test contrato LiveBackgroundCheckpointContractTest (2/2). Tracker unico: una sola lista autoritativa alimenta el snapshot, el merge restoreForResume de Apple es n/a-estructural. LIMITES (revision padre 16:16): el checkpoint en onStop reduce la perdida solo en esa ruta; onStop no corre en crash/kill abrupto y los tests de contrato prueban cableado, no suspension real ni persistencia - no declarado cubierto globalmente. PENDIENTE validacion runtime (suspension real, perdida de fixes, mapa con ruta larga)
+63f9cead|2026-10-26T18:58:52+01:00|Resume deferred workout sync after finish; suppress nonessential uploads while recording|ios-app||verified-ported 12:47 d3ca5a74: espejos Supabase diferidos durante entreno activo, reanudados al terminar; WIP sin validar build
+ca3c0383|2026-10-26T19:07:43+01:00|Introduce bounded estimated route recovery points and GPS interpolation tests|ios-app+domain+tests||verified-ported 12:12 e2d26522+bcd1c70e: estimator + isEstimated + round-trip + caller completo (odómetro bridging, restore auto-resume ≤2h, runtime/service resumeInterruptedRecordingIfNeeded); REAL XML domain 437/437 (9 tests nuevos); límite: onDestroy del servicio pausa (preexistente) → auto-resume solo en muerte súbita, como el caso Apple; mobile/Wear WIP sin validar
+63905025|2026-10-26T19:08:46+01:00|Automatically resume interrupted Comenzar and restore recording screen on launch|ios-app||verified-ported 12:44 c3ba011a (parcial UI): autoresume+recoveryMaximumSpeedMps+estimatedRecoveryMeters total con test; PENDIENTE mensaje UI Tramo estimado y reapertura pantalla (mobile WIP)
+48060202|2026-10-26T19:12:25+01:00|Add persisted Play clock snapshot and restore for original session/block|ios-app||verified-ported 27oct: WodTimerStore persiste elapsed+running por sesion:indice y sobrevive muerte de proceso (test WodTimerStoreTest survivesProcessDeath REAL); binding blockID portado (ver 00fee1b4); campos modo/intervalo/tabata/titulo n/a-estructural: Android deriva todo de WodClockSpec del bloque, no los congela en snapshot
+07d9f19a|2026-10-26T19:13:02+01:00|Checkpoint WOD timers on every pause, resume, interval change and completion|ios-app||verified-ported 27oct: update() persiste en cada start/pause/resume/finish; cambio de intervalo deriva de elapsed persistido; test pauseCheckpointSurvives REAL
+ef8cb15a|2026-10-26T19:13:50+01:00|Open recovered Play workout and restore bound clock while preserving logged series|ios-app||verified-ported 27oct: MainActivity.refreshWodTimer restaura reloj ligado al reabrir la sesion; series registradas independientes del store del reloj (no se tocan)
+032de96d|2026-10-26T19:15:17+01:00|Add consistent Spanish number formatter and input parser for iOS and Watch|domain||verified-ported 11:52 (ReperaNumberFormat domain Kotlin port: decimal/integer/parse espejo; separadores explícitos independientes de locale como Apple; 4 tests espejo b2868533 REAL XML 4/4)
+d194502e|2026-10-26T19:16:55+01:00|Ensure interpolated workout GPS never enters Apple Health route data|ios-app||verified-n/a 13:08: Android no sube ruta GPS a Health Connect (solo ExerciseSessionRecord); no hay via que proteger
+ec7057bb|2026-10-26T19:17:16+01:00|Normalize Spanish numeric display and input in Theme.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+25b66ab7|2026-10-26T19:17:21+01:00|Normalize Spanish numeric display and input in WorkoutView.swift|ios-app||verified-ported 12:36 4a917552: parse entradas via ReperaNumberFormat.parse + displays (km, Tope 1RM); WIP sin validar build
+04adf150|2026-10-26T19:17:24+01:00|Normalize Spanish numeric display and input in HistoryView.swift|ios-app||verified-ported 12:36 4a917552: parse entradas via ReperaNumberFormat.parse + displays (km, Tope 1RM); WIP sin validar build
+99428cca|2026-10-26T19:17:27+01:00|Normalize Spanish numeric display and input in PlanView.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+303453ff|2026-10-26T19:17:29+01:00|Show reconstructed route segments as dashed and labeled in workout history|ios-app||verified-ported 13:08 8c2133b5: dash + rotulo en historial + Segment.estimated, test ligero 3/3; WIP sin validar build
+2f0f3a2c|2026-10-26T19:17:32+01:00|Normalize Spanish numeric display and input in SettingsView.swift|ios-app||verified-ported 12:32 5d444040: TrainingSettingsSection (incremento kg); WIP sin validar (mobile compile bloqueado)
+45763fd7|2026-10-26T19:17:35+01:00|Normalize Spanish numeric display and input in QuickLogSheet.swift|ios-app||verified-ported 12:36 4a917552: parse entradas via ReperaNumberFormat.parse + displays (km, Tope 1RM); WIP sin validar build
+89c92059|2026-10-26T19:17:38+01:00|Normalize Spanish numeric display and input in ExerciseProgressView.swift|ios-app||verified-ported 12:36 4a917552: parse entradas via ReperaNumberFormat.parse + displays (km, Tope 1RM); WIP sin validar build
+936a7e6f|2026-10-26T19:17:43+01:00|Normalize Spanish numeric display and input in HomeView.swift|ios-app||verified-ported 12:32 5d444040: HomeTab (objetivos integer, sueño decimal); WIP sin validar (mobile compile bloqueado)
+3a88f6c2|2026-10-26T19:17:46+01:00|Normalize Spanish numeric display and input in ExerciseLoadGuideCard.swift|ios-app||verified-ported 12:32 5d444040: SuggestedExerciseLoadCard (kg sugeridos, pasos 5%, Tope 1RM); WIP sin validar (mobile compile bloqueado)
+15daf84f|2026-10-26T19:17:48+01:00|Carry estimated route provenance into Comenzar map preview|ios-app||verified-ported 13:08 8c2133b5: isEstimated fluye a preview via RouteMapModel; WIP sin validar build
+39a3f7f2|2026-10-26T19:18:51+01:00|Restore completed countdown results after process interruption|ios-app||verified-partial 27oct 17:58: PORTADO userFinished - 'Terminar' congela elapsed REAL como pendingEnd persistido en WodTimerStore (checkpoint, guarda cuenta+bloque), sobrevive a muerte de proceso y el editor For Time lo siembra sin consumir al montar, retiene el fin hasta guardar con exito (owner+revision+block original), permite salir/volver sin perder tiempo medido y no pisa edicion manual activa; reanudar/reset lo abandonan; pausa no siembra. 7 tests Robolectric nuevos (11/11). countdownFinished sigue n/a estructural (editor inline de caps captura rondas/reps, sin campo tiempo). Runtime ABIERTO
+7bbf1a17|2026-10-26T19:18:53+01:00|Localize display metrics and sport values in StatsView.swift|ios-app||verified-ported 12:32 5d444040: ReperaCards loadGuide helpers + ProgressTab (volumen/peso); WIP sin validar (mobile compile bloqueado)
+0b450bca|2026-10-26T19:18:57+01:00|Localize display metrics and sport values in ProgressTrendCards.swift|ios-app||verified-ported 12:32 5d444040: BodyWeightHistoryScreen + domain WeightStatsTiles (test re-fijado); WIP sin validar (mobile compile bloqueado)
+79b6df9c|2026-10-26T19:19:01+01:00|Localize display metrics and sport values in CardioRouteComponents.swift|ios-app||verified-ported 12:32 5d444040: ReperaCards CardioRouteSection (distancia, scrub m·km); WIP sin validar (mobile compile bloqueado)
+18bcf507|2026-10-26T19:19:06+01:00|Localize display metrics and sport values in LiveActivityView.swift|ios-app||verified-ported 12:32 5d444040: LiveActivityScreen/Runtime/Service (decimal; incl. hablada y notificación); WIP sin validar (mobile compile bloqueado)
+f0b2354a|2026-10-26T19:19:09+01:00|Localize display metrics and sport values in LiveSportHistoryView.swift|ios-app||verified-ported 12:32 5d444040: LiveSportHistoryScreens (Distancia, Mayor distancia, resumen); WIP sin validar (mobile compile bloqueado)
+90d625c4|2026-10-26T19:19:13+01:00|Localize display metrics and sport values in HealthRecovery.swift|ios-app||verified-ported 12:36 4a917552: parse entradas via ReperaNumberFormat.parse + displays (km, Tope 1RM); WIP sin validar build
+86b98b4e|2026-10-26T19:19:17+01:00|Localize display metrics and sport values in MuscleBalanceCard.swift|ios-app||verified-ported 12:32 5d444040: MuscleBalanceCard.formatSets (bug Locale.US eliminado); WIP sin validar (mobile compile bloqueado)
+59620c0d|2026-10-26T19:19:20+01:00|Localize display metrics and sport values in ExerciseDetailView.swift|ios-app||verified-ported 12:32 5d444040: ExerciseDetailScreen (1RM est., RIR); WIP sin validar (mobile compile bloqueado)
+44de89ba|2026-10-26T19:19:23+01:00|Localize display metrics and sport values in WatchSessionView.swift|watch||verified-ported 12:10 (WearHomeContent: Peso kg + RIR via ReperaNumberFormat.decimal; Ajuste fino fusionado en el mismo control; Drop kg sin contraparte Wear) WIP sin validar (Wear no compila en 120s)
+f875e533|2026-10-26T19:20:42+01:00|Infer interrupted kilometre split timing from last verified GPS fix|ios-app||verified-ported 12:44 ca3c0383: previousFixActiveSeconds alimenta interpolacion de splits; tests
+00fee1b4|2026-10-26T19:20:57+01:00|Restore planned block timer only for its actual last active exercise|ios-app||verified-partial+GAP 27oct 15:55 (revision padre): validacion blockId PORTADA para escrituras nuevas (update persiste, read valida, mismatch -> vacio; test REAL doesNotRestoreOnOtherBlock; MainActivity pasa blockId en ambos call sites). GAP legacy: entradas sin blockId restauran solo por sesion:indice posicional y no se puede distinguir bloque cambiado/reordenado en esa posicion. Politica de caducidad COMPROBADA: WodTimerStore es un slot UNICO por usuario sin TTL - la entrada legacy no caduca por tiempo; solo la sobrescribe el proximo update() de cualquier reloj WOD. Sin migracion ni invalidacion silenciosa (decision del padre). 19:40 WodTimerService tick tambien usa blockId original enviado por sync: ya no lee solo sesion/indice y corta al encontrar slot nuevo. +2tests binding (bloque/cuenta/sesion), sin servicio ni permisos reales. Guardia completa NO declarada
+38dc6bc4|2026-10-26T19:21:30+01:00|Apply Spanish number formatting in AIAccessView.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+62c1dbc2|2026-10-26T19:21:35+01:00|Apply Spanish number formatting in BusinessProfessionalSessionCard.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+af0e1c37|2026-10-26T19:21:38+01:00|Apply Spanish number formatting in ProTeaserCard.swift|ios-app||verified-n/a 12:40: Android ProTeaserCard usa texto estatico sin kg
+a8d1a98b|2026-10-26T19:21:41+01:00|Apply Spanish number formatting in MoreView.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+a4b13976|2026-10-26T19:21:44+01:00|Apply Spanish number formatting in OGRoutineBlockCard.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+12ca7e09|2026-10-26T19:21:48+01:00|Apply Spanish number formatting in RegisterSessionChrome.swift|ios-app||verified-ported 12:40 a9fb1fc8: lote3 parse/displays RNF; WIP sin validar build
+841e5ac5|2026-10-26T19:21:52+01:00|Apply Spanish number formatting in ReperaApp.swift|ios-app||verified-n/a 12:40: Android strings solo espanol; ReperaNumberFormat locale-independiente
+9f62c49a|2026-10-26T19:22:00+01:00|Mark recovered estimated GPS trace as dashed during live Comenzar tracking|ios-app||verified-ported 13:08 8c2133b5: dash en vivo (misma via RouteMapView) con semantica Apple a/b testeada; WIP sin validar build
+b2bb19eb|2026-10-26T19:22:47+01:00|Make native number keypad use comma and cap entered decimals to two|ios-app||verified-ported 16:06: ReperaNumberFormat.keypadDecimal/keypadInteger (domain) - punto tecleado inserta coma visible, una sola coma, cap 2 decimales al teclear (edicion rechazada = sin cambio), pegado admite «1.234,56» y «1234.56» normalizado al formato visible, puntos de millares formateados se conservan; QuickNumericField (counterpart Android de OGNumericTextField) aplica ambas. Tests domain 5 nuevos REAL (9/9 suite). Campos enteros ReperaCards ya filtraban digitos (equivalente). Validacion visual del teclado ABIERTA (runtime)
+32e169eb|2026-10-26T19:22:52+01:00|Prevent competing GPS resumption when restoring a planned Play session|ios-app||verified-ported 13:10: guard en LiveActivityService via WorkoutRepository.activeSessionOutdoorInfo; WIP sin validar build
+b2868533|2026-10-26T19:23:37+01:00|Add numeric locale regression tests for separators, parsing and two-decimal limit|tests||verified-ported 11:52 (tests espejo en ReperaNumberFormatTest, REAL XML 4/4)
+b8cca90a|2026-10-26T19:24:40+01:00|Localize number strings generated by domain in Effort.swift|domain||verified-ported 14:25: Effort.label portado al dominio (es_ES via ReperaNumberFormat) y usado en la tarjeta de series (ReperaCards) — peso/deficit/esfuerzo localizados
+04da40ef|2026-10-26T19:24:43+01:00|Localize number strings generated by domain in LoadSuggestion.swift|domain||verified-ported 14:25: LoadSuggestion.applyPercentLoads portado (ExerciseLoadGuide.applyPercentLoads) y cableado en createRoutineFromScan; nota ~% fuente -> kg localizada
+a192c38b|2026-10-26T19:24:47+01:00|Localize number strings generated by domain in Models.swift|domain||verified-ported 14:25: %g -> decimal en SetSummaryLine (g+prescriptionLine) y PlannedSetSummary; tests re-fijados a coma (22,5x5 / 8 @ 22,5 kg)
+95847d98|2026-10-26T19:24:50+01:00|Localize number strings generated by domain in MovementPaceStandards.swift|domain||n/a 14:25: MovementPaceStandards es codigo muerto en baseline 0a640da8 (SessionReviewEngine.review delega en VerifiedSessionReviewEngine; helpers WOD privados inalcanzables). Android porta el motor vivo
+fb6de251|2026-10-26T19:24:53+01:00|Localize number strings generated by domain in PlateMath.swift|domain||n/a 14:25: PlateMath.compactLabel sin llamadas en Apps baseline (solo tests); Android porta epleyOneRM usado por el motor verificado. Sin superficie de plan de discos en ninguna app
+bf8de3db|2026-10-26T19:24:56+01:00|Localize number strings generated by domain in ProgressionEngine.swift|domain||verified-ported 14:25: ProgressionEngine.format ahora ReperaNumberFormat.decimal (razones +2,5 kg es_ES)
+af08512c|2026-10-26T19:25:00+01:00|Localize number strings generated by domain in SessionReviewEngine.swift|domain||n/a 14:25: strings de SessionReviewEngine.reviewWOD — codigo muerto en baseline (review delega en el motor verificado); sin superficie alcanzable
+0574e246|2026-10-26T19:26:10+01:00|Show Home day workouts and Health activities oldest first|ios-app+other||verified-ported 13:09: Inicio dia orden cronologico ascendente; parte Health activities n/a (Inicio Android no lista actividades Health); WIP sin validar build
+6655b8e0|2026-10-26T19:27:04+01:00|Force Spanish localized numbers across Apple Watch screens|watch||verified-n/a 12:10: locale-independiente por diseño (ReperaNumberFormat separadores explícitos); sin otra API sensible a locale en android/wear (verificado por lectura: no NumberFormat/SimpleDateFormat/Locale)
+c1ef87fe|2026-10-26T19:27:28+01:00|Document Spanish number formatting across iOS and Watch|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
+34d65b45|2026-10-26T19:27:32+01:00|Document Spanish number formatting across iOS and Watch|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
+48f7dc67|2026-10-26T19:30:41+01:00|Fix thousands grouping in workout volume summary|ios-app||verified-n/a 12:47: unica vista Android de volumen (ProgressTab formatVolume) ya agrupa via decimal/toneladas; detalle sesion Android no tiene tile Volumen (diferencia preexistente, registrada)
+1b5d4eea|2026-10-26T19:40:24+01:00|Align metric tile labels beside icons across workout summaries and route weather|ios-app+other||partial 16:34: WorkoutSummaryTile portado (icono+etiqueta fila centrada, valor 20sp semibold centrado debajo, altura intrinseca). Superficies migradas: resumen historico deporte (Actividades/Tiempo/Distancia/Energia/Pulso con iconos deporte/reloj/ruta/llama/corazon), mejores marcas, reviewTiles REVIEW en LiveActivityScreen (Tiempo activo/Distancia condicional usesGPS/Energia con fallback '-'). Render JVM WorkoutSummaryTileRenderTest con captura pixel verificada (summary-tiles.png). Tira meteo RouteWeatherStrip: superficie inexistente en Android (no hay meteo de ruta) - gap separado documentado. Pendiente: detalle de sesion historica si usa otras fichas, runtime
+0dabfdfe|2026-10-26T19:52:51+01:00|Merge pull request #91 from rmoya87/feat/wod-muscle-history-navigation-20261026|ios-app+domain+tests||verified-n/a 11:53 (merge PR #91; contenido cubierto por commits constituyentes clasificados individualmente)
+056cba8b|2026-10-26T19:54:01+01:00|Make workout summary tiles fit content without bottom whitespace|ios-app+other||done 16:34: altura intrinseca sin minimo fijo portada en WorkoutSummaryTile (mismo cambio que 1b5d4eea; el comentario Apple 'evita el hueco vacio del minimo fijo' ya era el estado del corte). Verificado en render JVM. Pendiente runtime
+602e9c39|2026-10-26T20:01:45+01:00|Compare progress against matching elapsed days of previous period|domain+tests||verified-ported 12:00 (ProgressTimeRange comparable elapsed-days week/month + fetch 16/70/190/370/730, StatsEngine.totalMinutes real, tiles Tiempo total con delta ambos niveles + agrupación es; REAL XML domain 428/428, tiles 4/4 runner ligero; tests pre-existentes actualizados a la nueva semántica; compile mobile completo bloqueado)
+b4b8f8b8|2026-10-26T20:03:40+01:00|Center Progress metric tiles and show aligned previous-period deltas for sessions and elapsed time|ios-app||verified-ported 13:21 6bd1f6a4: bounds ya en paridad; previousStreak via ProgressTimeRange.previousPeriodStreakReference (domain) con test ejecutado REAL — suite dominio 439/439 XML 0 fallos; mobile delega (WIP sin validar build)
+025828b5|2026-10-26T20:05:16+01:00|Center metric labels and values across Home, exercise, progress charts and route weather|ios-app||partial 16:55: Home weekly + tiles Progreso centrados; WorkoutSummaryTile centrado (historico deporte, marcas, REVIEW); ExerciseProgressView portado: summaryTiles centrados (EvoTile, etiquetas Apple Max./e1RM/Reps max./Veces/Sesiones/Ultimo tiempo, hasData/lastQuantityLabel 1:1 StatsEngine.swift, sin tope 1RM duplicado) en ExerciseEvolutionSection con render JVM pixel-verificado + tests dominio. Charts alineacion pendiente; weather strip GAP funcional abierto (Apple lo tiene en progress view; Android sin superficie equivalente, diferencia registrada en inventario). Pendiente runtime
+9fb8598b|2026-10-26T20:07:26+01:00|Cover period comparisons and centered metric tile layout with regressions|ios-app+tests+other||partial 13:22: tests de motor portados y ejecutados REAL (441/441 XML: domingo-inicio, semana completa, streak relativo); test contrato python de centrado queda con el gap de layout (1b5d4eea)
+479d8407|2026-10-26T20:09:35+01:00|Fetch previous-period Health history on demand for selected Progress range|ios-app||verified-ported 16:13 (corregido por padre): carga de Salud bajo demanda por rango - ProgressTab notifica selectedRange (tambien al aparecer) -> MainActivity.loadHealthForProgressRange amplia SOLO actividades externas si el rango pide mas dias de los cargados (healthFetchWidening, domain; 360d->730d con periodo previo; nunca relee para rango menor); readRecovery mantiene 370d fijos (alcance Apple). Ventana inicial 370d sin cambios. healthLoadInFlight ya no pierde peticiones: una ventana mayor pedida durante otra lectura queda encolada (healthFetchDaysPending) y se relanza al terminar con el perfil vigente; la guardia current() evita mezclar cuentas. Tests domain REAL. Runtime HC ABIERTO
+79b34354|2026-10-26T20:10:30+01:00|Show time comparison deltas in minutes and localize numeric deltas|ios-app||verified-ported 13:16 8d81daff+239b6943: delta tiempo con unidad ′ y entero localizado; tests ejecutados REAL 25/25
+b3047779|2026-10-26T20:12:23+01:00|Remove redundant try from nonthrowing local persistence checkpoint|ios-app||verified-n/a 13:28: higiene Swift: try redundante en codigo no throwing; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+d5c263d3|2026-10-26T20:39:20+01:00|Fix compact workout route stroke and bridge safe GPS gaps using linked GPX; compact WeatherKit attribution|ios-app||verified-ported 13:44: trazo compacto 3 capas + puente visual de huecos GPS ported (RouteMapModel.bridge/referenceBridge, cableado en RouteMapView MapLibre+fallback; 5 tests REAL runner 36/36). NOTA: usa el GPX planificado enlazado al entreno (plannedPoints). Atribucion meteo compacta paritaria
+1c9afcd0|2026-10-26T20:41:56+01:00|Keep linked GPX visual gap guidance in enlarged post-workout map|ios-app||done 16:43: destino fullscreen YA existe (RouteMapTapTarget); referenceRoutePoints equivalente ya cableado: el dialog REVIEW pasa plannedPoints=chosenRoutePoints cuando hay >=2 puntos grabados (misma condicion Apple recorder.routePoints.count>=2). Cierre explicito 'Cerrar mapa' top-end anadido (IconButton X, testTag fullscreen-route-close) como WorkoutMapZoomDestination.onClose. Test tap->dialog->cerrar en CardioRouteTapRenderTest. Pendiente runtime MapLibre
+e048d814|2026-10-26T21:16:52+01:00|Refine route map strokes and GPS continuity; recognize T2B/BTT; simplify weather attribution|ios-app+domain+tests||verified-partial 17:31 (seed BTT + aliases SEN t2bs/t 2 b/btt/burpee a diana portados, REAL XML 2/2; mapa explícito parser BTT cubierto por rutas alias; route strokes + GPS continuity PORTADOS 17:31: puntos casi inmoviles <0.5m conservados como tramos (clamp 0.2..25), ventana GPS 30s->45s (tramo real, no estimado), visualBridge >0s..2h (antes 30min), Canvas fallback dash 8/8px=4/4pt y grosores 8/4.5/2.8px ya = 4/2.25/1.4pt del corte uniforme, MapLibre 4/2.25/1.4+dash4/4 ya portado; +2 tests y 2 actualizados a semantica del corte, REAL 559/559. GAP weather: RouteWeatherStrip no existe en Android (ni tira de tiempo ni atribucion), superficie ausente registrada. Pendiente runtime)
+505dd6a6|2026-10-26T21:21:48+01:00|Fix workout preview title placement inside native top bar beside close button|ios-app||verified-n/a 13:12: topbar nativo iOS; sin contraparte Android
+6993e330|2026-10-26T21:33:09+01:00|Add shared catalog resolution for legacy BTT/T2B WOD movement ids|domain||verified-ported 14:17: resolucion catalogo compartida BTT/T2B — CrossFitGlossary.catalogExercise + WODHistoryPresentation.officialName dominio
+cf25922e|2026-10-26T21:33:20+01:00|Resolve old BTT identifiers when starting scheduled workouts|domain||verified-ported 11:55 (WodSessionAssembler.append re-resuelve con catalogExercise sobre copia de sesión al iniciar; rutinas guardadas intactas; respaldo empaquetado 289; 4 tests REAL runner ligero 4/4; compile mobile completo bloqueado 120s)
+cde03942|2026-10-26T21:33:33+01:00|Show catalog identity for scheduled BTT in workout preview|ios-app||verified-ported 13:12 (verificacion por lectura): Android WodLibraryScreen preview ya resuelve via resolveWodExercise=catalogExercise (misma semantica: oficial > canonico, nunca alias provisional)
+576bf897|2026-10-26T21:33:52+01:00|Resolve catalog exercise in WOD editor for legacy saved aliases|ios-app||verified-ported 13:12 (verificacion por lectura): resolucion unificada en WodSessionAssembler.catalogExercise con fallback empaquetado; editor Android conserva texto crudo editable por diseño
+b78b9601|2026-10-26T21:34:09+01:00|Repair old scheduled WOD aliases during catalog and iCloud hydration|ios-app||partial 13:12: HistoricalCatalogRelink.preview YA cubre movimientos WOD de rutinas programadas; ACTIVACION en hidratacion sigue INACTIVA por decision vigente (sin mutar historicos/programados en sync)
+b7818f8f|2026-10-26T21:34:19+01:00|Relink saved WOD aliases when Supabase catalog refreshes|ios-app||partial 13:12: relink al refrescar catalogo = misma via HistoricalCatalogRelink INACTIVA por decision vigente; preview listo
+643fa111|2026-10-26T21:34:35+01:00|Give set inputs black backgrounds in dark mode while preserving light appearance|ios-app||verified-ported 13:12 41112952: QuickNumericField con OG.inputSurface (0A0A0C noche / F2F5F3 dia); WIP sin validar build
+a3273253|2026-10-26T21:34:45+01:00|Remove black swipe-row underlays from live workout in dark mode|ios-app||verified-n/a 13:12: swipe-reveal Android usa errorContainer del tema (sin franjas negras); no habia underlay negro
+dd5e430b|2026-10-26T21:35:04+01:00|Test BTT and T2B recovery from legacy scheduled workout ids|tests||verified-n/a 13:12: commit de tests Apple; cobertura Android ya existe (HistoricalCatalogRelinkTest casos BTt/Toes to bar)
+ea59caff|2026-10-26T21:37:59+01:00|Remove duplicate back arrow and apply adaptive native chevron tint in day editor|ios-app||verified-n/a 13:12: chrome nativo iOS (NavigationStack chevron); sin contraparte Android
+0d9b6704|2026-10-26T21:41:53+01:00|Place workout preview title below native close toolbar, not inside its glass capsule|ios-app||verified-n/a 13:12: topbar nativo iOS; sin contraparte Android
+9b6888f7|2026-10-26T22:16:43+01:00|Prevent scanned custom movements from blocking official BTT/T2B seed catalog entries|ios-app||verified-ported 13:12 (verificacion por lectura): RemoteExerciseCatalogWorker omite isCustom al construir byName/byCanonical (l.138): un custom escaneado nunca bloquea la ficha oficial
+3cb329f3|2026-10-26T22:17:21+01:00|Route exercise taps through one parent callback to prevent multi-link stack pushes|ios-app||verified-ported 13:24: vista previa Android ya usaba callback unico en tarjeta de sesion; ahora filas de SessionPreviewSheet tappables via onOpenExercise con chevron, una navegacion push (vuelta atras unica). WIP sin validar build
+3666d1ac|2026-10-26T22:17:33+01:00|Connect workout preview exercise taps to centralized navigation path|ios-app||verified-ported 13:24: vista previa Android ya usaba callback unico en tarjeta de sesion; ahora filas de SessionPreviewSheet tappables via onOpenExercise con chevron, una navegacion push (vuelta atras unica). WIP sin validar build
+4768dc48|2026-10-26T22:17:45+01:00|Push one exercise detail route from workout preview and return in one back action|ios-app||verified-ported 13:24: vista previa Android ya usaba callback unico en tarjeta de sesion; ahora filas de SessionPreviewSheet tappables via onOpenExercise con chevron, una navegacion push (vuelta atras unica). WIP sin validar build
+e3f1d652|2026-10-26T22:19:20+01:00|Preserve disclosure chevrons when switching workout exercise rows to single-action buttons|ios-app||verified-ported 13:24: vista previa Android ya usaba callback unico en tarjeta de sesion; ahora filas de SessionPreviewSheet tappables via onOpenExercise con chevron, una navegacion push (vuelta atras unica). WIP sin validar build
+c6f89c28|2026-10-26T22:20:13+01:00|Prefer official catalog entries over legacy scanned customs when matching board movements|domain||verified-partial 11:24 (BoardImportParser full: sin contraparte Android; el caso Lite ya cubierto en tree173 catalogIndex oficial>custom)
+ca7b1ae2|2026-10-26T22:20:23+01:00|Prioritize official catalog exercises in lightweight board scanner|domain||verified-ported 11:53 (catalogIndex tree173 oficial>custom>alias ya cubre; forma final 7081dc4a verificada línea a línea)
+6efd1cec|2026-10-26T22:20:48+01:00|Test mixed-case BTT and T2B repair over same-name legacy custom exercises|tests||verified-ported 13:26: test sameNameLegacyCustomsRelinkToOfficialIds anadido a WodSessionAssemblerResolutionTest y EJECUTADO REAL en runner ligero (30/30 OK)
+3684a6ec|2026-10-26T22:21:03+01:00|Regression test lite board scanner with BTT/T2B duplicate legacy custom matches|tests||verified-ported 13:26: test LiteParser mismo escenario ejecutado REAL en dominio (442/442 XML); recurso test catalog_seed_288 sincronizado al seed real 289 (faltaba Burpee to target)
+d3e87b65|2026-10-26T22:21:16+01:00|Test full board scanner chooses official BTT and T2B instead of provisional copies|tests||verified-ported 13:26: Android no tiene BoardImportParser (ruta Apple secundaria; produccion Apple = LiteParser); misma semantica cubierta por el test LiteParser ejecutado REAL (442/442 XML)
+e0d853cb|2026-10-26T22:22:33+01:00|Map BTT and T2B aliases to existing exercise thumbnails in workout preview|ios-app||verified-ported 13:15: 4 entradas alias-art anadidas a ExerciseArtData; WIP sin validar build
+220fe294|2026-10-26T22:26:26+01:00|Persist remote exercise aliases in Exercise model with backwards-compatible decoding|domain||verified-ported 11:53 (searchAliases persistidas: ExerciseEntry.searchAliases + PublishedCatalogAliases JSON, decode ausente→[] como Apple)
+61185bba|2026-10-26T22:26:36+01:00|Apply Supabase catalog alias arrays to persisted offline Exercise entries|ios-app||verified-ported 13:14 por lectura: PublishedCatalogAliases.merge aplica remote.aliases??[] a entradas persistidas (RemoteExerciseCatalogWorker) = exacto
+6552bd80|2026-10-26T22:26:47+01:00|Preserve Supabase alias metadata when enriching local exercises from bundled seed|ios-app||verified-ported 13:18 por lectura+test ejecutado: CatalogRefreshMigration.mergeSeedIntoState NUNCA escribe searchAliases (no esta en CATALOG_FIELDS), salta enteras las entradas _remoteCatalogKey (alias solo llegan via Supabase) y las isCustom; seed tiene 0 searchAliases y bootstrap copia el seed entero. Test migrationPreservesSupabaseAliasesOnExistingEntries ejecutado REAL en runner ligero (25/25 OK)
+439bafa7|2026-10-26T22:27:10+01:00|Index remote Supabase aliases in exercise search without rebuilding the app|domain||verified-ported 11:53 (alias Supabase en búsqueda: ExerciseAliasSearch publishedAliases, ranking 95/80/60 separado de disciplinas; callsites mobile pendientes compile)
+88db5bb7|2026-10-26T22:27:25+01:00|Resolve OCR and existing WOD movements using persisted Supabase aliases|domain||verified-partial+GAP 16:47 (revision padre): consumidores CUBIERTOS por aliases persistidos: (1) catalogExercise (remoteMatch, orden exacto>alias) usado por WodExerciseArt/WodSessionAssembler/WODHistoryPresentation; (2) import OCR Lite (BoardScanScreen->catalogIndex con aliases persistidos oficial>custom). 21:27 SUBCONJUNTO adicional portado: orphans sin cabecera con TODAS las lineas sets x reps explicitas y catalogo resuelto producen bloque STRENGTH (antesCHIPPER),con peso @,candidate matching official-exact/editorial-alias/any-exact/fallback token ypreferencia oficial en empate. Limites de asignacion1..200sets/1..100000reps;si desconocido o sin esquema queda Lite sin truncar.4tests nuevos,domain489/93XMLcompleta. DIFERENCIA FUNCIONAL ABIERTA: el BoardImportParser completo Apple (bucle candidates con aliasHit previo al fallback, rutas de resolucion adicionales) NO tiene contraparte Android - no es n/a; la cobertura del Lite puede no replicar todos sus caminos. Permanece en inventario como gap de cobertura de importacion
+7081dc4a|2026-10-26T22:27:40+01:00|Use dynamic Supabase aliases in all lightweight board scanner paths|domain||verified-ported 11:53 (catalogIndex Android idéntico al final de Apple + archived; única diferencia: customs archivadas también excluidas, más conservador)
+846b75a6|2026-10-26T22:28:03+01:00|Distinguish scheduled days from completed workouts in Diary indicators|ios-app||superseded-n/a 13:15: Apple elimino la UI Diario en c5aae1cc (26oct 23:26, posterior); indicadores desaparecidos en Apple; Android rama diario-removal alineada
+b74ad790|2026-10-26T22:28:54+01:00|Increase GPS heatmap contrast using session speed range and reduced smoothing|ios-app||verified-ported 13:15 6ce45e4d: escala percentil 5/95 (>=20 muestras, spread>=0.12), suavizado vecinos+-1 peso2/1, pow 0.72 y nuevas paradas; runner ligero 16/16 OK; WIP sin validar build
+de1a6f0e|2026-10-26T22:30:04+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||verified-ported 13:27: test payload antiguo sin searchAliases decodifica [] anadido y EJECUTADO REAL (runner 31/31); persistencia round-trip ya cubierta en PublishedCatalogAliasesTest
+4dde4f78|2026-10-26T22:30:07+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||verified-ported 13:27: alias nuevo buscable sin diccionario empaquetado — test BXT-PRO ejecutado REAL en dominio (443/443 XML)
+67311dbf|2026-10-26T22:30:11+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||verified-ported 13:27: alias publicado resuelve en escaner sin cambios de codigo — test BXT-PRO ejecutado REAL en dominio (443/443 XML)
+d38719b2|2026-10-26T22:30:14+01:00|Test Supabase-driven aliases for OCR, search and backwards-compatible exercise storage|tests||verified-n/a 13:27: BoardImportParser no existe en Android (parser secundario Apple; produccion = LiteParser); semantica cubierta por el test LiteParser ejecutado
+83253491|2026-10-26T22:32:52+01:00|Ensure exact official exercise names outrank conflicting server aliases|domain||verified-ported 16:45: precedencia nombre oficial exacto sobre alias VERIFICADA en ambos lados: catalogIndex (tree173: alias no pisa canonico, oficial>custom) y catalogExercise (6993e330: coincidencia exacta primero, remoteMatch por alias despues - mismo orden que Apple). Pendiente runtime
+7dff0470|2026-10-26T23:12:39+01:00|Set Repera TestFlight version to 1.0 (39) after build 38 upload|other||verified-n/a 13:16: version/build TestFlight iOS; sin contraparte Android
+3eb312a1|2026-10-26T23:12:51+01:00|Protect TestFlight build number from stale Xcode scheme pre-action settings|other||verified-n/a 13:16: scripts/sync_versions.py es Xcode-only (Version.xcconfig/xcodegen); sin contraparte Android
+087455df|2026-10-26T23:13:06+01:00|Test version sync rejects stale TestFlight 38 and preserves newer builds|other||verified-n/a 13:16: tests del script de versiones Xcode; sin contraparte Android
+c5aae1cc|2026-10-26T23:26:18+01:00|Remove Diario UI and add persistent workout favorites with stable push navigation|ios-app+domain||verified-partial+GAP 12:08 17a0fb87: capa de datos favoritos persistentes (WorkoutFavoriteSupport + delegados repository, 6 tests REAL 13/13 lote ligero; límite conservador abierto: sin plantilla vacía); GAP/decisión pendiente: reestructura UI (eliminar pestaña Diario, StartHub, Home, botón favorito en historial) requiere validación UI bloqueada
+5206065e|2026-10-26T23:30:01+01:00|Keep add-workout page top aligned and test workout favorite persistence|ios-app+tests||verified 13:33: tests favorite persistence ported — WorkoutFavoriteSupportTest ejecuta round-trip favoriteRoutineId y legacy sin campo (runner 31/31); layout top-aligned es default Compose (LazyColumn), sheet ya compacta
+7825652f|2026-10-26T23:31:14+01:00|Remove obsolete Diario copy from shared workout editor|ios-app||verified-ported 13:13 (rama diario-removal): unica referencia de copy a Diario actualizada; editor Android sin otras referencias
+c04c7dd9|2026-10-26T23:32:49+01:00|feat(iOS): show color-speed legend on saved workout route maps|ios-app||verified-ported 13:15 6ce45e4d: RouteSpeedLegend (25 muestras, misma speedColor) solo en mapas guardados (CardioRouteSection); WIP sin validar build
+103c85da|2026-10-26T23:34:41+01:00|Restore compact add-workout sheet and push Favorites as a separate page|ios-app||verified 13:33: Android ya compacta (DayPlusSheet, height por contenido) y Favoritos es pagina push separada (nav route "favoritos", ReperaMobileScreen.kt:487,533)
+4d9d39a2|2026-10-26T23:39:57+01:00|Unify add workout destinations as push pages and restore compact bottom sheet|ios-app||verified 13:33: destinos del "+" ya son paginas push en Android (navController.navigate tras cerrar sheet) — estructura identica al unificado Apple
+b4b6dbaf|2026-10-26T23:46:26+01:00|Keep workout navigation chrome stable and recover BTT/T2B catalog links|ios-app+domain+tests||verified-ported 14:17: enlaces BTT/T2B recuperados — catalogExercise usado en SessionPreview/ReperaCards/WodExerciseArt/WodSessionAssembler/WorkoutRepository
+a6e22d02|2026-10-26T23:47:26+01:00|style(iOS): match standalone timer segmented tabs to Progress Liquid Glass|ios-app||verified-n/a 13:28: estilo segmented tabs temporizador (Liquid Glass) sin cambio de comportamiento; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+7a14cd0d|2026-10-26T23:47:44+01:00|docs: document timer mode selector parity with Progress|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
+a112c75b|2026-10-26T23:49:15+01:00|style(iOS): remove timer configuration heading and align first rows|ios-app||verified-n/a 13:28: retirada de encabezado de configuracion del temporizador (layout); sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+c77599d5|2026-10-26T23:49:27+01:00|docs: record compact timer configuration layout|docs||verified-doc-only (diff completo leído: solo docs/FEATURES.md o docs/ARCHITECTURE.md; sin delta ejecutable; no prueba la paridad funcional descrita)
+a5e2a2c8|2026-10-27T06:38:00+01:00|fix(ios): keep top navigation transparent and align route speed legend|ios-app||verified-n/a 13:15: topbar transparente iOS sin contraparte Android; alineacion de leyenda cubierta por el port c04c7dd9
+85c7124c|2026-10-27T06:39:19+01:00|Resolve BTT and T2B from bundled catalog before remote hydration and repair saved WOD links|ios-app+domain+tests||verified-ported 14:17: catalogo empaquetado antes de hidratacion remota — parametro packagedFallback en catalogExercise (documentado en port)
+33068e86|2026-10-27T06:41:12+01:00|refactor(ios): render large subpage titles in scrollable content|ios-app||verified-n/a 13:28: chrome SwiftUI: titulos grandes en contenido desplazable; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+8f3941de|2026-10-27T06:41:43+01:00|Prioritize canonical BTT/T2B records over legacy mislabeled catalog entries|domain+tests||verified-ported 14:17: canonico prevalece sobre legacy mal etiquetado — rama isKnownAbbreviation de catalogExercise
+154fd42b|2026-10-27T06:43:51+01:00|Avoid promoting historical abbreviated exercise IDs during WOD catalog reconciliation|domain||verified-ported 14:17: no promocionar IDs abreviados historicos — catalogExercise solo corrige UUID provisional via equivalencia exacta publicada
+b036d0f2|2026-10-27T06:44:46+01:00|refactor(ios): scroll page headings without collapsing to small titles|ios-app||verified-n/a 13:28: chrome SwiftUI: encabezados desplazables sin colapso; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+cbfb8eab|2026-10-27T06:49:20+01:00|refactor(ios): apply scrolling headings across remaining navigation destinations|ios-app||verified-n/a 13:28: chrome SwiftUI: titulos desplazables en destinos restantes; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+8e9b7941|2026-10-27T06:52:11+01:00|fix(ios): remove opaque play navigation and unify live screen topbars|ios-app+docs||verified-n/a 13:28: chrome SwiftUI: topbars pantalla en vivo; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+bbf447a3|2026-10-27T06:57:15+01:00|fix(ios): provide positional initializer for shared scrollable page title|ios-app||verified-n/a 13:28: inicializador positional del modificador de titulo SwiftUI; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+3cbd5c97|2026-10-27T07:00:16+01:00|style(ios): format scrollable exercise progress header layout|ios-app||verified-n/a 13:28: formato del encabezado SwiftUI; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+2b73db38|2026-10-27T07:00:53+01:00|fix(ios): retain scrolling page titles for empty history states|ios-app||verified-n/a 13:28: titulos desplazables en estados vacios SwiftUI; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+1d1edc8b|2026-10-27T07:36:10+01:00|Support weighted walking lunges measured in reps or meters across logs and history|ios-app+domain||partial 17:00: dominio portado - mode() deriva TODOS los supportsWeightedRepsOrMeters a LOAD_REPS (loadAndReps Apple; walking lunge peso corporal ya admite kg, antes REPS_ONLY) conservando LOAD_DISTANCE para los 5 Hyrox; fatigueSetEquivalent con condicion Apple (isMachineQuantity||duration)&&weightKg==nil; displaySummaryLine con kg ya estaba (faa68128). +2 tests dominio. UI quick-log + repositorio portados 17:02: toggle Repeticiones/Metros con kg para supportsWeightedRepsOrMeters en QuickLogSheet (cap 100_000 m, default 20 m), validacion QuickLogRows con flag, logQuickSets/logCurrentSet/reviseSet admiten reps en LOAD_DISTANCE y m en LOAD_REPS weighted. LOAD_DISTANCE (e5995989, fix Android pre-paridad del propio usuario, NO equivalencia Apple) converge a paridad: mismos 5 Hyrox alternan reps/m como loadAndReps Apple; divergencia restante: enum distinto y usesDuration en ActiveSessionDraft. PENDIENTE: toggle en training/history surfaces (f7109bd7), quantityUnit en session builder (SessionController), scanner (3432a1a9/4c9a5d10/f25f8d90). Pendiente runtime
+63824a81|2026-10-27T07:38:30+01:00|Allow walking lunge reps or meters with kg in strength planners|ios-app||verified-ported 13:31: dominio supportsWeightedRepsOrMeters/defaultQuantityUnit + editor plan con selector Repeticiones/Metros y kg (b8eab0e3 dominio 448/448 XML REAL, c54f0581 movil WIP sin validar build)
+10ed63d8|2026-10-27T07:39:29+01:00|Add kg plus reps-or-meters controls to inline and full WOD walking lunge editors|ios-app||verified-ported 13:31: selector aplica tambien a movimientos WOD en el editor de plan (mismo bloque unitChoices, isStrength o no); WIP sin validar build
+ae8b8089|2026-10-27T07:41:22+01:00|Add regression tests for weighted walking lunges, distance WODs, and legacy log preservation|tests||verified-ported 13:31: WalkingLungeQuantityTest espejo ejecutado REAL en dominio (448/448 XML, 0 fallos): unidades, metros con kg, legado sin reinterpretar
+faa68128|2026-10-27T07:43:24+01:00|Display meters and kg in workout previews and persist quick-log unit in sessions|ios-app||verified-ported 13:31: displayLine muestra "20 m · 16 kg" (dominio, test REAL); quantityUnit ya se persiste al registrar series (logSet quantityUnit); vistas previa con m y kg
+8a940bc5|2026-10-27T07:46:01+01:00|Show meters and load correctly in planned walking lunge preview cards|ios-app||verified-ported 13:31 c54f0581: vista previa de rutina muestra "14 m @ 18 kg" via quantityUnit poblado desde el JSON (reps/distanceMeters/weightMaleKg); WIP sin validar build
+3432a1a9|2026-10-27T07:57:19+01:00|Cover loaded carries and distance movements; parse single kg loads in board scanner|domain+tests||partial 17:10: patrones Models ya identicos al corte; LOAD_DISTANCE/toggles portados (1d1edc8b/f7109bd7); BoardScanLiteParser.weightPair portado (cargas H/M "100 / 70 KG" y "24 / 16" no son alternativa de escala, +3 tests). 19:50 RECONCILIADO: pendiente anterior superado por f04e2a42 ya presente. CrossFitGlossary.parseMovementLine consumido por Lite SI extrae carga suelta 2x24kg/16kg/100kg/lbs->kg y limpia nombre antes de matching; 6 tests BoardScanSingleLoadTest existentes verdes en domain485/92XML reejecutada19:48. Invariante de carga resuelto en superficie Android Lite, sin afirmar equivalencia del BoardImportParser completo ni cerrar88db5bb7. Pendiente runtime
+f7109bd7|2026-10-27T07:58:43+01:00|Expose reps/meter toggles across training and history for unweighted distance exercises|ios-app+domain||partial 17:07: widening supportsRepsOrMeters portado - QuickLogSheet toggle+cap+default, QuickLogRows (MACHINE_WORK burpee broad jump reps/m, REPS_ONLY bear crawl m sin kg), logQuickSets/logCurrentSet/reviseSet, resolveQuantityUnit conserva unidad prescrita reps/m (SessionController:314), picker RoutineBlocksEditor. +2 tests. verified 17:19 (JVM): edicion de series registradas YA existia via plannedSets->loggedSets por id en CompletedWorkoutEditing.applying (reps/kg/RIR/duracion/deficit); PORTADO el picker de unidad POR SERIE (chips Repeticiones/Metros para supportsRepsOrMeters, targetQuantityUnit en borrador, precedencia set>ejercicio>previo, sin conversion automatica, identidad LoggedSet preservada) + cabecera Reps/m + tope 100_000 m. +1 test applying. Pendiente runtime20:13 Play gap real PORTADO: ActiveWorkout.repsMetersToggle conectado al nombre, LiveSetRows y formulario clasico/correccion muestran reps/metros (no calorias), callback conserva numero hasta edicion explicita; cap metros100000/reps50 en filas. logCurrentSet/reviseCurrentSet aceptan unidad compatible por supportsRepsOrMeters antes del modo.3tests repositorio walking-lunge/bear-crawl/broad-jump y render LiveSetRows360claro tap20reps->20metros conserva16kg. Duracion heredada LOAD_DISTANCE no borrada ni convertida;20:20 WodSessionAssembler conserva reps explicitas para supportsRepsOrMeters (antes omitio unidad y default de carries podia relabelar a metros); test12reps vs20m con loggedSets vacio, sin mutar rutina. runtime pendiente.
+4c9a5d10|2026-10-27T08:01:41+01:00|Label loaded meters correctly in WOD editors and add full scanner distance tests|ios-app+domain+tests||partial 17:14: summaryLine WODMovement con sufijo kg (par 24/16 kg, carga unica 100 kg, sin "—"); etiquetas de cantidad en EntryEditorRow (WOD row + cabecera grid fuerza) usan shortLabel de la unidad elegida para supportsRepsOrMeters; test scanner distancia+carga unica portable via BoardScanLiteParser (superficie Android), equivalente al test de parser completo Apple. Pendiente runtime
+f25f8d90|2026-10-27T08:04:56+01:00|Recognize loaded-distance exercise name variants from scans and catalog aliases|domain+tests||verified 17:14 (dominio): patrones/contains del corte ya identicos en ExerciseInput (lista loadedDistancePatterns + default unit); variantes de nombre OCR/catalogo ahora cubiertas por test (Yoke/Sled drag/Farmer apostrofe/Sandbag carry/DB Walking Lunges/Heavy sled push; sentadillas negativas). UI consume supportsRepsOrMeters portado en f7109bd7. Pendiente runtime
+3e87c061|2026-10-27T08:36:41+01:00|fix(ios): remove extra grouped list top spacing below transparent navigation|ios-app+docs||verified-n/a 13:28: espaciado de lista agrupada SwiftUI bajo navegacion transparente; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+22306434|2026-10-27T08:44:40+01:00|fix(ios): isolate timer ScrollView from grouped navigation content margins|ios-app+docs||verified-n/a 13:28: margenes ScrollView temporizador SwiftUI; sin contraparte Android ni cambio de comportamiento/datos (revisado diff)
+49de3076|2026-10-27T08:57:22+01:00|Relink saved BTt/T2B workout snapshots and display official exercise art in AMRAP history|ios-app||partial 13:32: display (nombre+arte oficial en historial) ported — arte ya existia en ExerciseArtResolver; reparacion de snapshots persistidos (repairHistoricalWODExercises) INACTIVA: sin autorizacion del usuario para mutar historicos
+0d0ca127|2026-10-27T09:05:14+01:00|Resolve historical BTT T2B by snapshot and de-duplicate identical WOD logged summaries|ios-app+domain+tests||verified-ported 14:17: resolucion por snapshot + officialName portado (WODHistoryPresentation.kt); dedupe recordedSummary retirado despues por 0a640da8 (net: no aplica)
+0a640da8|2026-10-27T09:23:48+01:00|Remove redundant recorded summary from scored WOD movement list without altering logs|ios-app+domain+tests||verified-ported 14:17: resumen grabado redundante retirado en Apple; Android nunca lo muestra (ExerciseSessionAppearance solo setLines/prescription)
+ff097bf3|2026-10-27T09:35:26+01:00|Periodically refresh Supabase catalog and relink historic WOD aliases even without new events|ios-app+domain+tests||verified-partial+GAP 11:24 (Android SÍ hidrata remoto: RemoteExerciseCatalogWorker 6h BG + refresh/apply en carga de cuenta MainActivity:1710 ✓ equivalente; SIN equivalente: relink histórico relinkOrphanSessionExercisesToCatalog/relinkScheduledWODMovementsToCatalog — applyToAccount declara «No historical workout edited»; GAP funcional real, solución local preparable sin backend)
+dbf43176|2026-10-27T09:37:25+01:00|Add debug diagnostics for unresolved historical exercise alias identity|ios-app||verified-n/a 11:24 (solo diagnósticos debug en HistoryView iOS; sin delta de comportamiento)
+11ea29a6|2026-10-27T09:42:56+01:00|Refresh remote exercise catalog at app and workout milestones instead of foreground polling|ios-app||verified-ported 11:50 (requestExerciseCatalogRefresh: guard conectado+sin sesión activa, amortiguación 60s heredada; disparadores entrar Ejercicios/abrir Apuntar/guardar entrenamiento cableados en MainActivity/ReperaMobileScreen/ExercisesTab; PENDIENTE compile mobile completo bloqueado 120s)
+ff94e6ad|2026-10-27T09:52:31+01:00|Normalize case and OCR confusables for BTT aliases across scanner and history|ios-app+domain+tests||verified-ported tree174 bcceb391 11:23 (officialName + hook canonicalName + respaldo arte; tests espejo; XML domain 408/408 mobile 463/463)
+# Corte: ventana 23oct 00:00 -> 27oct 11:05:11 CET. Tip live 8ab72cfe (27oct 11:13:29 CET) queda FUERA de la ventana (post-corte); remoto sigue moviendose. Verificado via navegador (sesion GitHub del usuario) 27oct ~11:18 CET: local origin/main 0a640da8 + 4 commits en ventana (ff097bf3 dbf43176 11ea29a6 ff94e6ad) + 1 fuera (8ab72cfe).
