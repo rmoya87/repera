@@ -47,3 +47,42 @@ class RouteHealthExportTest {
             RouteHealthExport.exportablePoints(points, 100_000, 200_000).map { it.recordedAtEpochMs })
     }
 }
+
+class RouteHealthConnectExportTest {
+
+    private fun pt(lat: Double, lon: Double, t: Long) =
+        WorkoutRoutePoint(id = 0, latitude = lat, longitude = lon, recordedAtEpochMs = t)
+
+    @Test fun pointsAreClampedToExactSessionRangeForHealthConnect() {
+        // HC rechaza puntos fuera de [start,end] aunque la ventana Apple ±60s los admita.
+        val start = 100_000L; val end = 200_000L
+        val points = listOf(
+            pt(40.0, -3.7, start - 30_000),  // dentro del slack Apple, fuera de HC
+            pt(40.0, -3.7, start),
+            pt(40.0, -3.7, 150_000),
+            pt(40.0, -3.7, end),
+            pt(40.0, -3.7, end + 30_000))    // dentro del slack Apple, fuera de HC
+        val out = RouteHealthExport.healthConnectRoutePoints(points, start, end)
+        assertEquals(listOf(start, 150_000L, end), out.map { it.recordedAtEpochMs })
+    }
+
+    @Test fun duplicateTimestampsCollapseToFirstPointAndOutputIsMonotonic() {
+        val points = listOf(
+            pt(40.0, -3.70, 150_000),
+            pt(40.0, -3.71, 140_000),  // desordenado
+            pt(40.0, -3.72, 150_000))  // timestamp duplicado
+        val out = RouteHealthExport.healthConnectRoutePoints(points, 100_000, 200_000)
+        assertEquals(listOf(140_000L, 150_000L), out.map { it.recordedAtEpochMs })
+        assertEquals(-3.71, out[0].longitude, 1e-9)
+        assertEquals(-3.70, out[1].longitude, 1e-9) // primer punto del instante
+    }
+
+    @Test fun fewerThanTwoPointsInsideExactRangeExportsNothing() {
+        val start = 100_000L; val end = 200_000L
+        val points = listOf(
+            pt(40.0, -3.7, start - 10_000), // solo entra por slack Apple
+            pt(40.0, -3.7, 150_000))
+        assertEquals(2, RouteHealthExport.exportablePoints(points, start, end).size)
+        assertTrue(RouteHealthExport.healthConnectRoutePoints(points, start, end).isEmpty())
+    }
+}

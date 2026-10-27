@@ -22,4 +22,25 @@ object RouteHealthExport {
         }
         return if (filtered.size >= MIN_POINTS) filtered else emptyList()
     }
+
+    /** Salida para Health Connect (ExerciseRoute): aplica la ventana Apple
+     *  (±60 s) y ADEMAS las restricciones que exige el propio registro HC,
+     *  verificadas contra el bytecode de connect-client 1.1.0:
+     *  - "route can not be out of parent time range": cada punto dentro de
+     *    [start, end] EXACTOS de la sesion (el slack ±60 s de Apple no es
+     *    aceptado por HC y haria fallar el insert en runtime).
+     *  - Timestamps monotonos crecientes sin duplicados (GPS puede repetir
+     *    instante): ordenados por tiempo, el primer punto de cada instante.
+     *  - Al menos MIN_POINTS tras el recorte; si no, no hay ruta exportable. */
+    fun healthConnectRoutePoints(
+        points: List<WorkoutRoutePoint>,
+        startEpochMs: Long,
+        endEpochMs: Long
+    ): List<WorkoutRoutePoint> {
+        val within = exportablePoints(points, startEpochMs, endEpochMs)
+            .filter { it.recordedAtEpochMs in startEpochMs..endEpochMs }
+            .sortedBy { it.recordedAtEpochMs }
+            .distinctBy { it.recordedAtEpochMs }
+        return if (within.size >= MIN_POINTS) within else emptyList()
+    }
 }

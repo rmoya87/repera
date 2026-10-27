@@ -122,7 +122,9 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
     ): ExerciseRoute? {
         if (!granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE))
             return null
-        val exportable = dev.repera.domain.RouteHealthExport.exportablePoints(
+        // Ventana Apple ±60s + recorte EXACTO [start,end], monotono sin
+        // duplicados: HC rechaza la ruta fuera del rango de la sesion.
+        val exportable = dev.repera.domain.RouteHealthExport.healthConnectRoutePoints(
             points, startEpochMs, endEpochMs)
         if (exportable.isEmpty()) return null
         return ExerciseRoute(exportable.map { p ->
