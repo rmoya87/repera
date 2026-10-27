@@ -306,6 +306,8 @@ struct LiveSavedRoute: Identifiable, Codable {
     var sportID: String?
     var isFavorite: Bool
     var createdAt: Date
+    /// Updated metadata provides a stable conflict order for cloud favorites.
+    var modifiedAt: Date
 
     init(
         id: UUID = UUID(), title: String, points: [WorkoutRoutePoint],
@@ -317,10 +319,11 @@ struct LiveSavedRoute: Identifiable, Codable {
         self.sportID = sportID
         self.isFavorite = isFavorite
         self.createdAt = createdAt
+        self.modifiedAt = createdAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, points, sportID, isFavorite, createdAt
+        case id, title, points, sportID, isFavorite, createdAt, modifiedAt
     }
 
     /// Los GPX y las rutas de versiones anteriores carecen de favorito/fecha.
@@ -333,6 +336,7 @@ struct LiveSavedRoute: Identifiable, Codable {
         sportID = try values.decodeIfPresent(String.self, forKey: .sportID)
         isFavorite = try values.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         createdAt = try values.decodeIfPresent(Date.self, forKey: .createdAt) ?? .distantPast
+        modifiedAt = try values.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
     }
 
     var distanceKm: Double {
@@ -356,6 +360,8 @@ struct LiveSavedRoute: Identifiable, Codable {
 final class LiveRoutesStore {
     static let shared = LiveRoutesStore()
     private(set) var routes: [LiveSavedRoute] = []
+    private var cloudSyncTask: Task<Void, Never>?
+    private var isCloudSynchronizationRunning = false
 
     /// Lo más reciente primero; el orden anterior se conserva al migrar sin fecha.
     var latestRoutes: [LiveSavedRoute] {
@@ -456,6 +462,7 @@ final class LiveRoutesStore {
         let previous = routes
         routes[index].title = cleanName
         routes[index].sportID = sportID
+        routes[index].modifiedAt = .now
         do {
             try persist()
         } catch {
@@ -469,6 +476,7 @@ final class LiveRoutesStore {
         guard let index = routes.firstIndex(where: { $0.id == id }) else { return }
         let previous = routes
         routes[index].isFavorite = favorite
+        routes[index].modifiedAt = .now
         do {
             try persist()
         } catch {
@@ -518,13 +526,69 @@ final class LiveRoutesStore {
         }
     }
 
-    private func persist() throws {
+    private func persist(scheduleCloud: Bool = true) throws {
         let folder = storageURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true
         )
         let data = try JSONEncoder().encode(routes)
         try data.write(to: storageURL, options: .atomic)
+        if scheduleCloud { requestICloudSynchronization() }
+    }
+
+    /// Merge before upload: an iCloud file still downloading must never be
+    /// replaced by an empty first-install local library.
+    func requestICloudSynchronization() {
+        cloudSyncTask?.cancel()
+        cloudSyncTask = Task { @MainActor [weak self] in
+            await self?.synchronizeWithICloud()
+        }
+    }
+
+    func synchronizeWithICloud() async {
+        guard !isCloudSynchronizationRunning else { return }
+        isCloudSynchronizationRunning = true
+        defer { isCloudSynchronizationRunning = false }
+        let read = await LiveRouteCloudBackup.shared.read()
+        guard case .ready(let remote) = read else { return }
+
+        let erased = deletedIDs.union(remote.deletedIDs)
+        var merged: [UUID: LiveSavedRoute] = [:]
+        for route in remote.routes + routes where !erased.contains(route.id) {
+            if let existing = merged[route.id] {
+                if route.modifiedAt > existing.modifiedAt {
+                    merged[route.id] = route
+                } else if route.modifiedAt == existing.modifiedAt,
+                          route.isFavorite && !existing.isFavorite {
+                    // Older archives may lack modifiedAt; preserve stars.
+                    merged[route.id] = route
+                }
+            } else {
+                merged[route.id] = route
+            }
+        }
+        let newRoutes = merged.values.sorted {
+            if $0.createdAt == $1.createdAt {
+                return $0.id.uuidString < $1.id.uuidString
+            }
+            return $0.createdAt > $1.createdAt
+        }
+        let previous = routes
+        routes = newRoutes
+        do {
+            try persist(scheduleCloud: false)
+        } catch {
+            routes = previous
+            return
+        }
+        let oldDeleted = deletedIDs
+        if erased != oldDeleted {
+            UserDefaults.standard.set(erased.map(\.uuidString), forKey: deletedRoutesKey)
+        }
+        let archive = LiveRouteCloudArchive(
+            routes: newRoutes, deletedIDs: Array(erased)
+        )
+        _ = await LiveRouteCloudBackup.shared.write(archive)
     }
 }
 
