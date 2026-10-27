@@ -951,6 +951,9 @@ final class LiveActivityRecorder: NSObject {
 
     func start() {
         guard phase == .idle else { return }
+        // Si se inicia otra actividad justo después de guardar, no dejar que
+        // el mensaje final anterior tape el nuevo aviso.
+        stopGuidanceAudio()
         gpsSessionID = UUID()
         startedAt = Date()
         finishedAt = nil
@@ -995,6 +998,9 @@ final class LiveActivityRecorder: NSObject {
         }
         persistSnapshot()
         updateLiveActivity()
+        _ = speakNavigation(
+            LiveSessionVoiceAnnouncement.started(sportName: selectedSport.title)
+        )
     }
 
     private func startGPS(bridgingInterruption: Bool = false) {
@@ -1052,14 +1058,19 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = Date()
         phase = .paused
         if sport.usesGPS { stopGPS(clear: false) }
+        // Priorizar el aviso de pausa sobre un parcial o giro en curso.
         stopGuidanceAudio()
         currentSpeedMps = nil
         persistSnapshot()
         updateLiveActivity()
+        _ = speakNavigation(LiveSessionVoiceAnnouncement.paused)
     }
 
     func resume() {
         guard phase == .paused else { return }
+        // Pulsaciones rápidas de pausa/reanudar no deben reproducir avisos
+        // antiguos cuando el entrenamiento ya se ha reanudado.
+        stopGuidanceAudio()
         if let pausedAt { pausedSeconds += Date().timeIntervalSince(pausedAt) }
         pausedAt = nil
         previousFixActiveSeconds = nil
@@ -1067,6 +1078,7 @@ final class LiveActivityRecorder: NSObject {
         if sport.usesGPS { startGPS() }
         persistSnapshot()
         updateLiveActivity()
+        _ = speakNavigation(LiveSessionVoiceAnnouncement.resumed)
     }
 
     var durationSeconds: TimeInterval { duration(at: Date()) }
@@ -1112,9 +1124,11 @@ final class LiveActivityRecorder: NSObject {
         finishedAt = now
         phase = .review
         stopGPS()
+        // No perder «finalizado» detrás de otros kilómetros/giros en cola.
         stopGuidanceAudio()
         persistSnapshot()
         updateLiveActivity()
+        _ = speakNavigation(LiveSessionVoiceAnnouncement.finished)
     }
 
     func makeSession(title: String, notes: String) -> WorkoutSession? {
@@ -1154,7 +1168,12 @@ final class LiveActivityRecorder: NSObject {
             }
         }
         stopGPS()
-        stopGuidanceAudio()
+        // Guardar el resultado puede cerrar la pantalla antes de que acabe
+        // «Entrenamiento finalizado». Conservar únicamente esa locución hasta
+        // didFinish/didCancel; un siguiente start() la cancelará si procede.
+        if !(saved && phase == .review && spokenGuidanceEnabled) {
+            stopGuidanceAudio()
+        }
         phase = .idle
         needsInterruptedGPSRecovery = false
         estimatedRecoveryMeters = 0
@@ -2107,12 +2126,11 @@ struct LiveActivityView: View {
         .accessibilityLabel(label)
     }
 
-    /// Los avisos por voz son un control de navegación, no una métrica del parcial.
-    /// En Mapa se coloca al pie de los controles derechos; en Métricas, a la
-    /// izquierda del resto de acciones de cabecera.
+    /// Un solo control silencia tanto las indicaciones GPS como las
+    /// confirmaciones de inicio/pausa/reanudación/fin de cualquier deporte.
+    /// En Mapa va al pie de los controles derechos; en Métricas, en cabecera.
     private var showGuidanceToggle: Bool {
-        recorder.sport.usesGPS &&
-        (recorder.phase == .recording || recorder.phase == .paused)
+        recorder.phase == .recording || recorder.phase == .paused
     }
 
     private var guidanceSymbol: String {
@@ -2121,8 +2139,8 @@ struct LiveActivityView: View {
 
     private var guidanceAccessibilityLabel: String {
         recorder.spokenGuidanceEnabled
-            ? "Desactivar avisos por kilómetro y giro"
-            : "Activar avisos por kilómetro y giro"
+            ? "Desactivar avisos por voz"
+            : "Activar avisos por voz"
     }
 
     /// Panel único: tres métricas arriba, parcial actual integrado debajo.
