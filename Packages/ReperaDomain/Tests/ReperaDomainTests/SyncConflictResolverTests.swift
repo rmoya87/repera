@@ -94,6 +94,65 @@ final class SyncConflictResolverTests: XCTestCase {
         ))
     }
 
+    func testMissingGPSRouteIsRestoredWithoutChangingRecordedWorkout() {
+        let start = Date(timeIntervalSince1970: 1_729_000_000)
+        let id = UUID()
+        let session = WorkoutSession(
+            id: id, title: "Paseo", exercises: [],
+            phase: .finished, startedAt: start, finishedAt: start.addingTimeInterval(600),
+            recordedDistanceMeters: 1_000
+        )
+        var withGPS = session
+        withGPS.routePoints = [
+            WorkoutRoutePoint(id: 1, latitude: 40.5, longitude: -3.8, recordedAt: start),
+            WorkoutRoutePoint(id: 2, latitude: 40.501, longitude: -3.799,
+                              recordedAt: start.addingTimeInterval(60))
+        ]
+        var newest = state(revision: 11, updatedAt: start.addingTimeInterval(100), writer: "new")
+        newest.workouts = [session]
+        var older = state(revision: 10, updatedAt: start, writer: "old")
+        older.workouts = [withGPS]
+        let recovered = SyncConflictResolver.restoringMissingWorkoutRoutes(
+            in: newest, from: older
+        )
+        XCTAssertEqual(recovered.workouts[0].routePoints, withGPS.routePoints)
+        XCTAssertEqual(recovered.workouts[0].id, id)
+        XCTAssertEqual(recovered.workouts[0].recordedDistanceMeters, session.recordedDistanceMeters)
+        XCTAssertEqual(recovered.syncRevision, 11)
+        XCTAssertTrue(newest.workouts[0].routePoints.isEmpty)
+    }
+
+    func testNeverInventsRoutesOrRevivesDeletedWorkoutIDs() {
+        let start = Date(timeIntervalSince1970: 1_729_000_000)
+        var tracked = WorkoutSession(
+            title: "Actividad original", exercises: [], phase: .finished,
+            startedAt: start, finishedAt: start.addingTimeInterval(100)
+        )
+        tracked.routePoints = [
+            WorkoutRoutePoint(id: 1, latitude: 40, longitude: -3),
+            WorkoutRoutePoint(id: 2, latitude: 41, longitude: -3)
+        ]
+        var cloud = state(revision: 5, updatedAt: start, writer: "old")
+        cloud.workouts = [tracked]
+        let current = state(revision: 6, updatedAt: start, writer: "new")
+        let recovered = SyncConflictResolver.restoringMissingWorkoutRoutes(
+            in: current, from: cloud
+        )
+        XCTAssertTrue(recovered.workouts.isEmpty)
+
+        var otherWorkout = tracked
+        otherWorkout.title = "Cambiado"
+        var currentWithRoute = current
+        currentWithRoute.workouts = [tracked]
+        XCTAssertEqual(
+            SyncConflictResolver.restoringMissingWorkoutRoutes(
+                in: currentWithRoute, from: cloud
+            ).workouts[0].routePoints,
+            tracked.routePoints
+        )
+        _ = otherWorkout
+    }
+
     func testLegacyZeroRevisionFallsBackToUpdatedAt() {
         let local = state(revision: 0, updatedAt: Date(timeIntervalSince1970: 1), writer: "")
         let remote = state(revision: 0, updatedAt: Date(timeIntervalSince1970: 99), writer: "")
