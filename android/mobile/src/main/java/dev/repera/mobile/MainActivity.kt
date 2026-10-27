@@ -2321,6 +2321,11 @@ data class StateOverview(
                         sportTag = ex.optString("sportTag").takeIf { it.isNotBlank() },
                         hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(
                             ex.getString("name")),
+                        disciplineTags = dev.repera.domain.ExerciseDisciplineTags.forExercise(
+                            ex.getString("name"),
+                            ex.optString("sportTag").takeIf { it.isNotBlank() },
+                            ex.optString("muscleGroup"),
+                            ExerciseCatalogFilters.isHyroxTrainingMovement(ex.getString("name"))),
                         loggingStyle = when (mode) {
                             dev.repera.domain.ExerciseInputMode.MACHINE_WORK -> "machineWork"
                             dev.repera.domain.ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
@@ -2501,6 +2506,8 @@ data class ExerciseEntry(
     val id: String, val name: String, val supportsBasicInput: Boolean,
     val allowsWeight: Boolean, val muscleGroup: String = "",
     val sportTag: String? = null, val hyroxTraining: Boolean = false,
+    /** Apple (live main) Exercise.disciplineTags: disciplinas derivadas, sin duplicar el id. */
+    val disciplineTags: List<String> = emptyList(),
     val loggingStyle: String = "strength",
     val equipment: String = "",
     val targetMuscle: String = "",

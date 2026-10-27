@@ -19,15 +19,17 @@ object ExerciseCatalogFilters {
     )
 
     fun isHyroxTrainingMovement(name: String): Boolean =
-        ExerciseAliasSearch.normalize(name) in hyrox
+        ExerciseAliasSearch.normalize(name) in hyrox ||
+        dev.repera.domain.HyroxExercises.isMovement(name)
 
+    // Apple (live main) ExerciseCatalogSearchList: doc.disciplineTags.contains(tag).
     fun matches(entry: ExerciseEntry, filter: String): Boolean = when (filter) {
         "Todos", "Favoritos" -> true
-        "Hyrox", "HYROX" -> entry.hyroxTraining ||
+        "Hyrox", "HYROX" -> "HYROX" in entry.disciplineTags || entry.hyroxTraining ||
             entry.sportTag.equals("HYROX", ignoreCase = true)
-        "Cardio" -> entry.muscleGroup.equals("Cardio", ignoreCase = true) ||
-            entry.loggingStyle == "machineWork" || entry.loggingStyle == "repsAndTime"
-        else -> entry.sportTag.equals(filter, ignoreCase = true)
+        "Cardio" -> "Cardio" in entry.disciplineTags
+        else -> filter in entry.disciplineTags ||
+            entry.sportTag.equals(filter, ignoreCase = true)
     }
 
     fun available(entries: List<ExerciseEntry>): List<String> {
