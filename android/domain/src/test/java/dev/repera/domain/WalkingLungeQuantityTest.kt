@@ -38,4 +38,29 @@ class WalkingLungeQuantityTest {
     @Test fun legacyLineWithoutUnitIsNotReinterpreted() {
         assertEquals("12×14", SetSummaryLine.displayLine(14, weightKg = 12.0))
     }
+
+    @Test fun loadedDistanceNamesAreLoadAndReps() {
+        // Apple 1d1edc8b: supportsWeightedRepsOrMeters -> loadAndReps incluso
+        // con peso corporal en el seed (Walking lunge admite kg + reps/m).
+        assertEquals(dev.repera.domain.ExerciseInputMode.LOAD_REPS,
+            ExerciseInput.mode("Walking lunge", "Peso corporal", null, "Piernas"))
+        assertEquals(dev.repera.domain.ExerciseInputMode.LOAD_REPS,
+            ExerciseInput.mode("Zancadas caminando", "Mancuernas", null, "Piernas"))
+        assertEquals(dev.repera.domain.ExerciseInputMode.LOAD_REPS,
+            ExerciseInput.mode("Yoke carry", "Yoke", null, "Full body"))
+        // Los 5 Hyrox consolidados conservan LOAD_DISTANCE (metros + kg).
+        assertEquals(dev.repera.domain.ExerciseInputMode.LOAD_DISTANCE,
+            ExerciseInput.mode("Sled push", "Trineo", null, "Piernas"))
+    }
+
+    @Test fun weightedMachineQuantityDoesNotScaleByMinutes() {
+        // Apple 1d1edc8b fatigueSetEquivalent: (isMachineQuantity || duration)
+        // && weightKg == nil. Con kg, cae a la logica RIR normal.
+        val loaded = dev.repera.domain.MuscleStimulusSet(reps = 20,
+            isMachineQuantity = true, weightKg = 16.0, durationSeconds = 120)
+        assertEquals(0.7, loaded.fatigueSetEquivalent, 1e-9)
+        val unloaded = dev.repera.domain.MuscleStimulusSet(reps = 20,
+            isMachineQuantity = true, durationSeconds = 120)
+        assertEquals(2.0, unloaded.fatigueSetEquivalent, 1e-9)
+    }
 }

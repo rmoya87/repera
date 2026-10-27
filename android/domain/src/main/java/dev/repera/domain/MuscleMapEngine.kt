@@ -29,7 +29,9 @@ data class MuscleStimulusSet(
     val fatigueSetEquivalent: Double
         get() {
             if (isWarmup) return 0.25
-            if (isMachineQuantity || (durationSeconds != null && weightKg == null)) {
+            // Apple 1d1edc8b: con carga en kg NUNCA escala por minutos,
+            // ni siquiera cantidad de ergometro (walking lunge 20 m + 16 kg).
+            if ((isMachineQuantity || durationSeconds != null) && weightKg == null) {
                 val minutes = maxOf(durationSeconds ?: 60, 30) / 60.0
                 return min(3.0, maxOf(0.5, minutes))
             }

@@ -82,6 +82,12 @@ object ExerciseInput {
         if (n in setOf("sled push", "sled pull", "farmer carry",
                 "farmer walk", "sandbag lunges"))
             return ExerciseInputMode.LOAD_DISTANCE
+        // Apple 1d1edc8b (cut Models.swift:380): TODOS los supportsWeightedRepsOrMeters
+        // son loadAndReps (kg + reps/m); Android conserva LOAD_DISTANCE para los 5
+        // Hyrox anteriores y deriva el resto (walking lunge, yoke, suitcase...)
+        // a LOAD_REPS. Antes, "Walking lunge" peso corporal caia en REPS_ONLY
+        // y no admitia carga.
+        if (supportsWeightedRepsOrMeters(name)) return ExerciseInputMode.LOAD_REPS
         if (n == "burpee broad jump") return ExerciseInputMode.MACHINE_WORK
         // Apple (live main) Models.isJumpRope: su normalización conserva guiones; la nuestra
         // los convierte en espacios, así que "double under" ya cubre "double-under".
