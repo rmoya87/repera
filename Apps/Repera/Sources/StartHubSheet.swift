@@ -16,6 +16,7 @@ struct StartHubSheet: View {
     @Environment(SubscriptionManager.self) private var subscriptions
 
     var onOpenedWorkout: () -> Void
+    var onOpenSport: ((String) -> Void)? = nil
 
     @State private var path = NavigationPath()
     @State private var showImageSourceSheet = false
@@ -194,7 +195,7 @@ struct StartHubSheet: View {
                 case .quickLog:
                     QuickLogPickerView(onOpenedWorkout: onOpenedWorkout)
                 case .favorites:
-                    FavoritesHubView(onOpenedWorkout: onOpenedWorkout)
+                    FavoritesHubView(onOpenedWorkout: onOpenedWorkout, onOpenSport: onOpenSport)
                 case .timer:
                     StandaloneTimerView(embedsNavigation: false)
                 case .boardReview:
