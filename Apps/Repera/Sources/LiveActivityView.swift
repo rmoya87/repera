@@ -3377,6 +3377,7 @@ private struct LiveRouteLibraryPickerView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
+            .task { await routes.synchronizeWithICloud() }
             .refreshable { await routes.synchronizeWithICloud() }
             .toolbar(.hidden, for: .navigationBar)
         }
