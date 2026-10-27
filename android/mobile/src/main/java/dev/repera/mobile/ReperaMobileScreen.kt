@@ -112,6 +112,7 @@ fun ReperaMobileScreen(
     centerError: String?,
     centerSnapshot: BusinessCenterStore.Snapshot?,
     onCenterRefresh: () -> Unit,
+    onExerciseCatalogRefreshRequest: () -> Unit = {},
     onCenterAccept: (BusinessCenterStore.Invitation) -> Unit,
     centerDirectory:List<BusinessCenterStore.Organization> = emptyList(),
     centerDirectorySearching:Boolean = false,
@@ -654,6 +655,8 @@ fun ReperaMobileScreen(
                     }
                 }
                 composable("ejercicios") {
+                    // Apple 11ea29a6: entrar en Ejercicios refresca el catalogo.
+                    LaunchedEffect(Unit) { onExerciseCatalogRefreshRequest() }
                     ExercisesTab(
                         requestedLibraryMode=libraryModeRequest,onLibraryModeRequestConsumed={libraryModeRequest=null},
                         onPlayWod={id,request ->onPlayWod(id,request) {navigateTab("inicio")}},
@@ -668,6 +671,7 @@ fun ReperaMobileScreen(
                         overview = overview,
                         activeWorkout = activeWorkout,
                         onQuickLog = onQuickLog,
+                        onQuickLogOpened = onExerciseCatalogRefreshRequest,
                         onSaveQuickSets=onSaveQuickSets,
                         onSetExerciseFavorite = onSetExerciseFavorite,
                         onOpenExercise = { exerciseId ->

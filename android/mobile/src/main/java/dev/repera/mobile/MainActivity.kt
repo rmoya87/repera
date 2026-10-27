@@ -866,6 +866,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 centerError = centerError,
                 centerSnapshot = centerSnapshot,
                 onSendCenterMessage = { org,title,body -> centerAction { s -> sendMessage(s,org,title,body) } },
+                onExerciseCatalogRefreshRequest = { requestExerciseCatalogRefresh() },
                 onCenterRefresh = {
                     refreshCenter()
                     syncSupabaseMirrors()
@@ -1685,6 +1686,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    /** Apple requestExerciseCatalogRefresh (11ea29a6): refresco del catálogo
+     * disparado por acciones del usuario (entrar en Ejercicios, abrir Apuntar,
+     * guardar un entrenamiento). Nunca durante una sesión en curso; el propio
+     * refresco amortigua 60 s y es silencioso. */
+    private fun requestExerciseCatalogRefresh() {
+        val user = profile ?: return
+        if (verifiedSupabase == null || activeWorkout != null) return
+        refreshCatalogSilently(user.uniqueId)
+    }
+
     /** Silent background check when the app becomes active. Only publish UI changes
      * after a complete cache download and atomic private-state reconciliation. */
     private fun refreshCatalogSilently(accountId: String) {
@@ -1897,6 +1908,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 if(!current()) return@launch
                 reloadFor(signedIn.uniqueId)
                 if(!current()) return@launch
+                // Apple 11ea29a6: guardar un entrenamiento dispara refresco del catálogo.
+                requestExerciseCatalogRefresh()
                 DriveSyncWorker.syncNow(this@MainActivity)
                 if (verifiedSupabase != null) syncWorkoutMirror()
                 status = null

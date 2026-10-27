@@ -82,6 +82,7 @@ internal fun ExercisesTab(
     overview: StateOverview?,
     activeWorkout: ActiveWorkout?,
     onQuickLog: (String) -> Unit,
+    onQuickLogOpened: () -> Unit = {},
     onSaveQuickSets:(String,List<QuickLogRow>,String?,String,()->Unit)->Unit = {_,_,_,_,_->},
     onOpenExercise: (String) -> Unit,
     onSetExerciseFavorite: (String, Boolean) -> Unit = { _, _ -> },
@@ -105,6 +106,8 @@ internal fun ExercisesTab(
 ) {
     var selectedExerciseId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
     var quickLogId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
+    // Apple 11ea29a6: abrir «Apuntar» refresca alias del catalogo, sin polling.
+    LaunchedEffect(quickLogId) { if (quickLogId != null) onQuickLogOpened() }
     val quickLog=quickLogId?.let {id ->overview?.exerciseEntries?.firstOrNull {it.id==id}}
     quickLog?.let {entry ->
         val quickContext=LocalContext.current
