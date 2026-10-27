@@ -166,6 +166,19 @@ internal fun ExerciseDetailScreen(
                 Text("Secundarios: " + entry.secondaryMuscles.joinToString(", "),
                     style = MaterialTheme.typography.bodySmall)
             }
+            // Apple 2b1382f5: chips de disciplina derivados (disciplineTags),
+            // fila "Disciplina" en los metadatos de la ficha.
+            val sports = entry.disciplineTags.filter { it.isNotBlank() }
+            if (sports.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Disciplina", style = MaterialTheme.typography.labelLarge)
+                    sports.forEach { sport ->
+                        FilterChip(selected = false, onClick = {}, enabled = false,
+                            label = { Text(sport) })
+                    }
+                }
+            }
         }
         entry.detailDescription?.let { description ->
             item {
