@@ -55,3 +55,15 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
 Cada fila n/a de las matrices lleva su razon (mecanica iOS nativa, superficie web/MCP/db compartida,
 tipo Swift sin counterpart). Donde la ausencia Android podria ocultar funcion faltante se marco
 partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
+
+## Revision visual 27oct 18:39 (tree239)
+- Selector Progreso 360dp: Recuperacion ya no se corta; se reserva todo el ancho
+  de etiqueta (sin check redundante, paddings 6dp y labelMedium). Fixture claro
+  renderizado e inspeccionado; fuente Apple StatsView mantiene los tres nombres.
+- Rango semanal Progreso: locale es-ES explicito (la app tiene texto espanol fijo),
+  elimina mezcla «Del Oct 26, 2026...». Render real: «Del 26 oct 2026 al 27 oct 2026».
+- DayPointLineChart de un dato: muestra valor + «Una medicion; aun no hay tendencia»
+  + una sola fecha, no linea inventada ni tres fechas repetidas. Semantica contrastada
+  con Apple HealthRecovery.vitalChart (count <2 = estado sin tendencia).
+- Dos dias contiguos: omite fecha central cuando coincide con un extremo.
+- Alcance: JVM tema claro 360dp, no dispositivo ni todos los tamanos/fuentes.

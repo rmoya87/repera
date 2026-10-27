@@ -116,7 +116,7 @@ internal fun ProgressTab(
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
     val dayFmt = java.time.format.DateTimeFormatter
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
-        .withLocale(java.util.Locale.getDefault())
+        .withLocale(java.util.Locale("es", "ES"))
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     // Apple StatsView: las tres pestañas comparten scroll; al cambiar se vuelve al encabezado sin animación
     // (un offset heredado de Entreno dejaba la vista vacía). No se dispara en la composición inicial/restaurada.
@@ -134,7 +134,10 @@ internal fun ProgressTab(
             androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("Entreno","Actividad","Recuperación").forEachIndexed {index,label ->
                     SegmentedButton(selected=topic==label,onClick={topic=label},modifier=Modifier.testTag("progress_topic_$index"),
-                        shape=androidx.compose.material3.SegmentedButtonDefaults.itemShape(index,3),label={Text(label,maxLines=1)})
+                        shape=androidx.compose.material3.SegmentedButtonDefaults.itemShape(index,3),
+                        contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp),
+                        icon={}, label={Text(label,maxLines=2,
+                            style=MaterialTheme.typography.labelMedium)})
                 }
             }
         }

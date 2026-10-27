@@ -405,6 +405,16 @@ internal fun DayPointLineChart(
     interactive:Boolean=true
 ) {
     if (points.isEmpty()) return
+    // Apple HealthRecovery.vitalChart: one observed sample is not a trend.
+    // Keep its value visible, without fabricating a line or repeated dates.
+    if (points.size == 1) {
+        Column(modifier.fillMaxWidth().testTag("day_point_single_sample")) {
+            Text(valueFormat(points.single().value), style=MaterialTheme.typography.labelMedium)
+            Text("Una medición; aún no hay tendencia.", style=MaterialTheme.typography.bodySmall)
+            Text(points.single().day.format(reperaDayFormatter), style=MaterialTheme.typography.labelSmall)
+        }
+        return
+    }
     val line = MaterialTheme.colorScheme.primary
     var selected by remember(points) { mutableStateOf<Int?>(null) }
     val minV = bounds?.start ?: minOf(points.minOf { it.value },goal ?: Double.POSITIVE_INFINITY)
@@ -502,10 +512,12 @@ internal fun DayPointLineChart(
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, softWrap = false)
                 Spacer(modifier = Modifier.weight(1f))
-                Text(midDay.format(shortFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1, softWrap = false)
-                Spacer(modifier = Modifier.weight(1f))
+                if (midDay != firstDay && midDay != lastDay) {
+                    Text(midDay.format(shortFormatter),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1, softWrap = false)
+                    Spacer(modifier = Modifier.weight(1f))
+                }
                 Text(lastDay.format(shortFormatter),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, softWrap = false)
