@@ -189,7 +189,7 @@ struct HomeView: View {
 
     private var selectedDayProfessionalSessions: [BusinessProfessionalTrainingSession] {
         let day = BusinessDataStore.localDayKey(selectedDay)
-        let reserved = Set(selectedDayBusinessBookings.map(\\.occurrenceId))
+        let reserved = Set(selectedDayBusinessBookings.map(\.occurrenceId))
         return businessData.trainingSessions.filter {
             $0.scheduledDate == day &&
                 $0.sourceOccurrenceId.map { !reserved.contains($0) } ?? true
@@ -1776,7 +1776,7 @@ struct HomeView: View {
             }
         }
 
-        let remotePlanDays = Set(businessData.trainingSessions.map(\\.scheduledDate))
+        let remotePlanDays = Set(businessData.trainingSessions.map(\.scheduledDate))
         let remoteBookingDays = Set(businessData.bookings.compactMap { booking -> String? in
             guard booking.status == "booked",
                   let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
