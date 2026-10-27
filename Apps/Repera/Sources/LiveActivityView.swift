@@ -641,7 +641,7 @@ final class LiveRoutesStore {
         }
         let oldDeleted = deletedIDs
         if erased != oldDeleted {
-            UserDefaults.standard.set(erased.map(\.uuidString), forKey: deletedRoutesKey)
+            UserDefaults.standard.set(erased.map { $0.uuidString }, forKey: deletedRoutesKey)
         }
         let remoteAlreadyMatches = remote.routes == newRoutes
             && Set(remote.deletedIDs) == erased
