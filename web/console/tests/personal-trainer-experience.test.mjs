@@ -8,7 +8,7 @@ const training={id:'training-1',client_id:'client-1',title:'Fuerza de tren infer
 const occurrence={id:'occ-1',kind:'appointment',title:'Sesión individual',starts_at:'2099-10-30T10:00:00Z',ends_at:'2099-10-30T11:00:00Z',status:'active',capacity:1};
 
 test('inicio de entrenador incluye solicitudes, citas, entrenamientos y agenda',()=>{
- const html=renderBusinessHome({org:{kind:'personal_trainer'},clients:[{...client,status:'lead'}],occurrences:[occurrence],bookings:[],sessions:[training],calendarMonth:'2099-10'});
+ const html=renderBusinessHome({org:{kind:'personal_trainer'},clients:[{...client,status:'lead'}],occurrences:[occurrence],bookings:[],sessions:[training],manager:true,calendarMonth:'2099-10'});
  assert.match(html,/Quieren entrenar contigo/);
  assert.match(html,/Próximas citas/);
  assert.match(html,/Fuerza de tren inferior/);
@@ -22,8 +22,11 @@ test('ficha de entrenador ofrece avatar real, cancelar relación y eliminar entr
  const html=renderClient360({clients:[client],selected:client.id,trainer:true,manager:true,passes:[{id:'pass-1',client_id:client.id,kind:'appointment',total_credits:10,remaining_credits:4,valid_until:'2099-11-30',status:'active'}],sessions:[training]});
  assert.match(html,/example.com\/avatar.png/);
  assert.match(html,/data-action="end-client"/);
- assert.match(html,/data-action="delete-session"/);
- assert.match(html,/4\/10 disponibles/);
+ assert.match(html,/Calendario de entrenamientos/);
+ assert.match(html,/Orientación de entrenamiento/);
+ assert.match(html,/Fuerza de tren inferior/);
+ assert.match(html,/Mapa de grupos trabajados/);
+ assert.match(html,/data-action="trainer-session"/);
  assert.doesNotMatch(html,/Inscripciones y clases/);
 });
 
