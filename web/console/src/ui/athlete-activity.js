@@ -129,3 +129,16 @@ export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],
    '<div class="pa-activity-none">No hay entrenamientos registrados este día.</div>'}
   </section>`;
 }
+
+/** Read-only training cards for coaches after Supabase verifies sharing consent. */
+export function renderSharedAthleteSessions(rows=[]){
+ const safe=Array.isArray(rows)?rows:[];
+ if(!safe.length)return '<p class="pa-muted">El atleta no ha compartido entrenamientos con este centro o aún no tiene actividad sincronizada.</p>';
+ return `<div class="pa-shared-workouts">${safe.slice(0,30).map((row,index)=>{
+   const data=row?.result&&typeof row.result==='object'?row.result:{};
+   const exercises=Array.isArray(data.exercises)?data.exercises:[];
+   const wod=Array.isArray(data.wodResults)?data.wodResults:[];
+   return workoutCard({title:row.title,started_at:row.started_at,
+    finished_at:row.finished_at,exercises,wod_results:wod},index);
+ }).join('')}</div>`;
+}
