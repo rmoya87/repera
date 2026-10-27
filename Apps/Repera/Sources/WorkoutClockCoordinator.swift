@@ -248,9 +248,11 @@ final class WorkoutClockCoordinator {
         return isRunning ? "Pausar" : "Continuar"
     }
 
-    /// True cuando el usuario puede marcar fin en count-up (For Time).
+    /// Finalizar está disponible en cualquier ronda activa, incluso durante
+    /// pausa; nunca durante los 3 segundos previos. Se publica el resultado
+    /// pendiente y se detiene el reloj, en lugar de descartar el registro.
     var canFinishByUser: Bool {
-        (isCountingUp || (isIntervalMode && allowsEarlyIntervalFinish))
+        (isCountingUp || isIntervalMode)
             && hasStarted && !isPreCountdown && pausedPreCountdownRemaining == nil
     }
 
