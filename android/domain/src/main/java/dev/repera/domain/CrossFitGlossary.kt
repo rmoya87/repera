@@ -425,6 +425,9 @@ object CrossFitGlossary {
 
     /** Nombre canónico para matching de catálogo. */
     fun canonicalName(raw: String, searchAliases: Map<String, String> = emptyMap()): String {
+        // Apple (live main, ff94e6ad): BTt/BTT y variantes OCR se resuelven
+        // antes de consultar el glosario, incluso sin catálogo descargado.
+        WODHistoryPresentation.officialName(raw)?.let { return it }
         val rawNorm = normalize(raw)
         aliases[rawNorm]?.let { return it }
         searchAliases[rawNorm]?.takeIf { it.isNotEmpty() }?.let { return it }

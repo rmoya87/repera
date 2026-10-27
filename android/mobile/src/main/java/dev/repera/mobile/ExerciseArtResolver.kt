@@ -3,6 +3,7 @@ package dev.repera.mobile
 import dev.repera.domain.CrossFitGlossary
 import dev.repera.domain.ExerciseAliasSearch
 import dev.repera.domain.SportExerciseNames
+import dev.repera.domain.WODHistoryPresentation
 
 /**
  * Resolution of exercise names to bundled art stems, port of the current iOS
@@ -20,6 +21,11 @@ internal object ExerciseArtResolver {
             val legacyMob = SportExerciseNames.spanishAlias(name) ?: name
             if (legacyMob != name) ExerciseArtData.nameMap[legacyMob]?.let { return accepted(it) }
             return null
+        }
+        // Apple (live main, ff94e6ad): respaldo de arte si el nombre histórico
+        // conserva caracteres OCR visualmente equivalentes a BTT/T2B.
+        WODHistoryPresentation.officialName(name)?.let { official ->
+            accepted(ExerciseArtData.nameMap[official])?.let { return it }
         }
         val normalizedName = CrossFitGlossary.normalize(name)
         if (normalizedName == "bbjo" || (normalizedName.contains("burpee") &&

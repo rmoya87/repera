@@ -38,6 +38,13 @@ class ExerciseArtResolverTest {
             ExerciseArtResolver.heroFor("DOMINADAS", isMobility = false, aliases = noAliases))
     }
 
+    @Test fun ocrLookalikeT2bResolvesOfficialArt() {
+        // Apple (live main, ff94e6ad): respaldo de arte para identidades
+        // históricas con confusables OCR (Τ2Β griego) vía officialName.
+        assertEquals("art_cf_ttb",
+            ExerciseArtResolver.heroFor("Τ2Β", isMobility = false, aliases = noAliases))
+    }
+
     @Test fun mobilityNeverFallsBackToFuzzyReuse() {
         assertNull(ExerciseArtResolver.heroFor(
             "Respiración 90/90 con lift-off inexistente", isMobility = true, aliases = noAliases))

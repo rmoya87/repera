@@ -234,3 +234,11 @@ el Cue Android no lo expone. Anotado, sin portar aún.
 - Tests: nuevo BoardScanCatalogIndexTest (5 tests: repro C&J con 288, 4 nombres modernizados, 3 orden/colisiones official-custom-alias). ScratchTraceTest.kt eliminado (su repro útil trasladada a resolvesDumbbellCleanAndJerkThroughPublishedAlias). Fixture 196 restaurado a la versión committed 4a359974 (un overwrite lo había dejado en 288 inglés; git checkout).
 - REAL XML: domain 406/406, mobile 462/462, 0 fallos/errores/skipped.
 - Descubrimiento lateral: en origin/main local (0a640da8) el seed de Apple nombra la ficha «Cargada y envión con mancuerna» y no hay rename en seed(); el test de Apple que espera «Dumbbell Clean and Jerk» parece depender del catálogo hidratado de Supabase (producción), no de Catalog.seed(). Además el remoto LIVE tiene commits posteriores al ref local (diff en HistoryView/Models/FEATURES) — cobertura 09:23→11:05 pendiente de verificación live.
+
+## tree174 — Port ff94e6ad: officialName BTT/T2B (OCR confusables) + hook glosario + respaldo arte
+- Fuente: commit live-only ff94e6ad (27oct 09:52:31 CET, dentro de ventana), patch descargado vía navegador (sesión GitHub usuario).
+- Nuevo domain WODHistoryPresentation.officialName: NFKC, mapa de confusables visuales (cirílico/griego/cherokee/small-caps) ANTES de transliterar (Apple: la transliteración genérica rompe В→V), fold diacritics/case, [^a-z0-9]+→espacio, match compacto para abreviaturas (btt/t2b/ttb) y exacto para frases. Sin búsqueda difusa.
+- Hook en CrossFitGlossary.canonicalName (antes del glosario, como Apple); respaldo de arte en ExerciseArtResolver.heroFor antes del caso BBJO.
+- Apple aplica transliteración Latin genérica (ICU); el port usa mapa explícito + NFKC — cubre todos los casos de sus tests; otros alfabetos no mapeados quedan fuera igual que antes (limitación documentada en comentario).
+- Tests: WODHistoryPresentationTest (espejo de las aserciones visibles del patch: 3 previas + 10 variantes BTT × officialName y canonicalName + 2 negativos); ExerciseArtResolverTest.ocrLookalikeT2bResolvesOfficialArt (Τ2Β griego → art_cf_ttb).
+- REAL XML: domain 408/408, mobile 463/463, 0 fallos/errores/skipped.
