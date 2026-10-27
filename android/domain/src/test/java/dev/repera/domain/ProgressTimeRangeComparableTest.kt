@@ -33,6 +33,23 @@ class ProgressTimeRangeComparableTest {
         assertEquals(day(2026, 3, 1), end)
     }
 
+    @Test fun weekWithSundayStartComparesSundayAndMondayOnly() {
+        // Espejo de Apple 9fb8598b: semana que empieza en domingo.
+        val monday = day(2026, 10, 26)
+        val (start, end) = ProgressTimeRange.WEEK.previousPeriodBounds(
+            now = monday, weekStartsOnMonday = false)
+        assertEquals(day(2026, 10, 18), start)
+        assertEquals(day(2026, 10, 20), end)
+        assertFalse(ProgressTimeRange.WEEK.containsInPreviousPeriod(
+            day(2026, 10, 20), now = monday, weekStartsOnMonday = false))
+    }
+
+    @Test fun fullWeekIncludesEntirePreviousWeek() {
+        val sunday = day(2026, 11, 1)
+        val (start, end) = ProgressTimeRange.WEEK.previousPeriodBounds(now = sunday)
+        assertEquals(7, java.time.temporal.ChronoUnit.DAYS.between(start, end))
+    }
+
     @Test fun streakReferenceUsesSameRelativeDayOfPreviousPeriod() {
         // Apple b4b8f8b8: bounds.end - 1s, no el ultimo dia del periodo anterior.
         // Martes 27oct: fin comparable = miercoles 21oct 00:00 -> racha a 20oct.
