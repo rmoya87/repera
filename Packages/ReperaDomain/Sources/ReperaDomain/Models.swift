@@ -2370,6 +2370,26 @@ public struct PersonalRecord: Identifiable, Codable, Sendable, Hashable {
     }
 }
 
+/// Actividad deportiva reutilizable, sin inventar ejercicios ni repetir GPS histórico.
+public struct FavoriteSportActivity: Identifiable, Codable, Sendable, Hashable {
+    public let id: UUID
+    public var sourceWorkoutId: UUID
+    public var sportID: String
+    public var title: String
+
+    public init(
+        id: UUID = UUID(),
+        sourceWorkoutId: UUID,
+        sportID: String,
+        title: String
+    ) {
+        self.id = id
+        self.sourceWorkoutId = sourceWorkoutId
+        self.sportID = sportID
+        self.title = title
+    }
+}
+
 /// Temporizador guardado en favoritos (configuración reutilizable).
 public struct FavoriteTimer: Identifiable, Codable, Sendable, Hashable, Equatable {
     public let id: UUID
@@ -2421,6 +2441,7 @@ public struct AppState: Codable, Sendable, Equatable {
     public var activeSession: WorkoutSession?
     public var rotation: RotationPlan?
     public var favoriteTimers: [FavoriteTimer]
+    public var favoriteSportActivities: [FavoriteSportActivity]
     /// Preferencias de carga de discos por ejercicio (`exerciseId.uuidString`).
     public var exerciseLoadPrefs: [String: ExerciseLoadPreference]
     /// Wall-clock stamp for display / coarse ordering.
@@ -2439,6 +2460,7 @@ public struct AppState: Codable, Sendable, Equatable {
         activeSession: WorkoutSession? = nil,
         rotation: RotationPlan? = nil,
         favoriteTimers: [FavoriteTimer] = [],
+        favoriteSportActivities: [FavoriteSportActivity] = [],
         exerciseLoadPrefs: [String: ExerciseLoadPreference] = [:],
         updatedAt: Date = Date(),
         syncRevision: Int = 0,
@@ -2452,6 +2474,7 @@ public struct AppState: Codable, Sendable, Equatable {
         self.activeSession = activeSession
         self.rotation = rotation
         self.favoriteTimers = favoriteTimers
+        self.favoriteSportActivities = favoriteSportActivities
         self.exerciseLoadPrefs = exerciseLoadPrefs
         self.updatedAt = updatedAt
         self.syncRevision = syncRevision
@@ -2459,7 +2482,7 @@ public struct AppState: Codable, Sendable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case settings, exercises, routines, workouts, bodyWeights, activeSession, rotation, favoriteTimers
+        case settings, exercises, routines, workouts, bodyWeights, activeSession, rotation, favoriteTimers, favoriteSportActivities
         case exerciseLoadPrefs, updatedAt, syncRevision, lastWriterDeviceId
     }
 
@@ -2473,6 +2496,7 @@ public struct AppState: Codable, Sendable, Equatable {
         activeSession = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeSession)
         rotation = try c.decodeIfPresent(RotationPlan.self, forKey: .rotation)
         favoriteTimers = try c.decodeIfPresent([FavoriteTimer].self, forKey: .favoriteTimers) ?? []
+        favoriteSportActivities = try c.decodeIfPresent([FavoriteSportActivity].self, forKey: .favoriteSportActivities) ?? []
         exerciseLoadPrefs = try c.decodeIfPresent([String: ExerciseLoadPreference].self, forKey: .exerciseLoadPrefs) ?? [:]
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
         syncRevision = try c.decodeIfPresent(Int.self, forKey: .syncRevision) ?? 0
@@ -2489,6 +2513,7 @@ public struct AppState: Codable, Sendable, Equatable {
         try c.encodeIfPresent(activeSession, forKey: .activeSession)
         try c.encodeIfPresent(rotation, forKey: .rotation)
         try c.encode(favoriteTimers, forKey: .favoriteTimers)
+        try c.encode(favoriteSportActivities, forKey: .favoriteSportActivities)
         try c.encode(exerciseLoadPrefs, forKey: .exerciseLoadPrefs)
         try c.encode(updatedAt, forKey: .updatedAt)
         try c.encode(syncRevision, forKey: .syncRevision)
