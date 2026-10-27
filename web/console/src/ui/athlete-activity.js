@@ -92,7 +92,22 @@ function workoutCard(w,i){
  <span class="pa-record-chevron" aria-hidden="true">⌄</span></summary>
  <div class="pa-record-body">${workoutBlocks(w)}${wodResults(w)}</div></details>`;
 }
-export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],loading=false,canPlan=false,athleteId=''}={}){
+const plannedCard=s=>{
+ const blocks=asArray(s.prescription?.blocks);
+ const name=s.title||'Entrenamiento programado';
+ const time=Number.isInteger(s.scheduled_time_minutes)?String(Math.floor(s.scheduled_time_minutes/60)).padStart(2,'0')+':'+String(s.scheduled_time_minutes%60).padStart(2,'0'):'Sin hora establecida';
+ return `<details class="pa-workout-record pa-planned-record"><summary><span class="pa-record-icon" aria-hidden="true">○</span><span><strong>${e(name)}</strong><small>Planificado · ${time}</small></span><span class="pa-record-chevron">⌄</span></summary>
+ <div class="pa-record-body">${s.instructions?`<p class="pa-muted">${e(s.instructions)}</p>`:''}
+ ${blocks.length?blocks.map((block,i)=>`<section class="pa-workout-block">
+ <div class="pa-workout-block-head"><span class="pa-block-index">${i+1}</span><div><span class="pa-eyebrow">${e(block.kind==='wod'?'WOD':'Fuerza')}</span><h4>${e(block.title||'Bloque '+(i+1))}</h4></div></div>
+ <div class="pa-workout-exercises">${asArray(block.kind==='wod'?block.movements:block.exercises).map(ex=>{
+ const art=exerciseArt(ex.name||'');
+ return `<article class="pa-exercise-card"><div class="pa-exercise-head">${art?`<img src="${art}" class="pa-exercise-photo" alt="" loading="lazy">`:'<div class="pa-exercise-photo pa-exercise-placeholder" aria-hidden="true">✦</div>'}<strong>${e(ex.name||'Movimiento')}</strong></div>
+ <p class="pa-exercise-prescribed">${ex.reps!=null?`${e(ex.reps)} repeticiones`:asArray(ex.plannedSets).map(x=>`${e(x.targetReps||0)} rep · ${e(x.targetWeightKg||0)} kg`).join(' / ')}</p></article>`;
+ }).join('')}</div></section>`).join(''): '<p class="pa-muted">Este plan no tiene bloques detallados.</p>'}</div></details>`;
+};
+export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],plannedSessions=[],loading=false,canPlan=false,athleteId='',actionNamespace='admin',emptyText='Los días señalados tienen actividad registrada.'}={}){
+ const ns=actionNamespace==='trainer'?'data-action':'data-admin-action';
  const safeMonth=/^\d{4}-\d{2}$/.test(month||'')?month:new Date().toLocaleDateString('sv-SE').slice(0,7);
  const [year,m]=safeMonth.split('-').map(Number);
  const first=(new Date(Date.UTC(year,m-1,1)).getUTCDay()+6)%7;
@@ -104,7 +119,7 @@ export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],
   const value=safeMonth+'-'+String(day).padStart(2,'0');
   const count=countByDay.get(value)||0;
   return `<button type="button" class="pa-activity-day ${count?'has-activity':''} ${value===selectedDay?'selected':''}"
-   data-admin-action="athlete-day" data-day="${e(value)}" aria-label="${e(day+' de '+title+(count?' · '+count+' entrenamientos':' · sin entrenamientos'))}"
+   ${ns}="${actionNamespace==='trainer'?'trainer-day':'athlete-day'}" data-day="${e(value)}" aria-label="${e(day+' de '+title+(count?' · '+count+' entrenamientos':' · sin entrenamientos'))}"
    aria-pressed="${value===selectedDay?'true':'false'}">
    <span>${day}</span><i class="pa-activity-dot" aria-hidden="true"></i></button>`;
  }).join('');
@@ -112,9 +127,9 @@ export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],
   <div><span class="pa-eyebrow">Actividad</span><h2>Calendario de entrenamientos</h2>
   <p class="pa-muted">Selecciona un día para ver sus ejercicios y resultados tal como se realizaron.</p></div>
   <div class="pa-calendar-actions">
-   <button type="button" data-admin-action="athlete-month" data-step="-1" aria-label="Mes anterior">‹</button>
+   <button type="button" ${ns}="${actionNamespace==='trainer'?'trainer-month':'athlete-month'}" data-step="-1" aria-label="Mes anterior">‹</button>
    <strong>${e(title)}</strong>
-   <button type="button" data-admin-action="athlete-month" data-step="1" aria-label="Mes siguiente">›</button></div></div>
+   <button type="button" ${ns}="${actionNamespace==='trainer'?'trainer-month':'athlete-month'}" data-step="1" aria-label="Mes siguiente">›</button></div></div>
   <div class="pa-activity-weekdays">${['L','M','X','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div>
   <div class="pa-activity-calendar">${cells}</div>
   <div class="pa-activity-legend"><span class="pa-activity-dot has"></span>Día con entrenamiento <span class="pa-activity-dot"></span>Sin actividad</div>
@@ -122,11 +137,11 @@ export function renderAthleteActivity({month,days=[],selectedDay='',workouts=[],
   <section class="pa-panel pa-activity-workouts"><div class="pa-activity-right-heading">
   <h2>${selectedDay?'Entrenamientos del '+e(fmtDate(selectedDay+'T12:00:00Z')):'Selecciona un día'}</h2>
   ${canPlan&&selectedDay?`<button type="button" class="pa-button primary"
-  data-admin-action="schedule-athlete" data-id="${e(athleteId)}" data-day="${e(selectedDay)}">+ Añadir entrenamiento</button>`:''}</div>
+  data-action="${actionNamespace==='trainer'?'plan-client':'schedule-athlete'}" data-id="${e(athleteId)}" data-day="${e(selectedDay)}">+ Añadir entrenamiento</button>`:''}</div>
   ${loading?'<p class="pa-muted">Cargando entrenamientos...</p>':
-    !selectedDay?'<p class="pa-muted">Los días señalados en verde tienen actividad registrada.</p>':
-    workouts.length?workouts.map(workoutCard).join(''):
-   '<div class="pa-activity-none">No hay entrenamientos registrados este día.</div>'}
+    !selectedDay?`<p class="pa-muted">${e(emptyText)}</p>`:
+    workouts.length||plannedSessions.length?`${workouts.map(workoutCard).join('')}${plannedSessions.map(plannedCard).join('')}`:
+   '<div class="pa-activity-none">No hay entrenamientos registrados ni programados este día.</div>'}
   </section>`;
 }
 
