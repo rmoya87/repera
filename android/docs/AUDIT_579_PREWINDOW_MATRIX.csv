@@ -201,33 +201,33 @@ e7c65d3c|2026-10-24T23:18:57+02:00|Guard against missing legacy launch storyboar
 d48084cf|2026-10-24T23:18:09+02:00|Restore legacy launch storyboard file for existing Xcode projects while keeping the new splash active|ios-app|87105f26|verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
 293ccaef|2026-10-24T23:15:32+02:00|Force fresh iOS launch snapshot by renaming storyboard to ReperaLaunchBundle with directly bundled opaque mascot|docs-tests,ios-app,other||verified-n/a 13:59: launch/splash nativo iOS (storyboard/asset/escala); sin counterpart Android
 929dc303|2026-10-24T23:13:47+02:00|Use unambiguous PNG header bytes in packaged launch asset test|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-3cbf45f7|2026-10-24T23:13:16+02:00|Fix native green-only splash by bundling opaque Repera mascot PNG directly and validating compiled app|docs-tests,ios-app,other|53cca1d2 81032145|unverified
+3cbf45f7|2026-10-24T23:13:16+02:00|Fix native green-only splash by bundling opaque Repera mascot PNG directly and validating compiled app|docs-tests,ios-app,other|53cca1d2 81032145|verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 57cca023|2026-10-24T23:07:50+02:00|Validate installed iOS launch storyboard and opaque mascot inside compiled Repera.app|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 103e133f|2026-10-24T23:07:10+02:00|Regress native launch opacity and compiled resource naming against old green-eye screen|other|53cca1d2|verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-67893b30|2026-10-24T23:05:56+02:00|Watch: sincroniza thumbnails de los 5 heroes regenerados|watch||unverified
-4eeca543|2026-10-24T21:05:21+00:00|Fix cached transparent iOS launch: opaque Repera mascot and new launch storyboard|ios-app,other||unverified
+67893b30|2026-10-24T23:05:56+02:00|Watch: sincroniza thumbnails de los 5 heroes regenerados|watch||verified-n/a 14:00: thumbnails Watch de heroes — Watch iOS; Wear tiene su propia ruta de arte (verificar si aplica)
+4eeca543|2026-10-24T21:05:21+00:00|Fix cached transparent iOS launch: opaque Repera mascot and new launch storyboard|ios-app,other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 b1c063fd|2026-10-24T23:05:07+02:00|Fix staging command for opaque native launch assets|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-0efe5053|2026-10-24T23:04:43+02:00|Arte: carrusel propio para goblet squat (3 fases)|ios-app,packages|27b93b34|unverified
-b73aadde|2026-10-24T23:04:43+02:00|Arte: carrusel propio para KB swing (3 fases)|ios-app,packages|27b93b34|unverified
+0efe5053|2026-10-24T23:04:43+02:00|Arte: carrusel propio para goblet squat (3 fases)|ios-app,packages|27b93b34|verified-ported 14:00: carrusel goblet squat — MD5 identicos (art_cf_goblet_1..3)
+b73aadde|2026-10-24T23:04:43+02:00|Arte: carrusel propio para KB swing (3 fases)|ios-app,packages|27b93b34|verified-ported 14:00: carrusel KB swing — MD5 identicos (art_cf_kb_swing_1..3)
 cb737326|2026-10-24T23:04:32+02:00|Avoid CI workflow updates when publishing opaque launch image|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 d4a678f4|2026-10-24T23:03:46+02:00|Correct pixel position for opaque smile validation|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 386bbd40|2026-10-24T23:02:49+02:00|Regenerate opaque native launch artwork and refresh iOS storyboard cache|other|6c247d43|verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-a84fe2f2|2026-10-24T23:00:17+02:00|Arte: carrusel propio para air squat (3 fases)|ios-app,packages|27b93b34|unverified
-43aec645|2026-10-24T22:56:50+02:00|Restore visible native launch mascot using proven MascotHero asset with opaque pixels|ios-app,other|49bb3e23|unverified
-555d8af6|2026-10-24T22:55:27+02:00|Arte: corrige 5 heroes incongruentes + pasos de instrucciones|ios-app,packages|98195355|unverified
+a84fe2f2|2026-10-24T23:00:17+02:00|Arte: carrusel propio para air squat (3 fases)|ios-app,packages|27b93b34|verified-ported 14:00: carrusel air squat — MD5 identicos (art_gy_air_squat_1..3)
+43aec645|2026-10-24T22:56:50+02:00|Restore visible native launch mascot using proven MascotHero asset with opaque pixels|ios-app,other|49bb3e23|verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
+555d8af6|2026-10-24T22:55:27+02:00|Arte: corrige 5 heroes incongruentes + pasos de instrucciones|ios-app,packages|98195355|verified-ported 14:00: 5 heroes MD5 identicos (bear/fr_lunge/elev_frontales/fondos_banco/hack_squat); correccion de instrucciones sin bug counterpart — Android usa instrucciones propias en español ya correctas (Aperturas describe banco inclinado, front rack lunge coherente)
 6fce452d|2026-10-24T22:48:28+02:00|Add native launch mascot full-pupil opacity regression checks to CI|other|49bb3e23|verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-bd80f881|2026-10-24T20:47:20+00:00|Refine launch barbell silhouette and keep all facial details opaque|docs-tests,ios-app,other||unverified
+bd80f881|2026-10-24T20:47:20+00:00|Refine launch barbell silhouette and keep all facial details opaque|docs-tests,ios-app,other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 6238a1fc|2026-10-24T22:47:03+02:00|Rebuild and verify splash with smooth equipment alpha masks|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-8c953709|2026-10-24T22:46:45+02:00|Refine equipment matte without jagged dark halos on green splash|other||unverified
-00a61caf|2026-10-24T20:45:12+00:00|Repair native splash image alpha and prevent stale MascotHero launch references|docs-tests,ios-app,other||unverified
+8c953709|2026-10-24T22:46:45+02:00|Refine equipment matte without jagged dark halos on green splash|other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
+00a61caf|2026-10-24T20:45:12+00:00|Repair native splash image alpha and prevent stale MascotHero launch references|docs-tests,ios-app,other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 c57b9bfc|2026-10-24T22:44:56+02:00|Run one-time repair of Repera native launch artwork and verify it on brand-green background|other|2366f80e 53cca1d2 9d02ec6c|verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-805b5e5c|2026-10-24T22:44:25+02:00|Add launch-specific RGBA repair for opaque eyes smile and weights on transparent mascot|other||unverified
+805b5e5c|2026-10-24T22:44:25+02:00|Add launch-specific RGBA repair for opaque eyes smile and weights on transparent mascot|other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 045fc5a9|2026-10-24T22:15:31+02:00|Validate launch mascot exterior alpha and opaque original facial details in CI|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-877cbaa8|2026-10-24T20:14:12+00:00|Use the original Repera character running with transparent exterior and opaque face|ios-app,other||unverified
+877cbaa8|2026-10-24T20:14:12+00:00|Use the original Repera character running with transparent exterior and opaque face|ios-app,other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 da7910a0|2026-10-24T22:14:00+02:00|Publish faithful running mascot image with transparent background and validate splash assets|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 bde0f43f|2026-10-24T20:09:29+00:00|Remove temporary original artwork transfer workflow|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 ed623149|2026-10-24T22:09:19+02:00|Temporarily transfer original Repera mascot for faithful pose transformation|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
-512382f7|2026-10-24T20:08:07+00:00|Restore clean solid Repera face and matching running pose from original mascot|ios-app,other||unverified
+512382f7|2026-10-24T20:08:07+00:00|Restore clean solid Repera face and matching running pose from original mascot|ios-app,other||verified-n/a 14:00: splash/mascota nativa iOS; sin counterpart
 ca6bfa8d|2026-10-24T22:07:48+02:00|Rebuild both splash mascots from original Repera artwork|other||verified-n/a 10:46 (solo CI/workflow; sin delta de comportamiento)
 625f74c1|2026-10-24T22:06:59+02:00|Correct argument parsing newline in splash asset builder|other||unverified
 a94f1626|2026-10-24T22:06:42+02:00|Rebuild original Repera face once; preserve exact facial features in running pose without duplicate shapes|other|e5995989 f479f0b7|unverified
