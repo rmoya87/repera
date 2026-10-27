@@ -314,19 +314,40 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         return Self.quantityFieldLabel(name: name, equipment: equipment, style: loggingStyle, unit: defaultQuantityUnit)
     }
 
-    /// Walking lunge puede apuntarse por repeticiones o distancia recorrida,
-    /// conservando la carga externa (kg) en ambas opciones. No cambia la
-    /// unidad de series históricas que ya estuvieran guardadas.
+    /// Movimientos donde la distancia o las repeticiones pueden prescribirse
+    /// junto con una carga REAL en kg. No implica convertir históricos.
     public var supportsWeightedRepsOrMeters: Bool {
         Self.supportsWeightedRepsOrMeters(name: name)
+    }
+
+    public var supportsRepsOrMeters: Bool {
+        Self.supportsRepsOrMeters(name: name)
     }
 
     public static func supportsWeightedRepsOrMeters(name: String) -> Bool {
         let key = normalizeExerciseToken(name)
         return key == "walking lung" || key.hasPrefix("walking lunge")
-            || key.hasPrefix("zancada caminando")
-            || key.hasPrefix("zancadas caminando")
+            || key.hasPrefix("zancada caminando") || key.hasPrefix("zancadas caminando")
             || key.hasPrefix("zancadas andando")
+            || key.hasPrefix("sandbag lunge") || key.hasPrefix("zancadas con saco")
+            || key == "farmer carry" || key == "farmer walk" || key == "farmers carry"
+            || key.hasPrefix("paseo del granjero") || key.hasPrefix("paseo granjero")
+            || key.hasPrefix("yoke carry") || key.hasPrefix("paseo con yugo")
+            || key.hasPrefix("sled push") || key.hasPrefix("sled pull")
+            || key.hasPrefix("empuje de trineo") || key.hasPrefix("arrastre de trineo")
+            || key.hasPrefix("suitcase carry") || key.hasPrefix("overhead carry")
+            || key.hasPrefix("front rack carry") || key.hasPrefix("bear hug carry")
+    }
+
+    /// Recorridos sin lastre: la cantidad puede expresarse en repeticiones o m,
+    /// pero nunca se activa por ello el campo kg (burpees/gateo).
+    public static func supportsRepsOrMeters(name: String) -> Bool {
+        let key = normalizeExerciseToken(name)
+        return supportsWeightedRepsOrMeters(name: name)
+            || key.hasPrefix("burpee broad jump")
+            || key.hasPrefix("burpee con salto de longitud")
+            || key.hasPrefix("bear crawl")
+            || key.hasPrefix("gateo del oso")
     }
 
     /// Unidad por defecto al apuntar (bike/Ski → cal; remoerg/carrera → m).
@@ -350,8 +371,8 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         let target = (targetMuscle ?? "").lowercased()
         let group = (muscleGroup ?? "").lowercased()
 
-        // Zancadas caminando: kilos + (repeticiones O metros), incluso
-        // si el catálogo las describe como peso corporal.
+        // Los transportes/carries, trineos y zancadas cargadas no son ergómetros:
+        // metros y peso deben coexistir incluso con trineo/peso corporal en el seed.
         if supportsWeightedRepsOrMeters(name: name) { return .loadAndReps }
 
         if isJumpRope(name: n, equipment: eq) {
@@ -451,6 +472,14 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public static func defaultQuantityUnit(name: String, equipment: String? = nil) -> ExerciseQuantityUnit {
         let n = normalizeExerciseToken(name)
         let eq = normalizeExerciseToken(equipment ?? "")
+        // Solo Walking lunge empieza en reps por retrocompatibilidad. Los
+        // transportes, empujes y saltos de longitud suelen prescribirse en m.
+        if supportsRepsOrMeters(name: name) {
+            if n == "walking lung" || n.hasPrefix("walking lunge")
+                || n.hasPrefix("zancada caminando") || n.hasPrefix("zancadas caminando")
+                || n.hasPrefix("zancadas andando") { return .reps }
+            return .meters
+        }
         guard isMachineCardio(name: n, equipment: eq) || isHyroxDistance(name: n) else { return .reps }
         // Carrera / shuttle, trineo y transportes HYROX se miden en metros.
         if isRunLike(name: n) || isHyroxDistance(name: n) || isSled(name: n, equipment: eq) { return .meters }
@@ -1255,6 +1284,9 @@ public struct WODMovement: Identifiable, Codable, Sendable, Hashable {
     public var prescribedQuantityUnit: ExerciseQuantityUnit {
         if calories != nil { return .calories }
         if distanceMeters != nil { return .meters }
+        // «10 Farmer carry» son 10 repeticiones/tramos, no 10 metros
+        // solo porque la ficha de catálogo normalmente use distancia.
+        if reps != nil || repScheme != nil { return .reps }
         return Exercise.defaultQuantityUnit(name: name)
     }
 

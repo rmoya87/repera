@@ -1429,6 +1429,30 @@ public enum CrossFitGlossary {
             working = pair.remaining
         }
 
+        // Carga única explícita: «20m farmer carry 2x24kg»,
+        // «14 m walking lunges 16 kg», «Sled push 100kg».
+        // No confundir el número de implementos (2x) con las reps ni dejar
+        // «16kg» como parte del nombre, que rompería el matching de catálogo.
+        // Los pares 24/16 kg ya se han consumido en el paso anterior.
+        if male == nil, let load = working.range(
+            of: #"(?:#\s*)?(?:\b\d+\s*[x×]\s*)?\d+(?:[.,]\d+)?\s*(?:kg|kgs|kilos?|lb|lbs)\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            let token = String(working[load])
+            let numeric = token.replacingOccurrences(
+                of: #"(?i)\s*(?:kg|kgs|kilos?|lb|lbs)\s*$"#,
+                with: "", options: .regularExpression
+            ).replacingOccurrences(of: "#", with: "")
+            let lastNumber = numeric.split(whereSeparator: { $0 == "x" || $0 == "X" || $0 == "×" })
+                .last.map(String.init)?.trimmingCharacters(in: .whitespaces)
+                .replacingOccurrences(of: ",", with: ".")
+            if let lastNumber, let value = Double(lastNumber), value > 0 {
+                let inPounds = token.range(of: #"(?i)lbs?\s*$"#, options: .regularExpression) != nil
+                male = inPounds ? (value * 0.45359237 * 10).rounded() / 10 : value
+                working.removeSubrange(load)
+            }
+        }
+
         // Equipo DDB / DB / DKB… (antes de canonicalizar el nombre).
         let equipKeys = equipmentAliases.keys.sorted { $0.count > $1.count }
         for key in equipKeys {

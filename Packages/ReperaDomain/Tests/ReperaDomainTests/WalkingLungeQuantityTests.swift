@@ -12,6 +12,27 @@ final class WalkingLungeQuantityTests: XCTestCase {
         }
     }
 
+    func testOtherLoadedDistanceExercisesSupportKgAndMetres() {
+        for (name, unit) in [
+            ("Sandbag Lunges", ExerciseQuantityUnit.meters),
+            ("Farmer carry", .meters), ("Farmer walk", .meters),
+            ("Yoke carry", .meters), ("Sled push", .meters), ("Sled pull", .meters)
+        ] {
+            let exercise = Exercise(name: name, muscleGroup: "Piernas", equipment: "Trineo")
+            XCTAssertTrue(exercise.supportsWeightedRepsOrMeters, name)
+            XCTAssertTrue(exercise.supportsRepsOrMeters, name)
+            XCTAssertEqual(exercise.loggingStyle, .loadAndReps, name)
+            XCTAssertEqual(exercise.loadField, .weightKg, name)
+            XCTAssertEqual(exercise.defaultQuantityUnit, unit, name)
+        }
+        for name in ["Bear crawl", "Burpee Broad Jump"] {
+            let exercise = Exercise(name: name, muscleGroup: "Cardio", equipment: "Peso corporal")
+            XCTAssertTrue(exercise.supportsRepsOrMeters, name)
+            XCTAssertFalse(exercise.supportsWeightedRepsOrMeters, name)
+            XCTAssertEqual(exercise.loadField, .none, name)
+        }
+    }
+
     func testOtherLungesDoNotGainDistanceToggleAutomatically() {
         let exercise = Exercise(name: "Zancadas inversas con barra", muscleGroup: "Piernas")
         XCTAssertFalse(exercise.supportsWeightedRepsOrMeters)
@@ -41,6 +62,42 @@ final class WalkingLungeQuantityTests: XCTestCase {
         XCTAssertNil(restored.quantityUnit)
         XCTAssertEqual(restored.reps, 14)
         XCTAssertEqual(restored.weightKg, 12)
+    }
+
+    func testScannedLoadDistanceAndSetsPreserveBothUnits() {
+        let catalog = Catalog.seed()
+        let board = BoardScanLiteParser.parse(ocrText: """
+            AMRAP 15'
+            14m WALKING LUNGES 2x16kg
+            20m FARMER CARRY 24/16kg
+            15m SLED PUSH 100kg
+            10 BEAR CRAWL
+            10 SANDBAG LUNGES 20kg
+            """, catalog: catalog).blocks
+        XCTAssertEqual(board.count, 1)
+        guard let moves = board.first?.movements, moves.count == 5 else {
+            XCTFail("El escáner ha omitido movimientos")
+            return
+        }
+        XCTAssertEqual(moves[0].distanceMeters, 14)
+        XCTAssertEqual(moves[0].weightMaleKg, 16)
+        XCTAssertEqual(moves[0].prescribedQuantityUnit, .meters)
+        XCTAssertEqual(moves[1].distanceMeters, 20)
+        XCTAssertEqual(moves[1].weightMaleKg, 24)
+        XCTAssertEqual(moves[1].weightFemaleKg, 16)
+        XCTAssertEqual(moves[2].weightMaleKg, 100)
+        XCTAssertEqual(moves[3].reps, 10)
+        XCTAssertEqual(moves[3].prescribedQuantityUnit, .reps)
+        XCTAssertEqual(moves[4].reps, 10)
+        XCTAssertEqual(moves[4].weightMaleKg, 20)
+        XCTAssertEqual(moves[4].prescribedQuantityUnit, .reps)
+
+        let session = SessionController.from(
+            routine: Routine(title: "Pizarra cargas y distancia", blocks: board),
+            exercises: catalog
+        )
+        let weighted = session.exercises.filter { $0.exercise.supportsWeightedRepsOrMeters }
+        XCTAssertTrue(weighted.contains { $0.quantityUnit == .meters && $0.plannedSets.first?.targetWeightKg == 16 })
     }
 
     func testDistanceWODKeepsWeightForAllPlannedSets() {

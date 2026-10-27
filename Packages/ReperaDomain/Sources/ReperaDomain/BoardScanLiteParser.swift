@@ -468,8 +468,14 @@ public enum BoardScanLiteParser {
             of: #"(?i)^\s*\d+\s*/\s*\d+\s*CALS?(?:ORIES)?\b"#,
             options: .regularExpression
         ) != nil
-        // «20 / 16 CAL» sigue siendo objetivo H/M aunque OCR añada espacios.
-        let alternatives = caloriePair ? [working] : working.components(separatedBy: #" / "#)
+        // «20 / 16 CAL» no es escala. Tampoco «20m SLED PUSH 100 / 70 KG»
+        // ni «FARMER CARRY 24 / 16»: son cargas H/M aunque haya espacios.
+        let weightPair = working.range(
+            of: #"(?i)\d+(?:[.,]\d+)?\s*/\s*\d+(?:[.,]\d+)?\s*(?:kg|lbs?)?\s*$"#,
+            options: .regularExpression
+        ) != nil
+        let alternatives = (caloriePair || weightPair)
+            ? [working] : working.components(separatedBy: #" / "#)
         if alternatives.count >= 2 {
             working = alternatives[0].trimmingCharacters(in: .whitespaces)
             scaleAlternative = alternatives.dropFirst()
