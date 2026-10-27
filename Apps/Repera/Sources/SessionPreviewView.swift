@@ -5,6 +5,7 @@ import SwiftUI
 /// Topbar: X · ⋯ (editar) · ▶ Play. Título y día, debajo de la barra.
 struct SessionPreviewView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(SubscriptionManager.self) private var subscriptions
 
     var routine: Routine?
     var onClose: () -> Void
@@ -158,9 +159,18 @@ struct SessionPreviewView: View {
                     Button {
                         guard let routine = liveRoutine else { return }
                         if store.state.routines.contains(where: { $0.id == routine.id }) {
-                            store.setRoutineFavorite(routine.id, isFavorite: !routine.isFavorite)
+                            guard store.setRoutineFavorite(
+                                routine.id, isFavorite: !routine.isFavorite
+                            ) else {
+                                presentFavoriteLimitPaywall()
+                                return
+                            }
                         } else if !routine.isFavorite {
-                            _ = store.saveAsFavorite(routine)
+                            guard let saved = store.saveAsFavorite(routine) else {
+                                presentFavoriteLimitPaywall()
+                                return
+                            }
+                            editedSnapshot = saved
                         }
                     } label: {
                         Image(systemName: liveRoutine?.isFavorite == true ? "star.fill" : "star")
@@ -225,6 +235,15 @@ struct SessionPreviewView: View {
                 onCancel: { showDeleteConfirm = false }
             )
         }
+    }
+
+    /// Una estrella solo confirma éxito cuando existe una plantilla persistida.
+    /// Cuando la versión Gratis alcanza su límite, abrir el paywall igual
+    /// que el editor en vez de mostrar un favorito que nunca se guardó.
+    private func presentFavoriteLimitPaywall() {
+        let decision = store.lastAccessDenial
+            ?? subscriptions.canCreateLibraryRoutine(isNew: true)
+        subscriptions.presentPaywall(decision.paywallContext, feature: .unlimitedRoutines)
     }
 
     private var deleteConfirmMessage: String {
