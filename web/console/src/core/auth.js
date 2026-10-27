@@ -329,6 +329,24 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('service_passes?select=id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status,issuance_type&org_id=eq.'+orgId+'&order=created_at.desc');
  }
+ async servicePassOffers(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('business_pass_offers?select=id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active&org_id=eq.'+orgId+'&order=created_at.desc');
+ }
+ async createServicePassOffer({orgId,name,kind,credits,validityDays,priceCents}){
+  name=String(name||'').trim();
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||
+     !['class','appointment'].includes(kind)||!Number.isInteger(credits)||credits<1||credits>1000||
+     !Number.isInteger(validityDays)||validityDays<1||validityDays>730||
+     !Number.isInteger(priceCents)||priceCents<0||priceCents>10000000)
+    throw Error('Datos de bono o tarifa inválidos');
+  return this.#authorized('business_pass_offers?select=id,name',{method:'POST',prefer:'return=representation',
+   body:{org_id:orgId,name,kind,credits,validity_days:validityDays,price_cents:priceCents,currency:'EUR',is_active:true}});
+ }
+ async changeServicePassOffer({id,isActive}){
+  if(!/^[0-9a-f-]{36}$/i.test(id||'')||typeof isActive!=='boolean')throw Error('Oferta inválida');
+  return this.#authorized('business_pass_offers?id=eq.'+id,{method:'PATCH',prefer:'return=representation',body:{is_active:isActive}});
+ }
  async serviceBookings(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('service_bookings?select=id,org_id,client_id,occurrence_id,pass_id,status,booked_at&org_id=eq.'+orgId+'&order=booked_at.desc&limit=300');
