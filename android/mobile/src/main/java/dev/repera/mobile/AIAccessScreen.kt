@@ -134,6 +134,9 @@ fun AIAccessScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // Apple d61c5d52: filas sin separador con insets top/bottom 3 ->
+        // 6dp entre botones de proveedor (el resto de la pantalla usa 10dp).
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         providers?.first?.forEach { provider ->
             // Apple 0a640da8 connectedToken: oauth_client_id del catálogo debe
             // existir y coincidir con un token hasConnected (activo + usado).
@@ -161,6 +164,7 @@ fun AIAccessScreen(
                 Text(if (verified) "${provider.name} conectado"
                      else "Continuar con ${provider.name}")
             }
+        }
         }
         if (!connected) {
             Text("Inicia sesión en Repera para conectar tu asistente.",
