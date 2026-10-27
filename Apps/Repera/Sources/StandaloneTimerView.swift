@@ -447,6 +447,11 @@ struct StandaloneTimerView: View {
             isRunning = true
             pausedDisplaySeconds = nil
             armAnchorsForResume()
+            // Emitir también el primer 3 inmediatamente. Los otros
+            // dos pitidos llegan por el reloj (2, 1), igual que Comenzar.
+            if preCountdown > 0, preCountdownEnd != nil {
+                RestFeedback.tick(remaining: preCountdown, sound: true, haptic: true)
+            }
             startTicking()
         }
     }
