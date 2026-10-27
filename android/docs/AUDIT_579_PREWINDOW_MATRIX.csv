@@ -24,7 +24,7 @@ ed1ce91e|2026-10-25T16:34:45+01:00|feat(iOS): histórico deportivo con distancia
 d9055248|2026-10-25T16:34:05+01:00|feat(iOS): resumen con pulso real, energía y desnivel; limpiar estado GPS al descartar|ios-app|67cf393e|unverified
 a05d6e38|2026-10-25T16:33:34+01:00|feat(domain): contabilizar los nuevos deportes en minutos de cardio y progreso|packages|43cfc37f 513b51fe|verified: cardioLiveSports 44/44 ids identicos al baseline en domain/LiveSport.kt; isCardioWorkout port 1:1 en domain/StatsEngine.kt:125
 a305fbbd|2026-10-25T16:33:06+01:00|feat(iOS): fichas deportivas con métricas apropiadas y desnivel en directo|ios-app||unverified
-1bb5b704|2026-10-25T16:31:31+01:00|feat(iOS): calcular desnivel GPS con muestras válidas y restaurar tras interrupciones|ios-app|76cb2423|unverified
+1bb5b704|2026-10-25T16:31:31+01:00|feat(iOS): calcular desnivel GPS con muestras válidas y restaurar tras interrupciones|ios-app|76cb2423|verified-ported 13:46: integracion en vivo ya existia (filtro 0-15m, umbral 3m, rango -500..9000); GAP corregido este run: restore() ahora reconstruye desnivel del recorrido (rebuildElevationFromRoute, altitudes almacenadas 0-50m, semantica Apple). Test domain actualizado + 448/448 XML REAL
 8d3ab653|2026-10-25T16:29:34+01:00|feat(iOS): ampliar deportes en vivo con iconos, categorías, HealthKit y GPS específico|ios-app||unverified
 18c29c5d|2026-10-25T16:16:41+01:00|Merge pull request #74 from rmoya87/feat/ios-recent-routes-favorites|||unverified
 a947a5c9|2026-10-25T16:16:09+01:00|fix(iOS): geometría CGFloat consistente al dibujar miniaturas de rutas|ios-app||unverified
