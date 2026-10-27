@@ -6,7 +6,7 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
 ## Contadores (recontado EXACTO 16:27 CET sobre campo 6 de ambas matrices)
 - Pre-window: 48 partial + 2 in-progress + 1 verified-partial+gap = 51
   (los 2 in-progress son 661e65f4/9947c212 zonas FC: bloqueo preservado para decision usuario)
-- Post-window: 25 (13 partial + 4 verified-partial + 3 verified-partial+GAP + 5 GAP)
+- Post-window: 21 (recuento directo 16:47: cierres recientes 1c729659/056cba8b/1c9afcd0/83253491; 88db5bb7 REABIERTO como verified-partial+GAP: parser de importacion completo sin contraparte Android = diferencia funcional, no n/a)
   (39a3f7f2 partial: GAP prefill automatico userFinished vs copia manual;
    00fee1b4 verified-partial+GAP: legacy sin blockId indistinguible, slot
    unico sin TTL, sin migracion por decision del padre;
@@ -14,7 +14,7 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
    f6f13169 done 16:16: checkpoint onStop + cache geometria estructural, pendiente runtime;
    fafe016a partial 16:24: RouteMapTapTarget portado en CardioRouteSection con tests JVM;
    26a625be partial 16:26: velo oscuro + trazo 3 capas dentro de MapLibre, sin decision usuario)
-- TOTAL abierto: 76 filas + dependencias de validacion
+- TOTAL abierto: 72 filas (51 pre + 21 post, recuento DIRECTO sobre campo 6 de ambas matrices 16:47 CET, no aritmetica) + dependencias de validacion
 - Resueltas desde el inventario inicial: 35be5a8d (PlannedSetSummary), 2b1382f5 (chips disciplina), 21e26ff2/06884b8c/c3d2f246 (auth cache verificado), cadena BTT/T2B (6993e330..0a640da8), localizacion numeros post (b8cca90a/04da40ef/a192c38b/bf8de3db portados; 95847d98/fb6de251/af08512c n/a codigo muerto baseline), cluster onboarding AI (f68d77ff: logos OpenAI/Claude/Grok 0-diff, instrucciones 1:1, catalogo conexiones; quedan 5 partial: flujo Desconectar y oauth_client_id), cluster glifos corporales (este lote: 08551cb1/5099d9f1/49febc33/fdbd3558 verified-ported, 3b3792df n/a reorganizacion Xcode, b2f6b934 superseded por eliminacion Diario)
 
 ## Dependencias de validacion (bloquean cierre)
