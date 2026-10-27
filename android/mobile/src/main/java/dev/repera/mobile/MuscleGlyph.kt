@@ -27,7 +27,7 @@ enum class BodyPartGlyphArea {
             val key = dev.repera.domain.CrossFitGlossary.normalize(muscle.trim()).lowercase()
             return when (key) {
                 "deltoids", "deltoides", "delts", "hombros", "shoulders",
-                "trapezius", "trapezio", "trapecios", "traps" -> SHOULDERS
+                "trapezius", "trapezio", "trapecio", "trapecios", "traps" -> SHOULDERS
                 "biceps", "triceps", "brachialis", "brazo", "upper arms" -> UPPER_ARM
                 "forearm", "forearms", "antebrazo", "antebrazos", "grip", "agarre" -> FOREARM
                 "chest", "pecho", "pectorals", "pectoral", "pectorales",

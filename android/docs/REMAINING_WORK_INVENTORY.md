@@ -16,9 +16,10 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
    - Sub-dependencia explicita (padre 14:47): lo implementado por comparacion de fuente
      (glifos 20x20, tarjeta "Musculos y equipo", iconos chips biblioteca, onboarding AI)
      NO esta visualmente validado: 0-diff de coordenadas y assemble no acreditan pixeles.
-     Via intermedia honesta: render headless inspeccionable (captura Compose a bitmap en
-     test JVM / Robolectric modo grafico) con PNGs revisables — acredita render, nunca
-     runtime de dispositivo. Robolectric no esta en deps de mobile hoy.
+     Via intermedia honesta EN MARCHA: Robolectric 4.17 graficos nativos + ui-test-junit4
+     anadidos como testImplementation; MuscleGlyphRenderTest rasteriza los 11 glifos a
+     PNGs revisables (mobile/build/reports/render/). Acredita render JVM, NUNCA runtime
+     de dispositivo. Extensible al resto de UI portada por fuente (tarjeta, chips, AI).
 3. Suites COMPLETAS verdes tras cada implementacion (actual: domain 457/457 XML real, mobile 507/507 en 123 suites XML real)
 
 ## Grupos de gaps principales (pre+post)

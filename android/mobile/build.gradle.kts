@@ -35,6 +35,10 @@ android {
             }
         }
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     buildTypes {
         release {
             if (providers.environmentVariable("REPERA_UPLOAD_KEYSTORE_FILE").isPresent) {
@@ -78,6 +82,11 @@ dependencies {
     implementation("com.android.billingclient:billing-ktx:8.0.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")
+    // Render headless inspeccionable (NO es validacion de dispositivo):
+    // Robolectric con graficos nativos rasteriza Compose en JVM y permite
+    // capturar bitmaps revisables de composables portados por fuente.
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     // UiDevice: input real para gestos sobre MapLibre (la inyeccion Compose
     // comprime el tiempo y el SDK no traduce el gesto a pan).
