@@ -288,9 +288,7 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
                 PropertyFactory.lineOpacity(opacities[i]),
                 PropertyFactory.lineCap("round"),
                 PropertyFactory.lineJoin("round"))
-            // lineMetrics no esta expuesto en PropertyFactory (android-sdk
-            // 13.7.1): propiedad de layout cruda, requerida por lineGradient.
-            if (gradient != null) props.add(org.maplibre.android.style.layers.PropertyValue("line-metrics", true))
+
             if (dashed_) props.add(PropertyFactory.lineDasharray(
                 arrayOf(4f / widths[i], 4f / widths[i])))
             style.addLayer(LineLayer("$base-${names[i]}", src).withProperties(*props.toTypedArray()))
@@ -328,7 +326,11 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
             val feature = org.maplibre.geojson.Feature.fromJson(JSONObject()
                 .put("type", "Feature")
                 .put("geometry", JSONObject().put("type", "LineString").put("coordinates", coords)).toString())
-            style.addSource(GeoJsonSource("route-src-$ri", feature))
+            // lineGradient requiere la opcion lineMetrics en la FUENTE
+            // (GeoJsonOptions.withLineMetrics; verificado en el bytecode del
+            // android-sdk 13.7.1: no existe propiedad de layout line-metrics).
+            style.addSource(GeoJsonSource("route-src-$ri", feature,
+                org.maplibre.android.style.sources.GeoJsonOptions().withLineMetrics(true)))
             val dists = run.map { segmentMeters(it.a, it.b) }
             val total = dists.sum().coerceAtLeast(1e-9)
             val stops = mutableListOf<org.maplibre.android.style.expressions.Expression.Stop>()

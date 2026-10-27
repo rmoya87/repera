@@ -11,9 +11,12 @@ import java.io.File
 class RouteMapGradientContractTest {
     private val src = File("src/main/java/dev/repera/mobile/RouteMapView.kt").readText()
 
-    @Test fun gradientUsesLineMetricsAndProgress() {
+    @Test fun gradientUsesSourceLineMetricsAndProgress() {
         assertTrue(src.contains("PropertyFactory.lineGradient(gradient)"))
-        assertTrue(src.contains("PropertyValue(\"line-metrics\", true)"))
+        // lineMetrics es opcion de GeoJsonSource (GeoJsonOptions), verificado
+        // en el bytecode del SDK; NO propiedad de layout de LineLayer.
+        assertTrue(src.contains("GeoJsonOptions().withLineMetrics(true)"))
+        assertTrue(!src.contains("\"line-metrics\""))
         assertTrue(src.contains("Expression.interpolate(Expression.linear(), Expression.lineProgress()"))
     }
 
