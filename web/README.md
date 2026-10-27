@@ -1,5 +1,14 @@
 # Web Repera (`repera.app`)
 
+## Fichas y navegación del centro (27/10/2026)
+
+Consola global: Atletas -> Ejercicios, Datos, Acceso, Reservas; ejercicios en dos columnas con calendario, carga de sesión y elementos del catálogo; récords e1RM limitados al historial disponible, mapa orientativo y puntuación transparente de actividad. Centros -> Datos, Equipo, Clientes, Facturación, con listas pulsables y control de publicación en búsqueda sin requerir que el propietario ya se haya registrado.
+
+Centro delegado: menú fijo con logotipo del centro y Ajustes/Volver/Cerrar sesión abajo, sin gran cabecera blanca. Clientes como lista; ficha breve con entrenamiento compartido por consentimiento, datos básicos y reservas. Alta de cliente crea invitación pendiente; acepta desde el correo de su propia cuenta; envío por endpoint Resend JWT protegido solo si configurado.
+
+Para emails reales habilitar secretos `RESEND_API_KEY`, `REPERA_INVITE_FROM`, `REPERA_PUBLIC_URL` en Supabase Edge; opcionales `REPERA_IOS_URL`, `REPERA_ANDROID_URL`. No se deben inventar enlaces de App Store o Google Play. Se recomienda validar entrega y enlaces con una cuenta ya registrada y otra nueva antes de producción. El proyecto usa recursos con caché `20261027profiles`.
+
+
 ## Centro profesional renovado — 27/10/2026
 
 El menú delegado conserva la interfaz clara, navegación lateral y botones directos de Inicio → Deportistas, Entrenamientos y Clases/Reservas. Inicio recibe solicitudes enviadas desde la app con Aceptar/Rechazar/Actualizar. En Entrenamientos hay un planificador rápido de tres pasos con selección de plantilla, deportistas vinculados y modo día/semana/rango; enseña el número calculado de entrenamientos, bloquea solicitudes incompletas y admite máximo 120 sesiones en una operación atómica idempotente. Mantiene el editor completo por bloques para una persona.
