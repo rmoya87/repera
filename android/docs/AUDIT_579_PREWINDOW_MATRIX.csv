@@ -18,11 +18,11 @@ fff1ef52|2026-10-25T21:24:02+01:00|fix(iOS): iconos deportivos, nombres y orden 
 cba49780|2026-10-25T17:21:24+01:00|Merge main into expanded iOS sports; keep unified GPS architecture|||unverified
 ee525bb3|2026-10-25T16:56:44+01:00|feat(iOS): unified GPS and native HealthKit for free and planned workouts|docs-tests,ios-app,other,packages||unverified
 5e95cc60|2026-10-25T16:36:19+01:00|fix(iOS): usar SurfingSports para windsurf/kitesurf y figura Pilates nativa|ios-app||unverified
-a88e3a39|2026-10-25T16:35:32+01:00|test(domain): nuevas disciplinas suman cardio sin inventar sensores|packages|157ed64f 2366f80e|unverified
+a88e3a39|2026-10-25T16:35:32+01:00|test(domain): nuevas disciplinas suman cardio sin inventar sensores|packages|157ed64f 2366f80e|verified: test Apple; comportamiento cubierto por el set identico verificado en a05d6e38
 d99799ac|2026-10-25T16:35:09+01:00|feat(iOS): iconos coherentes para nuevos entrenamientos de Apple Salud|ios-app||unverified
 ed1ce91e|2026-10-25T16:34:45+01:00|feat(iOS): histórico deportivo con distancia, tiempo y métricas reales por actividad|ios-app||unverified
 d9055248|2026-10-25T16:34:05+01:00|feat(iOS): resumen con pulso real, energía y desnivel; limpiar estado GPS al descartar|ios-app|67cf393e|unverified
-a05d6e38|2026-10-25T16:33:34+01:00|feat(domain): contabilizar los nuevos deportes en minutos de cardio y progreso|packages|43cfc37f 513b51fe|unverified
+a05d6e38|2026-10-25T16:33:34+01:00|feat(domain): contabilizar los nuevos deportes en minutos de cardio y progreso|packages|43cfc37f 513b51fe|verified: cardioLiveSports 44/44 ids identicos al baseline en domain/LiveSport.kt; isCardioWorkout port 1:1 en domain/StatsEngine.kt:125
 a305fbbd|2026-10-25T16:33:06+01:00|feat(iOS): fichas deportivas con métricas apropiadas y desnivel en directo|ios-app||unverified
 1bb5b704|2026-10-25T16:31:31+01:00|feat(iOS): calcular desnivel GPS con muestras válidas y restaurar tras interrupciones|ios-app|76cb2423|unverified
 8d3ab653|2026-10-25T16:29:34+01:00|feat(iOS): ampliar deportes en vivo con iconos, categorías, HealthKit y GPS específico|ios-app||unverified
@@ -390,7 +390,7 @@ d805f0ad|2026-10-23T15:29:36+02:00|feat(mobility): model timed dynamic and hold 
 0cca7e58|2026-10-23T15:29:20+02:00|fix(ios): cardio-specific evolution metrics and remove empty training prompts|ios-app|42e42f8c|unverified
 e2679ee6|2026-10-23T15:28:59+02:00|fix(stats): separate cardio distance and calorie progress metrics|packages|42e42f8c 9783f168 9956477c ebc5e93f|unverified
 668e8b03|2026-10-23T15:22:10+02:00|test(search): ensure Spanish and English HYROX aliases|packages|40c61fc9 8a9b3b23 f479f0b7|unverified
-96284a58|2026-10-23T15:22:06+02:00|fix(hyrox): include singular Spanish label|packages||unverified
+96284a58|2026-10-23T15:22:06+02:00|fix(hyrox): include singular Spanish label|packages||verified-with-fix: "Burpee con salto de longitud" incluido en el set portado tree168
 215627b4|2026-10-23T15:22:04+02:00|feat(search): recognize HYROX stations in English|packages|1a15ed98|unverified
 ea4f47a5|2026-10-23T15:22:01+02:00|feat(catalog): bilingual HYROX movement names|packages|7e092adf 84dace55 89da973e baba0785|unverified
 2639c096|2026-10-23T15:15:22+02:00|docs(features): document HYROX filter and catalog mapping|docs-tests|7e092adf 89da973e b2188237 baba0785|unverified
@@ -399,8 +399,8 @@ ea4f47a5|2026-10-23T15:22:01+02:00|feat(catalog): bilingual HYROX movement names
 2b1382f5|2026-10-23T15:14:03+02:00|feat(ios): show additive sport chips on exercise detail|ios-app|830e0009 cb6bef67|unverified
 b7428a37|2026-10-23T15:14:00+02:00|feat(ios): HYROX library filter and shared sport sections|ios-app|1a15ed98 968f1d66 b2188237|unverified
 e327d676|2026-10-23T15:13:57+02:00|feat(ios): HYROX discipline in exercise picker|ios-app|89da973e|unverified
-9f89e59f|2026-10-23T15:13:19+02:00|feat(search): index secondary HYROX discipline|packages||unverified
-e350a23d|2026-10-23T15:13:14+02:00|feat(domain): expose additive HYROX discipline tags|packages||unverified
+9f89e59f|2026-10-23T15:13:19+02:00|feat(search): index secondary HYROX discipline|packages||unverified (retirado marcado prematuro 10:25: indexa disciplineTags en ExerciseSearch, NO lo cubre el fix del filtro)
+e350a23d|2026-10-23T15:13:14+02:00|feat(domain): expose additive HYROX discipline tags|packages||verified-with-fix: conjunto HYROX incompleto (faltaban 16 equivalencias ES/plurales); portado en tree168 con test (ExerciseCatalogFiltersTest 2/2)
 26a03d2b|2026-10-23T15:13:11+02:00|feat(catalog): add HYROX tags and missing stations|packages|1a15ed98 7e092adf 89da973e baba0785|unverified
 c795768e|2026-10-23T15:12:09+02:00|docs(mobility): link exercise inventory and add verification checklist|docs-tests|6097fb92 6c247d43 89da973e acf504b5|unverified
 c7a95389|2026-10-23T15:12:06+02:00|docs(mobility): link exercise inventory and add verification checklist|other|6097fb92 6c247d43 89da973e acf504b5|unverified

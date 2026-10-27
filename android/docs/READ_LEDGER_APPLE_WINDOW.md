@@ -190,3 +190,9 @@ Son CAPAS DISTINTAS, ambas portadas correctamente contra bd4d7637:
    El 20m de tree132 es este umbral de wording, no el de detección. Sin contradicción ni regresión.
 Residual abierto (menor): Apple calcula followingTurnMeters/Symbol (preview del SEGUNDO giro en UI);
 el Cue Android no lo expone. Anotado, sin portar aún.
+
+## tree168 (10:26) — filtro HYROX: set incompleto vs Apple (fix) + hallazgo abierto 9f89e59f
+- e350a23d / 96284a58 (Apple): filtro HYROX con matchingNames completo (ES + plurales). Android `mobile/ExerciseCatalogFilters.kt` tenía el set recortado: faltaban 16 equivalentes ES/plural (p.ej. "remo", "zancadas", "double unders", "sentadillas", formas pluralizadas). FIX aplicado: set ampliado a las matchingNames de Apple, formas normalizadas al criterio Android. Nuevo test `ExerciseCatalogFiltersTest` verifica que cada nombre Apple coincide con el filtro.
+- Test REAL (XML, post-fix): mobile FULL 462/462, 0 failures/errors/skipped (baseline 460 + 2 nuevos).
+- Matrix: e350a23d, 96284a58 → verified-with-fix (tree168).
+- HALLAZGO ABIERTO 9f89e59f (Apple): indexa `disciplineTags.joined(" ")` en el campo "sport" de ExerciseSearch → buscar "hyrox" por texto devuelve todos los ejercicios HYROX. Android NO tiene concepto disciplineTags; `ExerciseAliasSearch.score(query, name, aliases)` solo puntúa nombre+aliases y los call sites (ExercisesTab, ReperaCards, WodLibraryScreen) solo pasan `name`. Buscar "hyrox" por texto en Android no devuelve nada (solo funciona el chip de filtro). NO arreglado: requiere decisión de diseño (dónde compone Android el documento de búsqueda; cómo alimentar disciplina sin alterar ranking). Fila 9f89e59f revertida a unverified con nota. Candidato a subir como gap en reporte final.

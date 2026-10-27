@@ -4,11 +4,18 @@ import dev.repera.domain.ExerciseAliasSearch
 
 /** Curated discovery tags; never rewrite or replace iOS sportTag with Hyrox. */
 object ExerciseCatalogFilters {
+    // Apple (live main) HyroxExercises.matchingNames, en la forma ya normalizada por
+    // ExerciseAliasSearch.normalize (sin diacríticos, minúsculas, puntuación como espacio).
     private val hyrox = setOf(
         // iOS renamed "Carrera" to "Run" in the seed; both kept for older snapshots.
-        "skierg", "remo maquina", "carrera", "cinta carrera", "run",
-        "sled push", "sled pull", "farmer carry", "farmer walk",
-        "burpee broad jump", "sandbag lunges", "wall ball"
+        "skierg", "esqui ergometro", "remo maquina", "remoergometro", "rowerg", "rowing",
+        "carrera", "cinta carrera", "run", "running",
+        "sled push", "empuje de trineo", "sled pull", "arrastre de trineo",
+        "farmer carry", "farmer walk", "farmers carry", "paseo del granjero",
+        "burpee broad jump", "burpee broad jumps",
+        "burpee con salto de longitud", "burpees con salto de longitud",
+        "sandbag lunges", "sandbag lunge", "zancadas con saco",
+        "wall ball", "wall balls", "lanzamiento de balon a pared"
     )
 
     fun isHyroxTrainingMovement(name: String): Boolean =
