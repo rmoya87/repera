@@ -199,6 +199,39 @@ async function reload(){
  else if(!organizations.some(o=>o.id===selectedOrg))selectedOrg=organizations[0]?.id||null;
  await loadSelectedOrg();
 }
+function bulkPlanSummary(form){
+ if(!form)return {ok:false,message:'Abre la planificación rápida'};
+ const ids=[...form.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
+ const days=[...form.querySelectorAll('input[name="weekdays"]:checked')].map(x=>Number(x.value));
+ const template=form.querySelector('select[name="template"]')?.value||'';
+ const from=form.querySelector('input[name="start"]')?.value||'';
+ const to=form.querySelector('input[name="end"]')?.value||'';
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to))
+  return {ok:false,message:'Selecciona fechas válidas'};
+ const first=Date.parse(from+'T12:00:00Z'),last=Date.parse(to+'T12:00:00Z');
+ if(!Number.isFinite(first)||!Number.isFinite(last)||last<first||last-first>55*86400000)
+  return {ok:false,message:'Elige un intervalo válido de máximo 8 semanas'};
+ const allowed=new Set(days),countDays=Array.from({length:Math.floor((last-first)/86400000)+1},(_,i)=>
+  new Date(first+i*86400000).getUTCDay()||7).filter(day=>allowed.has(day)).length;
+ const count=ids.length*countDays;
+ const label=ids.length+' atletas · '+countDays+' días · '+count+' entrenamientos';
+ if(!template)return {ok:false,message:'Selecciona una plantilla · '+label};
+ if(!ids.length)return {ok:false,message:'Selecciona al menos un atleta'};
+ if(ids.length>20)return {ok:false,message:'Máximo 20 atletas por publicación'};
+ if(!days.length||!countDays)return {ok:false,message:'Selecciona un día de la semana dentro del intervalo'};
+ if(count>120)return {ok:false,message:label+' · supera el límite de 120'};
+ return {ok:true,message:label,ids,days};
+}
+function refreshBulkPlanPreview(form){
+ if(!form)return;
+ const result=bulkPlanSummary(form);
+ const preview=form.querySelector('[data-bulk-preview]');
+ if(preview){preview.textContent=result.message;preview.classList.toggle('is-invalid',!result.ok);}
+ const btn=form.querySelector('[data-bulk-submit]');
+ if(btn)btn.disabled=busy||!result.ok;
+ const selected=form.querySelector('[data-bulk-count]');
+ if(selected)selected.textContent=(form.querySelectorAll('input[name="clients"]:checked').length)+' deportistas';
+}
 app.addEventListener('click',async event=>{
  const platformTab=event.target.closest('[data-admin-tab]');
  if(platformTab){adminTab=platformTab.dataset.adminTab;adminSelectedOrg='';adminSelectedAthlete='';
@@ -323,6 +356,15 @@ app.addEventListener('click',async event=>{
  if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;activeTab='services';render();return;}
  if(action==='plan-client'){planningClientId=actionable.dataset.id;activeTab='planning';selectedTemplateId=null;editingSessionId=null;render();return;}
  if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='services';classMode='list';notice='Selecciona una clase para inscribir a este deportista con un bono válido.';render();return;}
+ if(action==='refresh-enrollments'&&!busy&&selectedOrg){
+  busy=true;error='';render();
+  try{
+   enrollmentRequests=await auth.enrollmentRequests(selectedOrg);
+   notice='Solicitudes actualizadas.';
+  }catch(e){error=e.message||'No se pudo consultar las solicitudes';}
+  finally{busy=false;render();}
+  return;
+ }
  if((action==='approve-enrollment'||action==='reject-enrollment')&&!busy){
   busy=true;error=notice='';render();
   try{
@@ -342,6 +384,7 @@ app.addEventListener('click',async event=>{
    options.forEach(x=>{x.checked=shouldCheck;});
    const count=form.querySelector('[data-bulk-count]');
    if(count)count.textContent=options.filter(x=>x.checked).length+' deportistas';
+   refreshBulkPlanPreview(form);
   }
   return;
  }
@@ -419,7 +462,13 @@ app.addEventListener('change',async event=>{
     start.value=iso(monday);end.value=iso(sunday);
    }
    if(mode==='range'){end.value=iso(new Date(today.getTime()+6*86400000));start.value=iso(today);}
+   refreshBulkPlanPreview(form);
   }
+  return;
+ }
+ if(event.target.closest('form[data-connected="bulk-training"]')&&
+    event.target.matches('[name="clients"],[name="template"],[name="weekdays"],[name="start"],[name="end"]')){
+  refreshBulkPlanPreview(event.target.closest('form'));
   return;
  }
  const platformFilter=event.target.closest('[data-admin-filter]');
@@ -495,6 +544,10 @@ app.addEventListener('submit',async event=>{
  }
  const f=event.target.closest('form[data-connected]');if(!f)return;event.preventDefault();if(busy)return;
  const action=f.dataset.connected,data=new FormData(f),intent=event.submitter?.dataset.intent||'publish';
+ if(action==='bulk-training'){
+  const valid=bulkPlanSummary(f);
+  if(!valid.ok){error=valid.message;notice='';return;}
+ }
  let prescription=null;
  try{if(action==='publish-session'||action==='publish-class-plan')prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){error=e.message;notice='';render();return;}
  busy=true;error=notice='';render();
