@@ -12,7 +12,7 @@ const select=(label,name,rows,selected='')=>`<label class="connected-field">${la
 const note=t=>`<p class="connected-hint">${esc(t)}</p>`;
 const show=(html)=>`<section class="connected-card business-360">${html}</section>`;
 
-function renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth}){
+function renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth,manager}){
  const now=new Date(),today=new Date().toLocaleDateString('sv-SE');
  const visits=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at)>=now).map(o=>({at:o.starts_at,kind:o.kind==='appointment'?'Cita':'Grupo',title:o.title,id:o.id,action:'detail-occurrence',detail:`${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length} reservas`}));
  const plans=sessions.filter(s=>s.status==='scheduled'&&s.scheduled_date>=today).map(s=>({at:s.scheduled_date+'T12:00:00',kind:'Entrenamiento · sin hora',title:s.title,id:s.client_id,action:'detail-client',detail:clients.find(c=>c.id===s.client_id)?.name||'Deportista'}));
@@ -27,7 +27,7 @@ function renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sess
  ${matches.map(o=>`<button type="button" class="business-calendar-event" data-action="detail-occurrence" data-id="${esc(o.id)}"><span>${o.kind==='appointment'?'Cita':'Grupo'}</span> ${esc(new Date(o.starts_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))} ${esc(o.title)}</button>`).join('')}</div>`;}).join('');
  return `<div class="business-home-columns">
  ${inbox||show('<h2>Quieren entrenar contigo</h2>'+note('No tienes permiso para gestionar solicitudes.'))}
- ${show(`<div class="business-panel-head"><div><h2>Próximas citas</h2><p>Citas, grupos y entrenamientos planificados.</p></div>${button('Añadir planificación','add-planning')}</div>
+ ${show(`<div class="business-panel-head"><div><h2>Próximas citas</h2><p>Citas, grupos y entrenamientos planificados.</p></div>${manager?button('Añadir planificación','add-planning'):''}</div>
  <div class="business-upcoming">${upcoming.map(o=>`<button class="business-upcoming-item" type="button" data-action="${o.action}" data-id="${esc(o.id)}"><small>${esc(o.kind)} · ${o.kind.includes('sin hora')?day(o.at):dateTime(o.at)}</small><strong>${esc(o.title)}</strong><span>${esc(o.detail)}</span></button>`).join('')||note('No tienes próximas citas ni entrenamientos.')}</div>`)}
  </div>
  ${show(`<div class="business-panel-head"><div><h2>Agenda de citas y grupos</h2><p>Selecciona un día libre para crear una cita o un evento para consultar sus detalles.</p></div><div class="heading-actions">${button('‹','calendar-prev')}${button(esc(title),'calendar-today')}${button('›','calendar-next')}</div></div>
@@ -61,7 +61,7 @@ export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],se
   <button type="button" data-workspace="services"><span class="business-quick-icon" aria-hidden="true">▦</span>
   <strong>Clases y reservas</strong><small>Horarios, grupos y aforo</small></button>
  </section>`:'';
- if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth});
+ if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth,manager});
  return `${stats}${quick}${inbox}${show(`<div class="business-panel-head"><div><h2>Próximas clases y citas</h2><p>Pulsa cualquier sesión para ver asistentes, horario, aforo y toda su configuración.</p></div>${button('Abrir calendario','open-class-calendar')}</div>
  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${o.kind==='appointment'?'Cita 1:1':'Clase grupal'} · ${bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked').length}/${o.capacity} plazas</small><span class="business-tile-arrow">Ver detalle →</span></button>`).join(''):'<p>No hay próximas clases programadas.</p>'}</div>`)}`;
 }
@@ -92,7 +92,7 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
  ${[...[['training','Entrenamientos'],['data','Datos']],...(trainer?[]:[['bookings','Reservas']])].map(([id,name])=>
  `<button type="button" data-action="client-section" data-section="${id}" class="${clientSection===id?'active':''}"
  aria-current="${clientSection===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
- const head=`<div class="business-profile-header"><span class="business-avatar large">
+ const head=`${button('← Volver a clientes','back-clients')}<div class="business-profile-header"><span class="business-avatar large">
  ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
  </span><div><h2>${esc(c.name)}</h2><p>${esc(c.email)} · ${c.user_id?'Cuenta vinculada':'Invitación pendiente'} </p></div>
  ${manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}${manager&&trainer&&c.status!=='cancelled'?button('Finalizar relación','end-client',c.id):''}</div>`;
