@@ -225,6 +225,19 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(requestId||'')||typeof accept!=='boolean')throw Error('Solicitud inválida');
   return this.#authorized('rpc/business_decide_enrollment',{method:'POST',body:{p_request:requestId,p_accept:accept}});
  }
+ async bulkPublishCustomTraining({orgId,clientIds,start,end,weekdays,title,instructions='',prescription,requestId=globalThis.crypto?.randomUUID?.()}){
+  const uid=id=>/^[0-9a-f-]{36}$/i.test(id||'');
+  if(!uid(orgId)||!uid(requestId)||!Array.isArray(clientIds)||
+   !clientIds.length||clientIds.length>20||clientIds.some(c=>!uid(c))||
+   !Array.isArray(weekdays)||!weekdays.length||weekdays.some(x=>!Number.isInteger(x)||x<1||x>7)||
+   !/^\d{4}-\d{2}-\d{2}$/.test(start||'')||!/^\d{4}-\d{2}-\d{2}$/.test(end||'')||
+   String(title).trim().length<2||String(title).length>120||String(instructions).length>10000)
+   throw Error('Completa los clientes, fechas y entrenamiento');
+  return this.#authorized('rpc/business_publish_custom_training_bulk',{method:'POST',body:{
+   p_org:orgId,p_clients:clientIds,p_start:start,p_end:end,p_weekdays:weekdays,
+   p_title:String(title).trim(),p_instructions:String(instructions),p_prescription:prescription,
+   p_request:requestId}});
+ }
  async bulkPublishTraining({orgId,templateId,clientIds,start,end,weekdays,requestId}){
   const validId=id=>/^[0-9a-f-]{36}$/i.test(id||'');
   if(!validId(orgId)||!validId(templateId)||!validId(requestId)||!Array.isArray(clientIds)||
