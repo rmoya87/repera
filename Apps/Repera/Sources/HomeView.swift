@@ -199,6 +199,18 @@ struct HomeView: View {
         }
     }
 
+    /// Las fechas de la planificación cambian independientemente de los
+    /// entrenos completados. No usar workoutsEpoch para cada edición del plan.
+    private var scheduledCalendarSignature: Int {
+        var hasher = Hasher()
+        for routine in store.state.routines {
+            guard let date = routine.scheduledDate else { continue }
+            hasher.combine(routine.id)
+            hasher.combine(calendar.startOfDay(for: date))
+        }
+        return hasher.finalize()
+    }
+
     private var businessCalendarSignature: Int {
         // Avoid allocating, sorting and joining large strings on every
         // render when a day has several local or professional workouts.
@@ -283,6 +295,9 @@ struct HomeView: View {
             }
             .refreshable { await businessData.refresh(); rebuildWeekChrome() }
             .onChange(of: businessCalendarSignature) { _, _ in
+                rebuildWeekChrome()
+            }
+            .onChange(of: scheduledCalendarSignature) { _, _ in
                 rebuildWeekChrome()
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("repera.professionalPlansChanged"))) { _ in
@@ -764,9 +779,11 @@ struct HomeView: View {
             Text("\(day.num)")
                 .font(.system(size: 17, weight: selected ? .semibold : .medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label)
-            // Solo marcar entrenamientos finalizados (Repera o Apple Salud).
-            // La selección cambia el color del punto, nunca su visibilidad.
-            if hasCompletedWorkout {
+            // Mismo punto para entrenos realizados y planes de hoy o futuro.
+            // No convertir planes pasados sin realizar en registros completados.
+            let isTodayOrFuture = calendar.startOfDay(for: day.date)
+                >= calendar.startOfDay(for: Date())
+            if hasCompletedWorkout || (isTodayOrFuture && day.hasPlan) {
                 Circle()
                     .fill(selected ? OG.onAccent : OG.accent)
                     .frame(width: 4, height: 4)
@@ -1660,9 +1677,9 @@ struct HomeView: View {
         healthMinutesByDayKey = minutes.filter { $0.value > 0 }
     }
 
-    /// Fuente única del punto y de la tarjeta del día: únicamente las
-    /// sesiones terminadas de Repera y las actividades completadas de Salud.
-    /// Ni la fecha seleccionada ni una rutina programada aportan un punto.
+    /// Completado significa actividad real de Repera o Salud. Los puntos
+    /// de planificación futura se representan por separado en el calendario,
+    /// sin sumar a las estadísticas ni a las rachas.
     private func hasCompletedWorkoutOnDay(_ key: String) -> Bool {
         !(workoutsByDayKey[key]?.isEmpty ?? true)
             || !(healthByDayKey[key]?.isEmpty ?? true)
