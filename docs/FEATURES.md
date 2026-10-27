@@ -4,6 +4,8 @@
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
+- Las páginas con título grande integrado en una List/Form eliminan el margen superior automático de `insetGrouped` mediante `contentMargins(.top, 0, for: .scrollContent)`; la primera fila de título conserva solo 6 pt internos. Esto acerca el texto a los botones sin cambiar su fuente ni fijarlo en la barra.
+
 - Las topbars de Inicio, Ejercicios, Comenzar, Entreno, Historial y las subpáginas usan un fondo realmente transparente, incluso durante scroll. Las acciones quedan fijas; en Ejercicios se mantienen dos filas de controles, búsqueda y filtros, sin añadir un lienzo opaco.
 - Los títulos grandes bajo la fila de navegación se dibujan dentro del contenido desplazable con el mismo tamaño de fuente: desaparecen al hacer scroll, sin convertirse en títulos pequeños en la barra fija. Los títulos dentro de la propia barra siguen siendo inline.
 - En el mapa de un entrenamiento guardado, la leyenda de velocidad se sitúa en el extremo inferior derecho (8 pt de separación inferior en la tarjeta), al lado contrario de la atribución de Apple Maps. El visor ampliado deja espacio para el indicador inferior del dispositivo.

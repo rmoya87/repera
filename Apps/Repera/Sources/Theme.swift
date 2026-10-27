@@ -464,6 +464,10 @@ extension View {
     /// contraíble. El título se dibuja en el primer elemento de List/Form/ScrollView.
     func ogScrollingTitleNav() -> some View {
         self
+            // En listas agrupadas SwiftUI añade un margen superior antes de
+            // la primera fila que duplicaba la separación bajo la topbar.
+            // El título sigue dentro del scroll, pero empieza junto al nav.
+            .contentMargins(.top, 0, for: .scrollContent)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
@@ -475,7 +479,8 @@ extension View {
         self
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 8, leading: OG.pad, bottom: 0, trailing: OG.pad))
+            // Solo 6 pt de aire entre los botones y el título grande.
+            .listRowInsets(EdgeInsets(top: 6, leading: OG.pad, bottom: 0, trailing: OG.pad))
     }
 
     /// Título arriba del todo (sin franja vacía). Acciones opcionales a la derecha, misma fila.
