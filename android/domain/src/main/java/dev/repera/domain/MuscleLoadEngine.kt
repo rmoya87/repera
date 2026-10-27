@@ -21,9 +21,14 @@ object MuscleLoadEngine {
                     if (set.reps <= 0 || set.isWarmup) return@count false
                     if (hardOnly) Effort.isHard(set.rir) else true
                 }
-                if (sets <= 0) continue
+                // Apple (live main) MuscleLoadEngine.load: un WOD completado sin series
+                // desglosadas aporta el equivalente estimado solo en modo fatiga; en
+                // hardOnly nunca se inventa esfuerzo alto.
+                val estimated = if (hardOnly) 0.0 else entry.completedWodSetEquivalent
+                val effectiveSets = if (sets > 0) sets.toDouble() else estimated
+                if (effectiveSets <= 0) continue
                 for ((slug, w) in entry.weights) {
-                    load[slug] = (load[slug] ?: 0.0) + w * sets
+                    load[slug] = (load[slug] ?: 0.0) + w * effectiveSets
                 }
             }
         }

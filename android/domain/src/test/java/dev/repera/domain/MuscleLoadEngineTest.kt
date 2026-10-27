@@ -61,4 +61,41 @@ class MuscleLoadEngineTest {
         assertTrue("calves" in missed)
         assertTrue(missed.none { it == "chest" || it == "abs" })
     }
+
+    @Test
+    fun `load suma equivalente estimado de WOD completado sin series`() {
+        val w = workout(
+            MuscleStimulusExercise(
+                targetMuscle = "pectorals",
+                sets = emptyList(),
+                completedWodSetEquivalent = 1.0
+            )
+        )
+        val load = MuscleLoadEngine.load(listOf(w))
+        assertEquals(1.0, load["chest"] ?: 0.0, 1e-9)
+    }
+
+    @Test
+    fun `load hardOnly ignora el equivalente estimado WOD`() {
+        val w = workout(
+            MuscleStimulusExercise(
+                targetMuscle = "pectorals",
+                sets = emptyList(),
+                completedWodSetEquivalent = 1.0
+            )
+        )
+        assertTrue(MuscleLoadEngine.load(listOf(w), hardOnly = true).isEmpty())
+    }
+
+    @Test
+    fun `load con series reales no suma el equivalente estimado`() {
+        val w = workout(
+            MuscleStimulusExercise(
+                targetMuscle = "pectorals",
+                sets = listOf(set(10), set(8)),
+                completedWodSetEquivalent = 1.0
+            )
+        )
+        assertEquals(2.0, MuscleLoadEngine.load(listOf(w))["chest"] ?: 0.0, 1e-9)
+    }
 }

@@ -133,3 +133,18 @@ cap heatmap 76, Live restructure, requiresReauthentication, edit-save health re-
 5. **Auditoría 579 arrancada**: definición exacta recuperada (892 ventana 3 días = 313 leídos + 579
    previos a fc3ef7e1; android/ jamás en main). Artefactos: AUDIT_579_PREWINDOW.md + matriz CSV
    heurística (todo unverified; 315 con candidato por subject, 264 sin). Verificación real pendiente.
+
+## tree165 — Equivalente WOD también en MuscleLoadEngine de dominio (27oct 10:16 CET)
+
+6. **domain/MuscleLoadEngine.load**: el motor de barras de equilibrio muscular ignoraba
+   completedWodSetEquivalent (que el modelo ya traía de ProgressSnapshot con el gate Apple exacto:
+   terminado + bloque WOD o score global + no movilidad + sin series de trabajo). Apple
+   MuscleLoadEngine.load: effectiveSets = sets>0 ? sets : estimated (nunca hardOnly). Port aplicado;
+   hardOnly sigue excluyendo el estimado. Tests: MuscleLoadEngineTest 8/8 (5 previos + 3 nuevos:
+   estimado suma, hardOnly lo ignora, series reales no duplican). Suite domain completa 385/385 REAL.
+   Doble conteo por consumidor verificado: ProgressSnapshot (loadAll/loadHard → MuscleBalanceCard) y
+   MuscleWorkloadMetrics.weekly (ProgressTab) son superficies independientes que derivan cada una del
+   archivo bruto, como en Apple (barras vs mapa de fatiga x0.7). Ningún consumidor suma ambas.
+   Nota main 10:11: la matriz 579 es índice heurístico, no cobertura; "313 leídos" = diffs de ventana
+   revisados estáticamente, no commits verificados; al resolver hallazgos manda baseline bd4d7637
+   sobre reglas antiguas supersedidas (giros GPX 30m, no 20m).
