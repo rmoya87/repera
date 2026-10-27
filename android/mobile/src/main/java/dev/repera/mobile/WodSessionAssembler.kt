@@ -19,26 +19,49 @@ object WodSessionAssembler {
         return (0 until moves.length()).any { !moves.getJSONObject(it).optBoolean("isRest") }
     }
 
-    fun append(block: JSONObject, catalog: JSONArray, result: JSONArray) {
+    fun append(block: JSONObject, catalog: JSONArray, result: JSONArray,
+               packaged: JSONArray = JSONArray()) {
         require(supports(block)) { "Bloque WOD no válido" }
         val format = WodFormat.fromWire(block.getString("wodFormat"))!!
         val movements = block.getJSONArray("movements")
+        val catalogEntries = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val packagedEntries = (0 until packaged.length()).map { packaged.getJSONObject(it) }
+        val domainCatalog = catalogEntries.map {
+            dev.repera.domain.CatalogExercise(it.optString("id"), it.optString("name"),
+                PublishedCatalogAliases.read(it), it.optBoolean("isCustom"),
+                it.optBoolean("isCatalogArchived"))
+        }
+        val domainPackaged = packagedEntries.map {
+            dev.repera.domain.CatalogExercise(it.optString("id"), it.optString("name"),
+                PublishedCatalogAliases.read(it), it.optBoolean("isCustom"),
+                it.optBoolean("isCatalogArchived"))
+        }
         for (n in 0 until movements.length()) {
             val move = movements.getJSONObject(n)
             if (move.optBoolean("isRest")) continue
             val name = move.getString("name")
-            val preferredId = move.optString("exerciseId").takeIf { it.isNotBlank() }
-            val fromCatalog = (0 until catalog.length())
-                .map { catalog.getJSONObject(it) }
-                .firstOrNull {
-                    (preferredId != null && it.optString("id") == preferredId) ||
-                        (it.optString("name").equals(name, ignoreCase = true))
-                }
+            // Apple cf25922e: SessionController re-resuelve con
+            // CrossFitGlossary.catalogExercise al iniciar (canónico oficial,
+            // alias publicados, abreviaturas BTT/T2B con respaldo empaquetado);
+            // no inventa un ID de catálogo si no está disponible.
+            val domainMove = dev.repera.domain.WODMovement(
+                name = name,
+                exerciseId = move.optString("exerciseId").takeIf { it.isNotBlank() },
+                notes = move.optString("notes").takeIf { it.isNotBlank() })
+            val match = dev.repera.domain.CrossFitGlossary.catalogExercise(
+                domainMove, domainCatalog, domainPackaged)
             // Swift SessionController.from can resolve an unrecognized WOD name
-            // as a custom movement, but that must never imply it was performed.
-            val exercise = fromCatalog?.let { JSONObject(it.toString()) } ?: JSONObject()
+            // as a custom movement (con nombre canónico), but that must never
+            // imply it was performed.
+            val exercise = match?.let { m ->
+                val source = (catalogEntries + packagedEntries).firstOrNull {
+                    it.optString("id") == m.id
+                }
+                source?.let { JSONObject(it.toString()) }
+            } ?: JSONObject()
                 .put("id", UUID.randomUUID().toString())
-                .put("name", name)
+                .put("name", dev.repera.domain.CrossFitGlossary.resolveCatalogName(
+                    name, move.optString("notes").takeIf { it.isNotBlank() }))
                 .put("muscleGroup", "WOD")
                 .put("isCustom", true)
             // Apple SessionController.from: SessionExercise.id = id del movimiento de la rutina.

@@ -941,6 +941,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return out
     }
 
+    /** Catálogo empaquetado para el respaldo offline BTT/T2B al iniciar WODs
+     *  (Apple Catalog.seed() dentro de catalogExercise). Lectura de asset,
+     *  nunca se inserta en el estado. */
+    private val packagedSeed: () -> JSONArray by lazy {
+        {
+            context.assets.open("catalog_seed.json").bufferedReader(Charsets.UTF_8)
+                .use { JSONArray(it.readText()) }
+        }
+    }
+
     /** Monta el JSON de sesión de una rutina sin persistirlo (plan del día). */
     private fun assembleSession(
         state: JSONObject, routine: JSONObject,
@@ -980,7 +990,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             val block = blocks.getJSONObject(blockIndex)
             if (block.optString("kind") == "wod") {
                 val firstWod = planned.length()
-                WodSessionAssembler.append(block, catalog, planned)
+                WodSessionAssembler.append(block, catalog, planned, packagedSeed())
                 if (policy != dev.repera.domain.ProgressionPolicy.OFF) {
                     // Apple applySuggestions recorre TODOS los ejercicios de la sesión, también movimientos WOD, y
                     // sustituye plannedSets por series uniformes (reps/peso sugeridos). Réplica literal.
