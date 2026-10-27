@@ -89,7 +89,12 @@ class LandscapeGroupedLayoutTests(unittest.TestCase):
         self.assertIn(".frame(height: weekCarouselHeight)", calendar)
         self.assertIn(".ignoresSafeArea(edges: .horizontal)", calendar)
         self.assertNotIn("calendarVisibleWidth", home)
-        self.assertNotIn(".clipped()", calendar)
+        # El viewport enseña el FINAL de la casilla anterior en el borde
+        # izquierdo, sin variar el ancho de las columnas ni dejar huecos.
+        self.assertIn("let leadingPeek = side * 0.7", calendar)
+        self.assertIn(".frame(width: geo.size.width + leadingPeek, alignment: .leading)", calendar)
+        self.assertIn(".offset(x: -leadingPeek)", calendar)
+        self.assertIn(".clipped()", calendar)
         # Solo el rótulo del mes conserva padding; la geometría de días no.
         month = calendar.split("GeometryReader { geo in", 1)[0]
         carousel = calendar.split("GeometryReader { geo in", 1)[1]
