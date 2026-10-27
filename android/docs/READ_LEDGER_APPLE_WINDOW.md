@@ -18,21 +18,21 @@ Correction: tree156 listed LibraryView and WorkoutView as unread. That list was 
 | HomeView (211) | read, static | tree144 (four Home points still open) |
 | CardioRouteComponents (270) | read, static | tree137 |
 | HealthKitStore (258) | read, static | tree138 |
-| HealthMuscleMapper (75) | partial | native stimuli and overlap rule; isEstimatedIntense compared tree155 |
+| HealthMuscleMapper (75) | read fully, static | tree162 (full diff re-read; below) |
 | SessionPreviewView (7), StartHubSheet (1) | read (tiny), static | tree106 |
 | HistoryView (534) | read fully, static | tree115, tree132, tree159 (remaining ~400 lines read 2026-10-27 09:36; findings in tree159 section below) |
 | LiveActivityView (782) | read fully, static | tree132-135, tree160 (full 1087-line diff re-read 2026-10-27 09:38; findings below) |
 | ReperaStore (406) | read fully, static | tree161 (full 590-line diff re-read 2026-10-27 09:40; audit below) |
-| BusinessAuthStore (90) | partial | tree108 |
+| BusinessAuthStore (90) | read fully, static | tree162 (full diff re-read 2026-10-27 09:41; below) |
 | LiveSportHistoryView (34) | read, static | tree156 |
-| ActivityHeatmapView (21) | read enough to record cellHeight not ported | open list; no dedicated section found in this scan |
+| ActivityHeatmapView (21) | read fully, static | tree162: only change is strip cellHeight cap (below) |
 | SettingsView (48), ReperaApp (30) | read, static | tree158 |
 | DayPlusSheet (1), DigitalClockDisplay (5), RegisterSwipeRevealCard (2), ReperaNowPlayingBar (4) | read (tiny), static | tree159: cosmetic/comment-only diffs, no Android behavior (details below) |
 | BusinessAuthStore/Sync, workflows, README, docs/* | workflows excluded by instruction; docs not read as parity targets | |
 
 Not covered by this ledger: the 579 commits older than fc3ef7e1 (only the 37837401 historical matrix) and Packages/ (domain Swift sources; the three Apple domain test files were read tree147/149/151-154, the Swift sources diff is not mapped line by line).
 
-Pending reading kept (per parent, 08:26): BusinessAuthStore (partial, tree108), HealthMuscleMapper (partial), ActivityHeatmapView (only cellHeight recorded), Packages/ Swift sources not mapped line by line, the 579 older commits (37837401 matrix only), and the four 1-5 line files (done tree159).
+Pending reading kept (per parent, 08:26): Packages/ Swift sources not mapped line by line, the 579 older commits (37837401 matrix only), and the four 1-5 line files (done tree159).
 
 ## tree159 (2026-10-27 09:36 CET, reconstructed sandbox): HistoryView rest + 4 tiny files
 
@@ -83,3 +83,11 @@ Apple rules in the window and Android status:
 11. copyPreviousWeekSchedule snapshots occupied days BEFORE copying; copies never overwrite occupied days. Android: ported. OK.
 12. assignRoutine(toDate) schedules an independent copy with duplicated content ids, template untouched, favorite=false. Android: ported (repo comment cites Apple assignRoutine(_:toDate:)). OK.
 13. migrateLegacyWeeklyPlans: pins legacy weekday routines to THIS week's dates, keeps reusable templates with fresh content ids, idempotent, does not advance local revision before iCloud compare. Android: migration PREPARED WITHOUT CALLER, not activated (user decision pending). Correct to stay inactive.
+
+## tree162 (2026-10-27 09:41 CET): BusinessAuthStore + HealthMuscleMapper + ActivityHeatmapView read fully
+
+BusinessAuthStore (90 diff lines): requiresReauthentication semantics now fully mapped. It is an in-memory flag set ONLY on confirmed revocation (AuthError sessionNotFound/refreshTokenNotFound/userBanned), never on network failure; cleared on verified login, disconnect, and successful refresh/ensure. ensureUsableSession(): guard explicit-sign-out/reauth/client; same-owner check (identity change => reauth); expired JWT after SDK attempt => "Renovacion del acceso pendiente", return false; success => connected. Unrecoverable refresh failure no longer sets isMigrationRequired nor clears BusinessDataStore (old code did). Android tree158 ported only the onResume JWT<=60s restore trigger; the requiresReauthentication flag, its exact messages, the owner-change gate and the unrecoverable-vs-network split remain OPEN (error codes unverifiable without live Supabase).
+
+HealthMuscleMapper (75 diff lines): uniqueExternalActivities = linked-UUID filter + native overlap (same healthType, start <90 s, duration <3 min). Android: overlap rule ported verbatim in domain HealthMuscleMapper.dropNativeOverlaps; the linked-id part is handled by the reader (ReperaHealthExclusion) instead of the mapper - equivalent coverage, different placement. nativeSportStimuli, isEstimatedIntense (HIIT/cross/functionalStrength/boxing/kickboxing/martialArts/wrestling) and isCardio (strength/core/yoga/pilates/flexibility/cooldown/other NOT cardio) all ported. No open item.
+
+ActivityHeatmapView (21 diff lines): only change is HeatmapLayout gaining cellHeight; in strip mode cells become horizontal rectangles with height min(cell, 76) so 1-3 day strips do not grow hundreds of points tall. Android ProgressCharts heatmap still uses square cells for strips (canvasHeight = cell * rows). OPEN (small visual).
