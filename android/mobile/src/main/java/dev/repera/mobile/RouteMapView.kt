@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -106,7 +108,7 @@ internal fun RouteMapView(
     androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
         map.getStyle { style ->
-            runCatching {
+            run {
                 listOf("route-line","route-line-est","route-backdrop").forEach { style.removeLayer(it) }
                 for (i in 0..24) {
                     listOf("route-line-halo-$i","route-line-edge-$i","route-line-core-$i",
@@ -120,7 +122,7 @@ internal fun RouteMapView(
                 }
                 applyPlannedOverlay(style,plannedPoints)
                 applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute),water=waterSport,plannedPoints=plannedPoints)
-            }.onFailure { failed = true }
+            }
         }
     }
     androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap) {
@@ -208,9 +210,9 @@ internal fun RouteMapView(
                         isCompassEnabled = isInteractive
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
-                        runCatching { applyPlannedOverlay(style,currentPlan);applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan) }
-                            .onFailure { failed = true }
-                            .onSuccess { loadedMap = map;onStyleLoaded?.invoke() }
+                        applyPlannedOverlay(style,currentPlan)
+                        applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan)
+                            loadedMap = map;onStyleLoaded?.invoke()
                     }
                 }
             }
@@ -425,8 +427,9 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
         else RouteMapModel.segments(points,water,reference = plannedPoints)
         plannedPoints.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }+measured
     }
-    Box(modifier = modifier.testTag("route_map_fallback")) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+    Box(modifier = modifier.testTag("route_map_fallback")
+        .background(MaterialTheme.colorScheme.surface)) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
             if (allPoints.size >= 2) {
                 val minLat = allPoints.minOf { it.latitude }
                 val maxLat = allPoints.maxOf { it.latitude }
@@ -436,10 +439,13 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
                 val spanLon = (maxLon - minLon).takeIf { it > 0 } ?: 1e-6
                 // Franja inferior reservada a la atribucion: la ruta NUNCA
                 // cruza el texto legal (26sp de margen inferior + 4px aire).
-                val attributionStrip = 30.sp.toPx()
+                val attributionStrip = 38.sp.toPx()
+                val inset = 16.dp.toPx()
+                val plotWidth = (size.width - 2*inset).coerceAtLeast(0f)
+                val plotHeight = (size.height - attributionStrip - 2*inset).coerceAtLeast(0f)
                 fun xy(p: WorkoutRoutePoint) = Offset(
-                    (((p.longitude - minLon) / spanLon).toFloat()) * size.width,
-                    (1f - ((p.latitude - minLat) / spanLat).toFloat()) * (size.height - attributionStrip))
+                    inset + (((p.longitude - minLon) / spanLon).toFloat()) * plotWidth,
+                    inset + (1f - ((p.latitude - minLat) / spanLat).toFloat()) * plotHeight)
                 // Apple d5c263d3/26a625be + e048d814 (grosores uniformes):
                 // 3 capas apiladas (halo 0.23, edge 0.75, core 1.0 del color de
                 // velocidad), grosores 4/2.25/1.4 y dash 4/4 en tramos estimados
@@ -458,7 +464,8 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
         }
         Text("Mapa no disponible · © OpenStreetMap contributors · © OpenFreeMap",
             fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.BottomStart))
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.align(Alignment.BottomStart)
+                .background(MaterialTheme.colorScheme.surface).padding(4.dp))
     }
 }

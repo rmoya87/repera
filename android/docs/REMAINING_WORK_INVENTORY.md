@@ -67,3 +67,12 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
   con Apple HealthRecovery.vitalChart (count <2 = estado sin tendencia).
 - Dos dias contiguos: omite fecha central cuando coincide con un extremo.
 - Alcance: JVM tema claro 360dp, no dispositivo ni todos los tamanos/fuentes.
+
+## Fallback mapa 18:53
+- Surface opaca + onSurface garantizan contraste de atribucion tanto claro como
+  oscuro; renders fullscreen360x900 inspeccionados. Canvas ocupa bounds reales
+  (antes180dp fijos incluso en fullscreen) y deja16dp de margen de ruta mas38sp
+  para atribucion, sin trazo recortado ni cruce de texto en el fixture de2puntos.
+- Corregida captura generica runCatching al aplicar estilo/capas: esos errores
+  ya no activan fallback silencioso. Solo ausencia nativa y fallo de carga de mapa
+  notificado por SDK degradan a Canvas. La camara/cartografia nativa siguen abiertas.

@@ -89,6 +89,27 @@ class ExternalRouteSheetRenderTest {
         composeRule.onNodeWithTag("fullscreen-route-map").assertDoesNotExist()
     }
 
+    @Test fun externalRouteFullscreenDarkContrast() {
+        composeRule.setContent {
+            MaterialTheme(colorScheme=dev.repera.mobile.reperaColorScheme(true)) {
+                ExternalHealthDetailColumn(entry(),detail=null,loading=false,
+                    routeRead=ExternalRouteRead.Points(listOf(
+                        WorkoutRoutePoint(0,40.0,-3.7,1_100_000L),
+                        WorkoutRoutePoint(1,40.001,-3.699,1_160_000L))),
+                    onConsentLaunch={},consentRequestedFor=null,onConsentRequested={}) {}
+            }
+        }
+        composeRule.onNodeWithContentDescription("Ampliar recorrido de Salud").performClick()
+        composeRule.onNodeWithTag("fullscreen-route-map").assertExists()
+        val bmp=composeRule.onNodeWithTag("fullscreen-route-root").captureToImage().asAndroidBitmap()
+        File("build/reports/render").mkdirs()
+        FileOutputStream("build/reports/render/external-route-fullscreen-dark.png").use {
+            bmp.compress(Bitmap.CompressFormat.PNG,100,it)
+        }
+        composeRule.onNodeWithTag("fullscreen-route-close").performClick()
+        composeRule.onNodeWithTag("fullscreen-route-map").assertDoesNotExist()
+    }
+
     @Test fun sheetWithConsentNeeded() {
         composeRule.setContent {
             MaterialTheme {
