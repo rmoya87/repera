@@ -1,5 +1,16 @@
 ## Administración global de Repera — 27/10/2026
 
+## Acceso a centros pendientes desde Repera Admin — 27/10/2026
+
+- Los centros provisionados por Admin existen en `organizations` desde que se prepara el alta, vinculados por `platform_org_provisioning.claimed_org_id` incluso con `status='pending'`. Se recuperó el centro «Alicia» ya dado de alta.
+- La creación por la cuenta de plataforma desencadena la membresía owner de su trigger histórico, pero se elimina **dentro de la misma transacción** antes de terminar. El administrador no es propietario y solo entra temporalmente mediante `platform_admin_delegate` (30 min, motivo, registro).
+- El propietario confirmado reclama el **mismo** ID de organización, recibe membresía `owner`, se reinicia la prueba de 7 días y se habilita su visibilidad comercial. No se crean dos centros. Pendiente = falta registro; suspendido = bloqueo operativo diferente.
+- Directorio/admin RPC unifica activos, suspendidos y pendientes e incorpora `registration_status`, `owner_email` y `provisioning_id`. Estado pendiente puede suspenderse y reactivarse desde la ficha; mientras continúe sin registrarse vuelve a mostrar «Pendiente de registro».
+- Centros pendientes no se publican en Discover; no se vuelca el correo privado del futuro propietario en `organizations.public_email`.
+- La consola Admin elimina la barra blanca horizontal. Indicadores de Pagos pasan a 4 columnas en escritorio (2 en pantallas estrechas), y avatares/marcas se redondean a círculo también en el workspace delegado.
+- Verificado contra Supabase: «Alicia» vinculada y sin owner falso; autorización temporal real durante transacción revertida; suspensión/reactivación en transacción revertida; creación pendiente sin publicación ni datos falsos; reclamación del mismo centro por email verificado en transacción revertida. 10 comprobaciones estáticas de UI y sintaxis. Sin E2E de navegador.
+
+
 ## Mejora de administración global — 2026-10-27
 
 - **Centros** unifica gimnasios, centros deportivos y entrenadores personales, con columna de tipo, foto/logo, clientes, plan y estado; filtros por categoría, estado y búsqueda.
