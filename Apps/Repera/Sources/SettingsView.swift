@@ -27,6 +27,8 @@ struct SettingsView: View {
     @State private var googleLinkFeedback: String?
     @State private var workoutSync = BusinessWorkoutSyncStore.shared
     @State private var localSyncError: String?
+    @State private var isManualSyncing = false
+    @State private var lastManualICloudSyncAt: Date?
     var body: some View {
         @Bindable var store = store
         Form {
@@ -113,45 +115,56 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Button {
                         Task { @MainActor in
+                            guard !isManualSyncing else { return }
+                            isManualSyncing = true
+                            defer { isManualSyncing = false }
                             localSyncError = nil
+                            // Recuperar primero el documento completo de iCloud,
+                            // incluidas las coordenadas GPS de las sesiones.
+                            await store.refreshFromiCloud()
                             await LocalStore.shared.persistAndFlush(store.state)
                             if let error = LocalStore.shared.lastPersistenceError {
                                 localSyncError = error.localizedDescription
                                 return
                             }
-                            _ = await workoutSync.sync(store: store)
+                            if store.iCloudStatus == .available, store.syncPhase == .ready {
+                                lastManualICloudSyncAt = Date()
+                            }
+                            if businessAuth.isConnected {
+                                _ = await workoutSync.sync(store: store)
+                            }
                         }
                     } label: {
                         HStack(spacing: 9) {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .frame(width: 24, alignment: .center)
-                                .rotationEffect(.degrees(workoutSync.isSyncing ? 360 : 0))
+                                .rotationEffect(.degrees((isManualSyncing || workoutSync.isSyncing) ? 360 : 0))
                                 .animation(
-                                    workoutSync.isSyncing
+                                    (isManualSyncing || workoutSync.isSyncing)
                                         ? .linear(duration: 1).repeatForever(autoreverses: false)
                                         : .default,
-                                    value: workoutSync.isSyncing
+                                    value: isManualSyncing || workoutSync.isSyncing
                                 )
-                            Text(workoutSync.isSyncing ? "Sincronizando…" : "Sincronizar ahora")
+                            Text((isManualSyncing || workoutSync.isSyncing) ? "Sincronizando…" : "Sincronizar ahora")
                             Spacer()
-                            if workoutSync.isSyncing {
+                            if isManualSyncing || workoutSync.isSyncing {
                                 ProgressView().controlSize(.small)
                             }
                         }
                         .foregroundStyle(OG.label)
                     }
-                    .disabled(workoutSync.isSyncing || !businessAuth.isConnected)
+                    .disabled(isManualSyncing || workoutSync.isSyncing)
                     Group {
                         if let failure = localSyncError ?? workoutSync.lastError {
                             Text(failure)
                                 .font(.caption)
                                 .foregroundStyle(OG.red)
-                        } else if let syncedAt = workoutSync.lastSyncAt {
+                        } else if let syncedAt = workoutSync.lastSyncAt ?? lastManualICloudSyncAt {
                             Text(syncedAt.formatted(date: .numeric, time: .shortened))
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
                         } else {
-                            Text("Los entrenos finalizados se guardan localmente y se envían a Supabase al conectarte.")
+                            Text("Tus entrenamientos se guardan en el dispositivo y se sincronizan al estar conectado.")
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
                         }
