@@ -325,8 +325,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     TextButton(onClick = { runtime.selectRoute(null) }) { Text("Sin ruta planificada") }
                 }
                 if (showRoutes) {
-                    Button(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) }) { Text("Importar GPX") }
-                    if (routes.isEmpty()) Text("Sin rutas guardadas")
+                    RouteLibraryHeader {showRoutes=false;showingMetrics=false}
+                    if (routes.isEmpty()) {
+                        Text("Todavía no hay rutas",style=MaterialTheme.typography.titleMedium)
+                        Text("Graba un recorrido o importa un GPX para empezar.")
+                    }
+                    TextButton(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
+                        colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) { Text("Importar GPX") }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf("Últimas 5", "Favoritas", "Todas").forEach { mode ->
                             FilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })

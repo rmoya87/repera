@@ -6,6 +6,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -102,6 +104,22 @@ class ReviewSpacingRenderTest {
         }
         save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
             "readiness-multiday-curve.png")
+    }
+
+    @Test
+    fun routeLibraryHeaderAndClose() {
+        var closed=false
+        composeRule.setContent {
+            MaterialTheme(colorScheme=reperaColorScheme(false)) {
+                Surface(Modifier.testTag("route_library_header")) {
+                    dev.repera.mobile.RouteLibraryHeader {closed=true}
+                }
+            }
+        }
+        save(composeRule.onNodeWithTag("route_library_header").captureToImage().asAndroidBitmap(),
+            "route-library-header.png")
+        composeRule.onNodeWithContentDescription("Cerrar Mis rutas").performClick()
+        org.junit.Assert.assertTrue(closed)
     }
 
     @Test
