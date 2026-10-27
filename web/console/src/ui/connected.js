@@ -546,7 +546,12 @@ app.addEventListener('submit',async event=>{
  const action=f.dataset.connected,data=new FormData(f),intent=event.submitter?.dataset.intent||'publish';
  if(action==='bulk-training'){
   const valid=bulkPlanSummary(f);
-  if(!valid.ok){error=valid.message;notice='';return;}
+  if(!valid.ok){
+   const preview=f.querySelector('[data-bulk-preview]');
+   if(preview){preview.textContent=valid.message;preview.classList.add('is-invalid');}
+   preview?.scrollIntoView({behavior:'smooth',block:'nearest'});
+   return;
+  }
  }
  let prescription=null;
  try{if(action==='publish-session'||action==='publish-class-plan')prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){error=e.message;notice='';render();return;}
