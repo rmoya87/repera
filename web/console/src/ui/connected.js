@@ -229,12 +229,13 @@ app.addEventListener('click',async event=>{
  if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
 app.addEventListener('input',event=>{
- const filter=event.target.closest('[data-admin-filter="search"]');
+ const filter=event.target.closest('[data-admin-filter="search"],[data-admin-filter="athleteSearch"]');
  if(filter){
-  adminFilter.search=filter.value;
+  const key=filter.dataset.adminFilter;
+  adminFilter[key]=filter.value;
   const at=filter.selectionStart;
   render();
-  const replacement=app.querySelector('[data-admin-filter="search"]');replacement?.focus();
+  const replacement=app.querySelector('[data-admin-filter="'+key+'"]');replacement?.focus();
   if(typeof at==='number')replacement?.setSelectionRange(at,at);
   return;
  }
@@ -245,6 +246,23 @@ app.addEventListener('input',event=>{
  }
 });
 app.addEventListener('change',async event=>{
+ if(event.target.matches('[data-admin-image-file]')){
+  const preview=app.querySelector('[data-admin-image-preview]'),file=event.target.files?.[0];
+  if(preview&&file&&['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024){
+   const url=URL.createObjectURL(file);
+   preview.src=url;preview.hidden=false;
+   preview.onload=()=>URL.revokeObjectURL(url);
+  }
+  return;
+ }
+ if(event.target.matches('[data-provision-kind]')){
+  const kind=event.target.value,selector=app.querySelector('form[data-admin-form="provision"] select[name="plan"]');
+  if(selector){
+   for(const option of selector.options)option.hidden=!!option.dataset.audience&&option.dataset.audience!==kind;
+   if(selector.selectedOptions[0]?.hidden)selector.value='';
+  }
+  return;
+ }
  const platformFilter=event.target.closest('[data-admin-filter]');
  if(platformFilter){adminFilter[platformFilter.dataset.adminFilter]=platformFilter.value;render();return;}
  if(event.target.name==='kind'&&event.target.closest('form[data-connected="create"]')){
@@ -422,6 +440,7 @@ app.addEventListener('submit',async event=>{
    if(action==='save-plan'||action==='new-plan'){
     if(platformRole!=='platform_admin')throw Error('No autorizado');
     await auth.saveBusinessPlan(Object.fromEntries(data.entries()),{newPlan:action==='new-plan'});
+    adminEditPlan='';
     await reload();notice=action==='new-plan'?'Nuevo plan añadido':'Plan actualizado';
    }
  }catch(e){error=e.message||'No se pudo completar la operación';}
