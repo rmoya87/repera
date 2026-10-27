@@ -76,13 +76,6 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   Text("RMSSD de Health Connect no equivale a SDNN de Apple Salud.",style=MaterialTheme.typography.bodySmall)
   val breathing=vitals.mapNotNull {it.respiratoryRateBpm?.let {v ->ProgressDayPoint(it.day,v)}}
   RecoveryVitalBars(rest,breathing)
-  val oxygen=vitals.mapNotNull {it.oxygenSaturationPercent?.let {v ->ProgressDayPoint(it.day,v)}}
-  Text("Saturación de oxígeno",style=MaterialTheme.typography.titleSmall)
-  if(oxygen.isEmpty()) Text("Sin mediciones de SpO2 en el periodo") else DayPointLineChart(oxygen,valueFormat={"${formatWeight(it)} %"})
-  val wrist=vitals.mapNotNull {it.wristTemperatureCelsius?.let {v ->ProgressDayPoint(it.day,v)}}
-  Text("Temperatura de muñeca durante sueño registrado",style=MaterialTheme.typography.titleSmall)
-  if(wrist.isEmpty()) Text("Sin mediciones absolutas de muñeca durante sueño en el periodo") else DayPointLineChart(wrist,valueFormat={"${formatWeight(it)} °C"})
-  Text("Solo muñeca con referencia absoluta y coincidencia con sueño observado. No es temperatura corporal central ni equivale al sensor de Apple Watch.",style=MaterialTheme.typography.bodySmall)
   // Apple 188624cc (physiologyContent): tiles del ÚLTIMO día registrado,
   // independientes del rango de las gráficas; ausente = no se pinta.
   val latest=recovery.vitals.maxByOrNull {it.day}
@@ -98,6 +91,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
   latest?.heartRateRecoveryBpm?.let {v ->Column(Modifier.fillMaxWidth().testTag("recovery_tile_hr_recovery")) {
    Text("Recuperación cardíaca 1 min",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
    Text(Math.round(v).toString()+" lpm",style=MaterialTheme.typography.titleLarge)}}
+  if(latest?.wristTemperatureCelsius!=null) Text("Solo muñeca con referencia absoluta y coincidencia con sueño observado. No es temperatura corporal central ni equivale al sensor de Apple Watch.",style=MaterialTheme.typography.bodySmall)
   Text("Solo datos registrados. Un dato ausente no significa normalidad. No es un diagnóstico.",style=MaterialTheme.typography.bodySmall)
  }}
  } else RecoveryPhysiologyPreviewCard(today,physiologyHeight)

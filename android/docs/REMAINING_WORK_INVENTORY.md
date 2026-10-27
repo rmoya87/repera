@@ -429,3 +429,17 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  single/vacio yseleccionambas seriesinspeccionadas. Suitecompleta302pendiente.
 - ExtrasSpO2/temperaturaaunlineasredundantes100dp(noportadasen302),
  latestdaytiles sin cambios.735/70abiertas,no push ni cierre runtime.
+
+## Revision constantes, avance parcial 23:37
+- Bloque validacioncompletadebarras302:657/163XMLreales0fallos/errores/
+ omitidos,4lotes67/73/61/61s. Solo bateriacerrada,no paridadnativa.
+- Bloque revisiondiferenciasconstantes/graficos sigueencurso:subhueco
+ yaidentificado deSpO2/temperatura historialredundante retirado. Corte
+ HealthRecovery0a640da8:1070latestonlytiles,4patchescompuestos sintocar
+ HealthRecovery. Mantieneultimo diafullindependientedelrango yrestriccion
+ muñeсаabsoluta+coincidenciasueño;sin cambiarlecturas nivalores.
+-2testsregresion:extrasanterioresnocuelan enultimodia ytilesultimodia
+ fuera del rango siguenvisibles. Focalizados6/2XMLverdes51s,compile48s.
+ PNG360x1844inspeccionado,todosvalores/mensajesenteros sinlineasextras.
+- Mobilecompleta303pendiente,assemble303pendiente;domain504/93Wear8/1
+ anteriores.735/70abiertas,ejesAndroidaproximados,runtimeabierto,nopush.

@@ -69,4 +69,22 @@ class RecoveryLastDayTilesTest {
         composeRule.onNodeWithTag("recovery_tile_spo2", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag("recovery_tile_hr_recovery", useUnmergedTree = true).assertDoesNotExist()
     }
+    @Test fun historicalExtrasDoNotLeakIntoLatestDayTilesOrGraphs() {
+        val today=LocalDate.now()
+        composeRule.setContent {MaterialTheme {RecoveryHistoryCards(state(listOf(
+            RecoveryEngine.DailyVitals(today.minusDays(2),oxygenSaturationPercent=97.0,wristTemperatureCelsius=33.0),
+            RecoveryEngine.DailyVitals(today,hrvMilliseconds=42.0))),ProgressTimeRange.WEEK,true)}}
+        composeRule.onNodeWithTag("recovery_tile_spo2",useUnmergedTree=true).assertDoesNotExist()
+        composeRule.onNodeWithTag("recovery_tile_temp",useUnmergedTree=true).assertDoesNotExist()
+        composeRule.onNodeWithText("Saturación de oxígeno").assertDoesNotExist()
+        composeRule.onNodeWithText("Temperatura de muñeca durante sueño registrado").assertDoesNotExist()
+    }
+    @Test fun latestTilesRemainIndependentOfSelectedChartRange() {
+        val today=LocalDate.now()
+        composeRule.setContent {MaterialTheme {RecoveryHistoryCards(state(listOf(
+            RecoveryEngine.DailyVitals(today.minusDays(40),oxygenSaturationPercent=98.0,wristTemperatureCelsius=33.0))),ProgressTimeRange.WEEK,true)}}
+        composeRule.onNodeWithTag("recovery_tile_spo2",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithTag("recovery_tile_temp",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithText("98 %",useUnmergedTree=true).assertExists()
+    }
 }
