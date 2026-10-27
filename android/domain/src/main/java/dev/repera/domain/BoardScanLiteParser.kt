@@ -476,8 +476,12 @@ object BoardScanLiteParser {
         var scaleAlternative: String? = null
         val caloriePair = Regex("^\\s*\\d+\\s*/\\s*\\d+\\s*CALS?(?:ORIES)?\\b",
             RegexOption.IGNORE_CASE).containsMatchIn(working)
-        // «20 / 16 CAL» sigue siendo objetivo H/M aunque OCR añada espacios.
-        val alternatives = if (caloriePair) listOf(working) else working.split(" / ")
+        // Apple 3432a1a9: «20 / 16 CAL» no es escala. Tampoco
+        // «20m SLED PUSH 100 / 70 KG» ni «FARMER CARRY 24 / 16»: son cargas
+        // H/M aunque el OCR añada espacios.
+        val weightPair = Regex("\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*(?:kg|lbs?)?\\s*$",
+            RegexOption.IGNORE_CASE).containsMatchIn(working)
+        val alternatives = if (caloriePair || weightPair) listOf(working) else working.split(" / ")
         if (alternatives.size >= 2) {
             working = alternatives[0].trim()
             scaleAlternative = alternatives.drop(1)
