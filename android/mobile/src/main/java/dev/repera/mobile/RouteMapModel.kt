@@ -16,7 +16,8 @@ internal object RouteMapModel {
     data class Camera(val centerLat: Double, val centerLon: Double,
                       val spanLat: Double, val spanLon: Double)
 
-    fun segments(points: List<WorkoutRoutePoint>, water: Boolean = false): List<Segment> {
+    fun segments(points: List<WorkoutRoutePoint>, water: Boolean = false,
+                 reference: List<WorkoutRoutePoint> = emptyList()): List<Segment> {
         if (points.size < 2) return emptyList()
         var speeds: List<Double?> = (0 until points.lastIndex).map { i ->
             val a = points[i];val b = points[i+1]
@@ -46,21 +47,101 @@ internal object RouteMapModel {
         val real = smoothed.filterIndexed { i, v -> v != null && !estimatedPair(i) }.filterNotNull()
         val pool = (if (real.isNotEmpty()) real else smoothed.filterNotNull())
             .filter { it.isFinite() && it >= 0 }.sorted()
-        if (pool.isEmpty()) return emptyList()
-        val absMin = pool.first();val absMax = pool.last()
+        speeds = smoothed
+        // Tramos: velocidad real, o puente visual estimado cuando el hueco es
+        // compatible (Apple d5c263d3 visualBridge; solo pantalla).
+        data class Leg(val a: WorkoutRoutePoint, val b: WorkoutRoutePoint,
+                       val speed: Double, val estimated: Boolean)
+        val legs = speeds.indices.flatMap { i ->
+            val speed = speeds[i]
+            if (speed != null) {
+                // Trazo estimado tras un cierre: discontinuo y rotulado, nunca
+                // presentado como medicion GPS (Apple 303453ff/9f62c49a).
+                val est = points[i].isEstimated == true || points[i+1].isEstimated == true
+                listOf(Leg(points[i], points[i+1], speed, est))
+            } else {
+                bridge(points[i], points[i+1], reference)
+                    .map { (pa, pb, spd) -> Leg(pa, pb, spd, true) }
+            }
+        }
+        // Apple d5c263d3: sin velocidades reales, la escala usa TODOS los
+        // tramos (estimados incluidos); sin tramos no hay ruta que pintar.
+        val effectivePool = if (pool.isNotEmpty()) pool
+            else legs.map { it.speed }.filter { it.isFinite() && it >= 0 }.sorted()
+        if (effectivePool.isEmpty()) return emptyList()
+        val absMin = effectivePool.first();val absMax = effectivePool.last()
         var minS = absMin;var maxS = maxOf(absMax, absMin + 0.1)
-        if (pool.size >= 20) {
-            val lower = pool[(pool.size - 1) * 5 / 100]
-            val upper = pool[(pool.size - 1) * 95 / 100]
+        if (effectivePool.size >= 20) {
+            val lower = effectivePool[(effectivePool.size - 1) * 5 / 100]
+            val upper = effectivePool[(effectivePool.size - 1) * 95 / 100]
             if (upper - lower >= 0.12) { minS = lower;maxS = upper }
         }
-        speeds = smoothed
-        return speeds.mapIndexedNotNull { i,speed ->
-            // Trazo estimado tras un cierre: discontinuo y rotulado, nunca
-            // presentado como medicion GPS (Apple 303453ff/9f62c49a).
-            val est = points[i].isEstimated == true || points[i+1].isEstimated == true
-            speed?.let { Segment(points[i],points[i+1],speedColor(it,minS,maxS,water),est) }
+        return legs.map { Segment(it.a, it.b, speedColor(it.speed, minS, maxS, water), it.estimated) }
+    }
+
+    /** Apple HistoryView.visualBridge (d5c263d3): solo pantalla, nunca se
+     *  persiste ni sube a Salud. Huecos de 30s..30min y >=0.5m; sin GPX solo
+     *  huecos <=350m a <=6 m/s. Velocidad = media de extremos validos o
+     *  distancia/tiempo acotada 0.2..25. */
+    private fun bridge(first: WorkoutRoutePoint, last: WorkoutRoutePoint,
+                       reference: List<WorkoutRoutePoint>): List<Triple<WorkoutRoutePoint,WorkoutRoutePoint,Double>> {
+        val seconds = (last.recordedAtEpochMs - first.recordedAtEpochMs) / 1000.0
+        if (seconds <= 30 || seconds > 30 * 60) return emptyList()
+        val directMeters = dev.repera.domain.LiveGPXTurnDetection.distance(first, last)
+        if (directMeters < 0.5 || !directMeters.isFinite()) return emptyList()
+        val route = referenceBridge(first, last, seconds, reference)
+        if (route == null && !(directMeters <= 350 && directMeters / seconds <= 6)) return emptyList()
+        val coordinates = route ?: listOf(first, last)
+        val portions = coordinates.zipWithNext().mapNotNull { (pa, pb) ->
+            val d = dev.repera.domain.LiveGPXTurnDetection.distance(pa, pb)
+            if (d.isFinite() && d >= 0.1) Triple(pa, pb, d) else null
         }
+        val total = portions.sumOf { it.third }
+        if (total <= 0 || total / seconds > 25) return emptyList()
+        val measured = listOfNotNull(first.speedMps, last.speedMps)
+            .filter { it.isFinite() && it in 0.2..25.0 }
+        val speed = if (measured.isEmpty()) (total / seconds).coerceIn(0.2, 25.0)
+                    else measured.average()
+        return portions.map { (pa, pb, _) -> Triple(pa, pb, speed) }
+    }
+
+    /** Apple HistoryView.referenceBridge (d5c263d3): ajusta el hueco al GPX
+     *  enlazado. Busqueda sobre muestra acotada (>=1400 -> stride), extremos a
+     *  <=50m, >=2 indices de separacion, <=100 puntos muestreados, distancia
+     *  total <=6km y velocidad media <=25 m/s. */
+    private fun referenceBridge(start: WorkoutRoutePoint, end: WorkoutRoutePoint,
+                                seconds: Double,
+                                route: List<WorkoutRoutePoint>): List<WorkoutRoutePoint>? {
+        if (route.size < 3) return null
+        var fromIndex = -1; var toIndex = -1
+        var fromDistance = Double.MAX_VALUE; var toDistance = Double.MAX_VALUE
+        val strideSize = maxOf(1, route.size / 1400)
+        val candidateIndices = (0 until route.size step strideSize).toMutableList()
+        if (candidateIndices.last() != route.size - 1) candidateIndices.add(route.size - 1)
+        for (index in candidateIndices) {
+            val point = route[index]
+            val a = dev.repera.domain.LiveGPXTurnDetection.distance(start, point)
+            val b = dev.repera.domain.LiveGPXTurnDetection.distance(end, point)
+            if (a < fromDistance) { fromDistance = a; fromIndex = index }
+            if (b < toDistance) { toDistance = b; toIndex = index }
+        }
+        if (fromDistance > 50 || toDistance > 50 || fromIndex < 0 || toIndex < 0
+            || Math.abs(toIndex - fromIndex) < 2) return null
+        val direction = if (fromIndex < toIndex) 1 else -1
+        val count = Math.abs(toIndex - fromIndex)
+        val sampleStep = maxOf(1, Math.ceil(count / 100.0).toInt())
+        val coordinates = mutableListOf(start)
+        var offset = sampleStep
+        while (offset < count) {
+            coordinates.add(route[fromIndex + direction * offset])
+            offset += sampleStep
+        }
+        coordinates.add(end)
+        val distance = coordinates.zipWithNext()
+            .sumOf { (pa, pb) -> dev.repera.domain.LiveGPXTurnDetection.distance(pa, pb) }
+        if (!distance.isFinite() || distance <= 0 || distance > 6000
+            || distance / seconds > 25) return null
+        return coordinates
     }
 
     fun camera(points: List<WorkoutRoutePoint>): Camera? {

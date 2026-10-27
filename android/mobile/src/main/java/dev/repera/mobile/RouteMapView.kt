@@ -112,7 +112,7 @@ internal fun RouteMapView(
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
                 applyPlannedOverlay(style,plannedPoints)
-                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute),water=waterSport)
+                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute),water=waterSport,plannedPoints=plannedPoints)
             }.onFailure { failed = true }
         }
     }
@@ -187,7 +187,7 @@ internal fun RouteMapView(
                         isCompassEnabled = isInteractive
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
-                        runCatching { applyPlannedOverlay(style,currentPlan);applyRoute(map, style, currentPoints, currentPlanned,water=waterSport) }
+                        runCatching { applyPlannedOverlay(style,currentPlan);applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan) }
                             .onFailure { failed = true }
                             .onSuccess { loadedMap = map;onStyleLoaded?.invoke() }
                     }
@@ -212,7 +212,8 @@ private fun applyPlannedOverlay(style:org.maplibre.android.maps.Style,points:Lis
 }
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
-                       points: List<WorkoutRoutePoint>, plannedRoute: Boolean,fitCamera:Boolean = true,water:Boolean = false) {
+                       points: List<WorkoutRoutePoint>, plannedRoute: Boolean,fitCamera:Boolean = true,water:Boolean = false,
+                       plannedPoints: List<WorkoutRoutePoint> = emptyList()) {
     // Vertices enviados al mapa acotados, NUNCA los datos GPS grabados
     // (Apple f6f13169: maxVertices=450 con stride; evita presion de memoria
     // al abrir un mapa historico durante una grabacion activa).
@@ -224,7 +225,7 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
     } else points
     val segments = if (plannedRoute) rendered.zipWithNext().map { (a,b) ->
         RouteMapModel.Segment(a,b,0xFF0A84FF)
-    } else RouteMapModel.segments(rendered,water)
+    } else RouteMapModel.segments(rendered,water,reference = plannedPoints)
     // Una colección y una capa: no crear miles de capas por cada muestra
     // ni reconstruir un árbol de estilos entero al llegar un punto GPS.
     val solid = segments.filter { !it.estimated }
@@ -293,7 +294,7 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
     val allPoints=points+plannedPoints
     val segments = remember(points, plannedRoute,plannedPoints,water) {
         val measured=if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
-        else RouteMapModel.segments(points,water)
+        else RouteMapModel.segments(points,water,reference = plannedPoints)
         plannedPoints.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }+measured
     }
     Box(modifier = modifier.testTag("route_map_fallback")) {
