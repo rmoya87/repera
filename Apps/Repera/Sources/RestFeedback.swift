@@ -1,4 +1,3 @@
-import AudioToolbox
 import AVFoundation
 import UIKit
 
@@ -68,9 +67,14 @@ enum RestFeedback {
             guard !Task.isCancelled, currentToneID == id else { return }
             tonePlayer = nil
             releaseAudioTask = nil
-            try? AVAudioSession.sharedInstance().setActive(
-                false, options: .notifyOthersOnDeactivation
-            )
+            let session = AVAudioSession.sharedInstance()
+            // Una locución GPS puede empezar mientras termina el tono.
+            // No desactivar el audio del sintetizador en ese caso.
+            if session.mode != .spokenAudio {
+                try? session.setActive(
+                    false, options: .notifyOthersOnDeactivation
+                )
+            }
         }
     }
 
