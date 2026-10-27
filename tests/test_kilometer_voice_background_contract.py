@@ -57,8 +57,35 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("speakNavigation(", refresh)
         self.assertIn("if !(saved && phase == .review && spokenGuidanceEnabled)", LIVE)
-        self.assertIn("recorder.phase == .recording || recorder.phase == .paused", LIVE)
+        self.assertIn("recorder.phase != .review", LIVE)
+        self.assertIn("metricsTrailingActions", LIVE)
+        self.assertNotIn('else if recorder.sport.usesGPS {\n                        metricsCircleButton("map", label: "Ver mapa")', LIVE)
         self.assertIn("Desactivar avisos por voz", LIVE)
+
+    def test_audio_visible_before_start_and_preference_persists(self):
+        self.assertIn("private var showGuidanceToggle: Bool", LIVE)
+        self.assertIn("recorder.phase != .review", LIVE)
+        # Hay un altavoz en mapa y otro en métricas; ambos usan el mismo recorder.
+        self.assertIn("if showGuidanceToggle {", LIVE)
+        self.assertGreaterEqual(LIVE.count("recorder.toggleSpokenGuidance()"), 2)
+        self.assertIn('private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"', LIVE)
+        self.assertIn("private(set) var spokenGuidanceEnabled = true", LIVE)
+        self.assertIn("UserDefaults.standard.bool(forKey: spokenGuidanceKey)", LIVE)
+        self.assertIn("UserDefaults.standard.set(spokenGuidanceEnabled, forKey: spokenGuidanceKey)", LIVE)
+        self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
+
+    def test_map_starts_flat_and_persists_previous_selection(self):
+        self.assertIn(
+            '@AppStorage("repera.live.map.navigation3D.enabled") private var navigationMapEnabled = false',
+            LIVE
+        )
+        self.assertNotIn("@State private var navigationMapEnabled = true", LIVE)
+        self.assertIn("navigationMapEnabled.toggle()", LIVE)
+        self.assertIn(".mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))", LIVE)
+        self.assertIn("if !navigationMapEnabled {", LIVE)
+        self.assertIn("pitch: 0", LIVE)
+        self.assertIn("pitch: 67", LIVE)
+        self.assertIn("center3DMap(on: user)", LIVE)
 
     def test_native_background_modes_are_present_in_source_and_xcodegen(self):
         info = plistlib.loads((ROOT / "Apps/Repera/Resources/Info.plist").read_bytes())
