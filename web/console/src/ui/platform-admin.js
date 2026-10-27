@@ -1,16 +1,20 @@
 import {navIcon} from './nav-icons.js';
-import {renderPlanAdministration} from './business-onboarding.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const euros=v=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(Number(v||0)/100);
 const date=v=>v?new Date(v).toLocaleDateString('es-ES'):'—';
-const type=v=>v==='personal_trainer'?'Entrenador personal':'Gimnasio';
+const type=v=>v==='personal_trainer'?'Entrenador personal':v==='sports_center'?'Centro deportivo':'Gimnasio';
+const safeImage=url=>typeof url==='string'&&/^https:\/\//i.test(url)?esc(url):'';
+const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(s=>s[0]||'').join('').toUpperCase();
+const photo=(url,name,size='')=>safeImage(url)
+ ?`<img class="pa-photo ${size}" src="${safeImage(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+ :`<span class="pa-photo pa-photo-fallback ${size}" aria-hidden="true">${esc(initials(name))}</span>`;
 const validNumber=v=>Number.isFinite(Number(v))?Number(v):0;
 const tabs=[
- ['home','Inicio','dashboard'],['gyms','Gimnasios','team'],['trainers','Entrenadores','planning'],
- ['users','Usuarios y clientes','clients'],['payments','Pagos','billing'],
- ['plans','Planes y precios','products'],['support','Soporte','notifications'],
- ['audit','Auditoría','calendar'],['admin-settings','Configuración','settings']
+ ['home','Inicio','dashboard'],['centers','Centros','team'],['athletes','Atletas','clients'],
+ ['payments','Pagos','billing'],['plans','Planes y precios','products'],
+ ['support','Soporte','notifications'],['audit','Auditoría','calendar'],
+ ['admin-settings','Configuración','settings']
 ];
 const button=(label,action,more='')=>`<button type="button" class="pa-button" data-admin-action="${action}" ${more}>${label}</button>`;
 const stat=(label,value,help='')=>`<article class="pa-stat"><small>${esc(label)}</small><strong>${esc(value)}</strong><span>${esc(help)}</span></article>`;
@@ -18,8 +22,8 @@ const label=(v)=>v==='active'?'Activo':v==='suspended'?'Suspendido':v==='paid'?'
 function statusPill(status){return `<span class="pa-pill ${status==='active'||status==='paid'?'good':status==='suspended'||status==='failed'?'bad':''}">${esc(label(status||'active'))}</span>`;}
 const empty=(title,text)=>`<div class="pa-empty"><strong>${esc(title)}</strong><p>${esc(text)}</p></div>`;
 const table=(heads,rows)=>`<div class="pa-table-wrap"><table class="pa-table"><thead><tr>${heads.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${heads.length}">Sin registros</td></tr>`}</tbody></table></div>`;
-const orgRow=o=>`<tr><td><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.public_email||o.email||o.slug||'')}</small></td><td>${esc(type(o.kind))}</td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Prueba / sin plan')}</td><td>${statusPill(o.status)}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
-const orgTable=orgs=>table(['Negocio','Tipo','Clientes','Activos','Plan','Estado','Alta','Acción'],orgs.map(orgRow).join(''));
+const orgRow=o=>`<tr><td><div class="pa-identity">${photo(o.avatar_url,o.name)}<div><button type="button" class="pa-text-button" data-admin-action="view-org" data-id="${esc(o.id)}">${esc(o.name)}</button><small>${esc(o.public_email||o.email||o.slug||'')}</small></div></div></td><td><span class="pa-kind">${esc(type(o.kind))}</span></td><td>${validNumber(o.client_count)}</td><td>${validNumber(o.active_clients)}</td><td>${esc(o.paid_plan||'Sin plan confirmado')}</td><td>${statusPill(o.status)}</td><td>${date(o.created_at)}</td><td>${button('Abrir','view-org',`data-id="${esc(o.id)}"`)}</td></tr>`;
+const orgTable=orgs=>table(['Centro','Tipo','Clientes','Activos','Plan','Estado','Alta','Acción'],orgs.map(orgRow).join(''));
 function heading(title,description,action=''){return `<div class="pa-heading"><div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 const field=(name,title,value='',type='text',extra='')=>`<label class="pa-field"><span>${title}</span><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 const currencyTotal=payments=>payments.filter(p=>p.status==='paid'&&p.currency==='EUR').reduce((sum,p)=>sum+validNumber(p.amount_cents),0);
@@ -74,21 +78,28 @@ function overview(orgs,financial,history){
  ${stat('Pruebas vigentes',orgs.filter(o=>!o.paid_plan&&o.trial_ends_at&&new Date(o.trial_ends_at)>new Date()).length)}
  </div>
  <div class="pa-layout"><section class="pa-panel"><h2>Acciones rápidas</h2>
- <div class="pa-actions">${button('Gestionar gimnasios','go-gyms')}${button('Ver entrenadores','go-trainers')}${button('Consultar pagos','go-payments')}${button('Dar de alta un negocio','go-provision')}</div></section>
+ <div class="pa-actions">${button('Gestionar centros','go-centers')}${button('Ver atletas','go-athletes')}${button('Consultar pagos','go-payments')}${button('Dar de alta un negocio','go-provision')}</div></section>
  <section class="pa-panel"><h2>Últimos eventos</h2>${history.length?history.slice(0,6).map(e=>`<div class="pa-event"><b>${esc(e.action)}</b><small>${date(e.created_at)}</small></div>`).join(''):empty('Sin eventos','Aquí aparecerán las operaciones administrativas auditadas.')}</section></div>
  `;
 }
-function directory(orgs,kind,filter){
- let list=orgs.filter(o=>kind==='gym'?o.kind!=='personal_trainer':o.kind==='personal_trainer');
- const needle=filter.search.trim().toLocaleLowerCase('es-ES');
- if(needle)list=list.filter(o=>[o.name,o.email,o.slug].some(s=>String(s||'').toLocaleLowerCase('es-ES').includes(needle)));
- if(filter.status&&filter.status!=='all')list=list.filter(o=>o.status===filter.status);
- return `${heading(kind==='gym'?'Gimnasios':'Entrenadores personales','Consulta organizaciones, clientes, actividad, planes y configuración.',button('Nuevo negocio','go-provision'))}
+function directory(orgs,filter){
+ const needle=String(filter.search||'').trim().toLocaleLowerCase('es-ES');
+ let list=orgs.filter(o=>(!needle||[o.name,o.email,o.slug].some(s=>String(s||'').toLocaleLowerCase('es-ES').includes(needle)))
+   &&(!filter.status||filter.status==='all'||o.status===filter.status)
+   &&(!filter.kind||filter.kind==='all'||(filter.kind==='gym'?o.kind!=='personal_trainer':o.kind==='personal_trainer')));
+ return `${heading('Centros','Gimnasios, centros deportivos y entrenadores personales en un solo listado.',button('Añadir centro','go-provision'))}
  <section class="pa-panel"><div class="pa-filters">
- ${field('search','Buscar nombre, correo o identificador',filter.search,'search','data-admin-filter="search" placeholder="Buscar negocios..."')}
- <label class="pa-field"><span>Estado</span><select data-admin-filter="status"><option value="all" ${filter.status==='all'?'selected':''}>Todos</option><option value="active" ${filter.status==='active'?'selected':''}>Activos</option><option value="suspended" ${filter.status==='suspended'?'selected':''}>Suspendidos</option></select></label>
- <span class="pa-filter-count">${list.length} resultado(s)</span></div>
- ${list.length?orgTable(list):empty('No se encontraron negocios','Modifica los filtros o crea una organización.')}</section>`;
+ ${field('search','Buscar centro',filter.search,'search','data-admin-filter="search" placeholder="Nombre, correo o identificador"')}
+ <label class="pa-field"><span>Tipo de centro</span><select data-admin-filter="kind">
+ <option value="all" ${!filter.kind||filter.kind==='all'?'selected':''}>Todos los tipos</option>
+ <option value="gym" ${filter.kind==='gym'?'selected':''}>Gimnasios y centros</option>
+ <option value="personal_trainer" ${filter.kind==='personal_trainer'?'selected':''}>Entrenadores personales</option></select></label>
+ <label class="pa-field"><span>Estado</span><select data-admin-filter="status">
+ <option value="all" ${filter.status==='all'?'selected':''}>Todos</option>
+ <option value="active" ${filter.status==='active'?'selected':''}>Activos</option>
+ <option value="suspended" ${filter.status==='suspended'?'selected':''}>Suspendidos</option></select></label>
+ <span class="pa-filter-count">${list.length} resultados</span></div>
+ ${list.length?orgTable(list):empty('No hay centros con esos filtros','Prueba otra búsqueda o añade un centro nuevo.')}</section>`;
 }
 function paymentsPage(orgs,finance,filter){
  const intents=finance.intents||[];
