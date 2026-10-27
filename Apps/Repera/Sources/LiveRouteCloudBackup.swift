@@ -10,6 +10,8 @@ struct LiveRouteCloudArchive: Codable, Sendable {
 
 enum LiveRouteCloudRead: Sendable {
     case unavailable
+    /// Container is reachable, but has no synchronized route document yet.
+    case missing
     case ready(LiveRouteCloudArchive)
 }
 
@@ -32,7 +34,7 @@ actor LiveRouteCloudBackup {
         guard let url = cloudURL() else { return .unavailable }
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else {
-            return .ready(LiveRouteCloudArchive(routes: [], deletedIDs: []))
+            return .missing
         }
         // The file exists in iCloud but may not yet have downloaded on a
         // newly installed phone. In that case DO NOT upload the empty library.
@@ -63,8 +65,10 @@ actor LiveRouteCloudBackup {
         } catch { return false }
         var coordinationError: NSError?
         var writeError: Error?
+        let options: NSFileCoordinator.WritingOptions = fm.fileExists(atPath: url.path)
+            ? .forReplacing : []
         NSFileCoordinator(filePresenter: nil).coordinate(
-            writingItemAt: url, options: .forReplacing, error: &coordinationError
+            writingItemAt: url, options: options, error: &coordinationError
         ) { coordinatedURL in
             do {
                 try data.write(to: coordinatedURL, options: .atomic)
