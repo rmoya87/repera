@@ -485,11 +485,19 @@ struct HomeView: View {
                         usesPageCloseHeader: true
                     )
                 case .favorites:
-                    FavoritesHubView(onOpenedWorkout: {
-                        restoresAddSheetAfterPage = false
-                        addWorkoutPage = nil
-                        onOpenWorkout()
-                    })
+                    FavoritesHubView(
+                        onOpenedWorkout: {
+                            restoresAddSheetAfterPage = false
+                            addWorkoutPage = nil
+                            onOpenWorkout()
+                        },
+                        targetDate: selectedDay,
+                        onScheduledWorkout: {
+                            // Añadir la copia a ese día y regresar al calendario.
+                            restoresAddSheetAfterPage = false
+                            addWorkoutPage = nil
+                        }
+                    )
                 case .timer:
                     StandaloneTimerView(embedsNavigation: false)
                 }
