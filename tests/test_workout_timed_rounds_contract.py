@@ -85,6 +85,7 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn('Text("Iniciar temporizador")', sheet)
         self.assertIn("TimerNumericInput(label: \"MIN\"", sheet)
         self.assertIn("TimerNumericInput(label: \"SEG\"", sheet)
+        self.assertNotIn("Deja el descanso en 0:00", sheet)
 
         timer = (IOS / "StandaloneTimerView.swift").read_text(encoding="utf-8")
         numeric = timer.split("struct TimerNumericInput: View {", 1)[1].split(
@@ -98,6 +99,10 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertNotIn(".glassEffect(", numeric)
         self.assertIn(".frame(height: 48)", numeric)
         self.assertIn("compactIntrinsicHeight: 48", numeric)
+        self.assertLess(numeric.index("onFocusLost: { commit() }"),
+                        numeric.index("compactIntrinsicHeight: 48"))
+        self.assertLess(numeric.index("compactIntrinsicHeight: 48"),
+                        numeric.index("onCommit: { commit() }"))
         self.assertIn(".frame(height: 64, alignment: .top)", numeric)
         self.assertIn(".clipped()", numeric)
         self.assertNotIn(".frame(maxWidth: .infinity, minHeight: 48)", numeric)
