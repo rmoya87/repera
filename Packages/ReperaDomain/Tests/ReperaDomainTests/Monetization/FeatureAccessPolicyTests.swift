@@ -23,6 +23,19 @@ struct FeatureAccessPolicyTests {
         }
     }
 
+    @Test("Pro y prueba activa pueden guardar favoritos sin límite, incluso con cien plantillas")
+    func paidAccessNeverBlocksSavingFavorites() {
+        for status: SubscriptionStatus in [.trial, .proMonthly, .proAnnual, .gracePeriod] {
+            let policy = FeatureAccessPolicy(
+                snapshot: CommercialSnapshot(status: status, isConfigured: true),
+                libraryRoutineCount: 100
+            )
+            #expect(policy.isPro)
+            #expect(policy.canCreateLibraryRoutine(isNew: true).allowed)
+            #expect(policy.decision(for: .unlimitedRoutines).allowed)
+        }
+    }
+
     @Test("Vínculo con centro/entrenador otorga acceso completo")
     func businessSponsoredGrantsFullAccess() {
         let policy = FeatureAccessPolicy(
