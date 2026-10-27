@@ -25,4 +25,10 @@ class DayChartPositionsTest {
   assertEquals(118.0,ProgressPlotAxis.kcalMax(listOf(ProgressDayPoint(day,100.0)),false),0.001)
   assertEquals(128.0,ProgressPlotAxis.kcalMax(listOf(ProgressDayPoint(day,100.0)),true),0.001)
  }
+ @Test fun tickStrideMatchesSourceGranularity() {
+  val days=(0..19).map {LocalDate.of(2026,10,1).plusDays(it.toLong())}
+  val result=ProgressPlotAxis.ticks(days,dev.repera.domain.ProgressTimeRange.MONTH,dev.repera.domain.ProgressSeriesGranularity.DAY)
+  assertEquals(listOf(0,3,6,9,12,15,18,19).map {days[it]},result)
+  assertEquals(days.take(7),ProgressPlotAxis.ticks(days.take(7),dev.repera.domain.ProgressTimeRange.WEEK,dev.repera.domain.ProgressSeriesGranularity.DAY))
+ }
 }

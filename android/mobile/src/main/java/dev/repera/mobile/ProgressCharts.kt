@@ -65,14 +65,9 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
             if (charts.calories.isNotEmpty()) {
                 Text("Calorías activas · ${charts.caloriesTotal.toInt()} kcal en el rango",
                     style = MaterialTheme.typography.bodyMedium)
-                // Apple ProgressTrendCards (live main): Media/día, Periodo ant., Variación. Compile-only UI.
-                Text("Media/día " + dev.repera.domain.CalorieAverageStats.kcalLabel(charts.caloriesDailyAverage) +
-                    " · Periodo ant. " + dev.repera.domain.CalorieAverageStats.kcalLabel(charts.previousCaloriesDailyAverage) +
-                    " · Variación " + dev.repera.domain.CalorieAverageStats.changeLabel(
-                        dev.repera.domain.CalorieAverageStats.change(charts.caloriesDailyAverage, charts.previousCaloriesDailyAverage)),
-                    style = MaterialTheme.typography.bodySmall)
                 ProgressCaloriesPlot(charts,preview)
             }
+            if(showEmpty || charts.calories.isNotEmpty()) ProgressCalorieStats(charts)
             if (charts.heartRate.isNotEmpty()) {
                 Text("Frecuencia cardíaca" +
                     (charts.averageHeartRate?.let {

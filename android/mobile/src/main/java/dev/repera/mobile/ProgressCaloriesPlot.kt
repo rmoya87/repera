@@ -27,12 +27,17 @@ internal object ProgressPlotAxis {
   return start.toEpochDay()-pad to end.toEpochDay()+pad
  }
  fun fraction(day:LocalDate,domain:Pair<Double,Double>):Float =((day.toEpochDay()-domain.first)/(domain.second-domain.first).coerceAtLeast(1.0)).toFloat()
+ fun ticks(days:List<LocalDate>,range:ProgressTimeRange,granularity:ProgressSeriesGranularity):List<LocalDate> {
+  val step=if(granularity==ProgressSeriesGranularity.DAY && (range==ProgressTimeRange.TODAY || range==ProgressTimeRange.WEEK)) 1 else maxOf(1,days.size/6)
+  return days.filterIndexed {i,_ ->i%step==0 || i==days.lastIndex}.distinct()
+ }
  fun kcalMax(values:List<ProgressDayPoint>,preview:Boolean)=maxOf(1.0,(values.maxOfOrNull {it.value} ?: 1.0)*(if(preview) 1.28 else 1.18))
 }
 
 /** Observed/prepared calories, not invented bars. No sample changes or Health reads. */
 @Composable internal fun ProgressCaloriesPlot(charts:ProgressPreparedCharts,preview:Boolean=false,today:LocalDate=LocalDate.now()) {
  val points=charts.calories.sortedBy {it.day}
+ val ticks=ProgressPlotAxis.ticks(points.map {it.day},charts.range,charts.granularity)
  val maximum=ProgressPlotAxis.kcalMax(points,preview)
  val domain=ProgressPlotAxis.domain(points.map {it.day},charts.range,charts.weekStartsOnMonday,today,preview)
  var selected by remember(points,domain) {mutableStateOf<Int?>(null)}
@@ -64,6 +69,7 @@ internal object ProgressPlotAxis {
      fun y(value:Double)=size.height-(value/maximum*size.height).toFloat()
      clipRect {
       listOf(0f,0.5f,1f).forEach {f ->drawLine(grid,Offset(0f,f*size.height),Offset(size.width,f*size.height),0.5.dp.toPx())}
+      ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
       val positions=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
       val path=Path();path.moveTo(positions.first().x,positions.first().y)
       ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
@@ -74,12 +80,34 @@ internal object ProgressPlotAxis {
      }
     }
    }
-   Row(Modifier.fillMaxWidth().padding(start=44.dp)) {
+   androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start=44.dp).height(22.dp)) {
     val fmt=java.time.format.DateTimeFormatter.ofPattern(if(charts.granularity==ProgressSeriesGranularity.MONTH) "MMM yy" else if(charts.range==ProgressTimeRange.WEEK || charts.range==ProgressTimeRange.TODAY) "EEE" else "d MMM",java.util.Locale("es","ES"))
-    Text(points.first().day.format(fmt),style=MaterialTheme.typography.labelSmall)
-    Spacer(Modifier.weight(1f))
-    if(points.size>1) Text(points.last().day.format(fmt),style=MaterialTheme.typography.labelSmall)
+    // Fixed-width greedy label collision rule, separate from exact tick positions.
+    var lastEnd=-100f
+    ticks.forEach {day ->
+     val center=ProgressPlotAxis.fraction(day,domain)*maxWidth.value
+     val width=if(charts.granularity==ProgressSeriesGranularity.MONTH) 45f else 38f
+     val left=(center-width/2).coerceIn(0f,(maxWidth.value-width).coerceAtLeast(0f))
+     if(left>=lastEnd+3f) {
+      Text(day.format(fmt),Modifier.offset(x=left.dp).width(width.dp),style=MaterialTheme.typography.labelSmall,maxLines=1,softWrap=false)
+      lastEnd=left+width
+     }
+    }
    }
   }
+ }
+}
+
+@Composable internal fun ProgressCalorieStats(charts:ProgressPreparedCharts) {
+ Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+  val labels=listOf("Media/día" to CalorieAverageStats.kcalLabel(charts.caloriesDailyAverage),
+   "Periodo ant." to CalorieAverageStats.kcalLabel(charts.previousCaloriesDailyAverage),
+   "Variación" to CalorieAverageStats.changeLabel(CalorieAverageStats.change(charts.caloriesDailyAverage,charts.previousCaloriesDailyAverage)))
+  labels.forEach {(title,value) ->Surface(Modifier.weight(1f),shape=androidx.compose.foundation.shape.RoundedCornerShape(10.dp),color=MaterialTheme.colorScheme.surfaceVariant) {
+   Column(Modifier.fillMaxWidth().padding(horizontal=6.dp,vertical=10.dp),horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {
+    Text(title,style=MaterialTheme.typography.labelSmall,maxLines=1)
+    Text(value,style=MaterialTheme.typography.labelMedium,maxLines=1)
+   }
+  }}
  }
 }

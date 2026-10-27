@@ -306,8 +306,14 @@ class ReviewSpacingRenderTest {
  @Test fun caloriesCurveAndSelection() {
         val day=LocalDate.of(2026,10,27)
         composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("calories_fixture")) {
-            dev.repera.mobile.ProgressCaloriesPlot(dev.repera.mobile.ProgressPreview.charts(day,true),preview=true,today=day)
+            androidx.compose.foundation.layout.Column {
+            val charts=dev.repera.mobile.ProgressPreview.charts(day,true).copy(caloriesDailyAverage=503.0,previousCaloriesDailyAverage=450.0)
+            dev.repera.mobile.ProgressCaloriesPlot(charts,preview=true,today=day)
+            dev.repera.mobile.ProgressCalorieStats(charts)
+            }
         }}}
+        composeRule.onNodeWithText("503 kcal",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithText("+12 %",useUnmergedTree=true).assertExists()
         org.junit.Assert.assertEquals(210,composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         save(composeRule.onNodeWithTag("calories_fixture").captureToImage().asAndroidBitmap(),"calories-preview-curve.png")
         composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()

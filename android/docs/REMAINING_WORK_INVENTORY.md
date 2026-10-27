@@ -466,3 +466,16 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -4focalizados/2XMLverdes65s(3nuevos),PNG360preview yvacioinspeccionados.
  Compilacion72s. Completa305pendiente;ultima303659/163XMLassemble39s.
  Sin cambioestadosmatriz735/70,nativopendiente,no push.
+
+## Revision kcal, avance parcial 23:56
+- Full305mobile662/163XMLejecutados64/73/58/60s0error/fallo/omitidos,
+ assemble73sverde. Bloquerevisiongraficos sigue abierto.
+- Subhuecosyatrazados305:tickDatesportado stride diaweek1/restoN/6
+ incluyendoultimo,gridX0.5dp enticks reales. Etiquetasformatogranularidad
+ yreglagreedyAndroidanchofijo(aproximacion,nofontmetricsSwift).
+- StatsMedia/dia/Periodoant/Variacion ahoratres superficiescentradas10dp,
+ incluso sinserie conplaceholder,despuesgrafica. UsaCalorieAverageStats
+ existente sinrecalcularaqui ni cambiardatos.
+-5focalizados/2XMLverdes44s,compile64s;PNG360con7dias ystatsinspeccionado.
+ Yticks0/mitad/max aunaproximados;cardio190/3curvas aunpendiente.
+ Completa306pendiente,domain504/93Wear8/1previos.735/70,nativopendiente.
