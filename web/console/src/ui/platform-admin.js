@@ -241,28 +241,51 @@ function accountPage(account,email){
  <div class="pa-account-signout">${button('Cerrar sesión','logout-admin')}</div>
  </section></div>`;
 }
-export function renderPlatformAdmin({tab='home',orgs=[],finance={},pending=[],history=[],plans=[],selectedOrg='',filter={},busy=false,error='',notice='',email=''}) {
+export function renderPlatformAdmin({
+ tab='home',orgs=[],athletes=[],finance={},pending=[],history=[],plans=[],
+ selectedOrg='',filter={},settings={},account={},editingPlan='',busy=false,error='',notice='',email=''
+}={}) {
  const o=orgs.find(o=>o.id===selectedOrg);
- const headings={home:'Inicio',gyms:'Gimnasios',trainers:'Entrenadores',users:'Usuarios y clientes',payments:'Pagos',plans:'Planes y precios',support:'Soporte',audit:'Auditoría','admin-settings':'Configuración',provision:'Nuevo negocio'};
+ const headings={home:'Inicio',centers:'Centros',athletes:'Atletas',payments:'Pagos',
+ plans:'Planes y precios',support:'Soporte',audit:'Auditoría',
+ 'admin-settings':'Configuración',account:'Mi cuenta',provision:'Añadir centro'};
+ const displayName=account.display_name||email.split('@')[0]||'Administrador';
  let body='';
  if(o)body=organizationDetail(o,{plans});
  else if(tab==='home')body=overview(orgs,finance,history);
- else if(tab==='gyms'||tab==='trainers')body=directory(orgs,tab==='gyms'?'gym':'trainer',filter);
+ else if(tab==='centers')body=directory(orgs,filter);
+ else if(tab==='athletes')body=athletesPage(athletes,filter);
  else if(tab==='payments')body=paymentsPage(orgs,finance,filter);
  else if(tab==='provision')body=provisioning(pending,plans);
- else if(tab==='plans')body=`${heading('Planes y precios','Edita el catálogo comercial. Estos cambios no crean pagos ni activan suscripciones.')}${renderPlanAdministration(plans)}`;
- else if(tab==='users')body=`${heading('Usuarios y clientes','Recuentos por negocio sin exposición global de fichas personales.')}
- <div class="pa-metrics">${stat('Relaciones comerciales',orgs.reduce((s,o)=>s+validNumber(o.client_count),0),'No es un recuento de personas únicas')}${stat('Miembros de organizaciones',orgs.reduce((s,o)=>s+validNumber(o.member_count),0))}</div>
- <section class="pa-panel"><h2>Clientes por negocio</h2>${orgTable(orgs)}<p class="pa-muted">Para gestionar fichas identificables, utiliza el acceso delegado y los permisos y consentimientos correspondientes.</p></section>`;
+ else if(tab==='plans')body=plansPage(plans,editingPlan);
  else if(tab==='support')body=support(orgs,pending);
- else if(tab==='audit')body=`${heading('Auditoría de plataforma','Acciones de administración y accesos delegados, con fecha y negocio asociado.')}<section class="pa-panel">${history.length?table(['Fecha','Acción','Negocio','Detalle'],history.map(h=>`<tr><td>${date(h.created_at)}</td><td>${esc(h.action)}</td><td>${esc(orgs.find(o=>o.id===h.org_id)?.name||'—')}</td><td>${esc(h.details?.reason||h.details?.status||'—')}</td></tr>`).join('')):empty('Sin operaciones','Las acciones administrativas aparecerán aquí.')}</section>`;
- else body=`${heading('Configuración global','Acceso restringido al administrador verificado de Repera.')}<section class="pa-panel"><h2>Integraciones y control</h2><p>Autenticación y permisos verificados por Supabase. Para pagos reales se requiere configurar Stripe Billing, webhooks firmados y emisión fiscal.</p><p>Los datos privados de atletas no forman parte de la visión general.</p></section>`;
- return `<div class="pa-shell"><aside class="pa-sidebar"><div class="pa-brand"><span class="pa-brand-symbol">R</span><div><strong>repera</strong><small>ADMINISTRACIÓN</small></div></div>
- <div class="pa-sidebar-label">PLATAFORMA</div><nav aria-label="Administración Repera">
- ${tabs.map(([id,name,icon])=>`<button type="button" data-admin-tab="${id}" class="${tab===id&&!o?'active':''}" aria-current="${tab===id&&!o?'page':'false'}">${navIcon(icon)}<span>${name}</span></button>`).join('')}</nav>
- <div class="pa-sidebar-bottom"><span>Cuenta de plataforma</span><small>${esc(email)}</small><button type="button" data-action="logout">Cerrar sesión</button></div></aside>
- <div class="pa-main"><header class="pa-top"><div><span>Repera</span> / ${esc(o?o.name:(headings[tab]||'Inicio'))}</div><div class="pa-top-right"><span class="pa-live">Supabase conectado</span>${button('Nuevo negocio','go-provision')}<span class="pa-avatar">AD</span></div></header>
- <main class="pa-content" id="platform-main">${error?`<div role="alert" class="pa-error">${esc(error)}</div>`:''}${notice?`<div role="status" class="pa-notice">${esc(notice)}</div>`:''}
+ else if(tab==='audit')body=`${heading('Auditoría de plataforma','Registro de acciones administrativas y accesos delegados.')}
+ <section class="pa-panel">${history.length?table(['Fecha','Acción','Centro','Detalle'],
+ history.map(h=>`<tr><td>${date(h.created_at)}</td><td>${esc(h.action)}</td>
+ <td>${esc(orgs.find(o=>o.id===h.org_id)?.name||'—')}</td>
+ <td>${esc(h.details?.reason||h.details?.status||'—')}</td></tr>`).join('')):
+ empty('Todavía no hay eventos','Las acciones administrativas se registrarán aquí.')}</section>`;
+ else if(tab==='admin-settings')body=settingsPage(settings,orgs,plans);
+ else if(tab==='account')body=accountPage(account,email);
+ return `<div class="pa-shell"><aside class="pa-sidebar">
+ <div class="pa-brand"><span class="pa-brand-symbol">R</span><div><strong>repera</strong><small>ADMINISTRACIÓN</small></div></div>
+ <div class="pa-sidebar-label">PLATAFORMA</div>
+ <nav aria-label="Administración Repera">
+ ${tabs.map(([id,name,icon])=>`<button type="button" data-admin-tab="${id}"
+ class="${tab===id&&!o?'active':''}" aria-current="${tab===id&&!o?'page':'false'}">${navIcon(icon)}<span>${name}</span></button>`).join('')}</nav>
+ <div class="pa-sidebar-bottom">
+ <button type="button" class="pa-account-entry ${tab==='account'?'active':''}" data-admin-tab="account"
+ aria-label="Configurar mi cuenta"><span class="pa-account-thumb">${photo(account.avatar_url,displayName)}</span>
+ <span class="pa-account-copy"><strong>${esc(displayName)}</strong><small>${esc(email)}</small><small>Cuenta de plataforma</small></span>
+ ${navIcon('settings')}</button>
+ <button type="button" class="pa-sidebar-logout" data-action="logout">Cerrar sesión</button></div></aside>
+ <div class="pa-main"><header class="pa-top">
+ <div><span>Repera</span> / ${esc(o?o.name:(headings[tab]||'Inicio'))}</div>
+ <div class="pa-top-right">${button('Añadir centro','go-provision')}</div>
+ </header>
+ <main class="pa-content" id="platform-main">
+ ${error?`<div role="alert" class="pa-error">${esc(error)}</div>`:''}
+ ${notice?`<div role="status" class="pa-notice">${esc(notice)}</div>`:''}
  ${body}</main></div></div>`;
 }
 export function paymentCSV(orgs,finance,filter={}){
