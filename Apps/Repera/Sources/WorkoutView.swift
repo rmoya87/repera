@@ -4,6 +4,7 @@ import UIKit
 
 struct WorkoutView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Si se presenta fuera de un sheet, cierra el flujo de navegación raíz.
@@ -129,7 +130,14 @@ struct WorkoutView: View {
                         Label("Editar entreno", systemImage: "pencil")
                     }
                     Button {
-                        _ = store.saveActiveSessionAsFavorite()
+                        guard store.saveActiveSessionAsFavorite() != nil else {
+                            let decision = store.lastAccessDenial
+                                ?? subscriptions.canCreateLibraryRoutine(isNew: true)
+                            subscriptions.presentPaywall(
+                                decision.paywallContext, feature: .unlimitedRoutines
+                            )
+                            return
+                        }
                     } label: {
                         Label(
                             activeIsFavorite ? "En favoritos" : "Favorito",
@@ -309,8 +317,7 @@ struct WorkoutView: View {
     }
 
     private var activeIsFavorite: Bool {
-        guard let rid = store.state.activeSession?.routineId else { return false }
-        return store.state.routines.first(where: { $0.id == rid })?.isFavorite == true
+        store.activeSessionIsFavorite
     }
 
     /// Log rápido («Apuntar · …»): UI plana por secciones, sin card envolvente ni Comenzar.
