@@ -22,6 +22,34 @@ import org.junit.Test
  * en el dominio Android.
  */
 class BoardScanLiteParserTest {
+    @Test
+    fun mixedCaseBTTAndT2BPreferOfficialCatalogWhenOldCustomExists() {
+        // Espejo de Apple 3684a6ec: fichas provisionales guardadas antes del
+        // seed que comparten nombre con la oficial; el escaner elige la oficial.
+        // El fixture 196 de esta clase es historico y no incluye BTT; el seed
+        // actual (289) si, igual que Catalog.seed() de Apple.
+        val seedArray = JSONArray(requireNotNull(
+            BoardScanLiteParserTest::class.java.classLoader
+                ?.getResource("catalog_seed_288.json")).readText())
+        val seed289 = (0 until seedArray.length()).map {
+            val o = seedArray.getJSONObject(it)
+            CatalogExercise(o.getString("id"), o.getString("name"),
+                SportExerciseNames.searchAliases(o.getString("name")),
+                o.optBoolean("isCustom", false))
+        }
+        val btt = seed289.first { it.name == "Burpee to target" }
+        val t2b = seed289.first { it.name == "Toes to bar" }
+        val oldBTT = CatalogExercise("old-btt", "Burpee to target", emptyList(), isCustom = true)
+        val oldT2B = CatalogExercise("old-t2b", "Toes to bar", emptyList(), isCustom = true)
+        val result = BoardScanLiteParser.parse(
+            ocrText = "AMRAP 15'\n6 BTt\n8 T2B", catalog = listOf(oldBTT, oldT2B) + seed289)
+        assertEquals(1, result.blocks.size)
+        assertEquals(2, result.blocks[0].movements.size)
+        assertEquals("Burpee to target", result.blocks[0].movements[0].name)
+        assertEquals(btt.id, result.blocks[0].movements[0].exerciseId)
+        assertEquals("Toes to bar", result.blocks[0].movements[1].name)
+        assertEquals(t2b.id, result.blocks[0].movements[1].exerciseId)
+    }
 
     companion object {
         lateinit var catalog: List<CatalogExercise>

@@ -53,6 +53,33 @@ class WodSessionAssemblerResolutionTest {
         assertTrue(ephemeral.getBoolean("isCustom"))
     }
 
+    @Test fun sameNameLegacyCustomsRelinkToOfficialIds() {
+        // Apple 6efd1cec: fichas provisionales que comparten nombre con la oficial
+        // y fueron guardadas antes del seed; ambas re-enlazan a los ids oficiales.
+        val provisional = ex("provisional-btt", "Burpee to target", custom = true)
+        val oldToes = ex("old-toes", "Toes to bar", custom = true)
+        assertEquals("Burpee to target",
+            dev.repera.domain.CrossFitGlossary.resolveCatalogName("BTt"))
+        assertEquals("Toes to bar",
+            dev.repera.domain.CrossFitGlossary.resolveCatalogName("T2B"))
+        val m1 = JSONObject().put("id", "m1").put("name", "BTt")
+            .put("exerciseId", "provisional-btt").put("reps", 8)
+        val m2 = JSONObject().put("id", "m2").put("name", "T2B")
+            .put("exerciseId", "old-toes").put("reps", 10)
+        val b = JSONObject().put("id", "b1").put("kind", "wod").put("wodFormat", "emom")
+            .put("movements", JSONArray().put(m1).put(m2))
+        val out = append(b, catalog(provisional, oldToes))
+        assertEquals(2, out.length())
+        val first = out.getJSONObject(0).getJSONObject("exercise")
+        val second = out.getJSONObject(1).getJSONObject("exercise")
+        assertEquals("Burpee to target", first.getString("name"))
+        assertEquals("Toes to bar", second.getString("name"))
+        assertFalse(first.optBoolean("isCustom"))
+        assertFalse(second.optBoolean("isCustom"))
+        assertNotEquals("provisional-btt", first.getString("id"))
+        assertNotEquals("old-toes", second.getString("id"))
+    }
+
     @Test fun restMovementsStillSkipped() {
         val rest = JSONObject().put("id", "r1").put("name", "Rest").put("isRest", true).put("restSeconds", 60)
         val work = JSONObject().put("id", "m5").put("name", "Thruster").put("reps", 15)

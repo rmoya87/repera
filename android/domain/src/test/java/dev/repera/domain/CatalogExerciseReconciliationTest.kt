@@ -7,9 +7,9 @@ import org.junit.Test
 
 /**
  * Espejo de AbbreviatedWODCatalogTests (Apple 0a640da8). El Catalog.seed() de
- * Apple se modela con una lista empaquetada explícita; la ficha «Burpee to
- * target» no existe hoy en el seed 288 de Android, así que el respaldo
- * empaquetado se construye a mano en estos tests.
+ * Apple se modela con una lista empaquetada explícita; el seed actual de
+ * Android (289) ya incluye «Burpee to target», y estos tests conservan el
+ * respaldo empaquetado construido a mano para aislar el matching.
  */
 class CatalogExerciseReconciliationTest {
 
