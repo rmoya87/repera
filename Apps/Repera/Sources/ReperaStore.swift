@@ -677,6 +677,9 @@ final class ReperaStore: NSObject {
     }
 
     func refreshFromiCloud(isInitial: Bool = false) async {
+        // El lanzamiento, Ajustes y el detalle histórico pueden solicitar
+        // recuperación simultáneamente: no competir por el mismo documento.
+        guard !isSyncingiCloud else { return }
         guard !hasWorkoutInProgress else {
             lastiCloudSyncMessage = "Sincronización aplazada hasta finalizar el entrenamiento"
             return
