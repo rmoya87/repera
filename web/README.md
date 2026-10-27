@@ -1,5 +1,14 @@
 # Web Repera (`repera.app`)
 
+## Administración global de Repera Business (2026-10-27)
+
+La consola conectada `web/console/` dispone de interfaz separada para administradores de plataforma verificados. Inicio, gimnasios, entrenadores, fichas, altas pendientes, planes, pagos B2B, soporte y auditoría están implementados en `src/ui/platform-admin.js`; UI responsive en `src/platform-admin.css`. Las acciones se validan mediante RPC en Supabase y los permisos de negocio delegados caducan a los 30 minutos.
+
+Las altas administrativas quedan pendientes hasta el primer inicio de sesión del propietario con email confirmado. Ni las altas ni la selección de planes envían mensajes, cobran tarjetas ni activan suscripciones. El apartado Pagos muestra **solo** operaciones verificados en `platform_billing_payments` (actualmente sin webhook de Stripe), separadas de las intenciones de compra. La gestión B2C y la facturación legal requieren integración posterior.
+
+Para desarrollo local: `cd web/console && npm test` y `python3 -m http.server 8080`; la demo `?demo=1` permanece aislada del backend real.
+
+
 Sitio HTML estático: producto, precios, FAQ de suscripción, privacidad y términos.
 Cumple enlaces requeridos por App Store / paywall y es reutilizable en Google Play.
 
