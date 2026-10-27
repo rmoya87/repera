@@ -1,5 +1,6 @@
 package dev.repera.wear
 
+import dev.repera.domain.ReperaNumberFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -252,7 +253,7 @@ internal fun WearHomeContent(
                                 verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = { callbacks.onWeightDelta(-0.1) }) {
                                     Text("−") }
-                                Text("${state.weightInput ?: 0.0} kg",
+                                Text("${ReperaNumberFormat.decimal(state.weightInput ?: 0.0)} kg",
                                     style = MaterialTheme.typography.titleMedium)
                                 IconButton(onClick = { callbacks.onWeightDelta(0.1) }) {
                                     Text("+") }
@@ -266,7 +267,7 @@ internal fun WearHomeContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { callbacks.onRirMinus() }) { Text("−") }
-                            Text(state.rirInput?.let { "RIR ${it.toInt()}" } ?: "RIR —",
+                            Text(state.rirInput?.let { "RIR ${ReperaNumberFormat.decimal(it)}" } ?: "RIR —",
                                 style = MaterialTheme.typography.titleMedium)
                             IconButton(onClick = { callbacks.onRirPlus() }) { Text("+") }
                         }
