@@ -78,10 +78,17 @@ class UnifiedGPSContracts(unittest.TestCase):
 
 
     def test_loaded_route_keeps_navigation_on_screen(self):
+        # Un GPX ya no impone Mapa tras Play; las indicaciones también
+        # permanecen visibles en la pantalla Métricas elegida.
         self.assertIn(
+            '@AppStorage("repera.live.preferredDisplay.metrics") private var showingMetrics = false',
+            self.live,
+        )
+        self.assertNotIn(
             "showingMetrics = recorder.sport.usesGPS && recorder.chosenRoute == nil",
             self.live,
         )
+        self.assertIn("if recorder.chosenRoute != nil, recorder.phase != .idle {", self.live)
         self.assertNotIn("recorder.upcomingTurnMeters != nil", self.live)
         self.assertIn("if recorder.chosenRoute != nil {", self.live)
         self.assertIn("Sigue el recorrido", self.live)
