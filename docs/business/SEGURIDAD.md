@@ -1,5 +1,16 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Consentimiento, identidad e invitaciones — 27/10/2026
+
+`platform_admin_set_visibility` comprueba `private.is_repera_platform_admin()` y no permite publicar centros suspendidos. `registration_status='pending'` sigue pendiente tras hacer visible el negocio; no se crea ni se suplanta al propietario. Cada cambio se registra en `platform_admin_events`.
+
+`business_invite_email_payload` y `platform_admin_owner_email_payload` son RPCs invoker con trabajo privado SECURITY DEFINER, validan permisos (manager de la organización o admin de Repera) y limitan los intentos a tres por hora. Las tablas de intentos tienen RLS activo y ningún DML del navegador. Edge Function `repera-business-invite` requiere JWT, vuelve a validar identidad contra GoTrue, obtiene destinatario por RPC autorizada y envía por Resend únicamente si hay secretos configurados. No acepta direcciones destinatario arbitrarias del navegador ni usa la service role en web.
+
+La aceptación de `organization_invitations` solo la puede hacer la cuenta con **el mismo correo verificado**; no comparte workouts por aceptar. El historial profesional se muestra por `get_shared_athlete_results`, que exige `athlete_workout_sharing.enabled`, relación activa de atleta/centro y rol coach asignado u owner/admin. El perfil profesional omite secretos, datos médicos, notas internas y accesos. El panel global sí puede ver metadatos administrativos mínimos; cada consulta a atleta se audita.
+
+El e1RM y la puntuación de actividad son estimaciones operativas: no constituyen diagnóstico, certificación profesional ni valoración médica; las pruebas usan únicamente ejercicios registrados. No se calcula e1RM de prescripciones no realizadas.
+
+
 ## Solicitudes, calendario y planificación masiva — 27/10/2026
 
 Las nuevas RPCs validan actor mediante `auth.uid()`, email confirmado y roles reales. La tabla `organization_athlete_requests` habilita RLS para consultas de solicitante y responsables del centro; el navegador no tiene permisos INSERT/UPDATE directos. `business_decide_enrollment` valida la solicitud pendiente y su organización, impide vinculaciones a otra cuenta y crea membresía `athlete` y ficha vinculada en una transacción.
