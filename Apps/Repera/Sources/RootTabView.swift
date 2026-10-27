@@ -18,9 +18,6 @@ struct RootTabView: View {
     @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
-    /// Request token: opening the route library from Inicio switches to
-    /// Comenzar without auto-starting GPS or opening a duplicate sheet.
-    @State private var routePickerRequest = 0
 
     enum AppTab: Hashable {
         case home, start, stats, exercises
@@ -34,12 +31,7 @@ struct RootTabView: View {
                         onOpenWorkout: openWorkout,
                         focusDay: homeFocusDay,
                         onStart: openTodayPreview,
-                        onStartRoutine: openRoutinePreview,
-                        onLoadRoutes: {
-                            flowPath = []
-                            routePickerRequest &+= 1
-                            tab = .start
-                        }
+                        onStartRoutine: openRoutinePreview
                     )
                 }
 
@@ -52,8 +44,7 @@ struct RootTabView: View {
                             // evento de refresco (fuera de la grabación activa).
                             store.requestExerciseCatalogRefresh()
                         },
-                        onOpenWorkout: openWorkout,
-                        routeLibraryOpenRequest: routePickerRequest
+                        onOpenWorkout: openWorkout
                     )
                 }
 
