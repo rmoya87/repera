@@ -1594,7 +1594,9 @@ struct LiveActivityView: View {
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
-    @State private var navigationMapEnabled = true
+    /// Preferencia persistente del mapa de Comenzar: primera apertura plana (2D).
+    /// Un cambio en vertical u horizontal queda guardado para futuras sesiones.
+    @AppStorage("repera.live.map.navigation3D.enabled") private var navigationMapEnabled = false
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -2126,11 +2128,11 @@ struct LiveActivityView: View {
         .accessibilityLabel(label)
     }
 
-    /// Un solo control silencia tanto las indicaciones GPS como las
-    /// confirmaciones de inicio/pausa/reanudación/fin de cualquier deporte.
-    /// En Mapa va al pie de los controles derechos; en Métricas, en cabecera.
+    /// Disponible antes de iniciar para decidir si la primera locución
+    /// («Iniciando caminata», etc.) debe reproducirse; persiste en UserDefaults.
+    /// Un solo control silencia los avisos de fase, parciales y giros.
     private var showGuidanceToggle: Bool {
-        recorder.phase == .recording || recorder.phase == .paused
+        recorder.phase != .review
     }
 
     private var guidanceSymbol: String {
@@ -2246,13 +2248,10 @@ struct LiveActivityView: View {
                     // Los controles permanecen a la DERECHA del encabezado.
                     // Al pausar, Play y Finalizar se sitúan uno junto al otro:
                     // el grupo crece hacia la izquierda, no hacia abajo.
-                    if recorder.phase == .recording || recorder.phase == .paused {
-                        metricsTrailingActions
-                    } else if recorder.sport.usesGPS {
-                        metricsCircleButton("map", label: "Ver mapa") {
-                            showingMetrics = false
-                        }
-                    }
+                    // Audio y cambio a mapa visibles también ANTES de Iniciar.
+                    // Reutilizamos los controles de la sesión para no duplicar
+                    // botones ni crear otro estado que se pierda al comenzar.
+                    metricsTrailingActions
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
