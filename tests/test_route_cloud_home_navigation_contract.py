@@ -16,14 +16,16 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.live = code("LiveActivityView.swift")
-        cls.backup = code("LiveRouteCloudBackup.swift")
+        # Cloud archive lives in the already-compiled LiveActivityView;
+        # old .xcodeproj copies do not need XcodeGen regeneration.
+        cls.backup = cls.live
         cls.home = code("HomeView.swift")
         cls.root = code("RootTabView.swift")
         cls.project = (ROOT / "project.yml").read_text(encoding="utf-8")
 
     def test_icloud_documents_is_enabled_and_route_archive_is_coordinated(self):
         self.assertIn("iCloud.com.app.repera", self.project)
-        self.assertIn("- path: Apps/Repera/Sources/LiveRouteCloudBackup.swift", self.project)
+        self.assertNotIn("LiveRouteCloudBackup.swift", self.project)
         self.assertIn('private let containerID = "iCloud.com.app.repera"', self.backup)
         self.assertIn("forUbiquityContainerIdentifier: containerID", self.backup)
         self.assertIn("struct LiveRouteCloudArchive: Codable, Sendable", self.backup)
@@ -60,7 +62,7 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("try persist(markUserAction: false)", store)
         self.assertIn("if markUserAction { didEditRouteLocally = true }", store)
         self.assertIn("Task.sleep(for: .seconds(2))", store)
-        self.assertIn("UserDefaults.standard.set(erased.map(", store)
+        self.assertIn("UserDefaults.standard.set(erased.map { $0.uuidString }", store)
         self.assertIn("requestICloudSynchronization()", store)
 
     def test_recorded_gps_walking_routes_are_archived_when_saved(self):
@@ -73,21 +75,26 @@ class RouteCloudAndHomePerformanceTests(unittest.TestCase):
         self.assertIn("store.saveWorkout(session)", save)
         self.assertIn("Rutas sincronizadas con iCloud", self.live)
 
-    def test_home_load_route_switches_to_start_and_opens_library_without_play(self):
-        self.assertIn("var onLoadRoutes: () -> Void", self.home)
-        self.assertIn('Text("Cargar ruta")', self.home)
-        self.assertIn("Button(action: onLoadRoutes)", self.home)
-        self.assertIn("routePickerRequest &+= 1", self.root)
-        self.assertIn("tab = .start", self.root)
-        self.assertIn("routeLibraryOpenRequest: routePickerRequest", self.root)
-        self.assertIn("openRequestedRouteLibrary()", self.live)
-        self.assertIn("handledRouteLibraryOpenRequest = routeLibraryOpenRequest", self.live)
-        self.assertIn("routePicker = true", self.live)
-        self.assertIn("recorder.phase == .idle", self.live)
-        # The selection prepares the course; starting remains an explicit Play.
+    def test_home_does_not_show_route_button_and_comenzar_keeps_mis_rutas(self):
+        self.assertNotIn("var onLoadRoutes:", self.home)
+        self.assertNotIn('Text("Cargar ruta")', self.home)
+        self.assertNotIn("routePickerRequest", self.root)
+        self.assertNotIn("routeLibraryOpenRequest", self.live)
+        self.assertIn('SwiftUI.Tab("Comenzar"', self.root)
         self.assertIn("recorder.selectRoute(selected)", self.live)
-        self.assertIn("let sport = LiveSport(rawValue: raw), sport.usesGPS", self.live)
-        self.assertIn("if !recorder.sport.usesGPS { recorder.choose(.walking) }", self.live)
+        self.assertIn('Text("Mis rutas")', self.live)
+        self.assertIn("routePicker = true", self.live)
+
+    def test_future_scheduled_days_display_the_same_calendar_dot(self):
+        self.assertIn("private var scheduledCalendarSignature: Int", self.home)
+        self.assertIn(".onChange(of: scheduledCalendarSignature)", self.home)
+        self.assertIn("let isTodayOrFuture", self.home)
+        self.assertIn("hasCompletedWorkout || (isTodayOrFuture && day.hasPlan)", self.home)
+        self.assertIn("indexed.planned.contains(key)", self.home)
+        self.assertIn("indexed.trainerPlans.contains", self.home)
+        self.assertIn("indexed.bookings.contains", self.home)
+        # Completions and streak statistics still count only real activity.
+        self.assertIn("private func hasCompletedWorkoutOnDay(_ key: String)", self.home)
 
     def test_home_calendar_uses_one_planning_index_not_105_queries(self):
         self.assertIn("let lookup = makeCalendarDayLookup()", self.home)
