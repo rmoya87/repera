@@ -1605,6 +1605,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     private var healthFetchDaysLoaded = 0
     private var healthLoadInFlight = false
+    private var healthFetchDaysPending = 0
 
     /** Apple 479d8407: ampliar la ventana de Salud solo cuando el rango de
      *  Progreso elegido necesita mas dias de los cargados (360d -> 730 con el
@@ -1616,7 +1617,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     private fun loadHealthToday(fetchDays: Int = 370) {
-        if (healthLoadInFlight) return
+        if (healthLoadInFlight) {
+            // No perder una peticion de ventana mayor durante otra lectura:
+            // se relanza al terminar con el perfil VIGENTE en ese momento.
+            if (fetchDays > healthFetchDaysPending) healthFetchDaysPending = fetchDays
+            return
+        }
         healthLoadInFlight = true
         val owner=profile?.uniqueId ?: run { healthLoadInFlight = false; return }
         val revision=centerGate.revision
@@ -1633,7 +1639,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val samples=withContext(Dispatchers.IO) {runCatching {reader.readSamples(fetchDays,
                     HealthExclusionSnapshot.windows(LocalSnapshotStore(this@MainActivity,owner).read()))}.getOrNull()}
                 if(!current()) return@launch
-                val recovery=withContext(Dispatchers.IO) {runCatching {reader.readRecovery(fetchDays)}.getOrNull()}
+                // Solo actividades externas amplian la ventana (Apple 479d8407);
+                // recovery mantiene su ventana propia de 370d.
+                val recovery=withContext(Dispatchers.IO) {runCatching {reader.readRecovery(370)}.getOrNull()}
                 if(!current()) return@launch
                 todayHealth=today;healthSamples=samples
                 val settings=PrivateRecoverySettings(this@MainActivity)
@@ -1658,6 +1666,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 if(current()) {todayHealth=null;status="No se pudo leer Salud: "+error.localizedMessage}
             } finally {
                 healthLoadInFlight = false
+                val pending = healthFetchDaysPending
+                healthFetchDaysPending = 0
+                if (pending > healthFetchDaysLoaded) loadHealthToday(pending)
             }
         }
     }
