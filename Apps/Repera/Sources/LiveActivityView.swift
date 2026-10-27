@@ -2290,11 +2290,15 @@ struct LiveActivityView: View {
                             if recorder.phase == .paused {
                                 Text("En pausa").font(.caption.weight(.semibold))
                                     .foregroundStyle(OG.orange)
+                                    .lineLimit(1).minimumScaleFactor(0.7)
                             } else {
                                 Text(recorder.phase == .recording ? "Grabando actividad" : "Preparado")
                                     .font(.caption).foregroundStyle(OG.label2)
+                                    .lineLimit(1).minimumScaleFactor(0.7)
                             }
                         }
+                        // Mantener la misma altura aunque cambie el subtítulo.
+                        .frame(height: 60, alignment: .center)
                         // Anchura reservada, independiente de la fase. En pantallas
                         // anchas, las acciones empiezan aquí, a la IZQUIERDA,
                         // en vez de irse al extremo derecho del encabezado.
