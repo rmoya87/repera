@@ -1676,9 +1676,12 @@ struct HomeView: View {
     }
 
     private func rebuildWeekChrome() {
-        cachedWeekDays = makeWeekDays(offset: weekOffset)
+        // One indexed pass for every planned/remote day, not 105 passes
+        // scanning all routines and joining every booking on every week.
+        let lookup = makeCalendarDayLookup()
+        cachedWeekDays = makeWeekDays(offset: weekOffset, lookup: lookup)
         cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
-            makeWeekDays(offset: offset)
+            makeWeekDays(offset: offset, lookup: lookup)
         }
         // En la primera apertura mostrar AYER a la izquierda y HOY
         // como segundo día, manteniendo hoy seleccionado. No volver a
@@ -1852,7 +1855,35 @@ struct HomeView: View {
         return SpanishDate.monthHeadline(from: center, to: center, calendar: calendar)
     }
 
-    private func makeWeekDays(offset: Int) -> [DayCell] {
+    private struct CalendarDayLookup {
+        var planned: Set<String>
+        var trainerPlans: Set<String>
+        var bookings: Set<String>
+    }
+
+    private func makeCalendarDayLookup() -> CalendarDayLookup {
+        let planned = Set(store.state.routines.compactMap { $0.scheduledDate }.map(dayKey))
+        let professional = Set(businessData.trainingSessions.map(\.scheduledDate))
+        var startsByOccurrence: [UUID: String] = [:]
+        startsByOccurrence.reserveCapacity(businessData.occurrences.count)
+        for occurrence in businessData.occurrences {
+            if let date = BusinessDataStore.date(occurrence.startsAt) {
+                startsByOccurrence[occurrence.id] = BusinessDataStore.localDayKey(date)
+            }
+        }
+        let bookings = Set(businessData.bookings.compactMap { booking -> String? in
+            guard booking.status == "booked" else { return nil }
+            return startsByOccurrence[booking.occurrenceId]
+        })
+        return CalendarDayLookup(
+            planned: planned, trainerPlans: professional, bookings: bookings
+        )
+    }
+
+    private func makeWeekDays(
+        offset: Int, lookup: CalendarDayLookup? = nil
+    ) -> [DayCell] {
+        let indexed = lookup ?? makeCalendarDayLookup()
         let today = Date()
         let weekday = calendar.component(.weekday, from: today)
         let startOffset = store.state.settings.weekStartsOn == .monday
@@ -1866,23 +1897,9 @@ struct HomeView: View {
             ? ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]
             : ["DO", "LU", "MA", "MI", "JU", "VI", "SA"]
 
-        // Un solo pase de rutinas → keys de plan de la semana visible.
-        var planKeys = Set<String>()
-        let weekDates: [Date] = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        for routine in store.state.routines {
-            guard let scheduled = routine.scheduledDate else { continue }
-            if weekDates.contains(where: { calendar.isDate($0, inSameDayAs: scheduled) }) {
-                planKeys.insert(dayKey(scheduled))
-            }
+        let weekDates: [Date] = (0..<7).compactMap {
+            calendar.date(byAdding: .day, value: $0, to: start)
         }
-
-        let remotePlanDays = Set(businessData.trainingSessions.map(\.scheduledDate))
-        let remoteBookingDays = Set(businessData.bookings.compactMap { booking -> String? in
-            guard booking.status == "booked",
-                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
-                  let date = BusinessDataStore.date(occurrence.startsAt) else { return nil }
-            return BusinessDataStore.localDayKey(date)
-        })
         return weekDates.enumerated().map { i, d in
             let dayStart = calendar.startOfDay(for: d)
             let key = dayKey(dayStart)
@@ -1892,9 +1909,9 @@ struct HomeView: View {
                 lbl: labels[i],
                 num: calendar.component(.day, from: d),
                 hasWorkout: hasCompletedWorkoutOnDay(key),
-                hasPlan: planKeys.contains(key) ||
-                    remotePlanDays.contains(BusinessDataStore.localDayKey(d)) ||
-                    remoteBookingDays.contains(BusinessDataStore.localDayKey(d))
+                hasPlan: indexed.planned.contains(key) ||
+                    indexed.trainerPlans.contains(BusinessDataStore.localDayKey(d)) ||
+                    indexed.bookings.contains(BusinessDataStore.localDayKey(d))
             )
         }
     }
