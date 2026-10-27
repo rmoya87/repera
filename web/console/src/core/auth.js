@@ -83,6 +83,62 @@ export class ReperaAuthAPI {
   catch(e){if(e.status===401)this.clear();throw e;}
  }
  async platformAdminDirectory(){return this.#authorized('rpc/platform_admin_directory',{method:'POST',body:{}});}
+ async platformAdminAthletes(){return this.#authorized('rpc/platform_admin_athletes',{method:'POST',body:{}});}
+ async platformAdminSettings(){return this.#authorized('rpc/platform_admin_settings',{method:'POST',body:{}});}
+ async platformAdminSaveSettings(values){
+  const safe=key=>String(values[key]||'').trim();
+  return this.#authorized('rpc/platform_admin_update_settings',{method:'POST',body:{
+   p_support_email:safe('support_email'),p_support_url:safe('support_url'),
+   p_billing_email:safe('billing_email'),p_privacy_url:safe('privacy_url'),p_terms_url:safe('terms_url')}});
+ }
+ async platformAdminAttachBranding({provisioningId,url}){
+  return this.#authorized('rpc/platform_admin_attach_branding',{method:'POST',
+    body:{p_provision:provisioningId,p_avatar_url:url}});
+ }
+ async uploadPlatformPendingBrand({provisioningId,kind,file}){
+  if(!/^[0-9a-f-]{36}$/i.test(provisioningId||'')||!['gym','personal_trainer'].includes(kind))throw Error('Alta inválida');
+  const blob=await this.#compressAvatar(file,1048576);
+  const filename=kind==='personal_trainer'?'trainer.jpg':'logo.jpg';
+  const objectPath='pending/'+provisioningId+'/'+filename;
+  const url=await this.#uploadStorage('business-branding',objectPath,blob,false);
+  await this.platformAdminAttachBranding({provisioningId,url});
+  return url;
+ }
+ async updateOwnProfile({displayName}){
+  const name=String(displayName||'').trim(),user=await this.currentUser();
+  if(!user?.id||name.length<2||name.length>100)throw Error('Indica un nombre de 2 a 100 caracteres');
+  return this.#authorized('profiles?id=eq.'+encodeURIComponent(user.id)+'&select=id,display_name,avatar_url',
+   {method:'PATCH',prefer:'return=representation',body:{display_name:name}});
+ }
+ async uploadOwnAvatar(file){
+  const user=await this.currentUser();if(!user?.id)throw Error('Inicia sesión');
+  const blob=await this.#compressAvatar(file,2097152);
+  const objectPath=user.id+'/avatar.jpg';
+  const url=await this.#uploadStorage('profile-avatars',objectPath,blob,true);
+  const result=await this.#authorized('profiles?id=eq.'+encodeURIComponent(user.id)+'&select=id,avatar_url',
+   {method:'PATCH',prefer:'return=representation',body:{avatar_url:url}});
+  if(!result?.length)throw Error('No se pudo actualizar el perfil con la foto');
+  return url;
+ }
+ async #compressAvatar(file,maxBytes){
+  if(!file?.size||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)
+   throw Error('Elige una imagen JPG, PNG o WebP de hasta 8 MB');
+  const bitmap=await createImageBitmap(file);
+  const scale=Math.min(1,900/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.78));
+  if(!blob||blob.size>maxBytes)throw Error('La imagen supera el tamaño máximo permitido');
+  return blob;
+ }
+ async #uploadStorage(bucket,path,blob,upsert){
+  const jwt=await this.token();if(!jwt)throw Error('Inicia sesión');
+  const response=await this.fetcher(this.base+'/storage/v1/object/'+bucket+'/'+path,{
+   method:'POST',headers:{apikey:this.key,Authorization:'Bearer '+jwt,'Content-Type':'image/jpeg',...(upsert?{'x-upsert':'true'}:{})},body:blob});
+  if(!response.ok){let msg='No se pudo subir la imagen';try{const body=await response.json();msg=body?.message||body?.error||msg;}catch{}throw Error(msg);}
+  return this.base+'/storage/v1/object/public/'+bucket+'/'+path;
+ }
  async platformAdminFinances(){return this.#authorized('rpc/platform_admin_finances',{method:'POST',body:{}});}
  async platformAdminHistory(){return this.#authorized('rpc/platform_admin_history',{method:'POST',body:{}});}
  async platformAdminPending(){return this.#authorized('rpc/platform_admin_pending',{method:'POST',body:{}});}
@@ -113,7 +169,7 @@ export class ReperaAuthAPI {
  }
  async myProfile(){
   const user=await this.currentUser();if(!user?.id)return null;
-  const rows=await this.#authorized('profiles?select=id,role,display_name&id=eq.'+encodeURIComponent(user.id));
+  const rows=await this.#authorized('profiles?select=id,role,display_name,avatar_url&id=eq.'+encodeURIComponent(user.id));
   return rows?.[0]||null;
  }
  async organizations(){
