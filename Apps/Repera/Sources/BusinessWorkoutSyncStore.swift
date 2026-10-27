@@ -304,7 +304,7 @@ final class BusinessWorkoutSyncStore {
             return true
         } catch {
             guard run == generation else { return false }
-            lastError = "No se han podido sincronizar los entrenamientos: \(error.localizedDescription)"
+            lastError = "No se han podido sincronizar los entrenamientos. Comprueba tu conexión e inténtalo de nuevo."
             // Never mark failed uploads as synced; retries keep local files safe.
             return false
         }
