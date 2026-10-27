@@ -352,7 +352,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                 Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}")
                                 if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false, plannedRoute = true,
                                     modifier = Modifier.fillMaxWidth().height(110.dp))
-                                Row {
+                                FlowRow {
                                     TextButton(onClick = { runtime.selectRoute(route.id); showRoutes = false }) { Text("Elegir") }
                                     TextButton(onClick = {
                                         try { routesStore?.setFavorite(route.id, !route.isFavorite); routesVersion++ }

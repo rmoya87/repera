@@ -130,4 +130,29 @@ class LiveMapLandscapeRenderTest {
   composeRule.onNodeWithText("Descartar").performScrollTo().assertIsDisplayed()
   composeRule.onNodeWithText("Voz activada").performScrollTo().assertIsDisplayed()
  }
+ @Test
+ @Config(sdk=[35],qualifiers="w360dp-h900dp")
+ fun populatedLibraryKeepsActionsReachable() {
+  val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+  val owner="render-populated-library"
+  LiveActivityRuntime.forAccount(context,owner).choose(LiveSport.RUNNING)
+  // Isolated test store only, not connected records or real coordinates.
+  val routes=LiveRoutesStore(context,owner)
+  routes.addRecordedRoute("Ruta de prueba",listOf(
+   dev.repera.domain.WorkoutRoutePoint(0,40.0,-3.7,1000L),
+   dev.repera.domain.WorkoutRoutePoint(1,40.001,-3.699,2000L)),"running",favorite=true)
+  composeRule.setContent {
+   MaterialTheme(colorScheme=reperaColorScheme(false)) {
+    Surface(Modifier.testTag("populated_root")) {
+     LiveActivityScreen(owner,onSaved={},onOpenTools={})
+    }
+   }
+  }
+  composeRule.onNodeWithText("Rutas").performClick()
+  composeRule.onNodeWithText("Ruta de prueba").performScrollTo().assertIsDisplayed()
+  composeRule.onNodeWithText("Eliminar").performScrollTo().assertIsDisplayed()
+  val bmp=composeRule.onNodeWithTag("populated_root").captureToImage().asAndroidBitmap()
+  File("build/reports/render").mkdirs()
+  FileOutputStream("build/reports/render/route-library-populated.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+ }
 }
