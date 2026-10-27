@@ -726,6 +726,23 @@ final class ReperaStore: NSObject {
             allowRemoteUpload = true
             if migratedWeekly { persist() }
             lastiCloudSyncMessage = "Datos restaurados desde iCloud"
+        case .reconciledRouteData(let recovered):
+            // Reconcile only matching workout IDs; do not replace an edited
+            // session or lose its recorded route because of revision ordering.
+            state = recovered
+            _ = enrichCatalogMetadata()
+            _ = relinkOrphanSessionExercisesToCatalog()
+            _ = relinkScheduledWODMovementsToCatalog()
+            persistLocalOnly(immediate: true)
+            // Finish the local write before publishing the route-complete
+            // version, so another device can retrieve the same GPS points.
+            await store.persistAndFlush(state)
+            allowRemoteUpload = true
+            await store.pushToiCloudIfSafe(state)
+            workoutsEpoch &+= 1
+            catalogEpoch &+= 1
+            publishSessionChrome()
+            lastiCloudSyncMessage = "Recorridos restaurados desde iCloud"
         case .keptLocal(let shouldUpload):
             allowRemoteUpload = true
             if shouldUpload {
