@@ -33,6 +33,33 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("finishGuidanceUtterance(id)", LIVE)
         self.assertIn("private func stopGuidanceAudio()", LIVE)
 
+    def test_transition_announcements_have_selected_sport_and_voice_gate(self):
+        state = (ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/LiveSessionVoiceAnnouncement.swift").read_text(encoding="utf-8")
+        self.assertIn("Iniciando \\(spokenSport.lowercased", state)
+        self.assertIn("Entrenamiento pausado.", state)
+        self.assertIn("Entrenamiento reanudado.", state)
+        self.assertIn("Entrenamiento finalizado.", state)
+        self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
+        self.assertIn("LiveSessionVoiceAnnouncement.started(sportName: selectedSport.title)", LIVE)
+        self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.paused)", LIVE)
+        self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.resumed)", LIVE)
+        self.assertIn("speakNavigation(LiveSessionVoiceAnnouncement.finished)", LIVE)
+
+    def test_start_and_finish_announcements_are_not_lifecycle_duplicates(self):
+        # Solo se habla al pulsar los botones, no al recuperar el GPS,
+        # volver a primer plano ni redibujar SwiftUI.
+        recover = LIVE.split("func resumeInterruptedRecordingIfNeeded() {", 1)[1].split(
+            "func toggleSpokenGuidance()", 1
+        )[0]
+        self.assertNotIn("speakNavigation(", recover)
+        refresh = LIVE.split("func refreshWhenActive() {", 1)[1].split(
+            "func pause() {", 1
+        )[0]
+        self.assertNotIn("speakNavigation(", refresh)
+        self.assertIn("if !(saved && phase == .review && spokenGuidanceEnabled)", LIVE)
+        self.assertIn("recorder.phase == .recording || recorder.phase == .paused", LIVE)
+        self.assertIn("Desactivar avisos por voz", LIVE)
+
     def test_native_background_modes_are_present_in_source_and_xcodegen(self):
         info = plistlib.loads((ROOT / "Apps/Repera/Resources/Info.plist").read_bytes())
         self.assertTrue({"location", "audio"}.issubset(set(info["UIBackgroundModes"])))
