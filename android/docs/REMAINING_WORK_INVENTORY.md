@@ -7,7 +7,7 @@ Fuentes: AUDIT_579_PREWINDOW_MATRIX.csv (414 filas) + AUDIT_POSTBD4_WINDOW_MATRI
 - Pre-window: 48 partial + 2 in-progress + 1 verified-partial+gap = 51
   (los 2 in-progress son 661e65f4/9947c212 zonas FC: bloqueo preservado para decision usuario)
 - Post-window: 21 (recuento directo 16:47: cierres recientes 1c729659/056cba8b/1c9afcd0/83253491; 88db5bb7 REABIERTO como verified-partial+GAP: parser de importacion completo sin contraparte Android = diferencia funcional, no n/a)
-  (39a3f7f2 partial: GAP prefill automatico userFinished vs copia manual;
+  (39a3f7f2 verified-partial 17:58: userFinished PORTADO (pendingEnd persistido + auto-prefill For Time una vez, 7 tests); countdownFinished n/a estructural; runtime abierto;
    00fee1b4 verified-partial+GAP: legacy sin blockId indistinguible, slot
    unico sin TTL, sin migracion por decision del padre;
    b2bb19eb cerrado 16:06; 479d8407 cerrado 16:10;

@@ -578,15 +578,27 @@ internal fun WodScoreCard(
     }
     var weightInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
     val scoreIsTime = wod.capture == "ELAPSED_TIME"
-    // Apple 39a3f7f2/48060202 pendingEnd countdownFinished: al terminar la
-    // cuenta atras el editor de resultado reabre con el tiempo cumplido. En
-    // Apple 39a3f7f2 (pendingEnd): en Android el editor es inline y siempre
-    // visible, no hay apertura una unica vez que restaurar. countdownFinished
-    // solo afecta a formatos con cap (captura TOTAL_REPS): Apple tampoco
-    // prefiere nada del reloj ahi. userFinished (For Time): el atleta copia el
-    // elapsed REAL con "Usar tiempo del cronometro" (abajo), equivalente al
-    // prefill de pendingElapsedSeconds de Apple, iniciado por el usuario.
-    // No se prefiere automaticamente nada: un valor inventado seria peor.
+    // Apple 39a3f7f2 pendingEnd userFinished (For Time): al pulsar "Terminar"
+    // el reloj congela el elapsed REAL y lo persiste (WodTimerStore); aqui el
+    // editor se siembra automaticamente con ese valor una unica vez, aunque
+    // el proceso muera antes de guardar. No es un valor inventado: es el
+    // tiempo registrado por el cronometro en el instante de terminar. Si el
+    // atleta ya escribio algo, no se pisa su edicion; "Usar tiempo del
+    // cronometro" (abajo) sigue como copia manual explicita. countdownFinished
+    // (caps) queda n/a estructural: el editor de formatos con cap captura
+    // rondas/reps, sin campo de tiempo que sembrar.
+    LaunchedEffect(active.id, active.index, timer?.pendingEndReason, timer?.pendingElapsedSeconds) {
+        val pending = timer
+        if (scoreIsTime && pending?.pendingEndReason == "userFinished" &&
+            pending.pendingElapsedSeconds > 0
+        ) {
+            if (minutes.isEmpty() && seconds.isEmpty()) {
+                minutes = (pending.pendingElapsedSeconds / 60).toString()
+                seconds = (pending.pendingElapsedSeconds % 60).toString().padStart(2, '0')
+            }
+            onTimerAction("consumePendingEnd")
+        }
+    }
     val valid = if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
 

@@ -1879,8 +1879,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val active = activeWorkout ?: return
         if (active.wod == null || busy) return
         runCatching {
-            wodTimer = WodTimerStore(this, user).update(active.id, active.index, action,
-                active.navigationEntries.firstOrNull { it.index == active.index }?.blockId)
+            val store = WodTimerStore(this, user)
+            val blockId = active.navigationEntries.firstOrNull { it.index == active.index }?.blockId
+            wodTimer = if (action == "consumePendingEnd") {
+                store.consumePendingEnd(active.id, active.index, blockId)
+                store.read(active.id, active.index, blockId)
+            } else {
+                store.update(active.id, active.index, action, blockId)
+            }
         }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
         WearActiveSessionBridge.publishWodTimer(this, active.id, active.index,
             active.wod, wodTimer)

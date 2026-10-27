@@ -178,13 +178,15 @@ internal fun WodClockScreen(
         }
         @Composable
         fun FinishButton(modifier: Modifier = Modifier) {
-            // Cápsula en el color de acento; pausa conservando el tiempo
-            // (la tarjeta de sesión lo aplica con "Usar tiempo del cronómetro")
-            // y vuelve a la sesión, donde se confirma el resultado del bloque.
+            // Cápsula en el color de acento. Apple 39a3f7f2 finishByUser
+            // (userFinished): congela el elapsed REAL como pendingEnd
+            // persistido y vuelve a la sesión, donde el editor For Time lo
+            // aplica automáticamente una sola vez (o "Usar tiempo del
+            // cronómetro" como copia manual si el atleta ya editó).
             if (canFinish) {
                 Button(
                     onClick = {
-                        onTimerAction("pause")
+                        onTimerAction("finish")
                         onBack()
                     },
                     enabled = !busy,
