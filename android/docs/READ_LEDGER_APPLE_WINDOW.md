@@ -22,7 +22,7 @@ Correction: tree156 listed LibraryView and WorkoutView as unread. That list was 
 | SessionPreviewView (7), StartHubSheet (1) | read (tiny), static | tree106 |
 | HistoryView (534) | read fully, static | tree115, tree132, tree159 (remaining ~400 lines read 2026-10-27 09:36; findings in tree159 section below) |
 | LiveActivityView (782) | read fully, static | tree132-135, tree160 (full 1087-line diff re-read 2026-10-27 09:38; findings below) |
-| ReperaStore (406) | partial: migrateLegacyWeeklyPlans, updateActiveExerciseDraft | several sections; persist/sync trigger not audited |
+| ReperaStore (406) | read fully, static | tree161 (full 590-line diff re-read 2026-10-27 09:40; audit below) |
 | BusinessAuthStore (90) | partial | tree108 |
 | LiveSportHistoryView (34) | read, static | tree156 |
 | ActivityHeatmapView (21) | read enough to record cellHeight not ported | open list; no dedicated section found in this scan |
@@ -32,7 +32,7 @@ Correction: tree156 listed LibraryView and WorkoutView as unread. That list was 
 
 Not covered by this ledger: the 579 commits older than fc3ef7e1 (only the 37837401 historical matrix) and Packages/ (domain Swift sources; the three Apple domain test files were read tree147/149/151-154, the Swift sources diff is not mapped line by line).
 
-Pending reading kept (per parent, 08:26): ReperaStore (persist/sync-trigger audit), BusinessAuthStore (partial, tree108), HealthMuscleMapper (partial), ActivityHeatmapView (only cellHeight recorded), Packages/ Swift sources not mapped line by line, the 579 older commits (37837401 matrix only), and the four 1-5 line files (done tree159).
+Pending reading kept (per parent, 08:26): BusinessAuthStore (partial, tree108), HealthMuscleMapper (partial), ActivityHeatmapView (only cellHeight recorded), Packages/ Swift sources not mapped line by line, the 579 older commits (37837401 matrix only), and the four 1-5 line files (done tree159).
 
 ## tree159 (2026-10-27 09:36 CET, reconstructed sandbox): HistoryView rest + 4 tiny files
 
@@ -64,3 +64,22 @@ OPEN gaps found:
 3. Save double-invocation: Apple disables Guardar while isSavingRecordedActivity (async health query). Android save is synchronous and idempotent, but the button is not disabled during save. Minor.
 4. Live screen restructure (Compose work, not started): pause (yellow)/resume (green)/finish (black) circular buttons moved into the map header and a metrics trailing row (order Audio, Map, Resume, Finish, growing left); discard "xmark" removed from active headers; bottom controls emptied during recording/paused/review; landscape adaptive layout (width>height && width>=620, side column min 260 max 390 or 42%); navigation banner restyled (larger type, OG.accent background, black text); metrics idle controls top-left max 360; review uses the same unified "Entreno" card (CardioSplitsView with totals + maxSpeedKmh + healthStats + sport, embedded) and fullscreen map zoom; "Recorrido sin puntos GPS" copy now "La distancia y los parciales se conservan aunque no haya puntos para dibujar el mapa."; summary tiles via shared WorkoutSummaryTile; safe-area padding for map overlay.
 5. Android LiveActivityScreen is a single-column layout with text buttons (Pausar/Reanudar/Finalizar/Descartar) - far from the Apple structure; the DUO/landscape layout is also missing (was "PlanDUOtopbar abierto").
+
+## tree161 (2026-10-27 09:40 CET): ReperaStore window diff fully read + Android audit
+
+`git diff fc3ef7e1 bd4d7637 -- Apps/Repera/Sources/ReperaStore.swift` (590 diff lines). Reading only.
+
+Apple rules in the window and Android status:
+1. persistWorkouts also pushes an independent mirror sync after local persist. Android: mirror push happens at action level (runWorkoutAction incl. onUpdateFinishedWorkout, Wear session finish, sign-in/restore), not inside persist. Effect equivalent for user-driven saves; structural difference only. OK.
+2. startSession and scan start guard: no new session/scan while another is active. Android: ported ("Ya existe una sesión activa" checks in WorkoutRepository). OK.
+3. Diary no longer falls back to weekday-recurring routine for a date. Android: STILL has the weekday fallback (WorkoutRepository today-assembly line ~1757). Tied to the legacy-weekday migration decision (A/B pending user authorization); not changed unilaterally.
+4. Scan import never merges blocks into an existing same-day routine; each scan is an independent session. Android: scan import creates independent dated routines (tree146). OK.
+5. refreshActiveSessionPlan: relink by item identity only; legacy block+name fallback gated on a SESSION-LEVEL flag (legacyIdentity = no remaining exercise id appears in the session's own routineBlocks). Android ActiveSessionPlan.refresh matches by id first, but its fallback is PER-ITEM (id not in the fresh plan) and does not carry adaptedReps/adaptedWeightKg. TWO divergences -> fix in tree161.
+6. Edit save: appleDurationSeconds derived from corrected times ONLY when healthKitWorkoutUUID is nil; with a Health link the measured duration is preserved. Android updateFinishedWorkout recomputes appleDurationSeconds unconditionally when start+end known. DIVERGENCE -> fix in tree161.
+7. Health link after manual time correction no longer overwrites startedAt/finishedAt. Android setHealthRecordId only writes the link field, never times. OK.
+8. normalizedFinishedWorkout marks ALL exercises isCompleted on finish/save (iPhone, Watch, import, old edits). Android: KNOWN open divergence (finish only marks logged; edit clears flags) - recorded before, still open (behavior change, needs its own port decision).
+9. saveRoutine: same-day duplicates allowed; weekday->this-week-date compat shim for legacy emitters; isLibraryTemplate requires both dates nil. Android: same-day duplicates ported (tree146); weekday->dated compat shim NOT verified for AI/import emitters. OPEN question.
+10. clearWeeklySchedule(for weekReference): only the visible week; dated favorites unscheduled not deleted; no global weekday/rotation wipe. Android: KNOWN divergence - repo clear still removes legacy weekday+rotation globally. Open, tied to migration decision.
+11. copyPreviousWeekSchedule snapshots occupied days BEFORE copying; copies never overwrite occupied days. Android: ported. OK.
+12. assignRoutine(toDate) schedules an independent copy with duplicated content ids, template untouched, favorite=false. Android: ported (repo comment cites Apple assignRoutine(_:toDate:)). OK.
+13. migrateLegacyWeeklyPlans: pins legacy weekday routines to THIS week's dates, keeps reusable templates with fresh content ids, idempotent, does not advance local revision before iCloud compare. Android: migration PREPARED WITHOUT CALLER, not activated (user decision pending). Correct to stay inactive.
