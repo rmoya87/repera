@@ -131,7 +131,14 @@ internal fun RouteMapView(
             .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
             .bearing(camera.bearing).tilt(camera.pitch).build()))
     }
-    if (failed) {
+    // MapLibre nativo puede faltar (ABI sin .so, emulador, Robolectric):
+    // degradar al Canvas en lugar de abortar la composicion.
+    val mapContext = androidx.compose.ui.platform.LocalContext.current
+    val nativeAvailable = remember {
+        runCatching { org.maplibre.android.MapLibre.getInstance(mapContext); true }
+            .getOrDefault(false)
+    }
+    if (failed || !nativeAvailable) {
         RouteMapFallback(points, modifier, plannedRoute,plannedPoints,waterSport)
         return
     }

@@ -7,13 +7,28 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun ExternalHealthDetailSheet(entry:ExternalHealthHistoryEntry,
- provider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail?,onClose:()->Unit) {
+ provider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail?,
+ routeReader:(suspend (String)->ExternalRouteRead)? = null,
+ onConsentLaunch:((String)->Unit)? = null,
+ onClose:()->Unit) {
  var loading by remember(entry.id) {mutableStateOf(true)}
  var detail by remember(entry.id) {mutableStateOf<ExternalHealthDetail?>(null)}
  LaunchedEffect(entry.id) {detail=runCatching {provider(entry)}.getOrNull();loading=false}
+ // Ruta GPS de la fuente externa (paridad 6826b9a7): lectura pasiva; el
+ // consentimiento por sesion lo lanza el usuario con el boton, nunca solo.
+ val ctx=LocalContext.current
+ val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
+ var routeRead by remember(entry.id) {mutableStateOf<ExternalRouteRead?>(null)}
+ LaunchedEffect(entry.id) {routeRead=runCatching {effectiveRouteReader(entry.id)}.getOrNull()}
+ val consentLauncher=androidx.activity.compose.rememberLauncherForActivityResult(
+  androidx.health.connect.client.contracts.ExerciseRouteRequestContract()) { route:androidx.health.connect.client.records.ExerciseRoute? ->
+  route?.let {routeRead=ExternalRouteRead.Points(it.toWorkoutRoutePoints())}
+ }
  ModalBottomSheet(onDismissRequest=onClose) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
    Text(entry.title,style=MaterialTheme.typography.titleLarge)
@@ -31,6 +46,20 @@ import java.time.*
      HeartRateCurveSection(entry.id) {current.heart}
     }
     Text("Solo mediciones de la fuente del registro. No se estima energía ni pulso.",style=MaterialTheme.typography.bodySmall)
+   }
+   when(val presented=ExternalRouteSheetModel.present(routeRead)) {
+    is ExternalRouteSheetModel.State.Shown -> {
+     Text("Recorrido GPS de la fuente",style=MaterialTheme.typography.titleSmall)
+     RouteMapView(points=presented.points,isInteractive=false,
+      modifier=Modifier.fillMaxWidth().height(200.dp))
+    }
+    ExternalRouteSheetModel.State.ConsentNeeded -> {
+     TextButton(modifier=Modifier.testTag("external_route_consent"),
+      onClick={(onConsentLaunch ?: {id:String -> consentLauncher.launch(id)})(entry.id)}) {
+      Text("Ver recorrido GPS (permiso de Salud por sesión)")
+     }
+    }
+    else -> {}
    }
    TextButton(onClick=onClose) {Text("Cerrar")}
    Spacer(Modifier.height(20.dp))

@@ -309,6 +309,32 @@ class HealthConnectReader(private val context: Context) {
             as? dev.repera.domain.SessionHealthMatcher.Association.Matched)?.session
     }
 
+    /** Ruta GPS de una sesion EXTERNA (paridad Apple fetchRoutePoints): Data ->
+     *  puntos, ConsentRequired -> hay que lanzar ExerciseRouteRequestContract
+     *  por sesion (flujo Activity, runtime), NoData -> sin ruta. Solo lectura;
+     *  sin permiso de lectura de sesiones devuelve Unavailable. */
+    suspend fun readExternalRoute(recordId:String):ExternalRouteRead {
+        if(!available()) return ExternalRouteRead.Unavailable
+        val client=HealthConnectClient.getOrCreate(context)
+        val granted=runCatching {client.permissionController.getGrantedPermissions()}.getOrNull()
+            ?: return ExternalRouteRead.Unavailable
+        if(HealthPermission.getReadPermission(ExerciseSessionRecord::class) !in granted)
+            return ExternalRouteRead.Unavailable
+        return runCatching {
+            when(val result=client.readRecord(ExerciseSessionRecord::class,recordId).record.exerciseRouteResult) {
+                is androidx.health.connect.client.records.ExerciseRouteResult.Data -> {
+                    val points=result.exerciseRoute.toWorkoutRoutePoints()
+                    if(points.isEmpty()) ExternalRouteRead.NoRoute else ExternalRouteRead.Points(points)
+                }
+                is androidx.health.connect.client.records.ExerciseRouteResult.ConsentRequired ->
+                    ExternalRouteRead.ConsentRequired
+                is androidx.health.connect.client.records.ExerciseRouteResult.NoData ->
+                    ExternalRouteRead.NoRoute
+                else -> ExternalRouteRead.NoRoute
+            }
+        }.getOrNull() ?: ExternalRouteRead.Unavailable
+    }
+
     /** Exact provider ID is re-read before using its range/source. No window guessed from UI. */
     suspend fun readExternalDetail(expected:ExternalHealthHistoryEntry):ExternalHealthDetail? {
         if(!available()) return null
