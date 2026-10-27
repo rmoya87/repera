@@ -19,9 +19,19 @@ internal class WodTimerStore(
         .joinToString("") { "%02x".format(it) }
     private val preferences = context.getSharedPreferences("repera.wod.timer.$userKey", Context.MODE_PRIVATE)
 
-    @Synchronized fun read(sessionId: String, index: Int): WodTimerState {
+    /**
+     * Apple 48060202/00fee1b4: el reloj solo se restaura para la sesion Y el
+     * bloque originales. Un cambio de bloque justo antes de morir el proceso
+     * no debe restaurar un reloj ajeno sobre el ejercicio actual: la clave
+     * sesion:indice es posicional, asi que se valida ademas la identidad
+     * estable del bloque (blockId). null = sin validacion (fuente antigua).
+     */
+    @Synchronized fun read(sessionId: String, index: Int, blockId: String? = null): WodTimerState {
         val key = "$sessionId:$index"
         if (preferences.getString("key", null) != key) return WodTimerState(0L, false)
+        val storedBlock = preferences.getString("blockId", null)
+        if (blockId != null && storedBlock != null && storedBlock != blockId)
+            return WodTimerState(0L, false)
         val elapsed = preferences.getLong("elapsedMs", 0L).coerceAtLeast(0)
         val running = preferences.getBoolean("running", false)
         if (!running) return WodTimerState(elapsed, false)
@@ -35,11 +45,12 @@ internal class WodTimerStore(
         return WodTimerState((elapsed + (now - since)).coerceAtLeast(0L), true)
     }
 
-    @Synchronized fun update(sessionId: String, index: Int, action: String): WodTimerState {
+    @Synchronized fun update(sessionId: String, index: Int, action: String, blockId: String? = null): WodTimerState {
         require(action in setOf("start", "pause", "reset"))
         val key = "$sessionId:$index"
         val current = read(sessionId, index)
         val edit = preferences.edit().putString("key", key)
+        if (blockId != null) edit.putString("blockId", blockId)
         when (action) {
             "reset" -> edit.putLong("elapsedMs", 0).putBoolean("running", false)
                 .putLong("startAtUptimeMs", 0)

@@ -1818,7 +1818,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val user = profile?.uniqueId
         val active = activeWorkout
         wodTimer = if (user != null && active?.wod != null)
-            WodTimerStore(this, user).read(active.id, active.index)
+            WodTimerStore(this, user).read(active.id, active.index,
+                active.navigationEntries.firstOrNull { it.index == active.index }?.blockId)
         else null
         WodTimerService.sync(this, active, wodTimer, user)
         WearActiveSessionBridge.publishWodTimer(this, active?.id,
@@ -1830,7 +1831,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val active = activeWorkout ?: return
         if (active.wod == null || busy) return
         runCatching {
-            wodTimer = WodTimerStore(this, user).update(active.id, active.index, action)
+            wodTimer = WodTimerStore(this, user).update(active.id, active.index, action,
+                active.navigationEntries.firstOrNull { it.index == active.index }?.blockId)
         }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
         WearActiveSessionBridge.publishWodTimer(this, active.id, active.index,
             active.wod, wodTimer)

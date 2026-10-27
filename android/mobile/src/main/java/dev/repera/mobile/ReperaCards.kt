@@ -573,6 +573,17 @@ internal fun WodScoreCard(
     }
     var weightInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
     val scoreIsTime = wod.capture == "ELAPSED_TIME"
+    // Apple 39a3f7f2/48060202 pendingEnd countdownFinished: al terminar la
+    // cuenta atras el editor de resultado reabre con el tiempo cumplido. En
+    // Android el editor es inline y el estado final es derivable (elapsed
+    // persistido >= cap), asi que el prefill cubre tambien la muerte del
+    // proceso: no hace falta persistir pendingEnd para countdownFinished.
+    LaunchedEffect(active.id, active.index, face.finishedIntervals) {
+        if (scoreIsTime && face.finishedIntervals && minutes.isBlank() && seconds.isBlank()) {
+            val cap = face.timeCapSeconds
+            if (cap > 0) { minutes = (cap / 60).toString(); seconds = (cap % 60).toString() }
+        }
+    }
     val valid = if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
 
