@@ -16,8 +16,9 @@ export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],se
  const waiting=requests.filter(r=>r.status==='pending');
  const inbox=manager?show(`<div class="business-panel-head">
  <div><span class="connected-eyebrow">Solicitudes de alumnos</span><h2>Quieren entrenar contigo</h2>
- <p>Recibe solicitudes directamente desde la app de Repera. Al aceptarlas, el atleta queda vinculado a este centro.</p></div>
- <span class="business-inbox-count">${waiting.length} pendientes</span></div>
+ <p>Las peticiones llegan desde Repera. Acéptalas para añadir al atleta a tu centro y poder planificar sus entrenamientos.</p></div>
+ <div class="business-inbox-tools"><span class="business-inbox-count">${waiting.length} pendientes</span>
+ <button type="button" data-action="refresh-enrollments" class="connected-secondary" aria-label="Actualizar solicitudes">Actualizar</button></div></div>
  ${waiting.length?`<div class="business-inbox-list">${waiting.map(r=>`
  <article class="business-enrollment-row">
  <div class="business-enrollment-avatar">${/^https:\/\//.test(r.avatar_url||'')?`<img src="${esc(r.avatar_url)}" alt="" loading="lazy">`:esc(initials(r.name))}</div>
