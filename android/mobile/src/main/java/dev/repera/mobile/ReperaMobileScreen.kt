@@ -968,7 +968,7 @@ internal fun SettingsTab(
 
     val settingsScroll=rememberScrollState()
     ProvideScrollDragAutoScroll(settingsScroll) {
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(18.dp),
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ReperaPageHeader(title = "Ajustes")
         ReperaSectionTitle("Perfil")

@@ -2,6 +2,8 @@ package dev.repera.mobile
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -69,35 +71,54 @@ import androidx.compose.ui.platform.testTag
  onConsentRequested:(String)->Unit,
  onClose:()->Unit) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    IconButton(onClick=onClose) { Icon(Icons.Outlined.Close, contentDescription = "Cerrar") }
+    Spacer(Modifier.weight(1f))
+   }
    Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
     ExternalHealthActivityIcon(entry.exerciseTypeKey)
-    Text(entry.title,style=MaterialTheme.typography.titleLarge)
+    ReperaPageHeader(title = entry.title, subtitle = Instant.ofEpochMilli(entry.startMillis).atZone(ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter))
    }
-   Text(Instant.ofEpochMilli(entry.startMillis).atZone(ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter))
    Text("${entry.minutes.toInt()} min registrados · Health Connect")
    Text("Fuente: ${entry.sourcePackage}",style=MaterialTheme.typography.bodySmall)
-   if(loading) CircularProgressIndicator()
-   else if(detail==null) Text("No se pudo verificar el registro de Salud. Puede haber cambiado o faltar permiso.")
-   else {
-    val current=detail!!
-    current.activeKcal?.let {Text("Energía activa medida: ${formatWeight(it)} kcal")}
-    if(current.heart.isEmpty()) Text("Sin pulso autorizado de esta fuente") else {
-     Text("Pulso medido · media ${current.heart.map {it.second}.average().toInt()} lpm")
-     Text("Mín ${current.heart.minOf {it.second}} · Máx ${current.heart.maxOf {it.second}} lpm")
-     HeartRateCurveSection(entry.id) {current.heart}
+   if(loading) {
+    ReperaCard(modifier=Modifier.fillMaxWidth().height(180.dp)) {
+     Box(Modifier.fillMaxSize(), contentAlignment=androidx.compose.ui.Alignment.Center) {
+      CircularProgressIndicator()
+     }
     }
-    Text("Solo mediciones de la fuente del registro. No se estima energía ni pulso.",style=MaterialTheme.typography.bodySmall)
+   } else if(detail==null) {
+    ReperaEmptyState(title="Sin detalle", subtitle="No se pudo verificar el registro de Salud. Puede haber cambiado o faltar permiso.")
+   } else {
+    val current=detail!!
+    ReperaSectionTitle("Pulso")
+    ReperaCard(modifier=Modifier.fillMaxWidth()) {
+     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+      current.activeKcal?.let {Text("Energía activa medida: ${formatWeight(it)} kcal")}
+      if(current.heart.isEmpty()) Text("Sin pulso autorizado de esta fuente") else {
+       Text("Pulso medido · media ${current.heart.map {it.second}.average().toInt()} lpm")
+       Text("Mín ${current.heart.minOf {it.second}} · Máx ${current.heart.maxOf {it.second}} lpm")
+       HeartRateCurveSection(entry.id) {current.heart}
+      }
+      Text("Solo mediciones de la fuente del registro. No se estima energía ni pulso.",style=MaterialTheme.typography.bodySmall)
+     }
+    }
    }
    when(val presented=ExternalRouteSheetModel.present(routeRead)) {
     is ExternalRouteSheetModel.State.Shown -> {
-     Text("Recorrido GPS de la fuente",style=MaterialTheme.typography.titleSmall)
-     RouteMapTapTarget(label="Ampliar recorrido de Salud",
-      modifier=Modifier.fillMaxWidth().height(200.dp)) { interactive,mapModifier ->
-      RouteMapView(points=presented.points,isInteractive=interactive,modifier=mapModifier,
-       paceMode=AdaptiveRoutePace.modeForSport(entry.exerciseTypeKey))
+     ReperaSectionTitle("Recorrido")
+     ReperaCard(modifier=Modifier.fillMaxWidth()) {
+      Column(Modifier.padding(16.dp)) {
+       RouteMapTapTarget(label="Ampliar recorrido de Salud",
+        modifier=Modifier.fillMaxWidth().height(200.dp)) { interactive,mapModifier ->
+        RouteMapView(points=presented.points,isInteractive=interactive,modifier=mapModifier,
+         paceMode=AdaptiveRoutePace.modeForSport(entry.exerciseTypeKey))
+       }
+      }
      }
     }
     ExternalRouteSheetModel.State.ConsentNeeded -> {
+     ReperaSectionTitle("Recorrido")
      TextButton(modifier=Modifier.testTag("external_route_consent"),
       onClick={onConsentRequested(entry.id)
        ;onConsentLaunch(entry.id)}) {
@@ -106,7 +127,6 @@ import androidx.compose.ui.platform.testTag
     }
     else -> {}
    }
-   TextButton(onClick=onClose) {Text("Cerrar")}
    Spacer(Modifier.height(20.dp))
   }
 }

@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 6.º pase: Play chrome IconButtons, editores DragHandle/flechas, Create hub sin AccountSync, preview MoreVert.
+**Última actualización:** 2026-10-28 — UI paridad 7.º pase: Settings pad/objetivos/rotación IconButtons; QuickLog/BoardScan/ExternalHealth/DayPlus chrome M3.
 
 Implementación nativa independiente en `android/`:
 

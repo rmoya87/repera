@@ -144,27 +144,29 @@ internal fun BoardScanScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { ReperaPageHeader(title = "Importar pizarra", subtitle = "Foto → rutina") }
+        item { ReperaPageHeader(title = "Escanear pizarra", subtitle = "Cámara o galería") }
         saveStatus?.let {message ->item {Text(message,color=MaterialTheme.colorScheme.error)}}
         if (blocks == null) {
             item {
                 Text("Fotografía la pizarra del box y Repera la convierte en una rutina.")
             }
             item {
-                Button(
-                    onClick = { markMediaRequest();takePicture.launch(photoUri) },
-                    enabled = !busy && !reading && !mediaPending,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = brandGreen, contentColor = Color.Black)
-                ) { Text("Tomar foto") }
-            }
-            item {
-                OutlinedButton(
-                    onClick = { markMediaRequest();pickImage.launch("image/*") },
-                    enabled = !busy && !reading && !mediaPending,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Elegir de la galería") }
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Fuentes", style = MaterialTheme.typography.titleMedium)
+                        Button(
+                            onClick = { markMediaRequest();takePicture.launch(photoUri) },
+                            enabled = !busy && !reading && !mediaPending,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = reperaPrimaryButtonColors()
+                        ) { Text("Tomar foto") }
+                        OutlinedButton(
+                            onClick = { markMediaRequest();pickImage.launch("image/*") },
+                            enabled = !busy && !reading && !mediaPending,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Elegir de la galería") }
+                    }
+                }
             }
             if (reading) {
                 item {
@@ -178,7 +180,9 @@ internal fun BoardScanScreen(
                 }
             }
             errorMessage?.let { msg ->
-                item { Text(msg, color = MaterialTheme.colorScheme.error) }
+                item {
+                    ReperaEmptyState(title = "No se pudo leer", subtitle = msg)
+                }
             }
             item {
                 OutlinedButton(onClick = onBack, enabled = !reading,
@@ -209,7 +213,7 @@ internal fun BoardScanScreen(
             items(if(classicMode) 0 else blocks.size) { index ->
                 val block = blocks[index]
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp),
+                    androidx.compose.foundation.layout.Column(Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(block.title, style = MaterialTheme.typography.titleMedium)
                         val details = buildString {

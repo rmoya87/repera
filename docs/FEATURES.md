@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (Android UI M3 6.º pase Play chrome / Create hub / editores; verde Repera)
+Última actualización: 2026-10-28 (Android UI M3 7.º pase Settings/sheets; verde Repera)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
