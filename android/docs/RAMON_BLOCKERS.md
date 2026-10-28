@@ -2,40 +2,21 @@
 
 **Última actualización:** 2026-10-28
 
-Pasos exactos que **no** puede completar el agente (secretos / Console / deploy).
-El código de cliente y el scaffold Edge ya están en repo.
+Pasos exactos que **no** puede completar el agente (secretos / Console / deploy /
+hardware). Decisiones de producto cerradas abajo.
 
-## RP-4 — Play Billing (Pro real en producción)
+## RP-4 — Play Billing
 
-1. **Play Console — productos**
-   - App: `com.app.repera`
-   - Suscripciones:
-     - `com.app.repera.premium.monthly` → **5,99 EUR**/mes
-     - `com.app.repera.premium.yearly` → **39,99 EUR**/año
-   - Configurar trial si se confirma (pendiente de decisión).
-   - Licencia tester + builds firmados con el SHA-1 de release en OAuth/Play.
-
-2. **Google Cloud — service account**
-   - Proyecto con **Google Play Developer API** habilitada.
-   - Cuenta de servicio + clave JSON (solo backend).
-   - Play Console → Usuarios y permisos: invitar la SA a la app Repera con
-     **View financial data…** y **Manage orders and subscriptions**.
-
-3. **Supabase secrets + deploy Edge**
-   - Secret: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` = contenido del JSON de la SA.
-   - Desplegar `supabase/functions/repera-play-billing-verify/` (scaffold en repo).
-   - Sin esto la app deja compras en `UNKNOWN` / no concede Pro (correcto).
-
-4. **Opcional:** Real-time Developer Notifications (Pub/Sub) para renovaciones.
-
-Detalle: `android/docs/MONETIZATION_PLAY_BILLING.md`.
+**Alineado (2026-10-28):** flujo Android = Play Billing directo + Edge
+`repera-play-billing-verify` (paridad del modelo iOS StoreKit + verify). No es
+un gap de código abierto. Detalle operativo: `android/docs/MONETIZATION_PLAY_BILLING.md`.
 
 ## RP-6 — Eliminar mi cuenta
 
 - **Código Android:** implementado (paridad iOS) → `AccountDeletionClient` +
-  Ajustes → Edge `repera-delete-account` (traído de `main`).
-- **Pendiente Ramón:** confirmar que la función está desplegada en el proyecto
-  Supabase de producción y probar E2E con una cuenta Google de prueba.
+  Ajustes → Edge `repera-delete-account`.
+- **Pendiente Ramón:** confirmar deploy en Supabase de producción y E2E con
+  cuenta Google de prueba.
 - Health Connect / Play subscriptions se gestionan fuera de Repera (copy UI).
 
 ## E2E hardware (no sustituible por CI)
@@ -49,13 +30,13 @@ Detalle: `android/docs/MONETIZATION_PLAY_BILLING.md`.
 
 Los jobs `android-native` fallan al arrancar si **Billing & plans** del org/cuenta
 tiene pagos fallidos o el spending limit agotado (no es un fallo de código).
-Hay que restablecer billing para que CI vuelva a ejecutar.
+Hay que restablecer billing de Actions para que CI vuelva a ejecutar.
 
-## Decisiones de producto abiertas
+## Decisiones de producto
 
-| Tema | Nota |
-|------|------|
-| Clima en Comenzar | iOS WeatherKit; Android **sin** proveedor en repo. Candidato gratis: Open-Meteo (no cableado; requiere OK explícito). |
+| Tema | Estado |
+|------|--------|
+| Clima en Comenzar | **No se hace en Android.** iOS usa WeatherKit; no hay Open-Meteo ni otro proveedor en Android (decisión 2026-10-28). |
 | POI | Photon + Geocoder ya en app (`PlaceSearchSheet`); calidad vs Places de pago. |
 | Wear autonomía total | MVP fuerza+ACK; WOD sin reloj de bloque no registra (decisión mantenida). |
-| Fusión `App-android` → `main` | Tip #121 ya mergeado a `App-android` y a `main` (2026-10-28). |
+| Fusión `App-android` → `main` | Hecha (2026-10-28): #121/#122 en ambas líneas. |

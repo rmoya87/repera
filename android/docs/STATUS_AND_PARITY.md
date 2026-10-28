@@ -2,9 +2,11 @@
 
 Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-**Última actualización:** 2026-10-28 — leftovers post-#121: `favoriteSportActivities` + hub Actividades, countdown 3-2-1 Comenzar, mapa 2D/3D persistido (`repera.live.map`).
+**Última actualización:** 2026-10-28 — billing alineado; clima Open-Meteo **no** se hace en Android; leftovers #122 (favoritos deporte, 3-2-1, mapa 2D/3D).
 
-La implementación Android **todavía no es completa**. La rama no altera Swift, iCloud ni Xcode; Edge `repera-play-billing-verify` está en repo sin secretos de producción.
+La implementación Android **todavía no es completa** (Wear/UX fina/E2E). Billing
+Play está **alineado** (cliente + verify Edge). No hay clima en Comenzar Android
+(WeatherKit es solo iOS; Open-Meteo descartado).
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
@@ -22,7 +24,7 @@ La implementación Android **todavía no es completa**. La rama no altera Swift,
 | Watch | Wear plan hoy TTL + series fuerza ACK + labels RIR/RPE y kg/lb | WOD autónomo / Health Services / físico |
 | Actividad/Salud | Lectura Inicio + escritura HC + distancia opcional en permiso | E2E HC |
 | Business / Center | Parcial | E2E business |
-| Compras Pro | Cliente Play + verify Edge cableados | **Secretos SA + Play Console (Ramón)** |
+| Compras Pro | Play Billing + verify Edge **alineado** | E2E compra real / testers |
 | OCR pizarra | ML Kit + lite + preprocess oscuro + EXIF | QA cámara |
 
 Pruebas de regresión declaradas: `domain/src/test` para reloj, WOD, presets y
