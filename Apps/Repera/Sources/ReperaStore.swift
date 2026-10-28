@@ -1312,6 +1312,10 @@ final class ReperaStore: NSObject {
         present: Bool,
         cardio: SessionCardioSample? = nil
     ) {
+        guard session.timerDetails == nil else {
+            session.sessionReview = nil
+            return
+        }
         let review = SessionReviewEngine.review(
             session: session,
             history: state.workouts,
@@ -1354,7 +1358,8 @@ final class ReperaStore: NSObject {
     /// Recomputa la review con la fórmula actual y la persiste.
     @discardableResult
     func ensureSessionReview(for sessionId: UUID) -> SessionReview? {
-        guard let idx = state.workouts.firstIndex(where: { $0.id == sessionId }) else { return nil }
+        guard let idx = state.workouts.firstIndex(where: { $0.id == sessionId }),
+              state.workouts[idx].timerDetails == nil else { return nil }
         // La migración de versión de fórmula se aplica durante bootstrap.
         // Abrir un detalle no debe recalcular todo ni guardar un JSON idéntico.
         if let existing = state.workouts[idx].sessionReview { return existing }
@@ -1710,7 +1715,8 @@ final class ReperaStore: NSObject {
                 draft.appleActiveEnergyKcal = nil
             }
             if let start = draft.startedAt, let end = draft.finishedAt,
-               draft.liveSportID == nil, draft.healthKitWorkoutUUID == nil {
+               draft.liveSportID == nil, draft.timerDetails == nil,
+               draft.healthKitWorkoutUUID == nil {
                 // Sin vínculo HK, la duración se deriva del horario corregido.
                 // Con vínculo, preservar la medición de Salud/Watch original.
                 draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
@@ -1721,7 +1727,7 @@ final class ReperaStore: NSObject {
         upsertWorkout(draft)
         persistWorkouts()
         requestExerciseCatalogRefresh()
-        if draft.phase == .finished {
+        if draft.phase == .finished && draft.timerDetails == nil {
             Task {
                 // Una edición permite reintentar una escritura de Salud pendiente.
                 if draft.healthKitWorkoutUUID == nil {
@@ -1738,6 +1744,7 @@ final class ReperaStore: NSObject {
     @discardableResult
     private func syncWorkoutToHealth(sessionId: UUID) async -> Bool {
         guard let session = state.workouts.first(where: { $0.id == sessionId }),
+              session.timerDetails == nil,
               session.healthKitWorkoutUUID == nil,
               let start = session.startedAt,
               let end = session.finishedAt,
@@ -1785,7 +1792,8 @@ final class ReperaStore: NSObject {
         let health = HealthKitStore.shared
         health.refreshAuthorizationStatus()
         let pending = state.workouts.filter {
-            $0.finishedAt != nil && $0.startedAt != nil && $0.healthKitWorkoutUUID == nil
+            $0.finishedAt != nil && $0.startedAt != nil
+                && $0.healthKitWorkoutUUID == nil && $0.timerDetails == nil
         }.map(\.id)
         // La lectura de Apple Watch puede estar permitida aunque se haya
         // denegado escribir. Primero se intenta vincular Salud y solo si no
@@ -1796,7 +1804,8 @@ final class ReperaStore: NSObject {
             _ = await syncWorkoutToHealth(sessionId: id)
         }
         return state.workouts.filter {
-            $0.finishedAt != nil && $0.startedAt != nil && $0.healthKitWorkoutUUID == nil
+            $0.finishedAt != nil && $0.startedAt != nil
+                && $0.healthKitWorkoutUUID == nil && $0.timerDetails == nil
         }.count
     }
 
