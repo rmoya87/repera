@@ -465,7 +465,7 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[0].explicitPlannedSets)
     }
     @Test fun complexMultiplierUnsupportedLoadsAndOverflowStayOnReviewPath() {
-        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25lb","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7.5-8.5","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8.5","3X 1 PUSH PRESS + 2 AIR SQUAT @7")) {
+        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25lb","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7.5-8.5","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8.5")) {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
             assertEquals(1,block.movements.size)
             assertFalse(block.movements.single().notes?.contains("Complejo ×3") == true)
@@ -552,6 +552,22 @@ class BoardScanLiteParserTest {
         for(range in listOf("0-2","5-2","1-201","99999999999-999999999999")) {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\nSETS "+range+": 1 PUSH PRESS + 2 AIR SQUAT",catalog=catalog).blocks.single()
             assertEquals(range,1,block.movements.size)
+        }
+    }
+    @Test fun trailingComplexAtTokenStaysSharedVerbatimNotLoad() {
+        for(at in listOf("@7","@7.5","@7,5","@60")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 2 AIR SQUAT "+at,catalog=catalog).blocks.single()
+            assertEquals(at,2,block.movements.size)
+            assertTrue(block.movements.all {it.notes!!.contains(at)})
+            assertTrue(block.movements.all {it.weightMaleKg==null && it.weightFemaleKg==null && it.explicitPlannedSets==null})
+            assertEquals(1,block.movements[0].reps)
+            assertEquals(2,block.movements[1].reps)
+        }
+    }
+    @Test fun malformedComplexAtTokenRemainsUnsplit() {
+        for(at in listOf("@-7","@7..5","@7.5-8.5","@7kg","@1e3")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 2 AIR SQUAT "+at,catalog=catalog).blocks.single()
+            assertEquals(at,1,block.movements.size)
         }
     }
 }

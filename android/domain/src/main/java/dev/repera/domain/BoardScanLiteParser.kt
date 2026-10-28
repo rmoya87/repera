@@ -514,9 +514,13 @@ object BoardScanLiteParser {
             sharedNotes.add("${percent.groupValues[1]}${percent.groupValues[2]}%")
             annotated=annotated.removeRange(percent.range).trim()
         }
-        Regex("@\\s*(\\d+)\\s*[-–]\\s*(\\d+)(?![0-9.,])").find(annotated)?.let {rpe ->
+        val rpe=Regex("@\\s*(\\d+)\\s*[-–]\\s*(\\d+)(?![0-9.,])").find(annotated)
+        if(rpe!=null) {
             sharedNotes.add("RPE "+rpe.value.removePrefix("@").trim())
             annotated=annotated.removeRange(rpe.range).trim()
+        } else Regex("@\\s*\\d+(?:[.,]\\d+)?\\s*$").find(annotated)?.let {at ->
+            sharedNotes.add(at.value.trim())
+            annotated=annotated.removeRange(at.range).trim()
         }
         var scaleAlternative:String?=null
         val scaleParts=annotated.split(Regex("\\s+/\\s+"))

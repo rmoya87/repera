@@ -652,3 +652,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, prefijo de rango de series 02:09 28oct
 - Mismo bloque parcial,subconjunto322: prefijo SET(S)1-2: ahora extraido antes de separar complejo y compartido como nota Series1-2 en todas las partes,segun BoardImportParser636-647. No fabrica plannedSets; sigue compatible con multiplicador,porcentaje,RPE yescala ultima parte. Acotado1..200 ascendente;ceros/invertido/overflow quedan sin dividir para review.
 - Verificado corte compuesto: cuatro patches durables inspeccionados;ff94e6ad cambia canonicalName,no esta extraccion.2tests nuevos. Dominio516/93XML54s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear322 pendientes;ultima completa320mobile677/163domain514/93Wear8/1.735/70sin cierres,no push,nativo pendiente.
+
+## Lector completo, token @ final 02:17 28oct
+-322 bateria completa mobile677/163XML64/77/59/59s,domain516/93XML54s,Wear8/1XML+ambosassemble49s verdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo bloque parcial323: @numero entero/decimal al final del complejo pasa como nota literal compartida, no peso ni reps ni plannedSets, siguiendo BoardImportParser665-668. No etiqueta arbitraria RPE. Subconjunto acotado al sufijo; token con kg/exponente/signo/decimal malformado y RPEdecimal siguen sin dividir para review.
+-2tests nuevos,dominio518/93XML55s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear323 pendientes;735/70sin cierres,default3x8 no inferido,nativo pendiente,no push.
