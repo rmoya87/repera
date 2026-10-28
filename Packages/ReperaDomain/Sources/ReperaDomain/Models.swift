@@ -250,7 +250,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var muscleGroup: String
     public var equipment: String?
     public var isCustom: Bool
-    /// Id openGym / ExerciseDB (texto; sin media licenciada).
+    /// Identificador de catálogo de ejercicios externo (texto; sin contenido multimedia licenciado).
     public var catalogId: String?
     public var targetMuscle: String?
     public var secondaryMuscles: [String]
