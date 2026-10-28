@@ -581,41 +581,45 @@ struct SettingsView: View {
                 await businessData.refresh()
             }
         }
-        .sheet(isPresented: $confirmReset) {
+        .sheet(isPresented: $confirmDeleteAccount) {
             OGConfirmSheet(
-                systemImage: "trash.circle.fill",
-                title: "¿Borrar datos?",
-                message: "Se borran rutinas, entrenos y pesos. El catálogo de ejercicios se mantiene.",
-                confirmTitle: "Borrar todo",
+                systemImage: "person.crop.circle.badge.xmark",
+                title: "¿Eliminar mi cuenta definitivamente?",
+                message: "Se eliminará tu cuenta de Repera y su historial de iCloud y Supabase. No se puede deshacer. Los entrenamientos existentes en Apple Salud y las suscripciones de Apple se gestionan por separado.",
+                confirmTitle: "Eliminar mi cuenta",
                 onConfirm: {
-                    store.resetUserData()
-                    confirmReset = false
+                    confirmDeleteAccount = false
+                    Task { await deleteCurrentAccount() }
                 },
-                onCancel: { confirmReset = false }
+                onCancel: { confirmDeleteAccount = false }
             )
         }
-        .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
-            if case .success(let url) = result,
-               url.startAccessingSecurityScopedResource(),
-               let data = try? Data(contentsOf: url),
-               let imported = LocalStore.shared.importJSON(data) {
-                store.state = imported
-                store.persist()
-                url.stopAccessingSecurityScopedResource()
+        .alert("No se ha podido eliminar la cuenta", isPresented: Binding(
+            get: { accountDeleteError != nil },
+            set: { if !$0 { accountDeleteError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { accountDeleteError = nil }
+        } message: {
+            Text(accountDeleteError ?? "")
+        }
+        .overlay {
+            if isDeletingAccount {
+                ZStack {
+                    Color.black.opacity(0.25).ignoresSafeArea()
+                    ProgressView("Eliminando cuenta y datos…")
+                        .padding(28)
+                        .background(OG.surface, in: RoundedRectangle(cornerRadius: 18))
+                }
             }
+        }
+        .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
+            importJSONBackup(result)
         }
         .fileImporter(
             isPresented: $showingCSVImporter,
             allowedContentTypes: [.commaSeparatedText, .plainText]
         ) { result in
-            if case .success(let url) = result,
-               url.startAccessingSecurityScopedResource(),
-               let data = try? Data(contentsOf: url),
-               let text = String(data: data, encoding: .utf8)
-                ?? String(data: data, encoding: .isoLatin1) {
-                _ = store.importCSV(text)
-                url.stopAccessingSecurityScopedResource()
-            }
+            importWorkoutCSV(result)
         }
         .sheet(isPresented: Binding(
             get: { exportURL != nil },
@@ -683,11 +687,158 @@ struct SettingsView: View {
         }
     }
 
+    /// Backup del usuario (no sustituye credenciales ni autoriza acciones remotas).
+    private func importJSONBackup(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else {
+            if case .failure(let error) = result {
+                importFeedback = "No se pudo abrir el archivo: \(error.localizedDescription)"
+            }
+            return
+        }
+        guard url.startAccessingSecurityScopedResource() else {
+            importFeedback = "No se pudo acceder al JSON seleccionado."
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        do {
+            let data = try Data(contentsOf: url)
+            guard let imported = LocalStore.shared.importJSON(data) else {
+                importFeedback = "El JSON no contiene un backup válido de Repera."
+                return
+            }
+            guard store.state.activeSession == nil else {
+                importFeedback = "Finaliza el entrenamiento en curso antes de importar."
+                return
+            }
+            store.state = imported
+            store.persist(touchWorkouts: true)
+            importFeedback = "Backup restaurado: \(imported.workouts.count) entrenamientos."
+        } catch {
+            importFeedback = "No se pudo importar JSON: \(error.localizedDescription)"
+        }
+    }
+
+    private func importWorkoutCSV(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else {
+            if case .failure(let error) = result {
+                importFeedback = "No se pudo abrir el CSV: \(error.localizedDescription)"
+            }
+            return
+        }
+        guard url.startAccessingSecurityScopedResource() else {
+            importFeedback = "No se pudo acceder al CSV seleccionado."
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        do {
+            guard store.state.activeSession == nil else {
+                importFeedback = "Finaliza el entrenamiento en curso antes de importar."
+                return
+            }
+            let data = try Data(contentsOf: url)
+            guard let text = String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .isoLatin1) else {
+                importFeedback = "Codificación CSV no compatible."
+                return
+            }
+            let result = store.importCSV(text)
+            importFeedback = "\(result.source.rawValue): \(result.workouts.count) entrenamientos importados."
+        } catch {
+            importFeedback = "No se pudo importar CSV: \(error.localizedDescription)"
+        }
+    }
+
+    /// El endpoint jamás acepta un UUID aportado por la app: usa el del JWT
+    /// personal verificado por Supabase. La fase previa evita borrar iCloud
+    /// si el usuario aún tiene responsabilidades empresariales.
+    private func requestAccountDeletion(_ action: String) async throws {
+        guard await businessAuth.ensureUsableSession(),
+              let client = businessAuth.apiClient else {
+            throw AccountDeletionError.message("Necesitas iniciar sesión y tener conexión para eliminar la cuenta.")
+        }
+        let session = try await client.auth.session
+        guard !session.isExpired, !session.accessToken.isEmpty,
+              let base = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabaseURL") as? String,
+              let url = URL(string: base + "/functions/v1/repera-delete-account"),
+              url.scheme == "https", url.host == "uvzgujlrqohreoucirms.supabase.co"
+        else { throw AccountDeletionError.message("No se pudo verificar la conexión segura con Repera.") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["action": action])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse else {
+            throw AccountDeletionError.message("Respuesta inválida del servidor.")
+        }
+        let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        guard (200..<300).contains(response.statusCode), payload?["ok"] as? Bool == true else {
+            throw AccountDeletionError.message(
+                payload?["error"] as? String
+                    ?? "No se pudo confirmar la eliminación remota (\(response.statusCode))."
+            )
+        }
+    }
+
+    private func deleteCurrentAccount() async {
+        guard !isDeletingAccount else { return }
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        accountDeleteError = nil
+        do {
+            guard store.state.activeSession == nil else {
+                throw AccountDeletionError.message("Finaliza primero el entrenamiento en curso.")
+            }
+            try await requestAccountDeletion("preflight")
+            // La eliminación de iCloud es coordinada; si no se puede comprobar,
+            // NO se elimina la cuenta remota ni se muestra un falso éxito.
+            try await LocalStore.shared.purgeDeletedAccountDocuments()
+            do {
+                try await requestAccountDeletion("delete")
+            } catch {
+                // Falló Supabase: recuperar el respaldo local aún en memoria.
+                LocalStore.shared.resumeStorageForNewLogin()
+                store.persist(touchWorkouts: true)
+                throw error
+            }
+            // Nunca sincronizar la copia anterior tras borrar su identidad.
+            store.state = LocalStore.shared.emptyShellState()
+            UserDefaults.standard.removeObject(forKey: "repera.places.recent.v1")
+            UserDefaults.standard.removeObject(forKey: "repera.timer.lastCompletion.v1")
+            appleAuth.signOut()
+            businessData.clear()
+            await businessAuth.signOut()
+            businessAuth.forgetDeletedAccountBinding()
+            onboarding.resetToSignIn()
+        } catch let error as AccountDeletionError {
+            accountDeleteError = error.localizedDescription
+        } catch {
+            accountDeleteError = "No se ha completado la eliminación. Comprueba que iCloud Drive esté disponible y que tengas conexión, y vuelve a intentarlo."
+        }
+    }
+
+    private enum AccountDeletionError: LocalizedError {
+        case message(String)
+        var errorDescription: String? {
+            if case .message(let detail) = self { return detail }
+            return nil
+        }
+    }
+
     private func exportBackup() {
-        guard let data = LocalStore.shared.exportJSON(store.state) else { return }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("repera-backup.json")
-        try? data.write(to: url)
-        exportURL = url
+        guard let data = LocalStore.shared.exportJSON(store.state) else {
+            importFeedback = "No se pudo crear el backup JSON."
+            return
+        }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("repera-backup-\(UUID().uuidString).json")
+        do {
+            try data.write(to: url, options: .atomic)
+            exportURL = url
+            importFeedback = nil
+        } catch {
+            importFeedback = "No se pudo exportar JSON: \(error.localizedDescription)"
+        }
     }
 }
 
