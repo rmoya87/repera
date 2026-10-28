@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import MapKit
+import ReperaDomain
 
 /// Títulos orientativos: solo ciudad/localidad (sin calle ni portal), editables.
 /// Geocodificar únicamente al finalizar evita peticiones GPS/geocoder continuas.
