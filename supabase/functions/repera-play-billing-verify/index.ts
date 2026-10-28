@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.58.0";
 import { createSign } from "node:crypto";
+import { OwnershipError, verifySubscription } from "./verification.ts";
 
 /**
  * Verifies a Google Play subscription with purchases.subscriptionsv2.get.
@@ -27,10 +28,6 @@ const admin = createClient(url, secret, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const MONTHLY = "com.app.repera.premium.monthly";
-const ANNUAL = "com.app.repera.premium.yearly";
-const PRODUCT_IDS = new Set([MONTHLY, ANNUAL]);
-
 const respond = (status: number, data: Record<string, unknown>) =>
   new Response(JSON.stringify(data), {
     status,
@@ -47,7 +44,8 @@ function parseServiceAccount(): ServiceAccount | null {
   if (!serviceAccountJson.trim()) return null;
   try {
     const parsed = JSON.parse(serviceAccountJson) as ServiceAccount;
-    if (!parsed.client_email || !parsed.private_key) return null;
+    if (!parsed.client_email || !parsed.private_key ||
+      (parsed.token_uri && parsed.token_uri !== "https://oauth2.googleapis.com/token")) return null;
     return parsed;
   } catch {
     return null;
@@ -65,7 +63,7 @@ async function googleAccessToken(sa: ServiceAccount): Promise<string> {
   const claim = b64url(JSON.stringify({
     iss: sa.client_email,
     scope: "https://www.googleapis.com/auth/androidpublisher",
-    aud: sa.token_uri ?? "https://oauth2.googleapis.com/token",
+    aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
   }));
@@ -79,7 +77,7 @@ async function googleAccessToken(sa: ServiceAccount): Promise<string> {
     grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
     assertion,
   });
-  const tokenRes = await fetch(sa.token_uri ?? "https://oauth2.googleapis.com/token", {
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
@@ -90,65 +88,6 @@ async function googleAccessToken(sa: ServiceAccount): Promise<string> {
   const json = await tokenRes.json() as { access_token?: string };
   if (!json.access_token) throw new Error("Google OAuth token missing");
   return json.access_token;
-}
-
-type PlaySub = {
-  subscriptionState?: string;
-  acknowledgementState?: string;
-  lineItems?: Array<{
-    productId?: string;
-    expiryTime?: string;
-    autoRenewingPlan?: unknown;
-    prepaidPlan?: unknown;
-    offerDetails?: { basePlanId?: string };
-  }>;
-  canceledStateContext?: unknown;
-};
-
-function mapStatus(sub: PlaySub, productId: string | null): {
-  status: string;
-  expiryEpochMs: number | null;
-  productId: string | null;
-} {
-  const item = sub.lineItems?.find((li) => li.productId && PRODUCT_IDS.has(li.productId))
-    ?? sub.lineItems?.[0];
-  const resolvedProduct = (item?.productId && PRODUCT_IDS.has(item.productId)
-    ? item.productId
-    : productId && PRODUCT_IDS.has(productId) ? productId : item?.productId)
-    ?? null;
-  const expiryIso = item?.expiryTime ?? null;
-  const expiryEpochMs = expiryIso ? Date.parse(expiryIso) : null;
-  const state = (sub.subscriptionState ?? "").toUpperCase();
-
-  if (state.includes("EXPIRED")) {
-    return { status: "expired", expiryEpochMs, productId: resolvedProduct };
-  }
-  if (state.includes("REVOKED") || state.includes("PENDING_PURCHASE_CANCELED")) {
-    return { status: "revoked", expiryEpochMs, productId: resolvedProduct };
-  }
-  if (state.includes("IN_GRACE") || state.includes("ON_HOLD")) {
-    return { status: "gracePeriod", expiryEpochMs, productId: resolvedProduct };
-  }
-  if (
-    state.includes("ACTIVE") ||
-    state.includes("CANCELED") || // still entitled until expiry
-    state.includes("IN_TRIAL")
-  ) {
-    const inTrial = state.includes("IN_TRIAL");
-    if (inTrial) return { status: "trial", expiryEpochMs, productId: resolvedProduct };
-    if (resolvedProduct === ANNUAL) {
-      return { status: "proAnnual", expiryEpochMs, productId: resolvedProduct };
-    }
-    if (resolvedProduct === MONTHLY) {
-      return { status: "proMonthly", expiryEpochMs, productId: resolvedProduct };
-    }
-    // Active but unknown product: still Pro monthly as conservative default only
-    // when Play says ACTIVE; otherwise free.
-    if (state.includes("ACTIVE")) {
-      return { status: "proMonthly", expiryEpochMs, productId: resolvedProduct };
-    }
-  }
-  return { status: "free", expiryEpochMs, productId: resolvedProduct };
 }
 
 Deno.serve(async (req: Request) => {
@@ -178,58 +117,51 @@ Deno.serve(async (req: Request) => {
   }
 
   let purchaseToken: unknown;
-  let productId: unknown;
   try {
-    ({ purchaseToken, productId } = await req.json());
+    ({ purchaseToken } = await req.json());
   } catch {
     return respond(400, { error: "Solicitud inválida." });
   }
-  if (typeof purchaseToken !== "string" || !purchaseToken.trim()) {
+  if (typeof purchaseToken !== "string" || !purchaseToken.trim() || purchaseToken.length > 8192) {
     return respond(400, { error: "purchaseToken obligatorio." });
   }
-  const productHint = typeof productId === "string" && PRODUCT_IDS.has(productId)
-    ? productId
-    : null;
-
   try {
     const access = await googleAccessToken(sa);
-    const endpoint =
-      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
-        encodeURIComponent(packageName)
-      }/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`;
-    const playRes = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${access}` },
+    const result = await verifySubscription(user.id, purchaseToken, {
+      getSubscription: async (token) => {
+        const endpoint = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+          encodeURIComponent(packageName)}/purchases/subscriptionsv2/tokens/${encodeURIComponent(token)}`;
+        const res = await fetch(endpoint, {headers: {Authorization: `Bearer ${access}`}});
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error(`Play API HTTP ${res.status}`);
+        return await res.json();
+      },
+      claim: async (record) => {
+        const {data, error} = await admin.rpc("claim_play_subscription", {
+          p_token_hash: record.tokenHash, p_owner: record.owner,
+          p_linked_hash: record.linkedHash, p_product: record.product,
+          p_state: record.state, p_expiry: record.expiry,
+        });
+        if (error) throw new Error("Purchase ownership storage unavailable");
+        return data === true;
+      },
+      acknowledge: async (token, product) => {
+        const endpoint = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+          encodeURIComponent(packageName)}/purchases/subscriptions/${encodeURIComponent(product)}/tokens/${
+          encodeURIComponent(token)}:acknowledge`;
+        const res = await fetch(endpoint, {
+          method: "POST", headers: {Authorization: `Bearer ${access}`, "Content-Type": "application/json"},
+          body: "{}",
+        });
+        if (!res.ok) throw new Error(`Play acknowledgement HTTP ${res.status}`);
+      },
     });
-    if (playRes.status === 404) {
-      return respond(200, {
-        configured: true,
-        status: "free",
-        expiryEpochMs: null,
-        productId: productHint,
-        acknowledged: false,
-        playState: "NOT_FOUND",
-      });
-    }
-    if (!playRes.ok) {
-      console.error("Play subscriptionsv2 HTTP", playRes.status);
-      return respond(503, {
-        configured: true,
-        error: "Play Developer API no disponible ahora mismo.",
-      });
-    }
-    const sub = await playRes.json() as PlaySub;
-    const mapped = mapStatus(sub, productHint);
-    const acknowledged = (sub.acknowledgementState ?? "").toUpperCase().includes("ACKNOWLEDGED");
-    return respond(200, {
-      configured: true,
-      status: mapped.status,
-      expiryEpochMs: mapped.expiryEpochMs,
-      productId: mapped.productId,
-      acknowledged,
-      playState: sub.subscriptionState ?? null,
-      userId: user.id,
-    });
+    return respond(200, {configured: true, ...result, userId: user.id});
   } catch (err) {
+    if (err instanceof OwnershipError) return respond(200, {
+      configured: true, status: "revoked", productId: null, expiryEpochMs: null,
+      acknowledged: false, playState: "OWNERSHIP_REJECTED",
+    });
     console.error("Play verify failed", err instanceof Error ? err.name : "error");
     return respond(503, {
       configured: true,

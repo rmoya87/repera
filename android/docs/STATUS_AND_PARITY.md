@@ -1,11 +1,16 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
-Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
+Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
+`App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
+`#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-28 — Leftovers #127 cerrados; STATUS histórico editor supersedido; nada shippable sin Ramón.
+**Última actualización:** 2026-10-28 — sync `App-android`→`main`; ownership Play
+Apple-parity (#131); billing alineado (productos borrador); sin clima Android;
+POI = Places si gratis else Photon.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
-Edge deploy). Billing Play **alineado**. Sin clima en Comenzar Android.
+Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
+Sin clima en Comenzar Android (`weather_android: none`).
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |

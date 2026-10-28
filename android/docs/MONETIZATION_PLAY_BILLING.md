@@ -82,32 +82,61 @@ queda Gratis funcional con paywall informativo "compras no configuradas".
 (mensaje phonemsg-01M5SH836466EK865PC0YT8TJV, canal iMessage verificado).
 - Mensual (com.app.repera.premium.monthly): 5,99 EUR/mes.
 - Anual (com.app.repera.premium.yearly): 39,99 EUR/año.
-- Trial: SIN RESPUESTA aún; dato abierto para la aprobación final agrupada.
-Estos importes NO van en código (la app los lee de Play). Se aplicarán al
-crear los productos en Play Console cuando la subida del primer AAB y la
-creación de productos estén autorizadas (hoy NO lo están). Los mismos
-importes del debug provider iOS son placeholders de desarrollo; su
-coincidencia con esta decisión es posterior a la confirmación de Ramón.
+- Trial: SIN trial Pro, confirmado por Ramón el 28/10/2026. Inicio Gratis y Pro mensual/anual.
+Estos importes NO van en código (la app los lee de Play). **Productos creados**
+en Play Console (2026-10-28, `billing_aligned`) en **borrador** — **no activar**
+hasta migrate+deploy verify. Los importes del debug provider iOS son placeholders
+de desarrollo.
 
 ## Estado de la capacidad
 
 **Última actualización:** 2026-10-28 — **alineado** (confirmación Ramón): mismo
-modelo que iOS (compra en tienda + verify backend). No es gap de paridad abierto.
+modelo que iOS (compra en tienda + verify backend) y misma política de
+borrado/recuperación Pro que Apple (hard delete Auth; Pro vuelve vía tienda).
 
 En app:
 - política de dominio (cuotas Gratis, paywall, favoritos máx. 3, escaneos, etc.)
 - `PlayBillingEntitlementProvider` cableado desde `MainActivity` (compra real +
   detección local → UNKNOWN hasta verify; **sin** conceder Pro solo por local)
 - `PlayPurchaseVerifyClient` → `POST /functions/v1/repera-play-billing-verify`
-- acknowledge local solo tras verify OK
-- Edge Function `supabase/functions/repera-play-billing-verify/`
-  (JWT usuario + `purchases.subscriptionsv2.get` con SA)
+- acknowledge **backend** antes de devolver entitlement Pro; reintento en la
+  siguiente verificación si falla
+- Verificador `supabase/functions/repera-play-billing-verify/` (JWT usuario,
+  catálogo estricto, estados exactos, ownership atómico Apple-parity,
+  acknowledgement backend). **No desplegado** hasta ops explícita.
 
 Checklist ops (referencia; no listar como deuda de código Android):
 1. Secretos Edge: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `PLAY_PACKAGE_NAME`
-2. Play Console: productos monthly/yearly (5,99 / 39,99 EUR) + testers
-3. Despliegue de la Edge Function
+2. Play Console: ~~crear productos~~ **hecho** (monthly/yearly borrador); quedan
+   testers/SHA-1 + **activar** tras verify en prod
+3. Aplicar migración `play_subscription_ownership` + desplegar Edge Function
 4. (Opcional) RTDN Pub/Sub
 
 Sin SA/config la función responde `503 { configured:false }` y la app muestra
 verificación pendiente; la caché offline solo usa snapshots ya verificados.
+
+## Seguridad y paridad Apple (2026-10-28)
+
+- Play es la única fuente de producto y vencimiento. Un hint del cliente no
+  convierte productos desconocidos en Pro. `ON_HOLD` / `PAUSED` / `PENDING` →
+  Gratis (no Pro). Solo `IN_GRACE_PERIOD` con expiry futuro → `gracePeriod`.
+- En compra nueva: `obfuscatedAccountId = SHA256(UUID Supabase en minúsculas)`
+  (correlación Play Console; sin email ni UUID en claro). **No** es el vínculo
+  permanente del entitlement: tras hard delete + cuenta nueva, ese hash no
+  coincidirá y el verify **sigue** pudiendo restaurar Pro.
+- Tabla privada `play_subscription_purchases` + RPC `claim_play_subscription`
+  (solo `service_role`): hash de token, anti-hijack entre owners **vivos**,
+  supersede por `linkedPurchaseToken` **solo** en reemplazo completado
+  (ACTIVE/CANCELED/gracia/hold/paused/expired). En
+  `PENDING_PURCHASE_CANCELED` (y PENDING) se **consulta** el token enlazado y
+  no se invalida la compra previa todavía pagada. `owner_id … ON DELETE SET NULL`
+  deja la fila huérfana al borrar Auth; el claim **reclaim** al nuevo UUID
+  cuando el mismo `purchaseToken` de Play se presenta de nuevo (análogo
+  StoreKit ↔ Apple ID).
+- Eliminar cuenta **no** cancela la suscripción Play (copy UI + Edge
+  `repera-delete-account`). Pro se recupera con queryPurchases + verify/restore.
+- Migración y Edge: código listo; **no** aplicar/desplegar desde este PR sin
+  autorización ops. Productos Play siguen en borrador sin activar.
+
+Pruebas locales: `deno test supabase/functions/repera-play-billing-verify/verification_test.ts`
+y `deno check .../index.ts`. No demuestra esquema remoto ni build Android.
