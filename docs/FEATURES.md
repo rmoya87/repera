@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (Android UI M3 paridad visual ~100% salvo plataforma; verde Repera)
+Última actualización: 2026-10-28 (Android Inicio: layout iOS blanco/gris, cards registro, CTA, progreso, actividad)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -83,6 +83,8 @@
 - **Historial → estrella (27/10/2026):** guardar un entrenamiento ya completado genera una plantilla independiente de la antigua planificación, aun si esta se ha perdido tras reinstalar. Usa el snapshot `routineBlocks` cuando existe para copiar exactamente WODs, descansos, series, repeticiones y cargas. En históricos sin snapshot, conserva las series prescritas o las series de trabajo registradas en apuntes libres; la plantilla queda en **Crear → Favoritos** con progresión desactivada y UUID propio. El botón solo cambia a estrella llena si el guardado ha funcionado; si el límite de tres plantillas Gratis lo impide, abre el aviso de Pro, y si la sesión carece de ejercicios reutilizables muestra un error en lugar de guardar una rutina vacía. Test de regresión: `tests/test_historical_workout_favorites_contract.py`.
 
 ## Inicio (`HomeView`)
+
+- **Android Inicio (`HomeTab`, 28/10/2026):** misma composición que iOS — cabecera «repera» + fecha + engranaje circular; carrusel de días con celda seleccionada verde sólido y texto `onAccent` negro; cards de registro («ENTRENO · hora», icono en círculo, chips); CTA verde «Añadir nuevo entreno»; banda blanca (calendario + entreno) sobre banda gris (`OG.bg`) con Progreso semanal («X de Y días», checks) y Actividad de hoy (Pasos/Calorías/Tiempo). Sin AccountSync ni historial completo en el scroll de Inicio.
 
 - Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.

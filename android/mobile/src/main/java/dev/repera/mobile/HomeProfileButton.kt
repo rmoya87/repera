@@ -1,5 +1,6 @@
 package dev.repera.mobile
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -19,7 +20,16 @@ import androidx.compose.ui.unit.dp
   android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.size)
  }}.getOrNull()}
  IconButton(onClick=onOpenSettings) {
-  if(bitmap==null) Icon(Icons.Outlined.Settings,"Ajustes y cuenta")
-  else Image(bitmap.asImageBitmap(),"Ajustes y cuenta",Modifier.size(40.dp).clip(CircleShape),contentScale=ContentScale.Crop)
+  if(bitmap==null) {
+   Icon(
+    Icons.Outlined.Settings,
+    "Ajustes y cuenta",
+    modifier = Modifier
+     .size(40.dp)
+     .border(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f), CircleShape)
+     .clip(CircleShape),
+    tint = MaterialTheme.colorScheme.onSurface
+   )
+  } else Image(bitmap.asImageBitmap(),"Ajustes y cuenta",Modifier.size(40.dp).clip(CircleShape),contentScale=ContentScale.Crop)
  }
 }

@@ -4,13 +4,13 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-28 — UI paridad visual ~100% (solo diffs plataforma: M3 nav, MapLibre, Health Connect, Icons.Filled) (Play/session, editores, detalle,
+**Última actualización:** 2026-10-28 — Inicio visual = iOS (banda blanca/gris, cards, CTA); resto UI ~100% (solo diffs plataforma: M3 nav, MapLibre, Health Connect, Icons.Filled) (Play/session, editores, detalle,
 historial, permisos/onboarding, cards secundarias → Repera*); `#136`/`#137`/`#138`
 en main; ownership Play (#131); sin clima Android; POI = Places si gratis else Photon.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
-Sin clima en Comenzar Android (`weather_android: none`).
+Inicio: `HomeTab` reescrito a composición iOS (`HomeDayCards`, progreso, actividad). Sin clima en Comenzar Android (`weather_android: none`).
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
