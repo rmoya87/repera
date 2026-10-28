@@ -3,6 +3,10 @@ package dev.repera.domain
 /**
  * Mirrors ReperaDomain.Models WODFormat.resultCapture (2026-10-23).
  * Format naming matches Swift raw values for interchange.
+ *
+ * Canonical public type for mobile/wear/board-scan. Historical name
+ * [WODFormat] is a typealias so both import spellings resolve on the
+ * `:domain` classpath (avoids unresolved/inaccessible dual-enum drift).
  */
 enum class WodFormat(val wireName: String) {
     AMRAP("amrap"), EMOM("emom"), FOR_TIME("forTime"), TABATA("tabata"),
@@ -10,6 +14,9 @@ enum class WodFormat(val wireName: String) {
     AFAP("afap"), LADDER("ladder"), PARTNER("partner"),
     BUY_IN_CASH_OUT("buyInCashOut"), ROUNDS_FOR_QUALITY("roundsForQuality"),
     CIRCUIT("circuit"), MAX_EFFORT("maxEffort");
+
+    /** Board-scan / wire alias of [wireName] (Swift `rawValue`). */
+    val raw: String get() = wireName
 
     val displayName: String get() = when (this) {
         AMRAP -> "AMRAP"
