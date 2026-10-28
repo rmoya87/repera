@@ -13,7 +13,13 @@ enum WorkoutClockEndReason: Equatable, Sendable {
 @MainActor
 final class WorkoutClockCoordinator {
     private(set) var isVisible = false
-    private(set) var isRunning = false
+    private(set) var isRunning = false {
+        didSet {
+            // Preinicio, intervalos, cuenta atrás y cronómetro comparten esta
+            // bandera. El observer cubre pause/resume/stop, fin y restauración.
+            TimerScreenAwake.setRunning(isRunning, for: .workout)
+        }
+    }
     private(set) var isCountingUp = false
     private(set) var isIntervalMode = false
     private(set) var hasStarted = false
