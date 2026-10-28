@@ -513,7 +513,7 @@ internal fun DayPointLineChart(
                     if(physiologyStyle) clipRect {drawPath(path,color=line,style=Stroke(width=2.dp.toPx()))}
                     else drawPath(path,color=line,style=Stroke(width=4f))
                 }
-                if(!physiologyStyle) drawCircle(color = line, radius = 6f,
+                if(!physiologyStyle && !readinessPreview) drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))
                 selected?.let { i ->
                     drawLine(

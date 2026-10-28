@@ -239,6 +239,11 @@ class ReviewSpacingRenderTest {
         val first=composeRule.onNodeWithText("1",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
         val plot=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue(kotlin.math.abs(first.center.x-(plot.left+plot.width/8f))<2f)
+        val pixels=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap()
+        val endX=(pixels.width*7f/8f).toInt()
+        val endY=(pixels.height*0.16f).toInt()
+        org.junit.Assert.assertEquals("fictional preview has a line, not an endpoint dot",
+            pixels.getPixel(endX+9,endY),pixels.getPixel(endX+4,endY))
         save(composeRule.onNodeWithTag("readiness_plain_fixture").captureToImage().asAndroidBitmap(),"readiness-preview-plain.png")
     }
 
