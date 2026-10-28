@@ -31,7 +31,11 @@ internal fun RecoveryPhysiologyPreviewCard(today:LocalDate,chartHeight:Dp=128.dp
         Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Constantes · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
             Text("No son tus datos de Salud",style=MaterialTheme.typography.bodySmall)
-            Text("Variabilidad cardíaca (VFC) · 58 ms",style=MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),
+                verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Variabilidad cardíaca (VFC)",Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+                Text("${RecoveryPhysiologyPreview.hrv.last().toInt()} ms",style=MaterialTheme.typography.labelMedium)
+            }
             PhysiologyPreviewCurve(chartHeight)
             HorizontalDivider(Modifier.testTag("physiology_preview_divider"),
                 color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.25f))

@@ -961,3 +961,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad G08parcial y matrices 13:28 28oct
 -390 bateria completa mobile693/163XML11lotes41/63/78/67/54/66/84/43/80/46/80s,domain558/93XML39s,Wear8/1XML+ambosassemble71sverdes0fallos/errores/omitidos. Backup390recuperado65338db7:arbolb0e1ed7bdc3b18f1723c9d3ba492abd66fed22a7identico,clonlimpio. Evidencia interna, no nuevoTerminado ni avanceporcentual.
 -391 solo docs: matrices0d649f28/08790a22/c7878496yregistrov1reconciliados390sinreclasificar. G08P/P/N;graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOcoberturafuncionaltotal.735/70abiertas,sincierres. Ultimoproducto390.No push niApps/Packages.
+
+## Graficos, fila VFC ficticia con ultimo valor separado G08 13:32 28oct
+-392 mismo bloque parcialG08:HealthRecovery827-834HStacktituloizquierdoyultimovalorderecho;AndroidfusionabaenunText. SeparadafilaRowtitulo+valor58msderivadodelfixture,centradosverticalmente;sinclaimfontmetricsidenticasnirestodelheaderexterior.
+- Regresionexistenciatextosseparadosrojaybounds1focalizado/1XML90sverde0fallos/errores/omitidos. PNG360x511inspeccionado:titulo/58msseparadosalineadosysinrecortes,curva/barras/textosrestantesintactos. Escalas/datosno cambian.
+- G08sigueP/P/N,denominadoresv1intactos:graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOavancefuncionaltotal.735/70sin cierres,no nuevoTerminado.Full392pendiente;ultimafull390mobile693/163domain558/93Wear8/1assemble71s.No push niApps/Packages.
