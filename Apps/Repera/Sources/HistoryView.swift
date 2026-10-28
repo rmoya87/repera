@@ -2858,31 +2858,32 @@ struct HealthWorkoutRouteMap: View {
                     startPoint: .leading,
                     endPoint: .trailing
                 ))
-                .frame(width: 164, height: 7)
+                .frame(width: 196, height: 7)
 
-            HStack {
-                Text(cachedScale.map { ReperaNumberFormat.decimal($0.lowMps * 3.6) } ?? "Lento")
-                Spacer(minLength: 10)
-                Text(cachedScale.map { ReperaNumberFormat.decimal($0.highMps * 3.6) } ?? "Rápido")
+            HStack(spacing: 3) {
+                Text(cachedScale.map { ReperaNumberFormat.decimal($0.lowMps * 3.6) } ?? "Mín.")
+                Spacer(minLength: 2)
+                Text(cachedScale.map {
+                    "Media " + ReperaNumberFormat.decimal($0.medianMps * 3.6) + " km/h"
+                } ?? "Media —")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 2)
+                Text(cachedScale.map { ReperaNumberFormat.decimal($0.highMps * 3.6) } ?? "Máx.")
             }
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(OG.label)
-            Text(cachedScale.map {
-                $0.hasMeaningfulVariation
-                    ? "Habitual " + ReperaNumberFormat.decimal($0.medianMps * 3.6) + " km/h"
-                    : "Ritmo uniforme"
-            } ?? "Velocidad (km/h)")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(OG.label2)
         }
-        .frame(width: 164)
+        .frame(width: 196)
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
         .background(.regularMaterial, in: RoundedRectangle(
             cornerRadius: 10, style: .continuous
         ))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Colores del recorrido: lento a la izquierda y rápido a la derecha")
+        .accessibilityLabel(cachedScale.map {
+            "Velocidad mínima \(ReperaNumberFormat.decimal($0.lowMps * 3.6)), media \(ReperaNumberFormat.decimal($0.medianMps * 3.6)) y máxima \(ReperaNumberFormat.decimal($0.highMps * 3.6)) kilómetros por hora"
+        } ?? "Colores del recorrido: de menor a mayor velocidad")
         .allowsHitTesting(false)
     }
 
