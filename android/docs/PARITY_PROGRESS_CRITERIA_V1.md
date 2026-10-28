@@ -1,6 +1,6 @@
 # Seguimiento por criterios v1
 
-Fecha de base: 28-oct-2026. Ultimo producto: tree381, 650b9180.
+Fecha de base: 28-oct-2026. Ultimo producto: tree384, 6c435acf.
 Peticion de seguimiento: mensaje del usuario de 28-oct 12:01 y continuidad acordada a las 12:02.
 
 ## Que mide
@@ -49,7 +49,7 @@ No se modifican Apps/ ni Packages/, no se autoriza push ni migraciones de histor
 | G05 | Readiness X automatico desired4 con grid y fechas del corte | P | P | N | HealthRecovery1293-1299; tree373 solo grid en anclajesfirst/mid/last, NO algoritmo Swift automatico |
 | G06 | Peso real/preview/vacio: geometria, curva, dominios y ejes del corte | P | P | N | ProgressTrendCards589-770; subsets275/276/303, DayPointLineChart weightStyle; autoejes/texto aun sin cierre completo |
 | G07 | Sueno real/vacio: area night-sky, curva, dominios, alturas y ejes | P | P | N | HealthRecovery1310-1398; RecoverySleepChart.kt subsets280; diferencias de dominio extremo explicitas en inventario, autoejes/runtime abiertos |
-| G08 | Fisiologia preview: VFC ordinal y dos barras ficticias98dp con escalas separadas | P | P | N | HealthRecovery815-906; RecoveryPhysiologyPreview.kt subsets300-303; portado, falta revision completa del criterio contra todos los ejes/textos |
+| G08 | Fisiologia preview: VFC ordinal y dos barras ficticias98dp con escalas separadas | P | P | N | HealthRecovery815-906; RecoveryPhysiologyPreview.kt subsets300-303; tree384 centrosXordinales1/8..7/8 corregidos con regresion pixel7centros/PNG; anchura0.7/9 sigue aproximada, falta revision completa del criterio contra todos los ejes/textos |
 | G09 | Fisiologia real: filtro de rango, estado<2, series y barras, alturas/adicionales | P | P | N | HealthRecovery931-1070 y560; RecoveryHistoryCards/ProgressCharts; subsets300-303; autoejes/texto y estados sin cierre completo |
 | G10 | Cardio real/preview/vacio: tres curvas, dominios, ejes, stats y seleccion | P | P | N | ProgressTrendCards210-405; ProgressCardioPlot.kt; cardioThreeCurvesAndSelection/EmptyKeeps190Axes; automaticY/texto/annotation abiertos. ZonasFC excluidas: decision previa pendiente |
 | G11 | Kcal real/preview/vacio: curva+area, dominios, ejes, stats y seleccion | P | P | N | ProgressTrendCards408-588; ProgressCaloriesPlot.kt; caloriesCurveAndSelection/EmptyKeepsAxes; automaticY/texto/annotation abiertos |

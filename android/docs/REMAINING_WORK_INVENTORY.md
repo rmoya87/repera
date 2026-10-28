@@ -930,3 +930,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -384 mismo bloque grafico parcial y mismo criterioG08v1:HealthRecovery869-884BarMarkX1..7dominio0..8,Androidcentraba(i+1.5)/9. Cambiado solo centroX a(i+1)/8;anchuraexistente0.7/9permaneceaproximacion,escalas/valoresintactos. No claimanchuraautomaticaSwift.
 - Regresionpixelrojaconcodigoanterior,1focalizado/1XML82sverde;ampliacioncentros7barras1/1XML86sverde0fallos/errores/omitidos. Primerprototipotestcoloren1/8pasabaporcoincidencia,medicioncorregidabordesrealesdesdefondoreprodujogapantesdeproducto. PNG360x496inspeccionado,barraslegiblesyseparadas,sinrecortes. Curva/labels/fondo/Textosintactos.
 - G08sigueP/P/N,denominadoresv1intactos:graficos4/13I+C(30.8%),lector4/11I+C(36.4%),NOavancefuncionaltotal;V0enambos. Sin nuevoTerminado. Completa384pendiente;ultimafull381mobile690/163domain558/93Wear8/1+assemble77s.735/70sin cierres,no push niApps/Packages.
+
+## Continuidad G08parcial y matrices 12:32 28oct
+-384 bateria completa mobile690/163XML11lotes42/58/72/64/50/65/75/39/76/44/75s,domain558/93XML38s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Backup384recuperado65338db7:arbol9585c6f2fc69a2cd7e44c81ef66f2017eb3dfee3identico,clonlimpio. Evidencia interna, no nuevoTerminado ni avanceporcentual.
+-385 solo docs: matrices0d649f28/08790a22/c7878496yregistrov1G08reconciliados384sinreclasificar. G08P/P/N;graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOcoberturafuncionaltotal.735/70abiertas,sincierres. Ultimoproducto384.No push niApps/Packages.
