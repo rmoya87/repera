@@ -9,7 +9,7 @@ La implementación Android **todavía no es completa**. La rama no altera Swift,
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
 | Cuenta Google | Credential Manager + badge identidad en Ajustes; cierre de sesión | E2E OAuth; **borrar cuenta definitiva** aún no en app (solo iOS) |
-| Google Drive personal | appDataFolder + If-Match/headRevisionId | E2E multi-dispositivo |
+| Google Drive personal | appDataFolder + If-Match con ETag del GET media | E2E multi-dispositivo |
 | Importar/exportar | SAF JSON + CSV Strong/Hevy con columna `weight_lbs` → kg | Import JSON no fusiona estado existente |
 | kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | Wear/editores WOD finos parciales |
 | Temporizador libre | Última config, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |

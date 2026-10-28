@@ -134,8 +134,9 @@ internal fun ActiveWorkoutCard(
     var quantity by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedQuantity?.toString() ?: "")
     }
-    var weight by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
+    // Precarga en la unidad de presentación (kg/lb); storage sigue en kg.
+    var weight by remember(active.id, active.index, active.completedSets, weightUnit) {
+        mutableStateOf(WeightDisplay.fieldText(active.prescribedWeightKg, weightUnit))
     }
     var deficit by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("")

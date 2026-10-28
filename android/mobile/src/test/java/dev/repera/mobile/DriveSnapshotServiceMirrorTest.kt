@@ -20,7 +20,8 @@ class DriveSnapshotServiceMirrorTest {
         var bytes: ByteArray?,
         var failPatch: Boolean = false,
         var preconditionFailPatch: Boolean = false,
-        var headRevisionId: String = "rev1"
+        /** ETag original del archivo leído (formato Drive con comillas). */
+        var etag: String = "\"etag-rev1\""
     ) : Interceptor {
         var patches = 0
         var lastIfMatch: String? = null
@@ -28,12 +29,19 @@ class DriveSnapshotServiceMirrorTest {
         override fun intercept(chain: Interceptor.Chain): Response {
             val req = chain.request()
             val url = req.url.toString()
-            fun ok(body: ByteArray) = Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
-                .body(body.toResponseBody("application/json".toMediaType())).build()
+            fun ok(body: ByteArray, withEtag: Boolean = false): Response {
+                val builder = Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                    .body(body.toResponseBody("application/json".toMediaType()))
+                if (withEtag) builder.header("ETag", etag)
+                return builder.build()
+            }
             return when {
-                req.method == "GET" && url.contains("alt=media") -> {beforeDownload?.invoke();ok(bytes!!)}
+                req.method == "GET" && url.contains("alt=media") -> {
+                    beforeDownload?.invoke()
+                    ok(bytes!!, withEtag = true)
+                }
                 req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else
-                    """{"files":[{"id":"f1","name":"app_state.json","headRevisionId":"$headRevisionId"}]}"""
+                    """{"files":[{"id":"f1","name":"app_state.json","etag":${JSONObject.quote(etag)}}]}"""
                     ).toByteArray())
                 req.method == "PATCH" -> {
                     patches++
@@ -195,12 +203,12 @@ class DriveSnapshotServiceMirrorTest {
         val shared = listOf(workout("a"))
         val localDoc = doc(shared, 9)
         val remoteDoc = doc(shared, 3)
-        val drive = FakeDrive(remoteDoc, preconditionFailPatch = true, headRevisionId = "rev-a")
+        val drive = FakeDrive(remoteDoc, preconditionFailPatch = true, etag = "\"etag-rev-a\"")
         val local = FakeLocal(localDoc, emptyMap())
         val remoteBefore = drive.bytes!!.copyOf()
         assertEquals(DriveSnapshotService.Outcome.PreconditionFailed, svc(drive, local).synchronize())
         assertEquals(1, drive.patches)
-        assertEquals("rev-a", drive.lastIfMatch)
+        assertEquals("\"etag-rev-a\"", drive.lastIfMatch)
         assertTrue(drive.bytes!!.contentEquals(remoteBefore))
         assertTrue(local.bytes!!.contentEquals(localDoc))
     }

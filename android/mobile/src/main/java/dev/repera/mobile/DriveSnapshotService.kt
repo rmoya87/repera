@@ -49,9 +49,10 @@ class DriveSnapshotService(
         val remoteMeta = findSingleFile()
         val remoteId = remoteMeta?.id
         val localBytes = local.read()
-        val remoteBytes = remoteId?.let { request(
-            "GET", "https://www.googleapis.com/drive/v3/files/" + encode(it) + "?alt=media"
-        ) }
+        // ETag de la versión leída (cabecera HTTP del GET media; fallback listado).
+        val remoteDownload = remoteId?.let { downloadMedia(it) }
+        val remoteBytes = remoteDownload?.body
+        val readEtag = remoteDownload?.etag ?: remoteMeta?.etag
         if (localBytes == null && remoteBytes == null) return Outcome.Empty
         if (localBytes == null && remoteBytes != null) {
             return applyDownload(localBytes,remoteBytes)
@@ -71,7 +72,7 @@ class DriveSnapshotService(
         }
         if (!isVirgin(localBytes) && isVirgin(remoteBytes)) {
             local.preserveRemoteBackup(remoteBytes)
-            return uploadWithMatch(remoteId, localBytes, remoteMeta?.headRevisionId)
+            return uploadWithMatch(remoteId, localBytes, readEtag)
         }
         // Local = catálogo virgen + entrenos recuperados del espejo sin editar: no es historial independiente.
         // Cualquier otra diferencia local cae al camino normal (con su Conflict).
@@ -90,7 +91,7 @@ class DriveSnapshotService(
         val localWins = compareValues(localVersion, remoteVersion) > 0
         return if (localWins) {
             local.preserveRemoteBackup(remoteBytes)
-            uploadWithMatch(remoteId, localBytes, remoteMeta?.headRevisionId)
+            uploadWithMatch(remoteId, localBytes, readEtag)
         } else {
             // Compare under the storage lock: never replace edits made during the Drive request.
             applyDownload(localBytes,remoteBytes)
@@ -100,10 +101,10 @@ class DriveSnapshotService(
     private fun uploadWithMatch(
         id: String,
         bytes: ByteArray,
-        headRevisionId: String?
+        etag: String?
     ): Outcome {
         return try {
-            update(id, bytes, headRevisionId)
+            update(id, bytes, etag)
             Outcome.Uploaded
         } catch (_: PreconditionFailedException) {
             Outcome.PreconditionFailed
@@ -153,11 +154,12 @@ class DriveSnapshotService(
         return if (instant != 0) instant else a.writer.compareTo(b.writer)
     }
 
-    private data class RemoteFile(val id: String, val headRevisionId: String?)
+    private data class RemoteFile(val id: String, val etag: String?)
+    private data class MediaDownload(val body: ByteArray, val etag: String?)
 
     private fun findSingleFile(): RemoteFile? {
         val url = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder" +
-            "&fields=nextPageToken%2Cfiles(id%2Cname%2CheadRevisionId)&pageSize=100" +
+            "&fields=nextPageToken%2Cfiles(id%2Cname%2Cetag)&pageSize=100" +
             "&q=" + encode("name = 'app_state.json' and trashed = false")
         val result = JSONObject(String(request("GET", url), Charsets.UTF_8))
         val files = result.optJSONArray("files") ?: JSONArray()
@@ -168,8 +170,17 @@ class DriveSnapshotService(
         val file = files.getJSONObject(0)
         return RemoteFile(
             id = file.getString("id"),
-            headRevisionId = file.optString("headRevisionId").takeIf { it.isNotBlank() && it != "null" }
+            etag = file.optString("etag").takeIf { it.isNotBlank() && it != "null" }
         )
+    }
+
+    /** Descarga el contenido y conserva el ETag original de la respuesta HTTP. */
+    private fun downloadMedia(id: String): MediaDownload {
+        val payload = requestWithEtag(
+            "GET",
+            "https://www.googleapis.com/drive/v3/files/" + encode(id) + "?alt=media"
+        )
+        return MediaDownload(payload.body, payload.etag)
     }
 
     private fun create(bytes: ByteArray) {
@@ -185,11 +196,11 @@ class DriveSnapshotService(
             "multipart/related; boundary=$boundary", media.toByteArray())
     }
 
-    private fun update(id: String, bytes: ByteArray, headRevisionId: String? = null) {
+    private fun update(id: String, bytes: ByteArray, etag: String? = null) {
         val headers = linkedMapOf<String, String>()
-        // Drive media uploads honour If-Match against the revision resource.
-        if (!headRevisionId.isNullOrBlank()) {
-            headers["If-Match"] = headRevisionId
+        // If-Match compara la etiqueta de entidad del archivo (ETag), no headRevisionId.
+        if (!etag.isNullOrBlank()) {
+            headers["If-Match"] = etag
         }
         request(
             "PATCH",
@@ -200,13 +211,23 @@ class DriveSnapshotService(
         )
     }
 
+    private data class HttpPayload(val body: ByteArray, val etag: String?)
+
     private fun request(
         method: String,
         path: String,
         contentType: String? = null,
         bytes: ByteArray? = null,
         extraHeaders: Map<String, String> = emptyMap()
-    ): ByteArray {
+    ): ByteArray = requestWithEtag(method, path, contentType, bytes, extraHeaders).body
+
+    private fun requestWithEtag(
+        method: String,
+        path: String,
+        contentType: String? = null,
+        bytes: ByteArray? = null,
+        extraHeaders: Map<String, String> = emptyMap()
+    ): HttpPayload {
         checkAuthority()
         val body = bytes?.toRequestBody((contentType ?: "application/octet-stream").toMediaType())
         val builder = Request.Builder()
@@ -223,8 +244,11 @@ class DriveSnapshotService(
                 throw IllegalStateException("Google Drive HTTP " + response.code)
             }
             val received = response.body?.bytes() ?: byteArrayOf()
+            // Conservar el formato original del ETag (incluidas comillas si las trae).
+            val etag = response.header("ETag")?.takeIf { it.isNotBlank() }
+                ?: response.header("Etag")?.takeIf { it.isNotBlank() }
             checkAuthority()
-            return received
+            return HttpPayload(received, etag)
         }
     }
 

@@ -188,9 +188,9 @@ internal fun StandaloneTimerScreen(
                 "No se ha podido registrar la sesión en el historial. Puedes volver a intentarlo sin perder el temporizador."
             return
         }
+        // onSavedDay ya navega a Inicio (pop de subpantallas); no hacer popBackStack.
         onSavedDay(summary.startedAtMillis)
         dismissCompletedTimer()
-        onBack()
     }
 
     fun liveDisplaySeconds(nowMs: Long): Int = when {
