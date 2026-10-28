@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (unificación de edición de entrenos y series en Play)
+Última actualización: 2026-10-28 (unificación edición Play; ownership Play Apple-parity)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -512,3 +512,9 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 - **WOD con score global:** aunque no haya check ni sets de cada movimiento, un bloque finalizado con resultado aporta un único estímulo conservador al mapa muscular. Nunca se reconstruyen repeticiones por movimiento ni se atribuye RIR inexistente.
 - **Comenzar ahora:** deportes como carrera, ciclismo, HIIT, fuerza o natación ya alimentan tiempo, actividad y cardio. Ahora también aportan **estimación muscular por tipo y minutos activos** al mapa, sin fabricar ejercicios ni peso/series. La carga de una actividad ya enlazada a Apple Salud se deduplica por UUID o coincidencia exacta razonable de inicio/tipo/duración, para evitar sumar el mismo entreno dos veces.
 - **Reparación puntual de Supabase:** en el mirror del único usuario de este proyecto, se marcaron los 18 ejercicios históricos sin check de 7 entrenos terminados (41 ejercicios aceptados en total) sin alterar `loggedSets`, `plannedSets`, `wodResults`, kilos ni tiempos. No se tocaron entrenos pendientes o eliminados. El cálculo local actualizado requiere una versión de la app que incorpore el código: el mirror remoto por sí solo no invalida automáticamente un historial guardado en iCloud/iPhone. La sesión del 26/10 aún no aparecía en la tabla al revisarla; comprobar sincronización desde el dispositivo.
+
+### Android Play: ownership Apple-parity (2026-10-28)
+
+Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: Pro Play se restaura tras
+borrar/recrear cuenta vía compra/cuenta Google (como StoreKit en iOS). Sin
+cambios de producto Apple.

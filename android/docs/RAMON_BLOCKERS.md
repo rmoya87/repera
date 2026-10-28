@@ -11,13 +11,26 @@ hardware). Decisiones de producto cerradas abajo.
 `repera-play-billing-verify` (paridad del modelo iOS StoreKit + verify). No es
 un gap de código abierto. Detalle operativo: `android/docs/MONETIZATION_PLAY_BILLING.md`.
 
+## RP-18 — Ownership / migrate / deploy Play
+
+**Política cerrada (2026-10-28):** borrado + recuperación Pro = paridad Apple
+(hard delete Auth; Pro vía compra Play / cuenta Google, reclaim tras
+`ON DELETE SET NULL`). Código de ownership rediseñado en PR sucesor de #123.
+
+**Sigue bloqueando ops (agente no aplica):**
+1. Aplicar migración `play_subscription_ownership` en producción.
+2. Desplegar Edge `repera-play-billing-verify`.
+3. Activar productos Play (siguen en borrador).
+4. E2E delete/restore solo con **identidad desechable** (no cuenta real).
+
 ## RP-6 — Eliminar mi cuenta
 
 - **Código Android:** implementado (paridad iOS) → `AccountDeletionClient` +
   Ajustes → Edge `repera-delete-account`.
 - **Pendiente Ramón:** confirmar deploy en Supabase de producción y E2E con
-  cuenta Google de prueba.
+  cuenta Google de **prueba desechable** (no la cuenta real del propietario).
 - Health Connect / Play subscriptions se gestionan fuera de Repera (copy UI).
+- Tras recreate, Pro Play debe volver por query+verify (misma política Apple).
 
 ## E2E hardware (no sustituible por CI)
 

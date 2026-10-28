@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
+Última actualización: 2026-10-28 (Play ownership Apple-parity; GPX/ActivityKit)
 
 ## Series de movilidad (iOS)
 
@@ -377,3 +377,9 @@ Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y a
 ## Pantalla de lanzamiento con mascota (iOS 27)
 
 La primera fase nativa usa `LaunchScreen.storyboard` con `UILaunchStoryboardName`, fondo verde `#30D158` y la nueva imagen `ReperaNativeOpaqueHero` **RGB sin canal alfa**, que integra la misma mascota levantando la barra y el mismo verde. La imagen opaca evita que el compositor de launch de iOS omita un PNG transparente. La ilustración muestra la misma mascota de Repera sosteniendo una barra con discos; los ojos y la boca son opacos. Para evitar la pantalla oscura o verde vacía procedente de snapshots nativos en caché, el primer fotograma de SwiftUI repite el personaje con `LaunchBarbellSplashView` y una copia en el bundle `ReperaStartupBarbell.png`, visible brevemente antes de `MascotRunning` y de la pantalla de Inicio. El `WindowGroup` mantiene un `ZStack` raíz estable mientras progresa el arranque, para que la hidratación de sesión no se reinicie al cambiar de mascota. El modo de pruebas UI omite el intro. La imagen del storyboard y la primera imagen SwiftUI utilizan el mismo recurso visual. Los storyboards obsoletos no forman parte del target generado. El CI comprueba que el nuevo storyboard y la mascota están dentro de la aplicación compilada.
+
+### Android Play: ownership y verify (2026-10-28)
+
+Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: catálogo estricto, ON_HOLD≠Pro,
+ack backend, linkedPurchaseToken; ownership con reclaim tras hard delete
+(paridad Apple). Migración/Edge **no** desplegados desde el PR de código.

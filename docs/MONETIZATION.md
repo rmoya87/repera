@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-28 (corrección de Pro en límites, tres favoritos gratis y CTA adaptativo)
+Última actualización: 2026-10-28 (Play ownership Apple-parity; límites/favoritos/CTA)
 
 ## 1. Arquitectura
 
@@ -141,3 +141,10 @@ StoreKit Configuration: adjuntar `ReperaProducts.storekit` al scheme Repera.
 2. Verificar offering `default` y entitlement `pro` en dashboard.
 3. Probar sandbox mensual, anual, restore, caducidad.
 4. Confirmar que Release **no** muestra Debug Pro ni desbloquea por preferencia local.
+
+### Android Play (paridad Apple, 2026-10-28)
+
+Detalle: `android/docs/MONETIZATION_PLAY_BILLING.md`. Pro sigue a la compra Play /
+cuenta Google (como StoreKit ↔ Apple ID). Hard delete Auth no cancela la
+suscripción; tras recreate, reclaim del token hash si el owner quedó NULL.
+Migración y Edge verify **no** se aplican/despliegan sin ops; productos draft.
