@@ -679,4 +679,16 @@ class BoardScanLiteParserTest {
         val defaults=BoardScanLiteParser.parse("OTM\n2 AIR SQUAT",catalog=catalog).blocks.single()
         assertEquals(10,defaults.timeCapMinutes)
     }
+    @Test fun namedLadderHeadersDoNotBecomeExercises() {
+        for(header in listOf("LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.LADDER,block.wodFormat)
+            assertEquals(header,block.title)
+            assertEquals(1,block.movements.size)
+            assertNull(block.rounds)
+        }
+        val ordinary=BoardScanLiteParser.parse("AMRAP 10'\n2 LADDER CLIMB",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
+        assertEquals(1,ordinary.movements.size)
+    }
 }

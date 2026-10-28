@@ -311,6 +311,8 @@ object BoardScanLiteParser {
         // rep wave (4-3-3-2 PUSH PRESS) for a ladder section.
         if(Regex("^\\d+(?:\\s*[-–]\\s*\\d+){2,}\\s*(?:FOR\\s+TIME|WOD)?$").matches(upper) || upper=="21 15 9")
             return Header(line,WODFormat.LADDER,null)
+        if(upper in setOf("LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE"))
+            return Header(line,WODFormat.LADDER,null)
         if(upper in setOf("PARTNER WOD","PARTNER","YOU GO I GO","YGIG","YDIG"))
             return Header(line,WODFormat.PARTNER,null)
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
