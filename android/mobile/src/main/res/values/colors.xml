@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OG.accent / brandGreen — Theme.swift #30D158 -->
+    <color name="repera_brand_green">#FF30D158</color>
+    <color name="repera_brand_green_readable">#FF0E7A38</color>
+    <color name="repera_bg_light">#FFF2F5F3</color>
+    <color name="repera_on_brand">#FF000000</color>
+    <color name="ic_launcher_background">#FF30D158</color>
+</resources>

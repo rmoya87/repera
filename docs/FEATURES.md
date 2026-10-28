@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (unificación edición Play; ownership Play Apple-parity)
+Última actualización: 2026-10-28 (Android UI verde Repera/M3; unificación edición Play; ownership Play)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -531,3 +531,10 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: Pro Play se restaura tras
 borrar/recrear cuenta vía compra/cuenta Google (como StoreKit en iOS). Sin
 cambios de producto Apple.
+
+### Android UI marca Material 3 (2026-10-28)
+
+`ReperaTheme` envuelve la app (onboarding incluido) con el verde OG (`#30D158` /
+claro legible `#0E7A38`), no el púrpura M3 por defecto. Permisos usan iconos
+Material Outlined; launcher desde AppIcon iOS. Detalle: `android/README.md`,
+`docs/ARCHITECTURE.md`.

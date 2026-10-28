@@ -4,9 +4,10 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-28 — sync `App-android`→`main`; ownership Play
-Apple-parity (#131); billing alineado (productos borrador); sin clima Android;
-POI = Places si gratis else Photon.
+**Última actualización:** 2026-10-28 — UI marca: `ReperaTheme` en raíz (onboarding/
+permisos ya no usan púrpura M3); iconos M3 en permisos; launcher AppIcon;
+sync `App-android`→`main`; ownership Play Apple-parity (#131); billing alineado;
+sin clima Android; POI = Places si gratis else Photon.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
