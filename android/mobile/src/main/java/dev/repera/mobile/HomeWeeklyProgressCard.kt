@@ -17,7 +17,7 @@ import dev.repera.domain.WeeklyWorkoutDay
 internal fun HomeWeeklyProgressCard(days:List<WeeklyWorkoutDay>,goal:Int?,modifier:Modifier=Modifier) {
     val count=days.sumOf {it.completedCount}
     val trained=days.count {it.completedCount>0}
-    Card(modifier.fillMaxWidth()) {
+    ReperaCard(modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Progreso semanal",style=MaterialTheme.typography.titleMedium)
             // Paridad HomeView.streakSubtitle (main 153a90b0): días distintos

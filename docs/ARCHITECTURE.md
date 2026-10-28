@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-28 (Android UI M3 2.º pase; ReperaTheme; Play ownership; GPX)
+Última actualización: 2026-10-28 (Android UI M3 3.er pase paridad; ReperaTheme; Play ownership; GPX)
 
 ## Series de movilidad (iOS)
 
@@ -194,9 +194,10 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 Android (`android/mobile`, Material 3 — 2026-10-28):
 
 - `ReperaTheme` / `reperaColorScheme` mapean `OG.*` (primary verde, superficies, outline); se aplica en la raíz de `MainActivity` para onboarding, permisos y tabs (evita el púrpura M3 por defecto).
-- `ReperaComponents`: `ReperaCard` (surface + borde, sin tonal purple), `ReperaFilterChip`, `ReperaModalBottomSheet`, switches/botones/segmentados verdes; tipografía `reperaTypography` con títulos semibold.
-- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; NavigationBar/TopAppBar usan contenedores del esquema.
+- `ReperaComponents`: `ReperaCard` (surface + borde, radio 14, sin tonal purple; overload clicable), `ReperaFilterChip`, `ReperaModalBottomSheet`, `ReperaSectionTitle` (≈ `OGCardSectionTitle`), `ReperaPageHeader` (≈ `OGFixedTopBar`/`OGPageHeader`), `ReperaEmptyState`, switches/botones/segmentados verdes; tipografía `reperaTypography` con títulos semibold.
+- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; NavigationBar M3; **sin TopAppBar «repera» en las 4 tabs** (título large in-content como iOS); TopAppBar solo en rutas anidadas.
 - Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
+- Sigue distinto de iOS a propósito: Material 3 (no Liquid Glass), NavigationBar M3, MapLibre vs MapKit, sin glass toolbar 44.
 
 ## Datos y sync
 

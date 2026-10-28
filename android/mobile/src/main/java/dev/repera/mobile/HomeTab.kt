@@ -5,6 +5,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.EventBusy
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
@@ -143,12 +145,24 @@ internal fun HomeTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            // Paridad HomeView: ogFixedTopBar("repera", subtitle: fecha) + avatar.
+            val dateSubtitle = java.time.LocalDate.now().format(
+                java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale("es", "ES"))
+            ).replaceFirstChar { it.uppercase() }
             Column {
-                Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-                    Text("Hola, " + (displayName ?: "Deportista"),Modifier.weight(1f),style = MaterialTheme.typography.headlineMedium)
-                    HomeProfileButton(overview?.profileSettings ?: ProfileSettings(),onOpenSettings)
-                }
-                TextButton(onClick=onOpenMessages) {Text("Mensajes con centro o entrenador")}
+                ReperaPageHeader(
+                    title = "repera",
+                    subtitle = dateSubtitle,
+                    trailing = {
+                        HomeProfileButton(overview?.profileSettings ?: ProfileSettings(), onOpenSettings)
+                    }
+                )
+                Text(
+                    "Hola, " + (displayName ?: "Deportista"),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = onOpenMessages) { Text("Mensajes con centro o entrenador") }
             }
         }
         item {
@@ -170,8 +184,13 @@ internal fun HomeTab(
                     Text("Entrenamientos · " + day.format(reperaDayFormatter),
                         style = MaterialTheme.typography.titleMedium)
                     if (visibleRoutines.isEmpty()) {
-                        Text("Sin entrenamiento programado",
-                            style = MaterialTheme.typography.bodyMedium)
+                        // Paridad iOS emptyWorkoutCard: icono + título + subtítulo día libre.
+                        ReperaEmptyState(
+                            title = "Sin entrenamientos programados",
+                            subtitle = "Día libre · puedes añadir un entrenamiento",
+                            icon = Icons.Outlined.EventBusy,
+                            contentDescription = null
+                        )
                     } else visibleRoutines.forEach { routine ->
                         // Tocar abre el resumen del plan (SessionPreviewView iOS);
                         // el Play dentro de la hoja sí inicia la sesión.
@@ -281,13 +300,21 @@ internal fun HomeTab(
         }
         overview?.recovery?.takeIf {selectedDay==LocalDate.now()}?.let {recovery ->
             HomeRecoveryModel.of(recovery.lastNightHours,recovery.sleepIndex,recovery.menstrualDays,LocalDate.now())?.let {model ->
-                item {Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
-                    Text("Tu estado de hoy",style=MaterialTheme.typography.titleMedium)
-                    model.sleepHours?.let {Text("${dev.repera.domain.ReperaNumberFormat.decimal(it)} h de sueño")}
-                    model.sleepIndexOutOf10?.let {Text("Índice de sueño: $it/10")}
-                    model.cycleLabel?.let {Text(it)}
-                    TextButton(onClick=onOpenRecoverySettings) {Text("Ver Salud y recuperación")}
-                }}}
+                item {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text("Tu estado de hoy", style = MaterialTheme.typography.titleMedium)
+                            model.sleepHours?.let {
+                                Text("${dev.repera.domain.ReperaNumberFormat.decimal(it)} h de sueño")
+                            }
+                            model.sleepIndexOutOf10?.let { Text("Índice de sueño: $it/10") }
+                            model.cycleLabel?.let { Text(it) }
+                            TextButton(onClick = onOpenRecoverySettings) {
+                                Text("Ver Salud y recuperación")
+                            }
+                        }
+                    }
+                }
             }
         }
         items(professionalSessions.filter {it.scheduledDate==homeDateIso}) {session ->
@@ -331,7 +358,7 @@ internal fun HomeTab(
                         )
                     }
                     // Sección «Lugar» (WorkoutView iOS): fila + mapa del pin activo.
-                    Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("Lugar", style = MaterialTheme.typography.titleMedium)
                             WorkoutPlacePickerRow(
@@ -343,24 +370,29 @@ internal fun HomeTab(
                 }
                 }
             } else {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Text("Sesión activa", style = MaterialTheme.typography.titleMedium)
-                        Text("Sin entrenamiento iniciado")
-                    }
-                }
+                ReperaEmptyState(
+                    title = "Sin entrenamiento iniciado",
+                    subtitle = "Elige un plan del día o añade uno nuevo",
+                    icon = Icons.Outlined.FitnessCenter
+                )
             }
         }
         item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
         item {TextButton(onClick=onOpenHistory) {Text("Ver historial completo")} }
-        item { Text("Historial reciente", style = MaterialTheme.typography.titleMedium) }
+        item { ReperaSectionTitle("Historial reciente") }
         // Apple 0574e246: en Inicio, los entrenos del dia se leen en orden
         // cronologico (el mas antiguo arriba); el historial global sigue
         // mostrando el mas reciente primero.
         val workouts = overview?.completeHistory.orEmpty().filter {entry ->
             entry.startedAtIso?.let {BodyWeightHistory.day(it)}==selectedDay
         }.sortedBy { it.startedAtIso ?: "" }
-        if (workouts.isEmpty()) item { Text("Todavía no hay sesiones registradas") }
+        if (workouts.isEmpty()) item {
+            ReperaEmptyState(
+                title = "Todavía no hay sesiones registradas",
+                subtitle = "Cuando completes un entreno aparecerá aquí",
+                icon = Icons.Outlined.History
+            )
+        }
         items(workouts, key = { it.id }) { workout ->
             WorkoutHistoryCard(workout, busy,
                         onReviseFinishedSet, onDeleteFinishedSet,

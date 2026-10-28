@@ -126,7 +126,7 @@ internal fun ProgressTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Progreso", style = MaterialTheme.typography.headlineMedium) }
+        item { ReperaPageHeader(title = "Progreso") }
         item {
             androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("Entreno","Actividad","Recuperación").forEachIndexed {index,label ->
@@ -149,13 +149,13 @@ internal fun ProgressTab(
                 }
             }
         }
+        item { ReperaSectionTitle("Esta semana") }
         item {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Esta semana", style = MaterialTheme.typography.titleLarge)
                     Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
                         style = MaterialTheme.typography.headlineSmall)
                     Text("Del ${weekStart.format(dayFmt)} al ${today.format(dayFmt)}")
@@ -204,24 +204,40 @@ internal fun ProgressTab(
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     val minItem=(96*LocalDensity.current.fontScale).dp
                     val cols=((maxWidth+8.dp)/(minItem+8.dp)).toInt().coerceIn(1,tiles.size)
-                    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {tiles.chunked(cols).forEach {rowTiles ->
-                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {rowTiles.forEach {t ->
-                            Card(Modifier.weight(1f)) {Column(Modifier.fillMaxWidth().padding(vertical=12.dp,horizontal=6.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                                Text(t.label,style=MaterialTheme.typography.labelMedium)
-                                Text(t.value,style=MaterialTheme.typography.headlineMedium,maxLines=1)
-                                Text(ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit) ?: "+0",style=MaterialTheme.typography.labelSmall,
-                                    color=if(ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit)==null) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }}}
-                            repeat(cols-rowTiles.size) {Spacer(Modifier.weight(1f))}
-                        }}}
+                    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        tiles.chunked(cols).forEach { rowTiles ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                rowTiles.forEach { t ->
+                                    ReperaCard(modifier = Modifier.weight(1f)) {
+                                        Column(
+                                            Modifier.fillMaxWidth().padding(vertical=12.dp, horizontal=6.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Text(t.label, style=MaterialTheme.typography.labelMedium)
+                                            Text(t.value, style=MaterialTheme.typography.headlineMedium, maxLines=1)
+                                            Text(
+                                                ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit) ?: "+0",
+                                                style=MaterialTheme.typography.labelSmall,
+                                                color=if (ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit) == null)
+                                                    androidx.compose.ui.graphics.Color.Transparent
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                                repeat(cols - rowTiles.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
+                    }
                 }
             }
+            item { ReperaSectionTitle("Resumen · " + snapshot.range.subtitleLabel) }
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Resumen · " + snapshot.range.subtitleLabel,
-                            style = MaterialTheme.typography.titleLarge)
+                    Column(
+                        Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         val s = snapshot.summary
                         Text("${formatVolume(s.volumeKg)} movidos")
                         if (s.totalKcal > 0)
@@ -234,7 +250,7 @@ internal fun ProgressTab(
             }
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(18.dp),
+                    Column(Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Constancia", style = MaterialTheme.typography.titleMedium)
                         Text("${snapshot.monthSessions} sesiones este mes",
@@ -283,18 +299,23 @@ internal fun ProgressTab(
             if(topic=="Entreno") {
             if (snapshot.heatmapTime.isNotEmpty()) {
                 // ActivityHeatmapView iOS: UNA tarjeta con picker segmentado.
+                item { ReperaSectionTitle("Actividad") }
                 item { ActivityHeatmapCard(snapshot.heatmapTime,
                     snapshot.heatmapVolume,
                     dev.repera.domain.ProgressTimeRange.entries.first { it.wire == selectedRange }) }
             }
             if (snapshot.cardioSeries.isNotEmpty()) {
+                item { ReperaSectionTitle("Cardio") }
                 item {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Cardio", style = MaterialTheme.typography.titleMedium)
-                            Text("${snapshot.cardioSeries.sumOf { it.value }.toInt()} min en el rango",
-                                style = MaterialTheme.typography.bodyMedium)
+                        Column(
+                            Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "${snapshot.cardioSeries.sumOf { it.value }.toInt()} min en el rango",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                             DayPointLineChart(snapshot.cardioSeries)
                         }
                     }
@@ -304,6 +325,7 @@ internal fun ProgressTab(
             // Apple order (StatsView training): tiles, activity, muscle balance, mobility, then
             // exercises/records or the Free preview + teaser. The card has its own empty text,
             // so it is not hidden when there are no muscle statuses (Apple does not hide it).
+            item { ReperaSectionTitle("Equilibrio muscular") }
             item {
                 // Current Apple StatsView explicitly exposes map and bars to Free.
                 MuscleBalanceCard(
@@ -314,9 +336,13 @@ internal fun ProgressTab(
                     hasHardSets = snapshot.hasHardSets,
                     includesEstimatedWodMuscles = snapshot.includesEstimatedWodMuscles)
             }
-            if(snapshot.mobilitySessions>0) item {ProgressMobilityCard(snapshot.mobilitySessions,snapshot.mobilitySeconds,
+            if(snapshot.mobilitySessions>0) {
+                item { ReperaSectionTitle("Movilidad") }
+                item {ProgressMobilityCard(snapshot.mobilitySessions,snapshot.mobilitySeconds,
                 if(subscriptions==null || subscriptions.isPro) snapshot.chartExercises.filter {it.isMobility}.take(3) else emptyList(),onOpenExercise)}
+            }
             if(subscriptions==null || subscriptions.isPro) {
+                item { ReperaSectionTitle("Progreso por ejercicio") }
                 item {AdaptiveCardPair(
                     first={ProgressExercisesCard(snapshot.chartExercises,onOpenExercise)},
                     second={ProgressRecordsCard(snapshot.records,onOpenExercise)})}
@@ -331,7 +357,7 @@ internal fun ProgressTab(
         if (overview?.weeklyMuscleGroups?.isNotEmpty() == true) {
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(18.dp),
+                    Column(Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Series por grupo · esta semana",
                             style = MaterialTheme.typography.titleMedium)
@@ -356,16 +382,19 @@ internal fun ProgressTab(
         // no en Recuperación ni Actividad.
         if (topic=="Entreno") item {TextButton(onClick=onOpenHistory,enabled=overview!=null) {Text("Ver historial completo")} }
         if (recent.isNotEmpty()) {
-            item {
-                Text("Resultados recientes", style = MaterialTheme.typography.titleMedium)
-            }
+            item { ReperaSectionTitle("Resultados recientes") }
             items(recent, key = { "progress:" + it.id }) { workout ->
                 WorkoutHistoryCard(workout, busy,
                         onReviseFinishedSet, onDeleteFinishedSet,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir")
             }
         } else {
-            item { Text("Todavía no hay entrenamientos para analizar") }
+            item {
+                ReperaEmptyState(
+                    title = "Todavía no hay entrenamientos para analizar",
+                    subtitle = "Completa sesiones para ver resumen y tendencias"
+                )
+            }
         }
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
@@ -417,7 +446,7 @@ internal fun WeightPreviewCard(today:LocalDate) {
   EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
  }} else {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(18.dp),
+                        Column(Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
                             val last = points.last()

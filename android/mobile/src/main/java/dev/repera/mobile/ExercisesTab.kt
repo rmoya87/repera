@@ -34,7 +34,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.IconButton
@@ -282,7 +282,7 @@ internal fun ExercisesTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Ejercicios", style = MaterialTheme.typography.headlineLarge) }
+        item { ReperaPageHeader(title = "Ejercicios") }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReperaFilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
@@ -302,7 +302,7 @@ internal fun ExercisesTab(
         }
         item {
             OutlinedButton(onClick={showingExerciseFilters=true},modifier=Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.SortByAlpha,null,Modifier.size(18.dp))
+                Icon(Icons.Outlined.SortByAlpha,null,Modifier.size(18.dp))
                 Text("Ordenar y filtrar · $exerciseSort · $exerciseFilter",Modifier.padding(start=8.dp))
             }
         }
@@ -315,7 +315,12 @@ internal fun ExercisesTab(
                     style = MaterialTheme.typography.bodySmall)
             }
         }
-        if (entries.isEmpty()) item { Text("Sin ejercicios coincidentes") }
+        if (entries.isEmpty()) item {
+            ReperaEmptyState(
+                title = "Sin ejercicios coincidentes",
+                subtitle = "Prueba otro filtro o busca por nombre"
+            )
+        }
         // iOS: la búsqueda siempre es plana (relevancia); sin búsqueda, los
         // modos Músculo/Material agrupan en secciones ordenadas con collator es.
         if (exerciseSections != null) {

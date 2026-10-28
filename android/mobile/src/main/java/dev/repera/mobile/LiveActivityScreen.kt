@@ -394,7 +394,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("live_activity_screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Comenzar",style=MaterialTheme.typography.headlineMedium)
+        ReperaPageHeader(title = "Comenzar")
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
         if(state.sport.usesGPS && state.phase!=LiveActivityState.Phase.REVIEW)
             TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text("Ver mapa")}
@@ -419,8 +419,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 if (showRoutes) {
                     RouteLibraryHeader {showRoutes=false;showingMetrics=false}
                     if (routes.isEmpty()) {
-                        Text("Todavía no hay rutas",style=MaterialTheme.typography.titleMedium)
-                        Text("Graba un recorrido o importa un GPX para empezar.")
+                        ReperaEmptyState(
+                            title = "Todavía no hay rutas",
+                            subtitle = "Graba un recorrido o importa un GPX para empezar."
+                        )
                     }
                     TextButton(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
                         colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) { Text("Importar GPX") }
@@ -449,7 +451,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                     TextButton(onClick = {
                                         try { routesStore?.setFavorite(route.id, !route.isFavorite); routesVersion++ }
                                         catch (_: Exception) { error = "No se pudo cambiar el favorito." }
-                                    }) { Text(if (route.isFavorite) "★ Favorita" else "☆ Favorita") }
+                                    }) { Text(if (route.isFavorite) "Favorita" else "Marcar favorita") }
                                     TextButton(onClick = { edit = !edit }) { Text("Editar") }
                                     TextButton(onClick = { pendingDeleteRoute = route }) { Text("Eliminar") }
                                 }

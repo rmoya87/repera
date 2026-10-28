@@ -90,7 +90,7 @@ internal fun CreateTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Crear", style = MaterialTheme.typography.headlineMedium) }
+        item { ReperaPageHeader(title = "Crear") }
         item {
             OutlinedButton(onClick = onOpenFreeWorkout, enabled = !busy,
                 modifier = Modifier.fillMaxWidth().testTag("create_free_workout")) { Text("Crear entreno") }
@@ -121,7 +121,7 @@ internal fun CreateTab(
             }
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Temporizador", style = MaterialTheme.typography.titleMedium)
@@ -135,7 +135,7 @@ internal fun CreateTab(
             }
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Importar pizarra", style = MaterialTheme.typography.titleMedium)
