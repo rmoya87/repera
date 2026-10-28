@@ -347,10 +347,10 @@ struct WorkoutView: View {
                 showPlayWODCatalog = false
             }
         }
-        .alert("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+        .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
             get: { pendingPlayReplacement != nil },
             set: { if !$0 { pendingPlayReplacement = nil } }
-        )) {
+        ), titleVisibility: .visible) {
             Button("Sustituir y reiniciar", role: .destructive) {
                 if let pendingPlayReplacement {
                     replacePlayExercise(pendingPlayReplacement.target, with: pendingPlayReplacement.exercise)
