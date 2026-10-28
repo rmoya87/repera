@@ -169,4 +169,15 @@ class BoardScanImportTest {
         assertFalse(wire.has("rounds"))
         assertTrue(wire.getString("wodNotes").contains(header))
     }
+    @Test fun describedMaxEffortHeadersKeepSourceFormatInWire() {
+        for(header in listOf("MAX LOAD CLEAN","MAX REPS PULL UPS","HEAVY SINGLE BACK SQUAT","1RM SNATCH")) {
+            val block=BoardScanLiteParser.parse(header+"\n1 PUSH PRESS",catalog=catalog).blocks.single()
+            val wire=BoardScanImport.wireBlock(block)
+            assertEquals("maxEffort",wire.getString("wodFormat"))
+            assertEquals(header,wire.getString("title"))
+            assertEquals(1,wire.getJSONArray("movements").length())
+            assertFalse(wire.has("rounds"))
+            assertTrue(wire.getString("wodNotes").contains(header))
+        }
+    }
 }

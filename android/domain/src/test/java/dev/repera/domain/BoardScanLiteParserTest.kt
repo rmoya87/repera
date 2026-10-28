@@ -807,4 +807,20 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
         assertEquals(1,ordinary.movements.size)
     }
+    @Test fun explicitMaxEffortPrefixesKeepDescriptionsWithoutGlobalMaxRule() {
+        for(header in listOf("MAX LOAD CLEAN", "MAX REPS PULL UPS", "HEAVY SINGLE BACK SQUAT", "1RM SNATCH")) {
+            val block=BoardScanLiteParser.parse(header+"\n1 PUSH PRESS",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.MAX_EFFORT,block.wodFormat)
+            assertEquals(header,block.title)
+            assertEquals(if(header.startsWith("1RM")) 1 else null,block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertNull(block.rounds)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        for(name in listOf("MAX CAL ROW","2 MAX LOAD PRESS","2 MAX REPS PRESS","2 HEAVY SINGLE PRESS")) {
+            val block=BoardScanLiteParser.parse("AMRAP 10'\n"+name,catalog=catalog).blocks.single()
+            assertEquals(name,WODFormat.AMRAP,block.wodFormat)
+            assertEquals(1,block.movements.size)
+        }
+    }
 }

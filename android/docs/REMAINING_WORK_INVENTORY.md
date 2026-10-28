@@ -793,3 +793,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, FIND A HEAVY 06:59 28oct
 - Mismo lector parcial352: FIND A HEAVY exacto o seguido de espacio y descripcion reconoceMAX_EFFORT,tituloynotasoriginales,capfirstInt como fuenteBoardImportParser542-546. No reglaMAXglobal ni containsglobal;nombreprecedidocantidadbajoAMRAPsiguesiendounmovimiento.
 - Regresion fallo antes.1testdominio3cabeceras+nombreordinario y1wire nuevos;dominio546/93XML74s,wire11/1XML65sverdes0fallos/errores/omitidos. Mobile completa/Wear352pendientes;ultima completa350mobile680/163,domain545/93,Wear8/1+ambosassemble74s.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, MAX EFFORT con descripcion 07:14 28oct
+-352 bateria completa mobile681/163XML5lotes93/73/103/89/88s,domain546/93XML74s,Wear8/1XML+ambosassemble78sverdes. Lote1originalinterrumpidoallimitenocontado,reemplazadopor2lotescompletos. Backup352recuperado65338db7:arbolf0e6e0f7013e55ab637e7b5e2e07c6cc3f4490aaidentico,clonlimpio.
+- Mismo lector parcial353: MAX LOAD/MAX REPS/HEAVY SINGLE/1RM seguidosdeespacioydescripcion reconocenMAX_EFFORTcon tituloynotasoriginales,capfirstIntsegunfuente542-546. No MAXglobal,MAXCALROWbajoAMRAPsiguesiendounmovimiento.
+- Regresion fallo antes.1testdominio4cabeceras+4nombresordinariosy1wire nuevos;dominio547/93XML72s,wire12/1XML58sverdes0fallos/errores/omitidos. Mobile completa/Wear353pendientes;735/70sin cierres,nativo pendiente,no push.

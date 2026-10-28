@@ -342,7 +342,7 @@ object BoardScanLiteParser {
         }
         if(upper=="FIND A HEAVY" || upper.startsWith("FIND A HEAVY "))
             return Header(line,WODFormat.MAX_EFFORT,firstInt(upper))
-        if(upper in setOf("MAX LOAD","MAX REPS","HEAVY SINGLE","1RM"))
+        if(setOf("MAX LOAD","MAX REPS","HEAVY SINGLE","1RM").any {upper==it || upper.startsWith("$it ")})
             return Header(line,WODFormat.MAX_EFFORT,firstInt(upper))
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
         if(upper in setOf("STRENGTH","FUERZA") || strengthHeaders.any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")})
