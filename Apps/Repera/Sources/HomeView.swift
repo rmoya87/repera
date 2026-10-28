@@ -90,6 +90,8 @@ struct HomeView: View {
     @State private var stepsCacheRevision = -1
     @State private var isExpandedLayout = false
     @State private var showSettingsPanel = false
+    @State private var cachedAvatarJPEG: Data?
+    @State private var cachedAvatarImage: UIImage?
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
@@ -374,6 +376,7 @@ struct HomeView: View {
             .background(OG.surface.ignoresSafeArea())
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
+                refreshAvatarIfNeeded()
                 if let focusDay, focusDay != lastAppliedFocusDay {
                     lastAppliedFocusDay = focusDay
                     selectedDay = calendar.startOfDay(for: focusDay)
@@ -392,6 +395,9 @@ struct HomeView: View {
                 Task(priority: .utility) {
                     health.refreshAuthorizationStatus()
                 }
+            }
+            .onChange(of: store.state.settings.profileAvatarJPEG) { _, _ in
+                refreshAvatarIfNeeded()
             }
             .onChange(of: store.isHydrated) { _, hydrated in
                 guard hydrated else { return }
@@ -718,7 +724,7 @@ struct HomeView: View {
     @ViewBuilder
     private var iCloudAvatar: some View {
         let synced = store.iCloudStatus == .available
-        let photo = ProfileAvatar.uiImage(from: store.state.settings.profileAvatarJPEG)
+        let photo = cachedAvatarImage
         // El liquid glass lo aplica el `NavigationLink` (mismo diámetro que el +).
         Color.clear
             .overlay {
@@ -744,6 +750,13 @@ struct HomeView: View {
                     .clipShape(Circle())
                 }
             }
+    }
+
+    private func refreshAvatarIfNeeded() {
+        let jpeg = store.state.settings.profileAvatarJPEG
+        guard jpeg != cachedAvatarJPEG else { return }
+        cachedAvatarJPEG = jpeg
+        cachedAvatarImage = ProfileAvatar.uiImage(from: jpeg)
     }
 
     /// Calendario horizontal de cuadrados: se mueve por días, sin flechas ni
