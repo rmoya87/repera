@@ -762,3 +762,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -344 bateria completa mobile679/163XML89/103/81/81s,domain539/93XML69s,Wear8/1XML+ambosassemble64sverdes. Backup344recuperado:arbol9f8459adf2c2aea1a933d16b052e79403b05016didentico,clonlimpio.
 - Mismo lector parcial345: AFAP/AS FAST AS POSSIBLE exactos concapopcional seleccionanAFAP,titulo fuente ycap indicado onull segun548-551. Sufijo300MRUNAFAP sigue movimiento;sin containsglobal ni cap inventado.
 - Regresion fallo antes.1test nuevo de4cabeceras+sufijo. Dominio540/93XML73s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear345 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, FOR COMPLETION exacto 06:09 28oct
+-345 bateria completa mobile679/163XML86/108/90/84s,domain540/93XML73s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo lector parcial346: FOR COMPLETION exacto opcional(TC N)/(NminCap)seleccionaFOR_TIME,cap indicado o12fuente554-587,sin rondasinventadas;cabeceraoriginal intacta. No cambia semanticaFOR_TIME/RFTprevia ni containsglobal.
+- Regresion fallo antes.1test nuevo de3formas;dominio541/93XML66s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear346 pendientes.735/70sin cierres,nativo pendiente,no push.

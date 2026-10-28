@@ -740,4 +740,14 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.AMRAP,movement.wodFormat)
         assertEquals(1,movement.movements.size)
     }
+    @Test fun exactForCompletionHeaderKeepsCapWithoutInventedRounds() {
+        for((header,cap) in listOf("FOR COMPLETION" to 12,"FOR COMPLETION (TC 14)" to 14,"FOR COMPLETION (20min Cap)" to 20)) {
+            val block=BoardScanLiteParser.parse(header+"\n300M RUN",catalog=catalog).blocks.single()
+            assertEquals(WODFormat.FOR_TIME,block.wodFormat)
+            assertEquals(cap,block.timeCapMinutes)
+            assertNull(block.rounds)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+    }
 }

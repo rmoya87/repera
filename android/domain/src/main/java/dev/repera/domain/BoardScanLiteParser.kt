@@ -348,6 +348,11 @@ object BoardScanLiteParser {
             val mins = firstInt(upper) ?: 10
             return Header(line, WODFormat.AMRAP, mins)
         }
+        Regex("^FOR COMPLETION(?:\\s*\\((?:TC\\s*\\d+|\\d+\\s*(?:MIN|MINS|MINUTES|')?\\s*CAP)\\))?\\s*$").matchEntire(upper)?.let {
+            val cap=firstInt(upper) ?: 12
+            if(cap !in 1..(Int.MAX_VALUE/60)) return null
+            return Header(line,WODFormat.FOR_TIME,cap)
+        }
         // 4 RFT (TC 12') — también OCR «4RFf(TC 12?» (T leída como F).
         val rftMatch = Regex("^\\d+\\s*RF[TF]\\b").find(upper)
         if (rftMatch != null || upper.startsWith("RFT") || upper.startsWith("RFF") ||
