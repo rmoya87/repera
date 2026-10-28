@@ -7,6 +7,8 @@ struct FavoritesHubView: View {
     var onOpenedWorkout: () -> Void
     /// Las actividades registradas sin series se reabren desde Comenzar.
     var onOpenSport: ((String) -> Void)? = nil
+    /// Guardar un temporizador reutilizado debe abrir su sesión en Inicio.
+    var onSavedTimer: ((Date) -> Void)? = nil
     /// Desde el + del calendario se reutiliza planificando para ese día.
     /// Desde el hub general, seleccionar sigue iniciando la sesión.
     var targetDate: Date? = nil
@@ -184,7 +186,7 @@ struct FavoritesHubView: View {
                     Label("Crear entreno favorito", systemImage: "star.circle")
                 }
                 NavigationLink {
-                    StandaloneTimerView(embedsNavigation: false)
+                    StandaloneTimerView(embedsNavigation: false, onSaved: onSavedTimer)
                 } label: {
                     Label("Crear temporizador favorito", systemImage: "timer")
                 }
@@ -221,7 +223,8 @@ struct FavoritesHubView: View {
             StandaloneTimerView(
                 embedsNavigation: false,
                 config: StandaloneTimerConfig(favorite: timer),
-                editingFavoriteId: timer.id
+                editingFavoriteId: timer.id,
+                onSaved: onSavedTimer
             )
         }
     }
