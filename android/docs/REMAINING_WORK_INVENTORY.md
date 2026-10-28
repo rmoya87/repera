@@ -939,3 +939,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -386 mismo bloque parcial G10/G11:ProgressTrendCards.labelFormatpriorizaWEEKgranularitysiempredia+mes,AndroidusabaweekdayparaWEEK/TODAYrangeaunquegranularityWEEK. ExtraidoprogressPlotDatePatternsinsemanticainicialpararegresionrojayluegocorregidaprioridad. No afirmaciondeimpactoenrutaactual:StatsEngineasignaDAYaTODAY/WEEK,esteescontratodelhelperparaesascombinaciones.
 -7unitarias+1render/2XML103sverdes0fallos/errores/omitidos;matrizdepatronesallrange/allgranularity,PNG360x22inspeccionadodias21oct/27octlegibles,separadosysinrecortes. +3testsmobile,esperadafull693/163XML;full386pendiente,ultimafull384690/163domain558/93Wear8/1assemble66s.
 - G10/G11siguenP/P/N;criteriosinventariadosv1I+Cgraficos4/13=30.8%,lector4/11=36.4%,V0ambos,noavancefuncionaltotal.735/70sin cierres,no nuevoTerminado,nopushniApps/Packages.
+
+## Continuidad G10/G11parciales y matrices 12:51 28oct
+-386 bateria completa mobile693/163XML11lotes41/62/78/70/54/67/83/44/82/49/76s,domain558/93XML37s,Wear8/1XML+ambosassemble72sverdes0fallos/errores/omitidos. Backup386recuperado65338db7:arbol9cd415db1464f366cc2bb473fdd8f52870760effidentico,clonlimpio. Evidencia interna, no nuevoTerminado ni avanceporcentual.
+-387 solo docs: matrices0d649f28/08790a22/c7878496yregistrov1reconciliados386sinreclasificar. G10/G11P/P/N;graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOcoberturafuncionaltotal.735/70abiertas,sincierres. Ultimoproducto386.No push niApps/Packages.

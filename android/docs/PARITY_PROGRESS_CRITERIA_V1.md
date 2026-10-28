@@ -1,6 +1,6 @@
 # Seguimiento por criterios v1
 
-Fecha de base: 28-oct-2026. Ultimo producto: tree384, 6c435acf.
+Fecha de base: 28-oct-2026. Ultimo producto: tree386, 36688c10.
 Peticion de seguimiento: mensaje del usuario de 28-oct 12:01 y continuidad acordada a las 12:02.
 
 ## Que mide
@@ -98,3 +98,7 @@ explicar cambio concreto y porcentaje por etapa con etiqueta 'criterios inventar
 Si esta etiqueta y las etapas no caben claramente en el canal, mantener estado parcial y
 fraccion literal antes que publicar un porcentaje ambiguo. No presentar0/13o0/11nativo
 como0%global del producto. Registrar todos los cambios de denominador y evidencia.
+
+## Evidencia posterior sin cambio de criterio
+
+- Tree386: G10/G11 helper de formatoX ahora respeta granularidadWEEKantes de rangeTODAY/WEEK. Matriz de patrones y render labels acreditados. El agregador actual no genera esa combinacion, por tanto no se afirma impacto visible de usuario en esa ruta. G10/G11 permanecen P/P/N; denominadores y recuentos v1 intactos.
