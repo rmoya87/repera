@@ -1196,20 +1196,22 @@ struct WorkoutView: View {
                         .listRowBackground(OG.surface)
                     }
 
-                    WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus") {
-                        addPlayExerciseToBlock = block.id
-                    }
                     if session.routineBlocks?.first(where: { $0.id == block.id })?.kind == .wod {
-                        WorkoutInlineAddButton("Añadir descanso", systemImage: "pause") {
-                            mutatePlayRoutine { draft in
-                                guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
-                                draft.blocks[index].movements.append(
-                                    WODMovement(name: "REST", isRest: true, restSeconds: 60)
-                                )
-                            }
-                        }
-                        WorkoutInlineAddButton("Añadir movimiento libre", systemImage: "pencil") {
-                            createFreeMovementForBlock = block.id
+                        WorkoutWODInsertActions(
+                            onExercise: { addPlayExerciseToBlock = block.id },
+                            onRest: {
+                                mutatePlayRoutine { draft in
+                                    guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                                    draft.blocks[index].movements.append(
+                                        WODMovement(name: "REST", isRest: true, restSeconds: 60)
+                                    )
+                                }
+                            },
+                            onFreeMovement: { createFreeMovementForBlock = block.id }
+                        )
+                    } else {
+                        WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus.circle.fill") {
+                            addPlayExerciseToBlock = block.id
                         }
                     }
                 } header: {
