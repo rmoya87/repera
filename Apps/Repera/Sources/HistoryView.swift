@@ -713,7 +713,7 @@ struct WorkoutDetailView: View {
                 }
 
                 // El mapa va directamente debajo de la fecha y las tiles.
-                if !isEditing, sessionMapContent(session) != .none {
+                if !isEditing, session.timerDetails == nil, sessionMapContent(session) != .none {
                     Section {
                         let coordinate = mapCoordinates(session)
                         SessionMapWeatherCard(
@@ -1002,6 +1002,25 @@ struct WorkoutDetailView: View {
     }
 
     private func summaryCard(_ session: WorkoutSession) -> some View {
+        if let timer = session.timerDetails {
+            return AnyView(HStack(spacing: 10) {
+                summaryTile(
+                    title: "Tiempo",
+                    value: DurationText.format(timer.configuredSeconds),
+                    icon: "clock.fill", tint: OG.blue
+                )
+                summaryTile(
+                    title: "Modalidad", value: timer.modeTitle,
+                    icon: "timer", tint: OG.accent
+                )
+                if timer.modeRaw == "intervals" {
+                    summaryTile(
+                        title: "Rondas", value: "\(timer.rounds)",
+                        icon: "repeat", tint: OG.orange
+                    )
+                }
+            })
+        }
         // Tres tarjetas estables: no colapsar el resultado a una sola cuando
         // Apple Salud no aporta kcal o la sesión no tiene series con peso.
         // Kcal solo si vienen de una fuente real de Salud, nunca de MET estimados.
@@ -1032,7 +1051,7 @@ struct WorkoutDetailView: View {
             return meters > 0 ? meters : nil
         }()
 
-        return HStack(spacing: 10) {
+        return AnyView(HStack(spacing: 10) {
             summaryTile(
                 title: "Tiempo",
                 value: session.timerDetails.map { DurationText.format($0.configuredSeconds) }
@@ -1063,7 +1082,7 @@ struct WorkoutDetailView: View {
                     tint: OG.accent
                 )
             }
-        }
+        })
     }
 
     private func summaryTile(title: String, value: String, icon: String, tint: Color) -> some View {
