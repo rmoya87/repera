@@ -46,7 +46,8 @@ begin
     raise exception 'Este cliente es un registro histórico de solo lectura.'
       using errcode = '42501';
   end if;
-  return case when tg_op = 'DELETE' then old else new end;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end;
 $$;
 revoke all on function public.repera_reject_archived_client_changes() from public;
