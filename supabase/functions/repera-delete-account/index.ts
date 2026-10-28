@@ -33,7 +33,6 @@ const businessBlockers: Array<{ table: string; column: string; ownerRole?: strin
   { table: "business_trainer_attendance", column: "recorded_by" },
   { table: "business_training_groups", column: "created_by" },
   { table: "professional_workout_templates", column: "created_by" },
-  { table: "service_credit_ledger", column: "created_by" },
   { table: "service_pass_management_events", column: "actor" },
 ];
 
@@ -111,6 +110,11 @@ async function freezeBusinessHistory(ownerID: string): Promise<void> {
     .update({ requested_by_deleted_user_id: ownerID, requested_by: null })
     .eq("requested_by", ownerID);
   if (archiveBookingError) throw archiveBookingError;
+
+  const { error: archiveLedgerError } = await admin.from("service_credit_ledger")
+    .update({ created_by_deleted_user_id: ownerID, created_by: null })
+    .eq("created_by", ownerID);
+  if (archiveLedgerError) throw archiveLedgerError;
 }
 
 Deno.serve(async (req: Request) => {
