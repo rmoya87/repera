@@ -2,7 +2,7 @@
 
 Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-**Última actualización:** 2026-10-28 — paridad restante: RIR/RPE en editores/Play/Wear, voz km (KilometerVoiceAnnouncement), Eliminar mi cuenta, HC distancia opcional, Drive trash al borrar.
+**Última actualización:** 2026-10-28 — Codex P1 #121: Drive If-Match solo con ETag HTTP (sin `etag` en fields), migraciones de archivo/delete-account desde `main`, `deletingAccount` hasta `signOut`.
 
 La implementación Android **todavía no es completa**. La rama no altera Swift, iCloud ni Xcode; Edge `repera-play-billing-verify` está en repo sin secretos de producción.
 

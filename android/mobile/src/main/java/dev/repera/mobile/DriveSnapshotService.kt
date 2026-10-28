@@ -67,10 +67,11 @@ class DriveSnapshotService(
         val remoteMeta = findSingleFile()
         val remoteId = remoteMeta?.id
         val localBytes = local.read()
-        // ETag de la versión leída (cabecera HTTP del GET media; fallback listado).
+        // ETag de la versión leída: solo cabecera HTTP del GET media (Drive v3
+        // no expone `etag` fiable en fields=files(...); If-Match usa ese header).
         val remoteDownload = remoteId?.let { downloadMedia(it) }
         val remoteBytes = remoteDownload?.body
-        val readEtag = remoteDownload?.etag ?: remoteMeta?.etag
+        val readEtag = remoteDownload?.etag
         if (localBytes == null && remoteBytes == null) return Outcome.Empty
         if (localBytes == null && remoteBytes != null) {
             return applyDownload(localBytes,remoteBytes)
@@ -172,12 +173,14 @@ class DriveSnapshotService(
         return if (instant != 0) instant else a.writer.compareTo(b.writer)
     }
 
-    private data class RemoteFile(val id: String, val etag: String?)
+    private data class RemoteFile(val id: String)
     private data class MediaDownload(val body: ByteArray, val etag: String?)
 
     private fun findSingleFile(): RemoteFile? {
+        // No pedir `etag` en fields: Drive Files:list no lo sirve de forma
+        // fiable para If-Match; el ETag viene de la cabecera del GET media.
         val url = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder" +
-            "&fields=nextPageToken%2Cfiles(id%2Cname%2Cetag)&pageSize=100" +
+            "&fields=nextPageToken%2Cfiles(id%2Cname)&pageSize=100" +
             "&q=" + encode("name = 'app_state.json' and trashed = false")
         val result = JSONObject(String(request("GET", url), Charsets.UTF_8))
         val files = result.optJSONArray("files") ?: JSONArray()
@@ -185,11 +188,7 @@ class DriveSnapshotService(
             "Varias copias remotas: resolver antes de sincronizar"
         }
         if (files.length() != 1) return null
-        val file = files.getJSONObject(0)
-        return RemoteFile(
-            id = file.getString("id"),
-            etag = file.optString("etag").takeIf { it.isNotBlank() && it != "null" }
-        )
+        return RemoteFile(id = files.getJSONObject(0).getString("id"))
     }
 
     /** Descarga el contenido y conserva el ETag original de la respuesta HTTP. */

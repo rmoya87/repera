@@ -29,7 +29,7 @@ class UserDataResetDriveContractTest {
             }
             return when {
                 req.method == "GET" && url.contains("alt=media") -> ok(bytes!!, withEtag = true)
-                req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else """{"files":[{"id":"f1","name":"app_state.json","etag":"\"etag-rev1\""}]}""").toByteArray())
+                req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else """{"files":[{"id":"f1","name":"app_state.json"}]}""").toByteArray())
                 req.method == "PATCH" -> {
                     patches++
                     if (failPatch) Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(500).message("err")

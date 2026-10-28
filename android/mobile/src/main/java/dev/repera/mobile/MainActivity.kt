@@ -2160,8 +2160,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         this@MainActivity, owner
                     )
                 }
-                // Tras borrado remoto OK: cerrar sesión local como iOS.
-                deletingAccount = false
+                // Mantener deletingAccount=true hasta que signOut() lo limpie
+                // en finally: si no, `if (busy && !deletingAccount) return`
+                // aborta el cierre de sesión con busy aún true.
                 signOut()
             } catch (error: AccountDeletionClient.AccountDeletionException) {
                 accountDeleteError = error.message

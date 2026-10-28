@@ -40,8 +40,9 @@ class DriveSnapshotServiceMirrorTest {
                     beforeDownload?.invoke()
                     ok(bytes!!, withEtag = true)
                 }
+                // Listado sin `etag`: If-Match usa solo el ETag del GET media.
                 req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else
-                    """{"files":[{"id":"f1","name":"app_state.json","etag":${JSONObject.quote(etag)}}]}"""
+                    """{"files":[{"id":"f1","name":"app_state.json"}]}"""
                     ).toByteArray())
                 req.method == "PATCH" -> {
                     patches++
