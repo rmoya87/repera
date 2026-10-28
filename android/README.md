@@ -1,10 +1,10 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — `WodFormat` canónico en `:domain` (`WODFormat`/`WODScoreBands` = typealias); `:mobile:compileDebugKotlin` verde.
+**Última actualización:** 2026-10-28 — UI marca: `ReperaTheme` (verde OG `#30D158` / claro legible `#0E7A38`) en raíz Compose; permisos con iconos M3; launcher `ic_launcher` desde AppIcon iOS.
 
 Implementación nativa independiente en `android/`:
 
-- `mobile`: Kotlin + Jetpack Compose / Material 3, Credential Manager Google,
+- `mobile`: Kotlin + Jetpack Compose / Material 3 (`ReperaTheme` + `reperaColorScheme`, sin púrpura M3 por defecto), Credential Manager Google,
   Google Drive appDataFolder, historial local, importación/exportación JSON y ejecución de
   rutinas de fuerza y WOD global o por movimiento, temporizador libre con guardado en historial
   (`timerDetails`), programación por fecha/semana y persistencia compatible con `AppState` Swift.

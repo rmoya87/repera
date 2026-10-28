@@ -9,28 +9,37 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,13 +50,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,9 +64,11 @@ import androidx.core.content.ContextCompat
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.repera.mobile.monetization.PaywallMode
 import dev.repera.mobile.monetization.PaywallScreen
 import dev.repera.mobile.monetization.SubscriptionManager
+import kotlinx.coroutines.launch
 
 /**
  * Wizard obligatorio de primer acceso. Port 1:1 de OnboardingFlowView.swift:
@@ -80,20 +91,23 @@ fun OnboardingFlow(
     LaunchedEffect(isSignedIn, store.step) {
         if (isSignedIn) store.reconcile(isSignedIn = true)
     }
-    Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        when (store.step) {
-            OnboardingStep.SignIn, OnboardingStep.Done ->
-                // Done no debería renderizarse (la puerta está fuera); si falta
-                // sesión, iOS vuelve al login — nunca un spinner eterno.
-                OnboardingSignInStep(signInBusy, signInError, onGoogleSignIn)
-            OnboardingStep.Permissions -> OnboardingPermissionsStep(store)
-            OnboardingStep.ChoosePlan ->
-                PaywallScreen(
-                    subscriptions = subscriptions,
-                    mode = PaywallMode.ONBOARDING,
-                    onContinueFree = { store.finishPrices() },
-                    onPurchaseSuccess = { store.finishPrices() }
-                )
+    // ReperaTheme por si el host de prueba no envuelve la raíz (MainActivity sí).
+    ReperaTheme {
+        Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            when (store.step) {
+                OnboardingStep.SignIn, OnboardingStep.Done ->
+                    // Done no debería renderizarse (la puerta está fuera); si falta
+                    // sesión, iOS vuelve al login — nunca un spinner eterno.
+                    OnboardingSignInStep(signInBusy, signInError, onGoogleSignIn)
+                OnboardingStep.Permissions -> OnboardingPermissionsStep(store)
+                OnboardingStep.ChoosePlan ->
+                    PaywallScreen(
+                        subscriptions = subscriptions,
+                        mode = PaywallMode.ONBOARDING,
+                        onContinueFree = { store.finishPrices() },
+                        onPurchaseSuccess = { store.finishPrices() }
+                    )
+            }
         }
     }
 }
@@ -273,7 +287,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         PermissionRow(
             title = "Notificaciones",
             subtitle = "Aviso cuando termina el descanso",
-            symbol = "🔔",
+            icon = Icons.Outlined.Notifications,
             statusText = if (notificationsGranted) "Permitidas" else "Pendiente",
             isDone = notificationsGranted,
             onAllow = {
@@ -289,7 +303,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         PermissionRow(
             title = "Salud",
             subtitle = "Entrenos, sueño, ciclo y constantes",
-            symbol = "❤️",
+            icon = Icons.Outlined.FavoriteBorder,
             statusText = if (healthDone) "Conectado" else "Pendiente",
             isDone = healthDone,
             onAllow = { healthLauncher.launch(HealthConnectReader.permissions) }
@@ -298,7 +312,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         PermissionRow(
             title = "Ubicación",
             subtitle = "Pin del gym y ruta en entrenos outdoor",
-            symbol = "📍",
+            icon = Icons.Outlined.LocationOn,
             statusText = if (locationGranted) "Permitida" else "Pendiente",
             isDone = locationGranted,
             onAllow = {
@@ -312,7 +326,11 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         Button(
             onClick = { store.finishPermissions() },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp)
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) { Text("Continuar", fontWeight = FontWeight.SemiBold) }
         TextButton(
             onClick = {
@@ -337,23 +355,40 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
 private fun PermissionRow(
     title: String,
     subtitle: String,
-    symbol: String,
+    icon: ImageVector,
     statusText: String,
     isDone: Boolean,
     onAllow: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(symbol, style = MaterialTheme.typography.titleLarge)
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -371,11 +406,11 @@ private fun PermissionRow(
                 )
             }
             if (isDone) {
-                Text(
-                    "Hecho",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = "Hecho",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
                 )
             } else {
                 TextButton(onClick = onAllow) {

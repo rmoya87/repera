@@ -5,8 +5,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-/** Tokens adaptativos de Theme.swift 5890215d, manteniendo componentes
- * Material nativos. Evitar superficies/chips violetas del tema por defecto. */
+/**
+ * Tokens adaptativos de Theme.swift (OG.*): primary = verde Repera.
+ * Claro: #0E7A38 + onPrimary blanco (contraste WCAG); oscuro: #30D158 + negro.
+ * tertiary = azul OG (no violeta). surfaceTint verde para que tonales M3
+ * no deriven al púrpura del ColorScheme por defecto.
+ */
 internal fun reperaColorScheme(dark: Boolean): ColorScheme = if (dark) {
     darkColorScheme(
         primary = brandGreen, onPrimary = Color.Black,

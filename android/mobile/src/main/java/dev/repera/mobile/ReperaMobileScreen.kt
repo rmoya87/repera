@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,8 +39,6 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -214,8 +210,7 @@ fun ReperaMobileScreen(
     accountDeleteError: String? = null,
     onDismissAccountDeleteError: () -> Unit = {}
 ) {
-    val scheme = reperaColorScheme(isSystemInDarkTheme())
-    MaterialTheme(colorScheme = scheme) {
+    ReperaTheme {
         if (!isAuthenticated) {
             // OnboardingFlowView iOS: título centrado + subtítulo, botón Google
             // NEUTRO (surface con borde surface3 y texto label, no verde marca),
@@ -268,7 +263,7 @@ fun ReperaMobileScreen(
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
-            return@MaterialTheme
+            return@ReperaTheme
         }
         val navController = rememberNavController()
         // Apple SessionPreviewView: con una sesión activa, Empezar la continúa en lugar de intentar iniciar otra.
@@ -344,9 +339,15 @@ fun ReperaMobileScreen(
         }
         val visibleTabs = tabs
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
                     title = { Text("repera") },
+                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                    ),
                     actions = {
                         IconButton(onClick = openSettings) {
                             Icon(imageVector = Icons.Outlined.Settings,
@@ -355,11 +356,21 @@ fun ReperaMobileScreen(
                     })
             },
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
                     visibleTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
                             onClick = { navigateTab(tab.route) },
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
                             icon = { Icon(imageVector = tab.icon, contentDescription = null) },
                             label = { Text(tab.label) }
                         )

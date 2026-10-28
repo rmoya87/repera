@@ -689,6 +689,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         restoreStoredSession()
         lifecycleScope.launch { subscriptions.start() }
         setContent {
+            // Tema Repera en la raíz: onboarding/permisos/paywall no usan el
+            // púrpura M3 por defecto (antes solo ReperaMobileScreen lo fijaba).
+            ReperaTheme {
             val sessionMovementProvider: suspend (String) -> dev.repera.domain.SessionMovement? = { sessionId ->
                 val uid = profile?.uniqueId
                 val revision = centerGate.revision
@@ -1177,6 +1180,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 ModalBottomSheet(onDismissRequest = { subscriptions.dismissPaywall() }) {
                     PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
                 }
+            }
             }
             }
             }

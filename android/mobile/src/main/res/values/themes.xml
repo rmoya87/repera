@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema XML mínimo: evita el accent púrpura de Theme.Material genérico
+         en splash / barras de sistema antes de Compose. -->
+    <style name="Theme.Repera" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/repera_brand_green</item>
+        <item name="android:colorPrimaryDark">@color/repera_brand_green_readable</item>
+        <item name="android:colorAccent">@color/repera_brand_green</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/repera_bg_light</item>
+    </style>
+</resources>

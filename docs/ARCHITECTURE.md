@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-28 (Play ownership Apple-parity; GPX/ActivityKit)
+Última actualización: 2026-10-28 (Android ReperaTheme verde M3; Play ownership; GPX/ActivityKit)
 
 ## Series de movilidad (iOS)
 
@@ -191,6 +191,12 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 - Confirmaciones (eliminar, vaciar…): `OGConfirmSheet` (mismo glass)
 - Filas Inicio/Historial: `OGRegisterLeadingIcon` + `WorkoutRegisterChips` / `OGRegisterChipsRow` (`RegisterSessionChrome.swift`); minutos = `displayDurationMinutes`; Inicio usa check, Historial icono de fuerza
 
+Android (`android/mobile`, Material 3 — 2026-10-28):
+
+- `ReperaTheme` / `reperaColorScheme` mapean `OG.*` (primary verde, superficies, outline); se aplica en la raíz de `MainActivity` para onboarding, permisos y tabs (evita el púrpura M3 por defecto).
+- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; NavigationBar/TopAppBar usan contenedores del esquema.
+- Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
+
 ## Datos y sync
 
 - Estado: `AppState` Codable → JSON local (`Application Support/Repera`) + espejo iCloud Documents.
@@ -249,12 +255,11 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 
 - Seis migraciones Supabase en el proyecto Repera: identidad, relaciones consentidas, bonos, reservas y sesiones profesionales, con RLS. El puente nativo Apple está escrito y pendiente de validar en dispositivo y proveedor Supabase; no hay intercambio de historial deportivo con iCloud.
 - Plan, estado y pruebas: [docs/business/PLAN_MAESTRO.md](business/PLAN_MAESTRO.md), [docs/business/ESTADO_DESARROLLO.md](business/ESTADO_DESARROLLO.md), [docs/business/SEGURIDAD.md](business/SEGURIDAD.md).
-- El panel profesional autenticado vive en `web/console`, con algunas operaciones reales y otras pendientes; el sitio `web/` de IONOS sigue siendo **marketing** y su empaquetado no incluye la consola. Android nativo no está implementado.
+- El panel profesional autenticado vive en `web/console`, con algunas operaciones reales y otras pendientes; el sitio `web/` de IONOS sigue siendo **marketing** y su empaquetado no incluye la consola. Android nativo vive en `android/` (Compose M3 + Wear); detalle y paridad en `android/README.md` y `android/docs/`.
 
 ## No vive aquí todavía
 
-- Backend operativo conectado a las aplicaciones iOS/Android
-- Android
+- Backend operativo completo conectado a las aplicaciones iOS/Android (parcial: Supabase, Drive, Play Billing en curso)
 - Coach / LLM en la nube (Foundation Models solo pizarra on-device)
 
 ## Auditoría de ilustraciones de ejercicios (2026-10-17)
