@@ -10,8 +10,7 @@ import dev.repera.domain.ProgressionPolicy
 /** Controls are offered only for settings with connected consumers. */
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Entrenamiento",style=MaterialTheme.typography.titleMedium)
-        Text("Unidad")
+    Text("Unidad")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("kg","lb").forEach {unit -> ReperaFilterChip(selected=value.weightUnit==unit,enabled=!busy,onClick={onChange(value.copy(weightUnit=unit))},label={Text(unit)})}
         }
