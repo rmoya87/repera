@@ -163,4 +163,12 @@ class BoardStrengthLinesTest {
    assertNull(line,BoardStrengthLines.block(listOf(line),listOf(squat,bench)))
   }
  }
+ @Test fun unsupportedStrengthLinesStayReviewThroughFullLitePipeline() {
+  for(prefix in listOf("","STRENGTH\n")) for(line in listOf("3x8 BACK SQUAT @-60","-3x8 BACK SQUAT","3x8 BACK SQUAT + 3x8 BACK SQUAT")) {
+   val block=BoardScanLiteParser.parse(prefix+line,listOf(squat)).blocks.single()
+   assertEquals(line,RoutineBlockKind.WOD,block.kind)
+   assertTrue(block.exercises.isEmpty())
+   assertTrue(block.wodNotes.orEmpty().contains(line))
+  }
+ }
 }

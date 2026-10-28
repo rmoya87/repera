@@ -725,3 +725,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -336 bateria completa mobile678/163XML91/104/85/83s,domain532/93XML34s,Wear8/1XML+ambosassemble90sverdes0fallos/errores/omitidos. Backup336recuperado:arbol2ff87653118b788deab168b43c657730bf736daaidentico,clonlimpio.
 - Mismo lector parcial337,hallazgo nuevo: repeticion de ejercicio con dossetsxreps en misma linea podia ser reducida por canonicalName a una sola prescripcion. Regresion con3x8BACKSQUAT+3x8BACKSQUATfallo antes. Guardia rechaza '+' osegundoesquema tras extraer primero;conserva review,sin colapsar ni inventar fuerza.
 -1test nuevo de5casos,dominio533/93XML61s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear337 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector parcial, comprobacion de pipeline 04:54 28oct
+-337 bateria completa mobile678/163XML86/102/82/82s,domain533/93XML61s,Wear8/1XML+ambosassemble67sverdes0fallos/errores/omitidos. Solo bateria cerrada.
+-338 solo prueba: verificados negativos/esquemasmalformados yduplicados tanto huerfanos como bajoSTRENGTH por pipelineLitecompleto. No bypass hacia structuredStrength ni ejerciciosgenerados;notas originales intactas.1test de6casos pasa sin modificar produccion.
+- Dominio534/93XMLcompletoverde0fallos/errores/omitidos. Ultimobile/Wear337sin cambiosproductivos338.735/70sin cierres,lectorcompleto/graficos/nativo abiertos,no push.
