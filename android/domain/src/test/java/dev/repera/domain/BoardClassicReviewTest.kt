@@ -22,6 +22,11 @@ class BoardClassicReviewTest {
   val drafts=BoardClassicReview.drafts("WARMUP\nSETS\n22:02\n123\nAMRAP 10'\nFOR QUALITY\nSTRENGTH\nBack squat",listOf(squat))
   assertEquals(listOf("Back squat"),drafts.map {it.line.raw})
  }
+ @Test fun fullSourceHeaderExclusionsAreSeparateFromLitePrecedence() {
+  val headers=listOf("Session AMRAP 12", "Work EVERY 90S FOR 12MIN", "Today E2MOM 10'", "Mixed LADDER 5", "BUY IN 400m", "Team PARTNER workout", "6 STATIONS rotation", "MAX CAL ROW", "Today's FOR COMPLETION", "3 ROUNDS OF", "FOR QUALITY 10", "TECHNIQUE: squat", "21-15-9", "21 15 9", "OTM 10", "SKILL test")
+  for(header in headers) assertTrue(header,BoardClassicReview.drafts(header,listOf(squat)).isEmpty())
+  assertEquals("Back squat",BoardClassicReview.drafts("Back squat",listOf(squat)).single().line.raw)
+ }
  @Test fun catalogPriorityAndEditsNeverReuseOldIdentity() {
   val old=CatalogExercise("old","BSQ",emptyList(),isCustom=true)
   val draft=BoardClassicReview.drafts("BSQ",listOf(old,squat)).single()

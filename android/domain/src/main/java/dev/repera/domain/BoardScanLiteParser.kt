@@ -284,7 +284,26 @@ object BoardScanLiteParser {
         return line.drop(label.length).trim().trim(':','-','\"').trim().ifBlank {line}
     }
 
-    internal fun isClassicReviewHeader(line:String):Boolean = sectionLabel(line)!=null || detectHeader(line)!=null
+    // Classical parse excludes full-source headers independently of Lite block
+    // precedence. These contains rules must not change Lite WOD interpretation.
+    internal fun isClassicReviewHeader(line:String):Boolean {
+        if(sectionLabel(line)!=null) return true
+        val upper=line.trim().uppercase(Locale.ROOT).replace('’','\'').replace('′','\'').replace('‘','\'')
+        if(Regex("(?:EVERY|CADA)\\s+\\d+\\s*(?:S|SEC|SECS|SECONDS|[\"″']|MIN|MINS|MINUTES|M)?\\s*(?:FOR|PARA)\\s+\\d+",RegexOption.IGNORE_CASE).containsMatchIn(upper)) return true
+        if(Regex("(?:EVERY|CADA)\\s+\\d+\\s*['′]?\\s*[x×X]\\s*\\d+",RegexOption.IGNORE_CASE).containsMatchIn(upper)) return true
+        if(Regex("E\\s*\\d+\\s*MOM").containsMatchIn(upper)) return true
+        if(listOf("ON THE MINUTE","OTM","AMRAP","AS MANY ROUNDS","AS MANY REPS","EMOM",
+            "LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE","BUY-IN","CASH OUT","CASH-OUT","CASHOUT",
+            "PARTNER","YOU GO I GO","YGIG","YDIG","FOR QUALITY","RFQ","CIRCUIT","STATIONS","ESTACIONES",
+            "RFT","FOR TIME","FOR COMPLETION","TABATA","CHIPPER","DEATH BY","MUERTE POR").any {upper.contains(it)}) return true
+        if(upper.contains("BUY") && upper.contains("IN")) return true
+        if(upper.contains("ROTATION") && upper.contains("STATION")) return true
+        if(Regex("^\\d+(?:\\s*[-–]\\s*\\d+){2,}\\s*(?:FOR\\s+TIME|WOD)?$").matches(upper) || upper=="21 15 9") return true
+        if(listOf("FIND A HEAVY","MAX LOAD","MAX REPS","HEAVY SINGLE","AFAP","AS FAST AS POSSIBLE").any {upper.startsWith(it)} || upper=="1RM" || upper.startsWith("1RM ")) return true
+        if(upper.startsWith("MAX ") && upper.split(Regex("\\s+")).size<=4) return true
+        if(Regex("^\\d+\\s+ROUNDS?\\b").containsMatchIn(upper)) return true
+        return listOf("TECHNIQUE","TÉCNICA","TECNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN").any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")}
+    }
 
     private fun detectHeader(line: String): Header? {
         val upper = line.uppercase(Locale.ROOT)
