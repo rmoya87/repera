@@ -83,11 +83,10 @@ queda Gratis funcional con paywall informativo "compras no configuradas".
 - Mensual (com.app.repera.premium.monthly): 5,99 EUR/mes.
 - Anual (com.app.repera.premium.yearly): 39,99 EUR/año.
 - Trial: SIN trial Pro, confirmado por Ramón el 28/10/2026. Inicio Gratis y Pro mensual/anual.
-Estos importes NO van en código (la app los lee de Play). Se aplicarán al
-crear los productos en Play Console cuando la subida del primer AAB y la
-creación de productos estén autorizadas (hoy NO lo están). Los mismos
-importes del debug provider iOS son placeholders de desarrollo; su
-coincidencia con esta decisión es posterior a la confirmación de Ramón.
+Estos importes NO van en código (la app los lee de Play). **Productos creados**
+en Play Console (2026-10-28, `billing_aligned`) en **borrador** — **no activar**
+hasta migrate+deploy verify. Los importes del debug provider iOS son placeholders
+de desarrollo.
 
 ## Estado de la capacidad
 
@@ -108,8 +107,8 @@ En app:
 
 Checklist ops (referencia; no listar como deuda de código Android):
 1. Secretos Edge: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `PLAY_PACKAGE_NAME`
-2. Play Console: productos monthly/yearly (5,99 / 39,99 EUR) en borrador —
-   **no activar** hasta verify+ownership ya en prod
+2. Play Console: ~~crear productos~~ **hecho** (monthly/yearly borrador); quedan
+   testers/SHA-1 + **activar** tras verify en prod
 3. Aplicar migración `play_subscription_ownership` + desplegar Edge Function
 4. (Opcional) RTDN Pub/Sub
 
