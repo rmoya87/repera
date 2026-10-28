@@ -345,7 +345,7 @@ public struct ExerciseHistorySummary: Sendable, Equatable {
     }
 }
 
-// MARK: - Progreso por ejercicio (estilo openGym)
+// MARK: - Progreso por ejercicio
 
 public enum ExerciseProgressMetric: String, CaseIterable, Sendable, Identifiable {
     case topSet
@@ -798,7 +798,7 @@ extension StatsEngine {
         return agg
     }
 
-    /// Nivel 0…4 por cuartiles del valor (tiempo o volumen), como openGym Heatmap.
+    /// Nivel 0…4 por cuartiles del valor (tiempo o volumen) para el mapa de calor.
     public static func heatmapLevel(
         value: Double,
         hasActivity: Bool,
