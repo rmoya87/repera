@@ -284,6 +284,8 @@ object BoardScanLiteParser {
         return line.drop(label.length).trim().trim(':','-','\"').trim().ifBlank {line}
     }
 
+    internal fun isClassicReviewHeader(line:String):Boolean = sectionLabel(line)!=null || detectHeader(line)!=null
+
     private fun detectHeader(line: String): Header? {
         val upper = line.uppercase(Locale.ROOT)
             .replace("’", "'").replace("′", "'").replace("×", "X")

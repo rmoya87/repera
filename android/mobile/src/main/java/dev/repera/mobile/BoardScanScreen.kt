@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import dev.repera.domain.BoardClassicReview
 import dev.repera.domain.BoardScanLiteParser
 import dev.repera.domain.SportExerciseNames
 import dev.repera.domain.CatalogExercise
@@ -61,6 +62,9 @@ internal fun BoardScanScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var review by remember { mutableStateOf<List<RoutineBlock>?>(null) }
     var reviewRequestId by androidx.compose.runtime.saveable.rememberSaveable {mutableStateOf(java.util.UUID.randomUUID().toString())}
+    var classicDrafts by remember {mutableStateOf<List<BoardClassicReview.Draft>>(emptyList())}
+    var classicMode by remember {mutableStateOf(false)}
+    var classicCatalog by remember {mutableStateOf<List<CatalogExercise>>(emptyList())}
     var reviewTitle by remember { mutableStateOf("Entreno de pizarra") }
 
     val subscriptions = LocalSubscriptions.current
@@ -98,15 +102,17 @@ internal fun BoardScanScreen(
                             it.isCustom, it.isCatalogArchived)
                     }
                 val aliases = ExerciseSearchAssets.load(context)
-                val parsed = withContext(Dispatchers.Default) {
-                    BoardScanLiteParser.parse(ocrText = text, catalog = catalog,
-                        searchAliases = aliases)
-                }
+                val proposal = withContext(Dispatchers.Default) {prepareBoardReview(text,catalog,aliases)}
+                val parsed=proposal.lite
+                val classic=proposal.classic
                 if (parsed.blocks.isEmpty() && parsed.lines.isEmpty()) {
                     errorMessage = "No encontré texto útil. Prueba más cerca, más luz o otra foto."
                 } else {
                     subscriptions?.consumeBoardScanIfNeeded(attemptID)
                     reviewRequestId=java.util.UUID.randomUUID().toString()
+                    classicCatalog=catalog
+                    classicDrafts=classic
+                    classicMode=false
                     review = parsed.blocks
                 }
             } catch(cancelled:kotlinx.coroutines.CancellationException) {
@@ -182,12 +188,25 @@ internal fun BoardScanScreen(
             item {
                 OutlinedTextField(
                     value = reviewTitle,
-                    onValueChange = { reviewTitle = it },
+                    onValueChange = { reviewTitle = it;reviewRequestId=java.util.UUID.randomUUID().toString() },
                     label = { Text("Título de la rutina") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            items(blocks.size) { index ->
+            item {
+                if(classicDrafts.isNotEmpty()) OutlinedButton(onClick={classicMode=!classicMode;reviewRequestId=java.util.UUID.randomUUID().toString()},enabled=!busy) {
+                    Text(if(classicMode) "Volver a lectura WOD" else "Revisar como fuerza clásica")
+                }
+                if(classicMode) {
+                    BoardClassicReviewEditor(classicDrafts,busy) {index,draft ->
+                        classicDrafts=classicDrafts.mapIndexed {i,old ->if(i==index) draft else old}
+                        reviewRequestId=java.util.UUID.randomUUID().toString()
+                    }
+                    if(BoardClassicReview.blocks(classicDrafts,classicCatalog)==null)
+                        Text("Revisa series (1-200), repeticiones (1-100000), carga y nombres del catálogo. Excluye las líneas que no quieras importar.")
+                }
+            }
+            items(if(classicMode) 0 else blocks.size) { index ->
                 val block = blocks[index]
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp),
@@ -228,13 +247,8 @@ internal fun BoardScanScreen(
                 }
             }
             item {
-                Button(
-                    onClick = { onConfirm(reviewTitle, blocks,reviewRequestId) },
-                    enabled = !busy && reviewTitle.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = brandGreen, contentColor = Color.Black)
-                ) { Text("Crear rutina") }
+                BoardScanReviewConfirm(reviewTitle,blocks,classicMode,classicDrafts,classicCatalog,
+                    busy,reviewRequestId,onConfirm)
             }
             item {
                 OutlinedButton(onClick = { review = null; errorMessage = null },
