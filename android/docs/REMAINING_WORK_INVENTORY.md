@@ -843,3 +843,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, comprobacion de fronteras sin cambio producto 09:06 28oct
 -364 solo tests/documentacion:6sufijos@malformadosnoentranenreglaliteral362;3X/3 X/3×PUSHPRESSyadan3reps,nombrecorrectoysinsetsinventados. No se encontro hueco de producto enesoscasos. Primera expectativa de notas con×eraincorrecta porque OCRnormaliza×->XcomoLitefuente;corregidafixture,sincambioproducto.
 -2testsnuevos,dominio554/93XML44sverdes0fallos/errores/omitidos. Producto sigue362;bateria mobile687/163,Wear8/1+ambosassemble73s de362 vigente,sinpretenderejecucionmobile/Wear364.735/70sin cierres,lectorparcial,nativo/gráficosabiertos,no push.
+
+## Lector completo, escala con espacios OCR 09:10 28oct
+- Mismo lector parcial365: separador de escala de movimiento simple acepta whitespacealrededordeslashincluyendotabuladores,comofuente676-688. Conservaalternativasexpandidas,sinconvertircargas/caloriasparesenescala. Sin nuevomatching ni default3x8.
+- Regresion fallo antes contabuladores.1testdominio3varianteswhitespacey1wirenuevos;dominio555/93XML74s,wire18/1XML67sverdes0fallos/errores/omitidos. Mobile completa/Wear365pendientes;ultima completa362mobile687/163,domain552/93,Wear8/1+ambosassemble73s.735/70sin cierres,nativo pendiente,no push.

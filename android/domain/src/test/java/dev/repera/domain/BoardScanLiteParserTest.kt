@@ -908,4 +908,14 @@ class BoardScanLiteParserTest {
             assertEquals(RoutineBlockKind.WOD,block.kind)
         }
     }
+    @Test fun whitespaceDelimitedSingleMovementScaleKeepsAllAlternatives() {
+        for(separator in listOf(" / ","  /   ","\t/\t")) {
+            val block=BoardScanLiteParser.parse("AMRAP 10'\n40 DU"+separator+"80 SU",catalog=catalog).blocks.single()
+            val move=block.movements.single()
+            assertEquals(separator,40,move.reps)
+            assertEquals(separator,CrossFitGlossary.expand("80 SU"),move.scaleAlternative)
+            assertNull(move.weightMaleKg)
+            assertNull(move.weightFemaleKg)
+        }
+    }
 }

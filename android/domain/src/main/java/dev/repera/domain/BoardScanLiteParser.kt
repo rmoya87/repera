@@ -663,7 +663,7 @@ object BoardScanLiteParser {
         // H/M aunque el OCR añada espacios.
         val weightPair = Regex("\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*(?:kg|lbs?)?\\s*$",
             RegexOption.IGNORE_CASE).containsMatchIn(working)
-        val alternatives = if (caloriePair || weightPair) listOf(working) else working.split(" / ")
+        val alternatives = if (caloriePair || weightPair) listOf(working) else working.split(Regex("\\s+/\\s+"))
         if (alternatives.size >= 2) {
             working = alternatives[0].trim()
             scaleAlternative = alternatives.drop(1)

@@ -225,4 +225,12 @@ class BoardScanImportTest {
         assertFalse(move.has("weightMaleKg"))
         assertFalse(move.has("weightFemaleKg"))
     }
+    @Test fun tabDelimitedScaleKeepsWireAlternativeWithoutWeights() {
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n40 DU\t/\t80 SU",catalog=catalog).blocks.single()
+        val move=BoardScanImport.wireBlock(block).getJSONArray("movements").getJSONObject(0)
+        assertEquals(40,move.getInt("reps"))
+        assertEquals(dev.repera.domain.CrossFitGlossary.expand("80 SU"),move.getString("scaleAlternative"))
+        assertFalse(move.has("weightMaleKg"))
+        assertFalse(move.has("weightFemaleKg"))
+    }
 }
