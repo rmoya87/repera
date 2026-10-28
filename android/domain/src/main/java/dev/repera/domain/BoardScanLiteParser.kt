@@ -322,6 +322,11 @@ object BoardScanLiteParser {
             if(rounds==null || rounds !in 1..200) return null
             return Header(line,WODFormat.CIRCUIT,null,rounds=rounds)
         }
+        if(Regex("^(?:AFAP|AS FAST AS POSSIBLE)(?:\\s+\\d+\\s*['\"]?)?\\s*$").matches(upper)) {
+            val cap=firstInt(upper)
+            if(cap!=null && cap !in 1..(Int.MAX_VALUE/60)) return null
+            return Header("AFAP",WODFormat.AFAP,cap)
+        }
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
         if(upper in setOf("STRENGTH","FUERZA") || strengthHeaders.any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")})
             return Header(line,WODFormat.STRENGTH,null)

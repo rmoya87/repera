@@ -726,4 +726,18 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
         assertEquals(1,ordinary.movements.size)
     }
+    @Test fun exactAfapHeadersAreNotMovementSuffixes() {
+        for(header in listOf("AFAP","AS FAST AS POSSIBLE","AFAP 9'","AS FAST AS POSSIBLE 9'")) {
+            val block=BoardScanLiteParser.parse(header+"\n300M RUN",catalog=catalog).blocks.single()
+            assertEquals(WODFormat.AFAP,block.wodFormat)
+            assertEquals("AFAP",block.title)
+            assertEquals(if(header.contains("9")) 9 else null,block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertEquals(300,block.movements.single().distanceMeters)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        val movement=BoardScanLiteParser.parse("AMRAP 10'\n300M RUN AFAP",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.AMRAP,movement.wodFormat)
+        assertEquals(1,movement.movements.size)
+    }
 }

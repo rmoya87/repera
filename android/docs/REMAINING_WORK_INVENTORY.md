@@ -757,3 +757,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, estaciones contadas 05:46 28oct
 - Mismo lector parcial344: cabecera exacta N STATIONS/ESTACIONES conN1..200 seleccionaCIRCUITyroundsNcomo fuente536-539;sin movimiento falso ni intervalo/cap inventado. No containsglobal,2STATIONPRESS sigueejercicio yruidoexactoCIRCUIT anterior intacto.
 - Regresion fallo antes.1test nuevo de2cabeceras+nombreordinario. Dominio539/93XML69s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear344 pendientes;ultima completa342mobile679/163domain538/93Wear8/1ambosassemble66s.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, AFAP explicito 05:57 28oct
+-344 bateria completa mobile679/163XML89/103/81/81s,domain539/93XML69s,Wear8/1XML+ambosassemble64sverdes. Backup344recuperado:arbol9f8459adf2c2aea1a933d16b052e79403b05016didentico,clonlimpio.
+- Mismo lector parcial345: AFAP/AS FAST AS POSSIBLE exactos concapopcional seleccionanAFAP,titulo fuente ycap indicado onull segun548-551. Sufijo300MRUNAFAP sigue movimiento;sin containsglobal ni cap inventado.
+- Regresion fallo antes.1test nuevo de4cabeceras+sufijo. Dominio540/93XML73s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear345 pendientes.735/70sin cierres,nativo pendiente,no push.
