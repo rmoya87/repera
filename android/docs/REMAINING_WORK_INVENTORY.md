@@ -855,3 +855,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, matching exacto de modificador simple 09:33 28oct
 - Mismo lector parcial367: movimiento simple descargado con cantidad explicita1..100000ymodificadorBN/BTN/AFAP/UNBROKEN/UAT/BEHINDNECK/TOUCHANDGO intenta candidatorexactolimpiadofuente870-950. PrioridadidentidadLiteexistente(nombreparseado/equipo)antesdecandidatolimpiado;officialexact>alias>custom,no fuzzy. No load/slash/@/#/wave/multiplierni defaults3x8.
 - Regresion fallo antes:1ZPRESSBNnopreservabaidentidadexacta.2testsdominio(prioridadexact/alias/custom,nofuzzy,equipo)y1wirenuevos;dominio557/93XML81s,wire19/1XML65sverdes0fallos/errores/omitidos. Comprobacionadicionaldeequipoexpuso prioridadgenericaenprimerprototipo;preservadonombreparseadoenindexLiteyfixtureBNconnombresdistintos. Mobile completa/Wear367pendientes;ultima completa365mobile688/163,domain555/93,Wear8/1+ambosassemble66s.735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 09:48 28oct
+-367 bateria completa mobile689/163XML11lotes39/60/75/63/49/68/80/46/83/46/75s,domain557/93XML81s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Backup367recuperado65338db7:arbol351e01f666d39c98812d70aad8a055dfc2e52916identico,clonlimpio.
+-368 solo documentacion: c6f89c28/88db5bb7reconciliadas367,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
