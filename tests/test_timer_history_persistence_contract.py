@@ -55,6 +55,41 @@ class TimerHistoryPersistenceContractTests(unittest.TestCase):
         self.assertIn("timerStartedAt = end", TIMER)
         self.assertIn("let endedAt = phaseEndDate ?? now", TIMER)
 
+    def test_save_closes_create_and_focuses_actual_session_day(self):
+        root = read(IOS / "RootTabView.swift")
+        start = read(IOS / "StartHubSheet.swift")
+        favorites = read(IOS / "FavoritesHubView.swift")
+        save = TIMER.split("private func saveCompletedTimer()", 1)[1].split(
+            "private var clockScreen:", 1
+        )[0]
+        self.assertIn("savedDateToOpenOnDismiss = summary.startedAt", save)
+        self.assertIn("onSaved?(date)", TIMER)
+        self.assertIn(".fullScreenCover(isPresented: $showClock, onDismiss:", TIMER)
+        self.assertIn("onSavedTimer: ((Date) -> Void)? = nil", start)
+        self.assertIn("StandaloneTimerView(embedsNavigation: false, onSaved: onSavedTimer)", start)
+        self.assertIn("onSaved: onSavedTimer", favorites)
+        self.assertIn("onSavedTimer: { date in", root)
+        callback = root.split("onSavedTimer: { date in", 1)[1].split(
+            ".ogSheetChrome(detents:", 1
+        )[0]
+        self.assertIn("homeFocusDay = date", callback)
+        self.assertIn("showStartHub = false", callback)
+        self.assertIn("tab = .home", callback)
+        self.assertIn(".onChange(of: focusDay)", HOME)
+        self.assertIn("rebuildDayBuckets()", HOME)
+        self.assertIn("rebuildWeekChrome()", HOME)
+
+    def test_save_does_not_close_when_session_is_missing(self):
+        save = TIMER.split("private func saveCompletedTimer()", 1)[1].split(
+            "private var clockScreen:", 1
+        )[0]
+        self.assertIn("guard store.state.workouts.contains(where:", save)
+        self.assertIn("completionSaveError =", save)
+        self.assertLess(
+            save.index("guard store.state.workouts.contains(where:"),
+            save.index("savedDateToOpenOnDismiss = summary.startedAt"),
+        )
+
     def test_historic_workouts_preserve_timer_details_with_optional_codable_field(self):
         self.assertIn("public struct TimerCompletionDetails: Codable, Sendable, Equatable", MODEL)
         self.assertIn("public var timerDetails: TimerCompletionDetails?", MODEL)
