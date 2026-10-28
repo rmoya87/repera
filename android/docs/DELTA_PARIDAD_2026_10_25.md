@@ -362,6 +362,7 @@ main móvil invisible.)
 - Meteo/viento sigue sin equivalente: Apple usa WeatherKit autenticado;
   Android no tiene transporte/backend existente. No se añaden proveedores
   ni se transmiten coordenadas privadas a servicios nuevos silenciosamente.
+  **(2026-10-28: clima no se hace en Android; Open-Meteo descartado.)**
 
 ## D6 navegación, 21:10 CET local
 - Verificación exacta Apple5890215d: repera://workout NO resuelve un UUID;

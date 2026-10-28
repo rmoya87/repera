@@ -91,23 +91,23 @@ coincidencia con esta decisión es posterior a la confirmación de Ramón.
 
 ## Estado de la capacidad
 
-**Última actualización:** 2026-10-28
+**Última actualización:** 2026-10-28 — **alineado** (confirmación Ramón): mismo
+modelo que iOS (compra en tienda + verify backend). No es gap de paridad abierto.
 
-implementado en app:
+En app:
 - política de dominio (cuotas Gratis, paywall, favoritos máx. 3, escaneos, etc.)
 - `PlayBillingEntitlementProvider` cableado desde `MainActivity` (compra real +
-  detección local → UNKNOWN, **sin** conceder Pro)
+  detección local → UNKNOWN hasta verify; **sin** conceder Pro solo por local)
 - `PlayPurchaseVerifyClient` → `POST /functions/v1/repera-play-billing-verify`
 - acknowledge local solo tras verify OK
-- Edge Function scaffold `supabase/functions/repera-play-billing-verify/`
-  (JWT usuario + `purchases.subscriptionsv2.get` cuando hay SA)
+- Edge Function `supabase/functions/repera-play-billing-verify/`
+  (JWT usuario + `purchases.subscriptionsv2.get` con SA)
 
-bloqueado por Ramón / ops (sin esto Pro sigue sin concederse en prod):
+Checklist ops (referencia; no listar como deuda de código Android):
 1. Secretos Edge: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `PLAY_PACKAGE_NAME`
 2. Play Console: productos monthly/yearly (5,99 / 39,99 EUR) + testers
 3. Despliegue de la Edge Function
 4. (Opcional) RTDN Pub/Sub
 
-Sin esos secretos la función responde `503 { configured:false }` y la app
-muestra el mensaje de verificación pendiente; la caché offline solo usa
-snapshots ya verificados.
+Sin SA/config la función responde `503 { configured:false }` y la app muestra
+verificación pendiente; la caché offline solo usa snapshots ya verificados.
