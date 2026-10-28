@@ -782,4 +782,15 @@ class BoardScanLiteParserTest {
             assertEquals(12,block.timeCapMinutes)
         }
     }
+    @Test fun everyForMissingIntervalUnitUsesSourceThreshold() {
+        for((header,seconds) in listOf("EVERY 90 FOR 12 MIN" to 90,"CADA 2 PARA 12 MIN" to 120,"EVERY 30 FOR 12" to 30,"EVERY 29 FOR 58" to 1740)) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            val minutes=if(seconds==1740) 58 else 12
+            assertEquals(header,seconds,block.emomIntervalSeconds)
+            assertEquals(header,minutes,block.timeCapMinutes)
+            assertEquals(header,minutes*60/seconds,block.rounds)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+    }
 }

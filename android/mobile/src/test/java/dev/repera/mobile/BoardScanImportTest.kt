@@ -147,7 +147,7 @@ class BoardScanImportTest {
         assertFalse(wire.has("rounds"))
     }
     @Test fun everyForSynonymsKeepDurationCadenceAndRoundsInWire() {
-        val header="CADA 2 MIN PARA 12 MIN (5 SETS)"
+        for(header in listOf("CADA 2 MIN PARA 12 MIN (5 SETS)","CADA 2 PARA 12 (5 SETS)")) {
         val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
         val wire=BoardScanImport.wireBlock(block)
         assertEquals("emom",wire.getString("wodFormat"))
@@ -156,5 +156,6 @@ class BoardScanImportTest {
         assertEquals(5,wire.getInt("rounds"))
         assertEquals(1,wire.getJSONArray("movements").length())
         assertTrue(wire.getString("wodNotes").contains(header))
+        }
     }
 }

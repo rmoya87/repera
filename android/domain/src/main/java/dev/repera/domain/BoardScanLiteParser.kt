@@ -288,13 +288,13 @@ object BoardScanLiteParser {
         if (Regex("^\\d+\\s+ROUNDS?\\s+(?:FOR\\s+QUALITY|RFQ)\\b").containsMatchIn(upper)) {
             return Header(line, WODFormat.ROUNDS_FOR_QUALITY, null, rounds = firstInt(upper))
         }
-        // Full-parser Every/For subset: explicit units and whole header only.
-        // Keep arithmetic bounded; do not infer missing units or consume movement text.
-        Regex("""^(?:EVERY|CADA)\s+(\d+)\s*(S|SEC|SECS|SECONDS|["″']|MIN|MINS|MINUTES|M)\s*(?:FOR|PARA)\s+(\d+)\s*(?:MIN|MINS|MINUTES|["′'])\s*(?:\((\d+)\s*(?:SERIES|SETS?|RONDS?|ROUNDS?|RONDAS?)?\))?$""").matchEntire(upper)?.let { match ->
+        // Full-parser Every/For subset: whole header only. Missing interval unit
+        // follows the source threshold (>=30 seconds, otherwise minutes).
+        Regex("""^(?:EVERY|CADA)\s+(\d+)\s*(S|SEC|SECS|SECONDS|["″']|MIN|MINS|MINUTES|M)?\s*(?:FOR|PARA)\s+(\d+)\s*(?:MIN|MINS|MINUTES|["′'])?\s*(?:\((\d+)\s*(?:SERIES|SETS?|RONDS?|ROUNDS?|RONDAS?)?\))?$""").matchEntire(upper)?.let { match ->
             val amount=match.groupValues[1].toIntOrNull() ?: return null
             val minutes=match.groupValues[3].toIntOrNull() ?: return null
             val unit=match.groupValues[2]
-            val secondsUnit=unit in setOf("S","SEC","SECS","SECONDS","\"","″")
+            val secondsUnit=unit in setOf("S","SEC","SECS","SECONDS","\"","″") || (unit.isEmpty() && amount>=30)
             if(amount<=0 || minutes !in 1..(Int.MAX_VALUE/60) || (!secondsUnit && amount>Int.MAX_VALUE/60)) return null
             val seconds=if(secondsUnit) amount else amount*60
             val explicit=match.groupValues[4]

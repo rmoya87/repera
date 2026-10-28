@@ -780,3 +780,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, EVERY/CADA con unidades explicitas 06:34 28oct
 - Mismo lector parcial349: EVERY/CADA + unidad explicita + FOR/PARA + duracion reconoce EMOM, conserva cadencia segundos/minutos, cap y rondas derivadas u override explicito. Subconjunto de BoardImportParser400-440, cabecera completa y aritmetica bounded; sin inferencia de unidades ausentes ni containsglobal. Cabecera original queda en notas. EVERY90S anterior ahora recibe rondas derivadas como fuente.
 - Regresion fallo antes: CADA90SECPARA12MIN perdia cap.2tests dominio nuevos y1wire;dominio544/93XML84s ywire10/1XML69sverdes0fallos/errores/omitidos. Mobile completa/Wear349 pendientes;ultima completa347mobile679/163domain542/93Wear8/1+ambosassemble68s.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, EVERY/FOR sin unidad 06:46 28oct
+-349 bateria completa mobile680/163XML93/112/86/92s,domain544/93XML84s,Wear8/1XML+ambosassemble95sverdes. Backup349recuperado65338db7:arbol55e6b9f4d976d264e2cd6bc998e28d58bd596cddidentico,clonlimpio.
+- Mismo lector parcial350: amplia el subconjunto EVERY/CADA FOR/PARA para unidad ausente, siguiendo regla explicita fuente400-440: intervalo>=30 ensegundos,menor enminutos;duracionminutos,sufijounidadopcional. Solo cabecera completa,validacionespositivas yaritmeticabounded;no default3x8 ni containsglobal.
+- Regresion fallo antes: EVERY90FOR12MIN interpretaba5400s.1test nuevo frontera29/30ycasos90/2,wireexistenteampliadoconcasosinunidades. Dominio545/93XML70s ywire10/1XML66sverdes0fallos/errores/omitidos. Mobile completa/Wear350pendientes.735/70sin cierres,nativo pendiente,no push.
