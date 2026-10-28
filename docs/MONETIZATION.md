@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-28 (favoritos de actividades y recuperación de plantillas)
+Última actualización: 2026-10-28 (corrección de Pro en límites, tres favoritos gratis y CTA adaptativo)
 
 ## 1. Arquitectura
 
@@ -35,7 +35,8 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | Entrenamientos / series / RIR / WOD registro | ✓ | ✓ |
 | Catálogo, timers, Watch, Salud, iCloud, export/import | ✓ | ✓ |
 | Historial general de sesiones | ✓ | ✓ |
-| Rutinas reutilizables y actividades deportivas favoritas | máx. **3** en total | ilimitadas |
+| Favoritos de entrenamiento o actividades deportivas | **3**; el **4.º** abre la suscripción | ilimitados |
+| Otras rutinas reutilizables sin estrella | **3**, cuota independiente de favoritos | ilimitadas |
 | Ejercicios `isCustom` | máx. **5** | ilimitados |
 | Escáner pizarra (éxito → revisión usable) | **4**/mes UTC | ilimitados |
 | Evolución / historial completo por ejercicio | última sesión + PR + teaser | completo |
@@ -45,7 +46,7 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | `ProgressionEngine.applySuggestions` al empezar | off | on |
 | %→kg / 1RM básico / discos | ✓ | ✓ |
 
-Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea crear por encima del límite. Las actividades favoritas de Comenzar se cuentan junto con las rutinas reutilizables y se sincronizan con el estado personal de iCloud.
+Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea crear por encima del límite. Los favoritos reales (plantillas marcadas y actividades de Comenzar) comparten una cuota de tres elementos en Gratis, independiente de la cuota de rutinas sin estrella. Las copias fechadas de un favorito no se cuentan dos veces; el estado personal se sincroniza mediante iCloud.
 
 ## 3. Identificadores comerciales
 
@@ -99,6 +100,8 @@ Solo la oferta introductoria de Apple. No hay contador local de 14 días. Si el 
 - Se resetea `lastAccessDenial` al empezar cada intento de favorito, para que una denegación anterior no provoque un falso paywall en una acción nueva.
 - «Restaurar compras» vuelve a consultar StoreKit si RevenueCat responde sin Pro o falla la restauración. Si `AppStore.sync()` falla, se permite únicamente una transacción todavía activa y verificada por `Transaction.currentEntitlements`. No se concede acceso por instalar TestFlight ni por elegir un plan sin compra real de sandbox.
 - Las actividades de «Comenzar» se guardan por `liveSportID` como acceso reutilizable al deporte, incluso si un histórico restaurado contiene ejercicios o bloques auxiliares; no se convierten en rutinas de fuerza. El detalle de historial ofrece errores específicos cuando falla el guardado. «Comprobar acceso Pro» distingue una compra activa de un acceso temporal conservado sin red y explica que las transacciones sandbox de TestFlight no tienen por qué aparecer en las suscripciones reales del iPhone.
+- **Raíz del bug Pro (28/10):** `FeatureAccessPolicy.canCreateLibraryRoutine(isNew:)` y las acciones equivalentes de ejercicios personalizados / escaneo no respetaban `isPro`, pese a que `decision(for:)` sí lo hacía. Los accesos verificados de TestFlight/StoreKit, las pruebas activas y los accesos patrocinados se admiten ahora en **todas** las acciones. El límite de favoritos usa `canCreateFavorite(isNew:)` y `favoriteCount` sobre plantillas marcadas y deportes, no sobre rutinas normales. El cuarto favorito Gratis muestra paywall; Pro no tiene límite.
+- El mensaje de error del favorito del historial utiliza un aviso de Repera con botón sólido verde, texto blanco en día y negro en noche (un `.alert` de SwiftUI no permite personalizar el fondo del botón).
 - Pruebas estáticas: `tests/test_pro_favorite_entitlements_contract.py` (incluido fallback de restauración); política comercial: `FeatureAccessPolicyTests.swift`. Falta validación de compra/restauración en TestFlight.
 
 ## 11. Offline
