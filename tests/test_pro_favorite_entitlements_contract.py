@@ -85,6 +85,34 @@ class FavoriteProEntitlementContractTests(unittest.TestCase):
         self.assertIn("Acceso Pro conservado desde la última verificación", settings)
         self.assertIn("subscriptions.snapshot.grantsProAccess", settings)
 
+    def test_pro_bypasses_every_limited_creation_gate(self):
+        policy = read(
+            ROOT / "Packages" / "ReperaDomain" / "Sources" / "ReperaDomain"
+            / "Monetization" / "FeatureAccessPolicy.swift"
+        )
+        self.assertIn("guard isNew, !isPro else { return .allow() }", policy)
+        self.assertIn("guard !isPro else { return .allow() }", policy)
+        self.assertIn("func canCreateFavorite(isNew: Bool)", policy)
+        self.assertIn("FreePlanLimits.maxFavoriteItems", policy)
+
+    def test_fourth_favorite_uses_separate_count(self):
+        store = read(IOS / "ReperaStore.swift")
+        limits = read(
+            ROOT / "Packages" / "ReperaDomain" / "Sources" / "ReperaDomain"
+            / "Monetization" / "ReperaFeature.swift"
+        )
+        self.assertIn("public static let maxFavoriteItems = 3", limits)
+        self.assertIn("var favoriteCount: Int", store)
+        self.assertIn("policy.favoriteCount = favoriteCount", store)
+        self.assertIn("policy.canCreateFavorite(isNew: true)", store)
+        self.assertIn("policy.canCreateFavorite(isNew: true)", read(IOS / "ReperaStore.swift"))
+
+    def test_favorite_error_button_has_requested_day_night_contrast(self):
+        view = read(IOS / "HistoryView.swift")
+        self.assertIn("foregroundStyle(colorScheme == .dark ? Color.black : Color.white)", view)
+        self.assertIn(".background(OG.accent, in: Capsule())", view)
+        self.assertIn('accessibilityIdentifier("favorite-error-accept")', view)
+
     def test_store_clears_stale_access_denials(self):
         store = read(IOS / "ReperaStore.swift")
         for signature in (
