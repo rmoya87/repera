@@ -182,7 +182,7 @@ internal fun ActiveWorkoutCard(
         validDuration && (unit in if(active.repsMetersToggle) setOf("reps","meters") else if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
     ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
             Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
                 style = MaterialTheme.typography.titleMedium)
@@ -606,7 +606,7 @@ internal fun WodScoreCard(
 
     ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
@@ -1634,7 +1634,7 @@ internal fun WorkoutHistoryCard(
 @Composable
 internal fun CountCard(title: String, count: Int?, hasOverview: Boolean) {
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(count?.toString() ?: "—", style = MaterialTheme.typography.headlineLarge)
             if (!hasOverview) Text("No hay datos locales cargados")
@@ -1711,7 +1711,7 @@ internal fun BenchmarkWodPicker(
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(query) { dev.repera.domain.CatalogWods.search(query) }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(18.dp),
+        Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("WODs benchmark", style = MaterialTheme.typography.titleLarge)
             Text("Girls, Heroes y Opens del catálogo Repera, con bandas de puntuación de referencia.",

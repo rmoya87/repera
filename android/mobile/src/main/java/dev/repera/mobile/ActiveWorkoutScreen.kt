@@ -2,8 +2,11 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -31,8 +34,16 @@ internal fun ActiveWorkoutScreen(
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {
-            TextButton(onClick = onBack) { Text("Volver") }
-            ReperaPageHeader(title = "Entrenamiento activo", subtitle = workout.title.takeIf { it.isNotBlank() })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack, modifier = Modifier.testTag("active_workout_back")) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+                }
+                Spacer(Modifier.weight(1f))
+            }
+            ReperaPageHeader(
+                title = workout.title.ifBlank { "Entrenamiento activo" },
+                subtitle = if (workout.title.isNotBlank()) "Sesión en curso" else null
+            )
         }
         item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes,onSaveFavorite,onEditPlan,accountId)}
         item {

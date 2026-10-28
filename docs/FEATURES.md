@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (Android UI M3 3.er pase paridad pantallas; verde Repera; Play ownership)
+Última actualización: 2026-10-28 (Android UI M3 6.º pase Play chrome / Create hub / editores; verde Repera)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
