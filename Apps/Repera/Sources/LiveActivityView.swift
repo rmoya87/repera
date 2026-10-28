@@ -1808,19 +1808,20 @@ final class LiveActivityRecorder: NSObject {
                     ? "Ahora, \(naturalDirection)."
                     : "En unos \(meters) metros, \(naturalDirection)."
                 let didSpeak = speakNavigation(spokenTurn)
-                notifyDuringBackground(
-                    identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
-                    title: "Giro orientativo del GPX",
-                    body: upcomingTurn ?? next.instruction,
-                    fallbackWhenSpeechFailed: !didSpeak
-                )
+                // Los giros se notifican si la voz está desactivada o no pudo encolarse.
+                if !spokenGuidanceEnabled || !didSpeak {
+                    notifyDuringBackground(
+                        identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
+                        title: "Giro orientativo del GPX",
+                        body: upcomingTurn ?? next.instruction
+                    )
+                }
             }
         }
     }
 
     private func notifyDuringBackground(
-        identifier: String, title: String, body: String,
-        fallbackWhenSpeechFailed: Bool = false
+        identifier: String, title: String, body: String
     ) {
         // Notificación silenciosa visual en bloqueo, haya o no reproducción por voz.
         // Los ajustes de notificación/Concentración del sistema siguen mandando.

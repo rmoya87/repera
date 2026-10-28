@@ -522,3 +522,5 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 
 - Android aplica la misma sugerencia de títulos por localidad mediante Geocoder asíncrono y sin solicitar un permiso nuevo para titular.
 - Android atenúa otros reproductores con `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, publica avisos silenciosos por kilómetro y conserva el último parcial en su notificación permanente mientras se registra en segundo plano.
+
+- El rumbo no se inventa con una única muestra GPS o cuando el movimiento no supera el umbral fiable. Los tests Android cubren este caso y el rumbo hacia el este.

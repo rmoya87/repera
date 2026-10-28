@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 class LiveMapCameraTest {
     private val p=WorkoutRoutePoint(0,40.0,-3.0,0)
+    @Test fun stationaryFixHasNoInventedHeading() {
+        val stationary=p.copy(id=1,longitude=-2.999999,recordedAtEpochMs=5000)
+        assertNull(LiveMapCamera.measuredHeading(listOf(p,stationary)))
+        assertNull(LiveMapCamera.measuredHeading(listOf(p)))
+    }
+    @Test fun movingEastProvidesReliableHeading() {
+        val east=p.copy(id=1,longitude=-2.9999,recordedAtEpochMs=5000)
+        assertEquals(90.0,LiveMapCamera.measuredHeading(listOf(p,east))!!,0.2)
+    }
     @Test fun flatMapUsesExactMeasuredPositionNorthUp() {
         val t=LiveMapCamera.target(p,listOf(p),false)
         assertEquals(p.latitude,t.latitude,0.0);assertEquals(p.longitude,t.longitude,0.0)
