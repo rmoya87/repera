@@ -363,7 +363,8 @@ internal fun ProgressTab(
             }
             items(recent, key = { "progress:" + it.id }) { workout ->
                 WorkoutHistoryCard(workout, busy,
-                        onReviseFinishedSet, onDeleteFinishedSet)
+                        onReviseFinishedSet, onDeleteFinishedSet,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir")
             }
         } else {
             item { Text("Todavía no hay entrenamientos para analizar") }

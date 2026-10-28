@@ -20,7 +20,19 @@ internal fun HomeWeeklyProgressCard(days:List<WeeklyWorkoutDay>,goal:Int?,modifi
     Card(modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Progreso semanal",style=MaterialTheme.typography.titleMedium)
-            Text(if(goal!=null && goal>0) "$count de $goal entrenos" else if(trained==1) "1 día entrenado" else "$trained días entrenados")
+            // Paridad HomeView.streakSubtitle (main 153a90b0): días distintos
+            // con actividad / planificados, no suma bruta de sesiones.
+            val planned = days.count { it.planned }
+            Text(
+                when {
+                    goal != null && goal > 0 ->
+                        "$trained días con deporte · $goal objetivo · $count entrenos"
+                    planned > 0 ->
+                        "$trained días con deporte · $planned días planificados · $count entrenos"
+                    trained == 1 -> "1 día con deporte · $count entrenos"
+                    else -> "$trained días con deporte · $count entrenos"
+                }
+            )
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 days.forEach {day ->
                     val label=listOf("LU","MA","MI","JU","VI","SA","DO")[day.date.dayOfWeek.value-1]

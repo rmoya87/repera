@@ -114,8 +114,10 @@ internal fun ActiveWorkoutCard(
     onDiscard: () -> Unit = {},
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>, Double?, Boolean) -> Unit = { _, _, _, _, _ -> },
     onLogRestPauseSet: (List<Pair<Int, Int>>, Double?, Double?, Boolean) -> Unit = { _, _, _, _ -> },
-    effortUnit:String="rir"
+    effortUnit:String="rir",
+    weightUnit:String="kg"
 ) {
+    val weightLabel = WeightDisplay.label(weightUnit)
     var technique by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("normal")
     }
@@ -132,8 +134,9 @@ internal fun ActiveWorkoutCard(
     var quantity by remember(active.id, active.index, active.completedSets) {
         mutableStateOf(active.prescribedQuantity?.toString() ?: "")
     }
-    var weight by remember(active.id, active.index, active.completedSets) {
-        mutableStateOf(active.prescribedWeightKg?.toString() ?: "")
+    // Precarga en la unidad de presentación (kg/lb); storage sigue en kg.
+    var weight by remember(active.id, active.index, active.completedSets, weightUnit) {
+        mutableStateOf(WeightDisplay.fieldText(active.prescribedWeightKg, weightUnit))
     }
     var deficit by remember(active.id, active.index, active.completedSets) {
         mutableStateOf("")
@@ -174,10 +177,9 @@ internal fun ActiveWorkoutCard(
     var editingDuration by remember(active.id, active.index) { mutableStateOf("") }
     val parsedRir = rirText.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
     val parsedQuantity = quantity.toIntOrNull()
-    val parsedWeight = weight.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
+    val parsedWeight = WeightDisplay.parseToKg(weight, weightUnit)
     val valid = ((technique=="restpause" && !warmup && !active.durationInput && pendingClusters.isNotEmpty()) || (parsedQuantity != null && parsedQuantity >= 0)) &&
-        (!active.allowsWeight || weight.isBlank() ||
-            (parsedWeight != null && parsedWeight.isFinite() && parsedWeight >= 0)) &&
+        (!active.allowsWeight || weight.isBlank() || parsedWeight != null) &&
         (!active.allowsDeficit || deficit.isBlank() ||
             (deficit.toIntOrNull()?.let { it in 0..100 } == true)) &&
         (toFailure || warmup || rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
@@ -199,7 +201,7 @@ internal fun ActiveWorkoutCard(
                             "meters" -> "m"
                             else -> "reps"
                         } +
-                        (set.weightKg?.let { " · ${dev.repera.domain.ReperaNumberFormat.decimal(it)} kg" } ?: "") +
+                        WeightDisplay.suffix(set.weightKg, weightUnit) +
                         (set.deficitCm?.let { " · ${dev.repera.domain.ReperaNumberFormat.decimal(it.toDouble())} cm déficit" } ?: "") +
                         (if(set.toFailure) " · F" else "") +
                         (set.rir?.let { dev.repera.domain.Effort.label(it,effortUnit)?.let { l -> " · $l" } } ?: "") +
@@ -208,7 +210,7 @@ internal fun ActiveWorkoutCard(
                         TextButton(onClick = {
                             editingId = set.id
                             editingQuantity = set.reps.toString()
-                            editingWeight = set.weightKg?.toString() ?: ""
+                            editingWeight = WeightDisplay.fieldText(set.weightKg, weightUnit)
                             editingDeficit = set.deficitCm?.toString() ?: ""
                             editingUnit = set.unit
                             editingDuration = set.durationSeconds?.toString() ?: ""
@@ -229,21 +231,22 @@ internal fun ActiveWorkoutCard(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Pendiente ${active.sets.count { it.phase == "work" } + index + 1}: ${pending.reps} " +
                         when (active.quantityUnit) { "calories" -> "cal"; "meters" -> "m"; else -> "reps" } +
-                        (pending.weightKg?.let { " · $it kg" } ?: ""),
+                        WeightDisplay.suffix(pending.weightKg, weightUnit),
                         style = MaterialTheme.typography.bodyMedium)
                     Row {
                         TextButton(onClick = { editingPendingId = if (editingPendingId == pending.id) null else pending.id
-                            pendingReps = pending.reps.toString(); pendingWeight = pending.weightKg?.toString() ?: "" }, enabled = !busy) { Text("Editar") }
+                            pendingReps = pending.reps.toString()
+                            pendingWeight = WeightDisplay.fieldText(pending.weightKg, weightUnit) }, enabled = !busy) { Text("Editar") }
                         TextButton(onClick = { removePending(pending.id) }, enabled = !busy) { Text("Quitar serie") }
                     }
                 }
                 if (editingPendingId == pending.id) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(pendingReps, { pendingReps = it.filter(Char::isDigit) }, label = { Text("Reps") }, singleLine = true, modifier = Modifier.weight(1f))
-                        if (active.allowsWeight) OutlinedTextField(pendingWeight, { pendingWeight = it }, label = { Text("kg") }, singleLine = true, modifier = Modifier.weight(1f))
+                        if (active.allowsWeight) OutlinedTextField(pendingWeight, { pendingWeight = it }, label = { Text(weightLabel) }, singleLine = true, modifier = Modifier.weight(1f))
                     }
-                    val kg = pendingWeight.trim().takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
-                    val okKg = pendingWeight.isBlank() || (kg != null && kg.isFinite() && kg >= 0)
+                    val kg = WeightDisplay.parseToKg(pendingWeight, weightUnit)
+                    val okKg = pendingWeight.isBlank() || kg != null
                     TextButton(enabled = !busy && okKg && pendingReps.toIntOrNull() != null, onClick = {
                         editPendingSet(pending.id, pendingReps.toInt(), kg); editingPendingId = null }) { Text("Guardar serie pendiente") }
                 }
@@ -262,7 +265,7 @@ internal fun ActiveWorkoutCard(
                     OutlinedTextField(
                         value = editingWeight,
                         onValueChange = { editingWeight = it },
-                        label = { Text("Corregir peso (kg)") },
+                        label = { Text("Corregir peso ($weightLabel)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -289,15 +292,13 @@ internal fun ActiveWorkoutCard(
                         modifier = Modifier.fillMaxWidth())
                 }
                 val parsedEdit = editingQuantity.toIntOrNull()
-                val editWeight = editingWeight.trim()
-                    .takeIf { it.isNotBlank() }?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
+                val editWeight = WeightDisplay.parseToKg(editingWeight, weightUnit)
                 val editValid = parsedEdit != null &&
                     (!active.allowsDeficit || editingDeficit.isBlank() ||
                         editingDeficit.toIntOrNull()?.let { it in 0..100 } == true) &&
                     (!active.durationInput || editingDuration.isBlank() ||
                         editingDuration.toIntOrNull()?.let { it in 1..86400 } == true) &&
-                    (!active.allowsWeight || editingWeight.isBlank() ||
-                        (editWeight != null && editWeight.isFinite() && editWeight >= 0))
+                    (!active.allowsWeight || editingWeight.isBlank() || editWeight != null)
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     TextButton(onClick = { editingId = null }, enabled = !busy) {
@@ -375,7 +376,7 @@ internal fun ActiveWorkoutCard(
                 OutlinedTextField(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = { Text("Peso (kg)") },
+                    label = { Text("Peso ($weightLabel)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -383,7 +384,12 @@ internal fun ActiveWorkoutCard(
             if (!active.durationInput && !warmup && !toFailure) OutlinedTextField(
                 value = rirText,
                 onValueChange = { rirText = it },
-                label = { Text(if(effortUnit=="rpe") "RPE opcional (0–10)" else "RIR opcional (repeticiones en reserva)") },
+                label = {
+                    Text(
+                        if (effortUnit == "rpe") "RPE opcional (0–10)"
+                        else "${dev.repera.domain.Effort.displayName(effortUnit)} opcional (repeticiones en reserva)"
+                    )
+                },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -412,7 +418,7 @@ internal fun ActiveWorkoutCard(
                     OutlinedTextField(
                         value = dropsText,
                         onValueChange = { dropsText = it.take(80) },
-                        label = { Text("Caídas: reps x kg (p. ej. 8x45, 6x40)") },
+                        label = { Text("Caídas: reps x $weightLabel (p. ej. 8x45, 6x40)") },
                         singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (technique == "restpause") {
@@ -429,9 +435,9 @@ internal fun ActiveWorkoutCard(
                     val parts = piece.split('x', '×')
                     val reps = parts.getOrNull(0)?.trim()?.toIntOrNull()
                         ?: return@mapNotNull null
-                    val weight = parts.getOrNull(1)?.trim()
-                        ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
-                    reps to weight
+                    val dropWeight = parts.getOrNull(1)?.trim()
+                        ?.let { WeightDisplay.parseToKg(it, weightUnit) }
+                    reps to dropWeight
                 }
             val parsedClusters = if (technique != "restpause") emptyList() else pendingClusters
             val effectiveTechnique = if(warmup || active.durationInput) "normal" else technique
@@ -1381,7 +1387,8 @@ internal fun WorkoutHistoryCard(
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
      *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
-    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() }
+    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
+    effortUnit: String = "rir"
 ) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1601,6 +1608,7 @@ internal fun WorkoutHistoryCard(
                     accountId = accountId,
                     busy = busy,
                     exerciseCatalog = exerciseCatalog,
+                    effortUnit = effortUnit,
                     onSave = { onUpdateFinishedWorkout(workout.id, it) })
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(
@@ -1925,7 +1933,11 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
 
 /** Guía de carga (port 1:1 del body de ExerciseLoadGuideCard iOS). */
 @Composable
-internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
+internal fun LoadGuideSection(
+    guide: LoadGuide,
+    effortUnit: String = "rir",
+    onApply: (Double) -> Unit
+) {
     val last = guide.lastSession
     if (last == null && guide.suggestedKg == null) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1934,7 +1946,8 @@ internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
                 color = MaterialTheme.colorScheme.primary)
             Column {
                 Text("Sin historial aún", style = MaterialTheme.typography.titleSmall)
-                Text("Tras la primera vez verás aquí pesos y una sugerencia para tu RIR.",
+                Text("Tras la primera vez verás aquí pesos y una sugerencia para tu " +
+                        dev.repera.domain.Effort.displayName(effortUnit) + ".",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1996,7 +2009,7 @@ internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
                     Text(loadGuideKgLabel(guide.suggestedKg) + " kg",
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.primary)
-                    Text(loadGuideCaption(guide),
+                    Text(loadGuideCaption(guide, effortUnit),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -2024,10 +2037,11 @@ internal fun loadGuideKgLabel(kg: Double): String =
 internal fun loadGuideG(v: Double): String =
     dev.repera.domain.ReperaNumberFormat.decimal(v)
 
-internal fun loadGuideCaption(guide: LoadGuide): String {
-    val rir = "RIR " + loadGuideG(guide.effectiveRir) +
+internal fun loadGuideCaption(guide: LoadGuide, effortUnit: String = "rir"): String {
+    val effort = (dev.repera.domain.Effort.label(guide.effectiveRir, effortUnit)
+        ?: (dev.repera.domain.Effort.displayName(effortUnit) + " " + loadGuideG(guide.effectiveRir))) +
         (if (guide.assumedRir) " (asumido)" else "")
-    return "${guide.targetReps} reps · $rir · ${guide.suggestionSource}"
+    return "${guide.targetReps} reps · $effort · ${guide.suggestionSource}"
 }
 
 /** Línea de serie (misma forma que SetSummaryLine.displayLine). */

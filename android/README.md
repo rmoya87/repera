@@ -1,12 +1,15 @@
 # Repera Android y Wear OS (trabajo en curso)
 
+**Última actualización:** 2026-10-28 — RIR/RPE editores/Wear, voz km, Eliminar mi cuenta, HC distancia, docs Ramón billing (base: sync kg/lb, timerDetails, racha, badge Google).
+
 Implementación nativa independiente en `android/`:
 
 - `mobile`: Kotlin + Jetpack Compose / Material 3, Credential Manager Google,
   Google Drive appDataFolder, historial local, importación/exportación JSON y ejecución de
-  rutinas de fuerza y WOD global o por movimiento, cronómetro local persistente,
-  programación por fecha/semana y persistencia compatible con `AppState` Swift.
-- `domain`: reloj, captura de resultado WOD, prescripción y resolución de conflictos.
+  rutinas de fuerza y WOD global o por movimiento, temporizador libre con guardado en historial
+  (`timerDetails`), programación por fecha/semana y persistencia compatible con `AppState` Swift.
+- `domain`: reloj, `WeightUnit`, `TimerCompletionDetails`, WOD, CSV Hevy/Strong (incl. libras),
+  resolución de conflictos.
 - `wear`: Compose for Wear OS Material 3, sesión desde Data Layer y registro de series de fuerza
   con cola offline y confirmaciones; faltan reconciliación automática sin abrir el móvil,
   ejecución completa de WOD y Health Services.

@@ -47,7 +47,9 @@ internal data class WearHomeState(
     val pendingCount: Int,
     val confirmDiscardPending: Boolean,
     val sendStatus: String?,
-    val warmup:Boolean=false,val toFailure:Boolean=false
+    val warmup:Boolean=false,val toFailure:Boolean=false,
+    val effortUnit: String = "rir",
+    val weightUnit: String = "kg"
 )
 
 internal class WearHomeCallbacks(
@@ -214,8 +216,10 @@ internal fun WearHomeContent(
                     style = MaterialTheme.typography.labelSmall) }
                 if (session.prescribedReps != null) {
                     item { Text("${session.prescribedReps} ${when(session.quantityUnit) { "meters" -> "m"; "calories" -> "cal"; else -> "reps" }}" +
-                        (session.prescribedWeightKg?.let { " · $it kg" }
-                            ?: session.prescribedDeficitCm?.let { " · $it cm" } ?: ""),
+                        (session.prescribedWeightKg?.let {
+                            val unit = dev.repera.domain.WeightUnit.fromWire(state.weightUnit)
+                            " · ${ReperaNumberFormat.decimal(unit.displayValue(it))} ${unit.label}"
+                        } ?: session.prescribedDeficitCm?.let { " · $it cm" } ?: ""),
                         style = MaterialTheme.typography.titleLarge) }
                 }
                 item { Text("${session.recordedSets} series registradas",
@@ -263,7 +267,12 @@ internal fun WearHomeContent(
                                 verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = { callbacks.onWeightDelta(-0.1) }) {
                                     Text("−") }
-                                Text("${ReperaNumberFormat.decimal(state.weightInput ?: 0.0)} kg",
+                                Text(
+                                    run {
+                                        val unit = dev.repera.domain.WeightUnit.fromWire(state.weightUnit)
+                                        val kg = state.weightInput ?: 0.0
+                                        "${ReperaNumberFormat.decimal(unit.displayValue(kg))} ${unit.label}"
+                                    },
                                     style = MaterialTheme.typography.titleMedium)
                                 IconButton(onClick = { callbacks.onWeightDelta(0.1) }) {
                                     Text("+") }
@@ -277,7 +286,10 @@ internal fun WearHomeContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { callbacks.onRirMinus() }) { Text("−") }
-                            Text(state.rirInput?.let { "RIR ${ReperaNumberFormat.decimal(it)}" } ?: "RIR —",
+                            Text(state.rirInput?.let {
+                                dev.repera.domain.Effort.label(it, state.effortUnit)
+                                    ?: "${dev.repera.domain.Effort.displayName(state.effortUnit)} ${ReperaNumberFormat.decimal(it)}"
+                            } ?: "${dev.repera.domain.Effort.displayName(state.effortUnit)} —",
                                 style = MaterialTheme.typography.titleMedium)
                             IconButton(onClick = { callbacks.onRirPlus() }) { Text("+") }
                         }
@@ -285,7 +297,8 @@ internal fun WearHomeContent(
                     item {
                         TextButton(onClick = { callbacks.onRirClear() },
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("Sin RIR", style = MaterialTheme.typography.labelSmall)
+                            Text("Sin ${dev.repera.domain.Effort.displayName(state.effortUnit)}",
+                                style = MaterialTheme.typography.labelSmall)
                         }
                     }
                             item {TextButton(onClick={callbacks.onToggleFailure()}) {Text(if(state.toFailure) "Al fallo ✓" else "Al fallo: no")}}

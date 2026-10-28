@@ -22,13 +22,19 @@ class SyncStatusStore(context: Context) {
     }
 
     fun markSynced(outcome: DriveSnapshotService.Outcome) = write(
-        State.SYNCED,
+        when (outcome) {
+            DriveSnapshotService.Outcome.Conflict,
+            DriveSnapshotService.Outcome.PreconditionFailed -> State.FAILED
+            else -> State.SYNCED
+        },
         when (outcome) {
             DriveSnapshotService.Outcome.Empty -> "Drive aún no tiene datos"
             DriveSnapshotService.Outcome.Unchanged -> "Datos actualizados"
             DriveSnapshotService.Outcome.Uploaded -> "Copia subida a Drive"
             DriveSnapshotService.Outcome.Downloaded -> "Datos recuperados de Drive"
             DriveSnapshotService.Outcome.Conflict -> "Copias distintas: revisión manual pendiente"
+            DriveSnapshotService.Outcome.PreconditionFailed ->
+                "Drive cambió en otro dispositivo: vuelve a sincronizar"
         }
     )
 

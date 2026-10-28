@@ -104,6 +104,40 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
 
     /** Actividad En vivo confirmada desde revisión, sin ejercicios ficticios
      * ni escritura de Salud. UUID idempotente evita duplicar tras reintento. */
+    /**
+     * Registra un temporizador libre terminado en el historial local.
+     * Paridad StandaloneTimerView.saveCompletedTimer (iOS): no escribe Salud
+     * ni inventa kcal/FC; idempotente por id estable del resumen pendiente.
+     */
+    @Synchronized fun saveTimerSession(
+        id: String,
+        title: String,
+        startedAtMillis: Long,
+        finishedAtMillis: Long,
+        details: dev.repera.domain.TimerCompletionDetails
+    ): String {
+        require(id.isNotBlank())
+        require(finishedAtMillis >= startedAtMillis)
+        val state = loadOrNull() ?: error("Inicializa el almacenamiento local antes de guardar.")
+        val archive = state.getJSONArray("workouts")
+        if ((0 until archive.length()).any { archive.getJSONObject(it).optString("id") == id }) {
+            return id
+        }
+        val started = Instant.ofEpochMilli(startedAtMillis).toString()
+        val finished = Instant.ofEpochMilli(maxOf(finishedAtMillis, startedAtMillis + 1000)).toString()
+        archive.put(JSONObject()
+            .put("id", id)
+            .put("title", title.trim().ifBlank { "Temporizador · ${details.modeTitle}" })
+            .put("phase", "finished")
+            .put("startedAt", started)
+            .put("finishedAt", finished)
+            .put("exercises", JSONArray())
+            .put("wodResults", JSONArray())
+            .put("timerDetails", details.toJson()))
+        save(state)
+        return id
+    }
+
     @Synchronized fun saveLiveActivity(snapshot: dev.repera.domain.LiveActivityState.Snapshot,
         finishedMillis: Long, activeSeconds: Double, title: String, notes: String): String {
         require(snapshot.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW)

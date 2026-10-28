@@ -29,6 +29,8 @@ enum class ReperaFeature(val wire: String) {
 /** Límites cuantitativos del plan gratuito (única fuente de verdad numérica). */
 object FreePlanLimits {
     const val MAX_LIBRARY_ROUTINES = 3
+    /** Favoritos de entrenamiento o actividad (paridad iOS 2026-10). */
+    const val MAX_FAVORITE_ITEMS = 3
     const val MAX_CUSTOM_EXERCISES = 5
     const val MAX_BOARD_SCANS_PER_MONTH = 4
 }

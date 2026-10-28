@@ -31,7 +31,8 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   rows.groupBy {Instant.ofEpochMilli(it.millis).atZone(ZoneId.systemDefault()).toLocalDate()}.forEach {(day,entries) ->
    item(key="day-$day") {Text(day.format(reperaDayFormatter),style=MaterialTheme.typography.titleMedium)}
    entries.forEach {row ->item(key=row.id) {
-    row.local?.let {WorkoutHistoryCard(it,busy,onRevise,onDeleteSet,onDelete,onOpenExercise,accountId,overview?.exerciseEntries.orEmpty(),onUpdate,heartSeries)}
+    row.local?.let {WorkoutHistoryCard(it,busy,onRevise,onDeleteSet,onDelete,onOpenExercise,accountId,overview?.exerciseEntries.orEmpty(),onUpdate,heartSeries,
+        effortUnit=overview?.trainingSettings?.effortUnit ?: "rir")}
     row.external?.let {entry ->Card(Modifier.fillMaxWidth()) {TextButton(onClick={external=entry}) {Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
      ExternalHealthActivityIcon(entry.exerciseTypeKey)
      Column {Text(entry.title);Text("Health Connect · ${entry.minutes.toInt()} min")}

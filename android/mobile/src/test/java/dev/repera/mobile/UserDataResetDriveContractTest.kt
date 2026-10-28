@@ -21,10 +21,14 @@ class UserDataResetDriveContractTest {
         var patches = 0
         override fun intercept(chain: Interceptor.Chain): Response {
             val req = chain.request(); val url = req.url.toString()
-            fun ok(b: ByteArray) = Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
-                .body(b.toResponseBody("application/json".toMediaType())).build()
+            fun ok(b: ByteArray, withEtag: Boolean = false): Response {
+                val builder = Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                    .body(b.toResponseBody("application/json".toMediaType()))
+                if (withEtag) builder.header("ETag", "\"etag-rev1\"")
+                return builder.build()
+            }
             return when {
-                req.method == "GET" && url.contains("alt=media") -> ok(bytes!!)
+                req.method == "GET" && url.contains("alt=media") -> ok(bytes!!, withEtag = true)
                 req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else """{"files":[{"id":"f1","name":"app_state.json"}]}""").toByteArray())
                 req.method == "PATCH" -> {
                     patches++

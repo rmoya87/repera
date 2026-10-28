@@ -35,6 +35,8 @@ import dev.repera.mobile.monetization.FreeUsageStore
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.monetization.PaywallMode
 import dev.repera.mobile.monetization.PaywallScreen
+import dev.repera.mobile.monetization.PlayBillingEntitlementProvider
+import dev.repera.mobile.monetization.PlayPurchaseVerifyClient
 import dev.repera.mobile.monetization.SubscriptionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -109,10 +111,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     ) { grants ->
         if (grants.values.any { it }) beginLocationCapture()
     }
-    /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS. */
+    /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS.
+     * Play Billing detecta compras; Pro solo tras verify Edge Function. */
     private val subscriptions by lazy {
         SubscriptionManager(
-            freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization"))
+            provider = PlayBillingEntitlementProvider(this) { this },
+            freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization")),
+            verifyClient = PlayPurchaseVerifyClient(),
+            accessTokenProvider = { verifiedSupabase?.accessToken }
         )
     }
     /** Durable A-B-A identity guard for asynchronous account work. */
@@ -875,7 +881,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     if(!fav || activeWorkout?.draftRequestId==requestId || permitNewTemplate()) runWorkoutAction(onSuccess = { beginLocationCapture();saved() }) {
                         startSessionFromDrafts(title, drafts, fav,
                             subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed,requestId=requestId,
-                            canSaveFavorite={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) { before ->
+                            canSaveFavorite={count ->subscriptions.policy.copy(favoriteCount=count).canCreateFavorite(true).allowed}) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
@@ -1087,6 +1093,34 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onLiveActivitySaved = {
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
                 },
+                onSaveTimerSession = { completion ->
+                    val account = profile?.uniqueId ?: return@ReperaMobileScreen false
+                    val details = dev.repera.domain.TimerCompletionDetails(
+                        modeRaw = completion.config.mode.wire,
+                        configuredSeconds = completion.configuredSeconds.coerceAtLeast(1),
+                        rounds = if (completion.config.mode == StandaloneTimerMode.INTERVALS)
+                            completion.config.rounds.coerceAtLeast(1) else 1,
+                        workSeconds = completion.config.workTotalSeconds,
+                        restSeconds = completion.config.restTotalSeconds,
+                        countdownSeconds = if (completion.config.countdownBeforeStart) 3 else 0
+                    )
+                    val ok = runCatching {
+                        WorkoutRepository(this@MainActivity, account).saveTimerSession(
+                            id = completion.id,
+                            title = "Temporizador · ${completion.config.mode.title}",
+                            startedAtMillis = completion.startedAtMillis,
+                            finishedAtMillis = completion.finishedAtMillis,
+                            details = details
+                        )
+                        true
+                    }.getOrDefault(false)
+                    if (ok) {
+                        lifecycleScope.launch { reloadFor(account) }
+                        DriveSyncWorker.syncNow(this@MainActivity)
+                        if (verifiedSupabase != null) syncWorkoutMirror()
+                    }
+                    ok
+                },
                 onUpdateFinishedWorkout = { workoutId, edit ->
                   // Como Apple: con Favorito, si la cuota de rutinas no deja, paywall y NO se aplica nada.
                   if (edit.saveAsFavorite && !subscriptions.canCreateLibraryRoutine(isNew = true).allowed) {
@@ -1096,7 +1130,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                   } else
                     runWorkoutAction {
                         updateFinishedWorkout(workoutId, edit,
-                            canSaveFavorite={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) { before ->
+                            canSaveFavorite={count ->subscriptions.policy.copy(favoriteCount=count).canCreateFavorite(true).allowed}) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
@@ -1116,7 +1150,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onExportJson = { exportJson.launch("repera-entrenamientos.json") },
                 onGoogleSignIn = ::signInWithGoogle,
                 onDriveSync = ::authorizeDrive,
-                onSignOut = ::signOut
+                onSignOut = ::signOut,
+                onDeleteAccount = ::deleteCurrentAccount,
+                deletingAccount = deletingAccount,
+                accountDeleteError = accountDeleteError,
+                onDismissAccountDeleteError = { accountDeleteError = null }
             )
             // Hoja post-entreno (SessionReviewSheet iOS): se presenta una vez
             // al terminar una sesión con valoración verificable.
@@ -1768,6 +1806,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     DriveSnapshotService.Outcome.Downloaded -> "Datos recuperados de Google Drive"
                     DriveSnapshotService.Outcome.Conflict ->
                         "Copias distintas: no se han sobrescrito los datos"
+                    DriveSnapshotService.Outcome.PreconditionFailed ->
+                        "Drive cambió en otro dispositivo: vuelve a sincronizar"
                 }
             } catch (error: Exception) {
                 if(current()) status = "Sincronización incompleta: " + error.localizedMessage
@@ -1859,7 +1899,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         overview?.let {
             subscriptions.syncCounts(
                 libraryRoutines = it.libraryRoutineCount,
-                customExercises = it.exerciseEntries.count { e -> e.isCustom }
+                customExercises = it.exerciseEntries.count { e -> e.isCustom },
+                favorites = it.routineEntries.count { r -> r.isFavorite }
             )
         }
         activeWorkout = active
@@ -2045,8 +2086,99 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    private var deletingAccount by mutableStateOf(false)
+    private var accountDeleteError by mutableStateOf<String?>(null)
+
+    /**
+     * Paridad iOS `deleteCurrentAccount`: preflight → purge local/Drive →
+     * delete Edge → vaciar UI. El JWT personal identifica al usuario; nunca
+     * se envía un UUID aportado por la app.
+     */
+    private fun deleteCurrentAccount() {
+        if (busy || deletingAccount) return
+        val signedIn = profile ?: return
+        val session = verifiedSupabase
+        if (session == null || session.accessToken.isBlank()) {
+            accountDeleteError =
+                "Necesitas iniciar sesión y tener conexión para eliminar la cuenta."
+            return
+        }
+        deletingAccount = true
+        busy = true
+        accountDeleteError = null
+        lifecycleScope.launch {
+            val owner = signedIn.uniqueId
+            val deletedOwnerId = session.userId
+            val store = LocalSnapshotStore(this@MainActivity, owner)
+            val backup = withContext(Dispatchers.IO) { store.read() }
+            try {
+                withContext(Dispatchers.IO) {
+                    val state = backup?.let { org.json.JSONObject(String(it, Charsets.UTF_8)) }
+                    AccountDeletionCoordinator.assertNoActiveSession(state)
+                }
+                val client = AccountDeletionClient()
+                client.request("preflight", session.accessToken)
+                // Best-effort Drive trash (no bloquea si falla el consentimiento).
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val builder = AuthorizationRequest.builder()
+                            .setRequestedScopes(
+                                listOf(Scope("https://www.googleapis.com/auth/drive.appdata"))
+                            )
+                        if (signedIn.email.isNotBlank()) {
+                            builder.setAccount(Account(signedIn.email, "com.google"))
+                        }
+                        val auth = com.google.android.gms.tasks.Tasks.await(
+                            Identity.getAuthorizationClient(this@MainActivity)
+                                .authorize(builder.build())
+                        )
+                        val token = auth.accessToken
+                        if (!token.isNullOrBlank() && !auth.hasResolution()) {
+                            DriveSnapshotService(token, store).trashAppDataSnapshot()
+                        }
+                    }
+                }
+                withContext(Dispatchers.IO) {
+                    store.write(
+                        AccountDeletionCoordinator.emptyShellState()
+                            .toString().toByteArray(Charsets.UTF_8)
+                    )
+                }
+                try {
+                    client.request("delete", session.accessToken)
+                } catch (error: Exception) {
+                    withContext(Dispatchers.IO) {
+                        if (backup != null) store.write(backup)
+                    }
+                    throw error
+                }
+                AccountDeletionCoordinator.clearAccountPreferences(
+                    this@MainActivity, deletedOwnerId
+                )
+                withContext(Dispatchers.IO) {
+                    AccountDeletionCoordinator.wipeLocalUserFolder(
+                        this@MainActivity, owner
+                    )
+                }
+                // Mantener deletingAccount=true hasta que signOut() lo limpie
+                // en finally: si no, `if (busy && !deletingAccount) return`
+                // aborta el cierre de sesión con busy aún true.
+                signOut()
+            } catch (error: AccountDeletionClient.AccountDeletionException) {
+                accountDeleteError = error.message
+                deletingAccount = false
+                busy = false
+            } catch (error: Exception) {
+                accountDeleteError =
+                    "No se ha completado la eliminación. Comprueba que tengas conexión y vuelve a intentarlo."
+                deletingAccount = false
+                busy = false
+            }
+        }
+    }
+
     private fun signOut() {
-        if (busy) return
+        if (busy && !deletingAccount) return
         busy = true
         lifecycleScope.launch {
             try {
@@ -2076,6 +2208,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 WodTimerService.sync(this@MainActivity, null, null, null)
                 todayHealth = null
                 status = null
+                deletingAccount = false
                 // Cerrar sesión no es crear una cuenta nueva: volver al paso
                 // de login SIN olvidar permisos/precios ya vistos (port iOS).
                 onboarding.resetToSignIn()
@@ -2261,11 +2394,13 @@ data class StateOverview(
                         activeDurationSeconds = session.optDouble("activeDurationSeconds",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         recordedDistanceMeters = session.optDouble("recordedDistanceMeters",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         routineId = session.optString("routineId").takeIf { it.isNotBlank() && it != "null" },
+                        timerDetails = dev.repera.domain.TimerCompletionDetails.fromSession(session),
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
                         }.orEmpty(),
                         editableBlocksJson = runCatching {
-                            CompletedWorkoutEditing.blocksFrom(session, null).toString()
+                            if (dev.repera.domain.TimerCompletionDetails.fromSession(session) != null) null
+                            else CompletedWorkoutEditing.blocksFrom(session, null).toString()
                         }.getOrNull(),
                         scoreSessionJson = runCatching {
                             val slim = org.json.JSONObject().put("wodResults", session.optJSONArray("wodResults") ?: org.json.JSONArray())
@@ -2679,7 +2814,9 @@ data class WorkoutHistoryEntry(
     val liveSportID: String? = null,
     val activeDurationSeconds: Double? = null,
     val recordedDistanceMeters: Double? = null,
-    val routineId: String? = null
+    val routineId: String? = null,
+    /** Temporizador libre: no es editable como fuerza/WOD ni aporta Salud. */
+    val timerDetails: dev.repera.domain.TimerCompletionDetails? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,

@@ -70,6 +70,7 @@ internal fun HomeTab(
     status: String?,
     overview: StateOverview?,
     todayHealth: TodayHealth?,
+    healthAccess: HealthAccessState = HealthAccessState.UNKNOWN,
     onHealthConnect: () -> Unit,
     activeWorkout: ActiveWorkout?,
     wodTimer: WodTimerState?,
@@ -244,21 +245,36 @@ internal fun HomeTab(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text("Actividad · ${selectedDay.format(reperaDayFormatter)}", style = MaterialTheme.typography.titleMedium)
-                    Text("Pasos: " + (dayHealth?.steps?.toString() ?: "—"))
+                    val healthPlaceholder = when (healthAccess) {
+                        HealthAccessState.NOT_GRANTED -> "Conecta Salud"
+                        HealthAccessState.UNAVAILABLE -> "Salud no disponible"
+                        HealthAccessState.GRANTED -> "Sin datos"
+                        HealthAccessState.UNKNOWN -> "—"
+                    }
+                    Text("Pasos: " + (dayHealth?.steps?.toString() ?: healthPlaceholder))
                     val energy=dayHealth?.activeKcal ?: overview?.dayEnergyKcal?.get(selectedDay)
-                    Text("Energía activa: " + (energy?.let {"${it.toInt()} kcal"} ?: "—"))
+                    Text("Energía activa: " + (energy?.let {"${it.toInt()} kcal"} ?: healthPlaceholder))
                     val minutes=overview?.dayWorkoutMinutes?.get(selectedDay)
                     Text("Tiempo de entreno: " + (minutes?.let {"${it.toInt()} min"} ?: "—"))
                     overview?.healthGoals?.let { goals ->
-                        goals.steps?.let {target -> Text("Objetivo pasos: ${dayHealth?.steps?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"}")}
-                        goals.energyKcal?.let {target -> Text("Objetivo energía: ${energy?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"}")}
+                        goals.steps?.let {target -> Text("Objetivo pasos: ${dayHealth?.steps?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"} ?: "$healthPlaceholder / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"}")}
+                        goals.energyKcal?.let {target -> Text("Objetivo energía: ${energy?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"} ?: "$healthPlaceholder / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"}")}
                         goals.minutes?.let {target -> Text("Objetivo tiempo: ${minutes?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} min"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)} min"}")}
                         goals.weeklyWorkouts?.let {target -> Text("Objetivo semanal: $selectedWeekCount / $target entrenamientos")}
                     }
                     TextButton(
                         enabled = !busy,
                         onClick = onHealthConnect
-                    ) { Text("Conectar o actualizar Salud") }
+                    ) {
+                        Text(
+                            when (healthAccess) {
+                                HealthAccessState.GRANTED -> "Actualizar Salud"
+                                HealthAccessState.NOT_GRANTED -> "Conectar Salud"
+                                HealthAccessState.UNAVAILABLE -> "Salud no disponible en este dispositivo"
+                                HealthAccessState.UNKNOWN -> "Conectar o actualizar Salud"
+                            }
+                        )
+                    }
                 }
             }
             }
@@ -306,6 +322,7 @@ internal fun HomeTab(
                     } else {
                         ActiveWorkoutCard(
                             effortUnit=overview?.trainingSettings?.effortUnit ?: "rir",
+                            weightUnit=overview?.trainingSettings?.weightUnit ?: "kg",
                             active = activeWorkout,
                             busy = busy,
                             onLogSet = onLogSet,
@@ -354,7 +371,8 @@ internal fun HomeTab(
                         onReviseFinishedSet, onDeleteFinishedSet,
                         onDeleteWorkout, onOpenExerciseFromSession,
                         accountId, overview?.exerciseEntries.orEmpty(), onUpdateFinishedWorkout,
-                        heartSeriesProvider)
+                        heartSeriesProvider,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir")
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {

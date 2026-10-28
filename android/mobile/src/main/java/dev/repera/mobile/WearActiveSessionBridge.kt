@@ -33,6 +33,9 @@ object WearActiveSessionBridge {
             }
             best?.takeIf { bestMillis >= cutoff.toEpochMilli() }
         } else null
+        val settings = json?.optJSONObject("settings")
+        val effortUnit = settings?.optString("effortUnit")?.takeIf { it in setOf("rir", "rpe") } ?: "rir"
+        val weightUnit = settings?.optString("weightUnit")?.takeIf { it in setOf("kg", "lb") } ?: "kg"
         val request = PutDataMapRequest.create("/repera/active-session").apply {
             dataMap.putByteArray(
                 "session", activeSession?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf()
@@ -40,6 +43,8 @@ object WearActiveSessionBridge {
             dataMap.putByteArray(
                 "finished", finished?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf()
             )
+            dataMap.putString("effortUnit", effortUnit)
+            dataMap.putString("weightUnit", weightUnit)
             dataMap.putBoolean("signedOut", signedOut)
             dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()

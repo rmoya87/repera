@@ -4,6 +4,9 @@ package dev.repera.domain
 object Effort {
     const val hardRIR: Double = 2.0
 
+    /** Nombre corto de la unidad de esfuerzo (EffortUnit.displayName en Apple). */
+    fun displayName(unit: String): String = if (unit == "rpe") "RPE" else "RIR"
+
     fun toRIR(value: Double, unit: String): Double = when (unit) {
         "rpe" -> maxOf(0.0, 10.0 - value)
         else -> value
@@ -19,8 +22,7 @@ object Effort {
     fun label(rir: Double?, unit: String): String? {
         if (rir == null) return null
         val display = fromRIR(rir, unit)
-        val prefix = if (unit == "rpe") "RPE" else "RIR"
-        return prefix + " " + ReperaNumberFormat.decimal(display)
+        return displayName(unit) + " " + ReperaNumberFormat.decimal(display)
     }
 
     fun isHard(rir: Double?): Boolean = rir != null && rir <= hardRIR

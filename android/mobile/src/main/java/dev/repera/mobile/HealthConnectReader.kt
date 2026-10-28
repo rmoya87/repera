@@ -155,7 +155,11 @@ class HealthConnectReader(private val context: Context) {
         val historyPermission=historyPermissionsIfAvailable(available() && runCatching {
             HealthConnectClient.getOrCreate(context).features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY)==HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
         }.getOrDefault(false))
-        return permissions + optionalVitalPermissions + skinPermission + historyPermission + (if(settings.sleepEnabled()) setOf(HealthPermission.getReadPermission(SleepSessionRecord::class)) else emptySet()) +
+        // Distancia opcional (Apple workoutMovementMetrics): se pide junto al
+        // resto; denegarla no rompe lectura de pasos/kcal ni escritura de sesión.
+        return permissions + optionalVitalPermissions + optionalMovementPermissions +
+            skinPermission + historyPermission +
+            (if(settings.sleepEnabled()) setOf(HealthPermission.getReadPermission(SleepSessionRecord::class)) else emptySet()) +
             (if(settings.cycleEnabled()) setOf(HealthPermission.getReadPermission(MenstruationFlowRecord::class),HealthPermission.getReadPermission(MenstruationPeriodRecord::class),HealthPermission.getReadPermission(OvulationTestRecord::class)) else emptySet())
     }
 

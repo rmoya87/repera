@@ -22,6 +22,7 @@ internal fun ActiveWorkoutScreen(
     pin:dev.repera.domain.WorkoutLocationPin?,accountId:String,
     onPinChange:(dev.repera.domain.WorkoutLocationPin?)->Unit,
     effortUnit:String="rir",
+    weightUnit:String="kg",
     onSelectExercise:(Int)->Unit = {},
     onUpdateNotes:(String)->Unit = {},
     onSaveFavorite:()->Unit = {},
@@ -38,7 +39,7 @@ internal fun ActiveWorkoutScreen(
                 onMovement=onWodMovement,onCompleteBlock=onCompleteWodBlock,
                 onReviseMovement=onReviseWodMovement,onDeleteMovement=onDeleteWodMovement,
                 onFinish=onFinish,onDiscard=onDiscard,onOpenClock=onOpenClock)
-            else ActiveWorkoutCard(effortUnit=effortUnit,active=workout,busy=busy,onLogSet=onLogSet,
+            else ActiveWorkoutCard(effortUnit=effortUnit,weightUnit=weightUnit,active=workout,busy=busy,onLogSet=onLogSet,
                 onLogDropSet=onLogDropSet,onLogRestPauseSet=onLogRestPauseSet,
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
                 onFinish=onFinish,onDiscard=onDiscard)

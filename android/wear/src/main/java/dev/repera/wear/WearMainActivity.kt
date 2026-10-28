@@ -54,6 +54,11 @@ import dev.repera.domain.ResultCapture
 class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     SensorEventListener,
     MessageClient.OnMessageReceivedListener {
+    companion object {
+        /** Plan del día en caché: se invalida tras 18 h (día atlética + margen). */
+        const val TODAY_PLAN_TTL_MS = 18L * 60L * 60L * 1000L
+    }
+
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private val messageClient by lazy { Wearable.getMessageClient(this) }
     private val pendingStore by lazy { WearPendingSetStore(this) }
@@ -124,6 +129,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var warmupInput by mutableStateOf(false)
     private var failureInput by mutableStateOf(false)
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
+    private var effortUnit by mutableStateOf("rir")
+    private var weightUnit by mutableStateOf("kg")
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
     private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
@@ -147,10 +154,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 sessionCache.edit().remove("snapshot").remove("inputDraft").remove("restState").apply()
             }
         }
-        sessionCache.getString("todayPlan", null)?.let { cached ->
-            todayPlanJson = runCatching { JSONObject(cached) }.getOrNull()
+        val cachedPlanAt = sessionCache.getLong("todayPlanAt", 0L)
+        if (cachedPlanAt > 0L && System.currentTimeMillis() - cachedPlanAt > TODAY_PLAN_TTL_MS) {
+            sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
+        } else {
+            sessionCache.getString("todayPlan", null)?.let { cached ->
+                todayPlanJson = runCatching { JSONObject(cached) }.getOrNull()
+            }
         }
         watchStartedSession = sessionCache.getBoolean("watchStarted", false)
+        effortUnit = sessionCache.getString("effortUnit", "rir")?.takeIf { it in setOf("rir", "rpe") } ?: "rir"
+        weightUnit = sessionCache.getString("weightUnit", "kg")?.takeIf { it in setOf("kg", "lb") } ?: "kg"
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
@@ -179,7 +193,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 deficitInput = deficitInput,
                                 pendingCount = pendingCount,
                                 confirmDiscardPending = confirmDiscardPending,
-                                sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput
+                                sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput,
+                                effortUnit = effortUnit, weightUnit = weightUnit
                             ),
                             callbacks = WearHomeCallbacks(
                                 onDismissFinished = { finished ->
@@ -264,7 +279,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         val bytes = data.getByteArray("session")
                         val finished = data.getByteArray("finished")
                         val signedOut = data.getBoolean("signedOut")
-                        runOnUiThread { showSession(bytes, signedOut, finished) }
+                        val effort = data.getString("effortUnit")
+                        val weight = data.getString("weightUnit")
+                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
                     }
                     if (item.uri.path == "/repera/wod-timer") {
                         val bytes = DataMapItem.fromDataItem(item).dataMap
@@ -272,9 +289,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         runOnUiThread { showWodTimer(bytes) }
                     }
                     if (item.uri.path == "/repera/today-plan") {
-                        val bytes = DataMapItem.fromDataItem(item).dataMap
-                            .getByteArray("plan")
-                        runOnUiThread { showTodayPlan(bytes) }
+                        val map = DataMapItem.fromDataItem(item).dataMap
+                        val bytes = map.getByteArray("plan")
+                        val at = map.getLong("updatedAtMillis", System.currentTimeMillis())
+                        runOnUiThread { showTodayPlan(bytes, at) }
                     }
                 }
             } finally {
@@ -301,7 +319,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val bytes = data.getByteArray("session")
                 val finished = data.getByteArray("finished")
                 val signedOut = data.getBoolean("signedOut")
-                runOnUiThread { showSession(bytes, signedOut, finished) }
+                val effort = data.getString("effortUnit")
+                val weight = data.getString("weightUnit")
+                runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
             }
             if (event.dataItem.uri.path == "/repera/wod-timer") {
                 val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -309,9 +329,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 runOnUiThread { showWodTimer(bytes) }
             }
             if (event.dataItem.uri.path == "/repera/today-plan") {
-                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
-                    .getByteArray("plan")
-                runOnUiThread { showTodayPlan(bytes) }
+                val map = DataMapItem.fromDataItem(event.dataItem).dataMap
+                val bytes = map.getByteArray("plan")
+                val at = map.getLong("updatedAtMillis", System.currentTimeMillis())
+                runOnUiThread { showTodayPlan(bytes, at) }
             }
         }
     }
@@ -418,15 +439,22 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             repCounter.applyManualDelta(draft.quantity)
     }
 
-    private fun showTodayPlan(bytes: ByteArray?) {
+    private fun showTodayPlan(bytes: ByteArray?, updatedAtMillis: Long = System.currentTimeMillis()) {
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
             runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
         }
-        todayPlanJson = parsed
-        if (parsed != null) {
-            sessionCache.edit().putString("todayPlan", parsed.toString()).apply()
+        // Plan stale (>18 h) o vacío: no ofrecer Empezar con un día viejo.
+        val fresh = parsed != null &&
+            updatedAtMillis > 0L &&
+            System.currentTimeMillis() - updatedAtMillis <= TODAY_PLAN_TTL_MS
+        todayPlanJson = parsed.takeIf { fresh }
+        if (todayPlanJson != null) {
+            sessionCache.edit()
+                .putString("todayPlan", todayPlanJson.toString())
+                .putLong("todayPlanAt", updatedAtMillis)
+                .apply()
         } else {
-            sessionCache.edit().remove("todayPlan").apply()
+            sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
         }
     }
 
@@ -448,7 +476,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrNull()
             ?: return
         if(!sessionCache.edit().putString("snapshot",plan.toString()).putBoolean("watchStarted",true)
-                .remove("todayPlan").remove("inputDraft").remove("restState").commit()) {
+                .remove("todayPlan").remove("todayPlanAt").remove("inputDraft").remove("restState").commit()) {
             sendStatus="No se pudo guardar el inicio en el reloj";return
         }
         sensorRevision++
@@ -750,12 +778,30 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
     }
 
-    private fun showSession(bytes: ByteArray?, signedOut: Boolean = false,
+    private fun showSession(
+        bytes: ByteArray?,
+        signedOut: Boolean = false,
+        finished: ByteArray? = null,
+        effortUnitWire: String? = null,
+        weightUnitWire: String? = null
+    ) {
+        if (!effortUnitWire.isNullOrBlank() && effortUnitWire in setOf("rir", "rpe")) {
+            effortUnit = effortUnitWire
+            sessionCache.edit().putString("effortUnit", effortUnitWire).apply()
+        }
+        if (!weightUnitWire.isNullOrBlank() && weightUnitWire in setOf("kg", "lb")) {
+            weightUnit = weightUnitWire
+            sessionCache.edit().putString("weightUnit", weightUnitWire).apply()
+        }
+        showSessionBody(bytes, signedOut, finished)
+    }
+
+    private fun showSessionBody(bytes: ByteArray?, signedOut: Boolean = false,
                             finished: ByteArray? = null) {
         if (signedOut) {
             transportRevision++
             todayPlanJson=null
-            sessionCache.edit().remove("todayPlan").apply()
+            sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
             runCatching {pendingFinish.clear()}
             finishedSummary = null
             sessionCache.edit().remove("finishedDismissed").apply()

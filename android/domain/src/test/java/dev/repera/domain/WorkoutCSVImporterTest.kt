@@ -69,6 +69,20 @@ class WorkoutCSVImporterTest {
     }
 
     @Test
+    fun hevyCsvWithExplicitPoundsColumnStoresKilograms() {
+        val csv = """
+            start_time,title,exercise_title,set_index,weight_lbs,reps
+            2026-10-28 07:00:00,Entreno,Back Squat,1,220.462262,5
+        """.trimIndent()
+        val result = WorkoutCSVImporter.parse(csv, catalog, zone, ids)
+        assertEquals(WorkoutCSVImporter.Source.HEVY, result.source)
+        assertEquals(1, result.workouts.size)
+        assertEquals(1, result.matchedSets)
+        val weight = result.workouts.first().exercises.first().sets.first().weightKg
+        assertEquals(100.0, weight!!, 0.01)
+    }
+
+    @Test
     fun skipsEmptyRowsAndRowsWithoutWork() {
         val csv = """
             Date,Workout Name,Exercise Name,Set Order,Weight,Reps,Seconds

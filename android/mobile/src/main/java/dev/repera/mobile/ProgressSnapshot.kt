@@ -143,8 +143,10 @@ object ProgressSnapshotBuilder {
             val started = runCatching {
                 Instant.parse(session.optString("startedAt")).toEpochMilli()
             }.getOrNull()
+            // Temporizador libre: duración configurada (Models.swift timerDetails).
             // En vivo: duración ACTIVA medida por Repera (sin pausas), no
             // reloj de pared (Models.swift durationMinutes/displayDurationMinutes).
+            val timerDetails = dev.repera.domain.TimerCompletionDetails.fromSession(session)
             val liveSportID = session.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" }
             val activeSeconds = session.optDouble("activeDurationSeconds",Double.NaN)
                 .takeIf { liveSportID != null && it.isFinite() }
@@ -152,6 +154,7 @@ object ProgressSnapshotBuilder {
                 .takeIf { it.isFinite() && it > 0 }
             val end = runCatching { Instant.parse(session.optString("finishedAt")).toEpochMilli() }.getOrNull()
             val duration = when {
+                timerDetails != null -> timerDetails.displayDurationMinutes
                 activeSeconds != null -> maxOf(0.0, activeSeconds / 60.0)
                 measuredSeconds != null -> measuredSeconds / 60.0
                 started != null && end != null -> maxOf(0.0, (end-started)/60000.0)
