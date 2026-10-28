@@ -37,7 +37,7 @@ final class RestSessionCoordinator {
 
     private func updateScreenAwake() {
         TimerScreenAwake.setRunning(
-            !isPaused && endDate.map { $0 > Date() } == true,
+            isPaused ? pausedRemaining > 0 : endDate.map { $0 > Date() } == true,
             for: .rest
         )
     }
