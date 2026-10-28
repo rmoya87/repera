@@ -226,6 +226,16 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "RemoteExerciseCatalogStore.swift"):
             validate(self.root)
 
+    def test_live_activity_title_helper_is_compiled_with_its_caller(self):
+        """The GPS review title helper must not depend on a newly generated Xcode project."""
+        root = Path(__file__).resolve().parents[1]
+        view = (root / "Apps/Repera/Sources/LiveActivityView.swift").read_text(encoding="utf-8")
+        auxiliary = (root / "Apps/Repera/Sources/LiveActivityLocationName.swift").read_text(encoding="utf-8")
+        self.assertIn("enum LiveActivityLocationName {", view)
+        self.assertIn("MKReverseGeocodingRequest", view)
+        self.assertIn("LiveActivityLocationName.suggest(", view)
+        self.assertNotIn("enum LiveActivityLocationName {", auxiliary)
+
     def test_missing_live_source_requires_checkout_update(self):
         for name in ("LiveActivityView.swift", "LiveActivityLocationName.swift",
                      "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift"):
