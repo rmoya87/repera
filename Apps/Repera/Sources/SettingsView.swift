@@ -43,11 +43,21 @@ struct SettingsView: View {
                         ZStack(alignment: .bottomTrailing) {
                             iCloudAvatarBadge
                                 .frame(width: 52, height: 52)
-                            Image(systemName: businessAuth.isGoogleSignedIn ? "g.circle.fill" : "apple.logo")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 20, height: 20)
-                                .background(.black, in: Circle())
+                            Group {
+                                if businessAuth.isGoogleSignedIn {
+                                    Image("GoogleSignInLogo")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .padding(4)
+                                        .background(.white, in: Circle())
+                                } else {
+                                    Image(systemName: "apple.logo")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .background(.black, in: Circle())
+                                }
+                            }
+                            .frame(width: 20, height: 20)
                                 .overlay(Circle().stroke(OG.bg, lineWidth: 2))
                                 .offset(x: 2, y: 2)
                         }
@@ -525,7 +535,7 @@ struct SettingsView: View {
             OGConfirmSheet(
                 systemImage: "person.crop.circle.badge.xmark",
                 title: "¿Eliminar mi cuenta definitivamente?",
-                message: "Se eliminará tu cuenta de Repera y su historial de iCloud y Supabase. No se puede deshacer. Los entrenamientos existentes en Apple Salud y las suscripciones de Apple se gestionan por separado.",
+                message: "Se eliminarán tu cuenta y tus datos personales de Repera en iCloud y Supabase. Las empresas vinculadas conservarán como histórico de solo lectura los registros que ya tenían autorizados, sin acceso a tu cuenta ni posibilidad de generar actividad nueva. Esta acción no se puede deshacer. Apple Salud y las suscripciones de Apple se gestionan por separado.",
                 confirmTitle: "Eliminar mi cuenta",
                 onConfirm: {
                     confirmDeleteAccount = false
