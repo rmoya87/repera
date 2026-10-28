@@ -784,7 +784,7 @@ struct WorkoutView: View {
                         .listRowBackground(OG.surface)
                         .listRowSeparator(.hidden, edges: .bottom)
 
-                        PlayEditableSetsView(exerciseEntry: entry)
+                        PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)
                             .id(entry.id)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                             .listRowBackground(OG.surface)
@@ -2858,7 +2858,7 @@ private struct PlayEditableSetsView: View {
 
     @State private var rows: [Row] = []
     @State private var quantityUnit: ExerciseQuantityUnit = .reps
-    @State private var openedSetID: UUID?
+    @Binding var openedSetID: UUID?
     @FocusState private var focus: OGSetFieldID?
 
     private var exercise: Exercise { exerciseEntry.exercise }
