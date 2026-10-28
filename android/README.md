@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 9.º pase: Live rutas ReperaCard+★; WodLibrary Star; ~100% visual salvo plataforma.
+**Última actualización:** 2026-10-28 — UI paridad 10.º pase: WeightPreview → ReperaCard; pad 16 Progress peso.
 
 Implementación nativa independiente en `android/`:
 
