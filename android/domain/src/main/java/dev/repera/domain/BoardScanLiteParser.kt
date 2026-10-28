@@ -327,6 +327,8 @@ object BoardScanLiteParser {
             if(cap!=null && cap !in 1..(Int.MAX_VALUE/60)) return null
             return Header("AFAP",WODFormat.AFAP,cap)
         }
+        if(upper in setOf("MAX LOAD","MAX REPS","HEAVY SINGLE","1RM"))
+            return Header(line,WODFormat.MAX_EFFORT,firstInt(upper))
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
         if(upper in setOf("STRENGTH","FUERZA") || strengthHeaders.any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")})
             return Header(line,WODFormat.STRENGTH,null)

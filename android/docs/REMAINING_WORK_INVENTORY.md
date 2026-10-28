@@ -767,3 +767,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -345 bateria completa mobile679/163XML86/108/90/84s,domain540/93XML73s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo lector parcial346: FOR COMPLETION exacto opcional(TC N)/(NminCap)seleccionaFOR_TIME,cap indicado o12fuente554-587,sin rondasinventadas;cabeceraoriginal intacta. No cambia semanticaFOR_TIME/RFTprevia ni containsglobal.
 - Regresion fallo antes.1test nuevo de3formas;dominio541/93XML66s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear346 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, MAX EFFORT exacto 06:21 28oct
+-346 bateria completa mobile679/163XML90/108/82/83s,domain541/93XML66s,Wear8/1XML+ambosassemble86sverdes. Backup346recuperado:arbolc2a0d6beac6bbb59893350407b380ac298f20733identico,clonlimpio.
+- Mismo lector parcial347: MAX LOAD/MAX REPS/HEAVY SINGLE/1RM exactos seleccionanMAX_EFFORT segunfuente542-546;cap firstInt como fuente(1RM->1),no inferencia3x8. No reglaMAXglobal ni descripcionamplia;MAXCALROW bajoAMRAP sigueejercicio. Resto maxeffortprefijos siguen review.
+- Regresion fallo antes.1test nuevo4cabeceras+nombreordinario;dominio542/93XML69s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear347 pendientes.735/70sin cierres,nativo pendiente,no push.

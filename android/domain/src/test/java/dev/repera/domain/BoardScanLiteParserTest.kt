@@ -750,4 +750,17 @@ class BoardScanLiteParserTest {
             assertTrue(block.wodNotes!!.contains(header))
         }
     }
+    @Test fun exactMaxEffortHeadersDoNotConsumeMaxCalMovementText() {
+        for(header in listOf("MAX LOAD","MAX REPS","HEAVY SINGLE","1RM")) {
+            val block=BoardScanLiteParser.parse(header+"\n1 PUSH PRESS",catalog=catalog).blocks.single()
+            assertEquals(WODFormat.MAX_EFFORT,block.wodFormat)
+            assertEquals(header,block.title)
+            assertEquals(if(header=="1RM") 1 else null,block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertNull(block.rounds)
+        }
+        val ordinary=BoardScanLiteParser.parse("AMRAP 10'\nMAX CAL ROW",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
+        assertEquals(1,ordinary.movements.size)
+    }
 }
