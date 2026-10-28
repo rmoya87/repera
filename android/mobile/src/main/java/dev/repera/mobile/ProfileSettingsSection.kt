@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -39,7 +40,7 @@ import androidx.compose.ui.unit.dp
     Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
         Box {
             if (avatar != null) {
-                Image(avatar.asImageBitmap(),"Foto de perfil",Modifier.size(72.dp))
+                Image(avatar.asImageBitmap(),"Foto de perfil",Modifier.size(72.dp).clip(CircleShape))
             } else {
                 Surface(modifier=Modifier.size(72.dp),shape=CircleShape,color=MaterialTheme.colorScheme.surfaceVariant) {}
             }

@@ -58,22 +58,8 @@ internal fun DayPlusSheet(
     }
     ReperaModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-            Text(
-                "Añadir entreno",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                dayName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "ENTRENO",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)
-            )
+            ReperaPageHeader(title = "Añadir entreno", subtitle = dayName)
+            ReperaSectionTitle("Entreno")
             DayPlusRow(
                 Icons.Outlined.Add, "Crear entreno", "Bloques de fuerza y WODs",
                 "day_plus_create", onCreateWorkout

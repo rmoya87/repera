@@ -29,16 +29,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
  var error by remember {mutableStateOf<String?>(null)}
  ReperaModalBottomSheet(onDismissRequest={if(!busy) onDismiss()}) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-   Text("Apuntar ejercicio",style=MaterialTheme.typography.titleLarge)
-   Text(entry.displayName,style=MaterialTheme.typography.titleMedium)
+   ReperaPageHeader(title = "Apuntar ejercicio")
+   ReperaSectionTitle(entry.displayName)
    if(repsOrMeters) Row {
     // Apple: Picker "Repeticiones"/"Metros" para supportsRepsOrMeters.
     listOf("reps","meters").forEach {value ->ReperaFilterChip(selected=unit==value,onClick={unit=value;rows.indices.forEach {i ->rows[i]=rows[i].copy(unit=value)}},label={Text(if(value=="meters") "Metros" else "Repeticiones")},enabled=!busy)}
    } else if(mode==ExerciseInputMode.MACHINE_WORK && ExerciseInput.supportsCaloriesAndMeters(entry.name,entry.equipment)) Row {
     listOf("calories","meters").forEach {value ->ReperaFilterChip(selected=unit==value,onClick={unit=value;rows.indices.forEach {i ->rows[i]=rows[i].copy(unit=value)}},label={Text(if(value=="meters") "Metros" else "Cal")},enabled=!busy)}
    }
-   rows.indices.forEach {i ->key(rowKeys[i]) {Card {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    Text("Serie ${i+1}")
+   rows.indices.forEach {i ->key(rowKeys[i]) {ReperaCard(modifier=Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    Text("Serie ${i+1}", style = MaterialTheme.typography.titleSmall)
     if(!entry.mobilityHold) QuickNumericField(rows[i].quantity.toString(),if(unit=="meters") "Metros" else if(unit=="calories") "Cal" else "Repeticiones",!busy) {v ->rows[i]=rows[i].copy(quantity=QuickLogInput.int(v,QuickLogInput.quantityCap(mode,unit,repsOrMeters)))}
     if(mode.showsWeight) QuickNumericField(rows[i].weightKg?.toString().orEmpty(),"Peso / lastre (kg)",!busy,decimal=true) {v ->rows[i]=rows[i].copy(weightKg=QuickLogInput.weight(v))}
     if(mode==ExerciseInputMode.HSPU_DEFICIT) QuickNumericField((rows[i].deficitCm ?: 0).toString(),"Déficit (cm)",!busy) {v ->rows[i]=rows[i].copy(deficitCm=QuickLogInput.int(v,QuickLogInput.MAX_DEFICIT_CM))}

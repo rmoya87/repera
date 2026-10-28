@@ -8,17 +8,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable internal fun HealthGoalsSection(value:HealthGoals,busy:Boolean,onChange:(HealthGoals)->Unit) {
-    var expanded by remember {mutableStateOf(false)}
-    TextButton(onClick={expanded=!expanded}) {Text(if(expanded) "Cerrar objetivos" else "Objetivos")}
-    if(!expanded) return
     var steps by remember(value) {mutableStateOf(value.steps?.toString().orEmpty())}
     var energy by remember(value) {mutableStateOf(value.energyKcal?.toString().orEmpty())}
     var minutes by remember(value) {mutableStateOf(value.minutes?.toString().orEmpty())}
     var weekly by remember(value) {mutableStateOf(value.weeklyWorkouts?.toString().orEmpty())}
     var weight by remember(value) {mutableStateOf(value.weightKg?.toString().orEmpty())}
     var error by remember {mutableStateOf<String?>(null)}
+    ReperaSectionTitle("Objetivos")
+    Text("Vacío = sin objetivo. No se inventa progreso.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Vacío = sin objetivo. No se inventa progreso.",style=MaterialTheme.typography.bodySmall)
         listOf(Triple("Pasos",steps,{s:String->steps=s}),Triple("Calorías activas (kcal)",energy,{s:String->energy=s}),
             Triple("Tiempo de entreno (min)",minutes,{s:String->minutes=s}),Triple("Entrenamientos por semana",weekly,{s:String->weekly=s}),
             Triple("Peso objetivo (kg)",weight,{s:String->weight=s})).forEach {(label,text,change) ->
@@ -33,6 +31,6 @@ import androidx.compose.ui.unit.dp
                 HealthGoals.apply(org.json.JSONObject(),next)
                 error=null;onChange(next)
             } catch(_:Exception) {error="Revisa los rangos: pasos100–100000, kcal10–10000, minutos1–1440, entrenamientos1–21, peso20–350kg."}
-        }) {Text("Guardar objetivos")}
+        }, modifier=Modifier.fillMaxWidth()) {Text("Guardar objetivos")}
     }
 }
