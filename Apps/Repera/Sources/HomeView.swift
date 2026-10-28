@@ -1809,12 +1809,11 @@ struct HomeView: View {
     }
 
     private func rebuildStreakChrome() {
-        let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let healthWeek = health.recentExternalActivities.reduce(into: 0) { count, activity in
-            if activity.start >= weekAgo { count += 1 }
-        }
-        cachedStreakWeekDone = StatsEngine.workoutCount(from: store.state.workouts, days: 7) + healthWeek
-        cachedStreakPlanned = store.scheduledRoutines(inWeekContaining: Date()).count
+        // Racha y progreso semanal cuentan días distintos con actividad,
+        // sin duplicar Repera y Apple Salud en la misma fecha.
+        let thisWeek = makeWeekDays(offset: 0, lookup: cachedCalendarLookup)
+        cachedStreakWeekDone = thisWeek.filter(\.hasWorkout).count
+        cachedStreakPlanned = thisWeek.filter(\.hasPlan).count
         cachedStreakTotal = store.state.workouts.count + health.recentExternalActivities.count
         cachedStreakWeeks = consecutiveWeekStreak()
         didBuildStreakChrome = true
@@ -1910,9 +1909,9 @@ struct HomeView: View {
     private func streakSubtitle(weekDone: Int, planned: Int, total: Int) -> String {
         if total == 0 { return "Cuando entrenes, verás aquí tu progreso" }
         if planned > 0 {
-            return "\(weekDone) / \(planned) esta semana · \(total) entrenos en total"
+            return "\(weekDone) días con deporte · \(planned) días planificados · \(total) entrenos en total"
         }
-        return "\(weekDone) esta semana · \(total) entrenos en total"
+        return "\(weekDone) días con deporte · \(total) entrenos en total"
     }
 
     /// Semanas consecutivas con al menos un entreno registrado en Repera o Salud.
