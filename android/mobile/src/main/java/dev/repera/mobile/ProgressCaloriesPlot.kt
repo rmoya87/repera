@@ -14,6 +14,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.repera.domain.*
 import java.time.LocalDate
 import kotlin.math.abs
@@ -57,9 +58,9 @@ internal object ProgressPlotAxis {
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].value)+" kcal",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth()) {
     Column(Modifier.width(44.dp).height(210.dp),verticalArrangement=Arrangement.SpaceBetween) {
-     Text(Math.round(maximum).toString(),style=MaterialTheme.typography.labelSmall)
-     Text(Math.round(maximum/2).toString(),style=MaterialTheme.typography.labelSmall)
-     Text("0",style=MaterialTheme.typography.labelSmall)
+     Text(Math.round(maximum).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
+     Text(Math.round(maximum/2).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
+     Text("0",style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
     }
     Canvas(Modifier.weight(1f).height(210.dp).testTag("calories_observed_plot")
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}

@@ -14,6 +14,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.repera.domain.*
 import java.time.LocalDate
 import kotlin.math.abs
@@ -47,7 +48,7 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].avgBpm)+" lpm",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth()) {
     Column(Modifier.width(44.dp).height(190.dp),verticalArrangement=Arrangement.SpaceBetween) {
-     listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall)}
+     listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))}
     }
     Canvas(Modifier.weight(1f).height(190.dp).testTag("cardio_observed_plot")
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}

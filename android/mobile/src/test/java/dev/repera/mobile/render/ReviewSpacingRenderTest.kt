@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performClick
@@ -400,6 +401,10 @@ class ReviewSpacingRenderTest {
         }}}
         composeRule.onNodeWithText("503 kcal",useUnmergedTree=true).assertExists()
         composeRule.onNodeWithText("+12 %",useUnmergedTree=true).assertExists()
+        val axisLayout=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onNodeWithText("0",useUnmergedTree=true)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) {it(axisLayout)}
+        org.junit.Assert.assertEquals(10f,axisLayout.single().layoutInput.style.fontSize.value,0.001f)
         org.junit.Assert.assertEquals(210,composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         save(composeRule.onNodeWithTag("calories_fixture").captureToImage().asAndroidBitmap(),"calories-preview-curve.png")
         composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()
@@ -421,6 +426,11 @@ class ReviewSpacingRenderTest {
         }}}
         org.junit.Assert.assertEquals(190,composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         composeRule.onNodeWithText("Mín",useUnmergedTree=true).assertExists()
+        val high=dev.repera.mobile.cardioPlotBounds(dev.repera.mobile.ProgressPreview.charts(day,true).heartRate,false).second
+        val axisLayout=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onNodeWithText(Math.round(high).toString(),useUnmergedTree=true)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) {it(axisLayout)}
+        org.junit.Assert.assertEquals(10f,axisLayout.single().layoutInput.style.fontSize.value,0.001f)
         save(composeRule.onNodeWithTag("cardio_fixture").captureToImage().asAndroidBitmap(),"cardio-three-curves.png")
         composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).performClick()
         composeRule.onNodeWithText("26 oct 2026: 129 lpm",useUnmergedTree=true).assertExists()
