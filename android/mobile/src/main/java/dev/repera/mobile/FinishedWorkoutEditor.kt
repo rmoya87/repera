@@ -481,7 +481,52 @@ private fun WodMovementsEditor(
         OutlinedTextField(value = name, singleLine = true, label = { Text("Nombre") },
             modifier = Modifier.fillMaxWidth().testTag("mv_name_${b}_$i"),
             onValueChange = { name = it; m.put("name", it); onEdited() })
-        val machine = m.has("calories") && !m.isNull("calories") || m.has("distanceMeters") && !m.isNull("distanceMeters") && !m.has("reps")
+        val catalogEntry = catalog.firstOrNull { it.id == m.optString("exerciseId") }
+            ?: catalog.firstOrNull { it.name.equals(m.optString("name"), true) }
+        val inputMode = catalogEntry?.let {
+            dev.repera.domain.ExerciseInput.mode(it.name, it.equipment, it.targetMuscle, it.muscleGroup, it.sportTag)
+        } ?: dev.repera.domain.ExerciseInput.mode(m.optString("name"), null, null, null)
+        val allowsCalMeters = catalogEntry?.let {
+            dev.repera.domain.ExerciseInput.supportsCaloriesAndMeters(it.name, it.equipment)
+        } == true || inputMode == dev.repera.domain.ExerciseInputMode.MACHINE_WORK
+        var machine by remember(id) {
+            mutableStateOf(m.has("calories") && !m.isNull("calories") ||
+                m.has("distanceMeters") && !m.isNull("distanceMeters") && !m.has("reps") ||
+                inputMode == dev.repera.domain.ExerciseInputMode.MACHINE_WORK)
+        }
+        var machineUnit by remember(id) {
+            mutableStateOf(
+                when {
+                    m.has("calories") && !m.isNull("calories") -> "calories"
+                    m.has("distanceMeters") && !m.isNull("distanceMeters") -> "meters"
+                    else -> "calories"
+                }
+            )
+        }
+        if (allowsCalMeters) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(modifier = Modifier.testTag("mv_unit_cal_${b}_$i"),
+                    onClick = {
+                        machine = true; machineUnit = "calories"
+                        m.remove("reps"); m.remove("distanceMeters")
+                        if (!m.has("calories")) m.put("calories", 10)
+                        EditorBlockOps.writeSetsToMovement(m,
+                            m.optJSONArray("explicitPlannedSets") ?: org.json.JSONArray(), true)
+                        onChanged()
+                    }) { Text(if (machine && machineUnit == "calories") "Calorías ✓" else "Calorías") }
+                TextButton(modifier = Modifier.testTag("mv_unit_m_${b}_$i"),
+                    onClick = {
+                        machine = true; machineUnit = "meters"
+                        m.remove("reps"); m.remove("calories")
+                        if (!m.has("distanceMeters")) m.put("distanceMeters", 100)
+                        EditorBlockOps.writeSetsToMovement(m,
+                            m.optJSONArray("explicitPlannedSets") ?: org.json.JSONArray(), true)
+                        onChanged()
+                    }) { Text(if (machine && machineUnit == "meters") "Metros ✓" else "Metros") }
+            }
+        }
+        val hspuDeficit = inputMode == dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+        val repsAndTime = inputMode == dev.repera.domain.ExerciseInputMode.REPS_AND_TIME
         val sets = m.optJSONArray("explicitPlannedSets")?.takeIf { it.length() > 0 }
             ?: CompletedWorkoutEditing.derivedSetsFor(block, m).also { m.put("explicitPlannedSets", it) }
         for (s in 0 until sets.length()) {
@@ -489,21 +534,41 @@ private fun WodMovementsEditor(
             var reps by remember(id, set.optString("id")) { mutableStateOf(set.optInt("targetReps").toString()) }
             var kg by remember(id, set.optString("id")) { mutableStateOf(
                 if (set.has("targetWeightKg") && !set.isNull("targetWeightKg")) set.getDouble("targetWeightKg").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } else "") }
+            var duration by remember(id, set.optString("id")) {
+                mutableStateOf(
+                    if (set.has("targetDurationSeconds") && !set.isNull("targetDurationSeconds"))
+                        set.optInt("targetDurationSeconds").toString() else "")
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
                 OutlinedTextField(value = reps, singleLine = true,
-                    label = { Text(if (m.has("calories") && !m.isNull("calories")) "Cal" else if (machine) "m" else "Reps") },
+                    label = { Text(when {
+                        machine && machineUnit == "calories" -> "Cal"
+                        machine -> "m"
+                        repsAndTime -> "Veces"
+                        else -> "Reps"
+                    }) },
                     modifier = Modifier.weight(1f).testTag("mv_set_reps_${b}_${i}_$s"),
                     onValueChange = { v -> reps = v.filter { it.isDigit() }.take(4)
                         set.put("targetReps", (reps.toIntOrNull() ?: 1).coerceAtLeast(1))
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
-                if (!machine) OutlinedTextField(value = kg, singleLine = true, label = { Text("Kg") },
+                if (repsAndTime) {
+                    OutlinedTextField(value = duration, singleLine = true, label = { Text("Seg") },
+                        modifier = Modifier.weight(1f).testTag("mv_set_dur_${b}_${i}_$s"),
+                        onValueChange = { v -> duration = v.filter { it.isDigit() }.take(4)
+                            val secs = duration.toIntOrNull()?.coerceIn(1, 3600)
+                            if (secs != null) set.put("targetDurationSeconds", secs)
+                            else set.remove("targetDurationSeconds")
+                            EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
+                }
+                if (!machine) OutlinedTextField(value = kg, singleLine = true,
+                    label = { Text(if (hspuDeficit) "Déficit (cm)" else "Kg") },
                     modifier = Modifier.weight(1f).testTag("mv_set_kg_${b}_${i}_$s"),
                     onValueChange = { v -> kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
                         val parsed = dev.repera.domain.ReperaNumberFormat.parse(kg)
                         if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
-                if (!machine) {
+                if (!machine && !repsAndTime) {
                     var rir by remember(id, set.optString("id"), effortUnit) { mutableStateOf(
                         if (set.has("targetRir") && !set.isNull("targetRir")) set.getDouble("targetRir").let {
                             val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)

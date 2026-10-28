@@ -2,30 +2,30 @@
 
 Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-**Última actualización:** 2026-10-28 — DayPlus pizarra→día; labels HSPU déficit; Wear WOD «Confirmar serie»; billing alineado; sin clima Android.
+**Última actualización:** 2026-10-28 — Wear drop/RP + clock WOD local; editor WOD fino; Center polish; autoscroll ExercisesTab.
 
-La implementación Android **todavía no es completa** (Wear/UX fina/E2E). Billing
-Play está **alineado** (cliente + verify Edge). No hay clima en Comenzar Android
-(WeatherKit es solo iOS; Open-Meteo descartado).
+La implementación Android **todavía no es completa** (E2E hardware / Play Console /
+Edge deploy). Billing Play **alineado**. Sin clima en Comenzar Android.
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
 | Cuenta Google | Credential Manager + badge; cierre de sesión; **Eliminar mi cuenta** → `repera-delete-account` | E2E OAuth + borrado real con Edge desplegado |
 | Google Drive personal | appDataFolder + If-Match con ETag del GET media | E2E multi-dispositivo |
 | Importar/exportar | SAF JSON + CSV Strong/Hevy con columna `weight_lbs` → kg | Import JSON no fusiona estado existente |
-| kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | Wear/editores WOD finos parciales |
+| kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | QA dispositivo |
 | Temporizador libre | Última config, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |
 | Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe | Filtros avanzados / fichas |
 | Ejecutar fuerza existente | Sesiones reales fuerza + WOD | — |
-| Registro de series | Fuerza/cardio + RIR/RPE (cabeceras/editores/Wear) + kg/lb | Técnicas/UX fina vs iOS |
+| Registro de series | Fuerza/cardio + RIR/RPE + drop/RP (Play + Wear) + kg/lb | UX fina vs iOS; QA Wear físico |
 | Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
 | Finalizar | Archiva sin duplicar | HC E2E |
-| WOD | 14 formatos + relojes | Editores/fidelidad landscape |
-| Watch | Plan hoy + fuerza ACK + WOD per-movement «Confirmar serie» (con reloj teléfono) | Clock WOD local offline; Health Services E2E; físico |
+| WOD | 14 formatos + relojes; editor finished Cal/m + HSPU/repsAndTime; plan series por movimiento | Reloj landscape OK; Live Activity N/A |
+| Watch | Plan hoy + fuerza ACK + drop/RP + WOD Confirmar + **clock local offline** | Health Services E2E; físico |
 | Actividad/Salud | Lectura Inicio + escritura HC + distancia opcional en permiso | E2E HC |
-| Business / Center | Parcial | E2E business |
+| Business / Center | Notice 12h + Actualizar + linked filter + RPC contracts fake | E2E Supabase real |
 | Compras Pro | Play Billing + verify Edge **alineado** | E2E compra real / testers |
 | OCR pizarra | ML Kit + lite + preprocess oscuro + EXIF | QA cámara |
+| Widgets phone | No (iOS phone tampoco tiene home widgets) | — |
 
 Pruebas de regresión declaradas: `domain/src/test` para reloj, WOD, presets y
 conflictos; `mobile/src/androidTest` para persistencia e identidad de sesiones.
@@ -61,7 +61,7 @@ Las comprobaciones de OAuth y sincronización entre dispositivos reales siguen p
 - Catálogo nativo original **196 movimientos** y alias bilingües **186**; el
   registro de cardio ya permite tiempo/Cal/metros y el de comba reps+tiempo.
   Déficit HSPU: labels plan/historial + prefill QuickLog/live rows; técnicas
-  drop/rest-pause en Play; Wear drop/RP sigue parcial.
+  drop/rest-pause en Play y Wear (draft/outbox/ACK con setId).
 - Las rutinas con bloques WOD no se ejecutan mediante el motor de fuerza. No
   se convierten resultados de bloque en series ficticias.
 - La nube conserva copias anteriores y bloquea historiales independientes
@@ -827,5 +827,17 @@ Health Inicio placeholders; board dark OCR preprocess; Drive If-Match;
 Wear todayPlan TTL 18h; favoritos Gratis máx. 3 (paridad main). STATUS de
 filas OCR/billing/Health del encabezado actualizado arriba. E2E hardware,
 secretos Play y despliegue Edge siguen abiertos (Ramón).
+
+## Leftovers shippables 2026-10-28 (tarde)
+
+- Wear drop/RP: `WatchInputDraft` + outbox + `logWearSet` ramificado + UI picker.
+- Wear clock WOD local: `WearLocalWodClock` + botones Iniciar/Pausar/Reiniciar;
+  `stations`/`plannedIntervals` en `/repera/wod-timer`; teléfono matching gana.
+- Editor WOD finished: chips Cal/m, label Déficit HSPU, Veces+seg repsAndTime.
+- Editor plan: «Editar series del movimiento» → `explicitPlannedSets`.
+- Autoscroll: `ProvideLazyDragAutoScroll` también en `ExercisesTab` (deporte).
+- Center: `CenterCancellationPolicy` 12h; botón Actualizar; lista solo vinculados;
+  JVM RPC accept/book/cancel/send.
+- Widgets phone: explícitamente no (paridad iOS phone).
 
 *Última actualización: 2026-10-28.*

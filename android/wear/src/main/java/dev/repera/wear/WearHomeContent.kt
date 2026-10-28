@@ -49,7 +49,10 @@ internal data class WearHomeState(
     val sendStatus: String?,
     val warmup:Boolean=false,val toFailure:Boolean=false,
     val effortUnit: String = "rir",
-    val weightUnit: String = "kg"
+    val weightUnit: String = "kg",
+    val setKind: String = "straight",
+    val drops: List<Pair<Int, Double?>> = emptyList(),
+    val clusters: List<Pair<Int, Int>> = emptyList()
 )
 
 internal class WearHomeCallbacks(
@@ -71,6 +74,16 @@ internal class WearHomeCallbacks(
     val onDurationDelta: (Int) -> Unit = {},
     val onCycleUnit: () -> Unit = {},
     val onDeficitDelta: (Int) -> Unit = {},
+    val onSetKind: (String) -> Unit = {},
+    val onAddDrop: () -> Unit = {},
+    val onAdjustDrop: (Int, Int, Double) -> Unit = { _, _, _ -> },
+    val onRemoveDrop: (Int) -> Unit = {},
+    val onAddCluster: () -> Unit = {},
+    val onAdjustCluster: (Int, Int, Int) -> Unit = { _, _, _ -> },
+    val onRemoveCluster: (Int) -> Unit = {},
+    val onWodTimerStart: () -> Unit = {},
+    val onWodTimerPause: () -> Unit = {},
+    val onWodTimerReset: () -> Unit = {},
     val onQueueSet: (WatchSessionSummary) -> Unit = {},
     val onResendPending: () -> Unit = {},
     val onDiscardConfirm: (Boolean) -> Unit = {},
@@ -179,6 +192,9 @@ internal fun WearHomeContent(
                         intervalSeconds = timer.optInt("intervalSeconds")
                             .takeIf { timer.has("intervalSeconds") &&
                                 !timer.isNull("intervalSeconds") },
+                        plannedIntervals = timer.optInt("plannedIntervals")
+                            .takeIf { timer.has("plannedIntervals") &&
+                                !timer.isNull("plannedIntervals") },
                         rounds = timer.optInt("rounds")
                             .takeIf { timer.has("rounds") && !timer.isNull("rounds") },
                         workSeconds = timer.optInt("workSeconds")
@@ -189,7 +205,8 @@ internal fun WearHomeContent(
                                 !timer.isNull("restSeconds") },
                         restBetweenRoundsSeconds = timer.optInt("restBetweenRoundsSeconds")
                             .takeIf { timer.has("restBetweenRoundsSeconds") &&
-                                !timer.isNull("restBetweenRoundsSeconds") }
+                                !timer.isNull("restBetweenRoundsSeconds") },
+                        stations = timer.optInt("stations", 1).coerceAtLeast(1)
                     )
                     val face = dev.repera.domain.WodClock.face(
                         spec, state.wodTickSeconds)
@@ -199,6 +216,24 @@ internal fun WearHomeContent(
                         style = MaterialTheme.typography.displayMedium) }
                     face.label?.let { label ->
                         item { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    }
+                    val local = timer.optBoolean("local")
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (!timer.optBoolean("running")) {
+                                Button(onClick = { callbacks.onWodTimerStart() }) {
+                                    Text("Iniciar") }
+                            } else {
+                                Button(onClick = { callbacks.onWodTimerPause() }) {
+                                    Text("Pausar reloj") }
+                            }
+                            TextButton(onClick = { callbacks.onWodTimerReset() }) {
+                                Text("Reiniciar") }
+                        }
+                    }
+                    if (local) {
+                        item { Text("Reloj local del reloj",
+                            style = MaterialTheme.typography.labelSmall) }
                     }
                 }
                 item { Button(onClick = { callbacks.onTogglePause() }) {
@@ -214,10 +249,13 @@ internal fun WearHomeContent(
                         !wearTimerMatches(state.wodTimerJson, session.sessionId, session.exerciseIndex)
                     ) {
                         item {
-                            Text("Inicia el reloj del bloque en el teléfono para registrar series",
+                            Text("Inicia el reloj del bloque (local o teléfono) para registrar series",
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.labelSmall)
                         }
+                        item { Button(onClick = { callbacks.onWodTimerStart() },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("Iniciar reloj del bloque") } }
                     } else {
                         if (state.restRemaining > 0) {
                             item { Text("Descanso: ${state.restRemaining}s",
@@ -345,6 +383,68 @@ internal fun WearHomeContent(
                     if(session.inputMode in setOf("strength","hspuDeficit","repsOnly")) {
                         item {TextButton(onClick={callbacks.onToggleWarmup()}) {Text(if(state.warmup) "Calentamiento ✓" else "Serie de trabajo")}}
                         if(!state.warmup) {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = { callbacks.onSetKind("straight") }) {
+                                    Text(if (state.setKind == "straight") "Normal ✓" else "Normal") }
+                                TextButton(onClick = { callbacks.onSetKind("dropset") }) {
+                                    Text(if (state.setKind == "dropset") "Drop ✓" else "Drop") }
+                                TextButton(onClick = { callbacks.onSetKind("restpause") }) {
+                                    Text(if (state.setKind == "restpause") "RP ✓" else "RP") }
+                            }
+                        }
+                        if (state.setKind == "dropset") {
+                            state.drops.forEachIndexed { idx, drop ->
+                                item {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            callbacks.onAdjustDrop(idx, -1, 0.0) }) { Text("−") }
+                                        Text("${drop.first}r",
+                                            style = MaterialTheme.typography.labelMedium)
+                                        IconButton(onClick = {
+                                            callbacks.onAdjustDrop(idx, 1, 0.0) }) { Text("+") }
+                                        if (session.allowsWeight) {
+                                            IconButton(onClick = {
+                                                callbacks.onAdjustDrop(idx, 0, -2.5) }) { Text("−kg") }
+                                            Text(ReperaNumberFormat.decimal(drop.second ?: 0.0),
+                                                style = MaterialTheme.typography.labelSmall)
+                                            IconButton(onClick = {
+                                                callbacks.onAdjustDrop(idx, 0, 2.5) }) { Text("+kg") }
+                                        }
+                                        TextButton(onClick = { callbacks.onRemoveDrop(idx) }) {
+                                            Text("×") }
+                                    }
+                                }
+                            }
+                            if (state.drops.size < 5) {
+                                item { TextButton(onClick = { callbacks.onAddDrop() }) {
+                                    Text("Añadir drop") } }
+                            }
+                        }
+                        if (state.setKind == "restpause") {
+                            state.clusters.forEachIndexed { idx, cluster ->
+                                item {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            callbacks.onAdjustCluster(idx, -1, 0) }) { Text("−") }
+                                        Text("${cluster.first}r/${cluster.second}s",
+                                            style = MaterialTheme.typography.labelMedium)
+                                        IconButton(onClick = {
+                                            callbacks.onAdjustCluster(idx, 1, 0) }) { Text("+") }
+                                        IconButton(onClick = {
+                                            callbacks.onAdjustCluster(idx, 0, -5) }) { Text("−p") }
+                                        IconButton(onClick = {
+                                            callbacks.onAdjustCluster(idx, 0, 5) }) { Text("+p") }
+                                        TextButton(onClick = { callbacks.onRemoveCluster(idx) }) {
+                                            Text("×") }
+                                    }
+                                }
+                            }
+                            item { TextButton(onClick = { callbacks.onAddCluster() }) {
+                                Text("Añadir bloque") } }
+                        }
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically) {
