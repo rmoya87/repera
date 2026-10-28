@@ -14,19 +14,19 @@ struct RestLiveActivityWidget: Widget {
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(timerInterval: Date()...context.state.endDate, countsDown: true)
+                    clockText(context.state)
                         .monospacedDigit()
                         .font(.title3.weight(.semibold))
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text("Descanso")
+                    Text(context.state.pausedRemainingSeconds == nil ? "Descanso" : "En pausa")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             } compactLeading: {
                 Image(systemName: "timer")
             } compactTrailing: {
-                Text(timerInterval: Date()...context.state.endDate, countsDown: true)
+                clockText(context.state)
                     .monospacedDigit()
                     .frame(width: 44)
             } minimal: {
@@ -35,11 +35,22 @@ struct RestLiveActivityWidget: Widget {
         }
     }
 
+    private func clockText(_ state: RestActivityAttributes.ContentState) -> Text {
+        if let paused = state.pausedRemainingSeconds {
+            let remaining = max(0, paused)
+            return Text(String(format: "%02d:%02d", remaining / 60, remaining % 60))
+        }
+        // Fixed time interval: SwiftUI's system timer updates on the lock screen
+        // without requiring the host app to wake up and publish new activity state.
+        let start = state.endDate.addingTimeInterval(-TimeInterval(max(1, state.totalSeconds)))
+        return Text(timerInterval: start...state.endDate, countsDown: true)
+    }
+
     @ViewBuilder
     private func lockScreenView(context: ActivityViewContext<RestActivityAttributes>) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Descanso")
+                Text(context.state.pausedRemainingSeconds == nil ? "Descanso" : "En pausa")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(context.attributes.exerciseName)
@@ -47,7 +58,7 @@ struct RestLiveActivityWidget: Widget {
                     .lineLimit(1)
             }
             Spacer()
-            Text(timerInterval: Date()...context.state.endDate, countsDown: true)
+            clockText(context.state)
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .monospacedDigit()
         }
