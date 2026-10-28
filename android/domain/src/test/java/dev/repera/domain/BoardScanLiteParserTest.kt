@@ -633,4 +633,14 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.CHIPPER,block.wodFormat)
         assertEquals(2,block.movements.size)
     }
+    @Test fun chipperAndDeathByHeadersCreateFormatsNotMovements() {
+        for((header,format,title) in listOf(Triple("CHIPPER",WODFormat.CHIPPER,"Chipper"),Triple("DEATH BY BURPEES",WODFormat.DEATH_BY,"Muerte por"),Triple("MUERTE POR REMO",WODFormat.DEATH_BY,"Muerte por"))) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(header,format,block.wodFormat)
+            assertEquals(title,block.title)
+            assertEquals(1,block.movements.size)
+            assertEquals(2,block.movements.single().reps)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+    }
 }

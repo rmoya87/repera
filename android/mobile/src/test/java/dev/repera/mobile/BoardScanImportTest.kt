@@ -129,4 +129,13 @@ class BoardScanImportTest {
             assertTrue(wire.getJSONObject(i).getString("notes").contains("70%"))
         }
     }
+    @Test fun deathByAndChipperHeadersKeepFormatAndRawNotesInWire() {
+        for((header,format) in listOf("DEATH BY BURPEES" to "deathBy","CHIPPER" to "chipper")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            val wire=BoardScanImport.wireBlock(block)
+            assertEquals(format,wire.getString("wodFormat"))
+            assertEquals(1,wire.getJSONArray("movements").length())
+            assertTrue(wire.getString("wodNotes").contains(header))
+        }
+    }
 }

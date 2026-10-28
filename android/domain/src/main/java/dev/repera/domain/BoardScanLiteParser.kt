@@ -20,7 +20,8 @@ object BoardScanLiteParser {
         val cap: Int?,
         val rounds: Int?,
         val interval: Int?,
-        val body: MutableList<String>
+        val body: MutableList<String>,
+        val originalHeader:String=header
     )
 
     fun parse(ocrText: String, catalog: List<CatalogExercise> = emptyList(),
@@ -100,7 +101,7 @@ object BoardScanLiteParser {
             if(cur.format==WODFormat.FOR_TIME && block.restBetweenRoundsSeconds==null) {
                 block.movements.firstOrNull {it.isRest}?.let {block.restBetweenRoundsSeconds=it.restSeconds}
             }
-            block.wodNotes = (listOf(cur.header) + cur.body).joinToString("\n")
+            block.wodNotes = (listOf(cur.originalHeader,cur.header).distinct() + cur.body).joinToString("\n")
             block.deriveEmomRoundsIfNeeded()
             blocks.add(block)
             current = null
@@ -128,7 +129,7 @@ object BoardScanLiteParser {
                 val title = listOfNotNull(sectionTitle, intervalDescription, header.title)
                     .joinToString(" · ")
                 current = Current(title, header.format, header.cap, header.rounds,
-                    header.interval, mutableListOf())
+                    header.interval, mutableListOf(),originalHeader=line)
                 sectionTitle = null
                 pendingSectionFormat=null
                 intervalDescription = null
@@ -342,6 +343,8 @@ object BoardScanLiteParser {
         if (upper.contains("TABATA")) {
             return Header(line, WODFormat.TABATA, null)
         }
+        if(upper.contains("CHIPPER")) return Header("Chipper",WODFormat.CHIPPER,null)
+        if(upper.contains("DEATH BY") || upper.contains("MUERTE POR")) return Header("Muerte por",WODFormat.DEATH_BY,null)
         // Every 90" x 6 (segundos), Every 2' x 4 (minutos), o Every 2 x 4.
         capture("(?i)^(?:EVERY|CADA)\\s+(\\d+)\\s*(\"|''?|S\\b|SEC(?:ONDS?)?\\b|MIN(?:UTES?)?\\b)?\\s*X\\s*(\\d+)\\b",
             line)?.let { fields ->

@@ -686,3 +686,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, cabeceras fuerza con descripcion 03:18 28oct
 - Mismo bloque parcial,subhueco cabeceras ya abierto:329 acepta descripcion despues de TECHNIQUE/SUPERSET/GIANT SET/WARMUP/COOLDOWN ytokens fuente,solo frontera espacio o ':',como BoardImportParser610-624. Conserva titulo completo;no crea movimiento de cabecera ni inventa sets/repsdefault.
 - Regresion fallo antes del arreglo conTECHNIQUE:CLEAN WORK;2tests nuevos cubren5cabeceras yprefijo sinfrontera no aceptado. Dominio526/93XML77s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear329 pendientes;ultima completa327mobile677/163Wear8/1.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, CHIPPER y DEATH BY 03:32 28oct
+-329 bateria completa mobile677/163XML100/112/92/97s,domain526/93XML77s,Wear8/1XML+ambosassemble95s verdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo lector parcial,subhueco cabeceras330: CHIPPER yDEATH BY/MUERTE POR seleccionan formato existente ytitulo fuente,segun BoardImportParser606-611;ya no crean movimiento falso de cabecera. Conserva cabecera original en notas aun con titulo normalizado. No agrega timecap/rondas/defaults3x8.
+- Regresion fallo antes del cambio.1test dominio de3cabeceras y1wire nuevos;dominio527/93XML77s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear330 pendientes.735/70sin cierres,nativo pendiente,no push.
