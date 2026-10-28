@@ -535,7 +535,7 @@ struct SettingsView: View {
             OGConfirmSheet(
                 systemImage: "person.crop.circle.badge.xmark",
                 title: "¿Eliminar mi cuenta definitivamente?",
-                message: "Se eliminarán tu cuenta y tus datos personales de Repera en iCloud y Supabase. Las empresas vinculadas conservarán como histórico de solo lectura los registros que ya tenían autorizados, sin acceso a tu cuenta ni posibilidad de generar actividad nueva. Esta acción no se puede deshacer. Apple Salud y las suscripciones de Apple se gestionan por separado.",
+                message: "Se eliminarán definitivamente tu cuenta y tus datos personales almacenados en Repera. Las empresas vinculadas conservarán como histórico de solo lectura los registros que ya tenían autorizados, sin acceso a tu cuenta ni posibilidad de generar actividad nueva. Esta acción no se puede deshacer. Apple Salud y las suscripciones de Apple se gestionan por separado.",
                 confirmTitle: "Eliminar mi cuenta",
                 onConfirm: {
                     confirmDeleteAccount = false
