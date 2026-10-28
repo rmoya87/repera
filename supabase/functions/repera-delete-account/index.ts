@@ -39,7 +39,7 @@ const businessBlockers: Array<{ table: string; column: string; ownerRole?: strin
 
 async function businessResponsibilities(userID: string): Promise<boolean> {
   for (const { table, column, ownerRole } of businessBlockers) {
-    let query = admin.from(table).select("id", { count: "exact", head: true }).eq(column, userID);
+    let query = admin.from(table).select("*", { count: "exact", head: true }).eq(column, userID);
     if (ownerRole) query = query.eq("role", ownerRole);
     const { count, error } = await query;
     if (error) throw error;
