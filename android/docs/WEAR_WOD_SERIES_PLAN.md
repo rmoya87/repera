@@ -44,6 +44,10 @@ HECHO unidad 3 (descanso): wearWodRestAfterConfirmedSet - Tabata: blockRest
 (10 por defecto, como Apple); resto formatos: lo que queda del intervalo (0 en
 el borde); null sin reloj del bloque. queueSet lo usa para WOD en vez de
 WatchStrengthRest. Tests +2 (8/8 reloj REAL).
+HECHO UI Wear (2026-10-28): `WearHomeContent` muestra «Registrar serie» /
+Confirmar en WOD `wodUsesSeries` cuando hay reloj de bloque matching; sin
+reloj matching avisa «Inicia el reloj del bloque…».
+
 PENDIENTE:
 - Validacion visual/runtime Wear ABIERTA (sin emulador KVM): UI "Registrar serie"
   en bloque WOD, estado sin reloj, ack saved/rejected en reloj real.

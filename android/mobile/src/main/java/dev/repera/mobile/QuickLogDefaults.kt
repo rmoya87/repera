@@ -17,6 +17,9 @@ internal object QuickLogDefaults {
   weightKg=if(mode.showsWeight) last?.weightKg else null,
   durationSeconds=if(mode in setOf(ExerciseInputMode.MACHINE_WORK,ExerciseInputMode.REPS_AND_TIME))
    last?.durationSeconds ?: if(hold) 30 else 60 else null,
+  // Apple: last.deficitCm en HSPU; sin historial no inventamos cm.
+  deficitCm=if(mode==ExerciseInputMode.HSPU_DEFICIT)
+   last?.deficitCm?.takeIf { it in 1..60 } else null,
   unit=unit
  )
 }

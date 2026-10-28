@@ -872,10 +872,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         schedule, interval, work, rest, ladder,
                             canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
-                onCreateRoutineFromScan = { title, blocks, requestId, saved ->
+                onCreateRoutineFromScan = { title, blocks, requestId, dayIso, saved ->
                     val existing=overviewForTemplateRetry(requestId)
-                    if(permitNewTemplate(isNew=!existing)) runWorkoutAction(onSuccess=saved) { createRoutineFromScan(title, blocks,routineId=requestId,
-                        canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
+                    // DayPlus con fecha: one-off al día (no consume cupo de plantilla).
+                    val schedule = if (!dayIso.isNullOrBlank())
+                        RoutineSchedule(scheduledDate = dayIso) else RoutineSchedule()
+                    if(schedule.scheduledDate!=null || permitNewTemplate(isNew=!existing))
+                        runWorkoutAction(onSuccess=saved) {
+                            createRoutineFromScan(title, blocks, schedule, routineId=requestId,
+                                canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed})
+                        }
                 },
                 onStartSessionFromDrafts = { title, drafts, fav, requestId, saved ->
                     if(!fav || activeWorkout?.draftRequestId==requestId || permitNewTemplate()) runWorkoutAction(onSuccess = { beginLocationCapture();saved() }) {

@@ -72,6 +72,12 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
     TextButton(onClick={rows.removeAt(i);touch()}) {Text("Eliminar serie ${i+1}")}
    }}}
   }
-  TextButton(onClick={val last=rows.lastOrNull();rows.add((last?:LiveRowSummary("",active.prescribedQuantity?:0,active.prescribedWeightKg,null,null,null,false)).copy(id=java.util.UUID.randomUUID().toString(),completed=false));touch()},enabled=rows.size<100) {Text("Añadir serie")}
+  TextButton(onClick={
+   val last=rows.lastOrNull()
+   val seed=last?:LiveRowSummary("",active.prescribedQuantity?:0,active.prescribedWeightKg,
+    if(active.allowsDeficit) active.prescribedWeightKg?.toInt() else null,null,null,false)
+   // Apple addLiveSet: hereda déficit/peso de la fila previa.
+   rows.add(seed.copy(id=java.util.UUID.randomUUID().toString(),completed=false));touch()
+  },enabled=rows.size<100) {Text("Añadir serie")}
  }
 }

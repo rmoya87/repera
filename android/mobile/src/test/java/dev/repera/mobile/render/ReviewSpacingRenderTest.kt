@@ -205,7 +205,7 @@ class ReviewSpacingRenderTest {
                         onDayPlusCreate = { _, _ -> selected = "create" },
                         onDayPlusFavorites = { selected = "favorites" },
                         onDayPlusTimer = { selected = "timer" },
-                        onDayPlusScan = { selected = "scan" })
+                        onDayPlusScan = { _ -> selected = "scan" })
                 }
             }
         }
