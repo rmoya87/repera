@@ -506,7 +506,8 @@ struct WorkoutView: View {
         persistActiveLiveDraft()
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
-            customExercises: store.customExerciseCount
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
         )
         store.featureAccess = { [subscriptions] in subscriptions.policy }
         guard store.saveActiveSessionAsFavorite() != nil else {
