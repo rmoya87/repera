@@ -2432,7 +2432,8 @@ final class ReperaStore: NSObject {
                         title: source.title,
                         blocks: source.blocks.map { $0.duplicatingContent() },
                         progression: source.progression,
-                        isFavorite: true
+                        isFavorite: true,
+                        locationPin: source.locationPin
                     )
                     guard saveRoutine(template) else { return false }
                     // saveRoutine ordena el array: recuperar índice por UUID.
@@ -2500,7 +2501,8 @@ final class ReperaStore: NSObject {
             title: name.isEmpty ? "Favorito" : name,
             blocks: routine.blocks.map { $0.duplicatingContent() },
             progression: routine.progression,
-            isFavorite: true
+            isFavorite: true,
+            locationPin: routine.locationPin
         )
         guard saveRoutine(favorite) else { return nil }
         return favorite
@@ -2688,7 +2690,8 @@ final class ReperaStore: NSObject {
                 title: session.title.isEmpty ? "Favorito" : session.title,
                 blocks: snapshot.map { $0.duplicatingContent() },
                 progression: .off,
-                isFavorite: true
+                isFavorite: true,
+                locationPin: session.locationPin
             )
         }
 
@@ -2765,7 +2768,8 @@ final class ReperaStore: NSObject {
             weekday: nil,
             blocks: blocks.isEmpty ? [.strength()] : blocks,
             progression: .off,
-            isFavorite: true
+            isFavorite: true,
+            locationPin: session.locationPin
         )
     }
 
