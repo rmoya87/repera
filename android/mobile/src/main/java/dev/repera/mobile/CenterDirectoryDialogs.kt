@@ -30,7 +30,10 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
    OutlinedTextField(query,{query=it},label={Text("Nombre del centro o entrenador")},modifier=Modifier.testTag("center_directory_query"))
    if(!connected) Text("La búsqueda estará disponible al recuperar la conexión.")
    else if(searching) CircularProgressIndicator()
-   else if(rows.isEmpty()) Text("No hay resultados. Prueba otro nombre o pide invitación a tu centro.")
+   else if(rows.isEmpty()) ReperaEmptyState(
+     title = "No hay resultados",
+     subtitle = "Prueba otro nombre o pide invitación a tu centro"
+   )
    else rows.forEach {org ->TextButton(enabled=org.id !in linked && !submitting,onClick={selectedObj=org;selectedId=org.id;note=""}) {
     Column {Text(org.name);Text(if(org.id in linked) "Vinculado" else org.tagline ?: org.kind)}
    }}
@@ -57,7 +60,10 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
   Text(org.tagline ?: org.kind)
   Text("Bonos y sesiones")
   val passes=snapshot?.passes.orEmpty().filter {it.orgId==org.id}
-  if(passes.isEmpty()) Text("Sin bonos activos. El centro confirmará tu bono solicitado.")
+  if(passes.isEmpty()) ReperaEmptyState(
+    title = "Sin bonos activos",
+    subtitle = "El centro confirmará tu bono solicitado"
+  )
   passes.forEach {pass ->
    Text(if(pass.kind=="appointment") "Sesiones personales" else if(pass.kind=="unlimited") "Acceso ilimitado" else "Clases")
    Text("${pass.remainingCredits} de ${pass.totalCredits} disponibles")

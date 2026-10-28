@@ -40,7 +40,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
     LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp),modifier=listModifier.fillMaxSize()) {
         item {TextButton(onClick=back) {Text("Volver")}}
         if(selected!=null) {
-            item {Text(selected.name,style=MaterialTheme.typography.headlineMedium)}
+            item { ReperaPageHeader(title = selected.name) }
             item {TextButton(enabled=!busy,onClick={onToggle(selected.id)},modifier=Modifier.testTag("wod_toggle_favorite")) {
                 Text(if(selected.id in favorites) "Quitar de favoritos" else "Favorito")}}
             item {
@@ -55,13 +55,13 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             val allowed=subscriptions?.isPro ?: false
             val visible=WodLibraryHistory.visible(scores,allowed)
             if(scores.isNotEmpty()) {
-                item {Text("Tu progresión",style=MaterialTheme.typography.titleLarge)}
+                item { ReperaSectionTitle("Tu progresión") }
                 items(visible) {result ->Text(result.summary,modifier=Modifier.testTag("wod_result_${result.id}"))}
                 if(!allowed && scores.size>visible.size) item {TextButton(onClick={subscriptions?.presentPaywall(
                     dev.repera.domain.monetization.PaywallContext.WOD_HISTORY,
                     feature=dev.repera.domain.monetization.ReperaFeature.HISTORICAL_WOD_RESULTS)}) {Text("Supera tus marcas · ver historial completo")}}
             }
-            item {Text("Movimientos",style=MaterialTheme.typography.titleLarge)}
+            item { ReperaSectionTitle("Movimientos") }
             items(selected.movements) {move ->
                 val exercise=remember(move.name,exercises) {resolveWodExercise(move.name,exercises,aliases,packaged,notes=move.notes)}
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -81,12 +81,22 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             if(matches.isEmpty() && query.isNotBlank()) {
                 val fallback=exercises.map {it to dev.repera.domain.ExerciseAliasSearch.score(query,it.name,aliases,it.disciplineTags.joinToString(" "), it.searchAliases)}
                     .filter {it.second>=0}.sortedByDescending {it.second}.map {it.first}
-                item {Text("Ejercicios",style=MaterialTheme.typography.titleLarge)}
-                if(fallback.isEmpty()) item {Text("Sin ejercicios coincidentes")}
+                item { ReperaSectionTitle("Ejercicios") }
+                if(fallback.isEmpty()) item {
+                    ReperaEmptyState(
+                        title = "Sin ejercicios coincidentes",
+                        subtitle = "Prueba otro nombre o formato"
+                    )
+                }
                 items(fallback,key={"exercise-${it.id}"}) {exercise ->
                     TextButton(onClick={if(split) selectedExerciseId=exercise.id else onExercise(exercise.id)},modifier=Modifier.testTag("wod_fallback_${exercise.id}")) {Text(exercise.displayName)}
                 }
-            } else if(matches.isEmpty()) item {Text("Sin WODs coincidentes")}
+            } else if(matches.isEmpty()) item {
+                ReperaEmptyState(
+                    title = "Sin WODs coincidentes",
+                    subtitle = "Prueba otro nombre o cambia el orden"
+                )
+            }
             items(matches,key={it.id}) {template ->ReperaCard(Modifier.fillMaxWidth().testTag("wod_catalog_${template.id}").clickable {selectedId=template.id}) {
                 Column(Modifier.padding(16.dp)) {
                     Text(template.name + if (template.id in favorites) " · favorito" else "", style = MaterialTheme.typography.titleMedium)

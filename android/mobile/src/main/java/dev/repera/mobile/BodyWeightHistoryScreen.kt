@@ -20,7 +20,7 @@ internal fun BodyWeightHistoryScreen(entries:List<BodyWeightHistoryEntry>,busy:B
     var pendingDelete by remember {mutableStateOf<BodyWeightHistoryEntry?>(null)}
     val parsed=dev.repera.domain.ReperaNumberFormat.parse(kgText)?.takeIf {it.isFinite() && it in 20.0..400.0}
     LazyColumn(Modifier.fillMaxSize().testTag("weight_history_list"),contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item {Text("Peso corporal",style=MaterialTheme.typography.headlineMedium)}
+        item {ReperaPageHeader(title = "Peso corporal")}
         item {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
                 OutlinedTextField(kgText,{kgText=it},label={Text("Peso en kilogramos")},singleLine=true,
@@ -29,8 +29,13 @@ internal fun BodyWeightHistoryScreen(entries:List<BodyWeightHistoryEntry>,busy:B
             }
             Text("Un peso por día. Si ya hay uno hoy, se actualiza.",style=MaterialTheme.typography.bodySmall)
         }
-        item {Text("Historial",style=MaterialTheme.typography.titleMedium)}
-        if(entries.isEmpty()) item {Text("Aún no hay pesos registrados.")}
+        item { ReperaSectionTitle("Historial") }
+        if(entries.isEmpty()) item {
+  ReperaEmptyState(
+    title = "Aún no hay pesos registrados",
+    subtitle = "Registra tu peso corporal para ver la evolución"
+  )
+}
         items(entries,key={it.id}) {entry ->
             ReperaCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {

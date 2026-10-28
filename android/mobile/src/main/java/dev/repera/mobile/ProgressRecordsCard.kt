@@ -23,7 +23,10 @@ internal fun ProgressRecordsCard(records:List<PersonalRecord>,onExercise:(String
  }
  ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Récords del periodo",style=MaterialTheme.typography.titleMedium)
-  if(recent.isEmpty()) Text("Sin récords en el periodo. Entrena y apunta pesos para ver e1RM.")
+  if(recent.isEmpty()) ReperaEmptyState(
+    title = "Sin récords en el periodo",
+    subtitle = "Entrena y apunta pesos para ver e1RM"
+  )
   recent.take(5).forEach {record(it)}
   if(recent.size>5) TextButton(onClick={all=true}) {Text("Ver todos los récords (${recent.size})")}
  }}

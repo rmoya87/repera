@@ -34,13 +34,13 @@ fun AIProgramsScreen(
     LazyColumn(modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { Text("Programas IA",
-            style = MaterialTheme.typography.titleLarge) }
+        item { ReperaPageHeader(title = "Programas IA") }
         if (!connected) {
             item {
-                Text("Inicia sesión con tu cuenta para ver tus programas.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ReperaEmptyState(
+                    title = "Sin sesión",
+                    subtitle = "Inicia sesión con tu cuenta para ver tus programas"
+                )
             }
         }
         if (loading && programs.isNullOrEmpty()) {

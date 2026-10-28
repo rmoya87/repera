@@ -20,7 +20,10 @@ internal fun ProgressExercisesCard(exercises:List<ProgressExerciseRow>,onExercis
  }
  ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Progreso por ejercicio",style=MaterialTheme.typography.titleMedium)
-  if(exercises.isEmpty()) Text("Sin ejercicios aún. Cuando registres series, verás el progreso aquí.")
+  if(exercises.isEmpty()) ReperaEmptyState(
+  title = "Sin ejercicios aún",
+  subtitle = "Cuando registres series, verás el progreso aquí"
+)
   exercises.take(5).forEach {row(it)}
   if(exercises.size>5) TextButton(onClick={all=true},modifier=Modifier.semantics {contentDescription="Ver todos los ejercicios"}) {Text("Ver más")}
  }}

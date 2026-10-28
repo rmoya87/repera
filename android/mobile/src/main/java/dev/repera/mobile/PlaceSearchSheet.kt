@@ -30,11 +30,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -204,7 +204,7 @@ fun WorkoutPlacePickerRow(
                 .testTag("place_picker_row")
         ) {
             Icon(
-                imageVector = if (pin != null) Icons.Filled.LocationOn else Icons.Filled.Place,
+                imageVector = if (pin != null) Icons.Outlined.LocationOn else Icons.Outlined.Place,
                 contentDescription = null,
                 tint = if (pin != null) MaterialTheme.colorScheme.onSurfaceVariant
                        else MaterialTheme.colorScheme.primary,
@@ -341,10 +341,10 @@ fun PlaceSearchSheet(
                         IconButton(
                             onClick = { onSelect(null); onDismiss() },
                             modifier = Modifier.testTag("place_clear")
-                        ) { Icon(Icons.Filled.Delete, contentDescription = "Quitar lugar") }
+                        ) { Icon(Icons.Outlined.Delete, contentDescription = "Quitar lugar") }
                     } else {
                         IconButton(onClick = onDismiss, modifier = Modifier.testTag("place_close")) {
-                            Icon(Icons.Filled.Close, contentDescription = "Cerrar")
+                            Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
                         }
                     }
                     Text(
@@ -363,7 +363,7 @@ fun PlaceSearchSheet(
                                 onDismiss()
                             },
                             modifier = Modifier.testTag("place_confirm")
-                        ) { Icon(Icons.Filled.Check, contentDescription = "Guardar lugar") }
+                        ) { Icon(Icons.Outlined.Check, contentDescription = "Guardar lugar") }
                     }
                 }
                 // iOS .searchable: tocar el campo PRESENTA la búsqueda. La
@@ -535,7 +535,7 @@ fun PlaceSearchSheet(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
-                                Icon(Icons.Filled.LocationOn, contentDescription = null,
+                                Icon(Icons.Outlined.LocationOn, contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(28.dp))
                             }

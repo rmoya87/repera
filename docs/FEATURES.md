@@ -539,6 +539,6 @@ cambios de producto Apple.
 `ReperaTheme` envuelve la app (onboarding incluido) con el verde OG (`#30D158` /
 claro legible `#0E7A38`), no el púrpura M3 por defecto. 2.º pase: `ReperaCard` /
 `ReperaFilterChip` / `ReperaModalBottomSheet`, tipografía, DayPlus/paywall Outlined.
-3.er–4.º pase: section titles/headers/empty; Play activo, preview, editores,
+3.er–5.º pase: section titles/headers/empty; Play activo, preview, editores,
 detalle ejercicio, historial, WODs, permisos/onboarding y cards de progreso →
 `ReperaCard`. Detalle: `android/README.md`, `docs/ARCHITECTURE.md`.
