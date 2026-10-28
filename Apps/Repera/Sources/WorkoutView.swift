@@ -2,6 +2,16 @@ import ReperaDomain
 import SwiftUI
 import UIKit
 
+private struct PlayReplacementTarget: Identifiable {
+    let id = UUID()
+    let blockID: UUID
+    let itemID: UUID
+}
+private struct PendingPlayReplacement {
+    let target: PlayReplacementTarget
+    let exercise: Exercise
+}
+
 struct WorkoutView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
@@ -24,6 +34,12 @@ struct WorkoutView: View {
     @State private var clusterRestText = "15"
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var editingRoutine: Routine?
+    @State private var replacingPlayExercise: PlayReplacementTarget?
+    @State private var pendingPlayReplacement: PendingPlayReplacement?
+    @State private var addPlayExerciseToBlock: UUID?
+    @State private var selectPlayFormatForBlock: UUID?
+    @State private var showPlayWODCatalog = false
+    @State private var openedSetID: UUID?
     @State private var notesDraft = ""
     @State private var favoriteSaveError: String?
     @State private var isSavingFavorite = false
@@ -471,6 +487,16 @@ struct WorkoutView: View {
     }
 
     private func workoutBlocks(_ session: WorkoutSession) -> [WorkoutBlockEntry] {
+        if let saved = session.routineBlocks, !saved.isEmpty {
+            return saved.map { block in
+                WorkoutBlockEntry(
+                    id: block.id, title: block.title, format: block.wodFormat,
+                    indexes: session.exercises.enumerated().compactMap { index, item in
+                        item.blockId == block.id ? index : nil
+                    }
+                )
+            }
+        }
         var blocks: [WorkoutBlockEntry] = []
         for (index, exercise) in session.exercises.enumerated() {
             let id = exercise.blockId ?? exercise.id
@@ -510,6 +536,31 @@ struct WorkoutView: View {
                         ) {
                             openBlockTimer(block, session: session)
                         }
+                        .disabled(block.indexes.isEmpty)
+                        Menu {
+                            Button("Subir bloque", systemImage: "arrow.up") {
+                                movePlayBlock(block.id, offset: -1)
+                            }
+                            Button("Bajar bloque", systemImage: "arrow.down") {
+                                movePlayBlock(block.id, offset: 1)
+                            }
+                            Button("Añadir ejercicio", systemImage: "plus") {
+                                addPlayExerciseToBlock = block.id
+                            }
+                            Button("Cambiar formato", systemImage: "slider.horizontal.3") {
+                                selectPlayFormatForBlock = block.id
+                            }
+                            Divider()
+                            Button("Eliminar bloque", systemImage: "trash", role: .destructive) {
+                                removePlayBlock(block.id)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Opciones de \(block.title)")
                     }
                     .listRowBackground(OG.surface)
 
@@ -520,40 +571,59 @@ struct WorkoutView: View {
 
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
-                        Group {
-                            if session.currentIndex == index {
-                                // Ya expandido: tocar miniatura o nombre abre la ficha real.
-                                NavigationLink {
-                                    ExerciseDetailView(
-                                        exerciseId: entry.exercise.id,
-                                        highlightSessionId: session.id
-                                    )
-                                } label: {
-                                    workoutExerciseRow(entry, isOpen: true, blockResult: session.wodResults.first(where: { $0.id == block.id }))
-                                }
-                            } else {
-                                // Cerrado: un toque expande sus series (no navega).
-                                Button {
-                                    store.selectExercise(at: index)
-                                } label: {
-                                    workoutExerciseRow(entry, isOpen: false, blockResult: session.wodResults.first(where: { $0.id == block.id }))
-                                }
-                                .buttonStyle(.plain)
+                        HStack(spacing: 4) {
+                            NavigationLink {
+                                ExerciseDetailView(
+                                    exerciseId: entry.exercise.id,
+                                    highlightSessionId: session.id
+                                )
+                            } label: {
+                                workoutExerciseRow(
+                                    entry, isOpen: true,
+                                    blockResult: session.wodResults.first(where: { $0.id == block.id })
+                                )
                             }
+                            .accessibilityHint("Ver ficha del ejercicio")
+                            Button {
+                                replacingPlayExercise = PlayReplacementTarget(
+                                    blockID: block.id, itemID: entry.id
+                                )
+                            } label: {
+                                Image(systemName: "arrow.left.arrow.right")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(OG.accent)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Sustituir ejercicio")
+                            Menu {
+                                Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
+                                    store.selectExercise(at: index)
+                                }
+                                Button("Subir ejercicio", systemImage: "arrow.up") {
+                                    movePlayExercise(block.id, itemID: entry.id, offset: -1)
+                                }
+                                Button("Bajar ejercicio", systemImage: "arrow.down") {
+                                    movePlayExercise(block.id, itemID: entry.id, offset: 1)
+                                }
+                                Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
+                                    removePlayExercise(block.id, itemID: entry.id)
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .foregroundStyle(OG.label)
+                                    .frame(width: 44, height: 44)
+                            }
+                            .accessibilityLabel("Opciones del ejercicio")
                         }
                         .listRowBackground(OG.surface)
-                        // Sin línea entre el ejercicio abierto y la cabecera de series.
-                        .listRowSeparator(
-                            session.currentIndex == index ? .hidden : .visible,
-                            edges: .bottom
-                        )
+                        .listRowSeparator(.hidden, edges: .bottom)
 
-                        if session.currentIndex == index {
-                            setsBoard(entry)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
-                                .listRowBackground(OG.surface)
-                                .listRowSeparator(.hidden)
-                        }
+                        PlayEditableSetsView(exerciseEntry: entry)
+                            .id(entry.id)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(OG.surface)
+                            .listRowSeparator(.hidden)
                     }
 
                     if block.indexes.contains(session.currentIndex),
@@ -622,6 +692,17 @@ struct WorkoutView: View {
                         }
                     }
                     .textCase(nil)
+                }
+            }
+
+            Section {
+                Button("Añadir bloque", systemImage: "square.stack.3d.up") {
+                    mutatePlayRoutine { draft in
+                        draft.blocks.append(.strength(title: "Bloque \(draft.blocks.count + 1)"))
+                    }
+                }
+                Button("Elegir WOD", systemImage: "list.bullet.rectangle.portrait") {
+                    showPlayWODCatalog = true
                 }
             }
 
@@ -812,7 +893,8 @@ struct WorkoutView: View {
             )
 
             ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
-                WorkoutSetSwipeDeleteRow(
+                OGSetSwipeDeleteRow(
+                    canDelete: true, setID: row.id, openedSetID: $openedSetID,
                     onDelete: { removeLiveSet(at: index, current: current) }
                 ) {
                     liveSetRow(index: index, row: row, current: current)
@@ -2634,7 +2716,10 @@ private struct PlayEditableSetsView: View {
                     Text("Metros").tag(ExerciseQuantityUnit.meters)
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: quantityUnit) { _, _ in persist() }
+                .onChange(of: quantityUnit) { _, value in
+                    guard value != (exerciseEntry.quantityUnit ?? exercise.defaultQuantityUnit) else { return }
+                    persist()
+                }
             }
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? quantityLabel
