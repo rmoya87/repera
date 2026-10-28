@@ -776,3 +776,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 06:30 28oct
 -347 bateria completa mobile679/163XML88/103/81/90s,domain542/93XML69s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Backup347recuperado desde65338db7:arbol712159826975b6b35bd6349cfb665b87cabcaa5eidentico,clonlimpio.
 -348 solo documentacion: c6f89c28/88db5bb7reconciliadas344-347,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;no extenderdefaults3x8niheaderscontainsglobal sinresolverrutas/fallback. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, EVERY/CADA con unidades explicitas 06:34 28oct
+- Mismo lector parcial349: EVERY/CADA + unidad explicita + FOR/PARA + duracion reconoce EMOM, conserva cadencia segundos/minutos, cap y rondas derivadas u override explicito. Subconjunto de BoardImportParser400-440, cabecera completa y aritmetica bounded; sin inferencia de unidades ausentes ni containsglobal. Cabecera original queda en notas. EVERY90S anterior ahora recibe rondas derivadas como fuente.
+- Regresion fallo antes: CADA90SECPARA12MIN perdia cap.2tests dominio nuevos y1wire;dominio544/93XML84s ywire10/1XML69sverdes0fallos/errores/omitidos. Mobile completa/Wear349 pendientes;ultima completa347mobile679/163domain542/93Wear8/1+ambosassemble68s.735/70sin cierres,nativo pendiente,no push.

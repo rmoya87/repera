@@ -763,4 +763,23 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
         assertEquals(1,ordinary.movements.size)
     }
+    @Test fun everyForExplicitUnitSynonymsKeepCadenceDurationAndRounds() {
+        for((header,seconds) in listOf("CADA 90 SEC PARA 12 MIN" to 90,"EVERY 90 SECONDS FOR 12 MINUTES" to 90,"CADA 2 MIN PARA 12 MIN" to 120,"EVERY 90S FOR 12MIN" to 90, "CADA 90\" PARA 12'" to 90)) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.EMOM,block.wodFormat)
+            assertEquals(header,seconds,block.emomIntervalSeconds)
+            assertEquals(12,block.timeCapMinutes)
+            assertEquals(720/seconds,block.rounds)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+    }
+    @Test fun everyForExplicitRoundsOverrideDerivedRounds() {
+        for(suffix in listOf("(5 SETS)","(5 SERIES)","(5 ROUNDS)","(5 RONDAS)")) {
+            val block=BoardScanLiteParser.parse("EVERY 2 MIN FOR 12 MIN $suffix\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(5,block.rounds)
+            assertEquals(120,block.emomIntervalSeconds)
+            assertEquals(12,block.timeCapMinutes)
+        }
+    }
 }
