@@ -785,3 +785,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -349 bateria completa mobile680/163XML93/112/86/92s,domain544/93XML84s,Wear8/1XML+ambosassemble95sverdes. Backup349recuperado65338db7:arbol55e6b9f4d976d264e2cd6bc998e28d58bd596cddidentico,clonlimpio.
 - Mismo lector parcial350: amplia el subconjunto EVERY/CADA FOR/PARA para unidad ausente, siguiendo regla explicita fuente400-440: intervalo>=30 ensegundos,menor enminutos;duracionminutos,sufijounidadopcional. Solo cabecera completa,validacionespositivas yaritmeticabounded;no default3x8 ni containsglobal.
 - Regresion fallo antes: EVERY90FOR12MIN interpretaba5400s.1test nuevo frontera29/30ycasos90/2,wireexistenteampliadoconcasosinunidades. Dominio545/93XML70s ywire10/1XML66sverdes0fallos/errores/omitidos. Mobile completa/Wear350pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 06:56 28oct
+-350 bateria completa mobile680/163XML93/108/85/82s,domain545/93XML70s,Wear8/1XML+ambosassemble74sverdes0fallos/errores/omitidos. Backup350recuperado65338db7:arbol0427e0c908ad16655fa00bf5cc6dd86c15a972abidentico,clonlimpio.
+-351 solo documentacion: c6f89c28/88db5bb7reconciliadas349-350,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
