@@ -2093,6 +2093,37 @@ public struct WorkoutRoutePoint: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+/// Datos reales de un temporizador libre guardado, sin métricas fabricadas de Salud.
+public struct TimerCompletionDetails: Codable, Sendable, Equatable {
+    public var modeRaw: String
+    public var configuredSeconds: Int
+    public var rounds: Int
+    public var workSeconds: Int
+    public var restSeconds: Int
+    public var countdownSeconds: Int
+
+    public init(
+        modeRaw: String, configuredSeconds: Int, rounds: Int,
+        workSeconds: Int, restSeconds: Int, countdownSeconds: Int
+    ) {
+        self.modeRaw = modeRaw
+        self.configuredSeconds = max(1, configuredSeconds)
+        self.rounds = max(1, rounds)
+        self.workSeconds = max(0, workSeconds)
+        self.restSeconds = max(0, restSeconds)
+        self.countdownSeconds = max(0, countdownSeconds)
+    }
+
+    public var modeTitle: String {
+        switch modeRaw {
+        case "up": return "Arriba"
+        case "down": return "Abajo"
+        case "intervals": return "Intervalos"
+        default: return "Temporizador"
+        }
+    }
+}
+
 public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public let id: UUID
     public var title: String
@@ -2140,6 +2171,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     /// Parciales de 1 km medidos con el cronómetro activo, excluyendo las pausas.
     /// Nil en registros anteriores o recorridos sin hitos GPS verificados.
     public var liveKilometerSplitsSeconds: [Double]?
+    /// Registro de cronómetro libre. No es un HKWorkout ni aporta kcal/FC.
+    public var timerDetails: TimerCompletionDetails?
 
     public init(
         id: UUID = UUID(),
@@ -2166,7 +2199,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         liveRouteID: UUID? = nil,
         recordedDistanceMeters: Double? = nil,
         activeDurationSeconds: TimeInterval? = nil,
-        liveKilometerSplitsSeconds: [Double]? = nil
+        liveKilometerSplitsSeconds: [Double]? = nil,
+        timerDetails: TimerCompletionDetails? = nil
     ) {
         self.id = id
         self.title = title
@@ -2193,6 +2227,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.recordedDistanceMeters = recordedDistanceMeters
         self.activeDurationSeconds = activeDurationSeconds
         self.liveKilometerSplitsSeconds = liveKilometerSplitsSeconds
+        self.timerDetails = timerDetails
     }
 
     enum CodingKeys: String, CodingKey {
@@ -2201,7 +2236,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints, liveSportID, liveRouteID, recordedDistanceMeters, activeDurationSeconds
-        case liveKilometerSplitsSeconds
+        case liveKilometerSplitsSeconds, timerDetails
     }
 
     public init(from decoder: Decoder) throws {
@@ -2231,6 +2266,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         recordedDistanceMeters = try c.decodeIfPresent(Double.self, forKey: .recordedDistanceMeters)
         activeDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .activeDurationSeconds)
         liveKilometerSplitsSeconds = try c.decodeIfPresent([Double].self, forKey: .liveKilometerSplitsSeconds)
+        timerDetails = try c.decodeIfPresent(TimerCompletionDetails.self, forKey: .timerDetails)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2260,6 +2296,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(recordedDistanceMeters, forKey: .recordedDistanceMeters)
         try c.encodeIfPresent(activeDurationSeconds, forKey: .activeDurationSeconds)
         try c.encodeIfPresent(liveKilometerSplitsSeconds, forKey: .liveKilometerSplitsSeconds)
+        try c.encodeIfPresent(timerDetails, forKey: .timerDetails)
     }
 
     public var currentExercise: SessionExercise? {
@@ -2280,6 +2317,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
 
     /// Minutos del entreno: prioriza Apple Salud / Watch.
     public var durationMinutes: Double {
+        if let timerDetails { return Double(timerDetails.configuredSeconds) / 60 }
         if liveSportID != nil, let activeDurationSeconds { return max(0, activeDurationSeconds / 60) }
         if let apple = appleDurationSeconds, apple > 0 {
             return apple / 60
@@ -2292,6 +2330,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     /// Minutos del chip en listas (Inicio / Historial): reloj de pared inicio→fin.
     /// No usa el time-cap ni la duración de Salud (esos van a kcal / detalle).
     public var displayDurationMinutes: Double {
+        if let timerDetails { return Double(timerDetails.configuredSeconds) / 60 }
         if liveSportID != nil, let activeDurationSeconds { return max(0, activeDurationSeconds / 60) }
         if let start = startedAt {
             let end = finishedAt ?? start.addingTimeInterval(60)
