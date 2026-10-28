@@ -67,6 +67,24 @@ class FavoriteProEntitlementContractTests(unittest.TestCase):
         self.assertIn("favoriteSaveError", preview)
         self.assertIn("favoriteSaveError", history)
 
+    def test_gps_sports_save_as_activity_favorites_even_with_restored_snapshots(self):
+        store = read(IOS / "ReperaStore.swift")
+        action = store.split("func toggleWorkoutFavorite(_ id: UUID) -> Bool {", 1)[1].split(
+            "func removeFavoriteSportActivity(", 1
+        )[0]
+        sport_branch = action.index("if let sportID = session.liveSportID, !sportID.isEmpty {")
+        reusable_blocks = action.index("let hasReusableBlocks =")
+        self.assertLess(sport_branch, reusable_blocks)
+        self.assertNotIn("if session.exercises.isEmpty,", action)
+        self.assertIn("state.favoriteSportActivities.append(FavoriteSportActivity(", action)
+        self.assertIn("legacyFavoriteIDs", action)
+
+    def test_settings_explain_apple_sandbox_and_offline_cache(self):
+        settings = read(IOS / "SettingsView.swift")
+        self.assertIn("Las compras de prueba de TestFlight", settings)
+        self.assertIn("Acceso Pro conservado desde la última verificación", settings)
+        self.assertIn("subscriptions.snapshot.grantsProAccess", settings)
+
     def test_store_clears_stale_access_denials(self):
         store = read(IOS / "ReperaStore.swift")
         for signature in (
