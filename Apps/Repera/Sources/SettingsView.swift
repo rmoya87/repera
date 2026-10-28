@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var isPhotoPickerPresented = false
     @State private var restoreMessage: String?
+    @State private var accessFeedbackTitle = "Acceso Pro"
     @State private var isVerifyingSubscription = false
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
@@ -285,6 +286,7 @@ struct SettingsView: View {
                         Task {
                             await subscriptions.refreshEntitlementsForFeatureAction()
                             isVerifyingSubscription = false
+                            accessFeedbackTitle = "Comprobar acceso Pro"
                             restoreMessage = subscriptions.policy.isPro
                                 ? "Acceso Pro verificado en este dispositivo."
                                 : "No se ha encontrado un acceso Pro activo para esta cuenta de compras. Si ya activaste una suscripción de prueba, utiliza «Restaurar compras»."
@@ -300,6 +302,7 @@ struct SettingsView: View {
                     Button("Restaurar compras") {
                         Task {
                             let ok = await subscriptions.restorePurchases()
+                            accessFeedbackTitle = "Restaurar compras"
                             restoreMessage = ok
                                 ? "Suscripción restaurada."
                                 : (subscriptions.lastErrorMessage ?? "No se encontró ninguna suscripción.")
@@ -583,7 +586,7 @@ struct SettingsView: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .ogScrollingTitleNav()
-        .alert("Restaurar compras", isPresented: Binding(
+        .alert(accessFeedbackTitle, isPresented: Binding(
             get: { restoreMessage != nil },
             set: { if !$0 { restoreMessage = nil } }
         )) {
