@@ -57,7 +57,9 @@ fun RoutineBlocksEditorScreen(
     onFavoriteChosen: (Boolean) -> Unit = {},
     saveStatus:String? = null,
     editableTitle:Boolean = false,
-    accountId:String = ""
+    accountId:String = "",
+    /** Preferencia de visualización RIR/RPE; el almacenamiento sigue en RIR. */
+    effortUnit:String = "rir"
 ) {
     val scopeKey=remember(accountId,routine.id) {org.json.JSONArray(listOf(accountId,routine.id)).toString()}
     val textSaver=remember(scopeKey) {Saver<String,String>(save={saveScopedEditorValue(scopeKey,it)},restore={restoreScopedEditorValue(scopeKey,it)})}
@@ -135,6 +137,7 @@ fun RoutineBlocksEditorScreen(
                     onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
                     onBlockUp = if (index > 0) ({ val m = blocks.removeAt(index); blocks.add(index - 1, m) }) else null,
                     onBlockDown = if (index < blocks.size - 1) ({ val m = blocks.removeAt(index); blocks.add(index + 1, m) }) else null,
+                    effortUnit = effortUnit,
                     handle = handle,
                     moveTargets = blocks.mapIndexedNotNull { ti, tb ->
                         if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
@@ -429,7 +432,8 @@ private fun BlockEditorCard(
     onEntryBounds: (Int, Float, Float) -> Unit = { _, _, _ -> },
     onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> },
     onBlockUp: (() -> Unit)? = null,
-    onBlockDown: (() -> Unit)? = null
+    onBlockDown: (() -> Unit)? = null,
+    effortUnit: String = "rir"
 ) {
     val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -526,7 +530,8 @@ private fun BlockEditorCard(
                         moveTargets = moveTargets,
                         onMove = { target -> onMoveEntry(index, target) },
                         onUp = if (index > 0) ({ val m = block.entries.removeAt(index); block.entries.add(index - 1, m) }) else null,
-                        onDown = if (index < block.entries.size - 1) ({ val m = block.entries.removeAt(index); block.entries.add(index + 1, m) }) else null
+                        onDown = if (index < block.entries.size - 1) ({ val m = block.entries.removeAt(index); block.entries.add(index + 1, m) }) else null,
+                        effortUnit = effortUnit
                     )
                     }
                   }
@@ -582,7 +587,8 @@ private fun EntryEditorRow(
     unitChoices: Boolean = false,
     weightedRepsOrMeters: Boolean = false,
     onUp: (() -> Unit)? = null,
-    onDown: (() -> Unit)? = null
+    onDown: (() -> Unit)? = null,
+    effortUnit: String = "rir"
 ) {
     val isRest = entry.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
     // Apple 4c9a5d10: la etiqueta de cantidad de un recorrido (reps/m) es el
@@ -684,7 +690,7 @@ private fun EntryEditorRow(
                 if (guide != null) {
                     Text("Referencia", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    LoadGuideSection(guide) { kg ->
+                    LoadGuideSection(guide, effortUnit) { kg ->
                         val last = guide.lastSession
                         val scaled = last?.let {
                             ExerciseLoadGuide.scaledPlannedSets(kg, it.sets,
@@ -716,7 +722,8 @@ private fun EntryEditorRow(
                                     guide.lastSession.sets))
                         }) { Text("Copiar última sesión") }
                     }
-                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).",
+                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y " +
+                            dev.repera.domain.Effort.displayName(effortUnit) + ").",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -726,7 +733,7 @@ private fun EntryEditorRow(
                     Text(if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "Reps",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f))
-                    Text("RIR", style = MaterialTheme.typography.labelSmall,
+                    Text(dev.repera.domain.Effort.displayName(effortUnit), style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f))
                     Spacer(Modifier.weight(0.4f))
                 }
@@ -737,14 +744,27 @@ private fun EntryEditorRow(
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
                         modifier=Modifier.fillMaxWidth().testTag("plan_set_duration_$index"))
 
+                    val storedRirText = ps.targetRir?.let {
+                        val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
+                        if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
+                    } ?: ""
                     val current=entry.rawSetInputs[index]?.takeIf {it.first==ps}?.second
-                        ?: Triple(ps.targetReps.toString(),ps.targetWeightKg?.toString() ?: "",ps.targetRir?.toString() ?: "")
+                        ?: Triple(ps.targetReps.toString(),ps.targetWeightKg?.toString() ?: "",storedRirText)
                     var repsText=current.first
                     var kgText=current.second
                     var rirText=current.third
                     fun commit() {
-                        val parsed=parsePlannedSetText(repsText,kgText,rirText,ps.id)
-                        entry.invalidSetInputs[index]=parsed==null
+                        val displayRir = rirText.takeIf { it.isNotBlank() }?.let {
+                            dev.repera.domain.ReperaNumberFormat.parse(it)
+                        }
+                        val canonicalRir = displayRir?.let {
+                            dev.repera.domain.Effort.toRIR(it, effortUnit)
+                        }
+                        val rirForParse = canonicalRir?.let {
+                            if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
+                        } ?: ""
+                        val parsed=parsePlannedSetText(repsText,kgText,rirForParse,ps.id)
+                        entry.invalidSetInputs[index]=parsed==null && rirText.isNotBlank()
                         val updated=parsed?.copy(targetDurationSeconds=ps.targetDurationSeconds,sourceJson=ps.sourceJson)
                         if(updated!=null) entry.plannedSets[index] = updated
                         entry.rawSetInputs[index]=(updated ?: ps) to Triple(repsText,kgText,rirText)

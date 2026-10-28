@@ -52,8 +52,14 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                     dev.repera.domain.ReperaNumberFormat.decimal(3600 / seconds) + " km/h" else
                     dev.repera.domain.LiveSportHistory.formatDuration(seconds) + " min/km"
                 // Apple (live main): el kilómetro se encola aunque suene un giro y NUNCA se sustituye por una notificación.
-                if (spokenGuidanceEnabled) voice.speak(
-                    dev.repera.domain.LiveSpokenPhrases.kilometer(km, seconds, state.sport.displaysSpeed), queue = true)
+                if (spokenGuidanceEnabled) {
+                    val elapsed = state.durationSeconds(System.currentTimeMillis())
+                    val phrase = dev.repera.domain.KilometerVoiceAnnouncement.message(
+                        km, seconds, elapsed)
+                        ?: dev.repera.domain.LiveSpokenPhrases.kilometer(
+                            km, seconds, state.sport.displaysSpeed)
+                    voice.speak(phrase, queue = true)
+                }
             }
             guidance?.update(update.point)?.let { cue ->
                 upcomingTurn = cue.display

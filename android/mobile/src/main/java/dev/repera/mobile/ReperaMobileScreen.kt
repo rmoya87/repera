@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -206,7 +207,11 @@ fun ReperaMobileScreen(
     onExportJson: () -> Unit,
     onGoogleSignIn: () -> Unit,
     onDriveSync: () -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    onDeleteAccount: () -> Unit = {},
+    deletingAccount: Boolean = false,
+    accountDeleteError: String? = null,
+    onDismissAccountDeleteError: () -> Unit = {}
 ) {
     val scheme = reperaColorScheme(isSystemInDarkTheme())
     MaterialTheme(colorScheme = scheme) {
@@ -321,7 +326,10 @@ fun ReperaMobileScreen(
                         proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
                         onUpdateProfile=onUpdateProfile,
                         overview=overview,onUpdateTrainingSettings=onUpdateTrainingSettings,onUpdateRotation=onUpdateRotation,onUpdateHealthGoals=onUpdateHealthGoals,
-                        onExportJson=onExportJson,onHealthConnect=onHealthConnect,onPrivateSleepChanged=onPrivateSleepChanged,onPrivateCycleChanged=onPrivateCycleChanged,onSignOut=onSignOut
+                        onExportJson=onExportJson,onHealthConnect=onHealthConnect,onPrivateSleepChanged=onPrivateSleepChanged,onPrivateCycleChanged=onPrivateCycleChanged,onSignOut=onSignOut,
+                        onDeleteAccount=onDeleteAccount,deletingAccount=deletingAccount,
+                        accountDeleteError=accountDeleteError,
+                        onDismissAccountDeleteError=onDismissAccountDeleteError
                     )
 
         }
@@ -447,6 +455,7 @@ fun ReperaMobileScreen(
                     }
                     var favorite by remember { mutableStateOf(false) }
                     RoutineBlocksEditorScreen(accountId=accountId,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy || (activeWorkout != null && activeWorkout.draftRequestId!=requestId),
@@ -532,6 +541,7 @@ fun ReperaMobileScreen(
                     if(draft==null || activeWorkout==null || editorSessionId.isBlank() || activeWorkout.id!=editorSessionId) {
                         LaunchedEffect(Unit) {navController.popBackStack()}
                     } else RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         onReplace={blocks ->onUpdateActivePlan(editorSessionId,draft.id,blocks) {navController.popBackStack()}},
                         onBack={navController.popBackStack()},loadGuideProvider=loadGuideProvider,
                         saveStatus=status,importableRoutines=overview?.routineEntries.orEmpty())
@@ -712,6 +722,7 @@ fun ReperaMobileScreen(
                         // la rutina, igual que en iOS.
                         var suggestedTitle by remember(accountId,routineId) {mutableStateOf<String?>(null)}
                         RoutineBlocksEditorScreen(accountId=accountId,
+                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                             routine = routine,
                             saveStatus=status,
                             exercises = overview?.exerciseEntries.orEmpty(),
@@ -756,6 +767,7 @@ fun ReperaMobileScreen(
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
                     RoutineBlocksEditorScreen(accountId=accountId,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
                         saveStatus=status,
                         exercises = overview?.exerciseEntries.orEmpty(),
@@ -827,6 +839,7 @@ fun ReperaMobileScreen(
                 else TrailingColumnPanel(onDismiss={routinePanelId=null},closeLabel="‹ Cerrar rutina") {
                     var suggestedTitle by remember(accountId,panelRoutine.id) {mutableStateOf<String?>(null)}
                     RoutineBlocksEditorScreen(accountId=accountId,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = panelRoutine,
                         saveStatus=status,
                         exercises = overview?.exerciseEntries.orEmpty(),
@@ -864,6 +877,10 @@ internal fun SettingsTab(
     onPrivateSleepChanged:(Boolean)->Unit = {},
     onPrivateCycleChanged:(Boolean)->Unit = {},
     onSignOut:()->Unit = {},
+    onDeleteAccount:()->Unit = {},
+    deletingAccount:Boolean = false,
+    accountDeleteError:String? = null,
+    onDismissAccountDeleteError:()->Unit = {},
     onOpenCenter:()->Unit = {},
     onOpenPro:()->Unit = {},
     onOpenBodyWeights:()->Unit = {},
@@ -872,11 +889,28 @@ internal fun SettingsTab(
     onUpdateProfile:(ProfileSettings)->Unit = {}
 ) {
     var confirmSignOut by remember {mutableStateOf(false)}
+    var confirmDeleteAccount by remember {mutableStateOf(false)}
     if(confirmSignOut) androidx.compose.material3.AlertDialog(
         onDismissRequest={confirmSignOut=false},title={Text("¿Cerrar sesión?")},
         text={Text("Volverás al acceso con Google. Tus datos locales se conservan.")},
         confirmButton={androidx.compose.material3.TextButton(enabled=!busy,onClick={confirmSignOut=false;onSignOut()}) {Text("Cerrar sesión")}},
         dismissButton={androidx.compose.material3.TextButton(onClick={confirmSignOut=false}) {Text("Cancelar")}})
+    if(confirmDeleteAccount) androidx.compose.material3.AlertDialog(
+        onDismissRequest={if(!deletingAccount) confirmDeleteAccount=false},
+        title={Text("¿Eliminar mi cuenta definitivamente?")},
+        text={Text("Se eliminarán definitivamente tu cuenta y tus datos personales almacenados en Repera. Las empresas vinculadas conservarán como histórico de solo lectura los registros que ya tenían autorizados, sin acceso a tu cuenta ni posibilidad de generar actividad nueva. Esta acción no se puede deshacer. Health Connect y las suscripciones de Google Play se gestionan por separado.")},
+        confirmButton={androidx.compose.material3.TextButton(
+            enabled=!busy && !deletingAccount,
+            onClick={confirmDeleteAccount=false;onDeleteAccount()}) {Text("Eliminar mi cuenta")}},
+        dismissButton={androidx.compose.material3.TextButton(
+            enabled=!deletingAccount,
+            onClick={confirmDeleteAccount=false}) {Text("Cancelar")}})
+    if(accountDeleteError!=null) androidx.compose.material3.AlertDialog(
+        onDismissRequest=onDismissAccountDeleteError,
+        title={Text("No se ha podido eliminar la cuenta")},
+        text={Text(accountDeleteError)},
+        confirmButton={androidx.compose.material3.TextButton(onClick=onDismissAccountDeleteError) {Text("Aceptar")}})
+
     val settingsScroll=rememberScrollState()
     ProvideScrollDragAutoScroll(settingsScroll) {
     Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(settingsScroll)).padding(18.dp),
@@ -896,7 +930,7 @@ internal fun SettingsTab(
         Text("Datos", style = MaterialTheme.typography.titleMedium)
         overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
         OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null) {Text("Exportar JSON")}
-        OutlinedButton(onClick={confirmSignOut=true},enabled=!busy) {Text("Cerrar sesión")}
+        OutlinedButton(onClick={confirmSignOut=true},enabled=!busy && !deletingAccount) {Text("Cerrar sesión")}
         Row(modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpenAIAccess)
@@ -908,13 +942,22 @@ internal fun SettingsTab(
                 contentDescription = null)
         }
         // Misma sección Datos de iOS: traspaso del JSON de Apple y CSV.
-        OutlinedButton(onClick = onImportJson, enabled = !busy,
+        OutlinedButton(onClick = onImportJson, enabled = !busy && !deletingAccount,
             modifier = Modifier.fillMaxWidth()) {
             Text("Importar JSON (traspaso desde Apple)")
         }
-        OutlinedButton(onClick = onImportCsv, enabled = !busy,
+        OutlinedButton(onClick = onImportCsv, enabled = !busy && !deletingAccount,
             modifier = Modifier.fillMaxWidth()) {
             Text("Importar CSV Strong/Hevy")
+        }
+        OutlinedButton(
+            onClick = { confirmDeleteAccount = true },
+            enabled = !busy && !deletingAccount,
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error),
+            modifier = Modifier.fillMaxWidth().testTag("delete_account")
+        ) {
+            Text(if (deletingAccount) "Eliminando cuenta…" else "Eliminar mi cuenta")
         }
     }
     }

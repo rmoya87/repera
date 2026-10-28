@@ -2,25 +2,25 @@
 
 Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-**Última actualización:** 2026-10-28 — sync main (kg/lb, `timerDetails`, última config temporizador, racha por días, badge Google).
+**Última actualización:** 2026-10-28 — paridad restante: RIR/RPE en editores/Play/Wear, voz km (KilometerVoiceAnnouncement), Eliminar mi cuenta, HC distancia opcional, Drive trash al borrar.
 
 La implementación Android **todavía no es completa**. La rama no altera Swift, iCloud ni Xcode; Edge `repera-play-billing-verify` está en repo sin secretos de producción.
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
-| Cuenta Google | Credential Manager + badge identidad en Ajustes; cierre de sesión | E2E OAuth; **borrar cuenta definitiva** aún no en app (solo iOS) |
+| Cuenta Google | Credential Manager + badge; cierre de sesión; **Eliminar mi cuenta** → `repera-delete-account` | E2E OAuth + borrado real con Edge desplegado |
 | Google Drive personal | appDataFolder + If-Match con ETag del GET media | E2E multi-dispositivo |
 | Importar/exportar | SAF JSON + CSV Strong/Hevy con columna `weight_lbs` → kg | Import JSON no fusiona estado existente |
 | kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | Wear/editores WOD finos parciales |
 | Temporizador libre | Última config, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |
 | Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe | Filtros avanzados / fichas |
 | Ejecutar fuerza existente | Sesiones reales fuerza + WOD | — |
-| Registro de series | Fuerza/cardio + RIR/RPE + kg/lb | Técnicas/UX fina vs iOS |
+| Registro de series | Fuerza/cardio + RIR/RPE (cabeceras/editores/Wear) + kg/lb | Técnicas/UX fina vs iOS |
 | Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
 | Finalizar | Archiva sin duplicar | HC E2E |
 | WOD | 14 formatos + relojes | Editores/fidelidad landscape |
-| Watch | Wear plan hoy TTL + series fuerza ACK | WOD autónomo / Health Services / físico |
-| Actividad/Salud | Lectura Inicio + escritura HC + UI permiso/vacío | E2E HC |
+| Watch | Wear plan hoy TTL + series fuerza ACK + labels RIR/RPE y kg/lb | WOD autónomo / Health Services / físico |
+| Actividad/Salud | Lectura Inicio + escritura HC + distancia opcional en permiso | E2E HC |
 | Business / Center | Parcial | E2E business |
 | Compras Pro | Cliente Play + verify Edge cableados | **Secretos SA + Play Console (Ramón)** |
 | OCR pizarra | ML Kit + lite + preprocess oscuro + EXIF | QA cámara |

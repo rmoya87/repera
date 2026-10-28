@@ -371,7 +371,8 @@ internal fun HomeTab(
                         onReviseFinishedSet, onDeleteFinishedSet,
                         onDeleteWorkout, onOpenExerciseFromSession,
                         accountId, overview?.exerciseEntries.orEmpty(), onUpdateFinishedWorkout,
-                        heartSeriesProvider)
+                        heartSeriesProvider,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir")
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
         item {

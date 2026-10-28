@@ -129,6 +129,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var warmupInput by mutableStateOf(false)
     private var failureInput by mutableStateOf(false)
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
+    private var effortUnit by mutableStateOf("rir")
+    private var weightUnit by mutableStateOf("kg")
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
     private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
@@ -161,6 +163,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         }
         watchStartedSession = sessionCache.getBoolean("watchStarted", false)
+        effortUnit = sessionCache.getString("effortUnit", "rir")?.takeIf { it in setOf("rir", "rpe") } ?: "rir"
+        weightUnit = sessionCache.getString("weightUnit", "kg")?.takeIf { it in setOf("kg", "lb") } ?: "kg"
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
@@ -189,7 +193,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 deficitInput = deficitInput,
                                 pendingCount = pendingCount,
                                 confirmDiscardPending = confirmDiscardPending,
-                                sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput
+                                sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput,
+                                effortUnit = effortUnit, weightUnit = weightUnit
                             ),
                             callbacks = WearHomeCallbacks(
                                 onDismissFinished = { finished ->
@@ -274,7 +279,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         val bytes = data.getByteArray("session")
                         val finished = data.getByteArray("finished")
                         val signedOut = data.getBoolean("signedOut")
-                        runOnUiThread { showSession(bytes, signedOut, finished) }
+                        val effort = data.getString("effortUnit")
+                        val weight = data.getString("weightUnit")
+                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
                     }
                     if (item.uri.path == "/repera/wod-timer") {
                         val bytes = DataMapItem.fromDataItem(item).dataMap
@@ -312,7 +319,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val bytes = data.getByteArray("session")
                 val finished = data.getByteArray("finished")
                 val signedOut = data.getBoolean("signedOut")
-                runOnUiThread { showSession(bytes, signedOut, finished) }
+                val effort = data.getString("effortUnit")
+                val weight = data.getString("weightUnit")
+                runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
             }
             if (event.dataItem.uri.path == "/repera/wod-timer") {
                 val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -769,7 +778,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
     }
 
-    private fun showSession(bytes: ByteArray?, signedOut: Boolean = false,
+    private fun showSession(
+        bytes: ByteArray?,
+        signedOut: Boolean = false,
+        finished: ByteArray? = null,
+        effortUnitWire: String? = null,
+        weightUnitWire: String? = null
+    ) {
+        if (!effortUnitWire.isNullOrBlank() && effortUnitWire in setOf("rir", "rpe")) {
+            effortUnit = effortUnitWire
+            sessionCache.edit().putString("effortUnit", effortUnitWire).apply()
+        }
+        if (!weightUnitWire.isNullOrBlank() && weightUnitWire in setOf("kg", "lb")) {
+            weightUnit = weightUnitWire
+            sessionCache.edit().putString("weightUnit", weightUnitWire).apply()
+        }
+        showSessionBody(bytes, signedOut, finished)
+    }
+
+    private fun showSessionBody(bytes: ByteArray?, signedOut: Boolean = false,
                             finished: ByteArray? = null) {
         if (signedOut) {
             transportRevision++

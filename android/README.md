@@ -1,7 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — paridad main (`WeightUnit` kg/lb, `TimerCompletionDetails`,
-última config del temporizador, racha por días distintos, badge Google en Ajustes).
+**Última actualización:** 2026-10-28 — RIR/RPE editores/Wear, voz km, Eliminar mi cuenta, HC distancia, docs Ramón billing (base: sync kg/lb, timerDetails, racha, badge Google).
 
 Implementación nativa independiente en `android/`:
 

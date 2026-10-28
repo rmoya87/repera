@@ -225,7 +225,10 @@ internal fun ExercisesTab(
                             detail.routePoints,heart)
                     }
                     item {
-                        FinishedWorkoutEditorSection(detail, accountId, busy, overview?.exerciseEntries.orEmpty()) { edit ->
+                        FinishedWorkoutEditorSection(
+                            detail, accountId, busy, overview?.exerciseEntries.orEmpty(),
+                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir"
+                        ) { edit ->
                             onUpdateFinishedWorkout(detail.id, edit)
                         }
                     }

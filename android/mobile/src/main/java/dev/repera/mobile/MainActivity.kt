@@ -1150,7 +1150,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onExportJson = { exportJson.launch("repera-entrenamientos.json") },
                 onGoogleSignIn = ::signInWithGoogle,
                 onDriveSync = ::authorizeDrive,
-                onSignOut = ::signOut
+                onSignOut = ::signOut,
+                onDeleteAccount = ::deleteCurrentAccount,
+                deletingAccount = deletingAccount,
+                accountDeleteError = accountDeleteError,
+                onDismissAccountDeleteError = { accountDeleteError = null }
             )
             // Hoja post-entreno (SessionReviewSheet iOS): se presenta una vez
             // al terminar una sesión con valoración verificable.
@@ -2082,8 +2086,98 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    private var deletingAccount by mutableStateOf(false)
+    private var accountDeleteError by mutableStateOf<String?>(null)
+
+    /**
+     * Paridad iOS `deleteCurrentAccount`: preflight → purge local/Drive →
+     * delete Edge → vaciar UI. El JWT personal identifica al usuario; nunca
+     * se envía un UUID aportado por la app.
+     */
+    private fun deleteCurrentAccount() {
+        if (busy || deletingAccount) return
+        val signedIn = profile ?: return
+        val session = verifiedSupabase
+        if (session == null || session.accessToken.isBlank()) {
+            accountDeleteError =
+                "Necesitas iniciar sesión y tener conexión para eliminar la cuenta."
+            return
+        }
+        deletingAccount = true
+        busy = true
+        accountDeleteError = null
+        lifecycleScope.launch {
+            val owner = signedIn.uniqueId
+            val deletedOwnerId = session.userId
+            val store = LocalSnapshotStore(this@MainActivity, owner)
+            val backup = withContext(Dispatchers.IO) { store.read() }
+            try {
+                withContext(Dispatchers.IO) {
+                    val state = backup?.let { org.json.JSONObject(String(it, Charsets.UTF_8)) }
+                    AccountDeletionCoordinator.assertNoActiveSession(state)
+                }
+                val client = AccountDeletionClient()
+                client.request("preflight", session.accessToken)
+                // Best-effort Drive trash (no bloquea si falla el consentimiento).
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val builder = AuthorizationRequest.builder()
+                            .setRequestedScopes(
+                                listOf(Scope("https://www.googleapis.com/auth/drive.appdata"))
+                            )
+                        if (signedIn.email.isNotBlank()) {
+                            builder.setAccount(Account(signedIn.email, "com.google"))
+                        }
+                        val auth = com.google.android.gms.tasks.Tasks.await(
+                            Identity.getAuthorizationClient(this@MainActivity)
+                                .authorize(builder.build())
+                        )
+                        val token = auth.accessToken
+                        if (!token.isNullOrBlank() && !auth.hasResolution()) {
+                            DriveSnapshotService(token, store).trashAppDataSnapshot()
+                        }
+                    }
+                }
+                withContext(Dispatchers.IO) {
+                    store.write(
+                        AccountDeletionCoordinator.emptyShellState()
+                            .toString().toByteArray(Charsets.UTF_8)
+                    )
+                }
+                try {
+                    client.request("delete", session.accessToken)
+                } catch (error: Exception) {
+                    withContext(Dispatchers.IO) {
+                        if (backup != null) store.write(backup)
+                    }
+                    throw error
+                }
+                AccountDeletionCoordinator.clearAccountPreferences(
+                    this@MainActivity, deletedOwnerId
+                )
+                withContext(Dispatchers.IO) {
+                    AccountDeletionCoordinator.wipeLocalUserFolder(
+                        this@MainActivity, owner
+                    )
+                }
+                // Tras borrado remoto OK: cerrar sesión local como iOS.
+                deletingAccount = false
+                signOut()
+            } catch (error: AccountDeletionClient.AccountDeletionException) {
+                accountDeleteError = error.message
+                deletingAccount = false
+                busy = false
+            } catch (error: Exception) {
+                accountDeleteError =
+                    "No se ha completado la eliminación. Comprueba que tengas conexión y vuelve a intentarlo."
+                deletingAccount = false
+                busy = false
+            }
+        }
+    }
+
     private fun signOut() {
-        if (busy) return
+        if (busy && !deletingAccount) return
         busy = true
         lifecycleScope.launch {
             try {
@@ -2113,6 +2207,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 WodTimerService.sync(this@MainActivity, null, null, null)
                 todayHealth = null
                 status = null
+                deletingAccount = false
                 // Cerrar sesión no es crear una cuenta nueva: volver al paso
                 // de login SIN olvidar permisos/precios ya vistos (port iOS).
                 onboarding.resetToSignIn()

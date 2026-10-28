@@ -38,6 +38,24 @@ class DriveSnapshotService(
 
     fun synchronize(): Outcome = CloudSyncGate.driveSync { synchronizeInternal() }
 
+    /**
+     * Borra `app_state.json` del appDataFolder (best-effort, borrado de cuenta).
+     * No lanza si el archivo no existe.
+     */
+    fun trashAppDataSnapshot(): Boolean {
+        checkAuthority()
+        val remote = findSingleFile() ?: return true
+        return runCatching {
+            request(
+                "PATCH",
+                "https://www.googleapis.com/drive/v3/files/" + encode(remote.id),
+                "application/json",
+                """{"trashed":true}""".toByteArray(Charsets.UTF_8)
+            )
+            true
+        }.getOrDefault(false)
+    }
+
     private fun checkAuthority() {check(stillAuthorized()) {"La cuenta cambió durante la sincronización de Drive"}}
     private fun applyDownload(expected:ByteArray?,remote:ByteArray):Outcome {
         checkAuthority()

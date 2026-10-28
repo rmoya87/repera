@@ -35,6 +35,7 @@ internal fun FinishedWorkoutEditorSection(
     accountId: String,
     busy: Boolean,
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
+    effortUnit: String = "rir",
     onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit
 ) {
     var editing by remember(accountId, workout.id) { mutableStateOf(false) }
@@ -91,7 +92,8 @@ internal fun FinishedWorkoutEditorSection(
         if (blocks != null) {
             Text("Contenido", style = MaterialTheme.typography.titleMedium)
             key(contentVersion) {
-                FinishedContentEditor(blocks, exerciseCatalog, onEdited = { contentDirty = true }) { contentDirty = true; contentVersion++ }
+                FinishedContentEditor(blocks, exerciseCatalog, effortUnit,
+                    onEdited = { contentDirty = true }) { contentDirty = true; contentVersion++ }
             }
         }
         val scoreBase = scoreSession
@@ -170,12 +172,13 @@ private fun DateTimeRow(label: String, iso: String?, tag: String, onChange: (Str
 }
 
 /** Editor de bloques de un entreno terminado: reordenar, quitar, añadir
- *  ejercicio y editar series (reps / kg / RIR). Los bloques WOD se muestran sin
+ *  ejercicio y editar series (reps / kg / esfuerzo). Los bloques WOD se muestran sin
  *  edición (Android no tiene editor de movimientos). Opera sobre el borrador. */
 @Composable
 private fun FinishedContentEditor(
     blocks: org.json.JSONArray,
     catalog: List<ExerciseEntry>,
+    effortUnit: String = "rir",
     onEdited: () -> Unit,
     onChanged: () -> Unit
 ) {
@@ -213,7 +216,7 @@ private fun FinishedContentEditor(
                             onClick = { fmtOpen = false; block.put("wodFormat", f.wireName); onChanged() })
                     }
                 }
-                WodMovementsEditor(blocks, b, nameById, catalog, geo, onEdited, onChanged)
+                WodMovementsEditor(blocks, b, nameById, catalog, geo, onEdited, onChanged, effortUnit)
                 return@DragReorderItem
             }
             val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
@@ -313,16 +316,24 @@ private fun FinishedContentEditor(
                                 if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                                 onEdited()
                             })
-                        var rir by remember { mutableStateOf(
+                        var rir by remember(effortUnit) { mutableStateOf(
                             if (set.has("targetRir") && !set.isNull("targetRir"))
-                                set.getDouble("targetRir").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }
+                                set.getDouble("targetRir").let {
+                                    val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
+                                    if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
+                                }
                             else "") }
-                        OutlinedTextField(value = rir, label = { Text("RIR") }, singleLine = true,
+                        OutlinedTextField(value = rir,
+                            label = { Text(dev.repera.domain.Effort.displayName(effortUnit)) },
+                            singleLine = true,
                             modifier = Modifier.weight(1f).testTag("set_rir_${b}_${i}_$s"),
                             onValueChange = { v ->
                                 rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
                                 val parsed = dev.repera.domain.ReperaNumberFormat.parse(rir)
-                                if (parsed != null && parsed in 0.0..10.0) set.put("targetRir", parsed) else set.remove("targetRir")
+                                if (parsed != null && parsed in 0.0..10.0) {
+                                    set.put("targetRir",
+                                        dev.repera.domain.Effort.toRIR(parsed, effortUnit))
+                                } else set.remove("targetRir")
                                 onEdited()
                             })
                         TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
@@ -405,7 +416,8 @@ internal fun foldForSearch(text: String): String =
 @Composable
 private fun WodMovementsEditor(
     blocks: org.json.JSONArray, b: Int, nameById: Map<String, String>, catalog: List<ExerciseEntry>,
-    geo: EditorGeometry, onEdited: () -> Unit, onChanged: () -> Unit
+    geo: EditorGeometry, onEdited: () -> Unit, onChanged: () -> Unit,
+    effortUnit: String = "rir"
 ) {
     val block = blocks.getJSONObject(b)
     val moves = block.optJSONArray("movements") ?: org.json.JSONArray().also { block.put("movements", it) }
@@ -487,13 +499,20 @@ private fun WodMovementsEditor(
                         if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 if (!machine) {
-                    var rir by remember(id, set.optString("id")) { mutableStateOf(
-                        if (set.has("targetRir") && !set.isNull("targetRir")) set.getDouble("targetRir").let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } else "") }
-                    OutlinedTextField(value = rir, singleLine = true, label = { Text("RIR") },
+                    var rir by remember(id, set.optString("id"), effortUnit) { mutableStateOf(
+                        if (set.has("targetRir") && !set.isNull("targetRir")) set.getDouble("targetRir").let {
+                            val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
+                            if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
+                        } else "") }
+                    OutlinedTextField(value = rir, singleLine = true,
+                        label = { Text(dev.repera.domain.Effort.displayName(effortUnit)) },
                         modifier = Modifier.weight(1f).testTag("mv_set_rir_${b}_${i}_$s"),
                         onValueChange = { v -> rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
                             val p = dev.repera.domain.ReperaNumberFormat.parse(rir)
-                            if (p != null && p in 0.0..10.0) set.put("targetRir", p) else set.remove("targetRir")
+                            if (p != null && p in 0.0..10.0) {
+                                set.put("targetRir",
+                                    dev.repera.domain.Effort.toRIR(p, effortUnit))
+                            } else set.remove("targetRir")
                             EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 }
                 TextButton(enabled = sets.length() > 1, modifier = Modifier.testTag("mv_set_remove_${b}_${i}_$s"),

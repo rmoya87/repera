@@ -1387,7 +1387,8 @@ internal fun WorkoutHistoryCard(
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
      *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
-    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() }
+    heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
+    effortUnit: String = "rir"
 ) {
     var expanded by remember(workout.id) { mutableStateOf(false) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1607,6 +1608,7 @@ internal fun WorkoutHistoryCard(
                     accountId = accountId,
                     busy = busy,
                     exerciseCatalog = exerciseCatalog,
+                    effortUnit = effortUnit,
                     onSave = { onUpdateFinishedWorkout(workout.id, it) })
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(
@@ -1931,7 +1933,11 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
 
 /** Guía de carga (port 1:1 del body de ExerciseLoadGuideCard iOS). */
 @Composable
-internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
+internal fun LoadGuideSection(
+    guide: LoadGuide,
+    effortUnit: String = "rir",
+    onApply: (Double) -> Unit
+) {
     val last = guide.lastSession
     if (last == null && guide.suggestedKg == null) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1940,7 +1946,8 @@ internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
                 color = MaterialTheme.colorScheme.primary)
             Column {
                 Text("Sin historial aún", style = MaterialTheme.typography.titleSmall)
-                Text("Tras la primera vez verás aquí pesos y una sugerencia para tu RIR.",
+                Text("Tras la primera vez verás aquí pesos y una sugerencia para tu " +
+                        dev.repera.domain.Effort.displayName(effortUnit) + ".",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -2002,7 +2009,7 @@ internal fun LoadGuideSection(guide: LoadGuide, onApply: (Double) -> Unit) {
                     Text(loadGuideKgLabel(guide.suggestedKg) + " kg",
                         style = MaterialTheme.typography.headlineLarge,
                         color = MaterialTheme.colorScheme.primary)
-                    Text(loadGuideCaption(guide),
+                    Text(loadGuideCaption(guide, effortUnit),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -2030,10 +2037,11 @@ internal fun loadGuideKgLabel(kg: Double): String =
 internal fun loadGuideG(v: Double): String =
     dev.repera.domain.ReperaNumberFormat.decimal(v)
 
-internal fun loadGuideCaption(guide: LoadGuide): String {
-    val rir = "RIR " + loadGuideG(guide.effectiveRir) +
+internal fun loadGuideCaption(guide: LoadGuide, effortUnit: String = "rir"): String {
+    val effort = (dev.repera.domain.Effort.label(guide.effectiveRir, effortUnit)
+        ?: (dev.repera.domain.Effort.displayName(effortUnit) + " " + loadGuideG(guide.effectiveRir))) +
         (if (guide.assumedRir) " (asumido)" else "")
-    return "${guide.targetReps} reps · $rir · ${guide.suggestionSource}"
+    return "${guide.targetReps} reps · $effort · ${guide.suggestionSource}"
 }
 
 /** Línea de serie (misma forma que SetSummaryLine.displayLine). */
