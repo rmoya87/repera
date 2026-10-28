@@ -78,6 +78,17 @@ enum DayEditorMode: Equatable {
     case favorite(isNew: Bool)
 }
 
+private struct WorkoutReplacementTarget: Identifiable {
+    let id = UUID()
+    let blockID: UUID
+    let itemID: UUID
+    let isWOD: Bool
+}
+private struct PendingWorkoutReplacement {
+    let target: WorkoutReplacementTarget
+    let exercise: Exercise
+}
+
 struct DayEditorView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
@@ -106,6 +117,9 @@ struct DayEditorView: View {
     @State private var isConfirmingSave = false
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
+    @State private var replacingExercise: WorkoutReplacementTarget?
+    @State private var pendingReplacement: PendingWorkoutReplacement?
+    @State private var openedSetID: UUID?
     @State private var completedDetails: WorkoutSession?
     @State private var scaledInputDrafts: [String: String] = [:]
 
@@ -401,6 +415,31 @@ struct DayEditorView: View {
                 selectFormatForBlock = nil
             }
         }
+        .navigationDestination(item: $replacingExercise) { target in
+            ExercisePickerView(embedsNavigationStack: false) { selected in
+                replacingExercise = nil
+                let registered = completedWorkoutDraft?.exercises.first(where: { $0.id == target.itemID })
+                if registered?.loggedSets.isEmpty == false {
+                    pendingReplacement = PendingWorkoutReplacement(target: target, exercise: selected)
+                } else {
+                    applyExerciseReplacement(target: target, with: selected)
+                }
+            }
+        }
+        .alert("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+            get: { pendingReplacement != nil },
+            set: { if !$0 { pendingReplacement = nil } }
+        )) {
+            Button("Sustituir y reiniciar", role: .destructive) {
+                if let pendingReplacement {
+                    applyExerciseReplacement(target: pendingReplacement.target, with: pendingReplacement.exercise)
+                }
+                pendingReplacement = nil
+            }
+            Button("Cancelar", role: .cancel) { pendingReplacement = nil }
+        } message: {
+            Text("Este ejercicio tiene resultados registrados. Al sustituirlo se perderán sus series; los demás ejercicios conservarán las suyas.")
+        }
     }
 
     /// Ordenación únicamente mediante menús de acciones accesibles.
@@ -554,6 +593,77 @@ struct DayEditorView: View {
         .frame(minHeight: 46)
         .contentShape(Rectangle())
 
+    }
+
+    private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool) -> some View {
+        let kind = isWOD ? "movement" : "exercise"
+        return Menu {
+            Button("Subir ejercicio", systemImage: "arrow.up") {
+                moveExercise(type: kind, blockID: blockID, itemID: itemID, offset: -1)
+            }
+            Button("Bajar ejercicio", systemImage: "arrow.down") {
+                moveExercise(type: kind, blockID: blockID, itemID: itemID, offset: 1)
+            }
+            Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
+                deleteReorderExercise(type: kind, blockID: blockID, itemID: itemID)
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Opciones del ejercicio")
+    }
+
+    private func replacementButton(blockID: UUID, itemID: UUID, isWOD: Bool) -> some View {
+        Button {
+            replacingExercise = WorkoutReplacementTarget(
+                blockID: blockID, itemID: itemID, isWOD: isWOD
+            )
+        } label: {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(OG.accent)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Sustituir ejercicio")
+    }
+
+    private func applyExerciseReplacement(target: WorkoutReplacementTarget, with selected: Exercise) {
+        guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == target.blockID }) else { return }
+        let style = selected.loggingStyle
+        let quantity = style == .machineWork
+            ? (selected.defaultQuantityUnit == .meters ? 500 : 15)
+            : (selected.isMobility ? (selected.isMobilityHold ? 1 : 8)
+                : (style == .repsAndTime ? 50 : 8))
+        let initial = PlannedSet(
+            targetReps: quantity,
+            targetDurationSeconds: selected.isMobility
+                ? (selected.isMobilityHold ? 30 : 60) : nil
+        )
+        if target.isWOD {
+            guard let index = routine.blocks[blockIndex].movements.firstIndex(where: { $0.id == target.itemID }) else { return }
+            // Nuevo ID: evita heredar resultados registrados del movimiento anterior.
+            routine.blocks[blockIndex].movements[index] = WODMovement(
+                exerciseId: selected.id, name: selected.name, reps: quantity,
+                explicitPlannedSets: [initial]
+            )
+        } else {
+            guard let index = routine.blocks[blockIndex].exercises.firstIndex(where: { $0.id == target.itemID }) else { return }
+            let sets = Array(repeating: 0, count: style.usesDuration ? 1 : 3).map { _ in
+                PlannedSet(targetReps: quantity, targetDurationSeconds: initial.targetDurationSeconds)
+            }
+            routine.blocks[blockIndex].exercises[index] = RoutineExercise(
+                exerciseId: selected.id, plannedSets: sets,
+                quantityUnit: style == .machineWork || selected.supportsRepsOrMeters
+                    ? selected.defaultQuantityUnit : nil
+            )
+        }
+        openedSetID = nil
     }
 
     private func deleteReorderExercise(type: String, blockID: UUID, itemID: UUID) {
@@ -1217,21 +1327,23 @@ struct DayEditorView: View {
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId })
                 ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
-                NavigationLink {
-                    ExerciseDetailView(exerciseId: ex.id)
-                } label: {
-                    HStack(spacing: 12) {
-                        ExerciseThumb(exercise: ex, size: 48)
-                        Text(ex.name)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 4) {
+                    NavigationLink {
+                        ExerciseDetailView(exerciseId: ex.id)
+                    } label: {
+                        HStack(spacing: 12) {
+                            ExerciseThumb(exercise: ex, size: 48)
+                            Text(ex.name)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
+                    .accessibilityHint("Ver ficha del ejercicio")
+                    replacementButton(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
+                    exerciseOptions(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
                 }
-                .accessibilityHint("Ver ficha del ejercicio")
                 .listRowSeparator(.hidden, edges: .bottom)
-                // Una sola acción para la CABECERA de este ejercicio.
-                // Las series inferiores gestionan su propio swipe.
 
                 if ex.supportsRepsOrMeters
                     || (ex.loggingStyle == .machineWork && ex.allowsCalorieOrDistanceToggle) {
@@ -1561,9 +1673,16 @@ struct DayEditorView: View {
             if !move.isRest, isEditingCompletedWorkout,
                let format = routine.blocks[index].wodFormat,
                format.resultCapture != .perMovementSets {
-                HStack(alignment: .top, spacing: 12) {
-                    ExerciseThumb(exercise: resolved, size: 48)
-                        .padding(.top, 2)
+                HStack(alignment: .top, spacing: 8) {
+                    if hasCatalog {
+                        NavigationLink {
+                            ExerciseDetailView(exerciseId: resolved.id)
+                        } label: {
+                            ExerciseThumb(exercise: resolved, size: 48)
+                        }
+                    } else {
+                        ExerciseThumb(exercise: resolved, size: 48)
+                    }
                     VStack(alignment: .leading, spacing: 8) {
                         if hasCatalog {
                             NavigationLink {
@@ -1584,21 +1703,29 @@ struct DayEditorView: View {
                         completedWODScalingFields(movementID: move.id, exercise: resolved)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    replacementButton(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
+                    exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.vertical, 5)
             } else {
-                Group {
-                    if hasCatalog {
-                        NavigationLink {
-                            ExerciseDetailView(exerciseId: resolved.id)
-                        } label: {
+                HStack(spacing: 4) {
+                    Group {
+                        if hasCatalog {
+                            NavigationLink {
+                                ExerciseDetailView(exerciseId: resolved.id)
+                            } label: {
+                                movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                            }
+                            .accessibilityHint("Ver ficha del ejercicio")
+                        } else {
                             movementRowLabel(move: move, resolved: resolved, showSummary: false)
                         }
-                        .accessibilityHint("Ver ficha del ejercicio")
-                    } else {
-                        movementRowLabel(move: move, resolved: resolved, showSummary: false)
                     }
+                    if !move.isRest {
+                        replacementButton(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
+                    }
+                    exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
             }
