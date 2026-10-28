@@ -3172,16 +3172,17 @@ struct WorkoutInlineAddButton: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
-                .foregroundStyle(OG.accent)
-                .padding(.horizontal, 10)
-                .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(OG.accent.opacity(0.35), lineWidth: 1)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 12))
+            .foregroundStyle(OG.accent)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(OG.accent.opacity(0.35), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Añadir \(title.lowercased())")
         .listRowSeparator(.hidden)
     }
 }
