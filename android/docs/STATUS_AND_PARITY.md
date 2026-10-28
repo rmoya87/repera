@@ -2,7 +2,7 @@
 
 Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-**Última actualización:** 2026-10-28 — Wear drop/RP + clock WOD local; editor WOD fino; Center polish; autoscroll ExercisesTab.
+**Última actualización:** 2026-10-28 — Leftovers #127 cerrados; STATUS histórico editor supersedido; nada shippable sin Ramón.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge deploy). Billing Play **alineado**. Sin clima en Comenzar Android.
@@ -501,20 +501,19 @@ capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
 ### Editor de entreno terminado: contenido (DayEditorView / CompletedWorkoutEditing)
 - Port en `CompletedWorkoutEditing.kt` (JSON, con ids): `blocksFrom` (≙ routine(from:)) y `applying` (≙ applying(_:to:catalog:)). 7 tests JVM con fixtures, EJECUTADOS en local: reordenar + editar conserva ids de ejercicio y de serie, el ejercicio añadido no inventa series registradas, quitar ejercicio, serie añadida recibe completedAt = finishedAt, WOD con REST y score global sobreviven, cambio de formato WOD invalida el score, ejercicio sin bloque en el snapshot.
 - Editor con borrador (`FinishedContentEditor`): reordenar, quitar, añadir ejercicio (primeros 60 del catálogo), editar reps/kg, añadir/quitar series. El original no se muta; Cancelar no escribe; Guardar escribe metadatos + contenido en un único `save()`.
-- NO portado / desviaciones: (1) bloques WOD solo lectura (sin editor de movimientos Android); (2) RIR no editable en la UI (se conserva); (3) `Block.plannedSets(for:)` de Apple (rellenos EMOM/Tabata/rondas) no portado: un movimiento WOD sin explicitPlannedSets conserva las series previas; (4) añadir ejercicio solo desde el menú de los primeros 60 del catálogo (sin buscador); (5) swap/arrastre: botones ↑ ↓, no drag and drop; (6) no se mueve un ejercicio entre bloques.
+- ~~NO portado (histórico 24–25/10)~~: WOD solo lectura, RIR no editable, sin buscador, solo ↑↓, sin mover entre bloques — **SUPERSEDED**. Ver secciones siguientes + «Leftovers shippables 2026-10-28».
 - Verificación: puerta local compilada; androidTest (repositorio 9 + UI 5) compilados, NO ejecutados; sin inspección de píxeles.
 
 ### Actualización: desviación (3) cerrada
 - `Block.plannedSets(for:)` de Apple portado en `WodPlannedSets` (domain): explícitas mandan; ola explícita (rellenada en EMOM/circuit); EMOM/circuit repiten por rondas; Tabata reparte ventanas de trabajo entre estaciones; For Time/RFQ repiten por rondas; resto, base. 11 tests JVM por formato, EJECUTADOS en local.
 - `CompletedWorkoutEditing.blocksFrom` reconstruye ahora los movimientos WOD desde las entradas (REST se conserva; preservePrescription para captura global) y `applying` deriva series con esas reglas cuando el movimiento no trae explicitPlannedSets. 9 tests JVM (2 nuevos: ids de series registradas con explícitas; derivación EMOM [10,9,8]→[10,9,8,8,8]), ejecutados.
-- Siguen abiertas: buscador sobre catálogo completo, mover entre bloques, RIR editable, editor UI de movimientos WOD, arrastre (gesto) para reordenar.
-- Cerradas en el editor de contenido: RIR editable por serie, mover un ejercicio de fuerza a otro bloque de fuerza (menú "Mover", conserva el id), y buscador sobre TODO el catálogo (sin mayúsculas ni diacríticos; `foldForSearch` con 1 test JVM ejecutado). 3 tests UI nuevos compilados, NO ejecutados.
-- Siguen abiertas (no cerrar el editor): (a) arrastre (long-press + drag) para reordenar ejercicios y bloques, como `.draggable` de Apple; hoy solo ↑↓; (b) mover a/desde bloques WOD (Apple convierte ejercicio↔movimiento); (c) editor UI de movimientos WOD (reps/esquema/cal/m/peso M-F/escala/notas/REST); (d) añadir/quitar/renombrar/cambiar formato de bloque en el editor de entreno terminado; (e) el editor de rutinas existente de Android (`RoutineBlocksEditorScreen`) pierde ids y campos WODMovement (repScheme, calories, REST, escala): es una brecha del editor de PLAN, no solo del de entreno terminado.
+- Cerradas en el editor de contenido: RIR editable por serie, mover fuerza↔fuerza y fuerza↔WOD, buscador sobre TODO el catálogo (`foldForSearch`), editor UI de movimientos WOD, long-press + drop + autoscroll (ver «Arrastre long-press»).
+- ~~Siguen abiertas (histórico)~~ buscador / mover / RIR / editor WOD / solo ↑↓ — **CERRADAS** en tip 2026-10-28. Residual: QA táctil en dispositivo (no código).
 
 ### Editor de entreno terminado: bloques y movimientos WOD
 - `EditorBlockOps` (JVM, 8 tests ejecutados): conversión fuerza↔WOD con la regla de Apple (movimiento→ejercicio descarta weightFemaleKg, scaleAlternative, notes y repScheme; REST no se convierte), mover/ordenar bloques, `writeSetsToMovement`, round-trip de campos WOD por `applying`.
-- UI: renombrar/ordenar/quitar/añadir bloque, formato WOD, editor de movimientos (REST, nombre, series, cal/m, peso M, escala, notas), Mover entre cualquier bloque. androidTest COMPILADO, no ejecutado; sin inspección visual.
-- Abierto: arrastre long-press (solo ↑↓), crear ejercicio personalizado al pasar WOD→fuerza si no está en catálogo (hoy se aborta sin quitar), RIR por serie WOD, editor de PLAN (RoutineBlocksEditorScreen) sin ids/campos WOD.
+- UI: renombrar/ordenar/quitar/añadir bloque, formato WOD, editor de movimientos (REST, nombre, series, Cal/m, HSPU déficit, repsAndTime Veces+seg, peso H/M, escala, notas), Mover entre cualquier bloque. androidTest COMPILADO, no ejecutado; sin inspección visual.
+- ~~Abierto (histórico)~~ long-press solo ↑↓ / plan sin ids WOD / custom abort — **CERRADO** (ver long-press + PLAN + pending customs). Residual: QA dispositivo.
 
 ### Editor de PLAN con identidad (gap e)
 - `RoutineBlockDraft/RoutineDraftEntry/PlannedSetDraft` llevan blockId/itemId/set id y el JSON original (campos al final, sin romper llamadas posicionales). `buildBlock` parte del JSON original: conserva ids, REST, peso M, escala, notas, restSeconds, series y RIR por serie. Si cambia la prescripción de un movimiento WOD, descarta SOLO explicitPlannedSets/repScheme/reps-cal-m previos y reescribe la cantidad. Series de fuerza no uniformes sin tocar se escriben tal cual.
@@ -531,7 +530,7 @@ capacidad; los sustitutos eran paridad exacta por código muerto en iOS).
 - Arrastre de bloques completos añadido (asa en el título del bloque). NO hecho: soltar un ítem en OTRO bloque arrastrando (hoy: Mover). Tests de gesto (2) compilados, no ejecutados; el comportamiento táctil real no está verificado.
 - Soltar entre bloques (dropDestination de Apple): al soltar se usa el centro de la fila arrastrada en coordenadas de raíz; bloque destino por geometría registrada (`EditorGeometry`), posición por el primer ítem cuyo centro queda debajo (`dropBeforeId`); bloque vacío = al final; fuera de todo bloque = drop inválido (no cambia nada); REST→fuerza o id sin resolver = rechazado sin quitar. Reutiliza `moveItem` (conversión fuerza↔WOD). JVM ejecutado: geometría y `handleItemDrop` (13/13). Autoscroll durante el arrastre: NO implementado (el editor no controla el scroll del contenedor); gestos instrumentados compilados, sin ejecutar.
 - Autoscroll continuo (implementado, NO verificado en ejecución): `LocalDragAutoScroller` (HomeTab y ProgressTab lo proveen desde su `LazyListState` con `dispatchRawDelta`). Mientras dura el arrastre un `LaunchedEffect(dragging)` avanza por fotograma con velocidad `autoScrollSpeed` (rampa lineal en 96 dp de cada borde de ventana, tope 12 dp/fotograma), compensa `dy` con lo consumido para que la fila siga bajo el dedo, y se cancela solo al soltar/cancelar/salir de composición (sin corrutinas acumuladas). Borde = alto de la ventana, no del contenedor (aproximación). A demostrar en ejecución: que el destino fuera de pantalla es alcanzable, que la velocidad es cómoda, que no pelea con el scroll normal, comportamiento con el teclado/insets y con la tarjeta saliendo de composición (LazyColumn). JVM ejecutado: `autoScrollSpeed` (14/14). Instrumentado compilado: host desplazable con dedo quieto en el borde y ids conservados; gesto cancelado.
-- Autoscroll, correcciones: el viewport es el REAL del contenedor (Box medido en raíz + `layoutInfo.viewportSize.height` del LazyListState), con borde de ventana solo si aún no está medido. Hosts reales comprobados por búsqueda: `WorkoutHistoryCard` (único contenedor de `FinishedWorkoutEditorSection`) se usa solo en HomeTab y ProgressTab, ambos con el provider; no hay otro host. Reciclado de la tarjeta: HIPÓTESIS SIN VERIFICAR: que la fila siga visible bajo el dedo no demuestra que el ítem de LazyColumn que la contiene siga compuesto durante un arrastre largo; si se recicla el gesto se pierde. Pendiente de ejecución (prueba de arrastre largo compilada, no ejecutada); si falla, subir el estado del arrastre al host.
+- Autoscroll, correcciones: el viewport es el REAL del contenedor (Box medido en raíz + `layoutInfo.viewportSize.height` del LazyListState), con borde de ventana solo si aún no está medido. Hosts con `ProvideLazyDragAutoScroll`: HomeTab, ProgressTab y **ExercisesTab** (detalle deporte, 2026-10-28). Reciclado de la tarjeta: HIPÓTESIS SIN VERIFICAR en arrastre largo Lazy; pendiente QA dispositivo (no bloquea código).
 
 ### Editor de plan (Android)
 Implementado: arrastre de entradas y bloques, "Mover" con conversión (fuerza→WOD conserva series; WOD→fuerza rechaza REST y lista campos perdidos), REST en WOD, detalles WOD (Peso H/M, escala, notas), id de series preservado. Añadido después: creación custom diferida en WOD→fuerza del plan (`pending:<nombre>`, creada solo al Guardar, cuota del lote validada antes de escribir, identidad por nombre normalizado; diferencia con Apple, que persiste al instante) y drop entre bloques por arrastre con autoscroll sobre el viewport real del ScrollState (misma conversión que Mover; soltar fuera de bloques no cambia nada). Verificación: JVM PlanPendingCustomsTest 2/2; androidTest solo compilado.
@@ -839,5 +838,12 @@ secretos Play y despliegue Edge siguen abiertos (Ramón).
 - Center: `CenterCancellationPolicy` 12h; botón Actualizar; lista solo vinculados;
   JVM RPC accept/book/cancel/send.
 - Widgets phone: explícitamente no (paridad iOS phone).
+
+### Cierre auditoría post-#127
+
+**Nada shippable de código pendiente** sin autorización Ramón / hardware.
+Abierto solo: Play Console + Edge deploy + borrado real; E2E OAuth/Drive/HC/
+Wear físico; decisión ladder WOD; CI Wear 6.1 / API 36.1. Bullets históricos
+contradictorios del editor (arriba) marcados SUPERSEDED/CERRADO.
 
 *Última actualización: 2026-10-28.*
