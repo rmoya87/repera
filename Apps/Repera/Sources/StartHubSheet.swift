@@ -17,6 +17,8 @@ struct StartHubSheet: View {
 
     var onOpenedWorkout: () -> Void
     var onOpenSport: ((String) -> Void)? = nil
+    /// Cierra el hub y muestra la sesión de temporizador guardada en Inicio.
+    var onSavedTimer: ((Date) -> Void)? = nil
 
     @State private var path = NavigationPath()
     @State private var showImageSourceSheet = false
@@ -181,9 +183,13 @@ struct StartHubSheet: View {
                 case .quickLog:
                     QuickLogPickerView(onOpenedWorkout: onOpenedWorkout)
                 case .favorites:
-                    FavoritesHubView(onOpenedWorkout: onOpenedWorkout, onOpenSport: onOpenSport)
+                    FavoritesHubView(
+                        onOpenedWorkout: onOpenedWorkout,
+                        onOpenSport: onOpenSport,
+                        onSavedTimer: onSavedTimer
+                    )
                 case .timer:
-                    StandaloneTimerView(embedsNavigation: false)
+                    StandaloneTimerView(embedsNavigation: false, onSaved: onSavedTimer)
                 case .boardReview:
                     BoardImportReviewView(
                         lines: reviewLines,
