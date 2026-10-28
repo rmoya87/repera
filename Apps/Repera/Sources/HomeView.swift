@@ -79,6 +79,9 @@ struct HomeView: View {
     /// Keep the 735-day carousel stable while selecting days or returning from detail.
     @State private var didBuildDayBuckets = false
     @State private var didBuildCalendarChrome = false
+    @State private var didBuildStreakChrome = false
+    @State private var lastProcessedWorkoutsEpoch: UInt64?
+    @State private var lastProcessedHealthRevision: Int?
     /// A selected week is only seven cells; the full carousel changes on data mutations.
     @State private var cachedCalendarLookup = CalendarDayLookup(
         planned: [], trainerPlans: [], bookings: []
@@ -378,7 +381,7 @@ struct HomeView: View {
                 if !didBuildCalendarChrome { rebuildWeekChrome() }
                 // Reentrar desde un detalle no debe recalcular rachas y PRs
                 // ni regenerar el calendario. Los epochs actualizan cambios reales.
-                if prCountBySessionId.isEmpty {
+                if !didBuildStreakChrome {
                     Task(priority: .utility) {
                         rebuildStreakChrome()
                         prCountBySessionId = store.cachedPersonalRecordCountsBySession()
@@ -420,19 +423,27 @@ struct HomeView: View {
             // Personal-record calculations depend on the workout history,
             // not on every HealthKit authorization/sample callback.
             .task(id: store.workoutsEpoch) {
+                // .task resumes after a pop too. No rebuild or HealthKit
+                // fetch if the data revision has not actually changed.
+                guard lastProcessedWorkoutsEpoch != store.workoutsEpoch else { return }
+                lastProcessedWorkoutsEpoch = store.workoutsEpoch
                 rebuildDayBuckets()
                 rebuildWeekChrome()
                 await Task.yield()
+                guard !Task.isCancelled else { return }
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
             }
             .task(id: health.healthDataRevision) {
+                guard lastProcessedHealthRevision != health.healthDataRevision else { return }
+                lastProcessedHealthRevision = health.healthDataRevision
                 // Health changes update calories/minutes and the day dots,
                 // but should never repeat personal-record analysis.
                 rebuildDayBuckets()
                 rebuildWeekChrome()
                 await Task.yield()
+                guard !Task.isCancelled else { return }
                 rebuildStreakChrome()
             }
             .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
@@ -1757,6 +1768,7 @@ struct HomeView: View {
         cachedStreakPlanned = store.scheduledRoutines(inWeekContaining: Date()).count
         cachedStreakTotal = store.state.workouts.count + health.recentExternalActivities.count
         cachedStreakWeeks = consecutiveWeekStreak()
+        didBuildStreakChrome = true
     }
 
     /// Excluir solo la rutina activa o ya terminada; las demás siguen
