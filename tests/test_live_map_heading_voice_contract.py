@@ -65,7 +65,7 @@ class LiveMapHeadingVoiceContracts(unittest.TestCase):
         self.assertIn("guidance?.update(update.point)", ANDROID)
         self.assertIn("voice.speak(it, queue = true)", ANDROID)
         self.assertIn("AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK", TTS)
-        self.assertIn("AUDIO_USAGE", TTS.replace("USAGE_ASSISTANCE_NAVIGATION_GUIDANCE", "AUDIO_USAGE"))
+        self.assertIn("USAGE_ASSISTANCE_NAVIGATION_GUIDANCE", TTS)
 
 
 if __name__ == "__main__":
