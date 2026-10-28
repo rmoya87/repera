@@ -265,11 +265,6 @@ struct DayEditorView: View {
                         completedScoreEditor(for: block)
                     }
                     .listRowSeparator(.hidden)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        OGSwipeDeleteButton(accessibilityLabel: "Eliminar bloque") {
-                            routine.blocks.removeAll { $0.id == block.id }
-                        }
-                    }
                     if block.kind == .strength {
                         if isEditingCompletedWorkout,
                            let format = block.wodFormat,
@@ -321,11 +316,6 @@ struct DayEditorView: View {
         .onAppear {
             ensureCompletedWorkoutDraft()
             ensureStrengthPlannedSets()
-        }
-        .reorderContainer(for: RoutineExercise.self, in: UUID.self) { difference in
-            let blockId = difference.destination.collectionID
-            guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == blockId }) else { return }
-            applyStrengthExerciseReorder(to: &routine.blocks[blockIndex].exercises, difference: difference)
         }
         .navigationDestination(isPresented: $showsReorder) {
             reorderSheet
@@ -413,15 +403,13 @@ struct DayEditorView: View {
         }
     }
 
-    /// Ordenación por arrastre: bloque → bloque, ejercicio → posición en cualquier bloque.
-    /// La lista indentada hace evidente la jerarquía y mantiene el orden del modelo.
+    /// Ordenación únicamente mediante menús de acciones accesibles.
     private var reorderSheet: some View {
         // ScrollView en lugar de List: List consume los gestos drag y no expone
         // huecos reales como destinos de drop entre filas.
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(routine.blocks) { block in
-                    reorderBlockDrop(before: block.id)
                     VStack(spacing: 0) {
                         HStack(spacing: 10) {
                             Image(systemName: "line.3.horizontal")
@@ -457,11 +445,10 @@ struct DayEditorView: View {
                         }
                         .frame(minHeight: 50)
                         .contentShape(Rectangle())
-                        .draggable("block:\(block.id.uuidString)")
+
 
                         if block.kind == .strength {
                             ForEach(block.exercises) { exercise in
-                                reorderExerciseDrop(into: block.id, before: exercise.id)
                                 reorderExerciseRow(
                                     store.state.exercises.first(where: { $0.id == exercise.exerciseId })?.name ?? "Ejercicio",
                                     blockID: block.id,
@@ -471,7 +458,6 @@ struct DayEditorView: View {
                             }
                         } else {
                             ForEach(block.movements) { move in
-                                reorderExerciseDrop(into: block.id, before: move.id)
                                 reorderExerciseRow(
                                     move.isRest ? "Descanso" : move.name,
                                     blockID: block.id,
@@ -480,13 +466,11 @@ struct DayEditorView: View {
                                 )
                             }
                         }
-                        reorderExerciseDrop(into: block.id, before: nil)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                 }
-                reorderBlockDrop(before: nil)
             }
             .padding(.horizontal, OG.pad)
             .padding(.vertical, 12)
@@ -502,35 +486,13 @@ struct DayEditorView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            Text("Arrastra hasta la línea entre dos elementos. Los menús también permiten mover o eliminar.")
+            Text("Usa los menús de tres puntos para subir, bajar, mover o eliminar.")
                 .font(.footnote)
                 .foregroundStyle(OG.label2)
                 .padding(.horizontal, OG.pad)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity)
                 .background(OG.bg)
-        }
-    }
-
-    private func reorderBlockDrop(before id: UUID?) -> some View {
-        RoutineReorderDropSlot {
-            token in
-            guard token.hasPrefix("block:") else { return false }
-            withAnimation(.smooth) {
-                reorderBlockToken(token, before: id)
-            }
-            return true
-        }
-    }
-
-    private func reorderExerciseDrop(into blockID: UUID, before id: UUID?) -> some View {
-        RoutineReorderDropSlot {
-            token in
-            guard token.hasPrefix("exercise:") || token.hasPrefix("movement:") else { return false }
-            withAnimation(.smooth) {
-                applyReorder(token, into: blockID, before: id)
-            }
-            return true
         }
     }
 
@@ -591,7 +553,7 @@ struct DayEditorView: View {
         .padding(.leading, 8)
         .frame(minHeight: 46)
         .contentShape(Rectangle())
-        .draggable("\(type):\(blockID.uuidString):\(itemID.uuidString)")
+
     }
 
     private func deleteReorderExercise(type: String, blockID: UUID, itemID: UUID) {
@@ -795,7 +757,7 @@ struct DayEditorView: View {
         if onApplyDraft != nil || onApplyCompleted != nil { return "Editar entreno" }
         switch mode {
         case .session: return "Crear entreno"
-        case .oneOff(let isNew): return isNew ? "Entreno del día" : "Editar entreno"
+        case .oneOff(let isNew): return isNew ? "Crear entreno" : "Editar entreno"
         case .favorite(let isNew): return isNew ? "Nuevo favorito" : "Editar favorito"
         case .plan(let isNew):
             return isNew ? "Nueva rutina" : "Editar rutina"
@@ -1251,7 +1213,6 @@ struct DayEditorView: View {
 
     @ViewBuilder
     private func strengthBlock(index: Int) -> some View {
-        let blockId = routine.blocks[index].id
         let weightStep = store.state.settings.weightIncrementKg
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId })
@@ -1267,15 +1228,10 @@ struct DayEditorView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .accessibilityHint("Ver ficha del ejercicio. Arrastra para cambiar el orden.")
+                .accessibilityHint("Ver ficha del ejercicio")
                 .listRowSeparator(.hidden, edges: .bottom)
                 // Una sola acción para la CABECERA de este ejercicio.
                 // Las series inferiores gestionan su propio swipe.
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    OGSwipeDeleteButton(accessibilityLabel: "Quitar ejercicio") {
-                        routine.blocks[index].exercises.removeAll { $0.id == item.id }
-                    }
-                }
 
                 if ex.supportsRepsOrMeters
                     || (ex.loggingStyle == .machineWork && ex.allowsCalorieOrDistanceToggle) {
@@ -1350,7 +1306,6 @@ struct DayEditorView: View {
 
             }
         }
-        .reorderable(collectionID: blockId)
         Button("Añadir ejercicio") { pickExerciseForBlock = routine.blocks[index].id }
     }
 
@@ -1632,11 +1587,6 @@ struct DayEditorView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.vertical, 5)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    OGSwipeDeleteButton(accessibilityLabel: "Quitar movimiento") {
-                        routine.blocks[index].movements.removeAll { $0.id == move.id }
-                    }
-                }
             } else {
                 Group {
                     if hasCatalog {
@@ -1648,11 +1598,6 @@ struct DayEditorView: View {
                         .accessibilityHint("Ver ficha del ejercicio")
                     } else {
                         movementRowLabel(move: move, resolved: resolved, showSummary: false)
-                    }
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    OGSwipeDeleteButton(accessibilityLabel: "Quitar movimiento") {
-                        routine.blocks[index].movements.removeAll { $0.id == move.id }
                     }
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
@@ -2938,36 +2883,3 @@ private struct RoutineImportPickerSheet: View {
 
 /// Línea de inserción real entre elementos, no sobre la fila arrastrable.
 /// La altura táctil sigue siendo suficiente incluso con la línea en reposo.
-private struct RoutineReorderDropSlot: View {
-    var onDrop: (String) -> Bool
-    @State private var highlighted = false
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Capsule()
-                .fill(highlighted ? OG.accent : OG.surface2)
-                .frame(height: highlighted ? 5 : 2)
-            if highlighted {
-                Text("Soltar aquí")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(OG.accent)
-                Image(systemName: "arrow.down.to.line")
-                    .foregroundStyle(OG.accent)
-            }
-        }
-        .padding(.horizontal, 16)
-        .frame(height: highlighted ? 42 : 30)
-        .animation(.easeOut(duration: 0.12), value: highlighted)
-        .frame(maxWidth: .infinity)
-        .contentShape(Rectangle())
-        .dropDestination(
-            for: String.self,
-            action: { tokens, _ in
-                guard let token = tokens.first else { return false }
-                return onDrop(token)
-            },
-            isTargeted: { highlighted = $0 }
-        )
-        .accessibilityLabel("Soltar aquí")
-    }
-}
