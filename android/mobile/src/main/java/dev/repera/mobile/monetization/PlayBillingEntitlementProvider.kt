@@ -83,7 +83,12 @@ class PlayBillingEntitlementProvider(
         .build()
 
     override suspend fun offerings(): CommercialOfferings {
-        ensureConnected()
+        if (!ensureConnected()) {
+            return CommercialOfferings(
+                packages = emptyList(),
+                unavailableReason = "Catálogo no disponible ahora mismo."
+            )
+        }
         return suspendCancellableCoroutine { cont ->
             val products = CommercialConfig.ALL_PRODUCT_IDS.map { id ->
                 QueryProductDetailsParams.Product.newBuilder()
@@ -142,7 +147,9 @@ class PlayBillingEntitlementProvider(
         }
         val activity = activityProvider()
             ?: throw EntitlementError.PurchaseFailed("No hay Activity para lanzar la compra.")
-        ensureConnected()
+        if (!ensureConnected()) {
+            throw EntitlementError.PurchaseFailed("Billing no disponible")
+        }
         val details = queryProductDetails(productID)
             ?: throw EntitlementError.ProductUnavailable()
         val offerToken = details.subscriptionOfferDetails?.firstOrNull()?.offerToken
@@ -173,7 +180,15 @@ class PlayBillingEntitlementProvider(
     override suspend fun restore(): CommercialSnapshot = refresh()
 
     override suspend fun refresh(): CommercialSnapshot {
-        ensureConnected()
+        // Billing ausente (emulador sin Play, OEM, offline): UNKNOWN + cache
+        // en SubscriptionManager — nunca tumbar el arranque de usuarios Gratis.
+        if (!ensureConnected()) {
+            return CommercialSnapshot(
+                status = SubscriptionStatus.UNKNOWN,
+                isConfigured = true,
+                lastRefreshFailedOffline = true
+            )
+        }
         return suspendCancellableCoroutine { continuation ->
             client.queryPurchasesAsync(
                 QueryPurchasesParams.newBuilder()
@@ -214,7 +229,9 @@ class PlayBillingEntitlementProvider(
 
     /** Acknowledge local solo tras verificación backend OK. */
     suspend fun acknowledgeVerifiedPurchase(purchaseToken: String) {
-        ensureConnected()
+        if (!ensureConnected()) {
+            throw EntitlementError.RestoreFailed("Billing no disponible")
+        }
         return suspendCancellableCoroutine { cont ->
             client.acknowledgePurchase(
                 AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchaseToken).build()
@@ -246,17 +263,13 @@ class PlayBillingEntitlementProvider(
             }
         }
 
-    private suspend fun ensureConnected() {
-        if (client.isReady) return
-        suspendCancellableCoroutine { cont ->
+    /** true si Billing queda listo; false si el servicio no está (sin lanzar). */
+    private suspend fun ensureConnected(): Boolean {
+        if (client.isReady) return true
+        return suspendCancellableCoroutine { cont ->
             client.startConnection(object : BillingClientStateListener {
                 override fun onBillingSetupFinished(result: BillingResult) {
-                    if (result.responseCode == BillingResponseCode.OK) cont.resume(Unit)
-                    else cont.resumeWithException(
-                        EntitlementError.RestoreFailed(
-                            "Billing no disponible (${result.responseCode})"
-                        )
-                    )
+                    cont.resume(result.responseCode == BillingResponseCode.OK)
                 }
 
                 override fun onBillingServiceDisconnected() = Unit

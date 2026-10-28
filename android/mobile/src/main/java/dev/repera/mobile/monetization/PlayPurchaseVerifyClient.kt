@@ -4,6 +4,8 @@ import dev.repera.domain.monetization.CommercialSnapshot
 import dev.repera.domain.monetization.SubscriptionStatus
 import dev.repera.mobile.BuildConfig
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -33,13 +35,17 @@ class PlayPurchaseVerifyClient(
         data class Unavailable(val message: String) : VerifyResult
     }
 
-    fun verify(
+    /**
+     * Verifica en IO: OkHttp.execute() es bloqueante y nunca debe correr en
+     * el hilo principal (arranque / paywall usan Main).
+     */
+    suspend fun verify(
         accessToken: String,
         purchaseToken: String,
         productId: String?
-    ): VerifyResult {
+    ): VerifyResult = withContext(Dispatchers.IO) {
         if (accessToken.isBlank() || purchaseToken.isBlank()) {
-            return VerifyResult.Unavailable("Sesión o token de compra ausente")
+            return@withContext VerifyResult.Unavailable("Sesión o token de compra ausente")
         }
         val payload = JSONObject()
             .put("purchaseToken", purchaseToken)
@@ -52,14 +58,14 @@ class PlayPurchaseVerifyClient(
             .header("Content-Type", "application/json")
             .post(payload.toString().toRequestBody(JSON))
             .build()
-        return try {
+        try {
             http.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 val json = runCatching { JSONObject(body) }.getOrNull()
                 when (response.code) {
                     in 200..299 -> {
                         val mapped = mapSnapshot(json ?: JSONObject())
-                            ?: return VerifyResult.Unavailable("Respuesta de verificación incompleta")
+                            ?: return@use VerifyResult.Unavailable("Respuesta de verificación incompleta")
                         VerifyResult.Verified(mapped)
                     }
                     503 -> {

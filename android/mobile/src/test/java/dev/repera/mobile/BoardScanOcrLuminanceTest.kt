@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.media.ExifInterface
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -34,5 +35,28 @@ class BoardScanOcrLuminanceTest {
         val prepared = BoardScanOcr.prepareForOcr(bitmap)
         assertEquals(bitmap, prepared)
         prepared.recycle()
+    }
+
+    @Test
+    fun exifRotate90SwapsWidthAndHeight() {
+        val source = Bitmap.createBitmap(40, 20, Bitmap.Config.ARGB_8888)
+        source.eraseColor(Color.WHITE)
+        val rotated = BoardScanOcr.applyExifOrientation(
+            source, ExifInterface.ORIENTATION_ROTATE_90
+        )
+        assertEquals(20, rotated.width)
+        assertEquals(40, rotated.height)
+        if (rotated !== source) source.recycle()
+        rotated.recycle()
+    }
+
+    @Test
+    fun exifNormalReusesBitmap() {
+        val source = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+        val same = BoardScanOcr.applyExifOrientation(
+            source, ExifInterface.ORIENTATION_NORMAL
+        )
+        assertEquals(source, same)
+        source.recycle()
     }
 }

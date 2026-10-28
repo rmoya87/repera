@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -21,8 +23,8 @@ import kotlin.coroutines.resumeWithException
  * OCR de pizarra con ML Kit (latin). Equivalente Android de
  * BoardTextRecognizer (Vision) en iOS: foto -> texto plano.
  *
- * Preprocess: lienzos oscuros (TV / pizarra negra) se dibujan sobre fondo
- * negro para mejorar contraste, como el camino Vision de iOS. Timeout 20 s.
+ * Preprocess: aplica orientación EXIF, reduce, y si el lienzo es oscuro
+ * (TV / pizarra negra) pinta sobre fondo negro. Timeout 20 s.
  */
 object BoardScanOcr {
     private const val TIMEOUT_MS = 20_000L
@@ -56,15 +58,59 @@ object BoardScanOcr {
             }
         }
 
-    /** Decodifica, reduce y, si es oscuro, pinta sobre canvas negro. */
+    /**
+     * Decodifica con orientación EXIF aplicada (BitmapFactory no la respeta),
+     * reduce y, si es oscuro, pinta sobre canvas negro.
+     */
     internal fun decodePreparedBitmap(context: Context, uri: Uri): Bitmap? {
+        val orientation = readExifOrientation(context, uri)
         val stream: InputStream = context.contentResolver.openInputStream(uri) ?: return null
         return stream.use { input ->
             val original = BitmapFactory.decodeStream(input) ?: return null
-            val scaled = downscale(original)
-            if (scaled !== original) original.recycle()
+            val oriented = applyExifOrientation(original, orientation)
+            if (oriented !== original) original.recycle()
+            val scaled = downscale(oriented)
+            if (scaled !== oriented) oriented.recycle()
             prepareForOcr(scaled)
         }
+    }
+
+    internal fun readExifOrientation(context: Context, uri: Uri): Int {
+        return runCatching {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                ExifInterface(stream).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+                )
+            } ?: ExifInterface.ORIENTATION_NORMAL
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+    }
+
+    /** Aplica la etiqueta EXIF a un bitmap ya decodificado (tests JVM / Robolectric). */
+    internal fun applyExifOrientation(source: Bitmap, orientation: Int): Bitmap {
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                matrix.setRotate(180f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.setRotate(90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.setRotate(-90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+            else -> return source
+        }
+        return runCatching {
+            Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+        }.getOrDefault(source)
     }
 
     internal fun prepareForOcr(source: Bitmap): Bitmap {

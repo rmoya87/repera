@@ -226,7 +226,21 @@ class SubscriptionManager(
         isRefreshing = true
         try {
             val previous = snapshot
-            var next = provider.refresh()
+            var next = try {
+                provider.refresh()
+            } catch (error: Exception) {
+                // Billing/red caídos en arranque: conservar caché, no tumbar la app.
+                lastErrorMessage = error.message
+                CommercialSnapshot(
+                    status = SubscriptionStatus.UNKNOWN,
+                    isConfigured = provider.isConfigured,
+                    lastRefreshFailedOffline = true,
+                    lastVerifiedProStatus = previous.lastVerifiedProStatus,
+                    lastVerifiedProAt = previous.lastVerifiedProAt,
+                    expirationDate = previous.expirationDate,
+                    activeProductID = previous.activeProductID
+                )
+            }
             next = verifyPendingIfNeeded(next, previous)
             // Offline: si el provider devolvió unknown, conservar Pro verificado.
             if (next.status == SubscriptionStatus.UNKNOWN &&
