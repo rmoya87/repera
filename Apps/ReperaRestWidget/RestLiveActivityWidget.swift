@@ -19,7 +19,8 @@ struct RestLiveActivityWidget: Widget {
                         .font(.title3.weight(.semibold))
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.pausedRemainingSeconds == nil ? "Descanso" : "En pausa")
+                    Text(context.state.pausedRemainingSeconds != nil ? "En pausa" :
+                        (context.attributes.sourceKey == nil ? "Descanso" : "Temporizador"))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -40,6 +41,11 @@ struct RestLiveActivityWidget: Widget {
             let remaining = max(0, paused)
             return Text(String(format: "%02d:%02d", remaining / 60, remaining % 60))
         }
+        if let anchor = state.countUpAnchor {
+            return Text(.currentDate, format: .stopwatch(
+                startingAt: anchor, maxPrecision: .seconds(1)
+            ))
+        }
         // Fixed time interval: SwiftUI's system timer updates on the lock screen
         // without requiring the host app to wake up and publish new activity state.
         let start = state.endDate.addingTimeInterval(-TimeInterval(max(1, state.totalSeconds)))
@@ -50,7 +56,8 @@ struct RestLiveActivityWidget: Widget {
     private func lockScreenView(context: ActivityViewContext<RestActivityAttributes>) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(context.state.pausedRemainingSeconds == nil ? "Descanso" : "En pausa")
+                Text(context.state.pausedRemainingSeconds != nil ? "En pausa" :
+                    (context.attributes.sourceKey == nil ? "Descanso" : "Temporizador"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(context.attributes.exerciseName)
