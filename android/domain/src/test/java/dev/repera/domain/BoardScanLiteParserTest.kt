@@ -878,4 +878,15 @@ class BoardScanLiteParserTest {
         assertEquals(1,named.movements.size)
         assertEquals(2,named.movements.single().reps)
     }
+    @Test fun singleMovementTrailingAtNumberStaysLiteralNoteNotLoad() {
+        for(token in listOf("@7","@7.5","@7,5")) {
+            val block=BoardScanLiteParser.parse("AMRAP 10'\n2 AIR SQUAT $token",catalog=catalog).blocks.single()
+            val move=block.movements.single()
+            assertEquals(2,move.reps)
+            assertTrue(token,move.notes?.contains(token)==true)
+            assertFalse(move.name.contains('@'))
+            assertNull(move.weightMaleKg)
+            assertNull(move.weightFemaleKg)
+        }
+    }
 }

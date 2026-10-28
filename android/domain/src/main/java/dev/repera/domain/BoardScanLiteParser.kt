@@ -642,6 +642,17 @@ object BoardScanLiteParser {
             notes.add("RPE " + rpe.value.replace("@", "").trim())
             working = working.removeRange(rpe.range)
         }
+        // Full-parser literal @number note, bounded to a single movement suffix.
+        // Do not call it kg or RPE, or remove malformed/unsupported annotations.
+        if(!working.contains('+')) {
+            Regex("""(?<!\S)@\s*\d+(?:[.,]\d+)?\s*$""").find(working)?.let { at ->
+                val prefix=working.substring(0,at.range.first)
+                if(!prefix.contains('@') && !prefix.contains('#')) {
+                    notes.add(at.value.trim())
+                    working=prefix.trimEnd()
+                }
+            }
+        }
         // Alternativas de escala "3 BMU / 6 C2B / 9 Pull-ups" o "40 DU / 80 SU".
         // El slash con espacios NO representa carga H/M.
         var scaleAlternative: String? = null

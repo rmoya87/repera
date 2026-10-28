@@ -831,3 +831,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 08:41 28oct
 -360 bateria completa mobile686/163XML11lotes61/91/107/97/70/87/112/59/113/65/101s,domain551/93XML102s,Wear8/1XML+ambosassemble88sverdes0fallos/errores/omitidos. Lote0binterrumpidoporlimitenocontado,reemplazadopor2lotescompletos. Backup360recuperado65338db7:arbol922df7ceb7400dfc353684c72a2d408c391512e5identico,clonlimpio.
 -361 solo documentacion: c6f89c28/88db5bb7reconciliadas360,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, @numero literal en movimiento simple 08:46 28oct
+- Mismo lector parcial362: sufijo @numero entero/decimal de movimiento simple se conserva como nota literal,sin inventar kg/RPE,nombrelimpio. SubconjuntoBoardImportParser667-674,con fronteraespacio y sinotrasanotacionesresiduales/complex. No cambiapesosdefuerzaexplicita ni RPErangeprevio.
+- Regresion fallo antes.1testdominio@7/@7.5/@7,5y1wirenuevos;dominio552/93XML91s,wire17/1XML88sverdes0fallos/errores/omitidos. Mobile completa/Wear362pendientes;ultima completa360mobile686/163,domain551/93,Wear8/1+ambosassemble88s.735/70sin cierres,nativo pendiente,no push.

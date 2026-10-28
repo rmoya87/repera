@@ -216,4 +216,13 @@ class BoardScanImportTest {
         assertEquals(1,wire.getJSONArray("movements").length())
         assertTrue(wire.getString("wodNotes").contains("WARMUP"))
     }
+    @Test fun trailingAtNumberIsLiteralWireNoteWithoutInventedWeight() {
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n2 AIR SQUAT @7.5",catalog=catalog).blocks.single()
+        val move=BoardScanImport.wireBlock(block).getJSONArray("movements").getJSONObject(0)
+        assertEquals(2,move.getInt("reps"))
+        assertTrue(move.getString("notes").contains("@7.5"))
+        assertFalse(move.getString("name").contains('@'))
+        assertFalse(move.has("weightMaleKg"))
+        assertFalse(move.has("weightFemaleKg"))
+    }
 }
