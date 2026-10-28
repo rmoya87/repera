@@ -42,6 +42,7 @@ struct WorkoutView: View {
     @State private var showPlayWODCatalog = false
     @State private var showPlayRoutinePicker = false
     @State private var showsPlayReorder = false
+    @State private var playReorderError: String?
     @State private var playReorderDraft: Routine?
     @State private var createFreeMovementForBlock: UUID?
     @State private var openedSetID: UUID?
@@ -221,6 +222,14 @@ struct WorkoutView: View {
             Button("Cancelar", role: .cancel) { pendingPlayReplacement = nil }
         } message: {
             Text("Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.")
+        }
+        .alert("No se ha podido mover el ejercicio", isPresented: Binding(
+            get: { playReorderError != nil },
+            set: { if !$0 { playReorderError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { playReorderError = nil }
+        } message: {
+            Text(playReorderError ?? "")
         }
         .alert("No se ha podido guardar el favorito", isPresented: Binding(
             get: { favoriteSaveError != nil },
@@ -786,10 +795,26 @@ struct WorkoutView: View {
                     draft.blocks[to].movements.append(movement)
                 } else {
                     guard !movement.isRest else { return }
-                    let catalogID = movement.exerciseId ?? store.state.exercises.first(where: {
+                    var catalogID = movement.exerciseId.flatMap { id in
+                        store.state.exercises.contains(where: { $0.id == id }) ? id : nil
+                    } ?? store.state.exercises.first(where: {
                         $0.name.localizedCaseInsensitiveCompare(movement.name) == .orderedSame
                     })?.id
-                    guard let catalogID else { return }
+                    if catalogID == nil {
+                        guard store.addCustomExercise(
+                            name: movement.name, muscleGroup: "Otros", equipment: nil
+                        ) else {
+                            playReorderError = "No se pudo añadir el movimiento libre al catálogo para moverlo al bloque de fuerza."
+                            return
+                        }
+                        catalogID = store.state.exercises.last(where: {
+                            $0.name.localizedCaseInsensitiveCompare(movement.name) == .orderedSame
+                        })?.id
+                    }
+                    guard let catalogID else {
+                        playReorderError = "No se encontró un ejercicio compatible para este bloque."
+                        return
+                    }
                     draft.blocks[to].exercises.append(RoutineExercise(
                         exerciseId: catalogID,
                         plannedSets: movement.explicitPlannedSets ?? movement.plannedSetsFromReps,
