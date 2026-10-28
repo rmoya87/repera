@@ -4,6 +4,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.History
@@ -140,73 +144,114 @@ internal fun HomeTab(
     ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
         state = dragListState,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentPadding = PaddingValues(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
+        // Banda blanca iOS: topbar + calendario + cards del día + CTA
         item {
-            // Paridad HomeView: ogFixedTopBar("repera", subtitle: fecha) + avatar.
-            val dateSubtitle = java.time.LocalDate.now().format(
-                java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale("es", "ES"))
-            ).replaceFirstChar { it.uppercase() }
-            Column {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(top = 12.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val dateSubtitle = selectedDay.format(
+                    java.time.format.DateTimeFormatter.ofPattern(
+                        "EEEE d MMMM", java.util.Locale("es", "ES")
+                    )
+                ).replaceFirstChar { it.uppercase() }
                 ReperaPageHeader(
                     title = "repera",
                     subtitle = dateSubtitle,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     trailing = {
-                        HomeProfileButton(overview?.profileSettings ?: ProfileSettings(), onOpenSettings)
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            if (professionalSessions.isNotEmpty()) {
+                                TextButton(onClick = onOpenMessages) { Text("Mensajes") }
+                            }
+                            HomeProfileButton(
+                                overview?.profileSettings ?: ProfileSettings(),
+                                onOpenSettings
+                            )
+                        }
                     }
                 )
-                Text(
-                    "Hola, " + (displayName ?: "Deportista"),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                WeekCalendarStrip(
+                    selectedDay,
+                    overview?.trainingSettings?.weekStartsOnMonday ?: true,
+                    overview?.dayWorkoutCounts.orEmpty().filterValues { it > 0 }.keys,
+                    returnToDay = java.time.LocalDate.now()
+                ) { homeDateIso = it.toString() }
+
+                val day = selectedDay
+                val dayRoutines = overview?.routineEntries.orEmpty().filter {
+                    (overview?.trainingSettings?.scheduleMode == "rotation" &&
+                        it.id == overview.rotationPlan?.nextRoutineId) ||
+                        (overview?.trainingSettings?.scheduleMode != "rotation" &&
+                            (it.scheduledDate == day.toString() ||
+                                (it.scheduledDate == null &&
+                                    it.weekday == day.dayOfWeek.value)))
+                }
+                val visibleRoutines = HomePlannedFilter.visible(
+                    dayRoutines, { it.id },
+                    HomePlannedFilter.completedRoutineIds(
+                        overview?.completeHistory.orEmpty(), day
+                    ),
+                    activeWorkout?.routineId, day, LocalDate.now()
                 )
-                TextButton(onClick = onOpenMessages) { Text("Mensajes con centro o entrenador") }
-            }
-        }
-        item {
-            val day = LocalDate.parse(homeDateIso)
-            val dayRoutines = overview?.routineEntries.orEmpty().filter {
-                (overview?.trainingSettings?.scheduleMode=="rotation" && it.id==overview.rotationPlan?.nextRoutineId) ||
-                    (overview?.trainingSettings?.scheduleMode!="rotation" && (it.scheduledDate == day.toString() ||
-                    (it.scheduledDate == null && it.weekday == day.dayOfWeek.value)))
-            }
-            val visibleRoutines = HomePlannedFilter.visible(dayRoutines, { it.id },
-                HomePlannedFilter.completedRoutineIds(overview?.completeHistory.orEmpty(), day), activeWorkout?.routineId, day, LocalDate.now())
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Calendario y entrenamientos",
-                        style = MaterialTheme.typography.titleLarge)
-                    WeekCalendarStrip(day,overview?.trainingSettings?.weekStartsOnMonday ?: true,
-                        overview?.dayWorkoutCounts.orEmpty().filterValues {it>0}.keys) { homeDateIso = it.toString() }
-                    Text("Entrenamientos · " + day.format(reperaDayFormatter),
-                        style = MaterialTheme.typography.titleMedium)
-                    if (visibleRoutines.isEmpty()) {
-                        // Paridad iOS emptyWorkoutCard: icono + título + subtítulo día libre.
-                        ReperaEmptyState(
-                            title = "Sin entrenamientos programados",
-                            subtitle = "Día libre · puedes añadir un entrenamiento",
-                            icon = Icons.Outlined.EventBusy,
-                            contentDescription = null
-                        )
-                    } else visibleRoutines.forEach { routine ->
-                        // Tocar abre el resumen del plan (SessionPreviewView iOS);
-                        // el Play dentro de la hoja sí inicia la sesión.
-                        var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(routine.title, style = MaterialTheme.typography.bodyLarge)
-                            TextButton(onClick = { preview = true },
-                                enabled = !busy && activeWorkout == null) {
-                                Text("Ver plan y empezar")
-                            }
+                val dayWorkouts = overview?.completeHistory.orEmpty().filter { entry ->
+                    entry.startedAtIso?.let { BodyWeightHistory.day(it) } == day
+                }.sortedBy { it.startedAtIso ?: "" }
+                val dayExternal = overview?.externalHealthHistory.orEmpty().filter { entry ->
+                    java.time.Instant.ofEpochMilli(entry.startMillis)
+                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate() == day
+                }
+
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    dayWorkouts.forEach { workout ->
+                        var expanded by rememberSaveable(workout.id) { mutableStateOf(false) }
+                        HomeCompletedWorkoutCard(workout, day) { expanded = !expanded }
+                        if (expanded) {
+                            WorkoutHistoryCard(
+                                workout, busy,
+                                onReviseFinishedSet, onDeleteFinishedSet,
+                                onDeleteWorkout, onOpenExerciseFromSession,
+                                accountId, overview?.exerciseEntries.orEmpty(),
+                                onUpdateFinishedWorkout,
+                                heartSeriesProvider,
+                                effortUnit = overview?.trainingSettings?.effortUnit ?: "rir"
+                            )
                         }
+                    }
+                    dayExternal.forEach { entry ->
+                        HomeDayRegisterCard(
+                            caption = homeDayTimeCaption(
+                                day,
+                                java.time.format.DateTimeFormatter.ofPattern("H:mm")
+                                    .withZone(java.time.ZoneId.systemDefault())
+                                    .format(java.time.Instant.ofEpochMilli(entry.startMillis))
+                            ),
+                            title = entry.title,
+                            leadingIcon = Icons.AutoMirrored.Outlined.DirectionsWalk,
+                            chips = listOf(
+                                Icons.Outlined.Schedule to "${entry.minutes.toInt()} min"
+                            ),
+                            onClick = { }
+                        )
+                    }
+                    visibleRoutines.forEach { routine ->
+                        var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
+                        HomePlannedRoutineCard(routine, day) { preview = true }
                         if (preview) {
                             @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-                            ReperaModalBottomSheet(
-                                onDismissRequest = { preview = false }
-                            ) {
+                            ReperaModalBottomSheet(onDismissRequest = { preview = false }) {
                                 SessionPreviewSheet(
                                     routine = routine,
                                     busy = busy,
@@ -222,21 +267,34 @@ internal fun HomeTab(
                             }
                         }
                     }
-                    // Apple 160f304c: la acción de añadir va separada de las
-                    // tarjetas diarias (8dp extra sobre el espaciado de la columna).
-                    Button(onClick = { showDayPlus = true },
-                        enabled = !busy,
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        colors = reperaPrimaryButtonColors()
-                    ) { Text("Añadir nuevo entrenamiento") }
+                    professionalSessions.filter { it.scheduledDate == homeDateIso }.forEach { session ->
+                        ProfessionalSessionCard(session, centerName(session.orgId), true)
+                    }
+                    if (activeWorkout == null && dayWorkouts.isEmpty() && visibleRoutines.isEmpty()
+                        && dayExternal.isEmpty()
+                        && professionalSessions.none { it.scheduledDate == homeDateIso }
+                    ) {
+                        HomeEmptyDayCard(day)
+                    }
+                    if (activeWorkout == null) {
+                        androidx.compose.foundation.layout.Spacer(
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
+                    }
                     if (showDayPlus) {
-                        val dayName = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL,
-                            java.util.Locale("es")).replaceFirstChar { it.uppercase() }
+                        val dayName = day.dayOfWeek.getDisplayName(
+                            java.time.format.TextStyle.FULL,
+                            java.util.Locale("es")
+                        ).replaceFirstChar { it.uppercase() }
                         DayPlusSheet(
                             dayName = dayName,
-                            favoriteRoutines = overview?.routineEntries.orEmpty().count { it.isFavorite },
+                            favoriteRoutines = overview?.routineEntries.orEmpty()
+                                .count { it.isFavorite },
                             favoriteTimers = overview?.favoriteTimerCount ?: 0,
-                            onCreateWorkout = { showDayPlus = false; onDayPlusCreate(homeDateIso, dayName) },
+                            onCreateWorkout = {
+                                showDayPlus = false; onDayPlusCreate(homeDateIso, dayName)
+                            },
                             onOpenFavorites = { showDayPlus = false; onDayPlusFavorites() },
                             onOpenTimer = { showDayPlus = false; onDayPlusTimer() },
                             onScanBoard = { showDayPlus = false; onDayPlusScan(homeDateIso) },
@@ -245,165 +303,158 @@ internal fun HomeTab(
                 }
             }
         }
+
+        // Banda gris iOS (OG.bg): progreso semanal + actividad + recuperación
         item {
-            val days=dev.repera.domain.WeeklyWorkoutProgress.days(selectedDay,
+            val days = dev.repera.domain.WeeklyWorkoutProgress.days(
+                selectedDay,
                 overview?.trainingSettings?.weekStartsOnMonday ?: true,
-                overview?.dayWorkoutCounts.orEmpty(),overview?.routineEntries.orEmpty().map {routine ->
+                overview?.dayWorkoutCounts.orEmpty(),
+                overview?.routineEntries.orEmpty().map { routine ->
                     dev.repera.domain.WeeklyWorkoutProgress.Plan(
-                        routine.scheduledDate?.let {runCatching {LocalDate.parse(it.take(10))}.getOrNull()},routine.weekday)
-                })
-            val activityContent: @Composable () -> Unit = {
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("Actividad · ${selectedDay.format(reperaDayFormatter)}", style = MaterialTheme.typography.titleMedium)
-                    val healthPlaceholder = when (healthAccess) {
-                        HealthAccessState.NOT_GRANTED -> "Conecta Salud"
-                        HealthAccessState.UNAVAILABLE -> "Salud no disponible"
-                        HealthAccessState.GRANTED -> "Sin datos"
-                        HealthAccessState.UNKNOWN -> "—"
-                    }
-                    Text("Pasos: " + (dayHealth?.steps?.toString() ?: healthPlaceholder))
-                    val energy=dayHealth?.activeKcal ?: overview?.dayEnergyKcal?.get(selectedDay)
-                    Text("Energía activa: " + (energy?.let {"${it.toInt()} kcal"} ?: healthPlaceholder))
-                    val minutes=overview?.dayWorkoutMinutes?.get(selectedDay)
-                    Text("Tiempo de entreno: " + (minutes?.let {"${it.toInt()} min"} ?: "—"))
-                    overview?.healthGoals?.let { goals ->
-                        goals.steps?.let {target -> Text("Objetivo pasos: ${dayHealth?.steps?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"} ?: "$healthPlaceholder / ${dev.repera.domain.ReperaNumberFormat.integer(target)}"}")}
-                        goals.energyKcal?.let {target -> Text("Objetivo energía: ${energy?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"} ?: "$healthPlaceholder / ${dev.repera.domain.ReperaNumberFormat.integer(target)} kcal"}")}
-                        goals.minutes?.let {target -> Text("Objetivo tiempo: ${minutes?.let {"${dev.repera.domain.ReperaNumberFormat.integer(it.toInt())} / ${dev.repera.domain.ReperaNumberFormat.integer(target)} min"} ?: "Sin datos / ${dev.repera.domain.ReperaNumberFormat.integer(target)} min"}")}
-                        goals.weeklyWorkouts?.let {target -> Text("Objetivo semanal: $selectedWeekCount / $target entrenamientos")}
-                    }
-                    TextButton(
-                        enabled = !busy,
-                        onClick = onHealthConnect
-                    ) {
-                        Text(
-                            when (healthAccess) {
-                                HealthAccessState.GRANTED -> "Actualizar Salud"
-                                HealthAccessState.NOT_GRANTED -> "Conectar Salud"
-                                HealthAccessState.UNAVAILABLE -> "Salud no disponible en este dispositivo"
-                                HealthAccessState.UNKNOWN -> "Conectar o actualizar Salud"
-                            }
-                        )
-                    }
+                        routine.scheduledDate?.let {
+                            runCatching { LocalDate.parse(it.take(10)) }.getOrNull()
+                        },
+                        routine.weekday
+                    )
                 }
+            )
+            val energy = dayHealth?.activeKcal ?: overview?.dayEnergyKcal?.get(selectedDay)
+            val minutes = overview?.dayWorkoutMinutes?.get(selectedDay)
+            val healthPlaceholder = when (healthAccess) {
+                HealthAccessState.NOT_GRANTED -> "Conecta Salud"
+                HealthAccessState.UNAVAILABLE -> "Salud no disponible"
+                HealthAccessState.GRANTED -> "Sin datos"
+                HealthAccessState.UNKNOWN -> "—"
             }
-            }
-            AdaptiveCardPair(
-                first={
-                    if(overview!=null) HomeWeeklyProgressCard(days,overview.healthGoals.weeklyWorkouts)
-                    else Text("Progreso semanal: sin datos locales")
-                },second=activityContent)
-        }
-        overview?.recovery?.takeIf {selectedDay==LocalDate.now()}?.let {recovery ->
-            HomeRecoveryModel.of(recovery.lastNightHours,recovery.sleepIndex,recovery.menstrualDays,LocalDate.now())?.let {model ->
-                item {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("Tu estado de hoy", style = MaterialTheme.typography.titleMedium)
-                            model.sleepHours?.let {
-                                Text("${dev.repera.domain.ReperaNumberFormat.decimal(it)} h de sueño")
-                            }
-                            model.sleepIndexOutOf10?.let { Text("Índice de sueño: $it/10") }
-                            model.cycleLabel?.let { Text(it) }
-                            TextButton(onClick = onOpenRecoverySettings) {
-                                Text("Ver Salud y recuperación")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AdaptiveCardPair(
+                    first = {
+                        if (overview != null)
+                            HomeWeeklyProgressCard(days, overview.healthGoals.weeklyWorkouts)
+                        else Text("Progreso semanal: sin datos locales")
+                    },
+                    second = {
+                        HomeActivityTodayCard(
+                            isToday = selectedDay == LocalDate.now(),
+                            steps = dayHealth?.steps,
+                            stepsGoal = overview?.healthGoals?.steps,
+                            energyKcal = energy,
+                            energyGoal = overview?.healthGoals?.energyKcal,
+                            minutes = minutes,
+                            minutesGoal = overview?.healthGoals?.minutes,
+                            healthPlaceholder = healthPlaceholder,
+                            onHealthConnect = onHealthConnect,
+                            healthAccess = healthAccess
+                        )
+                    },
+                    outerHorizontalPaddingDp = 32f
+                )
+                overview?.recovery?.takeIf { selectedDay == LocalDate.now() }?.let { recovery ->
+                    HomeRecoveryModel.of(
+                        recovery.lastNightHours, recovery.sleepIndex,
+                        recovery.menstrualDays, LocalDate.now()
+                    )?.let { model ->
+                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(
+                                    "Tu estado de hoy",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                model.sleepHours?.let {
+                                    Text(
+                                        "${dev.repera.domain.ReperaNumberFormat.decimal(it)} h de sueño"
+                                    )
+                                }
+                                model.sleepIndexOutOf10?.let { Text("Índice de sueño: $it/10") }
+                                model.cycleLabel?.let { Text(it) }
+                                TextButton(onClick = onOpenRecoverySettings) {
+                                    Text("Ver Salud y recuperación")
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        items(professionalSessions.filter {it.scheduledDate==homeDateIso}) {session ->
-            ProfessionalSessionCard(session,centerName(session.orgId),true)
-        }
+
         item {
             if (activeWorkout != null) {
                 key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
-                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    ActiveSessionControls(activeWorkout,busy,onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,onEditActivePlan,accountId)
-                    if (activeWorkout.wod != null) {
-                        WodScoreCard(
-                            active = activeWorkout,
-                            busy = busy,
-                            timer = wodTimer,
-                            onTimerAction = onWodTimerAction,
-                            onTimerTick = onWodTimerTick,
-                            onSave = onWodScore,
-                            onMovement = onWodMovement,
-                            onCompleteBlock = onCompleteWodBlock,
-                            onReviseMovement = onReviseWodMovement,
-                            onDeleteMovement = onDeleteWodMovement,
-                            onFinish = onFinish,
-                            onDiscard = onDiscardSession,
-                            onOpenClock = onOpenClock
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ActiveSessionControls(
+                            activeWorkout, busy, onSelectActiveExercise, onUpdateActiveNotes,
+                            onSaveActiveFavorite, onEditActivePlan, accountId
                         )
-                    } else {
-                        ActiveWorkoutCard(
-                            effortUnit=overview?.trainingSettings?.effortUnit ?: "rir",
-                            weightUnit=overview?.trainingSettings?.weightUnit ?: "kg",
-                            active = activeWorkout,
-                            busy = busy,
-                            onLogSet = onLogSet,
-                            onLogDropSet = onLogDropSet,
-                            onLogRestPauseSet = onLogRestPauseSet,
-                            onReviseSet = onReviseSet,
-                            onDeleteSet = onDeleteSet,
-                            onNext = onNext,
-                            onFinish = onFinish,
-                            onDiscard = onDiscardSession
-                        )
-                    }
-                    // Sección «Lugar» (WorkoutView iOS): fila + mapa del pin activo.
-                    ReperaCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Lugar", style = MaterialTheme.typography.titleMedium)
-                            WorkoutPlacePickerRow(
-                                pin = overview?.activeLocationPin,
-                                accountId = accountId,
-                                onPinChange = onActivePinChange)
+                        if (activeWorkout.wod != null) {
+                            WodScoreCard(
+                                active = activeWorkout,
+                                busy = busy,
+                                timer = wodTimer,
+                                onTimerAction = onWodTimerAction,
+                                onTimerTick = onWodTimerTick,
+                                onSave = onWodScore,
+                                onMovement = onWodMovement,
+                                onCompleteBlock = onCompleteWodBlock,
+                                onReviseMovement = onReviseWodMovement,
+                                onDeleteMovement = onDeleteWodMovement,
+                                onFinish = onFinish,
+                                onDiscard = onDiscardSession,
+                                onOpenClock = onOpenClock
+                            )
+                        } else {
+                            ActiveWorkoutCard(
+                                effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                                weightUnit = overview?.trainingSettings?.weightUnit ?: "kg",
+                                active = activeWorkout,
+                                busy = busy,
+                                onLogSet = onLogSet,
+                                onLogDropSet = onLogDropSet,
+                                onLogRestPauseSet = onLogRestPauseSet,
+                                onReviseSet = onReviseSet,
+                                onDeleteSet = onDeleteSet,
+                                onNext = onNext,
+                                onFinish = onFinish,
+                                onDiscard = onDiscardSession
+                            )
+                        }
+                        ReperaCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text("Lugar", style = MaterialTheme.typography.titleMedium)
+                                WorkoutPlacePickerRow(
+                                    pin = overview?.activeLocationPin,
+                                    accountId = accountId,
+                                    onPinChange = onActivePinChange
+                                )
+                            }
                         }
                     }
                 }
-                }
-            } else {
-                ReperaEmptyState(
-                    title = "Sin entrenamiento iniciado",
-                    subtitle = "Elige un plan del día o añade uno nuevo",
-                    icon = Icons.Outlined.FitnessCenter
-                )
             }
         }
-        item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
-        item {TextButton(onClick=onOpenHistory) {Text("Ver historial completo")} }
-        item { ReperaSectionTitle("Historial reciente") }
-        // Apple 0574e246: en Inicio, los entrenos del dia se leen en orden
-        // cronologico (el mas antiguo arriba); el historial global sigue
-        // mostrando el mas reciente primero.
-        val workouts = overview?.completeHistory.orEmpty().filter {entry ->
-            entry.startedAtIso?.let {BodyWeightHistory.day(it)}==selectedDay
-        }.sortedBy { it.startedAtIso ?: "" }
-        if (workouts.isEmpty()) item {
-            ReperaEmptyState(
-                title = "Todavía no hay sesiones registradas",
-                subtitle = "Cuando completes un entreno aparecerá aquí",
-                icon = Icons.Outlined.History
-            )
-        }
-        items(workouts, key = { it.id }) { workout ->
-            WorkoutHistoryCard(workout, busy,
-                        onReviseFinishedSet, onDeleteFinishedSet,
-                        onDeleteWorkout, onOpenExerciseFromSession,
-                        accountId, overview?.exerciseEntries.orEmpty(), onUpdateFinishedWorkout,
-                        heartSeriesProvider,
-                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir")
-        }
-        item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
-        item {
-            AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
+        if (overview == null) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = 16.dp)
+                ) {
+                    OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson)
+                }
+            }
         }
     }
     }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +43,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -1268,33 +1270,46 @@ internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
 
 @Composable
 private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasCompleted: Boolean, modifier: Modifier, onSelect: (LocalDate) -> Unit) {
-    // Celda propia (no FilterChip): el padding interno del chip
-    // envolvía los números de dos cifras ("1/9" en vez de 19).
-    // Letra 11sp sobre número 17sp como calendarDayColumn (iOS).
+    // Paridad HomeView.calendarDayColumn: fondo verde sólido seleccionado,
+    // borde sutil sin selección, punto bajo el número.
+    val isToday = day == LocalDate.now()
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(11.dp)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier = modifier
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-            .background(
-                if (isSelected) brandGreen.copy(alpha = 0.18f)
-                else androidx.compose.ui.graphics.Color.Transparent
+            .aspectRatio(1f)
+            .clip(shape)
+            .background(if (isSelected) brandGreen else MaterialTheme.colorScheme.surface)
+            .then(
+                if (!isSelected) Modifier.border(
+                    width = if (isToday) 1.5.dp else 0.7.dp,
+                    color = if (isToday) brandGreen else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f),
+                    shape = shape
+                ) else Modifier
             )
             .clickable { onSelect(day) }
             .semantics(mergeDescendants = true) {
                 if (hasCompleted) stateDescription = "Entrenamiento completado"
             }
-            .padding(vertical = 8.dp)
+            .padding(vertical = 4.dp)
     ) {
         Text(label, fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, softWrap = false)
         Text("${day.dayOfMonth}", fontSize = 17.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
             maxLines = 1, softWrap = false)
-        // Apple HomeView (6ac9f0e4/b75ecbcb): punto SOLO si hay entreno finalizado (Repera o Salud);
-        // seleccionar no cambia su visibilidad y el hueco se reserva siempre.
         Box(Modifier.padding(top = 2.dp).size(4.dp).clip(androidx.compose.foundation.shape.CircleShape)
-            .background(if (hasCompleted) brandGreen else androidx.compose.ui.graphics.Color.Transparent))
+            .background(
+                when {
+                    !hasCompleted -> Color.Transparent
+                    isSelected -> Color.Black
+                    else -> brandGreen
+                }
+            ))
     }
 }
 
@@ -1326,17 +1341,21 @@ internal object WeekCalendarGeometry {
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
-    ReperaCard(modifier = Modifier.fillMaxWidth().testTag("week_calendar_card")) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
-                "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
-                style = MaterialTheme.typography.titleSmall,
+    val monthTitle = selected.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("es", "ES"))
+        .replaceFirstChar { it.uppercase() }
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag("week_calendar_card"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+            Text(monthTitle,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 12.dp).let { m ->
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).let { m ->
                     // Apple weekSelector: tocar la etiqueta vuelve a la semana actual.
                     if (returnToDay != null) m.clickable(onClickLabel = "Volver a la semana actual") { onSelect(returnToDay) } else m
                 })
-            val days = if(monday) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("D","L","M","X","J","V","S")
+            val days = if(monday) listOf("LU", "MA", "MI", "JU", "VI", "SA", "DO") else listOf("DO","LU","MA","MI","JU","VI","SA")
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
                 // Carrusel horizontal unico, como el corte Apple (0a640da8
                 // HomeView.weekSelectorCard): compacto = 7 dias que llenan el
@@ -1356,7 +1375,7 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
                 // Solo los dias van edge-to-edge (comentario Apple en el
                 // corte); la etiqueta conserva margen. Padding inferior para
                 // que el borde de la tarjeta no corte las celdas.
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
                         .horizontalScroll(scrollState)
                         .testTag(if (expanded) "week_strip_expanded" else "week_strip_compact"),
                     horizontalArrangement = Arrangement.spacedBy(spacing)) {
@@ -1370,7 +1389,6 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
                     }
                 }
             }
-        }
     }
 }
 
