@@ -237,7 +237,17 @@ struct ReperaApp: App {
     /// all environment, overlay, lifecycle and synchronization modifiers at once.
     private var appScenePhaseContent: some View {
         appLaunchContent
+                .onAppear {
+                    TimerScreenAwake.setAppForeground(scenePhase == .active)
+                }
                 .onChange(of: scenePhase) { _, phase in
+                    // UIApplication idleTimerDisabled solo tiene sentido con
+                    // la app en primer plano. Conservar los owners activos
+                    // para reactivarlo automáticamente al volver.
+                    TimerScreenAwake.setAppForeground(phase == .active)
+                    if phase == .active {
+                        store.restCoordinator.refreshWhenActive()
+                    }
                     if phase == .background {
                         if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
                             CatalogBackgroundRefreshScheduler.schedule()
