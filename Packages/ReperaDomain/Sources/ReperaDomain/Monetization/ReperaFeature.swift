@@ -26,6 +26,8 @@ public enum ReperaFeature: String, Sendable, CaseIterable, Identifiable, Codable
 /// Límites cuantitativos del plan gratuito (única fuente de verdad numérica).
 public enum FreePlanLimits: Sendable {
     public static let maxLibraryRoutines = 3
+    /// Límite independiente de favoritos (rutinas marcadas y deportes de Comenzar).
+    public static let maxFavoriteItems = 3
     public static let maxCustomExercises = 5
     public static let maxBoardScansPerMonth = 4
 }
