@@ -17,6 +17,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import dev.repera.domain.ProgressTimeRange
@@ -180,6 +181,7 @@ class ReviewSpacingRenderTest {
 
     @Test
     fun homeAddWorkoutButtonSeparated() {
+        var selected = ""
         composeRule.setContent {
             MaterialTheme(colorScheme = reperaColorScheme(false)) {
                 Surface(Modifier.testTag("homewrap")) {
@@ -199,7 +201,11 @@ class ReviewSpacingRenderTest {
                         onExportJson = {}, onSignOut = {},
                         onReviseFinishedSet = { _, _, _, _, _, _ -> },
                         onDeleteFinishedSet = { _, _, _ -> },
-                        onNavigateCreate = {}, onOpenClock = {})
+                        onNavigateCreate = { selected = "direct" }, onOpenClock = {},
+                        onDayPlusCreate = { _, _ -> selected = "create" },
+                        onDayPlusFavorites = { selected = "favorites" },
+                        onDayPlusTimer = { selected = "timer" },
+                        onDayPlusScan = { selected = "scan" })
                 }
             }
         }
@@ -209,6 +215,17 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("Añadir nuevo entrenamiento").assertExists()
         save(composeRule.onNodeWithTag("homewrap").captureToImage().asAndroidBitmap(),
             "home-add-workout-button.png")
+        composeRule.onNodeWithText("Añadir nuevo entrenamiento").performClick()
+        composeRule.waitForIdle()
+        org.junit.Assert.assertEquals("", selected)
+        composeRule.onNodeWithTag("day_plus_create").assertExists()
+        composeRule.onNodeWithTag("day_plus_favorites").assertExists()
+        composeRule.onNodeWithTag("day_plus_timer").assertExists()
+        composeRule.onNodeWithTag("day_plus_scan").assertExists()
+        save(composeRule.onRoot().captureToImage().asAndroidBitmap(), "home-day-menu.png")
+        composeRule.onNodeWithTag("day_plus_scan").performClick()
+        composeRule.waitForIdle()
+        org.junit.Assert.assertEquals("scan", selected)
     }
 
     @Test
