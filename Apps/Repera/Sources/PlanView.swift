@@ -1427,16 +1427,9 @@ struct DayEditorView: View {
                     }
                 }
 
-                Button {
+                WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
                     addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
-                } label: {
-                    Label("Añadir serie", systemImage: "plus")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(OG.accent)
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
 
             }
@@ -2051,14 +2044,9 @@ private struct InlineWODMovementSets: View {
                     }
                 }
             }
-            Button {
+            WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
                 addSet()
-            } label: {
-                Label("Añadir serie", systemImage: "plus")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
             }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 4)
         .onAppear { seedSetsIfNeeded() }
@@ -2302,12 +2290,8 @@ struct WODMovementEditor: View {
                         }
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
-                    Button {
+                    WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
                         addSet()
-                    } label: {
-                        Label("Añadir serie", systemImage: "plus")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(OG.accent)
                     }
                 } header: {
                     Text("Series al apuntar")
@@ -2652,16 +2636,9 @@ struct RoutineExerciseEditor: View {
                     }
                 }
 
-                Button {
+                WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
                     addSet()
-                } label: {
-                    Label("Añadir serie", systemImage: "plus")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(OG.accent)
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             } header: {
                 Text("Objetivo por serie")
