@@ -1675,7 +1675,10 @@ final class LiveActivityRecorder: NSObject {
     private func reportKilometer(
         _ split: LiveKmSplit, elapsedActiveSeconds: TimeInterval
     ) {
-        latestKilometerReport = "Km \(split.kilometer) · \(split.clock) · \(ReperaNumberFormat.decimal(3600 / split.seconds)) km/h"
+        let cumulativeSpeed = elapsedActiveSeconds > 0
+            ? ReperaNumberFormat.decimal(Double(split.kilometer) * 3600 / elapsedActiveSeconds)
+            : "—"
+        latestKilometerReport = "Km \(split.kilometer) · \(split.clock) · \(ReperaNumberFormat.decimal(3600 / split.seconds)) km/h · Media \(cumulativeSpeed) km/h"
         if sport.usesGPS,
            let message = KilometerVoiceAnnouncement.message(
                kilometer: split.kilometer,

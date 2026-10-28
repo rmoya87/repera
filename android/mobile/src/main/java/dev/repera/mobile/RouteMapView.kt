@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -157,7 +158,8 @@ internal fun RouteMapView(
         }
     }
     if (failed || !nativeAvailable) {
-        RouteMapFallback(points, modifier, plannedRoute,plannedPoints,waterSport,paceMode)
+        RouteMapFallback(points, modifier, plannedRoute,plannedPoints,waterSport,paceMode,
+            userPosition,userHeadingDegrees)
         return
     }
     // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
@@ -432,8 +434,9 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
 @Composable
 private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean,
     plannedPoints:List<WorkoutRoutePoint> = emptyList(),water:Boolean = false,
-    mode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING) {
-    val allPoints=points+plannedPoints
+    mode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING,
+    userPosition:WorkoutRoutePoint?=null,userHeadingDegrees:Double?=null) {
+    val allPoints=points+plannedPoints+listOfNotNull(userPosition)
     val segments = remember(points, plannedRoute,plannedPoints,water) {
         val measured=if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
         else RouteMapModel.segments(points,water,reference = plannedPoints,mode = mode)
@@ -442,7 +445,7 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
     Box(modifier = modifier.testTag("route_map_fallback")
         .background(MaterialTheme.colorScheme.surface)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            if (allPoints.size >= 2) {
+            if (allPoints.isNotEmpty()) {
                 val minLat = allPoints.minOf { it.latitude }
                 val maxLat = allPoints.maxOf { it.latitude }
                 val minLon = allPoints.minOf { it.longitude }
@@ -471,6 +474,24 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
                         strokeWidth = 4.5f, pathEffect = dash)
                     drawLine(Color(seg.argb), xy(seg.a), xy(seg.b),
                         strokeWidth = 2.8f, pathEffect = dash)
+                }
+                userPosition?.let { user ->
+                    val center = xy(user)
+                    drawCircle(Color.White, radius = 15f, center = center)
+                    if (userHeadingDegrees == null) {
+                        drawCircle(Color(0xFF26CD6E), radius = 10f, center = center)
+                    } else {
+                        val arrow = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(center.x, center.y - 15f)
+                            lineTo(center.x + 12f, center.y + 13f)
+                            lineTo(center.x, center.y + 6f)
+                            lineTo(center.x - 12f, center.y + 13f)
+                            close()
+                        }
+                        rotate(degrees = userHeadingDegrees.toFloat(), pivot = center) {
+                            drawPath(arrow, Color(0xFF26CD6E))
+                        }
+                    }
                 }
             }
         }

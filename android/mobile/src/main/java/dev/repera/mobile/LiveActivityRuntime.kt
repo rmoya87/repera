@@ -48,9 +48,12 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             if (state.splitsSeconds.size > splitCount) {
                 val km = state.splitsSeconds.size
                 val seconds = state.splitsSeconds.last()
-                latestKilometerReport = "Km $km · " + if (state.sport.displaysSpeed)
-                    dev.repera.domain.ReperaNumberFormat.decimal(3600 / seconds) + " km/h" else
-                    dev.repera.domain.LiveSportHistory.formatDuration(seconds) + " min/km"
+                val cumulative = state.durationSeconds(System.currentTimeMillis())
+                val speed = dev.repera.domain.ReperaNumberFormat.decimal(3600 / seconds)
+                val average = if (cumulative > 0) dev.repera.domain.ReperaNumberFormat.decimal(km * 3600.0 / cumulative) else "—"
+                latestKilometerReport = "Km $km · " +
+                    dev.repera.domain.LiveSportHistory.formatDuration(seconds) +
+                    " · $speed km/h · Media $average km/h"
                 // Apple (live main): el kilómetro se encola aunque suene un giro y NUNCA se sustituye por una notificación.
                 if (spokenGuidanceEnabled) {
                     val elapsed = state.durationSeconds(System.currentTimeMillis())

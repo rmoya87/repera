@@ -35,10 +35,12 @@ internal class LiveSpokenGuidance(context: Context) {
         if(!ready || (!queue && tts.isSpeaking)) return false
         val language=tts.setLanguage(Locale("es","ES"))
         if(language==TextToSpeech.LANG_MISSING_DATA || language==TextToSpeech.LANG_NOT_SUPPORTED) return false
+        // Preferir voz española local, pero aceptar la voz predeterminada del
+        // sintetizador si el dispositivo todavía no descargó una voz offline.
         val offline = tts.voices?.filter {
             it.locale.language == "es" && it.locale.country == "ES" && !it.isNetworkConnectionRequired
-        }?.maxByOrNull { it.quality } ?: return false
-        tts.voice = offline
+        }?.maxByOrNull { it.quality }
+        if (offline != null) tts.voice = offline
         tts.setAudioAttributes(guidanceAudioAttributes)
         if(audio.requestAudioFocus(focus)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return false
         tts.setSpeechRate(1.0f)

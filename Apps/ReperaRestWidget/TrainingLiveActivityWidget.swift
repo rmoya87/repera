@@ -51,7 +51,7 @@ struct TrainingLiveActivityWidget: Widget {
                         Text(context.state.subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -142,7 +142,7 @@ struct TrainingLiveActivityWidget: Widget {
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.8))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 10)
                     .background(.black)
