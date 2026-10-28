@@ -419,7 +419,8 @@ struct DayEditorView: View {
             ExercisePickerView(embedsNavigationStack: false) { selected in
                 replacingExercise = nil
                 let registered = completedWorkoutDraft?.exercises.first(where: { $0.id == target.itemID })
-                if registered?.loggedSets.isEmpty == false {
+                let scoredBlock = completedWorkoutDraft?.wodResults.contains(where: { $0.id == target.blockID }) == true
+                if registered?.loggedSets.isEmpty == false || (target.isWOD && scoredBlock) {
                     pendingReplacement = PendingWorkoutReplacement(target: target, exercise: selected)
                 } else {
                     applyExerciseReplacement(target: target, with: selected)
