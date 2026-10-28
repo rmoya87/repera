@@ -605,61 +605,48 @@ struct StandaloneTimerView: View {
                         Text("Lugar").textCase(nil)
                     }
 
+                    // Una sola sección, como la finalización de un entreno:
+                    // Guardar y Descartar quedan juntos y sin hueco de grupo.
                     Section {
-                        Button(action: saveCompletedTimer) {
-                            Text("Guardar")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, minHeight: 52)
-                                .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-                                .background(OG.accent, in: Capsule())
+                        VStack(spacing: 8) {
+                            Button(action: saveCompletedTimer) {
+                                Text("Guardar")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity, minHeight: 52)
+                                    .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                                    .background(OG.accent, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            Button(role: .destructive) {
+                                showDiscardCompletedTimer = true
+                            } label: {
+                                Text("Descartar")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(maxWidth: .infinity, minHeight: 42)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(OG.red)
                         }
-                        .buttonStyle(.plain)
                         .ogCardListRow()
-                    }
-                    Section {
-                        Button(role: .destructive) {
-                            showDiscardCompletedTimer = true
-                        } label: {
-                            Text("Descartar")
-                                .font(.system(size: 16, weight: .medium))
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.vertical, 16)
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(OG.red)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
                     }
                 }
             }
-            .confirmationDialog(
-                "¿Descartar temporizador?",
-                isPresented: $showDiscardCompletedTimer,
-                titleVisibility: .visible
-            ) {
-                Button("Descartar", role: .destructive, action: discardCompletedTimer)
-                Button("Cancelar", role: .cancel) {}
-            } message: {
-                Text("Esta sesión no aparecerá en Inicio ni en Historial.")
+            .sheet(isPresented: $showDiscardCompletedTimer) {
+                OGConfirmSheet(
+                    systemImage: "trash",
+                    title: "¿Descartar temporizador?",
+                    message: "Esta sesión no se guardará en Inicio ni en Historial.",
+                    confirmTitle: "Descartar sin guardar",
+                    onConfirm: {
+                        showDiscardCompletedTimer = false
+                        discardCompletedTimer()
+                    },
+                    onCancel: { showDiscardCompletedTimer = false }
+                )
             }
             .ogListChrome()
             .listSectionSpacing(12)
             .ogScrollingTitleNav()
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: saveCompletedTimer) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                            .background(OG.accent, in: Circle())
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Guardar temporizador")
-                    .accessibilityHint("Guardar esta sesión en Inicio e Historial")
-                }
-            }
         }
     }
 
