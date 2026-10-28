@@ -1482,6 +1482,19 @@ final class ReperaStore: NSObject {
         })
         let legacyIdentity = !remaining.contains(where: { sourceIDs.contains($0.id) })
 
+        // Sustituir un movimiento WOD invalida exclusivamente la marca
+        // global de ese bloque: las rondas/tiempo del ejercicio anterior
+        // no deben presentarse como resultado de su sustituto.
+        let replacedWODBlockIDs = Set((session.routineBlocks ?? []).compactMap { old -> UUID? in
+            guard old.kind == .wod,
+                  let new = routine.blocks.first(where: { $0.id == old.id && $0.kind == .wod }) else { return nil }
+            let before = Set(old.movements.filter { !$0.isRest }.map(\.id))
+            let after = Set(new.movements.filter { !$0.isRest }.map(\.id))
+            return before.count == after.count
+                && before.subtracting(after).count == 1
+                && after.subtracting(before).count == 1 ? old.id : nil
+        })
+        session.wodResults.removeAll { replacedWODBlockIDs.contains($0.id) }
         session.title = fresh.title
         session.routineBlocks = routine.blocks
         session.exercises = fresh.exercises.map { planned in
