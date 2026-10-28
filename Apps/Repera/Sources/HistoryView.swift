@@ -848,8 +848,9 @@ struct WorkoutDetailView: View {
                     routine: preparedCompletedRoutine,
                     mode: .session,
                     onClose: {
+                        // Keep the prepared model during the native pop animation:
+                        // clearing it immediately would replace the destination with EmptyView.
                         showCompletedEditor = false
-                        preparedCompletedRoutine = nil
                     },
                     onApplyCompleted: { routine, details in
                         let updated = CompletedWorkoutEditing.applying(
