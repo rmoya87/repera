@@ -6,17 +6,24 @@ import kotlin.math.*
 /** Heading from measured geometry only. No heading or current position invented. */
 internal object LiveMapCamera {
     data class Target(val latitude:Double,val longitude:Double,val bearing:Double,val pitch:Double,val zoom:Double)
+    /** Solo cuando hay desplazamiento medido; nunca inferir rumbo de puntos casi inmóviles. */
+    fun measuredHeading(trace: List<WorkoutRoutePoint>): Double? {
+        if (trace.size < 2) return null
+        val b=trace.last();val a=trace[trace.lastIndex-1]
+        val seconds=(b.recordedAtEpochMs-a.recordedAtEpochMs)/1000.0
+        if (seconds <= 0 || seconds > 30) return null
+        val lat=Math.toRadians(b.latitude-a.latitude)
+        val lon=Math.toRadians(b.longitude-a.longitude)
+        val x=lon*cos(Math.toRadians(b.latitude))
+        val y=lat
+        val distance=6371000.0*hypot(x,y)
+        if (distance < 6 || distance/seconds < 0.8) return null
+        return (Math.toDegrees(atan2(x,y))+360)%360
+    }
+
     fun target(center:WorkoutRoutePoint,trace:List<WorkoutRoutePoint>,navigation:Boolean):Target {
         if(!navigation) return Target(center.latitude,center.longitude,0.0,0.0,16.5)
-        val pair=trace.takeLast(2)
-        val heading=if(pair.size<2) 0.0 else {
-            val a=pair[0];val b=pair[1]
-            val d=Math.toRadians(b.longitude-a.longitude)
-            val x=sin(d)*cos(Math.toRadians(b.latitude))
-            val y=cos(Math.toRadians(a.latitude))*sin(Math.toRadians(b.latitude))-
-                sin(Math.toRadians(a.latitude))*cos(Math.toRadians(b.latitude))*cos(d)
-            (Math.toDegrees(atan2(x,y))+360)%360
-        }
+        val heading=measuredHeading(trace) ?: 0.0
         val ahead=if(trace.isEmpty()) 0.0 else 35.0
         val r=Math.toRadians(heading)
         return Target((center.latitude+cos(r)*ahead/111_320).coerceIn(-85.0,85.0),

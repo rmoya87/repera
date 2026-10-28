@@ -515,7 +515,10 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 
 ## Comenzar: dirección GPS, nombres por localidad y avisos en bloqueo (2026-10-28)
 
-- En Comenzar iPhone, la posición se dibuja como flecha orientada al rumbo GPS fiable, relativa al rumbo del mapa. Si no hay rumbo medido mantiene el punto, no inventa brújula.
+- En Comenzar iPhone y Android, la posición se dibuja como flecha orientada al rumbo GPS fiable, relativa al rumbo del mapa. Si no hay rumbo medido mantiene el punto, no inventa brújula.
 - Al finalizar, sugiere un título editable con la **localidad** del inicio (y final si cambia claramente), nunca una calle, domicilio ni coordenadas. Deportes sin ruta intentan una única captura puntual solo con permiso de ubicación previamente concedido; si no hay ubicación fiable se mantiene el título del deporte.
 - Audio en iPhone usa `playback/spokenAudio` con `duckOthers` y `interruptSpokenAudioAndMixWithOthers`: atenúa música y evita mezclar dos locuciones. La sesión se desactiva al finalizar la locución.
 - La Live Activity incluye el último parcial y, con permiso, una notificación local **silenciosa** muestra cada kilómetro con la pantalla bloqueada independientemente de si está activada la voz. Los modos Concentración y permisos del sistema pueden ocultar avisos.
+
+- Android aplica la misma sugerencia de títulos por localidad mediante Geocoder asíncrono y sin solicitar un permiso nuevo para titular.
+- Android atenúa otros reproductores con `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, publica avisos silenciosos por kilómetro y conserva el último parcial en su notificación permanente mientras se registra en segundo plano.

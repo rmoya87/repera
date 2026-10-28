@@ -60,14 +60,17 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                             km, seconds, state.sport.displaysSpeed)
                     voice.speak(phrase, queue = true)
                 }
+                // El bloqueo muestra el resultado aunque haya música/voz;
+                // esta notificación es silenciosa y depende del permiso del sistema.
+                notifyGuidance("Kilómetro $km completado", latestKilometerReport.orEmpty(), km)
             }
             guidance?.update(update.point)?.let { cue ->
                 upcomingTurn = cue.display
                 cue.speech?.let {
-                    // Apple (live main): con voz activa el giro se anuncia solo por audio, aunque la locución falle,
-                    // y nunca se sustituye por una notificación; sin voz, el aviso visual en segundo plano es opcional.
-                    if (spokenGuidanceEnabled) voice.speak(it, queue = true)
-                    else notifyGuidance("Giro orientativo del GPX", cue.display)
+                    if (spokenGuidanceEnabled) {
+                        val delivered = voice.speak(it, queue = true)
+                        if (!delivered) notifyGuidance("Giro orientativo del GPX", cue.display)
+                    } else notifyGuidance("Giro orientativo del GPX", cue.display)
                 }
             }
             checkpoint();publish()
@@ -78,7 +81,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { store.read()?.let { state.restore(it,System.currentTimeMillis());prepareRoute() } }
         catch (_: Exception) { recoveryBlocked=true;lastError="No se pudo restaurar la actividad. El archivo original se conserva. Descártalo explícitamente antes de iniciar otro." }
     }
-    private fun notifyGuidance(title: String, text: String) {
+    private fun notifyGuidance(title: String, text: String, kilometer: Int? = null) {
         // Solo alternativa en segundo plano y si se concedió notificación;
         // con pantalla activa el texto de la UI ya es la alternativa visual.
         val importance = android.app.ActivityManager.RunningAppProcessInfo()
@@ -87,11 +90,15 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
         val manager = app.getSystemService(android.app.NotificationManager::class.java)
-        manager.createNotificationChannel(android.app.NotificationChannel("repera.live.guidance", "Guía deportiva", android.app.NotificationManager.IMPORTANCE_DEFAULT))
-        val notification = androidx.core.app.NotificationCompat.Builder(app, "repera.live.guidance")
+        val channel = android.app.NotificationChannel(
+            "repera.live.guidance.silent.v2", "Parciales de entrenamiento",
+            android.app.NotificationManager.IMPORTANCE_DEFAULT)
+        channel.setSound(null, null)
+        manager.createNotificationChannel(channel)
+        val notification = androidx.core.app.NotificationCompat.Builder(app, channel.id)
             .setSmallIcon(R.drawable.ic_timer).setContentTitle(title).setContentText(text)
             .setAutoCancel(true).build()
-        runCatching { manager.notify(4204, notification) }
+        runCatching { manager.notify(kilometer?.let { 5000 + it } ?: 4204, notification) }
     }
     fun choose(sport: LiveSport) {
         if (state.phase != LiveActivityState.Phase.IDLE) return

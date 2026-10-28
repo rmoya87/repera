@@ -98,6 +98,7 @@ internal class LiveActivityService : Service() {
                         else LiveSportHistory.formatDuration(3600 / speed) + " min/km")
                 }
             }
+            r.latestKilometerReport?.let { add(it) }
             if(paused) add("En pausa")
         }.joinToString(" · ")
         fun action(action:String,code:Int)=PendingIntent.getService(this,code,
@@ -109,6 +110,7 @@ internal class LiveActivityService : Service() {
         return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(r.state.sport.title).setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
             .setContentIntent(open)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .addAction(0,if(paused) "Reanudar" else "Pausar",action(if(paused) ACTION_RESUME else ACTION_PAUSE,602))
             .addAction(0,"Finalizar",action(ACTION_FINISH,603)).build()
     }

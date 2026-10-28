@@ -96,6 +96,8 @@ internal fun RouteMapView(
     onMapRendered: (() -> Unit)? = null,
     navigationMode:Boolean = false,
     cameraCenter:WorkoutRoutePoint? = null,
+    userPosition:WorkoutRoutePoint? = null,
+    userHeadingDegrees:Double? = null,
     recenterToken:Int = 0,
     onCameraGesture:(()->Unit)? = null
 ) {
@@ -106,6 +108,12 @@ internal fun RouteMapView(
     val currentPlan by androidx.compose.runtime.rememberUpdatedState(plannedPoints)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
+    // Capa independiente del trazado: al llegar GPS no se reinicializan las teselas.
+    androidx.compose.runtime.LaunchedEffect(userPosition, userHeadingDegrees, loadedMap) {
+        loadedMap?.getStyle { style ->
+            updateUserDirection(style, userPosition, userHeadingDegrees)
+        }
+    }
     androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, paceMode, waterSport, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
         map.getStyle { style ->
@@ -213,7 +221,8 @@ internal fun RouteMapView(
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
                         applyPlannedOverlay(style,currentPlan)
                         applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan,mode=paceMode)
-                            loadedMap = map;onStyleLoaded?.invoke()
+                        updateUserDirection(style, userPosition, userHeadingDegrees)
+                        loadedMap = map;onStyleLoaded?.invoke()
                     }
                 }
             }
@@ -470,5 +479,57 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.align(Alignment.BottomStart)
                 .background(MaterialTheme.colorScheme.surface).padding(4.dp))
+    }
+}
+
+
+/** Indicador GPS: flecha verde MapLibre orientada según rumbo verdadero,
+ * círculo cuando no existe curso fiable. No modifica los puntos registrados. */
+private fun updateUserDirection(
+    style: org.maplibre.android.maps.Style,
+    location: WorkoutRoutePoint?,
+    heading: Double?
+) {
+    style.removeLayer("repera-user-arrow-layer")
+    style.removeLayer("repera-user-dot-layer")
+    style.removeSource("repera-user-position")
+    if (location == null || !location.latitude.isFinite() || !location.longitude.isFinite()) return
+    val feature = org.maplibre.geojson.Feature.fromJson(JSONObject()
+        .put("type", "Feature")
+        .put("geometry", JSONObject().put("type", "Point")
+            .put("coordinates", org.json.JSONArray()
+                .put(location.longitude).put(location.latitude))).toString())
+    style.addSource(GeoJsonSource("repera-user-position", feature))
+    if (heading != null && heading.isFinite()) {
+        val bitmap = android.graphics.Bitmap.createBitmap(72,72,android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val path = android.graphics.Path().apply {
+            moveTo(36f,5f); lineTo(59f,65f); lineTo(36f,52f)
+            lineTo(13f,65f); close()
+        }
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        paint.style=android.graphics.Paint.Style.FILL
+        paint.color=android.graphics.Color.rgb(38,205,110)
+        canvas.drawPath(path,paint)
+        paint.color=android.graphics.Color.WHITE
+        paint.style=android.graphics.Paint.Style.STROKE
+        paint.strokeWidth=5f
+        paint.strokeJoin=android.graphics.Paint.Join.ROUND
+        canvas.drawPath(path,paint)
+        style.addImage("repera-navigation-arrow",bitmap)
+        style.addLayer(org.maplibre.android.style.layers.SymbolLayer(
+            "repera-user-arrow-layer","repera-user-position").withProperties(
+            PropertyFactory.iconImage("repera-navigation-arrow"),
+            PropertyFactory.iconSize(0.6f),
+            PropertyFactory.iconRotationAlignment("map"),
+            PropertyFactory.iconRotate(heading.toFloat()),
+            PropertyFactory.iconAllowOverlap(true)))
+    } else {
+        style.addLayer(org.maplibre.android.style.layers.CircleLayer(
+            "repera-user-dot-layer","repera-user-position").withProperties(
+            PropertyFactory.circleRadius(8f),
+            PropertyFactory.circleColor(android.graphics.Color.rgb(38,205,110)),
+            PropertyFactory.circleStrokeWidth(3f),
+            PropertyFactory.circleStrokeColor(android.graphics.Color.WHITE)))
     }
 }

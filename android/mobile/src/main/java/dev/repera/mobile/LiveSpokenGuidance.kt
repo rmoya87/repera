@@ -8,16 +8,19 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
-/** Voz española instalada. Audio focus exclusivo transitorio, nunca duck:
- * intenta pausar otras apps durante la frase y libera al terminar/error. */
+/** Guía hablada compatible con música: foco transitorio MAY_DUCK; nunca
+ * silencia el reproductor permanentemente. Suelta el foco al acabar/error. */
 internal class LiveSpokenGuidance(context: Context) {
     private val audio=context.getSystemService(AudioManager::class.java)
     private var ready=false
     private var pending=0
-    private val focus=AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+    private val focus=AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
         .setOnAudioFocusChangeListener { if(it==AudioManager.AUDIOFOCUS_LOSS) stop() }.build()
+    private val guidanceAudioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
     private val tts=TextToSpeech(context.applicationContext) { status -> ready=status==TextToSpeech.SUCCESS }
     init {
         tts.setOnUtteranceProgressListener(object:UtteranceProgressListener() {
@@ -36,6 +39,7 @@ internal class LiveSpokenGuidance(context: Context) {
             it.locale.language == "es" && it.locale.country == "ES" && !it.isNetworkConnectionRequired
         }?.maxByOrNull { it.quality } ?: return false
         tts.voice = offline
+        tts.setAudioAttributes(guidanceAudioAttributes)
         if(audio.requestAudioFocus(focus)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return false
         tts.setSpeechRate(1.0f)
         val result=tts.speak(message,if(queue) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH,null,"repera-live-guidance-"+System.nanoTime())

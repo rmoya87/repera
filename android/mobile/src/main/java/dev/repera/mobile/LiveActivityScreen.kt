@@ -139,6 +139,17 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         try { LiveActivityService.startFromVisibleUI(context,accountId) }
         catch (_: Exception) { runtime.pause();error="No se pudo mantener el registro en segundo plano. La actividad queda en pausa." }
     }
+    // Título sugerido al pasar a revisión, sin invadir lo que escriba el usuario.
+    LaunchedEffect(state.phase, state.gpsSessionID) {
+        if (state.phase == LiveActivityState.Phase.REVIEW) {
+            val defaultName = state.sport.title
+            if (title.isBlank()) title = defaultName
+            val suggestion = LiveActivityLocationName.suggest(context, state.sport, state.points)
+            if (!suggestion.isNullOrBlank() && (title.isBlank() || title == defaultName)) {
+                title = suggestion
+            }
+        }
+    }
     val currentActiveWorkout by rememberUpdatedState(hasActiveWorkout)
     val currentOpenWorkout by rememberUpdatedState(onOpenWorkout)
     fun start() {
@@ -278,6 +289,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
                 onMapRendered = onMapRendered,navigationMode=navigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
+                userPosition=state.points.lastOrNull() ?: freshPosition,
+                userHeadingDegrees=LiveMapCamera.measuredHeading(state.points),
                 recenterToken=recenterToken,onCameraGesture={followingMap=false})
             Surface(Modifier.align(if(mapLandscape) Alignment.TopStart else Alignment.TopCenter)
                 .padding(12.dp).then(if(mapLandscape) Modifier.width(overlayWidth.dp) else Modifier),
