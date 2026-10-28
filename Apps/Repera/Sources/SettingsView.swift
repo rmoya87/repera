@@ -789,6 +789,7 @@ struct SettingsView: View {
             guard store.state.activeSession == nil else {
                 throw AccountDeletionError.message("Finaliza primero el entrenamiento en curso.")
             }
+            let deletedOwnerID = businessAuth.apiClient?.auth.currentSession?.user.id.uuidString.lowercased()
             try await requestAccountDeletion("preflight")
             // La eliminación de iCloud es coordinada; si no se puede comprobar,
             // NO se elimina la cuenta remota ni se muestra un falso éxito.
@@ -805,6 +806,13 @@ struct SettingsView: View {
             store.state = LocalStore.shared.emptyShellState()
             UserDefaults.standard.removeObject(forKey: "repera.places.recent.v1")
             UserDefaults.standard.removeObject(forKey: "repera.timer.lastCompletion.v1")
+            if let deletedOwnerID {
+                let prefix = "repera.supabaseWorkoutMirror.v1.\(deletedOwnerID)."
+                for key in UserDefaults.standard.dictionaryRepresentation().keys
+                    where key.hasPrefix(prefix) {
+                    UserDefaults.standard.removeObject(forKey: key)
+                }
+            }
             appleAuth.signOut()
             businessData.clear()
             await businessAuth.signOut()
