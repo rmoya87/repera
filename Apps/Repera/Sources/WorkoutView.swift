@@ -635,6 +635,166 @@ struct WorkoutView: View {
         }
     }
 
+    /// Edit the ordering as a draft; apply it to the live session on exit
+    /// to avoid restarting/reconciling the workout after every drag update.
+    private func beginPlayReorder() {
+        persistActiveLiveDraft()
+        playReorderDraft = routineForEditing()
+        showsPlayReorder = playReorderDraft != nil
+    }
+
+    private func editPlayReorderDraft(_ edit: (inout Routine) -> Void) {
+        guard var draft = playReorderDraft else { return }
+        edit(&draft)
+        playReorderDraft = draft
+    }
+
+    private func commitPlayReorder() {
+        guard let draft = playReorderDraft else { return }
+        playReorderDraft = nil
+        mutatePlayRoutine { $0.blocks = draft.blocks }
+        prefill()
+    }
+
+    private var playReorderSheet: some View {
+        List {
+            if let draft = playReorderDraft {
+                Section {
+                    ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { position, block in
+                        HStack(spacing: 12) {
+                            Text("\(position + 1)")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundStyle(OG.accent)
+                                .frame(width: 34, height: 34)
+                                .background(OG.accent.opacity(0.12), in: Circle())
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(block.title)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                Text(block.wodFormat?.displayName ?? (block.kind == .strength ? "Fuerza" : "Libre"))
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Spacer(minLength: 8)
+                        }
+                        .padding(.vertical, 5)
+                    }
+                    .onMove { from, to in
+                        editPlayReorderDraft { $0.blocks.move(fromOffsets: from, toOffset: to) }
+                    }
+                } header: {
+                    Label("Orden de bloques", systemImage: "square.stack.3d.up")
+                } footer: {
+                    Text("Arrastra el control de la derecha para cambiar el orden.")
+                }
+                ForEach(draft.blocks) { block in
+                    playReorderExerciseSection(block)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(OG.bg)
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle("Reordenar")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Listo") { showsPlayReorder = false }
+                    .fontWeight(.semibold)
+                    .tint(OG.accent)
+            }
+        }
+        .onDisappear(perform: commitPlayReorder)
+    }
+
+    @ViewBuilder
+    private func playReorderExerciseSection(_ block: RoutineBlock) -> some View {
+        Section {
+            if block.kind == .strength {
+                ForEach(block.exercises) { exercise in
+                    playReorderRow(
+                        name: store.state.exercises.first(where: { $0.id == exercise.exerciseId })?.name ?? "Ejercicio",
+                        blockID: block.id, itemID: exercise.id, kind: block.kind
+                    )
+                }
+                .onMove { from, to in
+                    editPlayReorderDraft { draft in
+                        guard let i = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                        draft.blocks[i].exercises.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            } else {
+                ForEach(block.movements) { movement in
+                    playReorderRow(
+                        name: movement.isRest ? "Descanso" : movement.name,
+                        blockID: block.id, itemID: movement.id, kind: block.kind
+                    )
+                }
+                .onMove { from, to in
+                    editPlayReorderDraft { draft in
+                        guard let i = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                        draft.blocks[i].movements.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            }
+        } header: {
+            Text(block.title)
+        } footer: {
+            Text("Arrastra para ordenar las filas de este bloque.")
+        }
+    }
+
+    private func playReorderRow(
+        name: String, blockID: UUID, itemID: UUID, kind: RoutineBlockKind
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: kind == .strength ? "dumbbell" : "figure.strengthtraining.functional")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(OG.accent)
+                .frame(width: 32, height: 32)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 9))
+            Text(name)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(OG.label)
+            Spacer(minLength: 8)
+            if let draft = playReorderDraft {
+                let targets = draft.blocks.filter { $0.id != blockID && $0.kind == kind }
+                if !targets.isEmpty {
+                    Menu {
+                        ForEach(targets) { target in
+                            Button(target.title) {
+                                editPlayReorderDraft { routine in
+                                    guard let from = routine.blocks.firstIndex(where: { $0.id == blockID }),
+                                          let to = routine.blocks.firstIndex(where: { $0.id == target.id })
+                                    else { return }
+                                    if kind == .strength {
+                                        guard let i = routine.blocks[from].exercises.firstIndex(where: { $0.id == itemID }) else { return }
+                                        let item = routine.blocks[from].exercises.remove(at: i)
+                                        routine.blocks[to].exercises.append(item)
+                                    } else {
+                                        guard let i = routine.blocks[from].movements.firstIndex(where: { $0.id == itemID }) else { return }
+                                        let item = routine.blocks[from].movements.remove(at: i)
+                                        routine.blocks[to].movements.append(item)
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(width: 36, height: 36)
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .accessibilityLabel("Mover \(name) a otro bloque")
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .listRowBackground(OG.surface)
+    }
+
     private func movePlayBlock(_ blockID: UUID, offset: Int) {
         mutatePlayRoutine { routine in
             guard let old = routine.blocks.firstIndex(where: { $0.id == blockID }),
