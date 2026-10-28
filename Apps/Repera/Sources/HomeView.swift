@@ -1389,14 +1389,15 @@ struct HomeView: View {
             accessibilityHint: "Toca para ver el detalle del entreno",
             deleteLabel: "Eliminar registro de entreno",
             onDelete: { workoutPendingDelete = session },
-            onEdit: { editOwnCompletedWorkout(session) },
+            onEdit: session.timerDetails == nil ? { editOwnCompletedWorkout(session) } : nil,
             title: {
                 HStack(alignment: .top, spacing: 12) {
                     // Completado: mismo símbolo que un plan gris, en verde.
                     // Las actividades de Comenzar mantienen su icono deportivo.
                     OGRegisterLeadingIcon(
-                        systemName: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol }
-                            ?? "figure.strengthtraining.traditional",
+                        systemName: session.timerDetails != nil ? "timer"
+                            : (session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol }
+                                ?? "figure.strengthtraining.traditional"),
                         tint: OG.accent
                     )
 
@@ -1726,7 +1727,10 @@ struct HomeView: View {
             // En actividades GPS la fecha corresponde al inicio, pero solo
             // después de tener confirmación de fin.
             guard let finishedAt = w.finishedAt else { continue }
-            let day = w.liveSportID == nil ? finishedAt : (w.startedAt ?? finishedAt)
+            // El cronómetro se registra en el día en que empezó,
+            // incluso si cruzó medianoche; igual que un deporte en vivo.
+            let day = (w.liveSportID != nil || w.timerDetails != nil)
+                ? (w.startedAt ?? finishedAt) : finishedAt
             workouts[dayKey(day), default: []].append(w)
         }
         // En Inicio, los entrenamientos del mismo día se leen en orden
