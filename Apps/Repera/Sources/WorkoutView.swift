@@ -2,7 +2,7 @@ import ReperaDomain
 import SwiftUI
 import UIKit
 
-private struct PlayReplacementTarget: Identifiable {
+private struct PlayReplacementTarget: Identifiable, Hashable {
     let id = UUID()
     let blockID: UUID
     let itemID: UUID
@@ -333,23 +333,7 @@ struct WorkoutView: View {
         }
         .navigationDestination(item: $selectPlayFormatForBlock) { blockID in
             WODFormatPickerPage { format in
-                mutatePlayRoutine { routine in
-                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-                    routine.blocks[index].wodFormat = format
-                    if format == .tabata {
-                        routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
-                        routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
-                        routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
-                    }
-                    if format == .forTime {
-                        routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
-                        routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
-                    }
-                    if format == .amrap || format == .emom {
-                        routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
-                    }
-                    if format == .emom { routine.blocks[index].deriveEmomRoundsIfNeeded() }
-                }
+                updatePlayWODFormat(format, for: blockID)
                 selectPlayFormatForBlock = nil
             }
         }
@@ -585,6 +569,31 @@ struct WorkoutView: View {
         guard var draft = routineForEditing() else { return }
         operation(&draft)
         store.refreshActiveSessionPlan(from: draft)
+    }
+
+    /// Keep format defaults out of the SwiftUI destination builder so the
+    /// type checker only needs to infer a small navigation closure.
+    private func updatePlayWODFormat(_ format: WODFormat, for blockID: UUID) {
+        mutatePlayRoutine { routine in
+            guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+            routine.blocks[index].wodFormat = format
+            switch format {
+            case .tabata:
+                routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
+                routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
+                routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
+            case .forTime:
+                routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
+                routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+            case .amrap, .emom:
+                routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+                if format == .emom {
+                    routine.blocks[index].deriveEmomRoundsIfNeeded()
+                }
+            default:
+                break
+            }
+        }
     }
 
     private func movePlayBlock(_ blockID: UUID, offset: Int) {
