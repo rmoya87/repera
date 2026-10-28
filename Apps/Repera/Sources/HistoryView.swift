@@ -1,5 +1,6 @@
 import Charts
 import CoreLocation
+import HealthKit
 import ReperaDomain
 import MapKit
 import SwiftUI
@@ -2207,6 +2208,7 @@ struct HealthActivityDetailView: View {
         .navigationDestination(isPresented: $showFullScreenRoute) {
             WorkoutMapZoomDestination(
                 points: detail?.routePoints ?? [],
+                paceMode: detail.map { AdaptiveRoutePace.Mode.forHealth($0.activity.activityType) } ?? .walking,
                 showsSpeedLegend: true,
                 onClose: { showFullScreenRoute = false }
             )
@@ -2247,6 +2249,7 @@ struct HealthActivityDetailView: View {
                             HealthWorkoutRouteMap(
                                 points: detail.routePoints,
                                 isInteractive: false,
+                                paceMode: .forHealth(activity.activityType),
                                 showsSpeedLegend: true
                             )
                             .matchedTransitionSource(id: activityId, in: routeZoomNamespace)
@@ -2963,4 +2966,16 @@ struct HealthWorkoutRouteMap: View {
         }
     }
 
+}
+
+private extension AdaptiveRoutePace.Mode {
+    static func forHealth(_ activity: HKWorkoutActivityType) -> Self {
+        switch activity {
+        case .walking, .hiking, .golf: .walking
+        case .running: .running
+        case .cycling: .cycling
+        case .surfingSports, .paddleSports, .sailing, .rowing, .swimming: .water
+        default: .other
+        }
+    }
 }
