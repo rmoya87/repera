@@ -3096,6 +3096,7 @@ struct WODResultInlineEditor: View {
     @State private var roundsText: String
     @State private var repsText: String
     @State private var timeText: String
+    @State private var hasEditedResult = false
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -3138,32 +3139,19 @@ struct WODResultInlineEditor: View {
                 numericField("Tiempo · m:ss", text: $timeText, field: .time)
             }
 
-            HStack {
-                Spacer(minLength: 0)
-                Button {
-                    focusedField = nil
-                    guard canSave else { return }
-                    onSave(WODBlockResult(
-                        id: blockId,
-                        format: format,
-                        totalReps: format.resultCapture == .totalReps
-                            ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
-                        elapsedSeconds: format.resultCapture == .elapsedTime
-                            ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
-                        roundsCompleted: format == .amrap || format == .deathBy
-                            ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
-                        wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
-                    ))
-                } label: {
-                    Label(existing == nil ? "Guardar" : "Actualizar", systemImage: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(canSave ? OG.accent : OG.label3)
-                        .frame(minHeight: 44)
-                        .padding(.horizontal, 8)
-                }
-                .buttonStyle(.plain)
-                .disabled(!canSave)
+        }
+        .onChange(of: roundsText) { _, _ in hasEditedResult = true }
+        .onChange(of: repsText) { _, _ in hasEditedResult = true }
+        .onChange(of: timeText) { _, _ in hasEditedResult = true }
+        .task(id: "\(roundsText)|\(repsText)|\(timeText)") {
+            guard hasEditedResult else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(350))
+            } catch {
+                return
             }
+            guard !Task.isCancelled else { return }
+            saveValidResult()
         }
         .onChange(of: suggestedElapsedSeconds) { _, seconds in
             // Reloj For Time: conservar cualquier registro previo y solo
@@ -3171,6 +3159,22 @@ struct WODResultInlineEditor: View {
             guard existing?.elapsedSeconds == nil, let seconds, seconds > 0 else { return }
             timeText = DurationText.format(seconds)
         }
+    }
+
+    /// Los cambios válidos se persisten sin un segundo check ni botón Guardar.
+    private func saveValidResult() {
+        guard canSave else { return }
+        onSave(WODBlockResult(
+            id: blockId,
+            format: format,
+            totalReps: format.resultCapture == .totalReps
+                ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
+            elapsedSeconds: format.resultCapture == .elapsedTime
+                ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
+            roundsCompleted: format == .amrap || format == .deathBy
+                ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
+            wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
+        ))
     }
 
     private func numericField(
