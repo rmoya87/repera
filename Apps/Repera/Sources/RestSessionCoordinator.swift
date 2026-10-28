@@ -6,9 +6,13 @@ import Observation
 @Observable
 @MainActor
 final class RestSessionCoordinator {
-    private(set) var endDate: Date?
+    private(set) var endDate: Date? {
+        didSet { updateScreenAwake() }
+    }
     private(set) var totalSeconds: Int = 0
-    private(set) var isPaused = false
+    private(set) var isPaused = false {
+        didSet { updateScreenAwake() }
+    }
     private(set) var exerciseName: String?
     private var pausedRemaining: TimeInterval = 0
     private var feedbackTask: Task<Void, Never>?
@@ -29,6 +33,20 @@ final class RestSessionCoordinator {
         }
         guard let endDate else { return 0 }
         return max(0, Int(ceil(endDate.timeIntervalSinceNow)))
+    }
+
+    private func updateScreenAwake() {
+        TimerScreenAwake.setRunning(
+            !isPaused && endDate.map { $0 > Date() } == true,
+            for: .rest
+        )
+    }
+
+    /// Al volver de segundo plano, liberar la pantalla si acabó el descanso
+    /// mientras iOS suspendía la tarea, y anunciar el final una sola vez.
+    func refreshWhenActive() {
+        guard !isPaused, let endDate, endDate <= Date() else { return }
+        finish(announce: true)
     }
 
     func start(
