@@ -633,3 +633,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Hallazgo nuevo en el subconjunto317: un signo negativo separado (- 25/40kg) o exponente (1e3/40kg) podia reconocer una cola positiva y separar indebidamente. Prueba de regresion fallo con negativo separado antes de corregir.
 -318 exige frontera de token y rechaza signo negativo separado antes del par; valores cero, negativos y decimales malformados quedan en review sin dividir. No cambia la interpretacion de cargas validas.
 - Bateria dominio completa realmente ejecutada510/93XML,47s,0fallos/errores/omitidos. Mobile/Wear318 pendientes; matrices735/70 sin cierres. Lector completo sigue parcial; no push.
+
+## Lector completo, anotaciones compartidas 01:53 28oct
+-318 validacion completa: mobile676/163XML ejecutados62/82/60/63s;domain510/93XML;Wear8/1XML reejecutado con ambos assemble44s,0fallos/errores/omitidos. Backup318 recuperado desde65338db7,arbol identico fb0f7ebc4f8bf630a48f80dbdb7d1331a04447a1.
+- Mismo bloque parcial: subconjunto319 extrae porcentaje #70%/#>80%/@70% y RPE entero @6-8 antes de separar complejo; comparte notas en todas las partes, siguiendo BoardImportParser630-669/749-790. No asigna porcentaje como carga/reps/sets. Combinacion ola+RPE+parKG mantiene carga solo en primera parte.
+- RPE decimal/at simple, alternativas escala y cargas implicitas siguen en review sin separar; no default3x8. Dos tests nuevos, mas limites en regresion. Dominio completo512/93XML y wire mobile6/1XML verdes; mobile completa/Wear319 pendientes.735/70sin cierres,no push,nativo pendiente.

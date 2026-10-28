@@ -465,7 +465,7 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[0].explicitPlannedSets)
     }
     @Test fun complexMultiplierUnsupportedLoadsAndOverflowStayOnReviewPath() {
-        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25lb","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8")) {
+        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25lb","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7.5-8.5","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8.5","3X 1 PUSH PRESS + 2 AIR SQUAT @7")) {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
             assertEquals(1,block.movements.size)
             assertFalse(block.movements.single().notes?.contains("Complejo ×3") == true)
@@ -502,5 +502,23 @@ class BoardScanLiteParserTest {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 2 AIR SQUAT "+load,catalog=catalog).blocks.single()
             assertEquals(load,1,block.movements.size)
         }
+    }
+    @Test fun complexParentPercentageAndRpeAreSharedNotLoadsOrReps() {
+        for(percent in listOf("#70%","#>80%","@70%")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n3X 1 PUSH PRESS + 2 AIR SQUAT "+percent+" @7-8",catalog=catalog).blocks.single()
+            assertEquals(2,block.movements.size)
+            assertEquals(1,block.movements[0].reps)
+            assertEquals(2,block.movements[1].reps)
+            assertTrue(block.movements.all {it.notes!!.contains(percent.removePrefix("#").removePrefix("@")) && it.notes!!.contains("RPE 7-8")})
+            assertTrue(block.movements.all {it.weightMaleKg==null && it.explicitPlannedSets==null})
+        }
+    }
+    @Test fun complexSharedRpeKeepsKgPairOnlyOnFirstPart() {
+        val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n4-3-2 PUSH PRESS + 2 AIR SQUAT @6–8 #50/35kg",catalog=catalog).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertEquals(listOf(4,3,2),block.movements[0].repScheme)
+        assertEquals(50.0,block.movements[0].weightMaleKg!!,0.001)
+        assertNull(block.movements[1].weightMaleKg)
+        assertTrue(block.movements.all {it.notes!!.contains("RPE 6–8")})
     }
 }

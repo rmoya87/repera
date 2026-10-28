@@ -498,11 +498,22 @@ object BoardScanLiteParser {
     }
 
     /** Bounded Full-parser complex subset: trailing explicit kg pair belongs only
-     * to the first part. Multiplier is a note, never inferred reps/sets. */
+     * to the first part. Percent and integer RPE are shared notes.
+     * Multiplier is a note, never inferred reps/sets. */
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
-        val loadSuffix=Regex("(?<!\\S)#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(raw)?.takeUnless {raw.substring(0,it.range.first).trimEnd().endsWith("-") || raw.substring(0,it.range.first).trimEnd().endsWith("–")}
+        var annotated=raw
+        val sharedNotes=mutableListOf<String>()
+        Regex("[#@]\\s*(>?)(\\d+)\\s*%").find(annotated)?.let {percent ->
+            sharedNotes.add("${percent.groupValues[1]}${percent.groupValues[2]}%")
+            annotated=annotated.removeRange(percent.range).trim()
+        }
+        Regex("@\\s*(\\d+)\\s*[-–]\\s*(\\d+)(?![0-9.,])").find(annotated)?.let {rpe ->
+            sharedNotes.add("RPE "+rpe.value.removePrefix("@").trim())
+            annotated=annotated.removeRange(rpe.range).trim()
+        }
+        val loadSuffix=Regex("(?<!\\S)#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(annotated)?.takeUnless {annotated.substring(0,it.range.first).trimEnd().endsWith("-") || annotated.substring(0,it.range.first).trimEnd().endsWith("–")}
         val parentLoad=loadSuffix?.let {CrossFitGlossary.parseMaleFemaleWeights(it.value)?.takeIf {pair ->pair.first.isFinite() && pair.second.isFinite() && pair.second>0}}
-        val unloaded=if(parentLoad!=null) raw.removeRange(loadSuffix!!.range).trim() else raw
+        val unloaded=if(parentLoad!=null) annotated.removeRange(loadSuffix!!.range).trim() else annotated
         val waveMatch=Regex("^(\\d+(?:\\s*[-–]\\s*\\d+)+)\\s+").find(unloaded)
         val wave=waveMatch?.groupValues?.get(1)?.split(Regex("\\s*[-–]\\s*"))?.mapNotNull {it.toIntOrNull()}
         val validWave=wave?.takeIf {it.size>=2 && it.size==waveMatch.groupValues[1].split(Regex("[-–]")).size && it.all {n ->n in 1..100000} && !CrossFitGlossary.isAscendingRepRange(it)}
@@ -521,7 +532,7 @@ object BoardScanLiteParser {
             parsed.copy(weightMaleKg=if(index==0) parsed.weightMaleKg ?: parentLoad?.first else parsed.weightMaleKg,
                 weightFemaleKg=if(index==0) parsed.weightFemaleKg ?: parentLoad?.second else parsed.weightFemaleKg,
                 reps=if(index==0 && validWave!=null) null else parsed.reps,repScheme=if(index==0 && validWave!=null) validWave else parsed.repScheme,
-                notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},validWave?.let {"Series ${it.joinToString("-")}"},parsed.notes).joinToString(" · "))
+                notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},validWave?.let {"Series ${it.joinToString("-")}"},sharedNotes.takeIf {it.isNotEmpty()}?.joinToString(" · "),parsed.notes).joinToString(" · "))
         }
     }
 
