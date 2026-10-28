@@ -98,6 +98,34 @@ struct StandaloneTimerConfig: Equatable, Codable, Hashable {
     }
 }
 
+/// Último resultado del reloj, local y ajeno a las sesiones HealthKit.
+private struct StandaloneTimerCompletion: Codable {
+    let finishedAt: Date
+    let configuration: StandaloneTimerConfig
+    var locationPin: WorkoutLocationPin?
+
+    var configuredSeconds: Int {
+        switch configuration.mode {
+        case .up, .down: return configuration.durationTotalSeconds
+        case .intervals:
+            return configuration.rounds * configuration.workTotalSeconds
+                + max(0, configuration.rounds - 1) * configuration.restTotalSeconds
+        }
+    }
+}
+
+private enum StandaloneTimerCompletionStore {
+    private static let key = "repera.timer.lastCompletion.v1"
+    static func load() -> StandaloneTimerCompletion? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(StandaloneTimerCompletion.self, from: data)
+    }
+    static func save(_ completion: StandaloneTimerCompletion) {
+        guard let data = try? JSONEncoder().encode(completion) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
 /// Entrada con el mismo teclado numérico de Repera que la tabla de series.
 /// Campo numérico compartido entre el temporizador libre y su configuración en Play.
 struct TimerNumericInput: View {
@@ -183,6 +211,8 @@ struct StandaloneTimerView: View {
     @State private var showSaveAlert = false
     @State private var saveTitle = ""
     @State private var editingFavoriteId: UUID?
+    @State private var locationPin: WorkoutLocationPin?
+    @State private var completedSummary: StandaloneTimerCompletion?
 
     var embedsNavigation = true
 
@@ -206,7 +236,7 @@ struct StandaloneTimerView: View {
             }
         }
         .fullScreenCover(isPresented: $showClock) {
-            clockScreen
+            if completedSummary != nil { timerSummaryScreen } else { clockScreen }
         }
         .alert("Guardar en favoritos", isPresented: $showSaveAlert) {
             TextField("Nombre", text: $saveTitle)
@@ -216,6 +246,7 @@ struct StandaloneTimerView: View {
             Text("Se guardará esta configuración para reutilizarla desde Favoritos.")
         }
         .onAppear {
+            if completedSummary == nil { completedSummary = StandaloneTimerCompletionStore.load() }
             TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
         }
         .onChange(of: isRunning) { _, _ in
@@ -305,6 +336,13 @@ struct StandaloneTimerView: View {
                 .padding(14)
                 .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Lugar").font(.system(size: 14, weight: .semibold)).foregroundStyle(OG.label2)
+                    WorkoutPlacePickerRow(pin: $locationPin)
+                }
+                .padding(14)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+
                 Button {
                     prepareAndShowClock()
                 } label: {
@@ -316,6 +354,17 @@ struct StandaloneTimerView: View {
                         .background(OG.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                if let completedSummary {
+                    Button {
+                        locationPin = completedSummary.locationPin
+                        showClock = true
+                    } label: {
+                        Label("Ver último resumen", systemImage: "clock.arrow.circlepath")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(OG.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, OG.pad)
             .padding(.top, 8)
@@ -395,6 +444,58 @@ struct StandaloneTimerView: View {
         }
     }
 
+    private var timerSummaryScreen: some View {
+        NavigationStack {
+            Form {
+                if let summary = completedSummary {
+                    Section("Resumen del temporizador") {
+                        LabeledContent("Modalidad", value: summary.configuration.mode.title)
+                        LabeledContent("Configuración", value: summary.configuration.shortLabel)
+                        LabeledContent("Duración programada", value: DurationText.format(summary.configuredSeconds))
+                        LabeledContent(
+                            "Finalizado",
+                            value: summary.finishedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+                Section("Lugar") {
+                    WorkoutPlacePickerRow(pin: Binding(
+                        get: { completedSummary?.locationPin },
+                        set: { updated in
+                            guard var summary = completedSummary else { return }
+                            summary.locationPin = updated
+                            completedSummary = summary
+                            locationPin = updated
+                            StandaloneTimerCompletionStore.save(summary)
+                        }
+                    ))
+                    Text("Toca el lugar o el mapa para cambiarlo.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            .listStyle(.insetGrouped)
+            .ogListChrome()
+            .navigationTitle("Temporizador finalizado")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Listo") { showClock = false }
+                        .fontWeight(.semibold)
+                        .tint(OG.accent)
+                }
+            }
+        }
+    }
+
+    private func recordTimerCompletion() {
+        let summary = StandaloneTimerCompletion(
+            finishedAt: Date(), configuration: config, locationPin: locationPin
+        )
+        completedSummary = summary
+        StandaloneTimerCompletionStore.save(summary)
+    }
+
     private var clockScreen: some View {
         return TimelineView(.periodic(from: .now, by: 1)) { context in
             let shown = liveDisplaySeconds(at: context.date)
@@ -453,6 +554,7 @@ struct StandaloneTimerView: View {
     }
 
     private func prepareAndShowClock() {
+        completedSummary = nil
         stopTimer()
         isRunning = false
         phaseIsWork = true
