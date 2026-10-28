@@ -308,7 +308,12 @@ private fun FinishedContentEditor(
                                 set.put("targetReps", reps.toIntOrNull() ?: 0)
                                 onEdited()
                             })
-                        OutlinedTextField(value = kg, label = { Text("Kg") }, singleLine = true,
+                        val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
+                            exRawName, null, null, null) ==
+                            dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+                        OutlinedTextField(value = kg,
+                            label = { Text(if (hspuDeficit) "Déficit (cm)" else "Kg") },
+                            singleLine = true,
                             modifier = Modifier.weight(1f).testTag("set_kg_${b}_${i}_$s"),
                             onValueChange = { v ->
                                 kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)

@@ -14,7 +14,8 @@ data class LoadGuideSet(
     val reps: Int,
     val rir: Double?,
     val durationSeconds: Int?,
-    val unit: String?
+    val unit: String?,
+    val deficitCm: Int? = null
 )
 
 data class LoadGuideLastSession(
@@ -73,7 +74,8 @@ object ExerciseLoadGuide {
                         reps = s.reps,
                         rir = s.rir,
                         durationSeconds = s.durationSeconds,
-                        unit = s.unit
+                        unit = s.unit,
+                        deficitCm = s.deficitCm
                     )
                 }
             )

@@ -208,6 +208,69 @@ internal fun WearHomeContent(
                     else "${session.recordedSets} series registradas",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.labelSmall) }
+                // WOD per-movement sets: mismos controles que fuerza (paridad WatchSessionHub).
+                if (session.wodUsesSeries && session.canLogOnWatch && !session.globalScore) {
+                    if (state.wodTimerJson == null ||
+                        !wearTimerMatches(state.wodTimerJson, session.sessionId, session.exerciseIndex)
+                    ) {
+                        item {
+                            Text("Inicia el reloj del bloque en el teléfono para registrar series",
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        if (state.restRemaining > 0) {
+                            item { Text("Descanso: ${state.restRemaining}s",
+                                style = MaterialTheme.typography.titleLarge) }
+                            item { TextButton(onClick = { callbacks.onSkipRest() },
+                                modifier = Modifier.fillMaxWidth()) {
+                                Text("Saltar descanso",
+                                    style = MaterialTheme.typography.labelSmall) } }
+                        }
+                        item { Text("Registrar serie",
+                            style = MaterialTheme.typography.titleMedium) }
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { callbacks.onRepsMinus() }) { Text("−") }
+                                Text("${state.repsInput} reps",
+                                    style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = { callbacks.onRepsPlus() }) { Text("+") }
+                            }
+                        }
+                        if (session.allowsWeight) {
+                            item {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { callbacks.onWeightDelta(-0.1) }) {
+                                        Text("−") }
+                                    Text(
+                                        run {
+                                            val unit = dev.repera.domain.WeightUnit.fromWire(state.weightUnit)
+                                            val kg = state.weightInput ?: 0.0
+                                            "${ReperaNumberFormat.decimal(unit.displayValue(kg))} ${unit.label}"
+                                        },
+                                        style = MaterialTheme.typography.titleMedium)
+                                    IconButton(onClick = { callbacks.onWeightDelta(0.1) }) {
+                                        Text("+") }
+                                }
+                            }
+                        }
+                        item {
+                            val zeroReps = state.repsInput == 0
+                            val isLast = session.exerciseIndex >= session.exerciseCount
+                            Button(onClick = { callbacks.onQueueSet(session) },
+                                enabled = !state.sessionPaused,
+                                modifier = Modifier.fillMaxWidth()) {
+                                Text(when {
+                                    !zeroReps -> "Confirmar serie"
+                                    isLast -> "Finalizado"
+                                    else -> "Siguiente ejercicio"
+                                })
+                            }
+                        }
+                    }
+                }
             } else {
                 item { Text(session.exerciseName,
                     style = MaterialTheme.typography.titleMedium,

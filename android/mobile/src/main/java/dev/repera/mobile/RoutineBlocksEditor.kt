@@ -727,8 +727,13 @@ private fun EntryEditorRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
+                    entry.name, null, null, null) ==
+                    dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("KG", style = MaterialTheme.typography.labelSmall,
+                    // PlanView iOS: HSPU usa «Déficit» (cm) en lugar de KG.
+                    Text(if (hspuDeficit) "Déficit (cm)" else "KG",
+                        style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f))
                     Text(if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "Reps",
                         style = MaterialTheme.typography.labelSmall,

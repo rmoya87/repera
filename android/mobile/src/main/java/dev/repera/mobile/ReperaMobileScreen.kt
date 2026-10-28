@@ -107,7 +107,7 @@ fun ReperaMobileScreen(
     onAddWodTemplate: (String) -> Unit,
     onToggleWodFavorite:(String)->Unit,
     onPlayWod:(String,String,()->Unit)->Unit,
-    onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>,String,()->Unit) -> Unit,
+    onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>, String, String?, () -> Unit) -> Unit,
     onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     centerConnected: Boolean,
@@ -446,7 +446,9 @@ fun ReperaMobileScreen(
                         },
                         onDayPlusFavorites = { navController.navigate("favoritos") },
                         onDayPlusTimer = { navController.navigate("temporizador") },
-                        onDayPlusScan = { navController.navigate("escaner") }
+                        onDayPlusScan = { dayIso ->
+                            navController.navigate("escaner?fecha=" + dayIso)
+                        }
                     )
                 }
                 composable("entreno-libre") {
@@ -530,14 +532,39 @@ fun ReperaMobileScreen(
                         }
                     )
                 }
+                composable(
+                    route = "escaner?fecha={fecha}",
+                    arguments = listOf(navArgument("fecha") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    })
+                ) { backStackEntry ->
+                    val scanDayIso = backStackEntry.arguments?.getString("fecha")
+                        ?.takeIf { it.isNotBlank() }
+                    androidx.compose.runtime.key(accountId, scanDayIso) {
+                    BoardScanScreen(
+                        busy = busy,
+                        saveStatus=status,
+                        overview = overview,
+                        onConfirm = { title, blocks,requestId ->
+                            onCreateRoutineFromScan(title, blocks, requestId, scanDayIso) {
+                                navController.popBackStack()
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                }
                 composable("escaner") {
+                    // Ajustes / Crear sin día: misma ruta sin query.
                     androidx.compose.runtime.key(accountId) {
                     BoardScanScreen(
                         busy = busy,
                         saveStatus=status,
                         overview = overview,
                         onConfirm = { title, blocks,requestId ->
-                            onCreateRoutineFromScan(title, blocks,requestId) {navController.popBackStack()}
+                            onCreateRoutineFromScan(title, blocks, requestId, null) {
+                                navController.popBackStack()
+                            }
                         },
                         onBack = { navController.popBackStack() }
                     )
