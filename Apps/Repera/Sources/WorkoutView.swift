@@ -35,6 +35,7 @@ struct WorkoutView: View {
     @State private var pendingClusters: [RestPauseCluster] = []
     @State private var editingRoutine: Routine?
     @State private var replacingPlayExercise: PlayReplacementTarget?
+    @State private var exerciseDetailID: UUID?
     @State private var pendingPlayReplacement: PendingPlayReplacement?
     @State private var addPlayExerciseToBlock: UUID?
     @State private var selectPlayFormatForBlock: UUID?
@@ -191,11 +192,16 @@ struct WorkoutView: View {
         workoutSecondaryNavigationView
         .sheet(isPresented: $showPlayRoutinePicker) {
             RoutineImportPickerSheet(
-                routines: store.libraryRoutines,
+                routines: store.libraryRoutines.filter { $0.isFavorite && !$0.blocks.isEmpty },
+                timers: store.state.favoriteTimers,
                 onPick: { selected in
                     mutatePlayRoutine { draft in
                         draft.blocks.append(contentsOf: selected.blocks.map { $0.duplicatingContent() })
                     }
+                    showPlayRoutinePicker = false
+                },
+                onPickTimer: { timer in
+                    mutatePlayRoutine { $0.blocks.append(timer.asWorkoutBlock()) }
                     showPlayRoutinePicker = false
                 },
                 onCancel: { showPlayRoutinePicker = false }
@@ -303,6 +309,9 @@ struct WorkoutView: View {
                 embedsNavigationStack: false,
                 usesPageCloseHeader: true
             )
+        }
+        .navigationDestination(item: $exerciseDetailID) { id in
+            ExerciseDetailView(exerciseId: id, highlightSessionId: store.state.activeSession?.id)
         }
         .navigationDestination(item: $replacingPlayExercise) { target in
             ExercisePickerView(embedsNavigationStack: false) { chosen in
@@ -684,8 +693,6 @@ struct WorkoutView: View {
                     }
                 } header: {
                     Label("Orden de bloques", systemImage: "square.stack.3d.up")
-                } footer: {
-                    Text("Arrastra el control de la derecha para cambiar el orden.")
                 }
                 ForEach(draft.blocks) { block in
                     playReorderExerciseSection(block)
@@ -740,8 +747,6 @@ struct WorkoutView: View {
             }
         } header: {
             Text(block.title)
-        } footer: {
-            Text("Arrastra para ordenar las filas de este bloque.")
         }
     }
 
@@ -940,9 +945,6 @@ struct WorkoutView: View {
                             Button("Añadir ejercicio", systemImage: "plus") {
                                 addPlayExerciseToBlock = block.id
                             }
-                            Button("Cambiar formato", systemImage: "slider.horizontal.3") {
-                                selectPlayFormatForBlock = block.id
-                            }
                             Divider()
                             Button("Eliminar bloque", systemImage: "trash", role: .destructive) {
                                 removePlayBlock(block.id)
@@ -958,6 +960,9 @@ struct WorkoutView: View {
                     }
                     .listRowBackground(OG.surface)
 
+                    playBlockFormatSettings(block)
+                        .listRowBackground(OG.surface)
+                        .listRowSeparator(.hidden)
                     if let format = block.format, format.resultCapture != .perMovementSets {
                         inlineWODScoreEditor(block, format: format, session: session)
                             .listRowBackground(OG.surface)
@@ -966,17 +971,15 @@ struct WorkoutView: View {
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
                         HStack(spacing: 4) {
-                            NavigationLink {
-                                ExerciseDetailView(
-                                    exerciseId: entry.exercise.id,
-                                    highlightSessionId: session.id
-                                )
+                            Button {
+                                exerciseDetailID = entry.exercise.id
                             } label: {
                                 workoutExerciseRow(
                                     entry, isOpen: true,
                                     blockResult: session.wodResults.first(where: { $0.id == block.id })
                                 )
                             }
+                            .buttonStyle(.plain)
                             .accessibilityHint("Ver ficha del ejercicio")
                             Menu {
                                 Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
@@ -1069,12 +1072,11 @@ struct WorkoutView: View {
                         .listRowBackground(OG.surface)
                     }
 
-                    Button("Añadir ejercicio", systemImage: "plus") {
+                    WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus") {
                         addPlayExerciseToBlock = block.id
                     }
-                    .foregroundStyle(OG.accent)
                     if session.routineBlocks?.first(where: { $0.id == block.id })?.kind == .wod {
-                        Button("Añadir descanso", systemImage: "pause") {
+                        WorkoutInlineAddButton("Añadir descanso", systemImage: "pause") {
                             mutatePlayRoutine { draft in
                                 guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
                                 draft.blocks[index].movements.append(
@@ -1082,7 +1084,7 @@ struct WorkoutView: View {
                                 )
                             }
                         }
-                        Button("Añadir movimiento libre", systemImage: "pencil") {
+                        WorkoutInlineAddButton("Añadir movimiento libre", systemImage: "pencil") {
                             createFreeMovementForBlock = block.id
                         }
                     }
@@ -1108,8 +1110,9 @@ struct WorkoutView: View {
                 Button("Elegir WOD", systemImage: "list.bullet.rectangle.portrait") {
                     showPlayWODCatalog = true
                 }
-                if !store.libraryRoutines.isEmpty {
-                    Button("Añadir rutina", systemImage: "list.bullet.rectangle") {
+                if store.libraryRoutines.contains(where: { $0.isFavorite && !$0.blocks.isEmpty })
+                    || !store.state.favoriteTimers.isEmpty {
+                    Button("Añadir favorito", systemImage: "star") {
                         showPlayRoutinePicker = true
                     }
                 }
