@@ -1,5 +1,6 @@
 import ReperaDomain
 import SwiftUI
+import UIKit
 
 /// Barra de progreso adaptable: el objetivo ocupa su fracción real del
 /// total si se supera y el excedente aparece al final en un tono más oscuro.
@@ -198,11 +199,18 @@ struct HomeView: View {
     /// Appointments and trainer plans share the normal day's workout section.
     /// A reservation with a published plan has ONE card, using that plan in detail.
     private var selectedDayBusinessBookings: [BusinessBooking] {
-        businessData.bookings.filter { booking in
+        // Avoid a linear occurrence lookup for every booking on each day tap.
+        // The original nested scan was O(bookings × occurrences).
+        let occurrencesByID = Dictionary(
+            businessData.occurrences.map { ($0.id, $0.startsAt) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        let selected = calendar.startOfDay(for: selectedDay)
+        return businessData.bookings.filter { booking in
             guard booking.status == "booked",
-                  let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
-                  let date = BusinessDataStore.date(occurrence.startsAt) else { return false }
-            return calendar.isDate(date, inSameDayAs: selectedDay)
+                  let startsAt = occurrencesByID[booking.occurrenceId],
+                  let date = BusinessDataStore.date(startsAt) else { return false }
+            return calendar.isDate(date, inSameDayAs: selected)
         }
     }
 
