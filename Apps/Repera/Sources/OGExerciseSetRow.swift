@@ -1,7 +1,9 @@
 import SwiftUI
+import ReperaDomain
 
 /// Fila de serie como en el detalle de entreno: `S1 · 100×4 · RIR 4`.
 struct OGExerciseSetRow: View {
+    @Environment(ReperaStore.self) private var store
     var index: Int
     var summaryLine: String
     var rir: Double? = nil
@@ -18,7 +20,7 @@ struct OGExerciseSetRow: View {
                 .foregroundStyle(OG.label)
             Spacer(minLength: 0)
             if showsRIR, let rir {
-                Text("RIR \(Int(rir.rounded()))")
+                Text(Effort.label(rir: rir, unit: store.state.settings.effortUnit) ?? "")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label3)
             }
