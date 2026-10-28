@@ -1,12 +1,17 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
-Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
+Referencia Apple + Android en la misma línea: `origin/main` tip `7945ec1b`
+(2026-10-28, merge `App-android`); tip histórico `App-android` `2110ae8d` (#125)
+ya absorbido (ancestro de main). P0 `#119` y leftover `#121`/`#122`/`#124` en main.
 
-**Última actualización:** 2026-10-28 — DayPlus pizarra→día; labels HSPU déficit; Wear WOD «Confirmar serie»; billing alineado; sin clima Android.
+**Última actualización:** 2026-10-28 — sync completo `App-android`→`main`;
+DayPlus pizarra→día; labels HSPU déficit; Wear WOD «Confirmar serie»; billing
+alineado (productos creados); sin clima Android; POI = Places si gratis else Photon.
 
 La implementación Android **todavía no es completa** (Wear/UX fina/E2E). Billing
-Play está **alineado** (cliente + verify Edge). No hay clima en Comenzar Android
-(WeatherKit es solo iOS; Open-Meteo descartado).
+Play está **alineado** (cliente + verify Edge; productos Play creados). No hay
+clima en Comenzar Android (`weather_android: none`). POI: Google Places **solo
+si gratis**; mientras tanto Photon + Geocoder.
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |

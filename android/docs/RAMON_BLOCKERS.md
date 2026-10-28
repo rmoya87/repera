@@ -9,7 +9,10 @@ hardware). Decisiones de producto cerradas abajo.
 
 **Alineado (2026-10-28):** flujo Android = Play Billing directo + Edge
 `repera-play-billing-verify` (paridad del modelo iOS StoreKit + verify). No es
-un gap de código abierto. Detalle operativo: `android/docs/MONETIZATION_PLAY_BILLING.md`.
+un gap de código abierto. **Productos creados** en Play Console
+(`com.app.repera.premium.monthly` / `.yearly`). Sigue pendiente ops: SA,
+secret Edge, deploy verify, testers/SHA-1, smoke. Detalle:
+`android/docs/MONETIZATION_PLAY_BILLING.md`.
 
 ## RP-6 — Eliminar mi cuenta
 
@@ -36,7 +39,8 @@ Hay que restablecer billing de Actions para que CI vuelva a ejecutar.
 
 | Tema | Estado |
 |------|--------|
-| Clima en Comenzar | **No se hace en Android.** iOS usa WeatherKit; no hay Open-Meteo ni otro proveedor en Android (decisión 2026-10-28). |
-| POI | Photon + Geocoder ya en app (`PlaceSearchSheet`); calidad vs Places de pago. |
+| Clima en Comenzar (`weather_android`) | **`none`** — no se paga proveedor; clima **no** va en Android (WeatherKit es solo iOS; Open-Meteo descartado, 2026-10-28). |
+| POI (`poi_provider`) | **Google Places solo si la cuota es gratis usable**; si no, mantener **`photon_geocoder`** (Photon + Geocoder en `PlaceSearchSheet`, estado actual). |
+| Billing (`billing_aligned`) | **Alineado** — productos creados en Play Console; código cliente + Edge verify listos. Ops SA/deploy/testers abiertos. |
 | Wear autonomía total | MVP fuerza+ACK; WOD sin reloj de bloque no registra (decisión mantenida). |
-| Fusión `App-android` → `main` | Hecha (2026-10-28): #121/#122 en ambas líneas. |
+| Sync `App-android` → `main` (`app_android_main_sync`) | **Hecho (2026-10-28).** `origin/App-android` (`2110ae8d`, #125) es ancestro de `origin/main` (`7945ec1b` Merge branch App-android). Árbol `android/` idéntico; merges previos #119–#122/#124. |
