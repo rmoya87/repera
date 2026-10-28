@@ -1553,7 +1553,7 @@ struct WorkoutView: View {
             ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
         let loadLabel = current.exercise.loadField == .deficitCm
             ? "Déficit cm"
-            : (style == .loadAndReps ? "KG" : (current.exercise.isMobility ? "Tiempo" : "Tiempo"))
+            : (style == .loadAndReps ? store.state.settings.weightUnit.label.uppercased() : "Tiempo")
         return VStack(alignment: .leading, spacing: 12) {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
@@ -1598,7 +1598,9 @@ struct WorkoutView: View {
                 if current.exercise.loadField == .deficitCm {
                     return row.deficitCm.map(String.init) ?? "0"
                 }
-                return row.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—"
+                return row.weightKg.map {
+                    ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
+                } ?? "—"
             case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
             }
         }()
@@ -1896,7 +1898,8 @@ struct WorkoutView: View {
             return
         }
         guard let value = ReperaNumberFormat.parse(normalized) else { return }
-        liveSets[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+        let kg = store.state.settings.weightUnit.kilograms(fromDisplayValue: value)
+        liveSets[index].weightKg = value > 0 ? ((kg * 10).rounded() / 10) : nil
         noteLiveDraftEdited()
     }
 
@@ -2658,12 +2661,12 @@ struct WorkoutView: View {
 
             HStack(alignment: .bottom, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Peso (kg)").font(.caption).foregroundStyle(OG.label2)
+                    Text("Peso (\(store.state.settings.weightUnit.label))").font(.caption).foregroundStyle(OG.label2)
                     OGRepeatStepper(
                         display: weightText.isEmpty ? "—" : weightText,
                         keyboard: .decimalPad,
-                        onMinus: { bumpWeight(-store.state.settings.weightIncrementKg) },
-                        onPlus: { bumpWeight(store.state.settings.weightIncrementKg) },
+                        onMinus: { bumpWeight(-store.state.settings.weightUnit.displayValue(fromKilograms: store.state.settings.weightIncrementKg)) },
+                        onPlus: { bumpWeight(store.state.settings.weightUnit.displayValue(fromKilograms: store.state.settings.weightIncrementKg)) },
                         onCommitText: { text in
                             let normalized = text
                             weightText = normalized
@@ -2878,7 +2881,7 @@ struct WorkoutView: View {
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(OG.label)
                                 Spacer(minLength: 8)
-                                Text("\(set.weightKg?.formatted(.number.precision(.fractionLength(1))) ?? "—") kg × \(set.reps)")
+                                Text("\(set.weightKg.map { ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0)) } ?? "—") \(store.state.settings.weightUnit.label) × \(set.reps)")
                                     .font(.system(size: 15, weight: .medium).monospacedDigit())
                                     .foregroundStyle(OG.accent)
                             }
@@ -2930,7 +2933,9 @@ struct WorkoutView: View {
     }
 
     private func saveSet(for current: SessionExercise) {
-        let weight = ReperaNumberFormat.parse(weightText)
+        let weight = ReperaNumberFormat.parse(weightText).map {
+            store.state.settings.weightUnit.kilograms(fromDisplayValue: $0)
+        }
         let clusters = setKind == .restpause ? pendingClusters : []
         let drops = setKind == .dropset ? pendingDrops : []
         let reps: Int = {
@@ -3162,7 +3167,9 @@ struct WorkoutView: View {
             ? current.plannedSets.first?.targetWeightKg
             : (current.lastLoggedWeight
                 ?? store.cachedLastWorkingWeight(for: current.exercise.id))
-        weightText = suggested.map { ReperaNumberFormat.decimal($0) } ?? ""
+        weightText = suggested.map {
+            ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
+        } ?? ""
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
         rebuildLiveSets(from: current)
         // No rellenar un peso dejado vacío deliberadamente en una plantilla:
@@ -3176,7 +3183,9 @@ struct WorkoutView: View {
 
     private func bumpWeightSuggestion(_ current: SessionExercise) {
         if weightText.isEmpty {
-            weightText = current.lastLoggedWeight.map { ReperaNumberFormat.decimal($0) } ?? weightText
+            weightText = current.lastLoggedWeight.map {
+                ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
+            } ?? weightText
         }
     }
 
@@ -3403,7 +3412,7 @@ private struct PlayEditableSetsView: View {
             OGSetEntryHeader(
                 firstTitle: style == .repsOnly ? quantityLabel
                     : (style == .loadAndReps
-                        ? (exercise.loadField == .deficitCm ? "Déficit" : "KG") : "Tiempo"),
+                        ? (exercise.loadField == .deficitCm ? "Déficit" : store.state.settings.weightUnit.label.uppercased()) : "Tiempo"),
                 secondTitle: style == .repsOnly || exercise.isMobilityHold ? nil : quantityLabel,
                 showsConfirmation: false,
                 showsRIR: style.usesRIR
@@ -3450,7 +3459,9 @@ private struct PlayEditableSetsView: View {
             case .repsOnly: return String(row.reps)
             case .loadAndReps:
                 if exercise.loadField == .deficitCm { return row.deficitCm.map(String.init) ?? "0" }
-                return row.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—"
+                return row.weightKg.map {
+                    ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
+                } ?? "—"
             case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
             }
         }()
@@ -3482,7 +3493,8 @@ private struct PlayEditableSetsView: View {
                         if let value = Int(text) { rows[index].deficitCm = min(60, max(0, value)) }
                     } else {
                         let value = ReperaNumberFormat.parse(text) ?? 0
-                        rows[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                        let kg = store.state.settings.weightUnit.kilograms(fromDisplayValue: value)
+                        rows[index].weightKg = value > 0 ? ((kg * 10).rounded() / 10) : nil
                     }
                 case .repsAndTime, .machineWork:
                     rows[index].durationSeconds = DurationText.parse(text)
