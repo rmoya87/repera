@@ -889,4 +889,23 @@ class BoardScanLiteParserTest {
             assertNull(move.weightFemaleKg)
         }
     }
+    @Test fun malformedSingleAtSuffixDoesNotBecomeLiteralNumberNote() {
+        for(token in listOf("@-7","@7e2","@7.","@@7","#UNKNOWN @7","@7kg")) {
+            val block=BoardScanLiteParser.parse("AMRAP 10'\n2 AIR SQUAT $token",catalog=catalog).blocks.single()
+            assertEquals(1,block.movements.size)
+            assertTrue(token,block.wodNotes!!.contains(token))
+            assertFalse(token,block.movements.single().notes?.contains("@7")==true)
+        }
+    }
+    @Test fun singleMovementMultiplierBecomesRepsWithoutInventedSets() {
+        for(header in listOf("3X PUSH PRESS","3 X PUSH PRESS","3× PUSH PRESS")) {
+            val block=BoardScanLiteParser.parse("AMRAP 10'\n"+header,catalog=catalog).blocks.single()
+            val move=block.movements.single()
+            assertEquals(header,3,move.reps)
+            assertNull(move.repScheme)
+            assertTrue(block.wodNotes!!.contains(header.replace('×','X')))
+            assertEquals("Push press",move.name)
+            assertEquals(RoutineBlockKind.WOD,block.kind)
+        }
+    }
 }

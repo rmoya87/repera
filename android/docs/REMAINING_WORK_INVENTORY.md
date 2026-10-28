@@ -839,3 +839,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 09:03 28oct
 -362 bateria completa mobile687/163XML11lotes58/86/106/87/68/78/87/47/84/51/87s,domain552/93XML91s,Wear8/1XML+ambosassemble73sverdes0fallos/errores/omitidos. Backup362recuperado65338db7:arbolaa1cc6a08f9a62af4f516c6019e2d95f22d7edd0identico,clonlimpio.
 -363 solo documentacion: c6f89c28/88db5bb7reconciliadas362,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, comprobacion de fronteras sin cambio producto 09:06 28oct
+-364 solo tests/documentacion:6sufijos@malformadosnoentranenreglaliteral362;3X/3 X/3×PUSHPRESSyadan3reps,nombrecorrectoysinsetsinventados. No se encontro hueco de producto enesoscasos. Primera expectativa de notas con×eraincorrecta porque OCRnormaliza×->XcomoLitefuente;corregidafixture,sincambioproducto.
+-2testsnuevos,dominio554/93XML44sverdes0fallos/errores/omitidos. Producto sigue362;bateria mobile687/163,Wear8/1+ambosassemble73s de362 vigente,sinpretenderejecucionmobile/Wear364.735/70sin cierres,lectorparcial,nativo/gráficosabiertos,no push.
