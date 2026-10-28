@@ -107,7 +107,7 @@ export function renderClient360({clients=[],selected=null,passes=[],bookings=[],
   const archived=Boolean(c.account_deleted_at);
  const ownPasses=passes.filter(p=>p.client_id===c.id),
  ownBookings=bookings.filter(b=>b.client_id===c.id),
- ownSessions=sessions.filter(s=>s.client_id===c.id&&s.status==='scheduled');
+ ownSessions=sessions.filter(s=>s.client_id===c.id&&(archived||s.status==='scheduled'));
  const logged=athleteLoggedRows(sharedHistory);
  const ownAttendance=attendance.filter(a=>a.client_id===c.id);
  const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
@@ -205,7 +205,7 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
   const o=occurrences.find(o=>o.id===selected);if(!o)return show('<p>No se encuentra la clase.</p>');
   const booked=bookings.filter(b=>b.occurrence_id===o.id&&b.status==='booked'),meta=index.get(o.id)||{},future=new Date(o.starts_at)>new Date();
   const available=passes.filter(p=>p.status==='active'&&p.kind===o.kind&&p.remaining_credits>0&&new Date(p.valid_from)<=new Date(o.starts_at)&&new Date(p.valid_until)>=new Date(o.starts_at));
-  const eligible=clients.filter(c=>available.some(p=>p.client_id===c.id)&&!booked.some(b=>b.client_id===c.id));
+  const eligible=clients.filter(c=>!c.account_deleted_at&&available.some(p=>p.client_id===c.id)&&!booked.some(b=>b.client_id===c.id));
   return show(`${button('← Volver a clases','back-classes')}<div class="business-profile-header"><span class="business-class-mark" style="background:${/^#[0-9a-f]{6}$/i.test(meta.color||'')?meta.color:'#22834d'}"></span><div><h2>${esc(o.title)}</h2><p>${dateTime(o.starts_at)} · ${esc(meta.location||'Ubicación sin definir')} · ${booked.length}/${o.capacity} plazas</p></div></div>
   <div class="business-360-grid"><div class="business-detail-panel"><h3>Configuración de la clase</h3>${manager&&future&&o.status==='active'?`<form data-connected="edit-occurrence" class="business-form"><input type="hidden" name="id" value="${esc(o.id)}">${input('Nombre','title',o.title,'text','required minlength="2" maxlength="120"')}${input('Inicio','start',new Date(o.starts_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Fin','end',new Date(o.ends_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Aforo','capacity',o.capacity,'number',`min="${Math.max(1,booked.length)}" max="200" required`)}${input('Lugar','location',meta.location||'','text','maxlength="250"')}${input('Color','color',meta.color||'#22834d','color')}${input('Imagen (URL)','image',meta.image_url||'','url','maxlength="2000"')}<label class="connected-field">Descripción<textarea name="description" rows="3" maxlength="2000">${esc(meta.description||'')}</textarea></label><button class="connected-primary">Guardar cambios</button></form><p>${button('Cancelar clase y devolver bonos','cancel-occurrence',o.id)}</p>`:`<p>${esc(meta.description||'Sin descripción')}</p><p>Estado: ${esc(o.status)}</p>`}</div>
   <div class="business-detail-panel"><h3>Asistentes (${booked.length})</h3>${booked.map(b=>`<div class="business-roster"><span class="business-avatar">${esc(initials(clients.find(c=>c.id===b.client_id)?.name))}</span><div><strong>${esc(clients.find(c=>c.id===b.client_id)?.name||'Deportista')}</strong><small>Reserva confirmada</small></div>${manager&&future?button('Quitar','remove-booking',b.id):''}</div>`).join('')||note('Nadie inscrito todavía.')}
