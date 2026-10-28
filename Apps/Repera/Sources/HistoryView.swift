@@ -294,6 +294,8 @@ struct WorkoutDetailView: View {
     @State private var didHydrateDetail = false
     @State private var isEditing = false
     @State private var showCompletedEditor = false
+    /// Freeze the editor's routine once, when the user taps Editar.
+    @State private var preparedCompletedRoutine: Routine?
     @State private var showDeleteConfirm = false
     @State private var favoriteSaveError: String?
     @State private var isSavingFavorite = false
@@ -347,12 +349,18 @@ struct WorkoutDetailView: View {
         }
         .task(id: sessionId) {
             guard !didHydrateDetail else { return }
-            store.repairHistoricalWODExercisesIfNeeded()
-            draft = store.state.workouts.first(where: { $0.id == sessionId })
+            // Catalog relinking already runs during bootstrap / cloud recovery.
+            // Doing an all-history repair every time the detail opens caused
+            // large MainActor work and unnecessary disk/iCloud writes.
             loadDraft()
-            _ = store.ensureSessionReview(for: sessionId)
-            draft = store.state.workouts.first(where: { $0.id == sessionId })
             guard let session = draft else { return }
+            // Let the first historical card paint before optional HK queries.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            if session.sessionReview == nil {
+                _ = store.ensureSessionReview(for: sessionId)
+                draft = store.state.workouts.first(where: { $0.id == sessionId })
+            }
             #if DEBUG
             // Diagnóstico sin datos personales si un WOD histórico todavía
             // muestra el alias antiguo: permite leer los escalares OCR reales,
@@ -835,16 +843,14 @@ struct WorkoutDetailView: View {
         .ogListChrome()
         .listSectionSpacing(12)
         .navigationDestination(isPresented: $showCompletedEditor) {
-            if let session = draft {
+            if let session = draft, let preparedCompletedRoutine {
                 DayEditorView(
-                    routine: CompletedWorkoutEditing.routine(
-                        from: session,
-                        sourceRoutine: session.routineId.flatMap { id in
-                            store.state.routines.first(where: { $0.id == id })
-                        }
-                    ),
+                    routine: preparedCompletedRoutine,
                     mode: .session,
-                    onClose: { showCompletedEditor = false },
+                    onClose: {
+                        showCompletedEditor = false
+                        preparedCompletedRoutine = nil
+                    },
                     onApplyCompleted: { routine, details in
                         let updated = CompletedWorkoutEditing.applying(
                             routine, to: details, catalog: store.state.exercises
@@ -913,6 +919,13 @@ struct WorkoutDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
+                            guard let session = draft else { return }
+                            preparedCompletedRoutine = CompletedWorkoutEditing.routine(
+                                from: session,
+                                sourceRoutine: session.routineId.flatMap { id in
+                                    store.state.routines.first(where: { $0.id == id })
+                                }
+                            )
                             showCompletedEditor = true
                         } label: {
                             Label("Editar", systemImage: "pencil")
