@@ -706,3 +706,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -332 bateria completa mobile678/163XML92/111/91/87s,domain529/93XML73s,Wear8/1XML+ambosassemble74s verdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo lector parcial333: etiquetas exactasSETS/REPS/CIRCUITO/CIRCUIT se filtran tambien antes del subconjunto fuerza explicita,como strengthBlockFromLines175-181,evitandoque ruido bloquee3x8explicitoyaescrito. Sin receta si falta setsxreps. Notas originales conservadas al enrutar fuerza,antes ausentes.
 - Regresion fallo antes del cambio.1test nuevoincluido ruido solo/ejercicio sin esquema ->no fuerza. Dominio530/93XML68s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear333 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 04:17 28oct
+-333 bateria completa mobile678/163XML83/101/79/79s,domain530/93XML68s,Wear8/1XML+ambosassemble88sverdes0fallos/errores/omitidos. Backup333recuperado desde65338db7:arbol422adeefb3d6f1e5d993689d7f8b0b37b5d68b77identico,clonlimpio.
+-334 solo documentacion: notas c6f89c28/88db5bb7 reconciliadas329-333,sin cambiar estadosparciales.735/70sin cierres. Mismos bloques:lectorcompleto parcial;revisiongraficaautoaxes/fontmetrics/nativo abierta;default3x8/rutas/fallback/fuzzy/runtime pendientes. No push ni cambiosApps/Packages.
