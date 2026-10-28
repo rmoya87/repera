@@ -6,10 +6,13 @@ public struct RestActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable, Sendable {
         public var endDate: Date
         public var totalSeconds: Int
+        /// When paused, render a fixed value instead of advancing an expired deadline.
+        public var pausedRemainingSeconds: Int?
 
-        public init(endDate: Date, totalSeconds: Int) {
+        public init(endDate: Date, totalSeconds: Int, pausedRemainingSeconds: Int? = nil) {
             self.endDate = endDate
             self.totalSeconds = totalSeconds
+            self.pausedRemainingSeconds = pausedRemainingSeconds
         }
     }
 
