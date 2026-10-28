@@ -66,7 +66,7 @@ struct StartHubSheet: View {
                     NavigationLink(value: StartHubRoute.createWorkout) {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Crear mi entreno")
+                                Text("Crear entreno")
                                     .foregroundStyle(OG.label)
                                 Text("Bloques de fuerza y WODs — y empieza ya")
                                     .font(.caption)
@@ -75,36 +75,6 @@ struct StartHubSheet: View {
                         } icon: {
                             Image(systemName: "plus.circle.fill")
                                 .foregroundStyle(OG.accent)
-                        }
-                    }
-
-                    NavigationLink(value: StartHubRoute.quickLog) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Apuntar series")
-                                    .foregroundStyle(OG.label)
-                                Text("Un ejercicio, sin montar rutina")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                        } icon: {
-                                Image(systemName: "list.number")
-                                .foregroundStyle(OG.yellow)
-                        }
-                    }
-
-                    NavigationLink(value: StartHubRoute.favorites) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Favoritos")
-                                    .foregroundStyle(OG.label)
-                                Text(favoritesSubtitle)
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                            }
-                        } icon: {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(OG.yellow)
                         }
                     }
 
@@ -136,7 +106,7 @@ struct StartHubSheet: View {
                     } label: {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Escanear pizarra o TV")
+                                Text("Escanear entreno")
                                     .foregroundStyle(OG.label)
                                 Text(subscriptions.policy.boardScanUsageCaption
                                       ?? "Cámara o galería · EMOM, ladder, fuerza…")
@@ -149,6 +119,22 @@ struct StartHubSheet: View {
                         }
                     }
                     .disabled(isReading)
+
+                    NavigationLink(value: StartHubRoute.favorites) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Favoritos")
+                                    .foregroundStyle(OG.label)
+                                Text(favoritesSubtitle)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                            }
+                        } icon: {
+                            Image(systemName: "star.fill")
+                                .foregroundStyle(OG.yellow)
+                        }
+                    }
+
                 }
 
 
