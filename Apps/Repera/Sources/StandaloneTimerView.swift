@@ -481,10 +481,14 @@ struct StandaloneTimerView: View {
             preCountdownEnd = nil
             phaseEndDate = nil
             phaseStartDate = nil
+            TimerLiveActivityCoordinator.shared.pause(
+                .standalone, value: displaySeconds, title: "Temporizador"
+            )
         } else {
             isRunning = true
             pausedDisplaySeconds = nil
             armAnchorsForResume()
+            publishLiveClockAndAlerts()
             // Emitir también el primer 3 inmediatamente. Los otros
             // dos pitidos llegan por el reloj (2, 1), igual que Comenzar.
             if preCountdown > 0, preCountdownEnd != nil {
@@ -548,6 +552,7 @@ struct StandaloneTimerView: View {
                     phaseIsWork = true
                     phaseEndDate = WallClockTimer.endDate(from: now, lasting: config.workTotalSeconds)
                 }
+                publishLiveClockAndAlerts()
             }
             return
         }
@@ -562,6 +567,7 @@ struct StandaloneTimerView: View {
                 displaySeconds = config.durationTotalSeconds
                 isRunning = false
                 stopTimer(keepState: true)
+                finishLiveClock()
                 RestFeedback.restComplete(sound: true, haptic: true)
             }
         case .down:
@@ -571,6 +577,7 @@ struct StandaloneTimerView: View {
                 displaySeconds = 0
                 isRunning = false
                 stopTimer(keepState: true)
+                finishLiveClock()
                 RestFeedback.restComplete(sound: true, haptic: true)
             } else {
                 RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
@@ -614,6 +621,7 @@ struct StandaloneTimerView: View {
         displaySeconds = Int(ceil(remaining))
         phaseEndDate = now.addingTimeInterval(remaining)
         RestFeedback.intervalBeep(sound: true, haptic: true)
+        publishLiveClockAndAlerts()
     }
 
     /// Returns false when the timer finished all rounds.
@@ -622,6 +630,7 @@ struct StandaloneTimerView: View {
             displaySeconds = 0
             isRunning = false
             stopTimer(keepState: true)
+            finishLiveClock()
             RestFeedback.restComplete(sound: true, haptic: true)
             return false
         }
@@ -645,6 +654,7 @@ struct StandaloneTimerView: View {
         } else {
             finishOrNextRound()
         }
+        if isRunning { publishLiveClockAndAlerts() }
     }
 
     private func finishOrNextRound() {
@@ -652,6 +662,7 @@ struct StandaloneTimerView: View {
             displaySeconds = 0
             isRunning = false
             stopTimer(keepState: true)
+            finishLiveClock()
             RestFeedback.restComplete(sound: true, haptic: true)
             return
         }
@@ -666,7 +677,84 @@ struct StandaloneTimerView: View {
         advanceInterval()
     }
 
+
+    /// Publish fixed wall-clock anchors, not one-second host-app updates.
+    /// ActivityKit keeps the lock-screen text moving while the app is suspended.
+    private func publishLiveClockAndAlerts() {
+        guard isRunning, showClock else { return }
+        let now = Date()
+        if let preCountdownEnd {
+            TimerLiveActivityCoordinator.shared.countdown(
+                .standalone, endDate: preCountdownEnd,
+                totalSeconds: max(1, preCountdown), title: "Temporizador"
+            )
+        } else if config.mode == .up, let anchor = phaseStartDate {
+            TimerLiveActivityCoordinator.shared.countUp(
+                .standalone, anchor: anchor, title: "Temporizador"
+            )
+        } else if let phaseEndDate {
+            TimerLiveActivityCoordinator.shared.countdown(
+                .standalone, endDate: phaseEndDate,
+                totalSeconds: max(1, liveDisplaySeconds(at: now)), title: "Temporizador"
+            )
+        }
+        var boundaries: [TimerBoundaryNotifier.Boundary] = []
+        let pre = max(0, preCountdownEnd?.timeIntervalSince(now) ?? 0)
+        if pre > 0.5 {
+            boundaries.append(.init(afterSeconds: pre, title: "Comienza el entrenamiento"))
+        }
+        switch config.mode {
+        case .up:
+            let remaining = preCountdownEnd != nil ? config.durationTotalSeconds
+                : max(0, config.durationTotalSeconds - displaySeconds)
+            boundaries.append(.init(
+                afterSeconds: pre + TimeInterval(remaining),
+                title: "Temporizador finalizado"
+            ))
+        case .down:
+            let remaining = preCountdownEnd != nil ? config.durationTotalSeconds
+                : liveDisplaySeconds(at: now)
+            boundaries.append(.init(
+                afterSeconds: pre + TimeInterval(remaining),
+                title: "Temporizador finalizado"
+            ))
+        case .intervals:
+            var elapsed = pre
+            let remainingRounds = max(0, config.rounds - roundNumber + 1)
+            if remainingRounds > 0 {
+                for offset in 0..<remainingRounds {
+                    if offset == 0, !phaseIsWork, preCountdownEnd == nil {
+                        elapsed += TimeInterval(max(0, liveDisplaySeconds(at: now)))
+                        boundaries.append(.init(afterSeconds: elapsed, title: "Descanso finalizado"))
+                    } else {
+                        let workSeconds = offset == 0 && preCountdownEnd == nil
+                            ? max(0, liveDisplaySeconds(at: now)) : config.workTotalSeconds
+                        elapsed += TimeInterval(workSeconds)
+                        boundaries.append(.init(afterSeconds: elapsed, title: "Serie finalizada"))
+                        if config.restTotalSeconds > 0 {
+                            elapsed += TimeInterval(config.restTotalSeconds)
+                            boundaries.append(.init(afterSeconds: elapsed, title: "Descanso finalizado"))
+                        }
+                    }
+                }
+                if !boundaries.isEmpty {
+                    boundaries[boundaries.count - 1] = .init(
+                        afterSeconds: elapsed, title: "Temporizador finalizado"
+                    )
+                }
+            }
+        }
+        TimerBoundaryNotifier.schedule(.standalone, boundaries: boundaries)
+    }
+
+    private func finishLiveClock() {
+        TimerBoundaryNotifier.cancel(.standalone)
+        TimerLiveActivityCoordinator.shared.end(.standalone)
+    }
+
     private func stopTimer(keepState: Bool = false) {
+        TimerBoundaryNotifier.cancel(.standalone)
+        if !keepState { TimerLiveActivityCoordinator.shared.end(.standalone) }
         timer?.invalidate()
         timer = nil
         preCountdownEnd = nil
