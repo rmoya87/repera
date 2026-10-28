@@ -1,26 +1,76 @@
 # Identidad Google y Google Drive (Android)
 
+**Última actualización:** 2026-10-28
+
 ## Identidad
 
 - Se usa **Credential Manager** y `GetSignInWithGoogleOption`. No existe botón de Apple en Android.
-- La ID token de Google proporciona identidad visual local; requiere validar
-  firma, emisor, audiencia, expiración y nonce en backend antes de conceder acceso a Supabase.
+- Flujo: Google emite un ID token → la app lo intercambia con Supabase
+  (`POST /auth/v1/token?grant_type=id_token`) → solo la sesión verificada abre la app.
+- **Nonce (obligatorio, paridad iOS):** Credential Manager recibe
+  `SHA-256(raw)` en hex (`GoogleAuthNonce.hashedHex`); Supabase recibe el
+  `raw`. Enviar el mismo string a ambos provoca Auth HTTP 400 (nonce
+  mismatch); el mensaje genérico de la app dice «revisa Google Client IDs».
 - `uniqueId` es el identificador estable de cuenta para aislar ficheros, **nunca el correo**.
 - `clearCredentialState` restaura la vista inicial; los datos siguen protegidos en el
   espacio privado de esa cuenta para un futuro acceso válido.
 
-## Configuración OAuth recibida (23/10/2026)
+## Client IDs públicos (app)
 
-Google Cloud project **repera-app**; OAuth consent *External / Testing*.
-El usuario ha comunicado que Drive API, scopes y proveedor Google de Supabase están habilitados. Estos ajustes de consola todavía requieren una prueba real con una cuenta autorizada; el conector de Supabase confirma que el proyecto está activo pero no expone la configuración de proveedores Auth.
+| Rol | ID | Dónde |
+|-----|-----|--------|
+| **Web** (audiencia del ID token / `serverClientId`) | `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com` | `android/gradle.properties` → `REPERA_GOOGLE_WEB_CLIENT_ID` → `BuildConfig.GOOGLE_WEB_CLIENT_ID` |
+| **Android** (paquete + SHA-1; no va en Credential Manager) | `1026054616574-aklvn35uk4np08a3b61c5utq06j9vr24.apps.googleusercontent.com` | Solo Google Cloud / Play Services |
 
-- Client ID **Web** (identificador público): `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`. Se configura en `android/gradle.properties` y se utiliza como `serverClientId` de Credential Manager. No guardar aquí el client secret.
-- Client ID **Android** (identificador público): `1026054616574-aklvn35uk4np08a3b61c5utq06j9vr24.apps.googleusercontent.com`. Google Play Services lo relaciona con `com.app.repera` y el certificado SHA-1 registrado en Google Cloud; **no** sustituye al ID Web en `GetSignInWithGoogleOption`.
-- Scope Drive separado: `https://www.googleapis.com/auth/drive.appdata`. No solicitar `drive` completo.
-- La cuenta utilizada debe estar incluida entre los usuarios de prueba hasta publicar la pantalla OAuth. La huella debug debe coincidir con el APK instalado y debe añadirse también la de firma de Google Play para producción.
-- OAuth Web de Supabase: comprobar en su consola que el callback sea exactamente `https://uvzgujlrqohreoucirms.supabase.co/auth/v1/callback` si no existe dominio Auth personalizado.
+- Paquete: `com.app.repera`.
+- Supabase URL: `https://uvzgujlrqohreoucirms.supabase.co`.
+- Scope Drive separado: `https://www.googleapis.com/auth/drive.appdata` (nunca `drive` completo).
+- No guardar client secret ni `service_role` en el APK.
 
-**Límite de implementación**: Android obtiene identidad de Google para aislar datos locales y solicitar Drive, pero todavía **no intercambia el Google ID token por una sesión Supabase Auth**. Habilitar Google en Supabase no crea por sí solo esa sesión, permisos RLS ni el vínculo con usuarios Apple. No tratar `GoogleIdTokenCredential.uniqueId` como un `auth.uid()` o token de acceso a Supabase. Para la integración profesional habrá que completar `signInWith(IDToken)` (Google) con nonce compatible, sesión verificada, logout/revocación y pruebas E2E.
+## Pasos exactos en Google Cloud (Ramón)
+
+Proyecto **repera-app** → APIs y servicios → Credenciales.
+
+1. **Cliente OAuth Web** (ya existe): confirmar el ID de la tabla superior.
+   Su *Client secret* solo se usa en el proveedor Google de Supabase (paso
+   siguiente), nunca en la app.
+2. **Cliente(s) OAuth Android** para `com.app.repera`:
+   - Mantener el cliente de **debug** con la SHA-1 del
+     `~/.android/debug.keystore` (desarrollo / `assembleDebug`).
+   - Crear un **segundo** cliente Android (o editar uno dedicado a release)
+     con la SHA-1 de **Play App Signing** (no la upload key):
+     `AA:A1:93:52:FE:D0:C3:8C:B0:5D:CD:A9:60:3D:53:7B:39:59:D6:93`
+     (Play Console → App Repera → Configuración → Integridad de la app →
+     Certificado de firma de la aplicación → SHA-1).
+3. Pantalla de consentimiento OAuth: External / Testing → añadir la cuenta
+   de prueba que vaya a iniciar sesión hasta publicar la app.
+4. APIs: Drive API habilitada; Credential Manager / Google Identity activos.
+
+Sin el cliente Android + SHA-1 del APK que se instala, Google a menudo falla
+*antes* de llegar a Supabase. Si el selector de cuentas funciona y el error
+es `Supabase Auth HTTP 400: revisa Google Client IDs`, el fallo está en
+nonce (ya corregido en código) o en la audiencia / secret de Supabase.
+
+## Pasos exactos en Supabase Dashboard (Ramón)
+
+Proyecto `uvzgujlrqohreoucirms` → Authentication → Providers → **Google**:
+
+1. Provider **Enabled**.
+2. **Client ID** = cliente **Web**
+   `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`.
+3. **Client Secret** = el secret de ese mismo cliente Web (Google Cloud →
+   Credenciales → cliente Web → Secretos).
+4. **Authorized Client IDs** (audiencias admitidas del ID token), separados
+   por coma si hay varios:
+   - Web: `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`
+   - Android: `1026054616574-aklvn35uk4np08a3b61c5utq06j9vr24.apps.googleusercontent.com`
+     (y el ID del segundo cliente Android de Play SHA-1 si Cloud crea uno nuevo).
+5. Callback Auth (si no hay dominio custom):
+   `https://uvzgujlrqohreoucirms.supabase.co/auth/v1/callback`.
+6. No desactivar la verificación de nonce.
+7. Guardar → reintentar login en el dispositivo.
+
+Esto **no** es billing ni Play Billing; es solo OAuth / Auth.
 
 ## Drive
 
@@ -35,29 +85,12 @@ El usuario ha comunicado que Drive API, scopes y proveedor Google de Supabase es
 - Si coinciden revisión, fecha y escritor pero difieren los bytes, se bloquea la sincronización.
   En otro caso se utiliza exactamente la prioridad de Swift: revisión, fecha y escritor;
   se guarda copia antes de reemplazar una versión.
-- Comparación de revisiones distinta: `SyncConflictResolver` de Swift (revision,
-  `updatedAt`, `lastWriterDeviceId`). Es necesario probar serialización de fechas.
 - Un mismo usuario en Google Drive no recibe automáticamente sus datos de iCloud;
   la migración explícita iOS→Android sigue pendiente.
-- La carpeta privada puede eliminarse desde Google Drive o al quitar acceso de la
-  aplicación. Local-first se mantiene como fuente de respaldo.
-- Pendiente: pruebas de concurrencia real, límites, errores de cuota, desconexión y
-  migración; no presentar como sincronización validada en producción.
+- Pendiente: pruebas E2E de concurrencia, cuota y dispositivo firmado con cuenta de prueba.
 
 Referencias:
+- https://supabase.com/docs/guides/auth/social-login/auth-google?platform=android
 - https://developer.android.com/identity/sign-in/credential-manager-siwg-implementation
 - https://developer.android.com/identity/authorization
 - https://developers.google.com/workspace/drive/api/guides/appdata
-
-## Configuración pública OAuth — Repera 2026
-
-- Web OAuth Client ID (para Credential Manager): `1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com`.
-- Android OAuth Client ID: `1026054616574-aklvn35uk4np08a3b61c5utq06j9vr24.apps.googleusercontent.com`.
-- Nombre de paquete Android: `com.app.repera`.
-- Supabase URL: `https://uvzgujlrqohreoucirms.supabase.co`.
-- El Google ID token **se intercambia con Supabase** con `POST /auth/v1/token?grant_type=id_token` y el nonce original. Solo la respuesta verificada habilita el acceso local.
-- `sb_publishable_` es una clave pública apta para incluir en el cliente; el client secret OAuth y las claves `service_role` nunca se incluyen.
-- Las sesiones Supabase se mantienen solo en memoria: tras cerrar el proceso se exige volver a autenticarse.
-- El proveedor de Google y la API Drive han sido configurados por el propietario, pero faltan pruebas E2E con el dispositivo firmado y la cuenta de prueba.
-- Confirmar que **ambos** Client IDs (Web y Android) figuran en el proveedor Google de Supabase, y registrar también la SHA-1 de Google Play cuando haya firma de distribución.
-- No vincular cuentas Apple/iOS automáticamente basándose solo en coincidencia de correo.

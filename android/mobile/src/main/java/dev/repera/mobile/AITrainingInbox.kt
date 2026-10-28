@@ -3,6 +3,7 @@ package dev.repera.mobile
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -83,8 +84,8 @@ internal class AITrainingInbox(
         authorize()
         http.newCall(request).execute().use { response ->
             authorize()
-            val body = response.body?.string().orEmpty()
-                authorize()
+            val body = response.body.string()
+            authorize()
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
             return JSONArray(body)
@@ -103,8 +104,7 @@ internal class AITrainingInbox(
             .header("Authorization", "Bearer " + session.accessToken)
             .header("Content-Type", "application/json")
             .header("Prefer", "return=minimal")
-            .patch(okhttp3.RequestBody.create(
-                "application/json".toMediaType(), payload.toString()))
+            .patch(payload.toString().toRequestBody("application/json".toMediaType()))
             .build()
         authorize()
         http.newCall(request).execute().use { response ->
@@ -179,7 +179,7 @@ internal class AITrainingInbox(
                 set.optDouble("rir") else null
             val pct = if (set.has("percent1RM") && !set.isNull("percent1RM"))
                 set.optDouble("percent1RM") else null
-            if (reps <= 0 || reps > 5000 || (weight != null && (!weight.isFinite() || weight < 0)) ||
+            if (reps !in 1..5000 || (weight != null && (!weight.isFinite() || weight < 0)) ||
                 (rir != null && (!rir.isFinite() || rir !in 0.0..10.0)) ||
                 (pct != null && (!pct.isFinite() || pct !in 1.0..150.0))) {
                 throw ImportError("El entrenamiento recibido no cumple el formato Repera.")

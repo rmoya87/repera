@@ -115,11 +115,12 @@ desde el móvil: el reloj no las transforma artificialmente en reps.
 El ID OAuth Web público ya se incorpora como valor por defecto de
 `REPERA_GOOGLE_WEB_CLIENT_ID`; también se configura la URL de Repera Supabase
 y su clave pública `sb_publishable_`. Se exige una sesión Supabase validada
-con ID token Google y nonce antes de mostrar la aplicación autenticada.
+con ID token Google y nonce antes de mostrar la aplicación autenticada:
+Credential Manager recibe `SHA-256(raw)` y Supabase el `raw` (`GoogleAuthNonce`).
 No existen claves privadas ni OAuth Client Secret en el APK o en el repositorio.
 Es posible sobrescribir los valores públicos mediante propiedades Gradle.
-La sesión verificada no se persiste: al reiniciar el proceso se solicita
-una nueva autenticación.
+Checklist de consolas (SHA-1 Play + Authorized Client IDs):
+`docs/GOOGLE_IDENTITY_DRIVE.md` y `docs/RAMON_BLOCKERS.md` (RP-28).
 
 
 ## Catálogo actualizado — iOS / Android
