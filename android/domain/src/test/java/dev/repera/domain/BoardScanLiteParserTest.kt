@@ -823,4 +823,20 @@ class BoardScanLiteParserTest {
             assertEquals(1,block.movements.size)
         }
     }
+    @Test fun standaloneInitialQualityHeaderDoesNotDisappearIntoChipper() {
+        for(header in listOf("FOR QUALITY","RFQ","ROUNDS FOR QUALITY")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.ROUNDS_FOR_QUALITY,block.wodFormat)
+            assertEquals(header,block.title)
+            assertNull(block.rounds)
+            assertNull(block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        val annotated=BoardScanLiteParser.parse("EMOM 9'\nRFQ\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.EMOM,annotated.wodFormat)
+        assertEquals(9,annotated.timeCapMinutes)
+        assertEquals(1,annotated.movements.size)
+        assertTrue(annotated.wodNotes!!.contains("FOR QUALITY"))
+    }
 }

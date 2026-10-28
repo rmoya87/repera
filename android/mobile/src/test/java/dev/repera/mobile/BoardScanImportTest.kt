@@ -180,4 +180,16 @@ class BoardScanImportTest {
             assertTrue(wire.getString("wodNotes").contains(header))
         }
     }
+    @Test fun initialQualityHeaderKeepsFormatWithoutInventedRoundsInWire() {
+        for(header in listOf("FOR QUALITY","RFQ","ROUNDS FOR QUALITY")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            val wire=BoardScanImport.wireBlock(block)
+            assertEquals("roundsForQuality",wire.getString("wodFormat"))
+            assertEquals(header,wire.getString("title"))
+            assertEquals(1,wire.getJSONArray("movements").length())
+            assertFalse(wire.has("rounds"))
+            assertFalse(wire.has("timeCapMinutes"))
+            assertTrue(wire.getString("wodNotes").contains(header))
+        }
+    }
 }

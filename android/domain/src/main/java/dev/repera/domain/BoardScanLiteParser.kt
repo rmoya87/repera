@@ -124,7 +124,10 @@ object BoardScanLiteParser {
                 intervalDescription = line
                 continue
             }
-            val header = detectHeader(line)
+            // Bare quality labels start a format only before a block exists.
+            // Inside EMOM they remain annotations, preserving the Lite OCR path.
+            val header = if(current==null && upper in setOf("FOR QUALITY","RFQ","ROUNDS FOR QUALITY"))
+                Header(line,WODFormat.ROUNDS_FOR_QUALITY,null) else detectHeader(line)
             if (header != null) {
                 flush()
                 val title = listOfNotNull(sectionTitle, intervalDescription, header.title)

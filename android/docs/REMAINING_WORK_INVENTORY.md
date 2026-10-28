@@ -802,3 +802,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 07:23 28oct
 -353 bateria completa mobile682/163XML5lotes87/62/94/79/77s,domain547/93XML72s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Backup353recuperado65338db7:arbol16157773c4c740f035cbb7b06907d9cc54ef4080identico,clonlimpio.
 -354 solo documentacion: c6f89c28/88db5bb7reconciliadas352-353,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, calidad inicial 07:26 28oct
+- Mismo lector parcial355: FOR QUALITY/RFQ/ROUNDS FOR QUALITY exactos antesdeexistirbloque reconocenROUNDS_FOR_QUALITYsegunfuente528-535,sin cap/rondasinventados,tituloynotasoriginales. Si ya existeEMOM,RFQ/FORQUALITYsiguenanotacionLite,sinpartirbloque. No regla containsglobal,ni nueva interpretacion de QUALITY/FORfragmentados.
+- Regresion fallo antes:cabecerainicialdesapareciayterminabaCHIPPER.1testdominio3cabeceras+anotacionEMOMy1wirenuevos;dominio548/93XML66s,wire13/1XML57sverdes0fallos/errores/omitidos. Mobile completa/Wear355pendientes;ultima completa353mobile682/163,domain547/93,Wear8/1+ambosassemble66s.735/70sin cierres,nativo pendiente,no push.
