@@ -160,20 +160,26 @@ actor AppStatePersistence {
         coalesceTask = nil
         pendingState = nil
         lastWriteGeneration &+= 1
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        var coordinationError: NSError?
-        var deletionError: Error?
-        coordinator.coordinate(writingItemAt: cloudURL, options: .forDeleting, error: &coordinationError) { url in
-            do {
-                if FileManager.default.fileExists(atPath: url.path) {
-                    try FileManager.default.removeItem(at: url)
-                }
-            } catch {
-                deletionError = error
-            }
+        let readiness = cloudReadiness(at: cloudURL)
+        if readiness == .notDownloaded {
+            throw PersistenceError.cloudNotReady
         }
-        guard coordinationError == nil, deletionError == nil else {
-            throw PersistenceError.writeFailed
+        if readiness == .ready {
+            let coordinator = NSFileCoordinator(filePresenter: nil)
+            var coordinationError: NSError?
+            var deletionError: Error?
+            coordinator.coordinate(writingItemAt: cloudURL, options: .forDeleting, error: &coordinationError) { url in
+                do {
+                    if FileManager.default.fileExists(atPath: url.path) {
+                        try FileManager.default.removeItem(at: url)
+                    }
+                } catch {
+                    deletionError = error
+                }
+            }
+            guard coordinationError == nil, deletionError == nil else {
+                throw PersistenceError.writeFailed
+            }
         }
         do {
             if FileManager.default.fileExists(atPath: localURL.path) {
