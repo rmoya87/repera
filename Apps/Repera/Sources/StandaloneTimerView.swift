@@ -271,15 +271,21 @@ struct StandaloneTimerView: View {
     @State private var completedSummary: StandaloneTimerCompletion?
     @State private var timerStartedAt: Date?
     @State private var showDiscardCompletedTimer = false
+    @State private var savedDateToOpenOnDismiss: Date?
+    @State private var completionSaveError: String?
 
     var embedsNavigation = true
+    /// Se llama tras cerrar el reloj para volver a Inicio en el día guardado.
+    var onSaved: ((Date) -> Void)?
 
     init(
         embedsNavigation: Bool = true,
         config: StandaloneTimerConfig? = nil,
-        editingFavoriteId: UUID? = nil
+        editingFavoriteId: UUID? = nil,
+        onSaved: ((Date) -> Void)? = nil
     ) {
         self.embedsNavigation = embedsNavigation
+        self.onSaved = onSaved
         // Una configuración enviada por Favoritos tiene prioridad sobre
         // la última usada; sin preset, recuperar los ajustes anteriores.
         usesLastConfiguration = config == nil
@@ -298,7 +304,13 @@ struct StandaloneTimerView: View {
                 content
             }
         }
-        .fullScreenCover(isPresented: $showClock) {
+        .fullScreenCover(isPresented: $showClock, onDismiss: {
+            // Esperar al cierre real del full-screen antes de cerrar el
+            // hub padre: evita que el segundo modal se quede bloqueado.
+            guard let date = savedDateToOpenOnDismiss else { return }
+            savedDateToOpenOnDismiss = nil
+            onSaved?(date)
+        }) {
             if completedSummary != nil { timerSummaryScreen } else { clockScreen }
         }
         .alert("Guardar en favoritos", isPresented: $showSaveAlert) {
@@ -647,6 +659,14 @@ struct StandaloneTimerView: View {
             .ogListChrome()
             .listSectionSpacing(12)
             .ogScrollingTitleNav()
+            .alert("No se pudo guardar el temporizador", isPresented: Binding(
+                get: { completionSaveError != nil },
+                set: { if !$0 { completionSaveError = nil } }
+            )) {
+                Button("Aceptar", role: .cancel) { completionSaveError = nil }
+            } message: {
+                Text(completionSaveError ?? "")
+            }
         }
     }
 
@@ -712,6 +732,13 @@ struct StandaloneTimerView: View {
             )
             store.saveWorkout(session)
         }
+        guard store.state.workouts.contains(where: {
+            $0.id == summary.id && $0.phase == .finished
+        }) else {
+            completionSaveError = "No se ha podido registrar la sesión en el historial. Puedes volver a intentarlo sin perder el temporizador."
+            return
+        }
+        savedDateToOpenOnDismiss = summary.startedAt
         dismissCompletedTimer()
     }
 
