@@ -57,9 +57,7 @@ class TimerCompletionLayoutTests(unittest.TestCase):
         self.assertIn("Button(action: saveCompletedTimer)", self.summary)
         self.assertIn("showDiscardCompletedTimer = true", self.summary)
         self.assertIn("Button(\"Descartar\", role: .destructive, action: discardCompletedTimer)", self.summary)
-        self.assertIn("StandAloneTimerCompletionStore.clear()", TIMER.replace(
-            "StandaloneTimerCompletionStore", "StandAloneTimerCompletionStore"
-        ))
+        self.assertIn("StandaloneTimerCompletionStore.clear()", TIMER)
 
 
 
