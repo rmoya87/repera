@@ -916,3 +916,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Mismo bloque grafico parcial381, hallazgo nuevo HealthRecovery1273-1275: RuleMark1ptdash3/4,AndroidReadinessheredaba2pxdash6/6. Aplica1dpdash3dp/4dpsoloReadinesscomo fisiologia ya existente; otras metricas intactas. Colores/annotationnativanoafirmadosidenticos.
 - Regresion pixelperiodo7rojaantes;2focalizados/1XML101sverdesdespues0fallos/errores/omitidos,compruebarepeticiondedashygap. PNG360seleccioninspeccionado:reglafinavisible,curva/gradiente/textosintactosysinrecortes.
 - Completa mobile/dominio/Wear381pendiente; ultima completa379mobile690/163domain558/93Wear8/1+ambosassemble71s.735/70sin cierres,lectorparcial,autoX/fontmetrics/nativoabiertos. No push niApps/Packages.
+
+## Continuidad graficos parciales y matrices 12:09 28oct
+-381 bateria completa mobile690/163XML11lotes42/58/73/62/49/64/76/39/76/47/72s,domain558/93XML37s,Wear8/1XML+ambosassemble77sverdes0fallos/errores/omitidos. Backup381recuperado65338db7:arbolf7c15720fffc45e1e677fc47110f6b8cf9ece50aidentico,clonlimpio. Esto es evidencia interna, no cierre funcional ni nuevo Terminado repetible.
+-382 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas381,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/annotationnativaabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
+- Correccion usuario12:01: Terminado solo cierres nuevos desde el informe anterior; omitir si no hay. En curso necesita porcentaje con denominador verificable; no usar tests ni filas735como avance funcional. Registro de criterios versionado en preparacion, sin afirmar cobertura total antes de demostrarla.
