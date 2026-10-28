@@ -656,11 +656,13 @@ struct StandaloneTimerView: View {
     }
 
     private func dismissCompletedTimer() {
+        // Cerrar antes de limpiar el resumen evita que el fullScreenCover
+        // pinte brevemente el reloj anterior durante la transición.
+        showClock = false
+        stopTimer()
         StandaloneTimerCompletionStore.clear()
         completedSummary = nil
         timerStartedAt = nil
-        stopTimer()
-        showClock = false
     }
 
     private func discardCompletedTimer() {
