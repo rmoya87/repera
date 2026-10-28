@@ -283,6 +283,84 @@ struct WorkoutView: View {
                 usesPageCloseHeader: true
             )
         }
+        .navigationDestination(item: $replacingPlayExercise) { target in
+            ExercisePickerView(embedsNavigationStack: false) { chosen in
+                replacingPlayExercise = nil
+                let previous = store.state.activeSession?.exercises.first(where: { $0.id == target.itemID })
+                if previous?.loggedSets.isEmpty == false {
+                    pendingPlayReplacement = PendingPlayReplacement(target: target, exercise: chosen)
+                } else {
+                    replacePlayExercise(target, with: chosen)
+                }
+            }
+        }
+        .navigationDestination(item: $addPlayExerciseToBlock) { blockID in
+            ExercisePickerView(embedsNavigationStack: false) { selected in
+                mutatePlayRoutine { routine in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    let quantity = selected.loggingStyle == .machineWork
+                        ? (selected.defaultQuantityUnit == .meters ? 500 : 15)
+                        : (selected.isMobility ? 8 : 8)
+                    if routine.blocks[index].kind == .strength {
+                        let sets = (0..<(selected.loggingStyle.usesDuration ? 1 : 3)).map { _ in
+                            PlannedSet(targetReps: quantity)
+                        }
+                        routine.blocks[index].exercises.append(
+                            RoutineExercise(exerciseId: selected.id, plannedSets: sets,
+                                quantityUnit: selected.defaultQuantityUnit)
+                        )
+                    } else {
+                        routine.blocks[index].movements.append(
+                            WODMovement(exerciseId: selected.id, name: selected.name, reps: quantity,
+                                explicitPlannedSets: [PlannedSet(targetReps: quantity)])
+                        )
+                    }
+                }
+                addPlayExerciseToBlock = nil
+            }
+        }
+        .navigationDestination(item: $selectPlayFormatForBlock) { blockID in
+            WODFormatPickerPage { format in
+                mutatePlayRoutine { routine in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    routine.blocks[index].wodFormat = format
+                    if format == .tabata {
+                        routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
+                        routine.blocks[index].restSeconds = routine.blocks[index].restSeconds ?? 10
+                        routine.blocks[index].rounds = routine.blocks[index].rounds ?? 8
+                    }
+                    if format == .forTime {
+                        routine.blocks[index].rounds = routine.blocks[index].rounds ?? 4
+                        routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+                    }
+                    if format == .amrap || format == .emom {
+                        routine.blocks[index].timeCapMinutes = routine.blocks[index].timeCapMinutes ?? 12
+                    }
+                    if format == .emom { routine.blocks[index].deriveEmomRoundsIfNeeded() }
+                }
+                selectPlayFormatForBlock = nil
+            }
+        }
+        .navigationDestination(isPresented: $showPlayWODCatalog) {
+            WODCatalogPickerView(embedsNavigationStack: false) { template in
+                mutatePlayRoutine { $0.blocks.append(template.makeBlock()) }
+                showPlayWODCatalog = false
+            }
+        }
+        .alert("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+            get: { pendingPlayReplacement != nil },
+            set: { if !$0 { pendingPlayReplacement = nil } }
+        )) {
+            Button("Sustituir y reiniciar", role: .destructive) {
+                if let pendingPlayReplacement {
+                    replacePlayExercise(pendingPlayReplacement.target, with: pendingPlayReplacement.exercise)
+                }
+                pendingPlayReplacement = nil
+            }
+            Button("Cancelar", role: .cancel) { pendingPlayReplacement = nil }
+        } message: {
+            Text("Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.")
+        }
         .alert("No se ha podido guardar el favorito", isPresented: Binding(
             get: { favoriteSaveError != nil },
             set: { if !$0 { favoriteSaveError = nil } }
@@ -477,8 +555,94 @@ struct WorkoutView: View {
         return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks)
     }
 
-    /// Play comparte la jerarquía visual del editor: un bloque, sus ejercicios
-    /// y las series editables. No ofrece controles de creación ni de planificación.
+
+    private func mutatePlayRoutine(_ operation: (inout Routine) -> Void) {
+        persistActiveLiveDraft()
+        guard var draft = routineForEditing() else { return }
+        operation(&draft)
+        store.refreshActiveSessionPlan(from: draft)
+    }
+
+    private func movePlayBlock(_ blockID: UUID, offset: Int) {
+        mutatePlayRoutine { routine in
+            guard let old = routine.blocks.firstIndex(where: { $0.id == blockID }),
+                  routine.blocks.indices.contains(old + offset) else { return }
+            let block = routine.blocks.remove(at: old)
+            routine.blocks.insert(block, at: old + offset)
+        }
+    }
+
+    private func removePlayBlock(_ blockID: UUID) {
+        mutatePlayRoutine { routine in
+            let remaining = routine.blocks.filter { $0.id != blockID }
+            // Una sesión activa nunca puede perder su último ejercicio.
+            guard remaining.contains(where: { !$0.exercises.isEmpty || !$0.movements.filter({ !$0.isRest }).isEmpty }) else { return }
+            routine.blocks = remaining
+        }
+    }
+
+    private func movePlayExercise(_ blockID: UUID, itemID: UUID, offset: Int) {
+        mutatePlayRoutine { routine in
+            guard let i = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+            if routine.blocks[i].kind == .strength {
+                guard let j = routine.blocks[i].exercises.firstIndex(where: { $0.id == itemID }),
+                      routine.blocks[i].exercises.indices.contains(j + offset) else { return }
+                let item = routine.blocks[i].exercises.remove(at: j)
+                routine.blocks[i].exercises.insert(item, at: j + offset)
+            } else {
+                guard let j = routine.blocks[i].movements.firstIndex(where: { $0.id == itemID }),
+                      routine.blocks[i].movements.indices.contains(j + offset) else { return }
+                let item = routine.blocks[i].movements.remove(at: j)
+                routine.blocks[i].movements.insert(item, at: j + offset)
+            }
+        }
+    }
+
+    private func removePlayExercise(_ blockID: UUID, itemID: UUID) {
+        mutatePlayRoutine { routine in
+            guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+            if routine.blocks[index].kind == .strength {
+                routine.blocks[index].exercises.removeAll { $0.id == itemID }
+            } else {
+                routine.blocks[index].movements.removeAll { $0.id == itemID }
+            }
+        }
+    }
+
+    private func replacePlayExercise(_ target: PlayReplacementTarget, with selected: Exercise) {
+        mutatePlayRoutine { routine in
+            guard let blockIndex = routine.blocks.firstIndex(where: { $0.id == target.blockID }) else { return }
+            let style = selected.loggingStyle
+            let quantity = style == .machineWork
+                ? (selected.defaultQuantityUnit == .meters ? 500 : 15)
+                : (selected.isMobility ? (selected.isMobilityHold ? 1 : 8)
+                    : (style == .repsAndTime ? 50 : 8))
+            let duration: Int? = selected.isMobility
+                ? (selected.isMobilityHold ? 30 : 60) : nil
+            if routine.blocks[blockIndex].kind == .strength {
+                guard let j = routine.blocks[blockIndex].exercises.firstIndex(where: { $0.id == target.itemID }) else { return }
+                let count = style.usesDuration ? 1 : 3
+                let sets = (0..<count).map { _ in
+                    PlannedSet(targetReps: quantity, targetDurationSeconds: duration)
+                }
+                // Nueva identidad: la sesión nunca reutiliza las series realizadas.
+                routine.blocks[blockIndex].exercises[j] = RoutineExercise(
+                    exerciseId: selected.id, plannedSets: sets,
+                    quantityUnit: style == .machineWork || selected.supportsRepsOrMeters
+                        ? selected.defaultQuantityUnit : nil
+                )
+            } else {
+                guard let j = routine.blocks[blockIndex].movements.firstIndex(where: { $0.id == target.itemID }) else { return }
+                routine.blocks[blockIndex].movements[j] = WODMovement(
+                    exerciseId: selected.id, name: selected.name, reps: quantity,
+                    explicitPlannedSets: [PlannedSet(targetReps: quantity, targetDurationSeconds: duration)]
+                )
+            }
+        }
+    }
+
+    /// Play comparte los controles de bloques/ejercicios y series del editor,
+    /// añadiendo el reloj de cada bloque y el registro real de resultados.
     private struct WorkoutBlockEntry: Identifiable {
         let id: UUID
         let title: String
