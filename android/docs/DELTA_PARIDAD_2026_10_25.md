@@ -362,6 +362,7 @@ main móvil invisible.)
 - Meteo/viento sigue sin equivalente: Apple usa WeatherKit autenticado;
   Android no tiene transporte/backend existente. No se añaden proveedores
   ni se transmiten coordenadas privadas a servicios nuevos silenciosamente.
+  **(2026-10-28: clima no se hace en Android; Open-Meteo descartado.)**
 
 ## D6 navegación, 21:10 CET local
 - Verificación exacta Apple5890215d: repera://workout NO resuelve un UUID;
@@ -416,6 +417,7 @@ main móvil invisible.)
 ## Restricción coste21:34 CET
 Usuario pide solución sin costes, también meteo. No activar facturación ni
 servicios nuevos. Google Weather queda candidato no autorizado, no elegido.
+**(2026-10-28: clima no se hace en Android; Open-Meteo tampoco.)**
 Mapa Android actual: MapLibre13.7.1 + OpenFreeMap Liberty (RouteMapView y
 PlaceSearchSheet); no Google Maps. Fuente actual https://openfreemap.org/ :
 instancia pública gratuita, uso comercial/apps permitido, sin límites de
