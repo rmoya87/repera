@@ -632,13 +632,13 @@ struct HomeView: View {
                     )
                 }
             }
-            .navigationDestination(isPresented: Binding(
-                get: { openWorkoutId != nil },
-                set: { if !$0 { openWorkoutId = nil } }
-            )) {
-                if let id = openWorkoutId {
-                    WorkoutDetailView(sessionId: id)
-                }
+            .navigationDestination(item: $openWorkoutId) { id in
+                // Pintar el detalle desde el primer fotograma del push, sin
+                // intercambiar una vista vacía por una lista en onAppear.
+                WorkoutDetailView(
+                    sessionId: id,
+                    initialSession: store.state.workouts.first(where: { $0.id == id })
+                )
             }
             .navigationDestination(isPresented: Binding(
                 get: { openProfessionalSessionId != nil },
@@ -957,8 +957,8 @@ struct HomeView: View {
                         measurement: Double(weeklyWorkoutCount(for: days)),
                         goal: Double(target),
                         tint: OG.accent,
-                        label: "entrenamientos semanales",
-                        unit: "entrenos"
+                        label: "días de deporte semanales",
+                        unit: "días"
                     )
                 }
             }
@@ -968,16 +968,15 @@ struct HomeView: View {
     private func weeklyProgressSummary(for days: [DayCell]) -> String {
         let daysWithWorkout = days.filter(\.hasWorkout).count
         if let goal = store.state.settings.weeklyWorkoutGoal, goal > 0 {
-            return "\(weeklyWorkoutCount(for: days)) de \(goal) entrenos"
+            return "\(weeklyWorkoutCount(for: days)) de \(goal) días"
         }
         return "\(daysWithWorkout) días entrenados"
     }
 
+    /// Los checks y el objetivo cuentan días únicos, no sesiones.
+    /// Dos entrenos y un HKWorkout duplicado en la misma fecha son 1 día.
     private func weeklyWorkoutCount(for days: [DayCell]) -> Int {
-        days.reduce(0) { total, day in
-            total + (workoutsByDayKey[day.iso]?.count ?? 0)
-                + (healthByDayKey[day.iso]?.count ?? 0)
-        }
+        days.filter(\.hasWorkout).count
     }
 
     /// Actividad diaria real, sin gráfica de evolución semanal.
