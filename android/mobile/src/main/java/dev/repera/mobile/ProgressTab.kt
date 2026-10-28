@@ -143,7 +143,7 @@ internal fun ProgressTab(
         item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
         // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
         if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
-            Card(Modifier.fillMaxWidth().clickable(onClick=onOpenSports).testTag("progress_sports_link")) {
+            ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
                 Row(Modifier.padding(18.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                     Text("Deportes · evolución y récords");Text("›")
                 }
@@ -283,7 +283,7 @@ internal fun ProgressTab(
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
             if(healthPrompt!=ProgressHealthPromptKind.NONE) item {
-                Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     if(healthPrompt==ProgressHealthPromptKind.NOT_AUTHORIZED) {
                         Text("Salud sin permiso de lectura",style=MaterialTheme.typography.titleMedium)
                         Text("Autoriza Health Connect para ver FC y kcal.")
@@ -440,7 +440,7 @@ internal fun WeightPreviewCard(today:LocalDate) {
 }
 
 @Composable internal fun ProgressWeightCard(points:List<dev.repera.domain.ProgressDayPoint>,delta30d:Double?,goalKg:Double?,accountId:String,busy:Boolean,onLogBodyWeight:(Double)->Unit) {
- if(points.isEmpty()) Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
+ if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
   Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
   WeightStatTiles(null,goalKg)
   EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)

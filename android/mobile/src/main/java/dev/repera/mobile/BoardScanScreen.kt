@@ -208,7 +208,7 @@ internal fun BoardScanScreen(
             }
             items(if(classicMode) 0 else blocks.size) { index ->
                 val block = blocks[index]
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(block.title, style = MaterialTheme.typography.titleMedium)

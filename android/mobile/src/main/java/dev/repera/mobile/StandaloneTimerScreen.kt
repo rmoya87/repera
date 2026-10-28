@@ -477,7 +477,8 @@ internal fun StandaloneTimerScreen(
             TextButton(onClick = onBack) { Text("Volver") }
             Text(
                 "Temporizador",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = {
@@ -508,7 +509,7 @@ internal fun StandaloneTimerScreen(
                     }
                 }
             }
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text("Configuración", style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(bottom = 10.dp))
@@ -561,7 +562,7 @@ internal fun StandaloneTimerScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Favoritos", style = MaterialTheme.typography.titleSmall)
                     favorites.forEach { favorite ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(
                                     start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),

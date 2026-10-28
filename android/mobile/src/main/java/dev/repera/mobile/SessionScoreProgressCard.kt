@@ -27,7 +27,7 @@ internal fun SessionScoreProgressCard(points:List<ProgressDayPoint>,preview:Bool
  val rule=MaterialTheme.colorScheme.onSurfaceVariant
  val grid=rule.copy(alpha=0.15f)
  fun nearest(f:Float)=values.indices.minBy {abs(ProgressPlotAxis.fraction(values[it].day,domain)-f)}
- Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
    Text("Puntuación de entrenos",style=MaterialTheme.typography.titleMedium)
    if(values.isNotEmpty()) Text((if(preview) "Ejemplo · " else "")+Math.round(values.map {it.value}.average())+"/10",style=MaterialTheme.typography.labelMedium)

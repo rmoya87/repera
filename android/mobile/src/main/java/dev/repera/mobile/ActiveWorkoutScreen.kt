@@ -30,8 +30,10 @@ internal fun ActiveWorkoutScreen(
 ) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item { TextButton(onClick=onBack) { Text("Volver") } }
-        item { Text("Entrenamiento activo",style=MaterialTheme.typography.headlineMedium) }
+        item {
+            TextButton(onClick = onBack) { Text("Volver") }
+            ReperaPageHeader(title = "Entrenamiento activo", subtitle = workout.title.takeIf { it.isNotBlank() })
+        }
         item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes,onSaveFavorite,onEditPlan,accountId)}
         item {
             if(workout.wod!=null) WodScoreCard(active=workout,busy=busy,timer=timer,
@@ -44,9 +46,13 @@ internal fun ActiveWorkoutScreen(
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
                 onFinish=onFinish,onDiscard=onDiscard)
         }
+        item { ReperaSectionTitle("Lugar") }
         item {
-            Text("Lugar",style=MaterialTheme.typography.titleMedium)
-            WorkoutPlacePickerRow(pin=pin,accountId=accountId,onPinChange=onPinChange)
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    WorkoutPlacePickerRow(pin=pin,accountId=accountId,onPinChange=onPinChange)
+                }
+            }
         }
     }
 }

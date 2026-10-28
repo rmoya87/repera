@@ -14,7 +14,7 @@ internal fun SuggestedExerciseLoadCard(tested:Double?,estimated:Double?,incremen
     var percent by rememberSaveable {mutableStateOf(70f)}
     val oneRM=tested ?: estimated
     val source=if(tested!=null) "1RM" else "e1RM"
-    Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Carga sugerida",style=MaterialTheme.typography.titleMedium)
         if(oneRM!=null && oneRM>0) {
             val kg=dev.repera.domain.LoadSuggestion.weightKg(oneRM,percent.toDouble(),increment)

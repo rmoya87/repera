@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
             error=null
         }.onFailure {error="No se pudo leer la foto. Prueba otra imagen."}
     }
-    Text("Perfil",style=MaterialTheme.typography.titleMedium)
     val avatar=remember(value.avatarJPEG) {runCatching {value.avatarJPEG?.let {android.util.Base64.decode(it,android.util.Base64.DEFAULT)}?.let {android.graphics.BitmapFactory.decodeByteArray(it,0,it.size)}}.getOrNull()}
     // Identidad Google (paridad badge SettingsView iOS 619888f2): en Android
     // la cuenta verificada es siempre Google Sign-In.

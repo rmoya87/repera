@@ -86,7 +86,7 @@ internal fun CenterTab(
             style = MaterialTheme.typography.titleMedium) }
         if (!connected) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("No se han podido cargar tus centros",
@@ -120,7 +120,7 @@ internal fun CenterTab(
             val invitations = snapshot?.invitations ?: emptyList()
             if (centers.isEmpty() && invitations.isEmpty() && !loading) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
                         Text("Todavía no perteneces a ningún centro. Tu entrenador o " +
                             "gimnasio puede invitarte al correo de tu cuenta.",
                             modifier = Modifier.padding(16.dp),
@@ -129,7 +129,7 @@ internal fun CenterTab(
                 }
             }
             items(invitations) { invitation ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Invitación a un centro",
@@ -144,7 +144,7 @@ internal fun CenterTab(
                 }
             }
             items(centers) { center ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     TextButton(onClick={detail=center}) {Text(center.name, modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.titleSmall)}
                 }
@@ -158,7 +158,7 @@ internal fun CenterTab(
                 item { Text("Privacidad",
                     style = MaterialTheme.typography.titleMedium) }
                 items(linked) { center ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
@@ -199,7 +199,7 @@ internal fun CenterTab(
         }
         if (available.isEmpty()) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(if (section == "class") "Sin clases disponibles"
@@ -213,7 +213,7 @@ internal fun CenterTab(
             }
         }
         items(available) { occurrence ->
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(occurrence.title, style = MaterialTheme.typography.titleSmall)

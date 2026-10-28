@@ -149,18 +149,9 @@ import androidx.core.content.ContextCompat
     )
 
     Spacer(Modifier.height(16.dp))
-    Text(
-        "Recuperación privada",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold
-    )
-    Spacer(Modifier.height(8.dp))
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
+    ReperaSectionTitle("Recuperación privada")
+    Spacer(Modifier.height(4.dp))
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(
@@ -175,12 +166,7 @@ import androidx.core.content.ContextCompat
                             privateError = "No se pudo guardar la decisión de sueño"
                         }
                     },
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        uncheckedBorderColor = MaterialTheme.colorScheme.outline
-                    ),
+                    colors = reperaSwitchColors(),
                     modifier = Modifier.testTag("private_sleep_enabled")
                 )
                 Spacer(Modifier.width(12.dp))
@@ -199,12 +185,7 @@ import androidx.core.content.ContextCompat
                             privateError = "No se pudo guardar la decisión del ciclo"
                         }
                     },
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        uncheckedBorderColor = MaterialTheme.colorScheme.outline
-                    ),
+                    colors = reperaSwitchColors(),
                     modifier = Modifier.testTag("private_cycle_enabled")
                 )
                 Spacer(Modifier.width(12.dp))
@@ -251,12 +232,7 @@ private fun PermissionSettingsRow(
     actionLabel: String,
     onAction: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically

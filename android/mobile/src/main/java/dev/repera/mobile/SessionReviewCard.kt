@@ -45,7 +45,7 @@ private fun SessionReview.isVerified(): Boolean =
 internal fun SessionReviewCard(review: SessionReview, startsExpanded: Boolean = false) {
     if (!review.isVerified()) return
     var expanded by rememberSaveable(review.headline) { mutableStateOf(startsExpanded) }
-    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(modifier = Modifier.fillMaxWidth()) {
             TextButton(onClick = { expanded = !expanded },
                 modifier = Modifier.fillMaxWidth()) {
@@ -93,7 +93,7 @@ internal fun SessionReviewCard(review: SessionReview, startsExpanded: Boolean = 
 
 @Composable
 private fun IndicatorRow(indicator: ReviewIndicator) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {

@@ -436,7 +436,7 @@ private fun BlockEditorCard(
     effortUnit: String = "rir"
 ) {
     val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

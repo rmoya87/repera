@@ -26,14 +26,19 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
  // Al cambiar de cuenta la hoja se cierra: nada de la cuenta anterior persiste.
  var external by remember(accountId) {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
  LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-  item {Text("Historial de entrenamientos",style=MaterialTheme.typography.headlineMedium)}
-  if(rows.isEmpty()) item {Text("Sin entrenos. Las sesiones de Repera y Health Connect aparecerán aquí.")}
+  item { ReperaPageHeader(title = "Historial de entrenamientos") }
+  if(rows.isEmpty()) item {
+    ReperaEmptyState(
+      title = "Sin entrenos",
+      subtitle = "Las sesiones de Repera y Health Connect aparecerán aquí"
+    )
+  }
   rows.groupBy {Instant.ofEpochMilli(it.millis).atZone(ZoneId.systemDefault()).toLocalDate()}.forEach {(day,entries) ->
    item(key="day-$day") {Text(day.format(reperaDayFormatter),style=MaterialTheme.typography.titleMedium)}
    entries.forEach {row ->item(key=row.id) {
     row.local?.let {WorkoutHistoryCard(it,busy,onRevise,onDeleteSet,onDelete,onOpenExercise,accountId,overview?.exerciseEntries.orEmpty(),onUpdate,heartSeries,
         effortUnit=overview?.trainingSettings?.effortUnit ?: "rir")}
-    row.external?.let {entry ->Card(Modifier.fillMaxWidth()) {TextButton(onClick={external=entry}) {Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    row.external?.let {entry ->ReperaCard(Modifier.fillMaxWidth()) {TextButton(onClick={external=entry}) {Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
      ExternalHealthActivityIcon(entry.exerciseTypeKey)
      Column {Text(entry.title);Text("Health Connect · ${entry.minutes.toInt()} min")}
     }}}}

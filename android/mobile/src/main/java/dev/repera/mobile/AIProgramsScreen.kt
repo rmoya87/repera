@@ -54,7 +54,7 @@ fun AIProgramsScreen(
         }
         if (!loading && programs != null && programs.isEmpty() && connected) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("No hay programas de IA",
@@ -68,7 +68,7 @@ fun AIProgramsScreen(
             }
         }
         items(programs ?: emptyList()) { program ->
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(program.title,

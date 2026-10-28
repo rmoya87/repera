@@ -8,7 +8,7 @@ import org.json.JSONArray
 
 /** Read-only projection. Never mutates personal catalog/session or starts sensors. */
 @Composable internal fun ProfessionalSessionCard(session:BusinessCenterStore.ProfessionalSession,centerName:String,compact:Boolean) {
-    Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(session.title,style=MaterialTheme.typography.titleMedium)
         Text("$centerName · ${session.scheduledDate}",style=MaterialTheme.typography.bodySmall)
         if(session.instructions.isNotEmpty()) Text(session.instructions)
