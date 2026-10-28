@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -30,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.Icons
@@ -474,13 +476,10 @@ internal fun StandaloneTimerScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("Volver") }
-            Text(
-                "Temporizador",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+            }
+            Spacer(Modifier.weight(1f))
             IconButton(onClick = {
                 saveTitle = editingFavoriteId?.let { id ->
                     favorites.firstOrNull { it.id == id }?.title
@@ -492,13 +491,17 @@ internal fun StandaloneTimerScreen(
                     else "Actualizar favorito")
             }
         }
+        ReperaPageHeader(
+            title = "Temporizador",
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Tipo de temporizador", style = MaterialTheme.typography.titleSmall)
+                ReperaSectionTitle("Tipo de temporizador")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StandaloneTimerMode.entries.forEach { mode ->
                         ReperaFilterChip(
@@ -555,12 +558,11 @@ internal fun StandaloneTimerScreen(
                 onClick = { prepareAndShowClock() },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = brandGreen, contentColor = Color.Black)
+                colors = reperaPrimaryButtonColors()
             ) { Text("Abrir reloj", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
             if (favorites.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Favoritos", style = MaterialTheme.typography.titleSmall)
+                    ReperaSectionTitle("Favoritos")
                     favorites.forEach { favorite ->
                         ReperaCard(modifier = Modifier.fillMaxWidth()) {
                             Row(

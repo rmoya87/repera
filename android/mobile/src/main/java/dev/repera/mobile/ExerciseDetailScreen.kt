@@ -18,14 +18,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -100,22 +105,27 @@ internal fun ExerciseDetailScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            TextButton(onClick = onBack) { Text("Volver") }
-            ReperaPageHeader(title = entry.displayName)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick=onQuickLog,enabled=!busy) {Text("Apuntar ejercicio")}
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Ejercicios")
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onQuickLog, enabled = !busy) {
+                    Icon(Icons.Outlined.EditNote, contentDescription = "Apuntar ejercicio")
+                }
                 if (onToggleFavorite != null) {
-                    androidx.compose.material3.IconButton(onClick = onToggleFavorite, enabled = !busy,
+                    IconButton(onClick = onToggleFavorite, enabled = !busy,
                         modifier = Modifier.testTag("exercise_detail_favorite")) {
-                        androidx.compose.material3.Icon(
-                            if (entry.isFavorite) androidx.compose.material.icons.Icons.Outlined.Star
-                            else androidx.compose.material.icons.Icons.Outlined.StarBorder,
+                        Icon(
+                            if (entry.isFavorite) Icons.Outlined.Star
+                            else Icons.Outlined.StarBorder,
                             contentDescription = if (entry.isFavorite) "Quitar de favoritos" else "Favorito",
-                            tint = if (entry.isFavorite) brandGreen
+                            tint = if (entry.isFavorite) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
+            ReperaPageHeader(title = entry.displayName)
         }
         if (thisSessionAppearance != null) {
             item(key = "this-session-" + highlightSessionId) {
@@ -146,8 +156,9 @@ internal fun ExerciseDetailScreen(
                 }
             }
         }
-        if (!isMobility) item {
-            SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg)
+        if (!isMobility) {
+            item { ReperaSectionTitle("Carga sugerida") }
+            item { SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg) }
         }
         if (frames.size <= 1) {
             item { ArtImage(frames.firstOrNull(), entry.name, Modifier.fillMaxWidth().aspectRatio(4f / 3f)) }
@@ -167,7 +178,7 @@ internal fun ExerciseDetailScreen(
         entry.detailDescription?.let { description ->
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp),
+                    Column(Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(description, style = MaterialTheme.typography.bodyMedium)
                     }
@@ -178,7 +189,7 @@ internal fun ExerciseDetailScreen(
             item { ReperaSectionTitle("Cómo hacerlo") }
             itemsIndexed(entry.instructions, key = { index, _ -> index }) { index, step ->
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    androidx.compose.foundation.layout.Column(Modifier.padding(16.dp)) {
                         Text("${index + 1}. $step", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -240,7 +251,7 @@ internal fun ExerciseEvolutionSection(
     var selectedPoint by remember(entry.id,metric,range) {mutableStateOf<Int?>(null)}
     val ceiling=testedOneRM?.takeIf { entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime" && (selectedMetric==ExerciseProgressMetric.TOP_SET || selectedMetric==ExerciseProgressMetric.ESTIMATED_ONE_RM) }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(18.dp),
+        androidx.compose.foundation.layout.Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Evolución", style = MaterialTheme.typography.titleLarge)
             // Apple 025828b5/1b5d4eea (ExerciseEvolutionPanel.summaryTiles):
@@ -337,6 +348,7 @@ internal fun ExerciseEvolutionSection(
             } else {
                 val ceilingColor=MaterialTheme.colorScheme.primary
                 val gridColor=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.18f)
+    val chartLineColor = MaterialTheme.colorScheme.tertiary
                 val (axisLow,axisHigh)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
                 Row(Modifier.fillMaxWidth()) {
                 Column(Modifier.size(width=44.dp,height=220.dp),verticalArrangement=Arrangement.SpaceBetween) {
@@ -371,7 +383,7 @@ internal fun ExerciseEvolutionSection(
                     val path=androidx.compose.ui.graphics.Path()
                     path.moveTo(observed.first().x,observed.first().y)
                     ReadinessCurve.segments(observed).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
-                    drawPath(path,color=androidx.compose.ui.graphics.Color(0xFF0A84FF),
+                    drawPath(path,color=chartLineColor,
                         style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -440,7 +452,7 @@ private fun ThisSessionCard(
         "Esta sesión · " + thisAppearance.wodTemplateName
     else "Esta sesión"
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp),
+        Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(sectionTitle, style = MaterialTheme.typography.titleSmall)
             SessionAppearanceBlock(thisAppearance, emphasizeDate = true)
@@ -517,7 +529,7 @@ internal fun MuscleEquipmentCard(entry: ExerciseEntry) {
     val sports = entry.disciplineTags.filter { it.isNotBlank() }
     if (primary.isBlank()) return
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp),
+        androidx.compose.foundation.layout.Column(Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             MetaChipRow("Músculo") {
                 MuscleMetaChip(primary, primary, emphasized = true)
