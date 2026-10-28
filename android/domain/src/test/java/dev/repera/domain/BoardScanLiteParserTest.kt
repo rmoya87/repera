@@ -643,4 +643,18 @@ class BoardScanLiteParserTest {
             assertTrue(block.wodNotes!!.contains(header))
         }
     }
+    @Test fun plainRoundHeaderAndTabataUseSourceDefaultsNotFakeMovements() {
+        val rounds=BoardScanLiteParser.parse("5 ROUNDS OF\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.FOR_TIME,rounds.wodFormat)
+        assertEquals(5,rounds.rounds)
+        assertEquals(12,rounds.timeCapMinutes)
+        assertEquals(1,rounds.movements.size)
+        val tabata=BoardScanLiteParser.parse("TABATA AIR SQUAT\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.TABATA,tabata.wodFormat)
+        assertEquals(8,tabata.rounds)
+        assertEquals("Tabata",tabata.title)
+        assertTrue(tabata.wodNotes!!.contains("TABATA AIR SQUAT"))
+        assertEquals(1,tabata.movements.size)
+        assertNull(tabata.timeCapMinutes)
+    }
 }

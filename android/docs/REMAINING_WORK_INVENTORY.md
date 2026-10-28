@@ -691,3 +691,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -329 bateria completa mobile677/163XML100/112/92/97s,domain526/93XML77s,Wear8/1XML+ambosassemble95s verdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo lector parcial,subhueco cabeceras330: CHIPPER yDEATH BY/MUERTE POR seleccionan formato existente ytitulo fuente,segun BoardImportParser606-611;ya no crean movimiento falso de cabecera. Conserva cabecera original en notas aun con titulo normalizado. No agrega timecap/rondas/defaults3x8.
 - Regresion fallo antes del cambio.1test dominio de3cabeceras y1wire nuevos;dominio527/93XML77s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear330 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, rondas simples y TABATA 03:45 28oct
+-330 bateria completa mobile678/163XML94/113/92/82s,domain527/93XML77s,Wear8/1XML+ambosassemble69s verdes0fallos/errores/omitidos. Backup330recuperado,arbol8199407c48fe2972875555a85c40b69f0a1153deidentico,clon limpio.
+- Mismo lector parcial331: cabecera exacta N ROUND(S)[OF] con N1..200 seleccionaFOR_TIME,Nrondas y12min como fuente590-602;TABATA conserva titulo fuente+8rondas antes borradas por headernull. No3x8inferido.
+- Primer intento demasiado amplio confundio5ROUND THE WORLD;full detecto regresion propia yse acoto a cabecera exacta,ahora pasa. Textoadicional ROUND(S) sigue review.1test nuevo;dominio528/93XML67s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear331 pendientes.735/70sin cierres,nativo pendiente,no push.

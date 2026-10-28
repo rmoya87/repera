@@ -340,8 +340,13 @@ object BoardScanLiteParser {
             else line
             return Header(title, WODFormat.FOR_TIME, timeCap ?: altCap, rounds)
         }
+        Regex("^\\d+\\s+ROUNDS?(?:\\s+OF)?\\s*$").find(upper)?.let {
+            val rounds=firstInt(it.value)
+            if(rounds!=null && rounds in 1..200) return Header(line,WODFormat.FOR_TIME,12,rounds=rounds)
+            return null
+        }
         if (upper.contains("TABATA")) {
-            return Header(line, WODFormat.TABATA, null)
+            return Header("Tabata", WODFormat.TABATA, null,rounds=8)
         }
         if(upper.contains("CHIPPER")) return Header("Chipper",WODFormat.CHIPPER,null)
         if(upper.contains("DEATH BY") || upper.contains("MUERTE POR")) return Header("Muerte por",WODFormat.DEATH_BY,null)
