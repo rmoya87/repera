@@ -835,3 +835,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, @numero literal en movimiento simple 08:46 28oct
 - Mismo lector parcial362: sufijo @numero entero/decimal de movimiento simple se conserva como nota literal,sin inventar kg/RPE,nombrelimpio. SubconjuntoBoardImportParser667-674,con fronteraespacio y sinotrasanotacionesresiduales/complex. No cambiapesosdefuerzaexplicita ni RPErangeprevio.
 - Regresion fallo antes.1testdominio@7/@7.5/@7,5y1wirenuevos;dominio552/93XML91s,wire17/1XML88sverdes0fallos/errores/omitidos. Mobile completa/Wear362pendientes;ultima completa360mobile686/163,domain551/93,Wear8/1+ambosassemble88s.735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 09:03 28oct
+-362 bateria completa mobile687/163XML11lotes58/86/106/87/68/78/87/47/84/51/87s,domain552/93XML91s,Wear8/1XML+ambosassemble73sverdes0fallos/errores/omitidos. Backup362recuperado65338db7:arbolaa1cc6a08f9a62af4f516c6019e2d95f22d7edd0identico,clonlimpio.
+-363 solo documentacion: c6f89c28/88db5bb7reconciliadas362,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
