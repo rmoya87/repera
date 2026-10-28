@@ -60,18 +60,20 @@ internal fun FavoritesHubScreen(
     ) {
         item {
             Column {
-                TextButton(onClick = onBack) { Text("‹ Volver") }
-                Text("Favoritos", style = MaterialTheme.typography.headlineMedium)
+                TextButton(onClick = onBack) { Text("Volver") }
+                ReperaPageHeader(title = "Favoritos")
             }
         }
         if (favorites.isEmpty() && favoriteTimers.isEmpty() && sportFavorites.isEmpty()) {
             item {
-                Text("Marca entrenos, actividades o temporizadores con ★ para tenerlos aquí.",
-                    fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ReperaEmptyState(
+                    title = "Sin favoritos",
+                    subtitle = "Marca entrenos, actividades o temporizadores como favoritos para tenerlos aquí."
+                )
             }
         }
         items(favorites, key = { "favhub:" + it.id }) { routine ->
-            Card(modifier = Modifier.fillMaxWidth()
+            ReperaCard(modifier = Modifier.fillMaxWidth()
                 .clickable(enabled = !busy && activeWorkout == null) {
                     onStartRoutine(routine.id)
                 }) {
@@ -97,10 +99,10 @@ internal fun FavoritesHubScreen(
         }
         if (sportFavorites.isNotEmpty()) {
             item {
-                Text("Actividades", style = MaterialTheme.typography.titleMedium)
+                ReperaSectionTitle("Actividades")
             }
             items(sportFavorites, key = { "favsport:" + it.id }) { activity ->
-                Card(modifier = Modifier.fillMaxWidth()
+                ReperaCard(modifier = Modifier.fillMaxWidth()
                     .clickable(enabled = !busy) { onOpenSport(activity.sportID) }
                     .testTag("fav_sport_" + activity.id)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -119,10 +121,10 @@ internal fun FavoritesHubScreen(
         }
         if (favoriteTimers.isNotEmpty()) {
             item {
-                Text("Temporizadores", style = MaterialTheme.typography.titleMedium)
+                ReperaSectionTitle("Temporizadores")
             }
             items(favoriteTimers, key = { "favtimer:" + it.id }) { timer ->
-                Card(modifier = Modifier.fillMaxWidth()
+                ReperaCard(modifier = Modifier.fillMaxWidth()
                     .clickable(enabled = !busy) { onOpenTimer(timer.id) }) {
                     Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically) {

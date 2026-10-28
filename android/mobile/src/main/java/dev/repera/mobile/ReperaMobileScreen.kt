@@ -338,22 +338,29 @@ fun ReperaMobileScreen(
             if(expanded && currentRoute=="inicio") {routinePanelId=null;showSettingsPanel=true} else navigateTab("ajustes")
         }
         val visibleTabs = tabs
+        // Paridad iOS: las 4 tabs usan large title in-content (`ogFixedTopBar` /
+        // título en scroll), no un TopAppBar global «repera» encima de todas.
+        // Ajustes se abre desde el avatar de Inicio o la ruta `ajustes`.
+        val tabRoutes = tabs.map { it.route }.toSet()
+        val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                TopAppBar(
-                    title = { Text("repera") },
-                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
-                    ),
-                    actions = {
-                        IconButton(onClick = openSettings) {
-                            Icon(imageVector = Icons.Outlined.Settings,
-                                contentDescription = "Ajustes")
-                        }
-                    })
+                if (showChromeTopBar) {
+                    TopAppBar(
+                        title = { Text("repera") },
+                        colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            titleContentColor = MaterialTheme.colorScheme.onBackground,
+                            actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                        ),
+                        actions = {
+                            IconButton(onClick = openSettings) {
+                                Icon(imageVector = Icons.Outlined.Settings,
+                                    contentDescription = "Ajustes")
+                            }
+                        })
+                }
             },
             bottomBar = {
                 NavigationBar(
@@ -961,51 +968,80 @@ internal fun SettingsTab(
 
     val settingsScroll=rememberScrollState()
     ProvideScrollDragAutoScroll(settingsScroll) {
-    Column(modifier = Modifier.fillMaxSize().then(Modifier.verticalScroll(settingsScroll)).padding(18.dp),
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Ajustes", style = MaterialTheme.typography.titleLarge)
-        ProfileSettingsSection(overview?.profileSettings ?: ProfileSettings(),busy || overview==null,onUpdateProfile)
-        TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
-        if(overview?.trainingSettings?.scheduleMode=="rotation")
-            RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
-        OutlinedButton(onClick=onOpenCenter,enabled=!busy) {Text("Mis centros y entrenadores")}
-        proStatus?.let {Text(it)}
-        OutlinedButton(onClick=onOpenPro,enabled=!busy) {Text("Repera Pro")}
-        PermissionSettingsSection(onHealthConnect,onPrivateSleepChanged,onPrivateCycleChanged)
-        HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
-        OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null) {Text("Historial de entrenamientos")}
-        OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null) {Text("Peso corporal")}
-        Text("Datos", style = MaterialTheme.typography.titleMedium)
-        overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
-        OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null) {Text("Exportar JSON")}
-        OutlinedButton(onClick={confirmSignOut=true},enabled=!busy && !deletingAccount) {Text("Cerrar sesión")}
-        Row(modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpenAIAccess)
-            .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("Conecta tu IA", style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f))
-            Icon(imageVector = Icons.Outlined.KeyboardArrowRight,
-                contentDescription = null)
+        ReperaPageHeader(title = "Ajustes")
+        ReperaSectionTitle("Perfil")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProfileSettingsSection(overview?.profileSettings ?: ProfileSettings(),busy || overview==null,onUpdateProfile)
+            }
         }
-        // Misma sección Datos de iOS: traspaso del JSON de Apple y CSV.
-        OutlinedButton(onClick = onImportJson, enabled = !busy && !deletingAccount,
-            modifier = Modifier.fillMaxWidth()) {
-            Text("Importar JSON (traspaso desde Apple)")
+        ReperaSectionTitle("Entrenamiento")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
+                if(overview?.trainingSettings?.scheduleMode=="rotation")
+                    RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
+            }
         }
-        OutlinedButton(onClick = onImportCsv, enabled = !busy && !deletingAccount,
-            modifier = Modifier.fillMaxWidth()) {
-            Text("Importar CSV Strong/Hevy")
+        ReperaSectionTitle("Cuenta y Pro")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick=onOpenCenter,enabled=!busy, modifier = Modifier.fillMaxWidth()) {Text("Mis centros y entrenadores")}
+                proStatus?.let {Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)}
+                OutlinedButton(onClick=onOpenPro,enabled=!busy, modifier = Modifier.fillMaxWidth()) {Text("Repera Pro")}
+            }
         }
-        OutlinedButton(
-            onClick = { confirmDeleteAccount = true },
-            enabled = !busy && !deletingAccount,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier.fillMaxWidth().testTag("delete_account")
-        ) {
-            Text(if (deletingAccount) "Eliminando cuenta…" else "Eliminar mi cuenta")
+        ReperaSectionTitle("Salud")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PermissionSettingsSection(onHealthConnect,onPrivateSleepChanged,onPrivateCycleChanged)
+                HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
+            }
+        }
+        ReperaSectionTitle("Historial")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Historial de entrenamientos")}
+                OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Peso corporal")}
+            }
+        }
+        ReperaSectionTitle("Datos")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
+                OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Exportar JSON")}
+                OutlinedButton(onClick={confirmSignOut=true},enabled=!busy && !deletingAccount, modifier = Modifier.fillMaxWidth()) {Text("Cerrar sesión")}
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAIAccess)
+                    .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Conecta tu IA", style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f))
+                    Icon(imageVector = Icons.Outlined.KeyboardArrowRight,
+                        contentDescription = null)
+                }
+                // Misma sección Datos de iOS: traspaso del JSON de Apple y CSV.
+                OutlinedButton(onClick = onImportJson, enabled = !busy && !deletingAccount,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text("Importar JSON (traspaso desde Apple)")
+                }
+                OutlinedButton(onClick = onImportCsv, enabled = !busy && !deletingAccount,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text("Importar CSV Strong/Hevy")
+                }
+                OutlinedButton(
+                    onClick = { confirmDeleteAccount = true },
+                    enabled = !busy && !deletingAccount,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth().testTag("delete_account")
+                ) {
+                    Text(if (deletingAccount) "Eliminando cuenta…" else "Eliminar mi cuenta")
+                }
+            }
         }
     }
     }

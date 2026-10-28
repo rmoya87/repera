@@ -4,13 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.SortByAlpha
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -47,8 +46,8 @@ internal fun ExerciseFilterContent(filters:List<String>,filter:String,sort:Strin
             Text("Ordenar y filtrar",style=MaterialTheme.typography.headlineSmall,modifier=Modifier.weight(1f))
             IconButton(onClick=onClose) {Icon(Icons.Outlined.Close,"Cerrar filtros")}
         }
-        Text("Ordenar",style=MaterialTheme.typography.titleSmall)
-        Card(Modifier.fillMaxWidth()) {
+        ReperaSectionTitle("Ordenar")
+        ReperaCard(Modifier.fillMaxWidth()) {
             listOf("Alfabético","Músculo","Material").forEach {mode ->
                 val icon=when(mode) {
                     "Alfabético" -> Icons.Outlined.SortByAlpha
@@ -58,14 +57,14 @@ internal fun ExerciseFilterContent(filters:List<String>,filter:String,sort:Strin
                 ExerciseFacetRow(mode,icon,sort==mode) {onSort(mode)}
             }
         }
-        Text("Filtrar",style=MaterialTheme.typography.titleSmall)
-        Card(Modifier.fillMaxWidth()) {
+        ReperaSectionTitle("Filtrar")
+        ReperaCard(Modifier.fillMaxWidth()) {
             alphabeticExerciseFacets(filters).forEach {value ->
                 val selected=filter==value
                 val icon=when(value) {
-                    "Todos" -> if(selected) Icons.Filled.GridView else Icons.Outlined.GridView
-                    "Cardio" -> if(selected) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder
-                    "Favoritos" -> if(selected) Icons.Filled.Star else Icons.Outlined.StarBorder
+                    "Todos" -> if(selected) Icons.Outlined.GridView else Icons.Outlined.GridView
+                    "Cardio" -> if(selected) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder
+                    "Favoritos" -> if(selected) Icons.Outlined.Star else Icons.Outlined.StarBorder
                     else -> ExerciseCategorySymbols.discipline(value)
                 }
                 ExerciseFacetRow(value,icon,selected) {onFilter(value)}

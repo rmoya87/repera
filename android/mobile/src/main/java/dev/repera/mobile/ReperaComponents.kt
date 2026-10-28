@@ -1,7 +1,16 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
@@ -9,15 +18,21 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -112,14 +127,14 @@ fun ReperaFilterChip(
 }
 
 /**
- * Card estilo lista iOS: surface opaca, borde fino, sin elevación tonal
- * (evita tintes del surfaceTint sobre el fondo).
+ * Card estilo lista iOS (`OGCard`): surface opaca, radio 14 (`shapes.medium`),
+ * borde fino, sin elevación tonal (evita tintes violeta del surfaceTint).
  */
 @Composable
 fun ReperaCard(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    shape: Shape = MaterialTheme.shapes.large,
+    shape: Shape = MaterialTheme.shapes.medium,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -130,6 +145,134 @@ fun ReperaCard(
         border = if (selected) null else reperaCardBorder(),
         content = content
     )
+}
+
+/** Variante clicable con los mismos colores/borde que [ReperaCard]. */
+@Composable
+fun ReperaCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    shape: Shape = MaterialTheme.shapes.medium,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = shape,
+        colors = if (selected) reperaSelectedCardColors() else reperaCardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = if (selected) null else reperaCardBorder(),
+        content = content
+    )
+}
+
+/**
+ * Título de sección encima de cards — paridad `OGCardSectionTitle`:
+ * footnote semibold, secondary, UPPERCASE, pad h4 / top12.
+ */
+@Composable
+fun ReperaSectionTitle(
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 0.dp)
+            .padding(top = 12.dp)
+    )
+}
+
+/**
+ * Cabecera de pantalla root / sheet — paridad `OGFixedTopBar` / `OGPageHeader`
+ * (título large bold + subtítulo secondary; acciones trailing en la misma fila).
+ */
+@Composable
+fun ReperaPageHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = trailing
+        )
+    }
+}
+
+/**
+ * Empty state estructurado (icono + título + subtítulo) dentro de [ReperaCard],
+ * alineado a las cards de registro vacías de iOS Home / ContentUnavailable.
+ */
+@Composable
+fun ReperaEmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    icon: ImageVector? = null,
+    contentDescription: String? = null
+) {
+    ReperaCard(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.height(2.dp))
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 /** Sheet M3 con surface Repera y radio extraLarge (≈ sheet iOS, no 44 literal). */

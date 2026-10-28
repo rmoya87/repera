@@ -181,7 +181,7 @@ internal fun ActiveWorkoutCard(
         (toFailure || warmup || rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
         validDuration && (unit in if(active.repsMetersToggle) setOf("reps","meters") else if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
-    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
             Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
@@ -599,7 +599,7 @@ internal fun WodScoreCard(
     val valid = if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
 
-    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -806,7 +806,7 @@ internal fun ScheduledRoutineCard(
     var editClock by remember(routine.id) {
         mutableStateOf(routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) } ?: "")
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(modifier = Modifier.fillMaxWidth(),
@@ -1002,7 +1002,7 @@ internal fun RoutineCreatorCard(
                 .thenBy { it.first.name })
             .take(8).map { it.first }.toList()
     }
-    Card(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1321,7 +1321,7 @@ internal object WeekCalendarGeometry {
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
-    Card(modifier = Modifier.fillMaxWidth().testTag("week_calendar_card")) {
+    ReperaCard(modifier = Modifier.fillMaxWidth().testTag("week_calendar_card")) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${weekStart.dayOfMonth}/${weekStart.monthValue} – " +
                 "${weekStart.plusDays(6).dayOfMonth}/${weekStart.plusDays(6).monthValue}",
@@ -1432,7 +1432,7 @@ internal fun WorkoutHistoryCard(
                     style = MaterialTheme.typography.labelLarge)
             }
         }
-        Card(modifier = Modifier.fillMaxWidth().animateContentSize()
+        ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()
             .offset { androidx.compose.ui.unit.IntOffset(swipeOffset.toInt(), 0) }
             .pointerInput(workout.id, busy) {
                 if (busy) return@pointerInput
@@ -1628,7 +1628,7 @@ internal fun WorkoutHistoryCard(
 
 @Composable
 internal fun CountCard(title: String, count: Int?, hasOverview: Boolean) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(count?.toString() ?: "—", style = MaterialTheme.typography.headlineLarge)
@@ -1705,7 +1705,7 @@ internal fun BenchmarkWodPicker(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val results = remember(query) { dev.repera.domain.CatalogWods.search(query) }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("WODs benchmark", style = MaterialTheme.typography.titleLarge)

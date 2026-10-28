@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI 2.º pase: `ReperaComponents` (cards/chips/sheets/switches), tipografía OG-like, DayPlus/paywall/tabs sin púrpura M3; launcher AppIcon.
+**Última actualización:** 2026-10-28 — UI paridad 3.er pase: `ReperaSectionTitle` / `ReperaPageHeader` / `ReperaEmptyState`; tabs sin TopAppBar global; cards/settings/progress alineados a iOS en M3.
 
 Implementación nativa independiente en `android/`:
 
