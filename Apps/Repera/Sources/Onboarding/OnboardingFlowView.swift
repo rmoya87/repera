@@ -239,6 +239,7 @@ private struct OnboardingSignInStep: View {
             errorText = auth.lastErrorMessage
             return
         }
+        LocalStore.shared.resumeStorageForNewLogin()
         // Mismo flujo de permisos/planes que con Apple.
         // No se borra ni se reemplaza ningún entrenamiento local.
         onboarding.reconcile(isSignedIn: true)
@@ -254,6 +255,7 @@ private struct OnboardingSignInStep: View {
         errorText = nil
         do {
             try await appleAuth.signIn()
+            LocalStore.shared.resumeStorageForNewLogin()
             if let name = appleAuth.displayName,
                (store.state.settings.profileDisplayName ?? "").isEmpty {
                 var s = store.state.settings
