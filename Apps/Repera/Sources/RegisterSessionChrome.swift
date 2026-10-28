@@ -102,7 +102,11 @@ enum WorkoutRegisterChips {
     @ViewBuilder
     static func repera(session: WorkoutSession, prCount: Int, verifiedHealthKcal: Double? = nil) -> some View {
         let minutes = session.displayDurationMinutes
-        if minutes > 0 {
+        if let timer = session.timerDetails {
+            // Los temporizadores de pocos segundos no deben aparecer como 0 min.
+            OGRegisterChip(text: DurationText.format(timer.configuredSeconds), icon: "timer")
+            OGRegisterChip(text: timer.modeTitle, icon: "stopwatch")
+        } else if minutes > 0 {
             OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
         }
         // Nunca usar session.appleActiveEnergyKcal: en versiones anteriores
