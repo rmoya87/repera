@@ -112,6 +112,8 @@ struct HomeView: View {
     /// Solo rutinas personales persistidas; prescripciones profesionales no se editan.
     @State private var editingOwnRoutine: Routine?
     @State private var editingOwnSessionID: UUID?
+    /// Build the historical editor only when tapped, not in a navigation builder.
+    @State private var editingOwnSessionRoutine: Routine?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
     @State private var openWorkoutId: UUID?
     @State private var openProfessionalSessionId: UUID?
@@ -578,14 +580,10 @@ struct HomeView: View {
                 set: { if !$0 { editingOwnSessionID = nil } }
             )) {
                 if let id = editingOwnSessionID,
-                   let session = store.state.workouts.first(where: { $0.id == id }) {
+                   let session = store.state.workouts.first(where: { $0.id == id }),
+                   let editingOwnSessionRoutine {
                     DayEditorView(
-                        routine: CompletedWorkoutEditing.routine(
-                            from: session,
-                            sourceRoutine: session.routineId.flatMap { routineId in
-                                store.state.routines.first(where: { $0.id == routineId })
-                            }
-                        ),
+                        routine: editingOwnSessionRoutine,
                         mode: .session,
                         onClose: { editingOwnSessionID = nil },
                         onApplyCompleted: { routine, details in
@@ -1293,8 +1291,14 @@ struct HomeView: View {
     }
 
     private func editOwnCompletedWorkout(_ session: WorkoutSession) {
-        guard store.state.workouts.contains(where: { $0.id == session.id }) else { return }
-        editingOwnSessionID = session.id
+        guard let saved = store.state.workouts.first(where: { $0.id == session.id }) else { return }
+        editingOwnSessionRoutine = CompletedWorkoutEditing.routine(
+            from: saved,
+            sourceRoutine: saved.routineId.flatMap { routineId in
+                store.state.routines.first(where: { $0.id == routineId })
+            }
+        )
+        editingOwnSessionID = saved.id
     }
 
     /// Entreno planificado del día (aún sin sesión hecha): edición solo local.
