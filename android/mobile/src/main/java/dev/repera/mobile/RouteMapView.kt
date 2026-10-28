@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.repera.domain.WorkoutRoutePoint
+import dev.repera.domain.AdaptiveRoutePace
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -48,7 +49,7 @@ import org.json.JSONObject
 internal fun RouteSpeedLegend(water: Boolean = false) {
     val colors = (0..24).map { i ->
         val position = i / 24.0
-        Color(RouteMapModel.speedColor(position, 0.0, 1.0, water))
+        Color(AdaptiveRoutePace.color(position, water))
     }
     Column(modifier = Modifier.width(130.dp)) {
         Box(modifier = Modifier.fillMaxWidth().height(7.dp)
@@ -92,6 +93,7 @@ internal fun RouteMapView(
     plannedPoints: List<WorkoutRoutePoint> = emptyList(),
     /** Apple isWaterSport: water palette for the speed colors. */
     waterSport: Boolean = false,
+    paceMode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING,
     onMapRendered: (() -> Unit)? = null,
     navigationMode:Boolean = false,
     cameraCenter:WorkoutRoutePoint? = null,
@@ -105,7 +107,7 @@ internal fun RouteMapView(
     val currentPlan by androidx.compose.runtime.rememberUpdatedState(plannedPoints)
     val currentPoints by androidx.compose.runtime.rememberUpdatedState(points)
     var loadedMap by remember { mutableStateOf<MapLibreMap?>(null) }
-    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, loadedMap) {
+    androidx.compose.runtime.LaunchedEffect(points, plannedRoute, plannedPoints, paceMode, waterSport, loadedMap) {
         val map = loadedMap ?: return@LaunchedEffect
         map.getStyle { style ->
             run {
@@ -121,7 +123,7 @@ internal fun RouteMapView(
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
                 applyPlannedOverlay(style,plannedPoints)
-                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute),water=waterSport,plannedPoints=plannedPoints)
+                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute),water=waterSport,plannedPoints=plannedPoints,mode=paceMode)
             }
         }
     }
@@ -148,7 +150,7 @@ internal fun RouteMapView(
         }
     }
     if (failed || !nativeAvailable) {
-        RouteMapFallback(points, modifier, plannedRoute,plannedPoints,waterSport)
+        RouteMapFallback(points, modifier, plannedRoute,plannedPoints,waterSport,paceMode)
         return
     }
     // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
@@ -211,7 +213,7 @@ internal fun RouteMapView(
                     }
                     map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
                         applyPlannedOverlay(style,currentPlan)
-                        applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan)
+                        applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan,mode=paceMode)
                             loadedMap = map;onStyleLoaded?.invoke()
                     }
                 }
@@ -236,7 +238,8 @@ private fun applyPlannedOverlay(style:org.maplibre.android.maps.Style,points:Lis
 
 private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
                        points: List<WorkoutRoutePoint>, plannedRoute: Boolean,fitCamera:Boolean = true,water:Boolean = false,
-                       plannedPoints: List<WorkoutRoutePoint> = emptyList()) {
+                       plannedPoints: List<WorkoutRoutePoint> = emptyList(),
+                       mode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING) {
     // Vertices enviados al mapa acotados, NUNCA los datos GPS grabados
     // (Apple f6f13169: maxVertices=450 con stride; evita presion de memoria
     // al abrir un mapa historico durante una grabacion activa).
@@ -248,7 +251,7 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
     } else points
     val segments = if (plannedRoute) rendered.zipWithNext().map { (a,b) ->
         RouteMapModel.Segment(a,b,0xFF0A84FF)
-    } else RouteMapModel.segments(rendered,water,reference = plannedPoints)
+    } else RouteMapModel.segments(rendered,water,reference = plannedPoints,mode = mode)
     // Una colección y una capa: no crear miles de capas por cada muestra
     // ni reconstruir un árbol de estilos entero al llegar un punto GPS.
     val solid = segments.filter { !it.estimated }
@@ -420,11 +423,12 @@ private fun applyRoute(map: MapLibreMap, style: org.maplibre.android.maps.Style,
 /** Degradado sin teselas: polilínea normalizada con los mismos colores. */
 @Composable
 private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier, plannedRoute: Boolean,
-    plannedPoints:List<WorkoutRoutePoint> = emptyList(),water:Boolean = false) {
+    plannedPoints:List<WorkoutRoutePoint> = emptyList(),water:Boolean = false,
+    mode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING) {
     val allPoints=points+plannedPoints
     val segments = remember(points, plannedRoute,plannedPoints,water) {
         val measured=if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
-        else RouteMapModel.segments(points,water,reference = plannedPoints)
+        else RouteMapModel.segments(points,water,reference = plannedPoints,mode = mode)
         plannedPoints.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }+measured
     }
     Box(modifier = modifier.testTag("route_map_fallback")
