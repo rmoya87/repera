@@ -40,6 +40,8 @@ struct WorkoutView: View {
     @State private var selectPlayFormatForBlock: UUID?
     @State private var showPlayWODCatalog = false
     @State private var showPlayRoutinePicker = false
+    @State private var showsPlayReorder = false
+    @State private var playReorderDraft: Routine?
     @State private var createFreeMovementForBlock: UUID?
     @State private var openedSetID: UUID?
     @State private var notesDraft = ""
@@ -59,7 +61,6 @@ struct WorkoutView: View {
     @State private var restStartedPulse = 0
     @State private var pendingWODConfirm: PendingWODConfirm?
     /// Las marcas de bloque usan filas expandibles normales, igual que los ejercicios.
-    @State private var expandedScoreBlocks: Set<UUID> = []
     @State private var expandedTechniquesExerciseID: UUID?
     @State private var usesAutomaticTimer = false
     @State private var pendingTimerBlockID: UUID?
@@ -271,6 +272,9 @@ struct WorkoutView: View {
                 mutatePlayRoutine { $0.blocks.append(template.makeBlock()) }
                 showPlayWODCatalog = false
             }
+        }
+        .navigationDestination(isPresented: $showsPlayReorder) {
+            playReorderSheet
         }
     }
 
@@ -770,11 +774,8 @@ struct WorkoutView: View {
                         }
                         .disabled(block.indexes.isEmpty)
                         Menu {
-                            Button("Subir bloque", systemImage: "arrow.up") {
-                                movePlayBlock(block.id, offset: -1)
-                            }
-                            Button("Bajar bloque", systemImage: "arrow.down") {
-                                movePlayBlock(block.id, offset: 1)
+                            Button("Reordenar", systemImage: "arrow.up.arrow.down") {
+                                beginPlayReorder()
                             }
                             Button("Añadir ejercicio", systemImage: "plus") {
                                 addPlayExerciseToBlock = block.id
@@ -790,7 +791,8 @@ struct WorkoutView: View {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
-                                .frame(width: 44, height: 44)
+                                .frame(width: 38, height: 38)
+                                .glassEffect(.regular.interactive(), in: .circle)
                         }
                         .accessibilityLabel("Opciones de \(block.title)")
                     }
@@ -816,35 +818,27 @@ struct WorkoutView: View {
                                 )
                             }
                             .accessibilityHint("Ver ficha del ejercicio")
-                            Button {
-                                replacingPlayExercise = PlayReplacementTarget(
-                                    blockID: block.id, itemID: entry.id
-                                )
-                            } label: {
-                                Image(systemName: "arrow.left.arrow.right")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.accent)
-                                    .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Sustituir ejercicio")
                             Menu {
                                 Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
                                     store.selectExercise(at: index)
                                 }
-                                Button("Subir ejercicio", systemImage: "arrow.up") {
-                                    movePlayExercise(block.id, itemID: entry.id, offset: -1)
+                                Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
+                                    replacingPlayExercise = PlayReplacementTarget(
+                                        blockID: block.id, itemID: entry.id
+                                    )
                                 }
-                                Button("Bajar ejercicio", systemImage: "arrow.down") {
-                                    movePlayExercise(block.id, itemID: entry.id, offset: 1)
+                                Button("Reordenar", systemImage: "arrow.up.arrow.down") {
+                                    beginPlayReorder()
                                 }
                                 Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
                                     removePlayExercise(block.id, itemID: entry.id)
                                 }
                             } label: {
                                 Image(systemName: "ellipsis")
+                                    .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(OG.label)
-                                    .frame(width: 44, height: 44)
+                                    .frame(width: 38, height: 38)
+                                    .glassEffect(.regular.interactive(), in: .circle)
                             }
                             .accessibilityLabel("Opciones del ejercicio")
                         }
@@ -1019,8 +1013,7 @@ struct WorkoutView: View {
         .contentShape(Rectangle())
     }
 
-    /// Una fila del bloque, sin una tarjeta ni un diseño separado.
-    /// Se expande para anotar el score, igual que una fila de ejercicio.
+    /// El resultado permanece visible dentro del bloque, sin desplegable.
     private func inlineWODScoreEditor(
         _ block: WorkoutBlockEntry,
         format: WODFormat,
@@ -1032,16 +1025,19 @@ struct WorkoutView: View {
         let templateID = session.routineBlocks?
             .first(where: { $0.id == block.id })?.wodTemplateId
 
-        return DisclosureGroup(isExpanded: Binding(
-            get: { expandedScoreBlocks.contains(block.id) },
-            set: { expanded in
-                if expanded {
-                    expandedScoreBlocks.insert(block.id)
-                } else {
-                    expandedScoreBlocks.remove(block.id)
-                }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "stopwatch")
+                    .foregroundStyle(OG.label2)
+                Text("Resultado del bloque")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer(minLength: 6)
+                Text(existing?.summaryLabel ?? "Sin registrar")
+                    .font(.system(size: 13, weight: .medium).monospacedDigit())
+                    .foregroundStyle(existing == nil ? OG.label3 : OG.accent)
+                    .lineLimit(1)
             }
-        )) {
             WODResultInlineEditor(
                 blockId: block.id,
                 format: format,
@@ -1057,23 +1053,8 @@ struct WorkoutView: View {
                 }
             }
             .id(block.id)
-            .padding(.vertical, 8)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "stopwatch")
-                    .foregroundStyle(OG.label2)
-                    .frame(width: 27)
-                Text("Resultado del bloque")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Spacer(minLength: 6)
-                Text(existing?.summaryLabel ?? "Sin registrar")
-                    .font(.system(size: 13, weight: .medium).monospacedDigit())
-                    .foregroundStyle(existing == nil ? OG.label3 : OG.accent)
-                    .lineLimit(1)
-            }
         }
-        .tint(OG.label2)
+        .padding(.vertical, 8)
     }
 
     private func openBlockTimer(_ block: WorkoutBlockEntry, session: WorkoutSession) {
@@ -1839,8 +1820,7 @@ struct WorkoutView: View {
         let saved = store.state.activeSession?.wodResults.first(where: { $0.id == blockID })
         let templateID = store.state.activeSession?.routineBlocks?
             .first(where: { $0.id == blockID })?.wodTemplateId
-        // El resultado se edita dentro de la fila del bloque, sin modal.
-        expandedScoreBlocks.insert(blockID)
+        // El editor de resultado ya está siempre visible dentro del bloque.
         pendingWODConfirm = PendingWODConfirm(
             blockId: blockID,
             format: format,
