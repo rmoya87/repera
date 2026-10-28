@@ -3,6 +3,17 @@ import Foundation
 public enum WeightUnit: String, Codable, Sendable, CaseIterable {
     case kg
     case lb
+
+    public var label: String { rawValue }
+
+    /// El almacenamiento y las estadísticas trabajan siempre en kilogramos.
+    public func displayValue(fromKilograms kg: Double) -> Double {
+        self == .lb ? kg * 2.2046226218 : kg
+    }
+
+    public func kilograms(fromDisplayValue value: Double) -> Double {
+        self == .lb ? value / 2.2046226218 : value
+    }
 }
 
 public enum WeekStart: String, Codable, Sendable, CaseIterable {
