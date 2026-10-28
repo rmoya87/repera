@@ -194,7 +194,7 @@ struct WorkoutView: View {
         workoutSecondaryNavigationView
         .sheet(isPresented: $showPlayRoutinePicker) {
             RoutineImportPickerSheet(
-                routines: store.libraryRoutines.filter { $0.isFavorite && !$0.blocks.isEmpty },
+                routines: store.favoriteRoutines.filter { !$0.blocks.isEmpty },
                 timers: store.state.favoriteTimers,
                 onPick: { selected in
                     mutatePlayRoutine { draft in
@@ -1178,7 +1178,7 @@ struct WorkoutView: View {
                 Button("Elegir WOD", systemImage: "list.bullet.rectangle.portrait") {
                     showPlayWODCatalog = true
                 }
-                if store.libraryRoutines.contains(where: { $0.isFavorite && !$0.blocks.isEmpty })
+                if store.favoriteRoutines.contains(where: { !$0.blocks.isEmpty })
                     || !store.state.favoriteTimers.isEmpty {
                     Button("Añadir favorito", systemImage: "star") {
                         showPlayRoutinePicker = true
