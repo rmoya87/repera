@@ -287,7 +287,8 @@ struct WorkoutView: View {
             ExercisePickerView(embedsNavigationStack: false) { chosen in
                 replacingPlayExercise = nil
                 let previous = store.state.activeSession?.exercises.first(where: { $0.id == target.itemID })
-                if previous?.loggedSets.isEmpty == false {
+                let scoredBlock = store.state.activeSession?.wodResults.contains(where: { $0.id == target.blockID }) == true
+                if previous?.loggedSets.isEmpty == false || scoredBlock {
                     pendingPlayReplacement = PendingPlayReplacement(target: target, exercise: chosen)
                 } else {
                     replacePlayExercise(target, with: chosen)
