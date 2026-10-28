@@ -1294,8 +1294,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun logDropSet(
         quantity: Int, weightKg: Double?,
         drops: List<Pair<Int, Double?>>,
-        rir: Double? = null, toFailure: Boolean = false
+        rir: Double? = null, toFailure: Boolean = false,
+        setId: String? = null
     ): ActiveWorkout {
+        require(setId == null || setId.isNotBlank())
         require(quantity in 1..10000) { "Cantidad inválida" }
         require(weightKg == null || (weightKg.isFinite() && weightKg >= 0)) { "Peso inválido" }
         require(drops.size in 1..5) { "La dropset necesita entre 1 y 5 caídas" }
@@ -1320,7 +1322,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             "Este ejercicio no registra peso"
         }
         val set = JSONObject()
-            .put("id", UUID.randomUUID().toString())
+            .put("id", setId ?: UUID.randomUUID().toString())
             .put("reps", quantity)
             .put("completedAt", nowISO8601())
             .put("phase", "work")
@@ -1354,8 +1356,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun logRestPauseSet(
         clusters: List<Pair<Int, Int>>,
         weightKg: Double? = null,
-        rir: Double? = null, toFailure: Boolean = false
+        rir: Double? = null, toFailure: Boolean = false,
+        setId: String? = null
     ): ActiveWorkout {
+        require(setId == null || setId.isNotBlank())
         require(clusters.isNotEmpty()) { "El rest-pause necesita al menos 1 mini-serie" }
         clusters.forEach { (reps, rest) ->
             require(reps in 1..10000) { "Repeticiones de mini-serie inválidas" }
@@ -1381,7 +1385,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         require(total<=Int.MAX_VALUE) {"Demasiadas repeticiones"}
         val totalReps=total.toInt()
         val set = JSONObject()
-            .put("id", UUID.randomUUID().toString())
+            .put("id", setId ?: UUID.randomUUID().toString())
             .put("reps", totalReps)
             .put("completedAt", nowISO8601())
             .put("phase", "work")
@@ -1893,6 +1897,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         durationSeconds: Int? = null, quantityUnit: String? = null,
         deficitCm: Int? = null, intervalIndex: Int? = null,
         sessionPayload: JSONObject? = null, warmup:Boolean=false,toFailure:Boolean=false,
+        kind: String = "straight",
+        drops: List<Pair<Int, Double?>> = emptyList(),
+        clusters: List<Pair<Int, Int>> = emptyList(),
         onNewSet:(()->Unit)?=null
     ): Boolean {
         require(sessionId.isNotBlank() && setId.isNotBlank() && exerciseIndex >= 0)
@@ -1966,9 +1973,20 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         check(!exercise.optBoolean("isCompleted")) {
             "El reloj solo puede registrar series de fuerza abiertas"
         }
-        logCurrentSet(quantity, weightKg, rir = rir, warmup = warmup, toFailure=toFailure, setId = setId,
-            quantityUnit = quantityUnit, durationSeconds = durationSeconds,
-            deficitCm = deficitCm)
+        val effectiveKind = if (warmup) "straight" else kind
+        when (effectiveKind) {
+            "dropset" -> {
+                check(!warmup) { "El calentamiento no admite dropset" }
+                logDropSet(quantity, weightKg, drops, rir = rir, toFailure = toFailure, setId = setId)
+            }
+            "restpause" -> {
+                check(!warmup) { "El calentamiento no admite rest-pause" }
+                logRestPauseSet(clusters, weightKg, rir = rir, toFailure = toFailure, setId = setId)
+            }
+            else -> logCurrentSet(quantity, weightKg, rir = rir, warmup = warmup,
+                toFailure = toFailure, setId = setId, quantityUnit = quantityUnit,
+                durationSeconds = durationSeconds, deficitCm = deficitCm)
+        }
         runCatching {onNewSet?.invoke()} // Notification failure cannot undo a persisted set.
         return true
     }
@@ -3098,6 +3116,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 restBetweenRoundsSeconds = block?.optInt("restBetweenRoundsSeconds")?.takeIf {
                     block.has("restBetweenRoundsSeconds")
                 },
+                stations = (0 until moves.length()).count {
+                    !moves.getJSONObject(it).optBoolean("isRest")
+                }.coerceAtLeast(1),
+                plannedIntervals = block?.optInt("plannedIntervals")?.takeIf {
+                    block.has("plannedIntervals")
+                },
                 recorded = (0 until exercises.length()).map { exercises.getJSONObject(it) }
                     .filter { it.optString("blockId") == blockId }
                     .flatMap { item ->
@@ -3261,7 +3285,9 @@ data class WodExecution(
     val rounds: Int? = null,
     val workSeconds: Int? = null,
     val restSeconds: Int? = null,
-    val restBetweenRoundsSeconds: Int? = null
+    val restBetweenRoundsSeconds: Int? = null,
+    val stations: Int = 1,
+    val plannedIntervals: Int? = null
 )
 
 data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?, val quantityUnit: String?)

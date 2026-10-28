@@ -1305,12 +1305,33 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val interval = if (payload.has("intervalIndex") && !payload.isNull("intervalIndex"))
                 payload.optInt("intervalIndex") else null
             val sessionPayload = payload.optJSONObject("session")
+            val warmupFlag = payload.optBoolean("warmup", false)
+            val kind = payload.optString("kind", "straight").ifBlank { "straight" }
+                .let { if (warmupFlag) "straight" else it }
+            val drops = mutableListOf<Pair<Int, Double?>>()
+            payload.optJSONArray("drops")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val d = arr.getJSONObject(i)
+                    drops += d.getInt("reps") to
+                        if (d.has("weightKg") && !d.isNull("weightKg")) d.getDouble("weightKg") else null
+                }
+            }
+            val clusters = mutableListOf<Pair<Int, Int>>()
+            payload.optJSONArray("clusters")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val c = arr.getJSONObject(i)
+                    clusters += c.getInt("reps") to c.getInt("restSeconds")
+                }
+            }
             if (sessionId.isBlank() || exerciseIndex < 0 || quantity !in 1..10000 ||
                 (weight != null && (!weight.isFinite() || weight < 0)) ||
                 (rir != null && (!rir.isFinite() || rir < 0 || rir > 5)) ||
                 (duration != null && duration !in 1..86400) ||
                 (deficit != null && deficit !in 0..100) ||
-                (interval != null && interval !in 0..100000)) {
+                (interval != null && interval !in 0..100000) ||
+                kind !in setOf("straight", "dropset", "restpause") ||
+                (kind == "dropset" && drops.size !in 1..5) ||
+                (kind == "restpause" && clusters.isEmpty())) {
                 sendWearAck(event.sourceNodeId, id, "rejected")
                 return@runOnUiThread
             }
@@ -1328,10 +1349,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             sessionId, exerciseIndex, id, quantity, weight, rir,
                             durationSeconds = duration, quantityUnit = unit,
                             deficitCm = deficit, intervalIndex = interval,
-                            sessionPayload = sessionPayload,warmup=payload.optBoolean("warmup",false),toFailure=payload.optBoolean("toFailure",false),
+                            sessionPayload = sessionPayload,warmup=warmupFlag,toFailure=payload.optBoolean("toFailure",false),
+                            kind = kind, drops = drops, clusters = clusters,
                             onNewSet={
                                 if(current()) wearRest?.let { (name, seconds) ->
-                                    StrengthRestService.start(this@MainActivity, name, dev.repera.domain.StrengthRestPolicy.seconds(seconds,payload.optBoolean("warmup",false)),snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
+                                    StrengthRestService.start(this@MainActivity, name, dev.repera.domain.StrengthRestPolicy.seconds(seconds,warmupFlag,kind),snapshot?.trainingSettings?.restSoundEnabled ?: true,snapshot?.trainingSettings?.restHapticEnabled ?: true)
                                 }
                             }
                         )

@@ -671,7 +671,54 @@ private fun EntryEditorRow(
                     label = { Text("Metros") }, modifier = Modifier.testTag("plan_unit_meters"))
             }
         }
-        if (!isStrength) WodMovementDetails(entry)
+        if (!isStrength) {
+            WodMovementDetails(entry)
+            TextButton(modifier = Modifier.testTag("plan_wod_sets"),
+                onClick = { entry.setsExpanded = !entry.setsExpanded }) {
+                Text(if (entry.setsExpanded) "Cerrar series del movimiento"
+                    else "Editar series del movimiento")
+            }
+            if (entry.setsExpanded) {
+                entry.plannedSets.forEachIndexed { idx, set ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = set.targetReps.toString(),
+                            onValueChange = { v ->
+                                val reps = v.filter { it.isDigit() }.toIntOrNull()?.coerceIn(1, 10000) ?: return@OutlinedTextField
+                                entry.plannedSets[idx] = set.copy(targetReps = reps)
+                                syncWodPlannedSets(entry)
+                            },
+                            label = { Text("Reps") }, singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("plan_wod_set_reps_$idx"),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        OutlinedTextField(
+                            value = set.targetWeightKg?.let {
+                                if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
+                            } ?: "",
+                            onValueChange = { v ->
+                                val parsed = if (v.isBlank()) null
+                                else dev.repera.domain.ReperaNumberFormat.parse(v)
+                                entry.plannedSets[idx] = set.copy(targetWeightKg = parsed)
+                                syncWodPlannedSets(entry)
+                            },
+                            label = { Text("Kg") }, singleLine = true,
+                            modifier = Modifier.weight(1f).testTag("plan_wod_set_kg_$idx"),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                        TextButton(enabled = entry.plannedSets.size > 1, onClick = {
+                            entry.plannedSets.removeAt(idx)
+                            syncWodPlannedSets(entry)
+                        }) { Text("×") }
+                    }
+                }
+                TextButton(enabled = entry.plannedSets.size < 20, onClick = {
+                    val last = entry.plannedSets.lastOrNull()
+                    entry.plannedSets.add(PlannedSetDraft(
+                        targetReps = last?.targetReps ?: (entry.quantity.toIntOrNull() ?: 10),
+                        targetWeightKg = last?.targetWeightKg))
+                    syncWodPlannedSets(entry)
+                }) { Text("Añadir serie") }
+            }
+        }
         if (isStrength) {
             TextButton(onClick = { entry.setsExpanded = !entry.setsExpanded }) {
                 Text(if (entry.setsExpanded) "Cerrar series"
@@ -860,6 +907,19 @@ private fun AddExerciseRow(
     }
 }
 
+
+/** Escribe series WOD del plan en sourceJson (explicitPlannedSets + reps/repScheme). */
+private fun syncWodPlannedSets(entry: EntryUi) {
+    val o = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+        ?: JSONObject().put("id", entry.itemId ?: java.util.UUID.randomUUID().toString())
+            .put("exerciseId", entry.exerciseId).put("name", entry.name).put("isRest", false)
+    val machine = o.has("calories") && !o.isNull("calories") ||
+        o.has("distanceMeters") && !o.isNull("distanceMeters") && !o.has("reps")
+    EditorBlockOps.writeSetsToMovement(o, EditorBlockOps.draftSetsToJson(entry.plannedSets), machine)
+    entry.sourceJson = o.toString()
+    entry.quantity = (entry.plannedSets.firstOrNull()?.targetReps ?: 10).toString()
+    entry.sets = entry.plannedSets.size.toString()
+}
 
 /** Campos WOD del movimiento que el borrador simple no modelaba (Apple WODMovementEditor): Peso H/M,
  *  escala alternativa y notas. Editan el JSON original del movimiento (ids y demás campos intactos). */

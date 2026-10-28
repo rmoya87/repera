@@ -19,9 +19,12 @@ internal fun wearWodIntervalIndex(timer:JSONObject?,sessionId:String,
     val spec=dev.repera.domain.WodClockSpec(format,
         blockTimeCapMinutes=timer.optInt("timeCapMinutes").takeIf{timer.has("timeCapMinutes")&&!timer.isNull("timeCapMinutes")},
         intervalSeconds=timer.optInt("intervalSeconds").takeIf{timer.has("intervalSeconds")&&!timer.isNull("intervalSeconds")},
+        plannedIntervals=timer.optInt("plannedIntervals").takeIf{timer.has("plannedIntervals")&&!timer.isNull("plannedIntervals")},
         rounds=timer.optInt("rounds").takeIf{timer.has("rounds")&&!timer.isNull("rounds")},
         workSeconds=timer.optInt("workSeconds").takeIf{timer.has("workSeconds")&&!timer.isNull("workSeconds")},
-        restSeconds=timer.optInt("restSeconds").takeIf{timer.has("restSeconds")&&!timer.isNull("restSeconds")})
+        restSeconds=timer.optInt("restSeconds").takeIf{timer.has("restSeconds")&&!timer.isNull("restSeconds")},
+        restBetweenRoundsSeconds=timer.optInt("restBetweenRoundsSeconds").takeIf{timer.has("restBetweenRoundsSeconds")&&!timer.isNull("restBetweenRoundsSeconds")},
+        stations=timer.optInt("stations",1).coerceAtLeast(1))
     return dev.repera.domain.WodClock.activeIntervalIndex(spec,elapsedSeconds)
 }
 

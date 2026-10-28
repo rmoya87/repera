@@ -195,7 +195,9 @@ internal fun ExercisesTab(
         Column(modifier.fillMaxSize()) {
             val detail = overview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
             if (detail != null) {
-                LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                ProvideLazyDragAutoScroll(dragListState) {
+                LazyColumn(state = dragListState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item { TextButton(onClick = { selectedLiveSessionID = null }) { Text("Volver al deporte") } }
                     item {
                         Text(detail.title, style = MaterialTheme.typography.headlineMedium)
@@ -232,6 +234,7 @@ internal fun ExercisesTab(
                             onUpdateFinishedWorkout(detail.id, edit)
                         }
                     }
+                }
                 }
             } else if (selected != null && evolutionRouteID != null && savedRoutes.any { it.id == evolutionRouteID }) {
                 LiveRouteEvolutionScreen(savedRoutes.first { it.id == evolutionRouteID }, selected,

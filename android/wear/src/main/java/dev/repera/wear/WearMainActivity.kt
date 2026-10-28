@@ -72,7 +72,6 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var finishedSummary by mutableStateOf<FinishedSummary?>(null)
     private var restRemaining by mutableStateOf(0)
     private var sessionPaused by mutableStateOf(false)
-    private var wodTimerJson by mutableStateOf<JSONObject?>(null)
     private val repCounter = dev.repera.domain.MotionRepCounter()
     private var motionSensor: Sensor? = null
     private var sensorManager: SensorManager? = null
@@ -128,6 +127,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var sendStatus by mutableStateOf<String?>(null)
     private var warmupInput by mutableStateOf(false)
     private var failureInput by mutableStateOf(false)
+    private var setKindInput by mutableStateOf("straight")
+    private var dropsInput by mutableStateOf<List<Pair<Int, Double?>>>(emptyList())
+    private var clustersInput by mutableStateOf<List<Pair<Int, Int>>>(emptyList())
+    private var phoneWodTimerJson by mutableStateOf<JSONObject?>(null)
+    private var localWodTimerJson by mutableStateOf<JSONObject?>(null)
     private var visibleSession by mutableStateOf<WatchSessionSummary?>(null)
     private var effortUnit by mutableStateOf("rir")
     private var weightUnit by mutableStateOf("kg")
@@ -181,7 +185,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 todayPlan = todayPlanJson,
                                 syncProblem = syncProblem,
                                 health = health,
-                                wodTimerJson = wodTimerJson,
+                                wodTimerJson = effectiveWodTimer(visibleSession),
                                 wodTickSeconds = wodTickSeconds,
                                 sessionPaused = sessionPaused,
                                 restRemaining = restRemaining,
@@ -194,7 +198,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 pendingCount = pendingCount,
                                 confirmDiscardPending = confirmDiscardPending,
                                 sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput,
-                                effortUnit = effortUnit, weightUnit = weightUnit
+                                effortUnit = effortUnit, weightUnit = weightUnit,
+                                setKind = setKindInput, drops = dropsInput, clusters = clustersInput
                             ),
                             callbacks = WearHomeCallbacks(
                                 onDismissFinished = { finished ->
@@ -240,6 +245,61 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     deficitInput = (deficitInput + delta).coerceIn(0, 60)
                                     persistDraft()
                                 },
+                                onSetKind = { kind ->
+                                    setKindInput = kind
+                                    if (kind != "dropset") dropsInput = emptyList()
+                                    if (kind != "restpause") clustersInput = emptyList()
+                                    if (kind == "dropset" && dropsInput.isEmpty()) {
+                                        dropsInput = listOf(
+                                            maxOf(1, repsInput) to weightInput)
+                                    }
+                                    if (kind == "restpause" && clustersInput.isEmpty()) {
+                                        clustersInput = listOf(maxOf(1, repsInput) to 15)
+                                    }
+                                    persistDraft()
+                                },
+                                onAddDrop = {
+                                    if (dropsInput.size >= 5) return@WearHomeCallbacks
+                                    dropsInput = dropsInput +
+                                        (maxOf(1, repsInput) to weightInput)
+                                    setKindInput = "dropset"
+                                    persistDraft()
+                                },
+                                onAdjustDrop = { idx, dReps, dKg ->
+                                    dropsInput = dropsInput.mapIndexed { i, drop ->
+                                        if (i != idx) drop
+                                        else (drop.first + dReps).coerceIn(1, 10000) to
+                                            ((drop.second ?: 0.0) + dKg).coerceIn(0.0, 2000.0)
+                                    }
+                                    persistDraft()
+                                },
+                                onRemoveDrop = { idx ->
+                                    dropsInput = dropsInput.filterIndexed { i, _ -> i != idx }
+                                    if (dropsInput.isEmpty()) setKindInput = "straight"
+                                    persistDraft()
+                                },
+                                onAddCluster = {
+                                    clustersInput = clustersInput +
+                                        (maxOf(1, repsInput) to 15)
+                                    setKindInput = "restpause"
+                                    persistDraft()
+                                },
+                                onAdjustCluster = { idx, dReps, dRest ->
+                                    clustersInput = clustersInput.mapIndexed { i, c ->
+                                        if (i != idx) c
+                                        else (c.first + dReps).coerceIn(1, 10000) to
+                                            (c.second + dRest).coerceIn(1, 600)
+                                    }
+                                    persistDraft()
+                                },
+                                onRemoveCluster = { idx ->
+                                    clustersInput = clustersInput.filterIndexed { i, _ -> i != idx }
+                                    if (clustersInput.isEmpty()) setKindInput = "straight"
+                                    persistDraft()
+                                },
+                                onWodTimerStart = { controlLocalWodTimer("start") },
+                                onWodTimerPause = { controlLocalWodTimer("pause") },
+                                onWodTimerReset = { controlLocalWodTimer("reset") },
                                 onQueueSet = { session -> queueSet(session) },
                                 onResendPending = { resendPending() },
                                 onDiscardConfirm = { ask -> confirmDiscardPending = ask },
@@ -415,13 +475,19 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         rirInput=summary.prescribedRir;unitInput=summary.quantityUnit
         durationInput=summary.prescribedDurationSeconds ?: if(summary.mobilityHold) 30 else 60
         deficitInput=summary.prescribedDeficitCm ?: 0
+        setKindInput="straight";dropsInput=emptyList();clustersInput=emptyList()
+        ensureLocalWodTimer(summary)
     }
 
     private fun persistDraft() {
         val session=visibleSession ?: return
+        val kind=if(warmupInput) "straight" else setKindInput
         val draft=runCatching { dev.repera.domain.WatchInputDraft(
             session.sessionId,session.exerciseIndex,session.recordedTotalSets,repsInput,
-            weightInput,rirInput,durationInput,unitInput,deficitInput,warmupInput,failureInput)
+            weightInput,rirInput,durationInput,unitInput,deficitInput,warmupInput,failureInput,
+            kind=kind,
+            drops=if(kind=="dropset") dropsInput else emptyList(),
+            clusters=if(kind=="restpause") clustersInput else emptyList())
         }.getOrNull() ?: return
         if(!sessionCache.edit().putString("inputDraft",draft.encode()).commit())
             sendStatus="No se pudo guardar el borrador; no se ha confirmado ninguna serie"
@@ -435,8 +501,80 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         repsInput=draft.quantity;weightInput=draft.weightKg.takeIf {summary.allowsWeight}
         rirInput=draft.rir;durationInput=draft.durationSeconds;unitInput=draft.unit
         deficitInput=draft.deficitCm;warmupInput=draft.warmup;failureInput=draft.toFailure
+        setKindInput=draft.kind;dropsInput=draft.drops;clustersInput=draft.clusters
         if(summary.prescribedReps==null && dev.repera.domain.WatchQuantityPolicy.usesMotion(summary.inputMode))
             repCounter.applyManualDelta(draft.quantity)
+    }
+
+    private fun effectiveWodTimer(session: WatchSessionSummary?): JSONObject? {
+        session ?: return null
+        phoneWodTimerJson?.takeIf {
+            wearTimerMatches(it, session.sessionId, session.exerciseIndex)
+        }?.let { return it }
+        return localWodTimerJson?.takeIf {
+            wearTimerMatches(it, session.sessionId, session.exerciseIndex)
+        }
+    }
+
+    private fun ensureLocalWodTimer(summary: WatchSessionSummary) {
+        if (summary.wodFormatLabel == null) {
+            localWodTimerJson = null
+            return
+        }
+        phoneWodTimerJson?.takeIf {
+            wearTimerMatches(it, summary.sessionId, summary.exerciseIndex)
+        }?.let { return }
+        if (wearTimerMatches(localWodTimerJson, summary.sessionId, summary.exerciseIndex)) return
+        val snapshot = sessionCache.getString("snapshot", null)?.let {
+            runCatching { JSONObject(it) }.getOrNull()
+        }
+        val exercise = snapshot?.optJSONArray("exercises")
+            ?.optJSONObject(summary.exerciseIndex - 1)
+        localWodTimerJson = exercise?.let {
+            WearLocalWodClock.seed(summary.sessionId, summary.exerciseIndex - 1, it)
+        }
+        refreshWodTickFromEffective()
+    }
+
+    private fun controlLocalWodTimer(action: String) {
+        val session = visibleSession ?: return
+        ensureLocalWodTimer(session)
+        val base = localWodTimerJson?.takeIf {
+            wearTimerMatches(it, session.sessionId, session.exerciseIndex)
+        } ?: return
+        localWodTimerJson = when (action) {
+            "start" -> WearLocalWodClock.start(base)
+            "pause" -> WearLocalWodClock.pause(base)
+            "reset" -> WearLocalWodClock.reset(base)
+            else -> base
+        }
+        // Preferimos el local tras control manual si el teléfono no publica matching.
+        if (phoneWodTimerJson != null &&
+            !wearTimerMatches(phoneWodTimerJson, session.sessionId, session.exerciseIndex)) {
+            phoneWodTimerJson = null
+        }
+        refreshWodTickFromEffective()
+    }
+
+    private fun refreshWodTickFromEffective() {
+        wodTickJob?.cancel()
+        val timer = effectiveWodTimer(visibleSession)
+        if (timer == null) {
+            wodTickSeconds = 0
+            return
+        }
+        if (timer.optBoolean("running") &&
+            timer.has("zeroAtWallMs") && !timer.isNull("zeroAtWallMs")) {
+            wodTickJob = lifecycleScope.launch {
+                while (true) {
+                    val live = effectiveWodTimer(visibleSession) ?: break
+                    wodTickSeconds = WearLocalWodClock.tickElapsed(live)
+                    kotlinx.coroutines.delay(250)
+                }
+            }
+        } else {
+            wodTickSeconds = timer.optInt("elapsedSeconds", 0)
+        }
     }
 
     private fun showTodayPlan(bytes: ByteArray?, updatedAtMillis: Long = System.currentTimeMillis()) {
@@ -482,7 +620,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sensorRevision++
         sessionPaused=false
         restJob?.cancel();restClock.clear();restRemaining=0
-        wodTickJob?.cancel();wodTimerJson=null;wodTickSeconds=0
+        wodTickJob?.cancel();phoneWodTimerJson=null;localWodTimerJson=null;wodTickSeconds=0
         finishedSummary=null
         warmupInput=false;failureInput=false
         visibleSession = summary
@@ -529,26 +667,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun showWodTimer(bytes: ByteArray?) {
-        wodTickJob?.cancel()
-        wodTickSeconds=0
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
             runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
         }
-        wodTimerJson = parsed
-        if (parsed == null) return
-        val running = parsed.optBoolean("running")
-        if (running && parsed.has("zeroAtWallMs") && !parsed.isNull("zeroAtWallMs")) {
-            val zeroAt = parsed.getLong("zeroAtWallMs")
-            wodTickJob = lifecycleScope.launch {
-                while (true) {
-                    wodTickSeconds = ((System.currentTimeMillis() - zeroAt) / 1000L)
-                        .coerceAtLeast(0).toInt()
-                    kotlinx.coroutines.delay(1000)
-                }
-            }
-        } else {
-            wodTickSeconds = parsed.optInt("elapsedSeconds", 0)
+        phoneWodTimerJson = parsed
+        // Teléfono matching gana: limpia local del mismo bloque.
+        val session = visibleSession
+        if (parsed != null && session != null &&
+            wearTimerMatches(parsed, session.sessionId, session.exerciseIndex)) {
+            localWodTimerJson = null
         }
+        refreshWodTickFromEffective()
     }
 
     private fun queueSet(session: WatchSessionSummary) {
@@ -573,8 +702,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (repsInput !in 1..10000) return
         // Apple 44713457: una serie WOD confirmada pertenece al intervalo actual
         // del reloj del bloque; sin reloj activo no se deriva ni se inventa.
+        val activeTimer = effectiveWodTimer(session)
         val wodInterval = if (session.wodUsesSeries) {
-            val derived = wearWodIntervalIndex(wodTimerJson, session.sessionId,
+            val derived = wearWodIntervalIndex(activeTimer, session.sessionId,
                 session.exerciseIndex, wodTickSeconds)
             if (derived == null) {
                 sendStatus = "Inicia el reloj del bloque para registrar desde el reloj"
@@ -582,9 +712,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
             derived
         } else null
+        val strengthMode = !session.wodUsesSeries &&
+            session.inputMode in setOf("strength", "hspuDeficit", "repsOnly")
+        val kind = if (strengthMode && !warmupInput) setKindInput else "straight"
         val queued = runCatching {
             pendingStore.append(session.sessionId, session.exerciseIndex - 1,
-                repsInput, weightInput, if(!session.wodUsesSeries && session.inputMode in setOf("strength","hspuDeficit","repsOnly") && !warmupInput) rirInput else null,
+                repsInput, weightInput, if(strengthMode && !warmupInput) rirInput else null,
                 durationSeconds = if (!session.wodUsesSeries && session.inputMode in setOf("repsAndTime","machineWork"))
                     durationInput else null,
                 quantityUnit = if (!session.wodUsesSeries && session.inputMode in setOf("machineWork","loadDistance"))
@@ -594,7 +727,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 intervalIndex = wodInterval,
                 sessionJson = if (watchStartedSession)
                     sessionCache.getString("snapshot", null) else null,
-                warmup=warmupInput && !session.wodUsesSeries && session.inputMode in setOf("strength","hspuDeficit","repsOnly"),toFailure=failureInput && !warmupInput && !session.wodUsesSeries && session.inputMode in setOf("strength","hspuDeficit","repsOnly"))
+                warmup=warmupInput && strengthMode,toFailure=failureInput && !warmupInput && strengthMode,
+                kind = kind,
+                drops = if (kind == "dropset") dropsInput else emptyList(),
+                clusters = if (kind == "restpause") clustersInput else emptyList())
             pendingCount = pendingStore.count()
         }
         if (queued.isFailure) {
@@ -605,11 +741,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
         repCounter.reset()
         if (session.prescribedReps == null) repsInput = 0
+        setKindInput = "straight"; dropsInput = emptyList(); clustersInput = emptyList()
         persistDraft()
-        // Apple 44713457: tras una serie WOD el descanso es el del formato
+        // Apple 44713457: tras una serie WOD el descanso es del formato
         // (Tabata: blockRest; resto: lo que queda de intervalo), no el de fuerza.
         val rest = if (session.wodUsesSeries)
-            wearWodRestAfterConfirmedSet(wodTimerJson, session.sessionId,
+            wearWodRestAfterConfirmedSet(activeTimer, session.sessionId,
                 session.exerciseIndex, wodTickSeconds) ?: 0
         else dev.repera.domain.WatchStrengthRest.afterConfirmedSet(session.restSeconds,
             warmupInput,session.recordedSets + if(warmupInput) 0 else 1,session.plannedWorkSets)
@@ -712,7 +849,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sendStatus = "No se pudo guardar el cambio de ejercicio en el reloj"; return
         }
         restJob?.cancel(); restClock.clear(); restRemaining = 0
-        wodTickJob?.cancel(); wodTimerJson = null; wodTickSeconds = 0
+        wodTickJob?.cancel(); phoneWodTimerJson = null; localWodTimerJson = null; wodTickSeconds = 0
         visibleSession = summary
         seedDraft(summary)
         repCounter.reset()
@@ -853,9 +990,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             if (visibleSession?.sessionId != summary.sessionId ||
                 visibleSession?.exerciseIndex != summary.exerciseIndex ||
                 visibleSession?.recordedTotalSets != summary.recordedTotalSets) {
-                if(!wearTimerMatches(wodTimerJson,summary.sessionId,summary.exerciseIndex)) {
-                    wodTickJob?.cancel();wodTimerJson=null;wodTickSeconds=0
+                if(!wearTimerMatches(phoneWodTimerJson,summary.sessionId,summary.exerciseIndex)) {
+                    phoneWodTimerJson=null
                 }
+                if(!wearTimerMatches(localWodTimerJson,summary.sessionId,summary.exerciseIndex)) {
+                    localWodTimerJson=null
+                }
+                refreshWodTickFromEffective()
                 repCounter.reset();seedDraft(summary)
                 sessionCache.edit().remove("inputDraft").apply()
             }
@@ -874,8 +1015,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sensorRevision++
         val sensorSessionId=visibleSession?.sessionId
         warmupInput=false;failureInput=false;rirInput=null
+        setKindInput="straight";dropsInput=emptyList();clustersInput=emptyList()
         sessionPaused = false
-        wodTickJob?.cancel();wodTimerJson=null;wodTickSeconds=0
+        wodTickJob?.cancel();phoneWodTimerJson=null;localWodTimerJson=null;wodTickSeconds=0
         watchStartedSession = false
         sessionCache.edit().remove("watchStarted").apply()
         sessionCache.edit().remove("snapshot").remove("inputDraft").remove("restState").apply()
