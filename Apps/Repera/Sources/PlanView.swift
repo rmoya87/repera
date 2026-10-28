@@ -118,6 +118,7 @@ struct DayEditorView: View {
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
     @State private var replacingExercise: WorkoutReplacementTarget?
+    @State private var exerciseDetailID: UUID?
     @State private var pendingReplacement: PendingWorkoutReplacement?
     @State private var openedSetID: UUID?
     @State private var completedDetails: WorkoutSession?
@@ -249,9 +250,15 @@ struct DayEditorView: View {
                 }
             }
 
+            if onApplyCompleted == nil {
+                Section("Lugar") {
+                    WorkoutPlacePickerRow(pin: $routine.locationPin)
+                }
+            }
+
             ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { index, block in
                 Section {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 20) {
                         HStack(spacing: 10) {
                             TextField("Nombre", text: $routine.blocks[index].title)
                                 .font(.system(size: 16, weight: .semibold))
@@ -268,9 +275,6 @@ struct DayEditorView: View {
                                         pickMovementForBlock = block.id
                                     }
                                 }
-                                Button("Cambiar formato", systemImage: "slider.horizontal.3") {
-                                    selectFormatForBlock = block.id
-                                }
                                 Divider()
                                 Button(role: .destructive) {
                                     routine.blocks.removeAll { $0.id == block.id }
@@ -286,7 +290,13 @@ struct DayEditorView: View {
                             }
                             .accessibilityLabel("Opciones del bloque \(block.title)")
                         }
+                        Divider()
+                            .overlay(OG.label3.opacity(0.25))
+                            .padding(.vertical, 5)
                         formatSettings(index: index)
+                        Divider()
+                            .overlay(OG.label3.opacity(0.25))
+                            .padding(.vertical, 5)
                         completedScoreEditor(for: block)
                     }
                     .listRowSeparator(.hidden)
@@ -344,6 +354,9 @@ struct DayEditorView: View {
         }
         .navigationDestination(isPresented: $showsReorder) {
             reorderSheet
+        }
+        .navigationDestination(item: $exerciseDetailID) { id in
+            ExerciseDetailView(exerciseId: id)
         }
         .modifier(DayEditorChromeModifier(
             title: navTitle,
@@ -484,8 +497,6 @@ struct DayEditorView: View {
                 }
             } header: {
                 Label("Orden de bloques", systemImage: "square.stack.3d.up")
-            } footer: {
-                Text("Mantén pulsada el asa de la derecha y arrastra para ordenar.")
             }
             ForEach(routine.blocks) { block in
                 reorderExercisesSection(for: block)
@@ -538,8 +549,6 @@ struct DayEditorView: View {
             }
         } header: {
             Text(block.title)
-        } footer: {
-            Text("Arrastra para cambiar el orden. Los tres puntos permiten mover a otro bloque.")
         }
     }
 
@@ -1589,7 +1598,7 @@ struct DayEditorView: View {
     /// Los parámetros de un formato se muestran como campos compactos en una sola fila.
     @ViewBuilder
     private func formatSettings(index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 22) {
             Button {
                 selectFormatForBlock = routine.blocks[index].id
             } label: {
@@ -1610,7 +1619,7 @@ struct DayEditorView: View {
             if let format = routine.blocks[index].wodFormat {
                 let fields = fieldsForFormat(routine.blocks[index])
                 if !fields.isEmpty {
-                    HStack(alignment: .bottom, spacing: 6) {
+                    HStack(alignment: .bottom, spacing: 12) {
                         ForEach(Array(fields.enumerated()), id: \.element) { position, field in
                             OGFormatNumberField(
                                 title: field.title,
@@ -1625,7 +1634,7 @@ struct DayEditorView: View {
                             )
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 10)
                 }
                 if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
                     Toggle("Límite de tiempo", isOn: Binding(
