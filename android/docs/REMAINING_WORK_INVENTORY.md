@@ -643,3 +643,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -319 bateria completa mobile676/163XML63/77/62/64s,domain512/93XML26s,Wear8/1XML+ambosassemble48s verdes0fallos/errores/omitidos; solo bateria cerrada.
 - Mismo bloque parcial,subconjunto320: alternativa de escala con slash espaciado se extrae antes de dividir complejo y se asigna solo a ultima parte, segun fuente BoardImportParser669-680/788. Varias alternativas se conservan expandidas. Par H/M espaciado KG sigue siendo carga solo primera parte,nunca escala.
 - Alternativa con '+' ambigua queda sin dividir para review; no inferir receta ni carga. Porcentaje y RPE compartidos preservados en JSON.2 tests dominio nuevos y1wire. Dominio514/93XML54s ywire7/1XML verdes. Mobile completa/Wear320 pendientes.735/70sin cierres,lectorfull/nativo pendientes,no push.
+
+## Continuidad matrices lector parcial 02:07 28oct
+-320 bateria completa mobile677/163XML63/76/60/62s,domain514/93XML54s,Wear8/1XML+ambosassemble48s verdes0fallos/errores/omitidos. Backup320 recuperado desde65338db7: arbol33ca6f62dd935d3b2b8452377ac6057351cd1adf identico,clon limpio.
+- Reconciliadas notas de c6f89c28/88db5bb7 con subsets315-320; conservados estados verified-partial y verified-partial+GAP,ninguna fila cerrada.735/70. Restan default3x8 deliberadamente no inferido,rutas/fallback/matching y runtime;subsetcomplejo atsimple/decimalRPE/cargaimplicita aun review.
+-321 solo documentacion; sigue bloque lector completo parcial y revision grafica abierta. No push ni cambios Apps/Packages.
