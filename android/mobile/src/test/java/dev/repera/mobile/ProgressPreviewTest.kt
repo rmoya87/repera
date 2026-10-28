@@ -11,4 +11,11 @@ class ProgressPreviewTest {
   assertEquals(75.1,ProgressPreview.weight(date).first().value,0.0)
   assertTrue(charts.heartRate.all {it.minBpm<it.avgBpm && it.maxBpm>it.avgBpm})
  }
+ @Test fun caloriePreviewIncludesOnlyFictitiousPeriodComparison() {
+  val charts=ProgressPreview.charts(LocalDate.of(2026,10,27),true)
+  assertEquals(charts.calories.sumOf {it.value}/7,charts.caloriesDailyAverage!!,0.001)
+  assertEquals(500.0,charts.previousCaloriesDailyAverage!!,0.0)
+  assertEquals("507 kcal",dev.repera.domain.CalorieAverageStats.kcalLabel(charts.caloriesDailyAverage))
+  assertEquals("+1 %",dev.repera.domain.CalorieAverageStats.changeLabel(dev.repera.domain.CalorieAverageStats.change(charts.caloriesDailyAverage,charts.previousCaloriesDailyAverage)))
+ }
 }

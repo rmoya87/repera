@@ -576,3 +576,15 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  sinchoques/recortes. NoafirmaralgorithmofontmetricsSwiftidentico.
 - Yautoaxes yXScoreautomaticopendientes,nativopendiente735/70,nopush.
  Completa313/assemblependientes;domain504/93Wear8/1anteriores.
+
+## Revision graficos, fixtureFree 01:10 28oct
+- Full313mobile674/163XMLreales63/74/60/61s0fallo/error/omitidos,
+ assemble87sverde. Referenciaanterior,nobateria314.
+- Mismobloque:hallazgonuevocontrastandoProgressChartBuildercorte40-82:
+ previewAndroidomitiócaloriesDailyAverage/previousCaloriesDailyAverage.
+ Seriesficticias correctaspero3tiles salianguiones. CorregidosSOLOcampos
+ preview:media7diaspropiosficticios yprevious500ficticioexplícito.
+- Testnuevo507kcal/500/+1%,3focalizados/2XMLverdes60s,PNG360inspeccionado,
+ 3tileslegibles,avisoejemplo/noseleccionconservados. Datosrealesintactos.
+- Completa314+assemblependientes.Yautoaxes/XScoreautomatico/nativo
+ pendientes735/70,nopush,domain504/93Wear8/1anteriores.
