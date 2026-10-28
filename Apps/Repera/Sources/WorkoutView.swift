@@ -3241,6 +3241,10 @@ struct WODResultInlineEditor: View {
             guard !Task.isCancelled else { return }
             saveValidResult()
         }
+        .onDisappear {
+            // Si el usuario sale antes del debounce, guardar la última edición válida.
+            if hasEditedResult { saveValidResult() }
+        }
         .onChange(of: suggestedElapsedSeconds) { _, seconds in
             // Reloj For Time: conservar cualquier registro previo y solo
             // proponer el tiempo recién medido cuando no había resultado.
