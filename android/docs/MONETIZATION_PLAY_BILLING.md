@@ -109,7 +109,8 @@ Checklist ops (referencia; no listar como deuda de código Android):
 1. Secretos Edge: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `PLAY_PACKAGE_NAME`
 2. Play Console: ~~crear productos~~ **hecho** (monthly/yearly borrador); quedan
    testers/SHA-1 + **activar** tras verify en prod
-3. Aplicar migración `play_subscription_ownership` + desplegar Edge Function
+3. Aplicar migración `play_subscription_ownership` + desplegar Edge Function —
+   comandos: `android/docs/BILLING_DEPLOY.md`
 4. (Opcional) RTDN Pub/Sub
 
 Sin SA/config la función responde `503 { configured:false }` y la app muestra
