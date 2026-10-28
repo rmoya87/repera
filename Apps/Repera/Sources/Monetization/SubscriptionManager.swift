@@ -242,26 +242,57 @@ final class SubscriptionManager {
     }
 
     func restorePurchases() async -> Bool {
+        guard !purchaseInFlight else { return false }
         purchaseInFlight = true
         lastErrorMessage = nil
         defer { purchaseInFlight = false }
+
+        let previous = snapshot
+        var verifiedRestore = false
+        var restoreFailure: String?
         do {
-            let previous = snapshot
             var next = try await provider.restore()
             next = await verifiedAppleAccessIfNeeded(next)
             next = mergedVerifiedCache(next, from: previous)
             applySnapshot(next)
-            if snapshot.grantsProAccess {
-                MonetizationAnalytics.track(.subscriptionRestored, context: paywall.context)
-                paywall.dismiss()
-                return true
-            }
-            lastErrorMessage = "No se encontró ninguna suscripción para restaurar."
-            return false
+            verifiedRestore = next.grantsProAccess
         } catch {
-            lastErrorMessage = error.localizedDescription
-            return false
+            restoreFailure = error.localizedDescription
         }
+
+        if !verifiedRestore {
+            // TestFlight puede tener una transacción Apple válida aunque
+            // RevenueCat no haya sincronizado aún el entitlement `pro`
+            // o falle su endpoint de restauración. Intentar restauración
+            // directa en StoreKit y aceptar únicamente compras verificadas.
+            let apple = StoreKitEntitlementProvider()
+            let appleSnapshot: CommercialSnapshot
+            if provider is StoreKitEntitlementProvider {
+                // El proveedor principal ya llamó a AppStore.sync().
+                appleSnapshot = await apple.refresh()
+            } else if let restored = try? await apple.restore() {
+                appleSnapshot = restored
+            } else {
+                // Si AppStore.sync() falla, no ignorar una transacción local
+                // todavía válida que currentEntitlements sí puede verificar.
+                appleSnapshot = await apple.refresh()
+            }
+            if appleSnapshot.grantsProAccess {
+                provider = apple
+                applySnapshot(mergedVerifiedCache(appleSnapshot, from: previous))
+                verifiedRestore = true
+            }
+        }
+
+        if verifiedRestore {
+            MonetizationAnalytics.track(.subscriptionRestored, context: paywall.context)
+            paywall.dismiss()
+            return true
+        }
+
+        lastErrorMessage = restoreFailure
+            ?? "No se encontró ninguna suscripción activa para restaurar en este Apple ID."
+        return false
     }
 
     private func refresh(reason: String) async {
