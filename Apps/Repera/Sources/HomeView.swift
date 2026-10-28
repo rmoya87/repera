@@ -80,6 +80,7 @@ struct HomeView: View {
     /// Keep the 735-day carousel stable while selecting days or returning from detail.
     @State private var didBuildDayBuckets = false
     @State private var didBuildCalendarChrome = false
+    @State private var lastCalendarWeekStartsOn: WeekStart?
     @State private var didBuildStreakChrome = false
     @State private var lastProcessedWorkoutsEpoch: UInt64?
     @State private var lastProcessedHealthRevision: Int?
@@ -392,7 +393,10 @@ struct HomeView: View {
                 }
                 // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
                 if !didBuildDayBuckets { rebuildDayBuckets() }
-                if !didBuildCalendarChrome { rebuildWeekChrome() }
+                if !didBuildCalendarChrome ||
+                   lastCalendarWeekStartsOn != store.state.settings.weekStartsOn {
+                    rebuildWeekChrome()
+                }
                 // Reentrar desde un detalle no debe recalcular rachas y PRs
                 // ni regenerar el calendario. Los epochs actualizan cambios reales.
                 if !didBuildStreakChrome {
@@ -431,6 +435,9 @@ struct HomeView: View {
             }
             .onChange(of: weekOffset) { _, _ in
                 rebuildSelectedWeekChrome()
+            }
+            .onChange(of: store.state.settings.weekStartsOn) { _, _ in
+                rebuildWeekChrome()
             }
             .onChange(of: health.isAuthorized) { _, authorized in
                 if authorized {
@@ -1776,6 +1783,7 @@ struct HomeView: View {
             uniquingKeysWith: { _, latest in latest }
         )
         didBuildCalendarChrome = true
+        lastCalendarWeekStartsOn = store.state.settings.weekStartsOn
         // En la primera apertura posicionar AYER como objetivo del scroll;
         // el viewport muestra solo su parte final y HOY queda como primera
         // casilla completa. No volver a
