@@ -83,7 +83,7 @@
 
 - Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
-- Card **Racha de N semanas** (como openGym `streakWeeks`): cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
+- Card **Racha de N semanas**: cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
 - Métricas del día: **tiempo reconciliado entre entrenos registrados y Salud** y **kcal de Apple Salud exclusivamente** (`activeEnergyBurned` de fuentes externas a Repera). Cuando no existe medición, el tile muestra **«—»**: nunca deriva calorías de minutos, kg, repeticiones ni estimaciones almacenadas. Los **chips kcal de entrenos Repera** solo aparecen tras verificar que el workout enlazado es de una fuente de Salud/Watch ajena a Repera y trae energía real. **Tiempo mostrado = inicio→fin**. La migración (v2026_10_22_health_only) limpia estimaciones locales históricas sin borrar entrenos. Las tarjetas **Kcal, Tiempo y Nota** muestran el nombre a la derecha de su icono y el valor debajo, con números de 28 pt y espaciado equilibrado respecto a los bordes.
 - Lista de entrenos Repera del día + actividades externas de Salud (etiqueta «DÍA · hora» misma tipografía; chips min/kcal/**nota**/PR como Historial; tile del día «Nota» en lugar de nº de ejercicios, con icono `star.fill` fijo aunque no haya puntuación). Notas recalculadas al arrancar si cambia la fórmula (`sessionReviewFormulaVersion`).
 - **Inicio:** el topbar no pinta fondo propio (transparente como Ejercicios); el blanco del calendario/entreno se prolonga por debajo de la barra y la zona segura superior como un lienzo continuo. La zona de Progreso/Actividad mantiene el fondo gris agrupado. Entreno del día y día vacío utilizan el mismo alto mínimo compacto (100 pt, escalable con Dynamic Type), contenido centrado verticalmente y padding simétrico (10 pt superior e inferior) tanto en tarjetas con chips como sin entreno. El botón «Añadir nuevo entreno» mantiene una separación de 6 pt. El borde gris y la papelera revelada solo al deslizar se conservan.
@@ -152,7 +152,7 @@
 - Filtro: **Hoy / Esta semana / Este mes / 90 / 180 / 360 días** (sin «Todo»). Modal fitted + glass.
 - Gráficas: día en periodos cortos; **media semanal** en 90/180; **media mensual** en 360.
 - Tiles: entrenos, tiempo medio, racha; **FC media** solo si hay lpm de Salud. Sin FC → 3 en una fila; con FC → 2×2. Cabecera **icono + etiqueta** en la misma fila; valor grande (y delta) debajo.
-- Racha: semanas consecutivas con ≥1 entreno ≈ openGym `streakWeeks`.
+- Racha: semanas consecutivas con al menos un entrenamiento registrado.
 - **Cardio / calorías / tiles / heatmap / músculo / PRs / peso:** un `ProgressSnapshot` por periodo (`ProgressDataEngine` off-main); `ProgressViewModel` cachea por periodo+revisión y cancela preps obsoletas.
 - Selector de periodo responde al toque; si hay caché, pinta al instante; si no, loader solo en gráficas.
 - Agregación: día (hoy/semana), media semanal (mes/90/180), media mensual (360); Charts ≤48 pts.
