@@ -13,7 +13,7 @@ class TimerCompletionLayoutTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.summary = TIMER.split("private var timerSummaryScreen: some View {", 1)[1].split(
-            "private func recordTimerCompletion()", 1
+            "private func recordTimerCompletion(", 1
         )[0]
 
     def test_completed_screen_uses_workout_detail_layout(self):
@@ -26,12 +26,12 @@ class TimerCompletionLayoutTests(unittest.TestCase):
         self.assertIn(".ogScrollingTitleNav()", self.summary)
         self.assertNotIn('Section("Resumen del temporizador")', self.summary)
 
-    def test_done_button_is_green_circle_with_adaptive_check(self):
+    def test_save_button_is_green_circle_with_adaptive_check(self):
         self.assertIn('Image(systemName: "checkmark")', self.summary)
         self.assertIn(".background(OG.accent, in: Circle())", self.summary)
         self.assertIn("colorScheme == .dark ? Color.black : Color.white", self.summary)
-        self.assertIn('accessibilityLabel("Listo")', self.summary)
-        self.assertIn("showClock = false", self.summary)
+        self.assertIn('accessibilityLabel("Guardar temporizador")', self.summary)
+        self.assertIn("Button(action: saveCompletedTimer)", self.summary)
         self.assertNotIn('Button("Listo")', self.summary)
 
     def test_place_is_editable_without_helper_copy(self):
@@ -50,6 +50,17 @@ class TimerCompletionLayoutTests(unittest.TestCase):
         self.assertIn('Locale(identifier: "es_ES")', self.summary)
         self.assertIn("completedSummary = summary", TIMER)
         self.assertIn("StandaloneTimerCompletionStore.save(summary)", TIMER)
+
+    def test_save_discard_actions_match_workout_completion(self):
+        self.assertIn('Text("Guardar")', self.summary)
+        self.assertIn('Text("Descartar")', self.summary)
+        self.assertIn("Button(action: saveCompletedTimer)", self.summary)
+        self.assertIn("showDiscardCompletedTimer = true", self.summary)
+        self.assertIn("Button(\"Descartar\", role: .destructive, action: discardCompletedTimer)", self.summary)
+        self.assertIn("StandAloneTimerCompletionStore.clear()", TIMER.replace(
+            "StandaloneTimerCompletionStore", "StandAloneTimerCompletionStore"
+        ))
+
 
 
 if __name__ == "__main__":
