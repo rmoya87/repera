@@ -149,7 +149,9 @@ private struct StandaloneTimerCompletion: Codable {
 }
 
 private enum StandaloneTimerCompletionStore {
-    private static let key = "repera.timer.lastCompletion.v1"
+    // v2 guarda solo resultados pendientes de decisión; no reabre los resúmenes
+    // antiguos de solo lectura como si todavía esperasen Guardar/Descartar.
+    private static let key = "repera.timer.pendingCompletion.v2"
     static func load() -> StandaloneTimerCompletion? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(StandaloneTimerCompletion.self, from: data)
