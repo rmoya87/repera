@@ -350,7 +350,7 @@ public struct SessionController: Sendable {
         } else {
             title = routine.title
         }
-        return WorkoutSession(title: title, routineId: routine.id, exercises: sessionExercises, routineBlocks: routine.blocks)
+        return WorkoutSession(title: title, routineId: routine.id, exercises: sessionExercises, routineBlocks: routine.blocks, locationPin: routine.locationPin)
     }
 
     /// Commits the current live rep counter as one logged set (Watch flow).
