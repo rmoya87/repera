@@ -811,3 +811,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -355 bateria completa mobile683/163XML5lotes86/65/97/80/82s,domain548/93XML66s,Wear8/1XML+ambosassemble66sverdes. Backup355recuperado65338db7:arbol5c5af28c5bc44ed1bfcce837344796c5a6f129a9identico,clonlimpio.
 - Mismo lector parcial356: cabeceraexacta N RFQ/N FOR QUALITY reconoceROUNDS_FOR_QUALITYyNrondas1..200segunfuente528-535;sin capinventado. NRoundsForQualityanteriorconservado. No containsglobal,3RFQPRESSbajoAMRAPsiguesiendounmovimiento,anotacionesEMOMsinfragmentar.
 - Regresion fallo antes:3RFQnoempezababloque.1testdominio3cabecerasentrebloques+nombreordinarioy1wirenuevos;dominio549/93XML64s,wire14/1XML58sverdes0fallos/errores/omitidos. Mobile completa/Wear356pendientes;735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 07:47 28oct
+-356 bateria completa mobile684/163XML5lotes78/60/96/78/76s,domain549/93XML64s,Wear8/1XML+ambosassemble62sverdes0fallos/errores/omitidos. Backup356recuperado65338db7:arbol4ceb31d088359901de0e27c531730f576f9f61cfidentico,clonlimpio.
+-357 solo documentacion: c6f89c28/88db5bb7reconciliadas355-356,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
