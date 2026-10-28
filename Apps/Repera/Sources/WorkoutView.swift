@@ -767,12 +767,12 @@ struct WorkoutView: View {
             .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(Rectangle())
             .dropDestination(for: String.self) { tokens, _ in
-                movePlayReorderToken(tokens.first, into: block.id)
+                return movePlayReorderToken(tokens.first, into: block.id)
             }
         } header: {
             Text(block.title)
                 .dropDestination(for: String.self) { tokens, _ in
-                    movePlayReorderToken(tokens.first, into: block.id)
+                    return movePlayReorderToken(tokens.first, into: block.id)
                 }
         }
     }
@@ -920,7 +920,7 @@ struct WorkoutView: View {
         .listRowBackground(OG.surface)
         .draggable("\(blockID.uuidString):\(itemID.uuidString)")
         .dropDestination(for: String.self) { tokens, _ in
-            movePlayReorderToken(tokens.first, into: blockID, before: itemID)
+            return movePlayReorderToken(tokens.first, into: blockID, before: itemID)
         }
     }
 
