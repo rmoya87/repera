@@ -109,6 +109,10 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_mcp_v2_and_scan_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_mcp_wod_format_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_mcp_workout_crud_timezone_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_timer_completion_layout_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_timer_last_configuration_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_timer_history_persistence_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_no_legacy_brand_references.py' -v
 
   xcode-build:
     name: XcodeGen + build + test
