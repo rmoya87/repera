@@ -730,3 +730,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -337 bateria completa mobile678/163XML86/102/82/82s,domain533/93XML61s,Wear8/1XML+ambosassemble67sverdes0fallos/errores/omitidos. Solo bateria cerrada.
 -338 solo prueba: verificados negativos/esquemasmalformados yduplicados tanto huerfanos como bajoSTRENGTH por pipelineLitecompleto. No bypass hacia structuredStrength ni ejerciciosgenerados;notas originales intactas.1test de6casos pasa sin modificar produccion.
 - Dominio534/93XMLcompletoverde0fallos/errores/omitidos. Ultimobile/Wear337sin cambiosproductivos338.735/70sin cierres,lectorcompleto/graficos/nativo abiertos,no push.
+
+## Lector completo, OTM explicito 04:59 28oct
+- Mismo lector parcial339,subhueco cabeceras: OTM/ON THE MINUTE conminutosopcional reconoceEMOM60s,cap indicado o10min fuenteBoardImportParser475-484;titulo normalizado ycabeceraoriginal ennotas. Acotado a linea de cabecera exacta,evita token en nombredeejercicio. No default3x8.
+- Regresion fallo antes del cambio.1test nuevo OTM/ON THE MINUTE12min ydefault10. Dominio535/93XML70s ywire8/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear339 pendientes;ultima completa337mobile678/163Wear8/1.735/70sin cierres,nativo pendiente,no push.

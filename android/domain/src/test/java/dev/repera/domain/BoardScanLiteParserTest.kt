@@ -667,4 +667,16 @@ class BoardScanLiteParserTest {
         assertEquals(1,named.movements.size)
         assertEquals(2,named.movements.single().reps)
     }
+    @Test fun explicitOnTheMinuteHeadersKeepCadenceAndCap() {
+        for(header in listOf("OTM 12'","ON THE MINUTE 12'")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(WODFormat.EMOM,block.wodFormat)
+            assertEquals(60,block.emomIntervalSeconds)
+            assertEquals(12,block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        val defaults=BoardScanLiteParser.parse("OTM\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(10,defaults.timeCapMinutes)
+    }
 }

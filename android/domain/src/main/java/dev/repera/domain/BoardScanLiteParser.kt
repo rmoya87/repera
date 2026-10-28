@@ -316,6 +316,11 @@ object BoardScanLiteParser {
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
         if(upper in setOf("STRENGTH","FUERZA") || strengthHeaders.any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")})
             return Header(line,WODFormat.STRENGTH,null)
+        if(Regex("^(?:OTM|ON THE MINUTE)(?:\\s+\\d+\\s*['\"]?)?\\s*$").matches(upper)) {
+            val minutes=firstInt(upper) ?: 10
+            if(minutes !in 1..(Int.MAX_VALUE/60)) return null
+            return Header("OTM $minutes'",WODFormat.EMOM,minutes,interval=60)
+        }
         if (upper.startsWith("EMOM")) {
             val mins = firstInt(upper) ?: 10
             return Header(line, WODFormat.EMOM, mins)
