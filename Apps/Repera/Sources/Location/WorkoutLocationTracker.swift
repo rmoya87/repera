@@ -52,8 +52,11 @@ final class WorkoutLocationTracker: NSObject {
     private(set) var routeBuffer: [WorkoutRoutePoint] = []
     private(set) var trackingSessionID: UUID?
     private(set) var currentFix: WorkoutGPSFix?
+    /// Brújula para el mapa previo al inicio. No registra coordenadas.
+    private(set) var previewHeadingDegrees: Double?
 
     @ObservationIgnored private let manager: CLLocationManager
+    @ObservationIgnored private var previewHeadingActive = false
     @ObservationIgnored private var backgroundSession: CLBackgroundActivitySession?
     @ObservationIgnored private var lastAccepted: CLLocation?
     @ObservationIgnored private var segmentBeganAt: Date?
@@ -178,6 +181,22 @@ final class WorkoutLocationTracker: NSObject {
 
     func requestFreshLocation() {
         if isAuthorized { manager.requestLocation() }
+    }
+
+    /// Reutiliza el CLLocationManager único; la brújula solo vive mientras
+    /// el mapa está visible, sin arrancar una grabación ni un segundo GPS.
+    func startPreviewHeading() {
+        guard !previewHeadingActive, CLLocationManager.headingAvailable() else { return }
+        previewHeadingActive = true
+        manager.headingFilter = 5
+        manager.startUpdatingHeading()
+    }
+
+    func stopPreviewHeading() {
+        guard previewHeadingActive else { return }
+        previewHeadingActive = false
+        manager.stopUpdatingHeading()
+        previewHeadingDegrees = nil
     }
 
     /// An existing session is never replaced by another id; both UI entrypoints
@@ -349,6 +368,17 @@ final class WorkoutLocationTracker: NSObject {
 }
 
 extension WorkoutLocationTracker: CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading heading: CLHeading) {
+        // Una precisión negativa significa que la brújula no está calibrada.
+        guard heading.headingAccuracy >= 0, heading.headingAccuracy <= 45 else { return }
+        let degrees = heading.trueHeading >= 0 ? heading.trueHeading : heading.magneticHeading
+        guard degrees.isFinite, (0..<360).contains(degrees) else { return }
+        Task { @MainActor [weak self] in
+            guard let self, self.previewHeadingActive else { return }
+            self.previewHeadingDegrees = degrees
+        }
+    }
+
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
         Task { @MainActor [weak self] in
