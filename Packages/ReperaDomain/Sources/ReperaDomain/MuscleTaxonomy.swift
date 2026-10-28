@@ -1,6 +1,6 @@
 import Foundation
 
-/// Músculos dibujables en el BodyMap (orden cabeza → pies), alineados con openGym.
+/// Músculos del mapa corporal, ordenados de la cabeza a los pies.
 public enum MuscleTaxonomy {
     public static let muscles: [String] = [
         "trapezius", "deltoids", "chest", "upper-back", "serratus",
