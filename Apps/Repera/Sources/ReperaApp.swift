@@ -408,9 +408,10 @@ struct ReperaApp: App {
                     }
                     // Solo refresca conteos de cuota; no rehace sort de rutinas.
                     subscriptions.syncCounts(
-                        libraryRoutines: store.libraryRoutineCount,
-                        customExercises: store.customExerciseCount
-                    )
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
+        )
                 }
     }
 
@@ -457,7 +458,8 @@ struct ReperaApp: App {
         // Conteos O(n) sin sort; syncCounts ignora si no cambian (menos churn Observation).
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
-            customExercises: store.customExerciseCount
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
         )
         subscriptions.setBusinessSponsoredAccess(businessData.grantsFullAppAccess)
         store.featureAccess = { [subscriptions] in subscriptions.policy }
