@@ -254,8 +254,8 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   // Minimize the payload for non-manager workspaces. RLS enforces which
   // rows are visible; this endpoint also avoids loading notes/phone at all.
-  const fields=basic?'id,org_id,user_id,name,email,avatar_url,status,created_at':
-   'id,org_id,user_id,name,email,phone,notes,avatar_url,status,created_at';
+  const fields=basic?'id,org_id,user_id,name,email,avatar_url,status,account_deleted_at,created_at':
+   'id,org_id,user_id,name,email,phone,notes,avatar_url,status,account_deleted_at,created_at';
   return this.#authorized('clients?select='+fields+'&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
  }
  async clientAvatars(orgId){
@@ -557,6 +557,19 @@ export class ReperaAuthAPI {
  async removeManagedClient(id){return this.#authorized('rpc/remove_managed_client',{method:'POST',body:{p_booking:id}});}
  async sendClientNotice({orgId,clientId,title,body}){
   return this.#authorized('rpc/send_business_client_notice',{method:'POST',body:{p_org:orgId,p_client:clientId,p_title:title,p_body:body}});
+ }
+ async archivedAthleteResults({orgId,clientId}){
+  if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Cliente histórico inválido');
+  // RLS grants ONLY active professional staff read-only access.
+  const rows=await this.#authorized(
+    'business_athlete_workout_snapshots?select=workout_id,title,started_at,finished_at,payload'
+    +'&org_id=eq.'+encodeURIComponent(orgId)
+    +'&client_id=eq.'+encodeURIComponent(clientId)
+    +'&order=finished_at.desc&limit=100');
+  return (rows||[]).map(row=>({
+    id:row.workout_id,title:row.title,
+    started_at:row.started_at,finished_at:row.finished_at,result:row.payload
+  }));
  }
  async sharedClientHistory({orgId,clientId}) {
   return this.sharedAthleteResults({orgId,clientId,limit:100});
