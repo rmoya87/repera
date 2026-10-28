@@ -75,7 +75,7 @@ object BoardScanLiteParser {
                     roundLabel="Ronda ${round.groupValues[1]}"
                     return@flatMap emptyList()
                 }
-                val segments=simpleComplexMovements(raw,searchAliases)
+                val segments=simpleComplexMovements(raw,searchAliases,catalog)
                 segments.mapNotNull {parsed ->
                     val upperRaw=raw.uppercase(Locale.ROOT)
                     if(cur.format==WODFormat.FOR_TIME && parsed.isRest &&
@@ -169,7 +169,7 @@ object BoardScanLiteParser {
                         CrossFitGlossary.canonicalName(move.name, searchAliases)
                     )
                     val keys = listOf(norm(move.name), norm(canonical))
-                    val ex = keys.firstNotNullOfOrNull { index[it] }
+                    val ex = move.exerciseId?.let {id ->catalog.firstOrNull {it.id==id}} ?: keys.firstNotNullOfOrNull { index[it] }
                     if (ex != null) {
                         move.copy(exerciseId = ex.id, name = ex.name)
                     } else if (canonical != move.name) {
@@ -500,7 +500,7 @@ object BoardScanLiteParser {
     /** Bounded Full-parser complex subset: trailing explicit kg pair belongs only
      * to the first part. Percent and integer RPE are shared notes.
      * Multiplier is a note, never inferred reps/sets. */
-    private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
+    private fun simpleComplexMovements(raw:String,aliases:Map<String,String>,catalog:List<CatalogExercise>):List<WODMovement> {
         // Whole-line REST precedence matches the Full parser before complex splitting.
         val upper=raw.uppercase(Locale.ROOT)
         if(upper.contains("REST") || upper.contains("DESCANSO")) return listOf(movement(raw,aliases))
@@ -553,7 +553,9 @@ object BoardScanLiteParser {
             Regex("^\\d+\\s*[-–]").containsMatchIn(body)) return listOf(movement(raw,aliases))
         return parts.mapIndexed {index,part ->
             val parsed=movement(part,aliases)
-            parsed.copy(scaleAlternative=if(index==parts.lastIndex) scaleAlternative ?: parsed.scaleAlternative else parsed.scaleAlternative,
+            val match=BoardStrengthLines.bestMatch(part,catalog,allowFuzzy=false)
+            parsed.copy(exerciseId=match?.id,name=match?.name ?: parsed.name,
+                scaleAlternative=if(index==parts.lastIndex) scaleAlternative ?: parsed.scaleAlternative else parsed.scaleAlternative,
                 weightMaleKg=if(index==0) parsed.weightMaleKg ?: parentLoad?.first else parsed.weightMaleKg,
                 weightFemaleKg=if(index==0) parsed.weightFemaleKg ?: parentLoad?.second else parsed.weightFemaleKg,
                 reps=if(index==0 && validWave!=null) null else parsed.reps,repScheme=if(index==0 && validWave!=null) validWave else parsed.repScheme,

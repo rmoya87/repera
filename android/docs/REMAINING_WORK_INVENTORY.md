@@ -672,3 +672,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -325 bateria completa mobile677/163XML67/84/67/67s,domain520/93XML51s,Wear8/1XML+ambosassemble50s verdes0fallos/errores/omitidos. Backup325 recuperado desde65338db7:arbola60f7aaa1d7ab7b3ad7334a81a0a21bbd27a4476 identico,clon limpio.
 - Hallazgo nuevo: complejo con REST/DESCANSO se separaba en trabajo+descanso,cuando fuente BoardImportParser731-734 da precedencia al descanso de linea completa. Regresion fallo antes de corregir;326 enruta linea REST completa al parser existente antes de separar. No agrega movimiento de trabajo ficticio.
 -1test nuevo conREST/DESCANSO;dominio521/93XML66s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear326 pendientes. Mismo lector parcial735/70sin cierres,no push,nativo pendiente.
+
+## Lector completo, candidatos exactos en complejo 02:59 28oct
+-326 bateria completa mobile677/163XML92/114/84/84s,domain521/93XML66s,Wear8/1XML+ambosassemble97s verdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo bloque parcial327: complejos acotados ahora usan candidatos por segmento original, quitando modificadores BN/BTN/etc como fuente870-899, prioridad exacto oficial>alias editorial>exacto custom. Respuesta mantiene id/nombre elegidos en matching posterior. No se habilita fallback fuzzy ni cambia matching de lineas simples. Helper existente de fuerza conserva fuzzy por defecto.
+- Regresion fallo antes de corregir con alias oficial frente a custom conBN;2tests nuevos cubren prioridad exacta y ausencia defuzzy. Dominio523/93XML42s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear327 pendientes.735/70sin cierres,lectorfull/fuzzy/rutas/nativo pendientes,no push.

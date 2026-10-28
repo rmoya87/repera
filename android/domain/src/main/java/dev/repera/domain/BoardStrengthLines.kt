@@ -28,13 +28,14 @@ internal object BoardStrengthLines {
  }
  /** Full-parser candidate precedence: official exact, editorial alias, any exact,
   * then bounded substring/token fallback with official winner on equal score. */
- internal fun bestMatch(name:String,catalog:List<CatalogExercise>):CatalogExercise? {
+ internal fun bestMatch(name:String,catalog:List<CatalogExercise>,allowFuzzy:Boolean=true):CatalogExercise? {
   val cleaned=CrossFitGlossary.cleanMovementLabel(name).replace(Regex("\\b(?:t\\s*&\\s*g|touch\\s+and\\s+go|afap|bn|btn|behind\\s+neck|unbroken|uat)\\b",RegexOption.IGNORE_CASE)," ").trim()
   val candidates=listOf(CrossFitGlossary.canonicalName(name),CrossFitGlossary.canonicalName(cleaned),CrossFitGlossary.expand(cleaned),cleaned)
    .map {CrossFitGlossary.normalize(it)}.filter {it.isNotEmpty()}
   for(needle in candidates) catalog.firstOrNull {!it.isCustom && CrossFitGlossary.normalize(it.name)==needle}?.let {return it}
   for(needle in candidates) catalog.firstOrNull {!it.isCustom && !it.isCatalogArchived && it.searchAliases.any {alias ->CrossFitGlossary.normalize(alias)==needle}}?.let {return it}
   for(needle in candidates) catalog.firstOrNull {CrossFitGlossary.normalize(it.name)==needle}?.let {return it}
+  if(!allowFuzzy) return null
   var best:CatalogExercise?=null;var bestScore=Int.MAX_VALUE
   for(needle in candidates.filter {it.length>=2}) for(ex in catalog) {
    val hay=CrossFitGlossary.normalize(ex.name);if(hay.length<2) continue

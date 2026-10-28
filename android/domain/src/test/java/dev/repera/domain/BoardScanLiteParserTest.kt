@@ -590,4 +590,24 @@ class BoardScanLiteParserTest {
             assertEquals("REST",block.movements.single().name)
         }
     }
+    @Test fun complexModifierCandidateUsesOfficialAliasBeforeOldCustom() {
+        val official=CatalogExercise("official","Press oficial",listOf("ZPRESS"))
+        val old=CatalogExercise("old","ZPRESS BN",emptyList(),isCustom=true)
+        val squat=CatalogExercise("squat","Sentadilla",listOf("AIR SQUAT"))
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS BN + 2 AIR SQUAT",listOf(old,official,squat)).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertEquals("official",block.movements[0].exerciseId)
+        assertEquals("Press oficial",block.movements[0].name)
+        assertEquals("squat",block.movements[1].exerciseId)
+    }
+    @Test fun complexCandidateMatchingDoesNotEnableFuzzyAndKeepsOfficialExactFirst() {
+        val exact=CatalogExercise("exact","ZPRESS",emptyList())
+        val alias=CatalogExercise("alias","Press oficial",listOf("ZPRESS"))
+        val near=CatalogExercise("near","ZPRESS UNKNOWN EXTRA",emptyList())
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS BN + 2 UNKNOWN EXTRA",listOf(alias,near,exact)).blocks.single()
+        assertEquals("exact",block.movements[0].exerciseId)
+        assertNull(block.movements[1].exerciseId)
+        val single=BoardScanLiteParser.parse("AMRAP 10'\n1 UNKNOWN EXTRA",listOf(near)).blocks.single()
+        assertNull(single.movements.single().exerciseId)
+    }
 }
