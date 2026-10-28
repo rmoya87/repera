@@ -1212,7 +1212,9 @@ final class HealthKitStore {
 
     /// FC + ruta de Salud para un entreno propio (UUID vinculado o solape temporal).
     func sessionHealthExtras(for session: WorkoutSession) async -> SessionHealthExtras? {
-        guard isAvailable else { return nil }
+        // Un temporizador libre no ha medido un entrenamiento en Salud.
+        // No asociar uno ajeno únicamente porque se solapan las horas.
+        guard isAvailable, session.timerDetails == nil else { return nil }
         await ensureWorkoutRouteAccess()
         // No usar isAuthorized (estado de escritura) para bloquear lectura.
         guard let start = session.startedAt else { return nil }
