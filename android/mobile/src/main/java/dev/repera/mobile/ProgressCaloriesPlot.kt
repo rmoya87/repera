@@ -110,12 +110,14 @@ internal fun greedyPlotDateLabels(candidates:List<Triple<String,Float,Float>>,av
  return result
 }
 
+internal fun progressPlotDatePattern(charts:ProgressPreparedCharts):String = if(charts.granularity==ProgressSeriesGranularity.MONTH) "MMM yy" else if(charts.granularity==ProgressSeriesGranularity.DAY && (charts.range==ProgressTimeRange.WEEK || charts.range==ProgressTimeRange.TODAY)) "EEE" else "d MMM"
+
 @Composable internal fun ProgressPlotDateLabels(ticks:List<LocalDate>,domain:Pair<Double,Double>,charts:ProgressPreparedCharts) {
    val measurer=androidx.compose.ui.text.rememberTextMeasurer()
    val density=androidx.compose.ui.platform.LocalDensity.current
    val style=MaterialTheme.typography.labelSmall.copy(fontSize=androidx.compose.ui.unit.TextUnit(10f,androidx.compose.ui.unit.TextUnitType.Sp))
    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start=44.dp).height(22.dp)) {
-    val fmt=java.time.format.DateTimeFormatter.ofPattern(if(charts.granularity==ProgressSeriesGranularity.MONTH) "MMM yy" else if(charts.range==ProgressTimeRange.WEEK || charts.range==ProgressTimeRange.TODAY) "EEE" else "d MMM",java.util.Locale("es","ES"))
+    val fmt=java.time.format.DateTimeFormatter.ofPattern(progressPlotDatePattern(charts),java.util.Locale("es","ES"))
     val candidates=ticks.map {day ->
      val text=day.format(fmt)
      val width=with(density) {measurer.measure(androidx.compose.ui.text.AnnotatedString(text),style=style,maxLines=1,softWrap=false).size.width.toDp().value}+1f

@@ -364,6 +364,18 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("24 oct 2026: 13 resp/min").assertExists()
         save(composeRule.onNodeWithTag("physiology_bars_fixture").captureToImage().asAndroidBitmap(),"physiology-bars-selected.png")
     }
+ @Test fun weeklyGranularityDateLabelsUseDayMonth() {
+        val day=LocalDate.of(2026,10,27)
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("weekly_date_fixture")) {
+            val charts=dev.repera.mobile.ProgressPreview.charts(day,true).copy(
+                range=dev.repera.domain.ProgressTimeRange.WEEK,granularity=dev.repera.domain.ProgressSeriesGranularity.WEEK)
+            dev.repera.mobile.ProgressPlotDateLabels(listOf(day.minusDays(6),day),
+                dev.repera.mobile.ProgressPlotAxis.domain(listOf(day.minusDays(6),day),charts.range,true,day,true),charts)
+        }}}
+        composeRule.onNodeWithText("21 oct").assertExists()
+        composeRule.onNodeWithText("27 oct").assertExists()
+        save(composeRule.onNodeWithTag("weekly_date_fixture").captureToImage().asAndroidBitmap(),"weekly-date-labels.png")
+    }
  @Test fun caloriesCurveAndSelection() {
         val day=LocalDate.of(2026,10,27)
         composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("calories_fixture")) {

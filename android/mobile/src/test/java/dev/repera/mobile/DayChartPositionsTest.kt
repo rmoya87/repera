@@ -47,4 +47,19 @@ class DayChartPositionsTest {
   assertTrue(labels.last().left+labels.last().width<=100f)
   assertTrue(greedyPlotDateLabels(listOf(Triple("too long",20f,80f)),40f).isEmpty())
  }
+ @Test fun weeklyGranularityLabelsUseDayAndMonthEvenInsideWeekRange() {
+  val charts=ProgressPreview.charts(LocalDate.of(2026,10,27),true).copy(
+   range=dev.repera.domain.ProgressTimeRange.WEEK,
+   granularity=dev.repera.domain.ProgressSeriesGranularity.WEEK)
+  assertEquals("d MMM",progressPlotDatePattern(charts))
+ }
+ @Test fun datePatternMatrixMatchesSourceGranularityPrecedence() {
+  val base=ProgressPreview.charts(LocalDate.of(2026,10,27),true)
+  for(range in dev.repera.domain.ProgressTimeRange.entries) {
+   assertEquals("d MMM",progressPlotDatePattern(base.copy(range=range,granularity=dev.repera.domain.ProgressSeriesGranularity.WEEK)))
+   assertEquals("MMM yy",progressPlotDatePattern(base.copy(range=range,granularity=dev.repera.domain.ProgressSeriesGranularity.MONTH)))
+   val expected=if(range in listOf(dev.repera.domain.ProgressTimeRange.TODAY,dev.repera.domain.ProgressTimeRange.WEEK)) "EEE" else "d MMM"
+   assertEquals(expected,progressPlotDatePattern(base.copy(range=range,granularity=dev.repera.domain.ProgressSeriesGranularity.DAY)))
+  }
+ }
 }
