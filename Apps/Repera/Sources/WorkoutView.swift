@@ -76,6 +76,7 @@ struct WorkoutView: View {
     /// Mantener el temporizador del bloque al cambiar entre sus movimientos.
     @State private var runningTimerBlockID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
+    @FocusState private var focusedPlayFormatField: OGSetFieldID?
     @State private var advancedFieldRowID = UUID()
     @FocusState private var advancedFocusedField: OGSetFieldID?
 
@@ -1177,6 +1178,148 @@ struct WorkoutView: View {
     }
 
     /// El resultado permanece visible dentro del bloque, sin desplegable.
+
+    /// Formato y parámetros visibles en Play, como en Crear/Editar.
+    private enum PlayFormatField: Hashable {
+        case duration, interval, rounds, work, rest, roundRest
+
+        var title: String {
+            switch self {
+            case .duration: return "Tiempo"
+            case .interval: return "Intervalo"
+            case .rounds: return "Rondas"
+            case .work: return "Trabajo"
+            case .rest: return "Descanso"
+            case .roundRest: return "Entre rondas"
+            }
+        }
+        var unit: String {
+            switch self {
+            case .duration: return "min"
+            case .rounds: return ""
+            case .interval, .work, .rest, .roundRest: return "s"
+            }
+        }
+        var range: ClosedRange<Int> {
+            switch self {
+            case .duration: return 1...120
+            case .rounds: return 1...99
+            case .interval: return 15...900
+            case .work, .rest: return 1...300
+            case .roundRest: return 0...600
+            }
+        }
+    }
+
+    private func playFormatFields(_ block: RoutineBlock) -> [PlayFormatField] {
+        guard let format = block.wodFormat else { return [] }
+        switch format {
+        case .tabata: return [.work, .rest, .rounds]
+        case .emom, .circuit: return [.duration, .interval]
+        case .amrap: return [.duration]
+        case .forTime:
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .roundRest]
+        case .chipper, .afap, .ladder:
+            return block.timeCapMinutes == nil ? [] : [.duration]
+        case .deathBy, .roundsForQuality, .partner:
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration]
+        case .buyInCashOut, .maxEffort, .strength:
+            return block.timeCapMinutes == nil ? [] : [.duration]
+        }
+    }
+
+    private func playFormatBinding(_ field: PlayFormatField, for blockID: UUID) -> Binding<Int> {
+        Binding(
+            get: {
+                guard let block = store.state.activeSession?.routineBlocks?
+                    .first(where: { $0.id == blockID }) else { return 0 }
+                switch field {
+                case .duration: return block.timeCapMinutes ?? 12
+                case .interval: return block.emomIntervalSeconds ?? 60
+                case .rounds: return block.rounds ?? 8
+                case .work: return block.workSeconds ?? 20
+                case .rest: return block.restSeconds ?? 10
+                case .roundRest: return block.restBetweenRoundsSeconds ?? 0
+                }
+            },
+            set: { value in
+                mutatePlayRoutine { draft in
+                    guard let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    switch field {
+                    case .duration: draft.blocks[index].timeCapMinutes = value
+                    case .interval: draft.blocks[index].emomIntervalSeconds = value
+                    case .rounds: draft.blocks[index].rounds = value
+                    case .work: draft.blocks[index].workSeconds = value
+                    case .rest: draft.blocks[index].restSeconds = value
+                    case .roundRest: draft.blocks[index].restBetweenRoundsSeconds = value
+                    }
+                    draft.blocks[index].deriveEmomRoundsIfNeeded()
+                }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func playBlockFormatSettings(_ entry: WorkoutBlockEntry) -> some View {
+        if let block = store.state.activeSession?.routineBlocks?.first(where: { $0.id == entry.id }) {
+            VStack(alignment: .leading, spacing: 20) {
+                Divider().padding(.vertical, 5)
+                Button {
+                    selectPlayFormatForBlock = entry.id
+                } label: {
+                    HStack(spacing: 10) {
+                        Text("Formato").foregroundStyle(OG.label)
+                        Spacer()
+                        Text(block.wodFormat?.displayName ?? "Sin formato")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(OG.label2)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label3)
+                    }
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                if let format = block.wodFormat {
+                    let fields = playFormatFields(block)
+                    if !fields.isEmpty {
+                        HStack(alignment: .bottom, spacing: 12) {
+                            ForEach(Array(fields.enumerated()), id: \.element) { position, field in
+                                OGFormatNumberField(
+                                    title: field.title,
+                                    unit: field.unit,
+                                    value: playFormatBinding(field, for: block.id),
+                                    range: field.range,
+                                    focus: $focusedPlayFormatField,
+                                    fieldID: OGSetFieldID(rowID: block.id, column: position),
+                                    nextID: position + 1 < fields.count
+                                        ? OGSetFieldID(rowID: block.id, column: position + 1)
+                                        : nil
+                                )
+                            }
+                        }
+                        .padding(.vertical, 10)
+                    }
+                    if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
+                        Toggle("Límite de tiempo", isOn: Binding(
+                            get: { block.timeCapMinutes != nil },
+                            set: { enabled in
+                                mutatePlayRoutine { draft in
+                                    guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                                    draft.blocks[index].timeCapMinutes = enabled
+                                        ? (draft.blocks[index].timeCapMinutes ?? 12) : nil
+                                }
+                            }
+                        ))
+                        .tint(OG.accent)
+                    }
+                }
+                Divider().padding(.vertical, 5)
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 10, trailing: 16))
+        }
+    }
+
     private func inlineWODScoreEditor(
         _ block: WorkoutBlockEntry,
         format: WODFormat,
