@@ -194,6 +194,7 @@ struct StandaloneTimerView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var config: StandaloneTimerConfig
     @State private var showClock = false
@@ -444,45 +445,115 @@ struct StandaloneTimerView: View {
         }
     }
 
+    /// Resultado del temporizador con la misma jerarquía visual que el detalle
+    /// de un entreno terminado: título grande, fecha, métricas y secciones.
     private var timerSummaryScreen: some View {
         NavigationStack {
-            Form {
+            List {
+                OGScrollablePageTitle("Temporizador finalizado")
+                    .ogScrollingTitleListRow()
+
                 if let summary = completedSummary {
-                    Section("Resumen del temporizador") {
-                        LabeledContent("Modalidad", value: summary.configuration.mode.title)
-                        LabeledContent("Configuración", value: summary.configuration.shortLabel)
-                        LabeledContent("Duración programada", value: DurationText.format(summary.configuredSeconds))
-                        LabeledContent(
-                            "Finalizado",
-                            value: summary.finishedAt.formatted(date: .abbreviated, time: .shortened)
+                    Section {
+                        HStack(spacing: 10) {
+                            WorkoutSummaryTile(
+                                title: "Tiempo",
+                                value: DurationText.format(summary.configuredSeconds),
+                                icon: "clock.fill",
+                                tint: OG.blue
+                            )
+                            .frame(maxWidth: .infinity)
+
+                            WorkoutSummaryTile(
+                                title: "Modalidad",
+                                value: summary.configuration.mode.title,
+                                icon: "timer",
+                                tint: OG.accent
+                            )
+                            .frame(maxWidth: .infinity)
+
+                            if summary.configuration.mode == .intervals {
+                                WorkoutSummaryTile(
+                                    title: "Rondas",
+                                    value: "\(summary.configuration.rounds)",
+                                    icon: "repeat",
+                                    tint: OG.orange
+                                )
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .ogCardListRow(top: 0, bottom: 2)
+                    } header: {
+                        Text(
+                            summary.finishedAt.formatted(
+                                Date.FormatStyle(date: .complete, time: .shortened)
+                                    .locale(Locale(identifier: "es_ES"))
+                            )
                         )
+                        .font(.system(size: 15))
+                        .foregroundStyle(OG.label2)
+                        .textCase(nil)
+                        .padding(.leading, 2)
+                    }
+
+                    Section {
+                        if summary.configuration.mode == .intervals {
+                            LabeledContent(
+                                "Trabajo",
+                                value: DurationText.format(summary.configuration.workTotalSeconds)
+                            )
+                            LabeledContent(
+                                "Descanso",
+                                value: DurationText.format(summary.configuration.restTotalSeconds)
+                            )
+                        } else {
+                            LabeledContent(
+                                "Duración programada",
+                                value: DurationText.format(summary.configuredSeconds)
+                            )
+                        }
+                        LabeledContent(
+                            "Cuenta atrás",
+                            value: summary.configuration.countdownBeforeStart ? "3 s" : "Desactivada"
+                        )
+                    } header: {
+                        Text("Configuración").textCase(nil)
+                    }
+
+                    Section {
+                        WorkoutPlacePickerRow(pin: Binding(
+                            get: { completedSummary?.locationPin },
+                            set: { updated in
+                                guard var summary = completedSummary else { return }
+                                summary.locationPin = updated
+                                completedSummary = summary
+                                locationPin = updated
+                                StandaloneTimerCompletionStore.save(summary)
+                            }
+                        ))
+                    } header: {
+                        Text("Lugar").textCase(nil)
                     }
                 }
-                Section("Lugar") {
-                    WorkoutPlacePickerRow(pin: Binding(
-                        get: { completedSummary?.locationPin },
-                        set: { updated in
-                            guard var summary = completedSummary else { return }
-                            summary.locationPin = updated
-                            completedSummary = summary
-                            locationPin = updated
-                            StandaloneTimerCompletionStore.save(summary)
-                        }
-                    ))
-                    Text("Toca el lugar o el mapa para cambiarlo.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                }
             }
-            .listStyle(.insetGrouped)
             .ogListChrome()
-            .navigationTitle("Temporizador finalizado")
-            .navigationBarTitleDisplayMode(.inline)
+            .listSectionSpacing(12)
+            .ogScrollingTitleNav()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Listo") { showClock = false }
-                        .fontWeight(.semibold)
-                        .tint(OG.accent)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showClock = false
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                            .background(OG.accent, in: Circle())
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Listo")
+                    .accessibilityHint("Cerrar resumen del temporizador")
                 }
             }
         }
