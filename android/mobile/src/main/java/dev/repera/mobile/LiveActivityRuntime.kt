@@ -107,6 +107,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     fun selectRoute(id: String?) { state.selectRoute(id);prepareRoute();publish() }
     fun start() {
         if (recoveryBlocked || state.phase != LiveActivityState.Phase.IDLE) return
+        latestKilometerReport=null
         state.start(System.currentTimeMillis(),UUID.randomUUID().toString());prepareRoute();startGPS();checkpoint(true);publish()
     }
     fun pause() {

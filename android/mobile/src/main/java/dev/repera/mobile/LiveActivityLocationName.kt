@@ -34,7 +34,7 @@ internal object LiveActivityLocationName {
         val pin=if(origin==null) {
             // No solicitar un permiso nuevo para crear un título.
             val tracker=WorkoutLocationTracker(context)
-            if(!tracker.hasPermission()) return null
+            if(!tracker.isAuthorized) return null
             tracker.capturePin()
         } else null
         val lat=origin?.latitude ?: pin?.latitude ?: return null
