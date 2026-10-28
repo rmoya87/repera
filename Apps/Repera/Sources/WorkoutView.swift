@@ -751,6 +751,54 @@ struct WorkoutView: View {
         }
     }
 
+    private func movePlayReorderItem(
+        _ itemID: UUID, from sourceID: UUID, into targetID: UUID
+    ) {
+        editPlayReorderDraft { draft in
+            guard let from = draft.blocks.firstIndex(where: { $0.id == sourceID }),
+                  let to = draft.blocks.firstIndex(where: { $0.id == targetID }),
+                  from != to else { return }
+            if draft.blocks[from].kind == .strength {
+                guard let index = draft.blocks[from].exercises.firstIndex(where: { $0.id == itemID })
+                else { return }
+                let item = draft.blocks[from].exercises[index]
+                if draft.blocks[to].kind == .strength {
+                    draft.blocks[to].exercises.append(item)
+                } else {
+                    let title = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
+                    draft.blocks[to].movements.append(
+                        WODMovement(
+                            exerciseId: item.exerciseId,
+                            name: title,
+                            reps: item.plannedSets.first?.targetReps ?? 8,
+                            explicitPlannedSets: item.plannedSets
+                        )
+                    )
+                }
+                draft.blocks[from].exercises.remove(at: index)
+            } else {
+                guard let index = draft.blocks[from].movements.firstIndex(where: { $0.id == itemID })
+                else { return }
+                let movement = draft.blocks[from].movements[index]
+                if draft.blocks[to].kind == .wod {
+                    draft.blocks[to].movements.append(movement)
+                } else {
+                    guard !movement.isRest else { return }
+                    let catalogID = movement.exerciseId ?? store.state.exercises.first(where: {
+                        $0.name.localizedCaseInsensitiveCompare(movement.name) == .orderedSame
+                    })?.id
+                    guard let catalogID else { return }
+                    draft.blocks[to].exercises.append(RoutineExercise(
+                        exerciseId: catalogID,
+                        plannedSets: movement.explicitPlannedSets ?? movement.plannedSetsFromReps,
+                        quantityUnit: movement.prescribedQuantityUnit
+                    ))
+                }
+                draft.blocks[from].movements.remove(at: index)
+            }
+        }
+    }
+
     private func playReorderRow(
         name: String, blockID: UUID, itemID: UUID, kind: RoutineBlockKind
     ) -> some View {
@@ -765,26 +813,16 @@ struct WorkoutView: View {
                 .foregroundStyle(OG.label)
             Spacer(minLength: 8)
             if let draft = playReorderDraft {
-                let targets = draft.blocks.filter { $0.id != blockID && $0.kind == kind }
+                let targets = draft.blocks.filter { $0.id != blockID }
                 if !targets.isEmpty {
                     Menu {
                         ForEach(targets) { target in
                             Button(target.title) {
-                                editPlayReorderDraft { routine in
-                                    guard let from = routine.blocks.firstIndex(where: { $0.id == blockID }),
-                                          let to = routine.blocks.firstIndex(where: { $0.id == target.id })
-                                    else { return }
-                                    if kind == .strength {
-                                        guard let i = routine.blocks[from].exercises.firstIndex(where: { $0.id == itemID }) else { return }
-                                        let item = routine.blocks[from].exercises.remove(at: i)
-                                        routine.blocks[to].exercises.append(item)
-                                    } else {
-                                        guard let i = routine.blocks[from].movements.firstIndex(where: { $0.id == itemID }) else { return }
-                                        let item = routine.blocks[from].movements.remove(at: i)
-                                        routine.blocks[to].movements.append(item)
-                                    }
-                                }
+                                movePlayReorderItem(itemID, from: blockID, into: target.id)
                             }
+                            .disabled(kind == .wod && target.kind == .strength &&
+                                (draft.blocks.first(where: { $0.id == blockID })?.movements
+                                    .first(where: { $0.id == itemID })?.isRest == true))
                         }
                     } label: {
                         Image(systemName: "ellipsis")
