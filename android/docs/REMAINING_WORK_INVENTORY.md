@@ -667,3 +667,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -324 bateria completa mobile677/163XML63/80/63/62s,domain519/93XML50s,Wear8/1XML+ambosassemble50s verdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Hallazgo nuevo del subconjunto320: al extraer escala se ocultaba de la guardia posterior un @/# no soportado (RPEdecimal uotro token). Regresion fallo antes del arreglo.325 rechaza dividir cuando una alternativa aun contiene @/# despues de extraer anotaciones soportadas. No elimina contenido ni inventa carga;linea queda para revision.
 -1test de3casos nuevo;dominio520/93XML51s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear325 pendientes. Mismo lector parcial735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, precedencia REST 02:44 28oct
+-325 bateria completa mobile677/163XML67/84/67/67s,domain520/93XML51s,Wear8/1XML+ambosassemble50s verdes0fallos/errores/omitidos. Backup325 recuperado desde65338db7:arbola60f7aaa1d7ab7b3ad7334a81a0a21bbd27a4476 identico,clon limpio.
+- Hallazgo nuevo: complejo con REST/DESCANSO se separaba en trabajo+descanso,cuando fuente BoardImportParser731-734 da precedencia al descanso de linea completa. Regresion fallo antes de corregir;326 enruta linea REST completa al parser existente antes de separar. No agrega movimiento de trabajo ficticio.
+-1test nuevo conREST/DESCANSO;dominio521/93XML66s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear326 pendientes. Mismo lector parcial735/70sin cierres,no push,nativo pendiente.

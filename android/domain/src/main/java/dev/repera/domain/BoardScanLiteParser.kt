@@ -501,6 +501,9 @@ object BoardScanLiteParser {
      * to the first part. Percent and integer RPE are shared notes.
      * Multiplier is a note, never inferred reps/sets. */
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
+        // Whole-line REST precedence matches the Full parser before complex splitting.
+        val upper=raw.uppercase(Locale.ROOT)
+        if(upper.contains("REST") || upper.contains("DESCANSO")) return listOf(movement(raw,aliases))
         var annotated=raw
         val sharedNotes=mutableListOf<String>()
         Regex("^SETS?\\s+(\\d+)\\s*[-–]\\s*(\\d+)\\s*:\\s*",RegexOption.IGNORE_CASE).find(annotated)?.let {range ->

@@ -582,4 +582,12 @@ class BoardScanLiteParserTest {
             assertEquals(annotation,1,block.movements.size)
         }
     }
+    @Test fun complexRestLineKeepsWholeLineRestPrecedence() {
+        for(line in listOf("1 PUSH PRESS + 2 REST","3X 1 PUSH PRESS + 2 DESCANSO")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
+            assertEquals(line,1,block.movements.size)
+            assertTrue(block.movements.single().isRest)
+            assertEquals("REST",block.movements.single().name)
+        }
+    }
 }
