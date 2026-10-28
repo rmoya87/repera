@@ -767,6 +767,11 @@ struct SettingsView: View {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        if let publishable = Bundle.main.object(
+            forInfoDictionaryKey: "ReperaSupabasePublishableKey"
+        ) as? String, !publishable.isEmpty {
+            request.setValue(publishable, forHTTPHeaderField: "apikey")
+        }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["action": action])
         let (data, response) = try await URLSession.shared.data(for: request)
