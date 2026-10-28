@@ -327,11 +327,11 @@ struct DayEditorView: View {
                 } label: {
                     Label("Elegir WOD", systemImage: "list.bullet.rectangle.portrait")
                 }
-                if !importableRoutines.isEmpty {
+                if !importableRoutines.isEmpty || !store.state.favoriteTimers.isEmpty {
                     Button {
                         showRoutinePicker = true
                     } label: {
-                        Label("Añadir rutina", systemImage: "list.bullet.rectangle")
+                        Label("Añadir favorito", systemImage: "star")
                     }
                 }
             }
@@ -413,8 +413,13 @@ struct DayEditorView: View {
         .sheet(isPresented: $showRoutinePicker) {
             RoutineImportPickerSheet(
                 routines: importableRoutines,
+                timers: store.state.favoriteTimers,
                 onPick: { source in
                     routine.blocks.append(contentsOf: source.blocks.map { $0.duplicatingContent() })
+                    showRoutinePicker = false
+                },
+                onPickTimer: { timer in
+                    routine.blocks.append(timer.asWorkoutBlock())
                     showRoutinePicker = false
                 },
                 onCancel: { showRoutinePicker = false }
@@ -799,7 +804,9 @@ struct DayEditorView: View {
     }
 
     private var importableRoutines: [Routine] {
-        store.libraryRoutines.filter { $0.id != routine.id && !$0.blocks.isEmpty }
+        store.libraryRoutines.filter {
+            $0.id != routine.id && $0.isFavorite && !$0.blocks.isEmpty
+        }
     }
 
     private func closeEditor() {
@@ -2940,54 +2947,87 @@ struct WODFormatPickerPage: View {
 
 struct RoutineImportPickerSheet: View {
     var routines: [Routine]
+    var timers: [FavoriteTimer]
     var onPick: (Routine) -> Void
+    var onPickTimer: (FavoriteTimer) -> Void
     var onCancel: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            OGPageHeader(title: "Añadir rutina") {
+            OGPageHeader(title: "Añadir favorito") {
                 CloseToolbarButton(action: onCancel, large: true)
             }
-
-            Text("Se copian los bloques; el título y el día de esta rutina no cambian.")
+            Text("Añade los bloques de un entrenamiento favorito o un temporizador guardado.")
                 .font(.footnote)
                 .foregroundStyle(OG.label2)
                 .padding(.horizontal, 4)
-
-            VStack(spacing: 0) {
-                ForEach(Array(routines.enumerated()), id: \.element.id) { index, source in
-                    if index > 0 {
-                        Divider().opacity(0.35).padding(.leading, 14)
-                    }
-                    Button {
-                        onPick(source)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(source.title)
-                                    .foregroundStyle(OG.label)
-                                Text(importSubtitle(source))
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    if !routines.isEmpty {
+                        Text("Entrenamientos")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                        ForEach(routines) { source in
+                            Button { onPick(source) } label: {
+                                favoriteRow(
+                                    title: source.title,
+                                    subtitle: importSubtitle(source),
+                                    systemImage: "dumbbell"
+                                )
                             }
-                            Spacer()
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(OG.accent)
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
+                    }
+                    if !timers.isEmpty {
+                        Text("Temporizadores")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                            .padding(.top, routines.isEmpty ? 0 : 8)
+                        ForEach(timers) { timer in
+                            Button { onPickTimer(timer) } label: {
+                                favoriteRow(
+                                    title: timer.title,
+                                    subtitle: timer.modeRaw == "intervals" ? "\(timer.rounds) rondas" :
+                                        (timer.modeRaw == "up" ? "Cronómetro" :
+                                            "Cuenta atrás · \(timer.durationMinutes)m \(timer.durationSeconds)s"),
+                                    systemImage: "timer"
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
+                .padding(.vertical, 8)
             }
-            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+            .frame(maxHeight: 520)
         }
         .padding(.horizontal, OG.pad)
-        .padding(.bottom, 8)
+        .padding(.bottom, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-        .ogFittedHeight()
         .ogFittedSheet()
+    }
+
+    private func favoriteRow(title: String, subtitle: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(OG.accent)
+                .frame(width: 36, height: 36)
+                .background(OG.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(OG.accent)
+        }
+        .padding(14)
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14))
+        .contentShape(Rectangle())
     }
 
     private func importSubtitle(_ routine: Routine) -> String {
@@ -2996,11 +3036,54 @@ struct RoutineImportPickerSheet: View {
         var parts: [String] = []
         if strength > 0 { parts.append("\(strength) ej.") }
         if wods > 0 { parts.append("\(wods) WOD") }
-        if parts.isEmpty { parts.append("\(routine.blocks.count) bloque\(routine.blocks.count == 1 ? "" : "s")") }
+        if parts.isEmpty { parts.append("\(routine.blocks.count) bloques") }
         return parts.joined(separator: " · ")
     }
 }
 
+/// Traslada la configuración de un temporizador favorito a un bloque WOD
+/// manteniendo la duración real en segundos para intervalos y cuenta atrás.
+extension FavoriteTimer {
+    func asWorkoutBlock() -> RoutineBlock {
+        let totalSeconds = max(1, durationMinutes * 60 + durationSeconds)
+        let format: WODFormat
+        let cap: Int?
+        let roundsValue: Int?
+        let work: Int?
+        let rest: Int?
+        switch modeRaw {
+        case "intervals":
+            format = .tabata
+            cap = nil
+            roundsValue = max(1, rounds)
+            work = max(1, workMinutes * 60 + workSeconds)
+            rest = max(0, restMinutes * 60 + restSeconds)
+        case "up":
+            format = .forTime
+            cap = nil
+            roundsValue = 1
+            work = nil
+            rest = nil
+        default:
+            format = .tabata
+            cap = nil
+            roundsValue = 1
+            work = totalSeconds
+            rest = 0
+        }
+        return RoutineBlock(
+            title: title,
+            kind: .wod,
+            movements: [WODMovement(name: title, reps: 1)],
+            wodFormat: format,
+            timeCapMinutes: cap,
+            rounds: roundsValue,
+            workSeconds: work,
+            restSeconds: rest,
+            wodNotes: "Temporizador favorito · \(title)"
+        )
+    }
+}
 
 /// Línea de inserción real entre elementos, no sobre la fila arrastrable.
 /// La altura táctil sigue siendo suficiente incluso con la línea en reposo.
