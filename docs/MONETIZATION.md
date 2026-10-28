@@ -97,7 +97,8 @@ Solo la oferta introductoria de Apple. No hay contador local de 14 días. Si el 
 - `SubscriptionManager.presentPaywall` impide la presentación del paywall a cuentas con acceso Pro o patrocinado incluso si una vista lo invoca por error.
 - En caso de desacuerdo del verificador comercial principal, se consulta `StoreKit 2 Transaction.currentEntitlements` y se adoptan exclusivamente compras verificadas de los dos identificadores oficiales, incluyendo TestFlight. No se activa Pro por un booleano local ni por una pantalla de pago simulada.
 - Se resetea `lastAccessDenial` al empezar cada intento de favorito, para que una denegación anterior no provoque un falso paywall en una acción nueva.
-- Pruebas estáticas: `tests/test_pro_favorite_entitlements_contract.py`; política comercial: `FeatureAccessPolicyTests.swift`. Falta validación de compra/restauración en TestFlight.
+- «Restaurar compras» vuelve a consultar StoreKit si RevenueCat responde sin Pro o falla la restauración. Si `AppStore.sync()` falla, se permite únicamente una transacción todavía activa y verificada por `Transaction.currentEntitlements`. No se concede acceso por instalar TestFlight ni por elegir un plan sin compra real de sandbox.
+- Pruebas estáticas: `tests/test_pro_favorite_entitlements_contract.py` (incluido fallback de restauración); política comercial: `FeatureAccessPolicyTests.swift`. Falta validación de compra/restauración en TestFlight.
 
 ## 11. Offline
 
