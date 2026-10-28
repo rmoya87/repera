@@ -4,6 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,8 +44,10 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
         item {TextButton(onClick=back) {Text("Volver")}}
         if(selected!=null) {
             item { ReperaPageHeader(title = selected.name) }
-            item {TextButton(enabled=!busy,onClick={onToggle(selected.id)},modifier=Modifier.testTag("wod_toggle_favorite")) {
-                Text(if(selected.id in favorites) "Quitar de favoritos" else "Favorito")}}
+            item {IconButton(enabled=!busy,onClick={onToggle(selected.id)},modifier=Modifier.testTag("wod_toggle_favorite")) {
+                Icon(if(selected.id in favorites) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                    contentDescription=if(selected.id in favorites) "Quitar de favoritos" else "Favorito",
+                    tint=if(selected.id in favorites) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)}}
             item {
                 Text("Formato: ${selected.formatLabel}")
                 selected.timeCapMinutes?.let {Text("Time cap: $it min")}
@@ -99,7 +104,11 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             }
             items(matches,key={it.id}) {template ->ReperaCard(Modifier.fillMaxWidth().testTag("wod_catalog_${template.id}").clickable {selectedId=template.id}) {
                 Column(Modifier.padding(16.dp)) {
-                    Text(template.name + if (template.id in favorites) " · favorito" else "", style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(template.name, style = MaterialTheme.typography.titleMedium, modifier=Modifier.weight(1f))
+                        if (template.id in favorites) Icon(Icons.Outlined.Star, contentDescription="Favorito",
+                            tint=MaterialTheme.colorScheme.primary)
+                    }
                     Text(template.formatLabel);Text(template.musclesLabel)
                     template.typicalLabel?.let {Text(it)}
                     history[template.id]?.firstOrNull()?.let {Text(it.summary)}

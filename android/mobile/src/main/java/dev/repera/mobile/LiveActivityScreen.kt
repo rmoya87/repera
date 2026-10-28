@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Whatshot
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import dev.repera.domain.LiveActivityState
 import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.LiveSport
@@ -440,18 +442,29 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         var edit by remember(route.id) { mutableStateOf(false) }
                         var routeTitle by remember(route.id, routesVersion) { mutableStateOf(route.title) }
                         var routeSport by remember(route.id, routesVersion) { mutableStateOf(route.sportID) }
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(route.title, style = MaterialTheme.typography.titleSmall)
-                                Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}")
+                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(route.title, style = MaterialTheme.typography.titleSmall)
+                                        Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}")
+                                    }
+                                    IconButton(onClick = {
+                                        try { routesStore?.setFavorite(route.id, !route.isFavorite); routesVersion++ }
+                                        catch (_: Exception) { error = "No se pudo cambiar el favorito." }
+                                    }) {
+                                        Icon(
+                                            if (route.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                                            contentDescription = if (route.isFavorite) "Quitar favorita" else "Marcar favorita",
+                                            tint = if (route.isFavorite) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                                 if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false, plannedRoute = true,
                                     modifier = Modifier.fillMaxWidth().height(110.dp))
                                 FlowRow {
                                     TextButton(onClick = { runtime.selectRoute(route.id); showRoutes = false }) { Text("Elegir") }
-                                    TextButton(onClick = {
-                                        try { routesStore?.setFavorite(route.id, !route.isFavorite); routesVersion++ }
-                                        catch (_: Exception) { error = "No se pudo cambiar el favorito." }
-                                    }) { Text(if (route.isFavorite) "Favorita" else "Marcar favorita") }
                                     TextButton(onClick = { edit = !edit }) { Text("Editar") }
                                     TextButton(onClick = { pendingDeleteRoute = route }) { Text("Eliminar") }
                                 }
