@@ -538,4 +538,20 @@ class BoardScanLiteParserTest {
         val review=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 40 DU / 80 SU + 1 AIR SQUAT",catalog=catalog).blocks.single()
         assertEquals(1,review.movements.size)
     }
+    @Test fun complexParentSetRangeIsSharedNoteNotPlannedSets() {
+        val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\nSets 1-2: 3X 1 PUSH PRESS + 40 DU / 80 SU #>80% @7-8",catalog=catalog).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertEquals(1,block.movements[0].reps)
+        assertEquals(40,block.movements[1].reps)
+        assertTrue(block.movements.all {it.notes!!.contains("Series 1-2") && it.notes!!.contains("Complejo ×3") && it.notes!!.contains(">80%")})
+        assertTrue(block.movements.all {it.explicitPlannedSets==null})
+        assertNull(block.movements[0].scaleAlternative)
+        assertNotNull(block.movements[1].scaleAlternative)
+    }
+    @Test fun invalidComplexSetRangeStaysUnsplitForReview() {
+        for(range in listOf("0-2","5-2","1-201","99999999999-999999999999")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\nSETS "+range+": 1 PUSH PRESS + 2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(range,1,block.movements.size)
+        }
+    }
 }

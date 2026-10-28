@@ -503,6 +503,13 @@ object BoardScanLiteParser {
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
         var annotated=raw
         val sharedNotes=mutableListOf<String>()
+        Regex("^SETS?\\s+(\\d+)\\s*[-–]\\s*(\\d+)\\s*:\\s*",RegexOption.IGNORE_CASE).find(annotated)?.let {range ->
+            val first=range.groupValues[1].toIntOrNull()
+            val last=range.groupValues[2].toIntOrNull()
+            if(first==null || last==null || first !in 1..200 || last !in first..200) return listOf(movement(raw,aliases))
+            sharedNotes.add("Series $first-$last")
+            annotated=annotated.removeRange(range.range).trim()
+        }
         Regex("[#@]\\s*(>?)(\\d+)\\s*%").find(annotated)?.let {percent ->
             sharedNotes.add("${percent.groupValues[1]}${percent.groupValues[2]}%")
             annotated=annotated.removeRange(percent.range).trim()

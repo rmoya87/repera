@@ -648,3 +648,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -320 bateria completa mobile677/163XML63/76/60/62s,domain514/93XML54s,Wear8/1XML+ambosassemble48s verdes0fallos/errores/omitidos. Backup320 recuperado desde65338db7: arbol33ca6f62dd935d3b2b8452377ac6057351cd1adf identico,clon limpio.
 - Reconciliadas notas de c6f89c28/88db5bb7 con subsets315-320; conservados estados verified-partial y verified-partial+GAP,ninguna fila cerrada.735/70. Restan default3x8 deliberadamente no inferido,rutas/fallback/matching y runtime;subsetcomplejo atsimple/decimalRPE/cargaimplicita aun review.
 -321 solo documentacion; sigue bloque lector completo parcial y revision grafica abierta. No push ni cambios Apps/Packages.
+
+## Lector completo, prefijo de rango de series 02:09 28oct
+- Mismo bloque parcial,subconjunto322: prefijo SET(S)1-2: ahora extraido antes de separar complejo y compartido como nota Series1-2 en todas las partes,segun BoardImportParser636-647. No fabrica plannedSets; sigue compatible con multiplicador,porcentaje,RPE yescala ultima parte. Acotado1..200 ascendente;ceros/invertido/overflow quedan sin dividir para review.
+- Verificado corte compuesto: cuatro patches durables inspeccionados;ff94e6ad cambia canonicalName,no esta extraccion.2tests nuevos. Dominio516/93XML54s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear322 pendientes;ultima completa320mobile677/163domain514/93Wear8/1.735/70sin cierres,no push,nativo pendiente.
