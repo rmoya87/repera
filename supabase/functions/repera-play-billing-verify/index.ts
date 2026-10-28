@@ -158,7 +158,10 @@ Deno.serve(async (req: Request) => {
     });
     return respond(200, {configured: true, ...result, userId: user.id});
   } catch (err) {
-    if (err instanceof OwnershipError) return respond(403, {configured: true, error: "La compra no pertenece a esta cuenta o fue sustituida."});
+    if (err instanceof OwnershipError) return respond(200, {
+      configured: true, status: "revoked", productId: null, expiryEpochMs: null,
+      acknowledged: false, playState: "OWNERSHIP_REJECTED",
+    });
     console.error("Play verify failed", err instanceof Error ? err.name : "error");
     return respond(503, {
       configured: true,

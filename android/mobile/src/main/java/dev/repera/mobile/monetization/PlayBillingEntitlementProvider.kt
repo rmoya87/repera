@@ -2,7 +2,6 @@ package dev.repera.mobile.monetization
 
 import android.app.Activity
 import android.content.Context
-import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClient.BillingResponseCode
 import com.android.billingclient.api.BillingClientStateListener
@@ -17,7 +16,6 @@ import com.android.billingclient.api.QueryPurchasesParams
 import dev.repera.domain.monetization.CommercialSnapshot
 import dev.repera.domain.monetization.SubscriptionStatus
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -227,28 +225,6 @@ class PlayBillingEntitlementProvider(
                         )
                     }
                 )
-            }
-        }
-    }
-
-    /** Acknowledge local solo tras verificación backend OK. */
-    suspend fun acknowledgeVerifiedPurchase(purchaseToken: String) {
-        if (!ensureConnected()) {
-            throw EntitlementError.RestoreFailed("Billing no disponible")
-        }
-        return suspendCancellableCoroutine { cont ->
-            client.acknowledgePurchase(
-                AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchaseToken).build()
-            ) { ack ->
-                if (ack.responseCode == BillingResponseCode.OK ||
-                    ack.responseCode == BillingResponseCode.ITEM_ALREADY_OWNED
-                ) {
-                    cont.resume(Unit)
-                } else {
-                    cont.resumeWithException(
-                        EntitlementError.RestoreFailed("Acknowledge falló: ${ack.responseCode}")
-                    )
-                }
             }
         }
     }
