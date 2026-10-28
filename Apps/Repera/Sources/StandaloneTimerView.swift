@@ -670,6 +670,7 @@ struct StandaloneTimerView: View {
                 isRunning = false
                 stopTimer(keepState: true)
                 finishLiveClock()
+                recordTimerCompletion()
                 RestFeedback.restComplete(sound: true, haptic: true)
             }
         case .down:
@@ -680,6 +681,7 @@ struct StandaloneTimerView: View {
                 isRunning = false
                 stopTimer(keepState: true)
                 finishLiveClock()
+                recordTimerCompletion()
                 RestFeedback.restComplete(sound: true, haptic: true)
             } else {
                 RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
@@ -733,6 +735,7 @@ struct StandaloneTimerView: View {
             isRunning = false
             stopTimer(keepState: true)
             finishLiveClock()
+            recordTimerCompletion()
             RestFeedback.restComplete(sound: true, haptic: true)
             return false
         }
@@ -765,6 +768,7 @@ struct StandaloneTimerView: View {
             isRunning = false
             stopTimer(keepState: true)
             finishLiveClock()
+            recordTimerCompletion()
             RestFeedback.restComplete(sound: true, haptic: true)
             return
         }
