@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — Wear drop/RP + clock WOD local; editor WOD fino; Center 12h/Actualizar; sin widgets phone.
+**Última actualización:** 2026-10-28 — Paridad shippable Android cerrada (#127); abierto solo Ramón/hardware (STATUS).
 
 Implementación nativa independiente en `android/`:
 
