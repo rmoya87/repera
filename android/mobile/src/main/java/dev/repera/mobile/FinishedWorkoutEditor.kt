@@ -288,7 +288,7 @@ private fun FinishedContentEditor(
                         // - solo edicion explicita, nunca conversion automatica.
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf("reps" to "Repeticiones", "meters" to "Metros").forEach { (u, lbl) ->
-                                FilterChip(selected = setUnit == u,
+                                ReperaFilterChip(selected = setUnit == u,
                                     onClick = { set.put("targetQuantityUnit", u); onChanged() },
                                     label = { Text(lbl) },
                                     modifier = Modifier.weight(1f).testTag("set_unit_${u}_${b}_${i}_$s"))

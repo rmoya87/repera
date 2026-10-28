@@ -33,7 +33,7 @@ internal fun alphabeticExerciseFacets(filters:List<String>):List<String> {
 @Composable
 internal fun ExerciseFilterSheet(filters:List<String>,filter:String,sort:String,
     onFilter:(String)->Unit,onSort:(String)->Unit,onClose:()->Unit) {
-    ModalBottomSheet(onDismissRequest=onClose,containerColor=MaterialTheme.colorScheme.surface) {
+    ReperaModalBottomSheet(onDismissRequest=onClose) {
         ExerciseFilterContent(filters,filter,sort,onFilter,onSort,onClose)
     }
 }

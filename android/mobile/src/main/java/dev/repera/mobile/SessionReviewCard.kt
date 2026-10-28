@@ -130,7 +130,7 @@ private fun IndicatorRow(indicator: ReviewIndicator) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SessionReviewSheet(review: SessionReview, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ReperaModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp)
             .padding(bottom = 18.dp),

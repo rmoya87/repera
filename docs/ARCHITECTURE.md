@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-28 (Android ReperaTheme verde M3; Play ownership; GPX/ActivityKit)
+Última actualización: 2026-10-28 (Android UI M3 2.º pase; ReperaTheme; Play ownership; GPX)
 
 ## Series de movilidad (iOS)
 
@@ -194,6 +194,7 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 Android (`android/mobile`, Material 3 — 2026-10-28):
 
 - `ReperaTheme` / `reperaColorScheme` mapean `OG.*` (primary verde, superficies, outline); se aplica en la raíz de `MainActivity` para onboarding, permisos y tabs (evita el púrpura M3 por defecto).
+- `ReperaComponents`: `ReperaCard` (surface + borde, sin tonal purple), `ReperaFilterChip`, `ReperaModalBottomSheet`, switches/botones/segmentados verdes; tipografía `reperaTypography` con títulos semibold.
 - Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; NavigationBar/TopAppBar usan contenedores del esquema.
 - Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
 

@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
     }
     if(compose) AlertDialog(onDismissRequest={if(!submitting) compose=false},title={Text("Nuevo mensaje")},text={Column {
         Text("Para")
-        linked.forEach {org -> FilterChip(selected=target==org.id,enabled=!submitting,onClick={target=org.id},label={Text(org.name)})}
+        linked.forEach {org -> ReperaFilterChip(selected=target==org.id,enabled=!submitting,onClick={target=org.id},label={Text(org.name)})}
         OutlinedTextField(value=title,onValueChange={title=it},label={Text("Asunto")},enabled=!submitting)
         OutlinedTextField(value=body,onValueChange={body=it},label={Text("Mensaje")},enabled=!submitting,minLines=3)
         error?.let {Text(it,color=MaterialTheme.colorScheme.error)}

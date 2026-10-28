@@ -54,7 +54,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
                     if(attempts.size!=eligible.size) Text("Los intentos con un recorrido incompleto no cuentan para el mejor tiempo.",style=MaterialTheme.typography.bodySmall)
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         LiveSportHistory.EvolutionMetric.entries.forEach {option ->
-                            FilterChip(selected=metric==option,onClick={metric=option},label={Text(option.title)})
+                            ReperaFilterChip(selected=metric==option,onClick={metric=option},label={Text(option.title)})
                         }
                     }
                     if(chart.size>=2) {

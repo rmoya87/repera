@@ -13,10 +13,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.ArrowOutward
+import androidx.compose.material.icons.outlined.ArrowOutward
 import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -109,7 +109,7 @@ fun ProTeaserCard(
                 ) {
                     Text(cta, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                     Icon(
-                        Icons.Default.ArrowOutward,
+                        Icons.Outlined.ArrowOutward,
                         contentDescription = null,
                         tint = Color.Black,
                         modifier = Modifier.size(11.dp)

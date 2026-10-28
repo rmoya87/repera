@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI marca: `ReperaTheme` (verde OG `#30D158` / claro legible `#0E7A38`) en raíz Compose; permisos con iconos M3; launcher `ic_launcher` desde AppIcon iOS.
+**Última actualización:** 2026-10-28 — UI 2.º pase: `ReperaComponents` (cards/chips/sheets/switches), tipografía OG-like, DayPlus/paywall/tabs sin púrpura M3; launcher AppIcon.
 
 Implementación nativa independiente en `android/`:
 

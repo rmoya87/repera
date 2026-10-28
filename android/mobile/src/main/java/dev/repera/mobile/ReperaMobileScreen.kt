@@ -292,7 +292,7 @@ fun ReperaMobileScreen(
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
         var showCenter by remember { mutableStateOf(false) }
         if (showCenter && centerVisible) {
-            androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showCenter = false }) {
+            ReperaModalBottomSheet(onDismissRequest = { showCenter = false }) {
                 CenterTab(
                     accountId = accountId,
                     connected = centerConnected, loading = centerLoading, submitting = centerSubmitting,
