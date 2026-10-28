@@ -3994,11 +3994,6 @@ private struct LiveRouteLibraryDetailView: View {
 
 // Keep location-based naming in the always-compiled LiveActivityView.swift source.
 // Existing Xcode projects may not yet include the auxiliary Swift file in Compile Sources.
-import CoreLocation
-import Foundation
-import MapKit
-import ReperaDomain
-
 /// Títulos orientativos: solo ciudad/localidad (sin calle ni portal), editables.
 /// Geocodificar únicamente al finalizar evita peticiones GPS/geocoder continuas.
 @MainActor
