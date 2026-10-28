@@ -2,6 +2,45 @@ import AVFoundation
 import Foundation
 import UIKit
 
+/// Mantiene la pantalla encendida solo mientras haya un temporizador activo
+/// y la app esté visible. Una única fuente no puede reactivar el bloqueo si
+/// otro reloj continúa (WOD + descanso, por ejemplo).
+///
+/// Esto evita el autobloqueo del iPhone, NO anula el botón físico de bloqueo ni
+/// garantiza audio cuando iOS suspende la app en segundo plano.
+@MainActor
+enum TimerScreenAwake {
+    enum Source: Hashable {
+        case standalone
+        case workout
+        case rest
+    }
+
+    private static var runningSources = Set<Source>()
+    private static var isAppForeground = true
+
+    static func setRunning(_ running: Bool, for source: Source) {
+        if running {
+            runningSources.insert(source)
+        } else {
+            runningSources.remove(source)
+        }
+        refreshIdleTimer()
+    }
+
+    static func setAppForeground(_ foreground: Bool) {
+        isAppForeground = foreground
+        refreshIdleTimer()
+    }
+
+    private static func refreshIdleTimer() {
+        let shouldStayAwake = isAppForeground && !runningSources.isEmpty
+        if UIApplication.shared.isIdleTimerDisabled != shouldStayAwake {
+            UIApplication.shared.isIdleTimerDisabled = shouldStayAwake
+        }
+    }
+}
+
 /// Única familia de tonos para Comenzar, Temporizador y descansos.
 /// Los tres pitidos y el aviso largo comparten frecuencia y timbre.
 @MainActor
