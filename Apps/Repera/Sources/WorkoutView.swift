@@ -761,7 +761,19 @@ struct WorkoutView: View {
             }
         } header: {
             Text(block.title)
+                .dropDestination(for: String.self) { tokens, _ in
+                    movePlayReorderToken(tokens.first, into: block.id)
+                }
         }
+    }
+
+    private func movePlayReorderToken(_ token: String?, into blockID: UUID) -> Bool {
+        guard let parts = token?.split(separator: ":"), parts.count == 2,
+              let from = UUID(uuidString: String(parts[0])),
+              let itemID = UUID(uuidString: String(parts[1])),
+              from != blockID else { return false }
+        movePlayReorderItem(itemID, from: from, into: blockID)
+        return true
     }
 
     private func movePlayReorderItem(
@@ -868,6 +880,10 @@ struct WorkoutView: View {
         }
         .padding(.vertical, 4)
         .listRowBackground(OG.surface)
+        .draggable("\(blockID.uuidString):\(itemID.uuidString)")
+        .dropDestination(for: String.self) { tokens, _ in
+            movePlayReorderToken(tokens.first, into: blockID)
+        }
     }
 
     private func movePlayBlock(_ blockID: UUID, offset: Int) {
