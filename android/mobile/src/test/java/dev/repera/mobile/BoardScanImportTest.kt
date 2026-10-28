@@ -202,4 +202,11 @@ class BoardScanImportTest {
         assertFalse(wire.has("timeCapMinutes"))
         assertTrue(wire.getString("wodNotes").contains(header))
     }
+    @Test fun singleCharacterOcrNoiseIsNotesNotWireMovement() {
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n|\nA\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        val wire=BoardScanImport.wireBlock(block)
+        assertEquals("amrap",wire.getString("wodFormat"))
+        assertEquals(1,wire.getJSONArray("movements").length())
+        assertTrue(wire.getString("wodNotes").contains("|"))
+    }
 }

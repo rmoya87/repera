@@ -5,7 +5,7 @@ package dev.repera.domain
  * This is not the full BoardImportParser, nor a migration of existing workouts. */
 internal object BoardStrengthLines {
  fun block(lines:List<String>,catalog:List<CatalogExercise>):RoutineBlock? {
-  val body=lines.filter {it.trim().uppercase(java.util.Locale.ROOT) !in setOf("SETS","REPS","CIRCUITO","CIRCUIT")}
+  val body=lines.filter {it.trim().length>=2 && it.trim().uppercase(java.util.Locale.ROOT) !in setOf("SETS","REPS","CIRCUITO","CIRCUIT")}
   if(body.isEmpty() || catalog.isEmpty()) return null
   val exercises=body.map {raw ->
    // Percent/RPE annotations are not kg. Leave unsupported intensity on

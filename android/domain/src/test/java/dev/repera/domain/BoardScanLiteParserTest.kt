@@ -855,4 +855,14 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.AMRAP,block.wodFormat)
         assertEquals(1,block.movements.size)
     }
+    @Test fun singleCharacterOcrNoiseDoesNotCreateExercisesOrBlockExplicitStrength() {
+        val wod=BoardScanLiteParser.parse("AMRAP 10'\n|\nA\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(1,wod.movements.size)
+        assertTrue(wod.wodNotes!!.contains("|"))
+        val strength=BoardScanLiteParser.parse("|\n3x8 AIR SQUAT\nA",catalog=catalog).blocks.single()
+        assertEquals(RoutineBlockKind.STRENGTH,strength.kind)
+        assertEquals(1,strength.exercises.size)
+        assertEquals(3,strength.exercises.single().plannedSets.size)
+        assertTrue(strength.wodNotes!!.contains("|"))
+    }
 }

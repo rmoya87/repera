@@ -815,3 +815,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 07:47 28oct
 -356 bateria completa mobile684/163XML5lotes78/60/96/78/76s,domain549/93XML64s,Wear8/1XML+ambosassemble62sverdes0fallos/errores/omitidos. Backup356recuperado65338db7:arbol4ceb31d088359901de0e27c531730f576f9f61cfidentico,clonlimpio.
 -357 solo documentacion: c6f89c28/88db5bb7reconciliadas355-356,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, ruido OCR de un caracter 07:51 28oct
+- Mismo lector parcial358: lineas de un caracter no se convierten en movimientos ni impiden conversion de fuerza con esquema explicito;se conservan ennotas. Subconjunto isNoise fuente858-863,aplicado tanto al fallbackWODcomo antesdeBoardStrengthLines,sin tocar defaults3x8ni matching.
+- Regresion fallo antes:|/Acreabanmovimientosy bloqueabanfuerza3x8explicita.1testdominioWOD+fuerzay1wirenuevos;dominio550/93XML69s,wire15/1XML77sverdes0fallos/errores/omitidos. Mobile completa/Wear358pendientes;ultima completa356mobile684/163,domain549/93,Wear8/1+ambosassemble62s.735/70sin cierres,nativo pendiente,no push.

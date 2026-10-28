@@ -65,7 +65,7 @@ object BoardScanLiteParser {
             var roundLabel:String?=null
             block.movements = cur.body.filter { line ->
                 val upper = line.uppercase(Locale.ROOT)
-                upper !in setOf("SETS","REPS","CIRCUITO","CIRCUIT") &&
+                line.trim().length>=2 && upper !in setOf("SETS","REPS","CIRCUITO","CIRCUIT") &&
                     !upper.contains("CAP: 4 INTERVALOS") &&
                     !upper.startsWith("REALIZA AMBOS") &&
                     !upper.startsWith("NO TOUCH")
