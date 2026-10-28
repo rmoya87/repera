@@ -82,18 +82,28 @@ final class RestSessionCoordinator {
         self.endDate = nil
         cancelTasks()
         RestLocalNotifier.cancel(token: notifyToken)
-        Task { await RestLiveActivityCoordinator.shared.end() }
+        let remaining = max(0, Int(ceil(pausedRemaining)))
+        Task { await RestLiveActivityCoordinator.shared.pause(remainingSeconds: remaining) }
     }
 
     func resume() {
         guard isPaused, pausedRemaining > 0 else { return }
         let seconds = max(1, Int(ceil(pausedRemaining)))
-        start(
-            seconds: seconds,
-            exerciseName: exerciseName,
-            sound: soundEnabled,
-            haptic: hapticEnabled
-        )
+        isPaused = false
+        pausedRemaining = 0
+        let end = Date().addingTimeInterval(TimeInterval(seconds))
+        endDate = end
+        notifyToken &+= 1
+        if soundEnabled {
+            RestLocalNotifier.schedule(token: notifyToken, at: end, exerciseName: exerciseName)
+        }
+        scheduleCompletion(at: end)
+        scheduleFeedback()
+        Task {
+            await RestLiveActivityCoordinator.shared.resume(
+                totalSeconds: seconds, endDate: end, exerciseName: exerciseName
+            )
+        }
     }
 
     func skip() {
