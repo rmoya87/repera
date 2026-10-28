@@ -223,21 +223,20 @@ struct WorkoutView: View {
         } message: {
             Text("Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.")
         }
-        .alert("No se ha podido mover el ejercicio", isPresented: Binding(
-            get: { playReorderError != nil },
-            set: { if !$0 { playReorderError = nil } }
-        )) {
-            Button("Aceptar", role: .cancel) { playReorderError = nil }
+        .alert(
+            playReorderError != nil ? "No se ha podido mover el ejercicio"
+                : "No se ha podido guardar el favorito",
+            isPresented: Binding(
+                get: { playReorderError != nil || favoriteSaveError != nil },
+                set: { if !$0 { playReorderError = nil; favoriteSaveError = nil } }
+            )
+        ) {
+            Button("Aceptar", role: .cancel) {
+                playReorderError = nil
+                favoriteSaveError = nil
+            }
         } message: {
-            Text(playReorderError ?? "")
-        }
-        .alert("No se ha podido guardar el favorito", isPresented: Binding(
-            get: { favoriteSaveError != nil },
-            set: { if !$0 { favoriteSaveError = nil } }
-        )) {
-            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
-        } message: {
-            Text(favoriteSaveError ?? "")
+            Text(playReorderError ?? favoriteSaveError ?? "")
         }
     }
 
