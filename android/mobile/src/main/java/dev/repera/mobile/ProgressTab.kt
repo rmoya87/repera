@@ -431,7 +431,7 @@ internal fun formatWeight(value: Double): String =
 @Composable
 internal fun WeightPreviewCard(today:LocalDate) {
     val points=ProgressPreview.weight(today)
-    Card(Modifier.fillMaxWidth(),colors=androidx.compose.material3.CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
         Text("Datos ficticios. Objetivo de ejemplo: 74 kg")
         DayPointLineChart(points,goal=74.0,interactive=false,weightStyle=true,weightPreview=true)
@@ -440,13 +440,13 @@ internal fun WeightPreviewCard(today:LocalDate) {
 }
 
 @Composable internal fun ProgressWeightCard(points:List<dev.repera.domain.ProgressDayPoint>,delta30d:Double?,goalKg:Double?,accountId:String,busy:Boolean,onLogBodyWeight:(Double)->Unit) {
- if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp)) {
+ if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp)) {
   Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
   WeightStatTiles(null,goalKg)
   EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
  }} else {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(18.dp),
+                        Column(Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
                             val last = points.last()
