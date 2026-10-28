@@ -100,9 +100,43 @@ struct StandaloneTimerConfig: Equatable, Codable, Hashable {
 
 /// Último resultado del reloj, local y ajeno a las sesiones HealthKit.
 private struct StandaloneTimerCompletion: Codable {
+    /// Stable record identifier: pressing Save twice cannot add two workouts.
+    let id: UUID
+    let startedAt: Date
     let finishedAt: Date
     let configuration: StandaloneTimerConfig
     var locationPin: WorkoutLocationPin?
+
+    init(
+        id: UUID = UUID(), startedAt: Date, finishedAt: Date,
+        configuration: StandaloneTimerConfig, locationPin: WorkoutLocationPin?
+    ) {
+        self.id = id
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+        self.configuration = configuration
+        self.locationPin = locationPin
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, startedAt, finishedAt, configuration, locationPin
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let finished = try c.decode(Date.self, forKey: .finishedAt)
+        let config = try c.decode(StandaloneTimerConfig.self, forKey: .configuration)
+        let start = try c.decodeIfPresent(Date.self, forKey: .startedAt)
+            ?? finished.addingTimeInterval(-TimeInterval(max(1, config.mode == .intervals
+                ? config.rounds * config.workTotalSeconds
+                    + max(0, config.rounds - 1) * config.restTotalSeconds
+                : config.durationTotalSeconds)))
+        self.init(
+            id: try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID(),
+            startedAt: start, finishedAt: finished, configuration: config,
+            locationPin: try c.decodeIfPresent(WorkoutLocationPin.self, forKey: .locationPin)
+        )
+    }
 
     var configuredSeconds: Int {
         switch configuration.mode {
@@ -123,6 +157,9 @@ private enum StandaloneTimerCompletionStore {
     static func save(_ completion: StandaloneTimerCompletion) {
         guard let data = try? JSONEncoder().encode(completion) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
     }
 }
 
@@ -214,6 +251,7 @@ struct StandaloneTimerView: View {
     @State private var editingFavoriteId: UUID?
     @State private var locationPin: WorkoutLocationPin?
     @State private var completedSummary: StandaloneTimerCompletion?
+    @State private var timerStartedAt: Date?
 
     var embedsNavigation = true
 
@@ -360,7 +398,7 @@ struct StandaloneTimerView: View {
                         locationPin = completedSummary.locationPin
                         showClock = true
                     } label: {
-                        Label("Ver último resumen", systemImage: "clock.arrow.circlepath")
+                        Label("Temporizador pendiente", systemImage: "clock.arrow.circlepath")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(OG.accent)
                     }
@@ -559,12 +597,67 @@ struct StandaloneTimerView: View {
         }
     }
 
-    private func recordTimerCompletion() {
+    /// Hasta elegir Guardar o Descartar, el resultado queda pendiente
+    /// incluso si iOS cierra la app al regresar de segundo plano.
+    private func recordTimerCompletion(finishedAt: Date = Date()) {
+        guard completedSummary == nil else { return }
         let summary = StandaloneTimerCompletion(
-            finishedAt: Date(), configuration: config, locationPin: locationPin
+            startedAt: min(timerStartedAt ?? finishedAt.addingTimeInterval(
+                -TimeInterval(configuredDurationSeconds)
+            ), finishedAt),
+            finishedAt: finishedAt, configuration: config, locationPin: locationPin
         )
         completedSummary = summary
         StandaloneTimerCompletionStore.save(summary)
+    }
+
+    private var configuredDurationSeconds: Int {
+        switch config.mode {
+        case .up, .down: return config.durationTotalSeconds
+        case .intervals:
+            return config.rounds * config.workTotalSeconds
+                + max(0, config.rounds - 1) * config.restTotalSeconds
+        }
+    }
+
+    private func dismissCompletedTimer() {
+        StandaloneTimerCompletionStore.clear()
+        completedSummary = nil
+        timerStartedAt = nil
+        stopTimer()
+        showClock = false
+    }
+
+    private func discardCompletedTimer() {
+        dismissCompletedTimer()
+    }
+
+    private func saveCompletedTimer() {
+        guard let summary = completedSummary else { return }
+        let details = TimerCompletionDetails(
+            modeRaw: summary.configuration.mode.rawValue,
+            configuredSeconds: summary.configuredSeconds,
+            rounds: summary.configuration.mode == .intervals ? summary.configuration.rounds : 1,
+            workSeconds: summary.configuration.workTotalSeconds,
+            restSeconds: summary.configuration.restTotalSeconds,
+            countdownSeconds: summary.configuration.countdownBeforeStart ? 3 : 0
+        )
+        // Persist in Repera's workout history, NOT in Apple Health. Keep
+        // the stable id in case the user taps twice or a pending result reloads.
+        if !store.state.workouts.contains(where: { $0.id == summary.id }) {
+            let session = WorkoutSession(
+                id: summary.id,
+                title: "Temporizador · " + summary.configuration.mode.title,
+                exercises: [],
+                phase: .finished,
+                startedAt: summary.startedAt,
+                finishedAt: summary.finishedAt,
+                locationPin: summary.locationPin,
+                timerDetails: details
+            )
+            store.saveWorkout(session)
+        }
+        dismissCompletedTimer()
     }
 
     private var clockScreen: some View {
@@ -626,6 +719,8 @@ struct StandaloneTimerView: View {
 
     private func prepareAndShowClock() {
         completedSummary = nil
+        timerStartedAt = nil
+        StandaloneTimerCompletionStore.clear()
         stopTimer()
         isRunning = false
         phaseIsWork = true
@@ -660,6 +755,9 @@ struct StandaloneTimerView: View {
         } else {
             isRunning = true
             pausedDisplaySeconds = nil
+            if preCountdown == 0 && timerStartedAt == nil {
+                timerStartedAt = Date()
+            }
             armAnchorsForResume()
             publishLiveClockAndAlerts()
             // Emitir también el primer 3 inmediatamente. Los otros
@@ -709,6 +807,8 @@ struct StandaloneTimerView: View {
             preCountdown = remaining
             RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
             if remaining == 0 {
+                // The pre-countdown is not training time.
+                timerStartedAt = end
                 preCountdownEnd = nil
                 RestFeedback.restComplete(sound: true, haptic: true)
                 // Arm work phase
@@ -741,7 +841,11 @@ struct StandaloneTimerView: View {
                 isRunning = false
                 stopTimer(keepState: true)
                 finishLiveClock()
-                recordTimerCompletion()
+                recordTimerCompletion(
+                    finishedAt: (phaseStartDate ?? now).addingTimeInterval(
+                        TimeInterval(config.durationTotalSeconds)
+                    )
+                )
                 RestFeedback.restComplete(sound: true, haptic: true)
             }
         case .down:
@@ -752,7 +856,7 @@ struct StandaloneTimerView: View {
                 isRunning = false
                 stopTimer(keepState: true)
                 finishLiveClock()
-                recordTimerCompletion()
+                recordTimerCompletion(finishedAt: phaseEndDate ?? now)
                 RestFeedback.restComplete(sound: true, haptic: true)
             } else {
                 RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
@@ -806,7 +910,7 @@ struct StandaloneTimerView: View {
             isRunning = false
             stopTimer(keepState: true)
             finishLiveClock()
-            recordTimerCompletion()
+            recordTimerCompletion(finishedAt: cursor)
             RestFeedback.restComplete(sound: true, haptic: true)
             return false
         }
@@ -839,7 +943,7 @@ struct StandaloneTimerView: View {
             isRunning = false
             stopTimer(keepState: true)
             finishLiveClock()
-            recordTimerCompletion()
+            recordTimerCompletion(finishedAt: phaseEndDate ?? now)
             RestFeedback.restComplete(sound: true, haptic: true)
             return
         }
