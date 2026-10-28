@@ -411,13 +411,43 @@ struct WorkoutDetailView: View {
                 )
             }
         }
-        .alert("No se ha podido guardar el favorito", isPresented: Binding(
-            get: { favoriteSaveError != nil },
-            set: { if !$0 { favoriteSaveError = nil } }
-        )) {
-            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
-        } message: {
-            Text(favoriteSaveError ?? "")
+        // SwiftUI .alert no permite colorear el fondo del botón nativo.
+        // Aviso propio: verde Repera y contraste explícito día/noche.
+        .overlay {
+            if let favoriteSaveError {
+                ZStack {
+                    Color.black.opacity(0.38).ignoresSafeArea()
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("No se ha podido guardar el favorito")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(OG.label)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(favoriteSaveError)
+                            .font(.system(size: 16))
+                            .foregroundStyle(OG.label2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button {
+                            self.favoriteSaveError = nil
+                        } label: {
+                            Text("Aceptar")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                                .frame(maxWidth: .infinity, minHeight: 54)
+                                .background(OG.accent, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("favorite-error-accept")
+                    }
+                    .padding(24)
+                    .frame(maxWidth: 400)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .padding(.horizontal, 26)
+                    .accessibilityElement(children: .contain)
+                }
+                .transition(.opacity)
+                .zIndex(2)
+                .accessibilityIdentifier("favorite-error-overlay")
+            }
         }
     }
 
