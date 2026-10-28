@@ -2928,7 +2928,8 @@ private struct PlayEditableSetsView: View {
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: quantityUnit) { _, value in
-                    guard value != (exerciseEntry.quantityUnit ?? exercise.defaultQuantityUnit) else { return }
+                    let current = store.state.activeSession?.exercises.first(where: { $0.id == exerciseEntry.id })
+                    guard value != (current?.quantityUnit ?? exercise.defaultQuantityUnit) else { return }
                     persist()
                 }
             }
@@ -3034,9 +3035,11 @@ private struct PlayEditableSetsView: View {
         quantityUnit = exerciseEntry.quantityUnit ?? exercise.defaultQuantityUnit
         let prescribed = exerciseEntry.plannedSets
         let recorded = exerciseEntry.loggedSets
+        let prescribedIDs = Set(prescribed.map(\.id))
+        let legacyIndexFallback = !recorded.contains(where: { prescribedIDs.contains($0.id) })
         rows = prescribed.enumerated().map { index, set in
             let result = recorded.first(where: { $0.id == set.id })
-                ?? (recorded.indices.contains(index) ? recorded[index] : nil)
+                ?? (legacyIndexFallback && recorded.indices.contains(index) ? recorded[index] : nil)
             return Row(
                 id: result?.id ?? set.id,
                 weightKg: result?.weightKg ?? set.targetWeightKg,
