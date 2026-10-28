@@ -1,4 +1,4 @@
-"""Timers keep iPhone awake in foreground and release the idle-timer on pause/end.
+"""Timers keep iPhone awake during pause and release idle-timer only on end.
 
 Static contracts complement runtime UI tests on a physical iPhone: UIKit's
 isIdleTimerDisabled and sound output cannot be asserted from Python.
@@ -30,7 +30,8 @@ class ScreenAwakeContractTests(unittest.TestCase):
 
     def test_standalone_countdown_and_completion_release_lock(self):
         self.assertIn(".onChange(of: isRunning)", ALONE)
-        self.assertIn("TimerScreenAwake.setRunning(running, for: .standalone)", ALONE)
+        self.assertIn("isRunning || pausedDisplaySeconds != nil", ALONE)
+        self.assertIn("TimerScreenAwake.setRunning(false, for: .standalone)", ALONE)
         self.assertIn("if !visible { stopTimer() }", ALONE)
         self.assertIn("if !showClock { stopTimer() }", ALONE)
         self.assertIn("if phase == .active, isRunning", ALONE)
@@ -40,16 +41,17 @@ class ScreenAwakeContractTests(unittest.TestCase):
     def test_workout_clock_observer_covers_precountdown_pause_finish_restore(self):
         self.assertIn("private(set) var isRunning = false {", WORKOUT)
         self.assertIn("didSet {", WORKOUT)
-        self.assertIn("TimerScreenAwake.setRunning(isRunning, for: .workout)", WORKOUT)
+        self.assertIn("isRunning || (hasStarted && pendingEndReason == nil)", WORKOUT)
+        self.assertIn("TimerScreenAwake.setRunning(false, for: .workout)", WORKOUT)
         self.assertIn("isRunning = saved.isRunning", WORKOUT)
         self.assertIn("func pause()", WORKOUT)
         self.assertIn("func resume()", WORKOUT)
         self.assertIn("func stop(keepVisible:", WORKOUT)
         self.assertIn("func finishComplete()", WORKOUT)
 
-    def test_rest_timer_does_not_keep_device_awake_while_paused(self):
+    def test_rest_timer_stays_awake_while_paused(self):
         self.assertIn("didSet { updateScreenAwake() }", REST)
-        self.assertIn("!isPaused && endDate.map { $0 > Date() } == true", REST)
+        self.assertIn("isPaused ? pausedRemaining > 0 : endDate.map { $0 > Date() } == true", REST)
         self.assertIn("for: .rest", REST)
         self.assertIn("func refreshWhenActive()", REST)
         self.assertIn("finish(announce: true)", REST)
