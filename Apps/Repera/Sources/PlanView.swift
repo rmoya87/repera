@@ -1441,8 +1441,36 @@ struct DayEditorView: View {
 
             }
         }
-        WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus") {
-            pickExerciseForBlock = routine.blocks[index].id
+        WorkoutWODInsertActions(
+            onExercise: { pickExerciseForBlock = routine.blocks[index].id },
+            onRest: { insertRest(after: routine.blocks[index].id) },
+            onFreeMovement: { beginFreeMovement(after: routine.blocks[index].id) }
+        )
+    }
+
+    /// Fuerza no contiene movimientos REST: crear un bloque WOD a continuación
+    /// conserva todos los ejercicios, series y resultados del bloque de fuerza.
+    private func insertRest(after blockID: UUID) {
+        guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        let rest = WODMovement(name: "REST", isRest: true, restSeconds: 60)
+        if routine.blocks[index].kind == .wod {
+            routine.blocks[index].movements.append(rest)
+        } else {
+            routine.blocks.insert(
+                RoutineBlock(title: "Descanso", kind: .wod, movements: [rest]),
+                at: index + 1
+            )
+        }
+    }
+
+    private func beginFreeMovement(after blockID: UUID) {
+        guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        if routine.blocks[index].kind == .wod {
+            createFreeMovementForBlock = blockID
+        } else {
+            let newBlock = RoutineBlock(title: "Movimiento libre", kind: .wod)
+            routine.blocks.insert(newBlock, at: index + 1)
+            createFreeMovementForBlock = newBlock.id
         }
     }
 
@@ -1792,12 +1820,8 @@ struct DayEditorView: View {
 
         WorkoutWODInsertActions(
             onExercise: { pickMovementForBlock = routine.blocks[index].id },
-            onRest: {
-                routine.blocks[index].movements.append(
-                    WODMovement(name: "REST", isRest: true, restSeconds: 60)
-                )
-            },
-            onFreeMovement: { createFreeMovementForBlock = routine.blocks[index].id }
+            onRest: { insertRest(after: routine.blocks[index].id) },
+            onFreeMovement: { beginFreeMovement(after: routine.blocks[index].id) }
         )
 
         TextField("Notas / texto del WOD", text: Binding(
@@ -3132,28 +3156,15 @@ struct WorkoutWODInsertActions: View {
     let onFreeMovement: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 9) {
             WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus.circle.fill", action: onExercise)
-            HStack(spacing: 10) {
-                secondary("Añadir descanso", symbol: "pause.circle", action: onRest)
-                secondary("Movimiento libre", symbol: "pencil.line", action: onFreeMovement)
+            HStack(spacing: 9) {
+                WorkoutInlineAddButton("Añadir descanso", systemImage: "pause.circle", action: onRest)
+                WorkoutInlineAddButton("Añadir movimiento libre", systemImage: "pencil.line", action: onFreeMovement)
             }
         }
         .padding(.vertical, 8)
         .listRowSeparator(.hidden)
-    }
-
-    private func secondary(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: symbol)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(OG.label2)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .padding(.horizontal, 4)
-                .background(OG.surface2.opacity(0.5), in: RoundedRectangle(cornerRadius: 11))
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -3171,8 +3182,11 @@ struct WorkoutInlineAddButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(OG.accent)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
