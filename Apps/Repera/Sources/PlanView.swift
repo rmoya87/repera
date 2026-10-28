@@ -1389,7 +1389,7 @@ struct DayEditorView: View {
 
                 OGSetEntryHeader(
                     firstTitle: ex.isMobility ? "Tiempo (s)" : (ex.loggingStyle == .loadAndReps
-                        ? (ex.loadField == .deficitCm ? "Déficit" : "KG")
+                        ? (ex.loadField == .deficitCm ? "Déficit" : store.state.settings.weightUnit.label.uppercased())
                         : (ex.loggingStyle == .machineWork
                             ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
                             : (ex.supportsRepsOrMeters
@@ -2002,7 +2002,7 @@ private struct InlineWODMovementSets: View {
         VStack(alignment: .leading, spacing: 12) {
             if loggingStyle == .machineWork || isWeightedDistance { cardioUnitPicker }
             OGSetEntryHeader(
-                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork || isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
+                firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : store.state.settings.weightUnit.label.uppercased()) : (loggingStyle == .machineWork || isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps"),
                 secondTitle: loggingStyle == .loadAndReps
                     ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                 showsRIR: loggingStyle.usesRIR
@@ -2076,7 +2076,9 @@ private struct InlineWODMovementSets: View {
                 index: index + 1,
                 previous: OGSetEntryRow.previousText(oldSet),
                 firstValue: style == .loadAndReps
-                    ? (draftSets[index].targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "0")
+                    ? (draftSets[index].targetWeightKg.map {
+                        ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
+                    } ?? "0")
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
@@ -2094,7 +2096,8 @@ private struct InlineWODMovementSets: View {
                             let value = resolvedLoadField == .deficitCm
                                 ? min(60, max(0, parsed))
                                 : max(0, parsed)
-                            draftSets[index].targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                            let kg = store.state.settings.weightUnit.kilograms(fromDisplayValue: value)
+                            draftSets[index].targetWeightKg = value > 0 ? ((kg * 10).rounded() / 10) : nil
                         } else if normalized.isEmpty {
                             draftSets[index].targetWeightKg = nil
                         }
@@ -2259,7 +2262,7 @@ struct WODMovementEditor: View {
                 Section {
                     if loggingStyle == .machineWork || isWeightedDistance { cardioUnitPicker }
                     OGSetEntryHeader(
-                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : "KG") : (loggingStyle == .machineWork || isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : (loggingStyle == .repsAndTime ? "Veces" : "Reps")),
+                        firstTitle: loggingStyle == .loadAndReps ? (resolvedLoadField == .deficitCm ? "Déficit" : store.state.settings.weightUnit.label.uppercased()) : (loggingStyle == .machineWork || isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : (loggingStyle == .repsAndTime ? "Veces" : "Reps")),
                         secondTitle: loggingStyle == .loadAndReps
                     ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                         showsRIR: loggingStyle.usesRIR
@@ -2409,7 +2412,9 @@ struct WODMovementEditor: View {
                 index: index + 1,
                 previous: OGSetEntryRow.previousText(oldSet),
                 firstValue: style == .loadAndReps
-                    ? (draftSets[index].targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "0")
+                    ? (draftSets[index].targetWeightKg.map {
+                        ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
+                    } ?? "0")
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
@@ -2427,7 +2432,8 @@ struct WODMovementEditor: View {
                             let value = resolvedLoadField == .deficitCm
                                 ? min(60, max(0, parsed))
                                 : max(0, parsed)
-                            draftSets[index].targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                            let kg = store.state.settings.weightUnit.kilograms(fromDisplayValue: value)
+                            draftSets[index].targetWeightKg = value > 0 ? ((kg * 10).rounded() / 10) : nil
                         } else if normalized.isEmpty {
                             draftSets[index].targetWeightKg = nil
                         }
@@ -2582,7 +2588,7 @@ struct RoutineExerciseEditor: View {
                 }
                 OGSetEntryHeader(
                     firstTitle: exercise?.isMobility == true ? "Tiempo (s)" : (exercise?.loggingStyle == .loadAndReps
-                        ? (exercise?.loadField == .deficitCm ? "Déficit" : "KG")
+                        ? (exercise?.loadField == .deficitCm ? "Déficit" : store.state.settings.weightUnit.label.uppercased())
                         : (exercise?.loggingStyle == .machineWork
                             ? (item.quantityUnit ?? exercise?.defaultQuantityUnit ?? .calories).shortLabel
                             : (exercise?.supportsRepsOrMeters == true
@@ -2756,6 +2762,7 @@ struct RoutineExerciseEditor: View {
 
 /// Fila de objetivo: peso / reps / RIR. Borrar serie = swipe (sin icono de papelera).
 private struct PlannedSetConfigRow: View {
+    @Environment(ReperaStore.self) private var store
     var index: Int
     @Binding var set: PlannedSet
     var weightStep: Double
@@ -2773,7 +2780,7 @@ private struct PlannedSetConfigRow: View {
             previous: OGSetEntryRow.previousText(previous),
             firstValue: isMobility ? "\(set.targetDurationSeconds ?? (isMobilityHold ? 30 : 60))"
                 : (exerciseStyle == .loadAndReps
-                ? (set.targetWeightKg.map { ReperaNumberFormat.decimal($0) } ?? "0")
+                ? (set.targetWeightKg.map { ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0)) } ?? "0")
                 : "\(set.targetReps)"),
             secondValue: isMobility
                 ? (isMobilityHold ? nil : "\(set.targetReps)")
@@ -2791,7 +2798,8 @@ private struct PlannedSetConfigRow: View {
                     if normalized.isEmpty {
                         set.targetWeightKg = nil
                     } else if let value = ReperaNumberFormat.parse(normalized) {
-                        set.targetWeightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                        let kg = store.state.settings.weightUnit.kilograms(fromDisplayValue: value)
+                        set.targetWeightKg = value > 0 ? ((kg * 10).rounded() / 10) : nil
                     }
                 } else if let value = Int(text), value > 0 {
                     set.targetReps = min(quantityCap ?? exerciseStyle.quantityCap, value)
