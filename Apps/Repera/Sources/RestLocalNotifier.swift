@@ -60,7 +60,7 @@ enum TimerBoundaryNotifier {
         let title: String
     }
 
-    private static var pendingIDs: [Source: [String]] = [:]
+    private static let slots = 41
 
     static func schedule(_ source: Source, boundaries: [Boundary]) {
         cancel(source)
@@ -75,9 +75,8 @@ enum TimerBoundaryNotifier {
             selected.append(final)
         }
         RestLocalNotifier.requestAuthorizationIfNeeded()
-        var ids: [String] = []
-        for boundary in selected {
-            let identifier = "repera.timer.\(source.rawValue).\(UUID().uuidString)"
+        for (index, boundary) in selected.enumerated() {
+            let identifier = "repera.timer.\(source.rawValue).\(index)"
             let content = UNMutableNotificationContent()
             content.title = boundary.title
             content.body = "Temporizador Repera"
@@ -88,14 +87,13 @@ enum TimerBoundaryNotifier {
             UNUserNotificationCenter.current().add(UNNotificationRequest(
                 identifier: identifier, content: content, trigger: trigger
             ))
-            ids.append(identifier)
         }
-        pendingIDs[source] = ids
     }
 
     static func cancel(_ source: Source) {
-        let ids = pendingIDs.removeValue(forKey: source) ?? []
-        guard !ids.isEmpty else { return }
+        // Deterministic IDs also cancel pending alarms after process relaunch,
+        // unlike an in-memory list of random notification identifiers.
+        let ids = (0..<slots).map { "repera.timer.\(source.rawValue).\($0)" }
         UNUserNotificationCenter.current().removePendingNotificationRequests(
             withIdentifiers: ids
         )
