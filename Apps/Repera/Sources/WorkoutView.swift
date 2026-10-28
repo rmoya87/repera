@@ -116,66 +116,211 @@ struct WorkoutView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Group {
-                if let session = store.state.activeSession {
-                    content(session)
-                } else {
-                    ContentUnavailableView("Sin sesión", systemImage: "pause.circle", description: Text("Vuelve a Inicio para empezar."))
-                }
+        workoutLifecycleView
+    }
+
+    /// Keep the observation modifiers separate from presentation/navigation.
+    /// A single generic SwiftUI expression previously forced the compiler to
+    /// type-check hundreds of nested builders at once.
+    private var workoutLifecycleView: some View {
+        workoutDialogsView
+        .onAppear {
+            // Restore the last recorded exercise and its live countdown after
+            // iOS unexpectedly killed the process. No timer reset on reopen.
+            if store.workoutClock.hasStarted {
+                runningTimerBlockID = store.workoutClock.restoredBlockID
             }
-            if !store.workoutClock.isVisible {
-                VStack(spacing: 8) {
-                    if runningTimerBlockID != nil, store.workoutClock.hasStarted {
-                        minimizedTimerDock
-                    }
-                    if store.restCoordinator.isActive {
-                        restDock
-                    }
-                }
-                .padding(.horizontal, OG.pad)
-                .padding(.bottom, 12)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            notesDraft = store.state.activeSession?.notes ?? ""
+            prefill()
+            bootstrapQuickLogIfNeeded()
+            if store.state.activeSession?.phase == .ready {
+                store.confirmCurrentOnWatchStyle()
+            }
+            if store.workoutClock.pendingEndReason != nil {
+                presentWODConfirmIfNeeded()
             }
         }
-        .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
-        .sensoryFeedback(.success, trigger: setCompletionPulse)
-        .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
-        .background(OG.bg)
-        // El nombre real del entreno vive en la barra superior (siempre visible).
-        .navigationTitle(store.state.activeSession?.title ?? "Entreno")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .ogTransparentNav()
-        // Cubrir también status bar y safe areas, sin heredar el fondo claro de Play.
-        .fullScreenCover(isPresented: Binding(
-            get: { store.workoutClock.isVisible },
-            set: { visible in
-                if !visible { store.workoutClock.minimize() }
+        .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
+            persistActiveLiveDraft()
+            cacheLiveSets()
+            prefill()
+            let destinationBlock = store.state.activeSession?.currentExercise.flatMap { $0.blockId ?? $0.id }
+            if destinationBlock != runningTimerBlockID {
+                store.workoutClock.stop()
+                store.workoutClock.clearPendingEnd()
+                runningTimerBlockID = nil
             }
-        )) {
-            wodFullscreenClock
-                .preferredColorScheme(.dark)
-                .background(Color.black.ignoresSafeArea())
-                .statusBarHidden()
+            if destinationBlock != finishedTimedBlockID {
+                finishedTimedBlockID = nil
+            }
+            if store.state.activeSession?.phase == .ready {
+                store.confirmCurrentOnWatchStyle()
+            }
+            if let blockID = pendingTimerBlockID {
+                pendingTimerBlockID = nil
+                if let current = store.state.activeSession?.currentExercise,
+                   current.blockId == blockID || current.id == blockID {
+                    requestBlockClockStart(for: current)
+                }
+            }
         }
-        .sheet(item: $manualRoundSetup, onDismiss: {
-            // Presentar fullscreen solo DESPUÉS de cerrarse el sheet de
-            // configuración; iOS no puede presentar ambos a la vez.
-            guard let selection = confirmedManualRoundStart else { return }
-            confirmedManualRoundStart = nil
-            guard let current = store.state.activeSession?.currentExercise,
-                  current.id == selection.exerciseID else { return }
-            startBlockClock(
-                for: current,
-                manualRoundSeconds: selection.durationSeconds,
-                manualRounds: selection.rounds,
-                manualRoundRestSeconds: selection.restSeconds
+        .onChange(of: store.state.activeSession?.currentExercise?.plannedSets) { _, _ in
+            if let current = store.state.activeSession?.currentExercise {
+                rebuildLiveSets(from: current)
+            }
+        }
+        .onChange(of: store.state.activeSession?.currentExercise?.quantityUnit) { _, _ in
+            if let current = store.state.activeSession?.currentExercise {
+                syncLiveQuantityUnit(from: current)
+            }
+        }
+        .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
+            guard reason != nil else { return }
+            presentWODConfirmIfNeeded()
+        }
+        .onDisappear {
+            // Rest + WOD clocks are owned by ReperaStore — do not stop on view disappear.
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            store.workoutClock.syncFromWallClock()
+        }
+    }
+
+    private var workoutDialogsView: some View {
+        workoutSecondaryNavigationView
+        .sheet(isPresented: $showPlayRoutinePicker) {
+            RoutineImportPickerSheet(
+                routines: store.libraryRoutines,
+                onPick: { selected in
+                    mutatePlayRoutine { draft in
+                        draft.blocks.append(contentsOf: selected.blocks.map { $0.duplicatingContent() })
+                    }
+                    showPlayRoutinePicker = false
+                },
+                onCancel: { showPlayRoutinePicker = false }
             )
-        }) { setup in
-            manualRoundDurationSheet(for: setup)
         }
-        .toolbar {
+        .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+            get: { pendingPlayReplacement != nil },
+            set: { if !$0 { pendingPlayReplacement = nil } }
+        ), titleVisibility: .visible) {
+            Button("Sustituir y reiniciar", role: .destructive) {
+                if let pendingPlayReplacement {
+                    replacePlayExercise(pendingPlayReplacement.target, with: pendingPlayReplacement.exercise)
+                }
+                pendingPlayReplacement = nil
+            }
+            Button("Cancelar", role: .cancel) { pendingPlayReplacement = nil }
+        } message: {
+            Text("Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.")
+        }
+        .alert("No se ha podido guardar el favorito", isPresented: Binding(
+            get: { favoriteSaveError != nil },
+            set: { if !$0 { favoriteSaveError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
+        } message: {
+            Text(favoriteSaveError ?? "")
+        }
+    }
+
+    private var workoutSecondaryNavigationView: some View {
+        workoutPrimaryNavigationView
+        .navigationDestination(item: $addPlayExerciseToBlock) { blockID in
+            ExercisePickerView(embedsNavigationStack: false) { selected in
+                mutatePlayRoutine { routine in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    let quantity = selected.loggingStyle == .machineWork
+                        ? (selected.defaultQuantityUnit == .meters ? 500 : 15)
+                        : (selected.isMobility ? 8 : 8)
+                    if routine.blocks[index].kind == .strength {
+                        let sets = (0..<(selected.loggingStyle.usesDuration ? 1 : 3)).map { _ in
+                            PlannedSet(targetReps: quantity)
+                        }
+                        routine.blocks[index].exercises.append(
+                            RoutineExercise(exerciseId: selected.id, plannedSets: sets,
+                                quantityUnit: selected.defaultQuantityUnit)
+                        )
+                    } else {
+                        routine.blocks[index].movements.append(
+                            WODMovement(exerciseId: selected.id, name: selected.name, reps: quantity,
+                                explicitPlannedSets: [PlannedSet(targetReps: quantity)])
+                        )
+                    }
+                }
+                addPlayExerciseToBlock = nil
+            }
+        }
+        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
+            FreeWODMovementCreatePage { movement in
+                mutatePlayRoutine { routine in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    routine.blocks[index].movements.append(movement)
+                }
+                createFreeMovementForBlock = nil
+            }
+        }
+        .navigationDestination(item: $selectPlayFormatForBlock) { blockID in
+            WODFormatPickerPage { format in
+                updatePlayWODFormat(format, for: blockID)
+                selectPlayFormatForBlock = nil
+            }
+        }
+        .navigationDestination(isPresented: $showPlayWODCatalog) {
+            WODCatalogPickerView(embedsNavigationStack: false) { template in
+                mutatePlayRoutine { $0.blocks.append(template.makeBlock()) }
+                showPlayWODCatalog = false
+            }
+        }
+    }
+
+    private var workoutPrimaryNavigationView: some View {
+        workoutToolbarView
+        // Edición como destino push en NavigationStack, no hoja modal.
+        .navigationDestination(item: $editingRoutine) { draft in
+            DayEditorView(
+                routine: draft,
+                mode: draft.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
+                onClose: { editingRoutine = nil },
+                onApplyDraft: { edited in
+                    // Guardar la plantilla original solo si ya existe.
+                    // Un escaneo no guardado también puede editarse sin
+                    // gastar una plantilla gratuita de la biblioteca.
+                    if store.state.routines.contains(where: { $0.id == edited.id }) {
+                        _ = store.saveRoutine(edited)
+                    }
+                    liveDraftsByExercise = [:]
+                    editedLiveExerciseIDs = []
+                    liveExerciseID = nil
+                    liveSets = []
+                    store.refreshActiveSessionPlan(from: edited)
+                    prefill()
+                },
+                embedsNavigationStack: false,
+                usesPageCloseHeader: true
+            )
+        }
+        .navigationDestination(item: $replacingPlayExercise) { target in
+            ExercisePickerView(embedsNavigationStack: false) { chosen in
+                replacingPlayExercise = nil
+                let previous = store.state.activeSession?.exercises.first(where: { $0.id == target.itemID })
+                let scoredBlock = store.state.activeSession?.wodResults.contains(where: { $0.id == target.blockID }) == true
+                if previous?.loggedSets.isEmpty == false || scoredBlock {
+                    pendingPlayReplacement = PendingPlayReplacement(target: target, exercise: chosen)
+                } else {
+                    replacePlayExercise(target, with: chosen)
+                }
+            }
+        }
+    }
+
+    private var workoutToolbarView: some View {
+        workoutPresentationView
+            .toolbar { workoutToolbarContents }
+    }
+
+    @ToolbarContentBuilder
+    private var workoutToolbarContents: some ToolbarContent {
             ToolbarItem(placement: .topBarLeading) {
                 CloseToolbarButton(action: { closeFlow() }, large: false)
                     .foregroundStyle(OG.label2)
@@ -260,182 +405,71 @@ struct WorkoutView: View {
                     .accessibilityLabel("Terminar entreno")
                 }
             }
-        }
-        // Edición como destino push en NavigationStack, no hoja modal.
-        .navigationDestination(item: $editingRoutine) { draft in
-            DayEditorView(
-                routine: draft,
-                mode: draft.isOneOff ? .oneOff(isNew: false) : .plan(isNew: false),
-                onClose: { editingRoutine = nil },
-                onApplyDraft: { edited in
-                    // Guardar la plantilla original solo si ya existe.
-                    // Un escaneo no guardado también puede editarse sin
-                    // gastar una plantilla gratuita de la biblioteca.
-                    if store.state.routines.contains(where: { $0.id == edited.id }) {
-                        _ = store.saveRoutine(edited)
-                    }
-                    liveDraftsByExercise = [:]
-                    editedLiveExerciseIDs = []
-                    liveExerciseID = nil
-                    liveSets = []
-                    store.refreshActiveSessionPlan(from: edited)
-                    prefill()
-                },
-                embedsNavigationStack: false,
-                usesPageCloseHeader: true
-            )
-        }
-        .navigationDestination(item: $replacingPlayExercise) { target in
-            ExercisePickerView(embedsNavigationStack: false) { chosen in
-                replacingPlayExercise = nil
-                let previous = store.state.activeSession?.exercises.first(where: { $0.id == target.itemID })
-                let scoredBlock = store.state.activeSession?.wodResults.contains(where: { $0.id == target.blockID }) == true
-                if previous?.loggedSets.isEmpty == false || scoredBlock {
-                    pendingPlayReplacement = PendingPlayReplacement(target: target, exercise: chosen)
-                } else {
-                    replacePlayExercise(target, with: chosen)
-                }
+    }
+
+    private var workoutPresentationView: some View {
+        workoutCoreView
+        .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
+        .sensoryFeedback(.success, trigger: setCompletionPulse)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
+        .background(OG.bg)
+        // El nombre real del entreno vive en la barra superior (siempre visible).
+        .navigationTitle(store.state.activeSession?.title ?? "Entreno")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .ogTransparentNav()
+        // Cubrir también status bar y safe areas, sin heredar el fondo claro de Play.
+        .fullScreenCover(isPresented: Binding(
+            get: { store.workoutClock.isVisible },
+            set: { visible in
+                if !visible { store.workoutClock.minimize() }
             }
-        }
-        .navigationDestination(item: $addPlayExerciseToBlock) { blockID in
-            ExercisePickerView(embedsNavigationStack: false) { selected in
-                mutatePlayRoutine { routine in
-                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-                    let quantity = selected.loggingStyle == .machineWork
-                        ? (selected.defaultQuantityUnit == .meters ? 500 : 15)
-                        : (selected.isMobility ? 8 : 8)
-                    if routine.blocks[index].kind == .strength {
-                        let sets = (0..<(selected.loggingStyle.usesDuration ? 1 : 3)).map { _ in
-                            PlannedSet(targetReps: quantity)
-                        }
-                        routine.blocks[index].exercises.append(
-                            RoutineExercise(exerciseId: selected.id, plannedSets: sets,
-                                quantityUnit: selected.defaultQuantityUnit)
-                        )
-                    } else {
-                        routine.blocks[index].movements.append(
-                            WODMovement(exerciseId: selected.id, name: selected.name, reps: quantity,
-                                explicitPlannedSets: [PlannedSet(targetReps: quantity)])
-                        )
-                    }
-                }
-                addPlayExerciseToBlock = nil
-            }
-        }
-        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
-            FreeWODMovementCreatePage { movement in
-                mutatePlayRoutine { routine in
-                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-                    routine.blocks[index].movements.append(movement)
-                }
-                createFreeMovementForBlock = nil
-            }
-        }
-        .navigationDestination(item: $selectPlayFormatForBlock) { blockID in
-            WODFormatPickerPage { format in
-                updatePlayWODFormat(format, for: blockID)
-                selectPlayFormatForBlock = nil
-            }
-        }
-        .navigationDestination(isPresented: $showPlayWODCatalog) {
-            WODCatalogPickerView(embedsNavigationStack: false) { template in
-                mutatePlayRoutine { $0.blocks.append(template.makeBlock()) }
-                showPlayWODCatalog = false
-            }
-        }
-        .sheet(isPresented: $showPlayRoutinePicker) {
-            RoutineImportPickerSheet(
-                routines: store.libraryRoutines,
-                onPick: { selected in
-                    mutatePlayRoutine { draft in
-                        draft.blocks.append(contentsOf: selected.blocks.map { $0.duplicatingContent() })
-                    }
-                    showPlayRoutinePicker = false
-                },
-                onCancel: { showPlayRoutinePicker = false }
-            )
-        }
-        .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
-            get: { pendingPlayReplacement != nil },
-            set: { if !$0 { pendingPlayReplacement = nil } }
-        ), titleVisibility: .visible) {
-            Button("Sustituir y reiniciar", role: .destructive) {
-                if let pendingPlayReplacement {
-                    replacePlayExercise(pendingPlayReplacement.target, with: pendingPlayReplacement.exercise)
-                }
-                pendingPlayReplacement = nil
-            }
-            Button("Cancelar", role: .cancel) { pendingPlayReplacement = nil }
-        } message: {
-            Text("Este ejercicio ya tiene resultados registrados. Al sustituirlo se eliminarán sus series y se empezará desde los valores del ejercicio nuevo.")
-        }
-        .alert("No se ha podido guardar el favorito", isPresented: Binding(
-            get: { favoriteSaveError != nil },
-            set: { if !$0 { favoriteSaveError = nil } }
         )) {
-            Button("Aceptar", role: .cancel) { favoriteSaveError = nil }
-        } message: {
-            Text(favoriteSaveError ?? "")
+            wodFullscreenClock
+                .preferredColorScheme(.dark)
+                .background(Color.black.ignoresSafeArea())
+                .statusBarHidden()
         }
-        .onAppear {
-            // Restore the last recorded exercise and its live countdown after
-            // iOS unexpectedly killed the process. No timer reset on reopen.
-            if store.workoutClock.hasStarted {
-                runningTimerBlockID = store.workoutClock.restoredBlockID
-            }
-            notesDraft = store.state.activeSession?.notes ?? ""
-            prefill()
-            bootstrapQuickLogIfNeeded()
-            if store.state.activeSession?.phase == .ready {
-                store.confirmCurrentOnWatchStyle()
-            }
-            if store.workoutClock.pendingEndReason != nil {
-                presentWODConfirmIfNeeded()
-            }
+        .sheet(item: $manualRoundSetup, onDismiss: {
+            // Presentar fullscreen solo DESPUÉS de cerrarse el sheet de
+            // configuración; iOS no puede presentar ambos a la vez.
+            guard let selection = confirmedManualRoundStart else { return }
+            confirmedManualRoundStart = nil
+            guard let current = store.state.activeSession?.currentExercise,
+                  current.id == selection.exerciseID else { return }
+            startBlockClock(
+                for: current,
+                manualRoundSeconds: selection.durationSeconds,
+                manualRounds: selection.rounds,
+                manualRoundRestSeconds: selection.restSeconds
+            )
+        }) { setup in
+            manualRoundDurationSheet(for: setup)
         }
-        .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
-            persistActiveLiveDraft()
-            cacheLiveSets()
-            prefill()
-            let destinationBlock = store.state.activeSession?.currentExercise.flatMap { $0.blockId ?? $0.id }
-            if destinationBlock != runningTimerBlockID {
-                store.workoutClock.stop()
-                store.workoutClock.clearPendingEnd()
-                runningTimerBlockID = nil
-            }
-            if destinationBlock != finishedTimedBlockID {
-                finishedTimedBlockID = nil
-            }
-            if store.state.activeSession?.phase == .ready {
-                store.confirmCurrentOnWatchStyle()
-            }
-            if let blockID = pendingTimerBlockID {
-                pendingTimerBlockID = nil
-                if let current = store.state.activeSession?.currentExercise,
-                   current.blockId == blockID || current.id == blockID {
-                    requestBlockClockStart(for: current)
+    }
+
+    private var workoutCoreView: some View {
+        ZStack(alignment: .bottom) {
+            Group {
+                if let session = store.state.activeSession {
+                    content(session)
+                } else {
+                    ContentUnavailableView("Sin sesión", systemImage: "pause.circle", description: Text("Vuelve a Inicio para empezar."))
                 }
             }
-        }
-        .onChange(of: store.state.activeSession?.currentExercise?.plannedSets) { _, _ in
-            if let current = store.state.activeSession?.currentExercise {
-                rebuildLiveSets(from: current)
+            if !store.workoutClock.isVisible {
+                VStack(spacing: 8) {
+                    if runningTimerBlockID != nil, store.workoutClock.hasStarted {
+                        minimizedTimerDock
+                    }
+                    if store.restCoordinator.isActive {
+                        restDock
+                    }
+                }
+                .padding(.horizontal, OG.pad)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-        }
-        .onChange(of: store.state.activeSession?.currentExercise?.quantityUnit) { _, _ in
-            if let current = store.state.activeSession?.currentExercise {
-                syncLiveQuantityUnit(from: current)
-            }
-        }
-        .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
-            guard reason != nil else { return }
-            presentWODConfirmIfNeeded()
-        }
-        .onDisappear {
-            // Rest + WOD clocks are owned by ReperaStore — do not stop on view disappear.
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            store.workoutClock.syncFromWallClock()
         }
     }
 
