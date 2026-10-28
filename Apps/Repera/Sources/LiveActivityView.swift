@@ -998,6 +998,9 @@ final class LiveActivityRecorder: NSObject {
     private override init() {
         super.init()
         speechSynthesizer.delegate = self
+        // Misma sesión .playback/.spokenAudio para locuciones y para ducking
+        // de música/podcasts, también al recibir GPS en bloqueo.
+        speechSynthesizer.usesApplicationAudioSession = true
         if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
             spokenGuidanceEnabled = UserDefaults.standard.bool(forKey: spokenGuidanceKey)
         }
@@ -1967,6 +1970,8 @@ struct LiveActivityView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(\.scenePhase) private var scenePhase
     @State private var recorder = LiveActivityRecorder.shared
+    @State private var locationTracker = WorkoutLocationTracker.shared
+    @State private var previewHeadingRunning = false
     @State private var routes = LiveRoutesStore.shared
     @State private var sportPicker = false
     @State private var routePicker = false
@@ -2170,6 +2175,23 @@ struct LiveActivityView: View {
         return output
     }
 
+    /// Rumbo GPS si el deportista se mueve; brújula antes de iniciar y al parar.
+    private var mapHeadingDegrees: Double? {
+        recorder.currentCourseDegrees ?? locationTracker.previewHeadingDegrees
+    }
+
+    private func startMapHeadingIfNeeded() {
+        guard !previewHeadingRunning, scenePhase == .active else { return }
+        locationTracker.startPreviewHeading()
+        previewHeadingRunning = true
+    }
+
+    private func stopMapHeadingIfNeeded() {
+        guard previewHeadingRunning else { return }
+        locationTracker.stopPreviewHeading()
+        previewHeadingRunning = false
+    }
+
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
     /// Tab bar principal permanece nativa y aparece superpuesta al mapa.
     private var mapView: some View {
@@ -2190,27 +2212,20 @@ struct LiveActivityView: View {
                 }
                 if let current = recorder.currentCoordinate {
                     Annotation("Tú", coordinate: current) {
-                        Group {
-                            if let course = recorder.currentCourseDegrees {
-                                Image(systemName: "location.north.fill")
-                                    .font(.system(size: 25, weight: .black))
-                                    .foregroundStyle(OG.accent)
-                                    .rotationEffect(.degrees(course - (lastVisibleMapCamera?.heading ?? 0)))
-                                    .frame(width: 38, height: 38)
-                                    .background(.white.opacity(0.90), in: Circle())
-                                    .shadow(color: .black.opacity(0.3), radius: 3)
-                            } else {
-                                Circle()
-                                    .fill(OG.accent)
-                                    .frame(width: 16, height: 16)
-                                    .padding(5)
-                                    .background(.white, in: Circle())
-                                    .shadow(radius: 2)
-                            }
-                        }
-                        .accessibilityLabel(recorder.currentCourseDegrees == nil
-                            ? "Posición GPS, esperando rumbo fiable"
-                            : "Posición y dirección de marcha")
+                        // Flecha también antes de iniciar. Si falta brújula o
+                        // rumbo GPS, queda atenuada para no simular un rumbo.
+                        Image(systemName: "location.north.fill")
+                            .font(.system(size: 25, weight: .black))
+                            .foregroundStyle(OG.accent.opacity(mapHeadingDegrees == nil ? 0.48 : 1))
+                            .rotationEffect(.degrees(
+                                (mapHeadingDegrees ?? 0) - (lastVisibleMapCamera?.heading ?? 0)
+                            ))
+                            .frame(width: 38, height: 38)
+                            .background(.white.opacity(0.90), in: Circle())
+                            .shadow(color: .black.opacity(0.3), radius: 3)
+                            .accessibilityLabel(mapHeadingDegrees == nil
+                                ? "Posición GPS; orientación no disponible"
+                                : "Posición y orientación actual")
                     }
                 }
             }
@@ -2313,10 +2328,20 @@ struct LiveActivityView: View {
             .safeAreaPadding(.top, OG.topBarTopInset)
         }
         .task {
+            startMapHeadingIfNeeded()
             recorder.prepareMapLocation()
             if mapIsCentered, let user = recorder.currentCoordinate {
                 center3DMap(on: user)
             }
+        }
+        .onChange(of: scenePhase) { _, next in
+            if next == .active { startMapHeadingIfNeeded() }
+            else { stopMapHeadingIfNeeded() }
+        }
+        .onDisappear { stopMapHeadingIfNeeded() }
+        .onChange(of: locationTracker.previewHeadingDegrees) { _, _ in
+            if navigationMapEnabled, mapIsCentered,
+               let user = recorder.currentCoordinate { center3DMap(on: user) }
         }
         .onChange(of: recorder.currentCoordinate?.latitude) { _, _ in
             if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
@@ -2498,7 +2523,7 @@ struct LiveActivityView: View {
         }
         // Cámara tipo navegador: rumbo de la marcha, perspectiva baja
         // y un punto de mira por delante para dejar visible la ruta siguiente.
-        let heading = recorder.currentCourseDegrees ?? 0
+        let heading = mapHeadingDegrees ?? 0
         let lookAheadMeters = recorder.phase == .idle ? 0.0 : 35.0
         let radians = heading * .pi / 180
         let latOffset = cos(radians) * lookAheadMeters / 111_320
