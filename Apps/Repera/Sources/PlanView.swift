@@ -445,16 +445,12 @@ struct DayEditorView: View {
 
     /// Ordenación únicamente mediante menús de acciones accesibles.
     private var reorderSheet: some View {
-        // ScrollView en lugar de List: List consume los gestos drag y no expone
-        // huecos reales como destinos de drop entre filas.
+        // Ordenación accesible con menús; el arrastre está deshabilitado.
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(routine.blocks) { block in
                     VStack(spacing: 0) {
                         HStack(spacing: 10) {
-                            Image(systemName: "line.3.horizontal")
-                                .foregroundStyle(OG.label3)
-                                .accessibilityHidden(true)
                             Text(block.title)
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(OG.label)
@@ -485,7 +481,6 @@ struct DayEditorView: View {
                         }
                         .frame(minHeight: 50)
                         .contentShape(Rectangle())
-
 
                         if block.kind == .strength {
                             ForEach(block.exercises) { exercise in
@@ -551,9 +546,6 @@ struct DayEditorView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(OG.label)
             Spacer(minLength: 8)
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12))
-                .foregroundStyle(OG.label3)
             Menu {
                 Button("Subir ejercicio", systemImage: "arrow.up") {
                     moveExercise(type: type, blockID: blockID, itemID: itemID, offset: -1)
