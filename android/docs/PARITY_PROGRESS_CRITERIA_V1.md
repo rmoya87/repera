@@ -1,6 +1,6 @@
 # Seguimiento por criterios v1
 
-Fecha de base: 28-oct-2026. Ultimo producto: tree392, a89b9b6d.
+Fecha de base: 28-oct-2026. Ultimo producto: tree396, 11d450da. Consolidado en App-android (merge7bf6eadd).
 Peticion de seguimiento: mensaje del usuario de 28-oct 12:01 y continuidad acordada a las 12:02.
 
 ## Que mide
@@ -67,7 +67,7 @@ Las otras9filas tienen avance parcial no fraccionado. No asignarles 50% por conv
 |---|---|---|---|---|---|---|
 | L01 | Ruido exacto de un caracter/SETS/REPS/CIRCUITO/CIRCUIT/WARMUP excluido de movimiento y fuerza explicita, notas originales conservadas | A | A | N | BoardImportParser859-868; BoardStrengthLines/BoardScanLiteParser; trees333/358/360 y tests domain+wire. CALENTAMIENTO header se trata en L05 |
 | L02 | Fuerza sin cabecera con esquema setsxreps explicito y catalogo resuelto, alias oficial sobre custom; notas/carga en wire | A | A | N | BoardImportParser175-200/821-851/870-933; BoardStrengthLines; BoardStrengthLinesTest y BoardScanImportTest. Subset bounded1..200/1..100000; defaults/fallback se tratan en L03/L04 |
-| L03 | Fuerza clasica sin esquema: defaults3x8 y parseo/revision de lineas completas | N | N | N | BoardImportParser37-57/821-851; omitido deliberadamente hasta resolver el port completo, no inventar prescripcion |
+| L03 | Fuerza clasica sin esquema: defaults3x8 y parseo/revision de lineas completas | A | A | N | BoardImportParser37-57/821-851/330-628; BoardClassicReview + prepareBoardReview/BoardScanScreen/BoardScanReviewConfirm, trees395/622df90f/396. Defaults visibles/editables, nombre/carga/esquema/exclusion, exclusiones de cabeceras full separadas de Lite; 8 tests dominio, 2 UI->wire, callback MainActivity->createRoutineFromScan revisado. Cantidades bounded1..200/1..100000, carga finita>=0; desconocidos requieren corregir/excluir, custom/fallback sigue L04. JVM/PNG no acreditan nativo |
 | L04 | buildRoutine: seleccion incluida, salvamento sin cabecera, fallback no resuelto y creacion custom equivalente | P | P | N | BoardImportParser60-92/175-200/285-310; consumidor Lite/review existente no acredita todos estos caminos |
 | L05 | Secciones y TODOS los formatos/cabeceras del corte con precedencia correcta | P | P | N | BoardImportParser95-174/330-628; muchos subsets282-369 portados, contains/global y combinaciones aun pendientes |
 | L06 | EVERY/CADA FOR/PARA exacto: unidades explicitas/omitidas, cadencia, duracion y rondas/override | A | A | N | BoardImportParser400-440; trees349-350, everyFor tests domain+wire. No incluye todas las cabeceras EVERY en L05 |
@@ -77,10 +77,10 @@ Las otras9filas tienen avance parcial no fraccionado. No asignarles 50% por conv
 | L10 | Metadata de ronda/footnote/quality, descansos y conversion EVERY con onda a fuerza | P | P | N | BoardImportParser216-310; BoardScanLiteParser flush y conversion185-207 existentes; precedencia completa de rutas/metadata aun sin cierre |
 | L11 | Revision/importacion desde OCR a rutina editable, identidades y wire sin perdidas para todos los caminos full | P | P | N | BoardScanScreen usa Lite+catalogo persistido; BoardScanImport y20wiretests acreditan subsets, no todos los caminos full ni prueba nativa OCR->guardar->abrir |
 
-Recuento v1: implementacion A4/11 =36,4%; conexion A4/11 =36,4%;
+Recuento v1: implementacion A5/11 =45,5%; conexion A5/11 =45,5%;
 validacion nativa A0/11 =0%; criterios completos0/11 =0%.
 Son criterios inventariados, NO porcentaje de cobertura total ni del lector funcional.
-Las 6 filas parciales no reciben fraccion inventada. Una fila pendiente no borra trabajo Lite previo.
+Las 6 filas parciales no reciben fraccion inventada. L03 acreditado I/C no cierra el lector ni sustituye validacion nativa.
 
 ## Fuera de estos porcentajes
 
@@ -108,3 +108,5 @@ como0%global del producto. Registrar todos los cambios de denominador y evidenci
 - Tree390: G08 divisor entre VFC ficticia y barras con alpha0.25/spacing14 como HealthRecovery850-852; regresion de existencia/bounds y PNG360 inspeccionado. No claimcolorSwiftidentico. G08 permanece P/P/N; denominadores/recuentos v1 intactos.
 
 - Tree392: G08 fila de VFC ficticia con titulo izquierdo y ultimo valor58msderecho, como HealthRecovery827-834; regresion textos/bounds y PNG360 inspeccionado. No claimfontmetricsidenticas. G08 permanece P/P/N; denominadores/recuentos v1 intactos.
+
+- Tree396: L03 pasa N/N/N a A/A/N tras conjunto fuerza clasica y revision completa contra el corte. Ciclo consolidado: mobile695/164XML, domain566/94XML, Wear8/1XML, cero fallos/errores/omitidos; ambos assembleDebug verdes. PNG de revision3x8editable inspeccionado. El nuevo menuInicio->DayPlusSheet sigue Apple actual confirmado para resolver fusionDiario; prueba botonreal->cuatroopciones->callbackEscanear y PNG360x900 inspeccionado. Esto NO acredita todos los caminos L04/L05/L08/L11 ni validacion en dispositivo. No se modifica denominador.
