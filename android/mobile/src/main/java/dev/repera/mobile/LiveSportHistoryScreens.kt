@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Route
@@ -78,7 +79,7 @@ internal fun LiveSportHistoryScreen(
     LazyColumn(modifier.fillMaxSize().testTag("live_sport_history"),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            TextButton(onClick = onBack) { Text("Volver a Deportes") }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver a Deportes") }
             Text(sport.title, style = MaterialTheme.typography.headlineMedium)
         }
         item {

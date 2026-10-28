@@ -18,7 +18,7 @@ import kotlin.math.roundToInt
 /** Current preparation is Free and Pro, distinct from gated historical physiology charts. */
 @Composable
 internal fun TrainingReadinessCard(recovery:RecoveryState) {
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
   Text("Preparación para entrenar",style=MaterialTheme.typography.titleMedium)
   val ready=recovery.readiness
   if(ready==null) Text("Necesitamos datos de sueño y entrenamientos recientes")

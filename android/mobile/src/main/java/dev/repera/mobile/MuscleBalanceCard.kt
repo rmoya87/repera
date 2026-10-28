@@ -58,7 +58,7 @@ internal fun MuscleBalanceCard(
     val (worked, missed) = MuscleLoadEngine.ranked(load)
 
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Equilibrio muscular", style = MaterialTheme.typography.titleMedium)
 
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {

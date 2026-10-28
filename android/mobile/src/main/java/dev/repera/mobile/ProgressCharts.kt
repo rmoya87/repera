@@ -182,7 +182,7 @@ internal fun ActivityHeatmapCard(
     val today = levels.last().first
 
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text("Actividad", style = MaterialTheme.typography.titleLarge)
             // Picker .segmented de iOS.
             SingleChoiceSegmentedButtonRow(

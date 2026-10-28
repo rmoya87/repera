@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.AddCircleOutline
@@ -144,8 +145,8 @@ internal fun ProgressTab(
         // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
         if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
             ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
-                Row(Modifier.padding(18.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text("Deportes · evolución y récords");Text("›")
+                Row(Modifier.padding(16.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text("Deportes · evolución y récords");Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription=null, tint=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -153,7 +154,7 @@ internal fun ProgressTab(
         item {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
@@ -235,7 +236,7 @@ internal fun ProgressTab(
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        Modifier.padding(18.dp),
+                        Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val s = snapshot.summary
@@ -250,7 +251,7 @@ internal fun ProgressTab(
             }
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(18.dp),
+                    Column(Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Constancia", style = MaterialTheme.typography.titleMedium)
                         Text("${snapshot.monthSessions} sesiones este mes",
@@ -283,7 +284,7 @@ internal fun ProgressTab(
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
             if(healthPrompt!=ProgressHealthPromptKind.NONE) item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     if(healthPrompt==ProgressHealthPromptKind.NOT_AUTHORIZED) {
                         Text("Salud sin permiso de lectura",style=MaterialTheme.typography.titleMedium)
                         Text("Autoriza Health Connect para ver FC y kcal.")
@@ -309,7 +310,7 @@ internal fun ProgressTab(
                 item {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
                         Column(
-                            Modifier.padding(18.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
@@ -357,7 +358,7 @@ internal fun ProgressTab(
         if (overview?.weeklyMuscleGroups?.isNotEmpty() == true) {
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(18.dp),
+                    Column(Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Series por grupo · esta semana",
                             style = MaterialTheme.typography.titleMedium)
