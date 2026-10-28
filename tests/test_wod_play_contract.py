@@ -42,8 +42,9 @@ class PlayWODContractTests(unittest.TestCase):
         screen = screen.split("private func workoutExerciseRow(", 1)[0]
         exercise_rows = screen.split("ForEach(block.indexes, id:", 1)[1]
         exercise_rows = exercise_rows.split("if finishedTimedBlockID", 1)[0]
-        self.assertIn("if session.currentIndex == index {", exercise_rows)
-        self.assertIn("setsBoard(entry)", exercise_rows)
+        self.assertIn("PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)", exercise_rows)
+        self.assertIn("replacingPlayExercise = PlayReplacementTarget(", exercise_rows)
+        self.assertIn("removePlayExercise(block.id, itemID: entry.id)", exercise_rows)
         self.assertIn("logForm(current)", exercise_rows)
         self.assertNotIn("resultCapture", exercise_rows)
         self.assertNotIn("blockScorePanel", source)
@@ -100,7 +101,7 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("WODResultInlineEditor(", play)
         self.assertNotIn(".sheet(item: $pendingWODConfirm)", play)
         self.assertNotIn("WODResultConfirmSheet(", play)
-        self.assertIn("setsBoard(entry)", play)
+        self.assertIn("PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)", play)
 
     def test_full_width_technique_editor_and_cluster_seconds(self):
         play = self.read("WorkoutView.swift")
@@ -122,9 +123,8 @@ class PlayWODContractTests(unittest.TestCase):
         play = self.read("WorkoutView.swift")
         section = play.split("private func content(_ session: WorkoutSession)", 1)[1]
         section = section.split("private func workoutExerciseRow(", 1)[0]
-        self.assertIn("session.currentIndex == index ? .hidden : .visible", section)
-        self.assertIn("edges: .bottom", section)
-        self.assertIn("setsBoard(entry)", section)
+        self.assertIn(".listRowSeparator(.hidden, edges: .bottom)", section)
+        self.assertIn("PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)", section)
         editor = self.read("PlanView.swift")
         self.assertIn(".listRowSeparator(.hidden, edges: .bottom)", editor)
         self.assertIn(".listRowSeparator(.hidden, edges: .top)", editor)
