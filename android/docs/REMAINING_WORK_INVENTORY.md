@@ -851,3 +851,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 09:26 28oct
 -365 bateria completa mobile688/163XML11lotes47/69/85/70/55/68/83/40/81/50/70s,domain555/93XML74s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Backup365recuperado65338db7:arbole7831426ad3b2b4c521f30c22feb24e1e02bb1ecidentico,clonlimpio.
 -366 solo documentacion: c6f89c28/88db5bb7reconciliadas364-365,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, matching exacto de modificador simple 09:33 28oct
+- Mismo lector parcial367: movimiento simple descargado con cantidad explicita1..100000ymodificadorBN/BTN/AFAP/UNBROKEN/UAT/BEHINDNECK/TOUCHANDGO intenta candidatorexactolimpiadofuente870-950. PrioridadidentidadLiteexistente(nombreparseado/equipo)antesdecandidatolimpiado;officialexact>alias>custom,no fuzzy. No load/slash/@/#/wave/multiplierni defaults3x8.
+- Regresion fallo antes:1ZPRESSBNnopreservabaidentidadexacta.2testsdominio(prioridadexact/alias/custom,nofuzzy,equipo)y1wirenuevos;dominio557/93XML81s,wire19/1XML65sverdes0fallos/errores/omitidos. Comprobacionadicionaldeequipoexpuso prioridadgenericaenprimerprototipo;preservadonombreparseadoenindexLiteyfixtureBNconnombresdistintos. Mobile completa/Wear367pendientes;ultima completa365mobile688/163,domain555/93,Wear8/1+ambosassemble66s.735/70sin cierres,nativo pendiente,no push.

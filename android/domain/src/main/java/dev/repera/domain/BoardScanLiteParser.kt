@@ -609,6 +609,18 @@ object BoardScanLiteParser {
         val body=when {validWave!=null ->unloaded.removeRange(waveMatch!!.range);multiplierMatch!=null ->unloaded.removeRange(multiplierMatch.range);else ->unloaded}
         val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}
         val explicit=Regex("^(\\d+)\\s+[^0-9].*")
+        // Bounded full-parser matching for one explicit unloaded movement with
+        // a style modifier. No fuzzy matching or prescription inference.
+        if(parts.size==1 && multiplierMatch==null && validWave==null && parentLoad==null &&
+            explicit.matchEntire(body)?.groupValues?.get(1)?.toIntOrNull()?.let {it in 1..100000}==true &&
+            !body.contains('@') && !body.contains('#') && !body.contains('/') &&
+            !Regex("""\b(?:kg|kgs|lb|lbs)\b""",RegexOption.IGNORE_CASE).containsMatchIn(body) &&
+            Regex("""\b(?:BN|BTN|AFAP|UNBROKEN|UAT|BEHIND\s+NECK|TOUCH\s+AND\s+GO)\b""",RegexOption.IGNORE_CASE).containsMatchIn(body)) {
+            val parsed=movement(raw,aliases)
+            val exactName=catalogIndex(catalog)[norm(parsed.name)] ?: BoardStrengthLines.bestMatch(parsed.name,catalog,allowFuzzy=false)
+            val match=exactName ?: BoardStrengthLines.bestMatch(body,catalog,allowFuzzy=false)
+            if(match!=null) return listOf(parsed.copy(exerciseId=match.id,name=match.name))
+        }
         if(parts.size<2 || parts.any {it.isEmpty()} || parts.withIndex().any {(i,part) ->
                 !(i==0 && validWave!=null) && explicit.matchEntire(part)?.groupValues?.get(1)?.toIntOrNull()?.let {it in 1..100000} != true
             } ||

@@ -918,4 +918,27 @@ class BoardScanLiteParserTest {
             assertNull(move.weightFemaleKg)
         }
     }
+    @Test fun singleExplicitMovementUsesExactModifierCandidateWithoutFuzzy() {
+        val exact=CatalogExercise("exact","ZPRESS",emptyList())
+        val alias=CatalogExercise("alias","Press oficial",listOf("ZPRESS"))
+        val custom=CatalogExercise("custom","ZPRESS",emptyList(),isCustom=true)
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS BN",listOf(custom,alias,exact)).blocks.single()
+        assertEquals("exact",block.movements.single().exerciseId)
+        assertEquals("ZPRESS",block.movements.single().name)
+        val aliasOnly=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS BN",listOf(custom,alias)).blocks.single()
+        assertEquals("alias",aliasOnly.movements.single().exerciseId)
+        val near=CatalogExercise("near","UNKNOWN EXTRA WORD",emptyList())
+        val unknown=BoardScanLiteParser.parse("AMRAP 10'\n1 UNKNOWN EXTRA BN",listOf(near)).blocks.single()
+        assertNull(unknown.movements.single().exerciseId)
+    }
+    @Test fun singleModifierCandidateKeepsExistingEquipmentVariant() {
+        val raw="1 DB CLEAN BN"
+        val parsed=CrossFitGlossary.parseMovementLine(raw)
+        val variant=CatalogExercise("variant",parsed.name,emptyList())
+        val generic=CatalogExercise("generic","Cargada",emptyList())
+        assertFalse("fixture must have distinct names: ${parsed.name}",parsed.name==generic.name)
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n"+raw,listOf(generic,variant)).blocks.single()
+        assertEquals("variant",block.movements.single().exerciseId)
+        assertEquals(parsed.name,block.movements.single().name)
+    }
 }

@@ -233,4 +233,13 @@ class BoardScanImportTest {
         assertFalse(move.has("weightMaleKg"))
         assertFalse(move.has("weightFemaleKg"))
     }
+    @Test fun singleModifierCandidateKeepsOfficialIdentityInWire() {
+        val official=CatalogExercise("official","ZPRESS",emptyList())
+        val custom=CatalogExercise("custom","ZPRESS",emptyList(),isCustom=true)
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS BN",listOf(custom,official)).blocks.single()
+        val move=BoardScanImport.wireBlock(block).getJSONArray("movements").getJSONObject(0)
+        assertEquals("official",move.getString("exerciseId"))
+        assertEquals("ZPRESS",move.getString("name"))
+        assertEquals(1,move.getInt("reps"))
+    }
 }
