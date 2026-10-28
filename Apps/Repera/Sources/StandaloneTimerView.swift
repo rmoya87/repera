@@ -252,6 +252,7 @@ struct StandaloneTimerView: View {
     @State private var locationPin: WorkoutLocationPin?
     @State private var completedSummary: StandaloneTimerCompletion?
     @State private var timerStartedAt: Date?
+    @State private var showDiscardCompletedTimer = false
 
     var embedsNavigation = true
 
@@ -572,16 +573,50 @@ struct StandaloneTimerView: View {
                     } header: {
                         Text("Lugar").textCase(nil)
                     }
+
+                    Section {
+                        Button(action: saveCompletedTimer) {
+                            Text("Guardar")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                                .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                                .background(OG.accent, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .ogCardListRow()
+                    }
+                    Section {
+                        Button(role: .destructive) {
+                            showDiscardCompletedTimer = true
+                        } label: {
+                            Text("Descartar")
+                                .font(.system(size: 16, weight: .medium))
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 16)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(OG.red)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
                 }
+            }
+            .confirmationDialog(
+                "¿Descartar temporizador?",
+                isPresented: $showDiscardCompletedTimer,
+                titleVisibility: .visible
+            ) {
+                Button("Descartar", role: .destructive, action: discardCompletedTimer)
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Esta sesión no aparecerá en Inicio ni en Historial.")
             }
             .ogListChrome()
             .listSectionSpacing(12)
             .ogScrollingTitleNav()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showClock = false
-                    } label: {
+                    Button(action: saveCompletedTimer) {
                         Image(systemName: "checkmark")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
@@ -590,8 +625,8 @@ struct StandaloneTimerView: View {
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Listo")
-                    .accessibilityHint("Cerrar resumen del temporizador")
+                    .accessibilityLabel("Guardar temporizador")
+                    .accessibilityHint("Guardar esta sesión en Inicio e Historial")
                 }
             }
         }
@@ -837,26 +872,26 @@ struct StandaloneTimerView: View {
             displaySeconds = elapsed
             RestFeedback.tick(remaining: config.durationTotalSeconds - elapsed, sound: true, haptic: true)
             if elapsed >= config.durationTotalSeconds {
+                let endedAt = (phaseStartDate ?? now).addingTimeInterval(
+                    TimeInterval(config.durationTotalSeconds)
+                )
                 displaySeconds = config.durationTotalSeconds
                 isRunning = false
                 stopTimer(keepState: true)
                 finishLiveClock()
-                recordTimerCompletion(
-                    finishedAt: (phaseStartDate ?? now).addingTimeInterval(
-                        TimeInterval(config.durationTotalSeconds)
-                    )
-                )
+                recordTimerCompletion(finishedAt: endedAt)
                 RestFeedback.restComplete(sound: true, haptic: true)
             }
         case .down:
             let remaining = liveDisplaySeconds(at: now)
             displaySeconds = remaining
             if remaining <= 0 {
+                let endedAt = phaseEndDate ?? now
                 displaySeconds = 0
                 isRunning = false
                 stopTimer(keepState: true)
                 finishLiveClock()
-                recordTimerCompletion(finishedAt: phaseEndDate ?? now)
+                recordTimerCompletion(finishedAt: endedAt)
                 RestFeedback.restComplete(sound: true, haptic: true)
             } else {
                 RestFeedback.tick(remaining: remaining, sound: true, haptic: true)
@@ -939,11 +974,12 @@ struct StandaloneTimerView: View {
 
     private func finishOrNextRound() {
         if roundNumber >= config.rounds {
+            let endedAt = phaseEndDate ?? Date()
             displaySeconds = 0
             isRunning = false
             stopTimer(keepState: true)
             finishLiveClock()
-            recordTimerCompletion(finishedAt: phaseEndDate ?? now)
+            recordTimerCompletion(finishedAt: endedAt)
             RestFeedback.restComplete(sound: true, haptic: true)
             return
         }
