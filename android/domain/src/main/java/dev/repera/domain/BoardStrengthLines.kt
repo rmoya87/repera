@@ -20,6 +20,7 @@ internal object BoardStrengthLines {
    // Bound allocation before review. Do not silently truncate a board.
    if(sets !in 1..200 || reps !in 1..100000) return null
    working=working.removeRange(scheme.range)
+   if(working.contains('+') || Regex("\\d+\\s*[x×X]\\s*\\d+").containsMatchIn(working)) return null
    val load=Regex("@\\s*(\\d+(?:[.,]\\d+)?)\\s*(kg|lb)?(?=\\s|$)",RegexOption.IGNORE_CASE).find(working)
    val weight=load?.groupValues?.get(1)?.replace(',','.')?.toDoubleOrNull()
    if(load!=null) {

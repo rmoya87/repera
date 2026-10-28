@@ -720,3 +720,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -335 bateria completa mobile678/163XML84/96/75/77s,domain531/93XML51s,Wear8/1XML+ambosassemble61sverdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo lector parcial336,hallazgo nuevo: esquema -3x8/decimal/exponente podia tomar subcadena positiva yfabricar prescripcion parcial. Regresion fallo antes con-3x8. Fronteras ahora impiden tokenembebido/decimal/signo ysignonegativo separado;no3x8default. Siete casos malformados conservan review.
 -1test nuevo;dominio532/93XML completo verde ywire8/1XMLjuntoBoardStrengthLinesTestverde80s,0fallos/errores/omitidos. Mobile completa/Wear336 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, esquemas multiples en fuerza 04:45 28oct
+-336 bateria completa mobile678/163XML91/104/85/83s,domain532/93XML34s,Wear8/1XML+ambosassemble90sverdes0fallos/errores/omitidos. Backup336recuperado:arbol2ff87653118b788deab168b43c657730bf736daaidentico,clonlimpio.
+- Mismo lector parcial337,hallazgo nuevo: repeticion de ejercicio con dossetsxreps en misma linea podia ser reducida por canonicalName a una sola prescripcion. Regresion con3x8BACKSQUAT+3x8BACKSQUATfallo antes. Guardia rechaza '+' osegundoesquema tras extraer primero;conserva review,sin colapsar ni inventar fuerza.
+-1test nuevo de5casos,dominio533/93XML61s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear337 pendientes.735/70sin cierres,nativo pendiente,no push.

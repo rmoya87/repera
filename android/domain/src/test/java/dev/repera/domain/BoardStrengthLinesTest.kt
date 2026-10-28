@@ -158,4 +158,9 @@ class BoardStrengthLinesTest {
    assertNull(scheme,BoardStrengthLines.block(listOf(scheme+" BACK SQUAT"),listOf(squat)))
   }
  }
+ @Test fun multipleStrengthSchemesOrComplexCannotCollapseToOneExercise() {
+  for(line in listOf("3x8 BACK SQUAT + 3x8 BACK SQUAT","3x8 BACK SQUAT 4x5 BACK SQUAT","3x8 BACK SQUAT + 3x8 BENCH PRESS","3x8 BACK SQUAT 4x5","3x8 BACK SQUAT + 2 BENCH PRESS")) {
+   assertNull(line,BoardStrengthLines.block(listOf(line),listOf(squat,bench)))
+  }
+ }
 }
