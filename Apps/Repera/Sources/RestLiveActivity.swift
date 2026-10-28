@@ -136,12 +136,34 @@ final class TimerLiveActivityCoordinator {
         let token = generations[source, default: 0]
         Task { @MainActor in
             guard self.generations[source] == token else { return }
-            for activity in Activity<RestActivityAttributes>.activities
-            where activity.attributes.sourceKey == source.rawValue {
-                var state = activity.content.state
+            let existing = Activity<RestActivityAttributes>.activities.first(where: {
+                $0.attributes.sourceKey == source.rawValue
+            })
+            if let existing {
+                var state = existing.content.state
                 state.pausedRemainingSeconds = max(0, value)
                 state.countUpAnchor = nil
-                await activity.update(.init(state: state, staleDate: nil))
+                await existing.update(.init(state: state, staleDate: nil, relevanceScore: 100))
+            } else if ActivityAuthorizationInfo().areActivitiesEnabled {
+                // Very fast start → pause: the previous asynchronous Activity
+                // request may be cancelled before being created.
+                let state = RestActivityAttributes.ContentState(
+                    endDate: Date().addingTimeInterval(TimeInterval(max(1, value))),
+                    totalSeconds: max(1, value),
+                    pausedRemainingSeconds: max(0, value)
+                )
+                guard self.generations[source] == token else { return }
+                do {
+                    _ = try Activity.request(
+                        attributes: RestActivityAttributes(
+                            exerciseName: title, sourceKey: source.rawValue
+                        ),
+                        content: .init(state: state, staleDate: nil, relevanceScore: 100),
+                        pushType: nil
+                    )
+                } catch {
+                    logger.error("Paused timer Live Activity failed: \(String(describing: error), privacy: .public)")
+                }
             }
         }
     }
