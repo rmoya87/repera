@@ -2307,11 +2307,11 @@ struct WODMovementEditor: View {
                         Text("Solo reps (peso corporal).")
                     case .loadAndReps:
                         if isWeightedDistance {
-                            Text("Walking lunge: repeticiones o metros, siempre con peso opcional en kg y RIR.")
+                            Text("Walking lunge: repeticiones o metros, con peso opcional y \(store.state.settings.effortUnit.displayName).")
                         } else if resolvedLoadField == .deficitCm {
                             Text("HSPU: déficit (cm) · reps. 0 = sin déficit.")
                         } else {
-                            Text("Peso/lastre · reps · RIR. Dominadas: lastre 0 = sin lastre.")
+                            Text("Peso/lastre · reps · \(store.state.settings.effortUnit.displayName). Dominadas: lastre 0 = sin lastre.")
                         }
                     }
                 }
@@ -2575,7 +2575,7 @@ struct RoutineExerciseEditor: View {
                 } header: {
                     Text("Referencia")
                 } footer: {
-                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y RIR).")
+                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y \(store.state.settings.effortUnit.displayName)).")
                 }
             }
 
@@ -2649,7 +2649,7 @@ struct RoutineExerciseEditor: View {
                      ? "Objetivo de duración por serie en segundos. Las posturas se registran por tiempo y la movilidad dinámica por repeticiones y tiempo; sin kg ni RIR."
                      : (exercise?.loggingStyle == .machineWork
                      ? "Introduce calorías o metros por serie; el cardio no utiliza kilogramos."
-                     : "Cada serie puede tener cantidad, peso y RIR distintos según el movimiento."))
+                     : "Cada serie puede tener cantidad, peso y \(store.state.settings.effortUnit.displayName) distintos según el movimiento."))
             }
 
             Section {
