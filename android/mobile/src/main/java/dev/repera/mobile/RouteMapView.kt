@@ -42,9 +42,8 @@ import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.json.JSONObject
 
-/** Leyenda de escala de color por velocidad (Apple c04c7dd9): solo en recorridos
- *  ya guardados. Misma funcion cromatica que cada segmento del trazado; las 25
- *  muestras distribuidas compensan la curva de contraste pow 0.72. */
+/** Leyenda de escala cromatica adaptativa del recorrido ya guardado.
+ *  Comparte los cinco colores con el mapa de iOS, sin sesgo hacia el rojo. */
 @Composable
 internal fun RouteSpeedLegend(water: Boolean = false) {
     val colors = (0..24).map { i ->
