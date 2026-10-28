@@ -8,7 +8,7 @@
 
 ## Product (snapshot 2026-10-15)
 
-Native iPhone + Apple Watch training app. openGym is a **domain/product reference** only.
+Native iPhone + Apple Watch training app. Independent product design and implementation.
 
 | Layer | Choice |
 |-------|--------|
