@@ -104,15 +104,6 @@ struct DayPlusSheet: View {
                     )
                 }
                 menuDivider
-                Button(action: onOpenFavorites) {
-                    menuLabel(
-                        title: "Favoritos",
-                        subtitle: favoritesSubtitle,
-                        systemName: "star.fill",
-                        tint: OG.yellow
-                    )
-                }
-                menuDivider
                 Button(action: onOpenTimer) {
                     menuLabel(
                         title: "Temporizador",
@@ -124,13 +115,22 @@ struct DayPlusSheet: View {
                 menuDivider
                 Button { requestBoardScan() } label: {
                     menuLabel(
-                        title: "Escanear pizarra o TV",
+                        title: "Escanear entreno",
                         subtitle: "Cámara o galería",
                         systemName: "camera.viewfinder",
                         tint: OG.blue
                     )
                 }
                 .disabled(isReading)
+                menuDivider
+                Button(action: onOpenFavorites) {
+                    menuLabel(
+                        title: "Favoritos",
+                        subtitle: favoritesSubtitle,
+                        systemName: "star.fill",
+                        tint: OG.yellow
+                    )
+                }
             }
             .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
 
