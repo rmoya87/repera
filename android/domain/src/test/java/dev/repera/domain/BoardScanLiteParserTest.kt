@@ -865,4 +865,17 @@ class BoardScanLiteParserTest {
         assertEquals(3,strength.exercises.single().plannedSets.size)
         assertTrue(strength.wodNotes!!.contains("|"))
     }
+    @Test fun exactWarmupNoiseDoesNotBecomeExerciseOrBlockExplicitStrength() {
+        val wod=BoardScanLiteParser.parse("AMRAP 10'\nWARMUP\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(1,wod.movements.size)
+        assertTrue(wod.wodNotes!!.contains("WARMUP"))
+        val strength=BoardScanLiteParser.parse("WARMUP\n3x8 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(RoutineBlockKind.STRENGTH,strength.kind)
+        assertEquals(1,strength.exercises.size)
+        assertEquals(3,strength.exercises.single().plannedSets.size)
+        assertTrue(strength.wodNotes!!.contains("WARMUP"))
+        val named=BoardScanLiteParser.parse("AMRAP 10'\n2 WARMUP PRESS",catalog=catalog).blocks.single()
+        assertEquals(1,named.movements.size)
+        assertEquals(2,named.movements.single().reps)
+    }
 }

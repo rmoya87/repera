@@ -209,4 +209,11 @@ class BoardScanImportTest {
         assertEquals(1,wire.getJSONArray("movements").length())
         assertTrue(wire.getString("wodNotes").contains("|"))
     }
+    @Test fun exactWarmupNoiseIsNotesNotWireMovement() {
+        val block=BoardScanLiteParser.parse("AMRAP 10'\nWARMUP\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        val wire=BoardScanImport.wireBlock(block)
+        assertEquals("amrap",wire.getString("wodFormat"))
+        assertEquals(1,wire.getJSONArray("movements").length())
+        assertTrue(wire.getString("wodNotes").contains("WARMUP"))
+    }
 }

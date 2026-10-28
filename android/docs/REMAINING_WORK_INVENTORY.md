@@ -823,3 +823,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 08:15 28oct
 -358 bateria completa mobile685/163XML10lotes57/109/82/73/88/110/56/107/61/103s,domain550/93XML69s,Wear8/1XML+ambosassemble93sverdes0fallos/errores/omitidos. Loslotesinterrumpidosporlimitenocontados,reemplazadosporlotesmenorescompletos. Backup358recuperado65338db7:arbol88afc58d75f5e28aa9ed527f995757b278cb255aidentico,clonlimpio.
 -359 solo documentacion: c6f89c28/88db5bb7reconciliadas358,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, ruido WARMUP exacto 08:20 28oct
+- Mismo lector parcial360: WARMUP exacto no crea movimiento ni bloquea fuerza con esquema explicito,notasoriginalespreservadas. SubconjuntoisNoisefuente858-863,antesdeWODyBoardStrengthLines. CALENTAMIENTO yaesheaderdefuerzasegunfuente617-624,nodebeeliminarsecomoruido. No containsglobal,2WARMUPPRESSsigueejercicio.
+- Regresion fallo antes.1testdominioWOD+fuerza+nombreordinarioy1wirenuevos;dominio551/93XML102s,wire16/1XML92sverdes0fallos/errores/omitidos. Mobile completa/Wear360pendientes;ultima completa358mobile685/163,domain550/93,Wear8/1+ambosassemble93s.735/70sin cierres,nativo pendiente,no push.
