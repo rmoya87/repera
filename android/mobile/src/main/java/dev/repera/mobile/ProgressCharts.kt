@@ -520,8 +520,8 @@ internal fun DayPointLineChart(
                         color = line.copy(alpha = 0.5f),
                         start = Offset(x(i), 0f),
                         end = Offset(x(i), size.height),
-                        strokeWidth = if(physiologyStyle) 1.dp.toPx() else 2f,
-                        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(if(physiologyStyle) floatArrayOf(3.dp.toPx(),4.dp.toPx()) else floatArrayOf(6f,6f))
+                        strokeWidth = if(physiologyStyle || readinessStyle) 1.dp.toPx() else 2f,
+                        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(if(physiologyStyle || readinessStyle) floatArrayOf(3.dp.toPx(),4.dp.toPx()) else floatArrayOf(6f,6f))
                     )
                     if(!physiologyStyle && !readinessStyle) drawCircle(color = line, radius = 8f,
                         center = Offset(x(i), y(points[i].value)))

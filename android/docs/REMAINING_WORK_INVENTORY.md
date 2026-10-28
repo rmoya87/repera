@@ -911,3 +911,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad graficos parciales y matrices 11:49 28oct
 -379 bateria completa mobile690/163XML11lotes43/64/77/63/51/63/77/44/79/46/76s,domain558/93XML38s,Wear8/1XML+ambosassemble71sverdes0fallos/errores/omitidos. Backup379recuperado65338db7:arbole6a1b699a8e9d644e2c327d8ec6b3b4a47eb3db4identico,clonlimpio.
 -380 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas379,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/annotationnativaabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
+
+## Revision graficos, regla Readiness 1dp y dash3/4 11:53 28oct
+- Mismo bloque grafico parcial381, hallazgo nuevo HealthRecovery1273-1275: RuleMark1ptdash3/4,AndroidReadinessheredaba2pxdash6/6. Aplica1dpdash3dp/4dpsoloReadinesscomo fisiologia ya existente; otras metricas intactas. Colores/annotationnativanoafirmadosidenticos.
+- Regresion pixelperiodo7rojaantes;2focalizados/1XML101sverdesdespues0fallos/errores/omitidos,compruebarepeticiondedashygap. PNG360seleccioninspeccionado:reglafinavisible,curva/gradiente/textosintactosysinrecortes.
+- Completa mobile/dominio/Wear381pendiente; ultima completa379mobile690/163domain558/93Wear8/1+ambosassemble71s.735/70sin cierres,lectorparcial,autoX/fontmetrics/nativoabiertos. No push niApps/Packages.

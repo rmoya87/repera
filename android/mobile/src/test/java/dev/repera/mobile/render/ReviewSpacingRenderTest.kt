@@ -130,6 +130,10 @@ class ReviewSpacingRenderTest {
             .captureToImage().asAndroidBitmap()
         org.junit.Assert.assertEquals("selected readiness uses a rule, not a point dot",
             selectedPixels.getPixel(endX+7,endY),selectedPixels.getPixel(endX+4,endY))
+        org.junit.Assert.assertEquals("readiness rule repeats its three-on four-off dash every seven dp",
+            selectedPixels.getPixel(endX,1),selectedPixels.getPixel(endX,8))
+        org.junit.Assert.assertEquals("readiness rule preserves its four-dp gap",
+            selectedPixels.getPixel(endX,4),selectedPixels.getPixel(endX,11))
         save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
             "readiness-selected-rule.png")
     }
