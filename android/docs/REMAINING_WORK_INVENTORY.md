@@ -749,3 +749,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -341 bateria completa mobile679/163XML91/112/86/84s,domain537/93XML70s,Wear8/1XML+ambosassemble66sverdes. Backup341recuperado:arbol2995cf04f767624845b2ce511d6e874860f7b8c6identico,clonlimpio.
 - Mismo lector parcial342: AS MANY ROUNDS/AS MANY REPS exactos conminutosopcional reconocen AMRAP,cap indicado o12fuente487-494,titulo normalizado ycabeceraoriginal ennotas. No modifica default10 de AMRAPLiteexistente ni activa containsglobal;texto adicional sigue review.
 - Regresion fallo antes.1test nuevo de2formas+default12;dominio538/93XML69s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear342 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 05:41 28oct
+-342 bateria completa mobile679/163XML95/107/85/86s,domain538/93XML69s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Solo bateria cerrada.
+-343 solo documentacion: c6f89c28/88db5bb7reconciliadas335-342,sin modificar estadosparciales.735/70sin cierres. Misma continuidad:lectorcompleto parcial,revisiongraficaautoaxes/fontmetrics/nativoabierta. Default3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
