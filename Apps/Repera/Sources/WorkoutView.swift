@@ -2972,8 +2972,8 @@ struct WorkoutView: View {
                             let index = pair.index
                             let item = pair.exercise
                             HStack(spacing: 10) {
-                                NavigationLink {
-                                    ExerciseDetailView(exerciseId: item.exercise.id)
+                                Button {
+                                    exerciseDetailID = item.exercise.id
                                 } label: {
                                     HStack(spacing: 12) {
                                         ExerciseThumb(exercise: item.exercise, size: 48)
