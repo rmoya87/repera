@@ -70,7 +70,13 @@ public enum WorkoutCSVImporter {
             }
 
             let reps = Int(Double(col("reps").replacingOccurrences(of: ",", with: ".")) ?? 0)
-            let weightRaw = Double(col("weight").replacingOccurrences(of: ",", with: "."))
+            let weightRaw: Double? = {
+                let lbs = col("weightLbs")
+                if let value = Double(lbs.replacingOccurrences(of: ",", with: ".")) {
+                    return WeightUnit.lb.kilograms(fromDisplayValue: value)
+                }
+                return Double(col("weight").replacingOccurrences(of: ",", with: "."))
+            }()
             let seconds = Int(Double(col("seconds").replacingOccurrences(of: ",", with: ".")) ?? 0)
             if reps <= 0 && seconds <= 0 {
                 skipped += 1
@@ -199,6 +205,9 @@ public enum WorkoutCSVImporter {
         var map: [String: Int] = [:]
         for (idx, raw) in header.enumerated() {
             let h = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            if ["weight (lbs)", "weight (lb)", "weight_lbs", "weight lb", "weight lbs"].contains(h) {
+                map["weightLbs"] = idx
+            }
             switch source {
             case .strong:
                 if h == "date" { map["date"] = idx }
