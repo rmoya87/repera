@@ -602,3 +602,15 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  Primercompleto506/93fallóSOLOexpectativaviejaunsplit;corregidasegunfuente,
  completofinaldomain506/93verde40s0error/fallo/omitidos. Noparserfull.
 - Mobile/Wearpost315yassemblependientes;735/70nativopendiente,nopush.
+
+## Lector completo, ola descargada 01:27 28oct
+- Full315mobile675/163XML63/75/61/59s,domain506/93XML40s,
+ Wear8/1XMLreal+assemble43s yassemblemobile36sverdes,0fallos/errores/
+ omitidospor modulo. Solo baterias,nolectorfullninativo.
+- Mismobloquelectorparcial,subhuecowavecomplejoyaregistrado:ola
+ descendente4-3-3-2PushPress+2AirSquatsplit;repSchemeSOLOprimerparte,
+ repsnullprimera,reps2segunda,notaSeries4-3-3-2compartida,ParteN/total.
+- Ascendente5-10,rangoinvalido/overflow,cargacompartida/@/#/kg/slash
+ conservadosreviewunsplit. Catalogmatchingexistente+origenwodNotesintactos.
+-2tests nuevos,domaincompleto508/93XMLrealverde51s0error/fallo/omitidos.
+ Mobile/Wear316+assemblependientes.735/70nativopendiente,nopush.

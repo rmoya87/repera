@@ -471,4 +471,19 @@ class BoardScanLiteParserTest {
             assertFalse(block.movements.single().notes?.contains("Complejo ×3") == true)
         }
     }
+    @Test fun unloadedComplexWaveAppliesOnlyToFirstPart() {
+        val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n4-3-3-2 PUSH PRESS + 2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertEquals(listOf(4,3,3,2),block.movements[0].repScheme)
+        assertNull(block.movements[0].reps)
+        assertEquals(2,block.movements[1].reps)
+        assertNull(block.movements[1].repScheme)
+        assertTrue(block.movements.all {it.notes!!.contains("Series 4-3-3-2")})
+    }
+    @Test fun ascendingRangeOrLoadedWaveComplexRemainsUnsplit() {
+        for(line in listOf("5-10 PUSH PRESS + 2 AIR SQUAT","4-3-3-2 PUSH PRESS + 2 AIR SQUAT 40/25kg")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
+            assertEquals(1,block.movements.size)
+        }
+    }
 }

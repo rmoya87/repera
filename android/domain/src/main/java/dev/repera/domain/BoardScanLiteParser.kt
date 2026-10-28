@@ -498,21 +498,25 @@ object BoardScanLiteParser {
     }
 
     /** Full-parser independently quantified unloaded complex subset. Parent multiplier
-     * is a note, never inferred reps/sets. Waves/shared loads remain on review path. */
+     * is a note, never inferred reps/sets. Shared loads remain on review path. */
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
+        val waveMatch=Regex("^(\\d+(?:\\s*[-–]\\s*\\d+)+)\\s+").find(raw)
+        val wave=waveMatch?.groupValues?.get(1)?.split(Regex("\\s*[-–]\\s*"))?.mapNotNull {it.toIntOrNull()}
+        val validWave=wave?.takeIf {it.size>=2 && it.size==waveMatch.groupValues[1].split(Regex("[-–]")).size && it.all {n ->n in 1..100000} && !CrossFitGlossary.isAscendingRepRange(it)}
         val multiplierMatch=Regex("^(\\d+)\\s*[x×X]\\s*").find(raw)
         val multiplier=multiplierMatch?.groupValues?.get(1)?.toIntOrNull()
         if(multiplierMatch!=null && (multiplier==null || multiplier !in 1..200)) return listOf(movement(raw,aliases))
-        val body=if(multiplierMatch!=null) raw.removeRange(multiplierMatch.range) else raw
+        val body=when {validWave!=null ->raw.removeRange(waveMatch!!.range);multiplierMatch!=null ->raw.removeRange(multiplierMatch.range);else ->raw}
         val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}.filter {it.isNotEmpty()}
         val explicit=Regex("^\\d+\\s+[^0-9].*")
-        if(parts.size<2 || parts.any {!explicit.matches(it)} ||
+        if(parts.size<2 || parts.withIndex().any {(i,part) -> !(i==0 && validWave!=null) && !explicit.matches(part)} ||
             raw.contains('/') || raw.contains('@') || raw.contains('#') ||
             Regex("\\b(?:kg|kgs|lb|lbs)\\b",RegexOption.IGNORE_CASE).containsMatchIn(raw) ||
             Regex("^\\d+\\s*[-–]").containsMatchIn(body)) return listOf(movement(raw,aliases))
         return parts.mapIndexed {index,part ->
             val parsed=movement(part,aliases)
-            parsed.copy(notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},parsed.notes).joinToString(" · "))
+            parsed.copy(reps=if(index==0 && validWave!=null) null else parsed.reps,repScheme=if(index==0 && validWave!=null) validWave else parsed.repScheme,
+                notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},validWave?.let {"Series ${it.joinToString("-")}"},parsed.notes).joinToString(" · "))
         }
     }
 
