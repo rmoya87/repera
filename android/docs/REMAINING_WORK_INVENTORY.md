@@ -753,3 +753,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 05:41 28oct
 -342 bateria completa mobile679/163XML95/107/85/86s,domain538/93XML69s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Solo bateria cerrada.
 -343 solo documentacion: c6f89c28/88db5bb7reconciliadas335-342,sin modificar estadosparciales.735/70sin cierres. Misma continuidad:lectorcompleto parcial,revisiongraficaautoaxes/fontmetrics/nativoabierta. Default3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
+
+## Lector completo, estaciones contadas 05:46 28oct
+- Mismo lector parcial344: cabecera exacta N STATIONS/ESTACIONES conN1..200 seleccionaCIRCUITyroundsNcomo fuente536-539;sin movimiento falso ni intervalo/cap inventado. No containsglobal,2STATIONPRESS sigueejercicio yruidoexactoCIRCUIT anterior intacto.
+- Regresion fallo antes.1test nuevo de2cabeceras+nombreordinario. Dominio539/93XML69s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear344 pendientes;ultima completa342mobile679/163domain538/93Wear8/1ambosassemble66s.735/70sin cierres,nativo pendiente,no push.

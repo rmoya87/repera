@@ -317,6 +317,11 @@ object BoardScanLiteParser {
             return Header(line,WODFormat.BUY_IN_CASH_OUT,null)
         if(upper in setOf("PARTNER WOD","PARTNER","YOU GO I GO","YGIG","YDIG"))
             return Header(line,WODFormat.PARTNER,null)
+        Regex("^(\\d+)\\s+(?:STATIONS|ESTACIONES)$").matchEntire(upper)?.let {stations ->
+            val rounds=stations.groupValues[1].toIntOrNull()
+            if(rounds==null || rounds !in 1..200) return null
+            return Header(line,WODFormat.CIRCUIT,null,rounds=rounds)
+        }
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
         if(upper in setOf("STRENGTH","FUERZA") || strengthHeaders.any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")})
             return Header(line,WODFormat.STRENGTH,null)

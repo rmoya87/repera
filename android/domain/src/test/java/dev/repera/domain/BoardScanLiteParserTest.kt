@@ -714,4 +714,16 @@ class BoardScanLiteParserTest {
         val defaults=BoardScanLiteParser.parse("AS MANY ROUNDS\n2 AIR SQUAT",catalog=catalog).blocks.single()
         assertEquals(12,defaults.timeCapMinutes)
     }
+    @Test fun countedStationHeadersSelectCircuitWithSourceRounds() {
+        for(header in listOf("4 STATIONS","4 ESTACIONES")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT\n3 PUSH PRESS",catalog=catalog).blocks.single()
+            assertEquals(WODFormat.CIRCUIT,block.wodFormat)
+            assertEquals(4,block.rounds)
+            assertEquals(2,block.movements.size)
+            assertEquals(header,block.title)
+        }
+        val ordinary=BoardScanLiteParser.parse("AMRAP 10'\n2 STATION PRESS",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
+        assertEquals(1,ordinary.movements.size)
+    }
 }
