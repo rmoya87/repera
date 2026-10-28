@@ -554,11 +554,13 @@ struct SettingsView: View {
                 message: "Volverás al acceso con Apple o Google. Tus datos locales se conservan.",
                 confirmTitle: "Cerrar sesión",
                 onConfirm: {
-                    appleAuth.signOut()
-                    businessData.clear()
-                    Task { await businessAuth.signOut() }
-                    onboarding.resetToSignIn()
                     confirmSignOut = false
+                    Task { @MainActor in
+                        await businessAuth.signOut()
+                        appleAuth.signOut()
+                        businessData.clear()
+                        onboarding.resetToSignIn()
+                    }
                 },
                 onCancel: { confirmSignOut = false }
             )
