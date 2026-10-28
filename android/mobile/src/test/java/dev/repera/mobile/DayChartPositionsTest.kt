@@ -40,4 +40,11 @@ class DayChartPositionsTest {
   assertEquals(172.0,cardioPlotBounds(points,true).second,0.001)
   assertEquals(60.0 to 160.0,cardioPlotBounds(emptyList(),false))
  }
+ @Test fun greedyDateLabelsUseMeasuredWidthsAndKeepBounds() {
+  val labels=greedyPlotDateLabels(listOf(Triple("a",0f,20f),Triple("long",25f,40f),Triple("b",80f,20f)),100f)
+  assertEquals(listOf("a","b"),labels.map {it.text})
+  assertEquals(0f,labels.first().left,0.001f)
+  assertTrue(labels.last().left+labels.last().width<=100f)
+  assertTrue(greedyPlotDateLabels(listOf(Triple("too long",20f,80f)),40f).isEmpty())
+ }
 }

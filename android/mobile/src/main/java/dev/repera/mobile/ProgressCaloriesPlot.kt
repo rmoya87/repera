@@ -98,19 +98,31 @@ internal object ProgressPlotAxis {
  }
 }
 
+internal data class PlotDateLabel(val text:String,val left:Float,val width:Float)
+internal fun greedyPlotDateLabels(candidates:List<Triple<String,Float,Float>>,available:Float,gap:Float=3f):List<PlotDateLabel> {
+ val result=mutableListOf<PlotDateLabel>()
+ candidates.forEach {(text,center,width) ->
+  if(width<=available && width>0f) {
+   val left=(center-width/2).coerceIn(0f,(available-width).coerceAtLeast(0f))
+   if(result.isEmpty() || left>=result.last().left+result.last().width+gap) result.add(PlotDateLabel(text,left,width))
+  }
+ }
+ return result
+}
+
 @Composable internal fun ProgressPlotDateLabels(ticks:List<LocalDate>,domain:Pair<Double,Double>,charts:ProgressPreparedCharts) {
+   val measurer=androidx.compose.ui.text.rememberTextMeasurer()
+   val density=androidx.compose.ui.platform.LocalDensity.current
+   val style=MaterialTheme.typography.labelSmall.copy(fontSize=androidx.compose.ui.unit.TextUnit(10f,androidx.compose.ui.unit.TextUnitType.Sp))
    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start=44.dp).height(22.dp)) {
     val fmt=java.time.format.DateTimeFormatter.ofPattern(if(charts.granularity==ProgressSeriesGranularity.MONTH) "MMM yy" else if(charts.range==ProgressTimeRange.WEEK || charts.range==ProgressTimeRange.TODAY) "EEE" else "d MMM",java.util.Locale("es","ES"))
-    // Fixed-width greedy label collision rule, separate from exact tick positions.
-    var lastEnd=-100f
-    ticks.forEach {day ->
-     val center=ProgressPlotAxis.fraction(day,domain)*maxWidth.value
-     val width=if(charts.granularity==ProgressSeriesGranularity.MONTH) 45f else 38f
-     val left=(center-width/2).coerceIn(0f,(maxWidth.value-width).coerceAtLeast(0f))
-     if(left>=lastEnd+3f) {
-      Text(day.format(fmt),Modifier.offset(x=left.dp).width(width.dp),style=MaterialTheme.typography.labelSmall,maxLines=1,softWrap=false)
-      lastEnd=left+width
-     }
+    val candidates=ticks.map {day ->
+     val text=day.format(fmt)
+     val width=with(density) {measurer.measure(androidx.compose.ui.text.AnnotatedString(text),style=style,maxLines=1,softWrap=false).size.width.toDp().value}+1f
+     Triple(text,ProgressPlotAxis.fraction(day,domain)*maxWidth.value,width)
+    }
+    greedyPlotDateLabels(candidates,maxWidth.value).forEach {label ->
+     Text(label.text,Modifier.offset(x=label.left.dp).width(label.width.dp),style=style,maxLines=1,softWrap=false)
     }
    }
 }

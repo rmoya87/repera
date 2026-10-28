@@ -416,4 +416,12 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("24 oct 2026: 8/10",useUnmergedTree=true).assertDoesNotExist()
         save(composeRule.onNodeWithTag("score_preview_fixture").captureToImage().asAndroidBitmap(),"score-curve-preview.png")
     }
+ @Test fun monthlyDateLabelsUseMeasuredTextWidths() {
+        val today=LocalDate.of(2026,10,27)
+        val points=(0..9).map {dev.repera.domain.ProgressDayPoint(LocalDate.of(2026,1,1).plusMonths(it.toLong()),250.0+it*40)}
+        composeRule.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.testTag("monthly_calories_fixture")) {
+            dev.repera.mobile.ProgressCaloriesPlot(dev.repera.mobile.ProgressPreview.charts(today,true).copy(calories=points,range=ProgressTimeRange.DAYS_360,granularity=dev.repera.domain.ProgressSeriesGranularity.MONTH),today=today)
+        }}}
+        save(composeRule.onNodeWithTag("monthly_calories_fixture").captureToImage().asAndroidBitmap(),"calories-month-labels.png")
+    }
 }

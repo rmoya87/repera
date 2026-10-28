@@ -563,3 +563,16 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  mensajeslegibles/nochoqueticks.Alturasplotintactas.Yticksconserie y
  greedylabelscontinuaproximados,nativopendiente,no cierreblock.
 - Completa312+assemblependientes;domain504/93Wear8/1previos,nopush.
+
+## Revision graficos, etiquetas 01:02 28oct
+- Full312mobile672/163XMLreales66/80/66/65s0error/fallo/omitidos,
+ assemble48sverde. Ultimabateriacompleta,noejecucion313.
+- Mismobloque ysubhuecogreedylabelsconocido:ancho38/45dpfijo sustituido
+ pormedicionComposeTextMeasurerconestilo10spcomofuente,cadanombrede
+ mes/dia+escalausuario. Greedyordendatescongap3dp,clampinsideplot,
+ rechazaetiquetamasanchaplot;gridticksnoalterados aunqueocultalabel.
+-2tests nuevos:geometriacollision+bounds yfixture360mesesenero-octubre.
+ Focalizados8/2XMLverdes49s,compile66s. PNG360meses y7dias inspeccionados,
+ sinchoques/recortes. NoafirmaralgorithmofontmetricsSwiftidentico.
+- Yautoaxes yXScoreautomaticopendientes,nativopendiente735/70,nopush.
+ Completa313/assemblependientes;domain504/93Wear8/1anteriores.
