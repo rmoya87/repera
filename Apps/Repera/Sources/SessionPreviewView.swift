@@ -267,7 +267,8 @@ struct SessionPreviewView: View {
         favoriteSaveError = nil
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
-            customExercises: store.customExerciseCount
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
         )
         store.featureAccess = { [subscriptions] in subscriptions.policy }
         if persistVisibleFavorite() { return }
