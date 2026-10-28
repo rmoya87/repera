@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
+Última actualización: 2026-10-28 (Play ownership Apple-parity; GPX/ActivityKit)
 
 ## Series de movilidad (iOS)
 
@@ -383,3 +383,9 @@ La primera fase nativa usa `LaunchScreen.storyboard` con `UILaunchStoryboardName
 La sugerencia de título reside en `Apps/Repera/Sources/LiveActivityLocationName.swift` y usa `MKReverseGeocodingRequest` únicamente al revisar la sesión; el usuario controla y edita el resultado. El sensor GPS sigue teniendo dueño único `WorkoutLocationTracker`. `LiveActivityRecorder` calcula parciales y notificaciones, `WorkoutLiveActivityCoordinator` publica el último parcial mediante `TrainingActivityAttributes.ContentState.subtitle` y el widget existente lo muestra al bloquear. Ningún dato privado de ubicación se envía al widget ni al servidor.
 
 Android: `LiveActivityLocationName.kt` usa `Geocoder.GeocodeListener` (Android 15+) al finalizar. `LiveMapCamera.measuredHeading` calcula rumbo a partir de pares GPS con distancia y velocidad suficientes; `RouteMapView` dibuja el indicador como capa independiente. `LiveSpokenGuidance` gestiona el foco de audio transitorio y `LiveActivityRuntime` publica parciales en notificaciones locales silenciosas mientras `LiveActivityService` mantiene el servicio de registro.
+
+### Android Play: ownership y verify (2026-10-28)
+
+Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: catálogo estricto, ON_HOLD≠Pro,
+ack backend, linkedPurchaseToken; ownership con reclaim tras hard delete
+(paridad Apple). Migración/Edge **no** desplegados desde el PR de código.

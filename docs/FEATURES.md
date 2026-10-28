@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (unificación de edición de entrenos y series en Play)
+Última actualización: 2026-10-28 (unificación edición Play; ownership Play Apple-parity)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -524,3 +524,9 @@ El modelo anterior guardaba `weekday` sin fecha, por lo que se repetía indefini
 - Android atenúa otros reproductores con `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, publica avisos silenciosos por kilómetro y conserva el último parcial en su notificación permanente mientras se registra en segundo plano.
 
 - El rumbo no se inventa con una única muestra GPS o cuando el movimiento no supera el umbral fiable. Los tests Android cubren este caso y el rumbo hacia el este.
+
+### Android Play: ownership Apple-parity (2026-10-28)
+
+Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: Pro Play se restaura tras
+borrar/recrear cuenta vía compra/cuenta Google (como StoreKit en iOS). Sin
+cambios de producto Apple.

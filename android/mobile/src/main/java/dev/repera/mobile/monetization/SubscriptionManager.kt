@@ -285,9 +285,6 @@ class SubscriptionManager(
         return when (val result = client.verify(token, first.purchaseToken, first.productId)) {
             is PlayPurchaseVerifyClient.VerifyResult.Verified -> {
                 verificationBackendConfigured = true
-                if (result.snapshot.grantsProAccess) {
-                    runCatching { play.acknowledgeVerifiedPurchase(first.purchaseToken) }
-                }
                 mergedVerifiedCache(result.snapshot, previous)
             }
             is PlayPurchaseVerifyClient.VerifyResult.NotConfigured -> {

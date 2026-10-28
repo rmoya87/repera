@@ -36,7 +36,7 @@
 
 # Guía de pruebas — Repera
 
-Última actualización: 2026-10-26 (sesiones múltiples, deportes y diagnóstico Supabase)
+Última actualización: 2026-10-28 (Play ownership Apple-parity; sesiones/deportes)
 
 Checklist manual por feature. Preferible dispositivo real para Live Activity y Watch.
 
@@ -418,4 +418,12 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Cambiar segundos y completar series en Play; comprobar que Evolución usa tiempo **registrado**, incluyendo mejor sostén y tiempo acumulado, no tiempo prescrito.
 - [ ] Comprobar resumen global de Movilidad (sesiones + minutos reales), tanto en Gratis —semana actual— como Pro —periodo seleccionado—.
 - [ ] Comprobar que los ejercicios existentes de fuerza, cardio, comba y WOD mantienen sus campos y récords anteriores.
+
+### Android Play: delete + restore Pro (paridad Apple)
+
+- [ ] Con identidad **desechable**: comprar/tester Pro → Eliminar cuenta → recrear
+      con la misma cuenta Google Play → refresh/restaurar concede Pro si la
+      suscripción sigue ACTIVE (verify backend). No exige el UUID antiguo.
+- [ ] Otro JWT vivo no puede hijackear un `purchaseToken` ya claimed.
+- [ ] No ejecutar E2E de borrado con la cuenta real del propietario.
 
