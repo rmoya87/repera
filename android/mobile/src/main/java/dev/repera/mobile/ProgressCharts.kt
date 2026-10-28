@@ -348,6 +348,7 @@ internal fun DayPointLineChart(
     weightStyle:Boolean=false,
     weightPreview:Boolean=false,
     readinessGradient:Boolean=true,
+    readinessPreview:Boolean=false,
     physiologyStyle:Boolean=false,
     chartHeight:androidx.compose.ui.unit.Dp?=null
 ) {
@@ -377,7 +378,7 @@ internal fun DayPointLineChart(
     val lastDay = points.last().day
     val shortFormatter = java.time.format.DateTimeFormatter
         .ofPattern("d MMM", java.util.Locale("es", "ES"))
-    val description = "Gráfica de ${firstDay.format(reperaDayFormatter)} a " +
+    val description = if(readinessPreview) "Ejemplo de recuperación, días 1 a 7; datos ficticios; último punto ${valueFormat(points.last().value)}" else "Gráfica de ${firstDay.format(reperaDayFormatter)} a " +
         "${lastDay.format(reperaDayFormatter)}; " +
         "valores entre ${valueFormat(axisMin)} y ${valueFormat(axisMax)}; " +
         "último punto ${valueFormat(points.last().value)}"
@@ -457,7 +458,8 @@ internal fun DayPointLineChart(
                 }) {
                 fun x(i: Int):Float {
                     val inset=if(insetPlot) 8.dp.toPx() else 0f
-                    return inset+DayChartPositions.fraction(points,i)*(size.width-2*inset).coerceAtLeast(0f)
+                    return if(readinessPreview) (i+1).toFloat()/8f*size.width
+                        else inset+DayChartPositions.fraction(points,i)*(size.width-2*inset).coerceAtLeast(0f)
                 }
                 fun y(v: Double) =
                     size.height - ((v - axisMin) / span * size.height * 0.85f)
@@ -476,7 +478,8 @@ internal fun DayPointLineChart(
                     // calendar anchors; automatic Swift tick selection stays open.
                     listOf(firstDay,midDay,lastDay).distinct().forEach {day ->
                         val inset=8.dp.toPx()
-                        val gridX=inset+DayChartPositions.dateFraction(firstDay,lastDay,day)*(size.width-2*inset)
+                        val gridX=if(readinessPreview) listOf(1f,4f,7f)[listOf(firstDay,midDay,lastDay).indexOf(day)]/8f*size.width
+                            else inset+DayChartPositions.dateFraction(firstDay,lastDay,day)*(size.width-2*inset)
                         drawLine(line.copy(alpha=0.12f),Offset(gridX,0f),Offset(gridX,size.height),0.5.dp.toPx())
                     }
                     val curve=Path()
@@ -524,7 +527,18 @@ internal fun DayPointLineChart(
                         center = Offset(x(i), y(points[i].value)))
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+            if(readinessPreview) {
+                androidx.compose.ui.layout.Layout(content={listOf("1","4","7").forEach {
+                    Text(it,style=MaterialTheme.typography.labelSmall,maxLines=1,softWrap=false)
+                }},modifier=Modifier.fillMaxWidth().height(24.dp).padding(top=2.dp)) {measurables,constraints ->
+                    val labels=measurables.map {it.measure(constraints.copy(minWidth=0,minHeight=0))}
+                    layout(constraints.maxWidth,constraints.maxHeight) {
+                        labels.forEachIndexed {index,label ->
+                            label.placeRelative((constraints.maxWidth*listOf(1f,4f,7f)[index]/8f-label.width/2f).toInt(),0)
+                        }
+                    }
+                }
+            } else Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                 Text(firstDay.format(shortFormatter),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, softWrap = false)

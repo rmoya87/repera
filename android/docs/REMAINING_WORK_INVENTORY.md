@@ -884,3 +884,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad graficos parciales y matrices 10:48 28oct
 -373 bateria completa mobile690/163XML11lotes40/61/73/63/49/65/73/38/74/41/74s,domain558/93XML38s,Wear8/1XML+ambosassemble73sverdes0fallos/errores/omitidos. Backup373recuperado65338db7:arbol4f85bf06964574497e14cb71c37625133022e23eidentico,clonlimpio.
 -374 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas373,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/nativoabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
+
+## Revision graficos, preview Readiness ordinal 10:55 28oct
+- Mismobloquegraficoparcial375,hallazgonuevocontrastadoHealthRecovery791-808:previewficticiousaX1..7dominio0..8,Androidusabafechasdehoy. SeparadoreadinessPreviewoptinencallerFree,coordenadas(i+1)/8,labels1/4/7,descripcionaccesibledatosficticiossinfechareal. Observadointeractivoconfechasintacto. No afirmarautoXSwiftidentico.
+- Regresionantesfalloporausencia1/7. TestexistingampliadoX1en1/8ynofechas,2focalizados/1XML107sverdes0fallos/errores/omitidos. PNG360inspeccionado:lineamoradacondatosficticios1..7,labels0/5/10ygridseparados,sinrecortes. Primeracombinadaexcediolimiteantesdetests,nocontada,repetidaverde.
+- Completa mobile/Wear375pendientes;ultimacompleta373mobile690/163domain558/93Wear8/1+ambosassemble73s.735/70sin cierres,lectorparcial,autoX/fontmetrics/nativoabiertos,no push niApps/Packages.

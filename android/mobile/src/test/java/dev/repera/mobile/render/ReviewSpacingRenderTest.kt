@@ -231,8 +231,14 @@ class ReviewSpacingRenderTest {
         composeRule.setContent {MaterialTheme {Surface(Modifier.testTag("readiness_plain_fixture")) {
             dev.repera.mobile.DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->
                 dev.repera.domain.ProgressDayPoint(LocalDate.of(2026,10,21).plusDays(i.toLong()),v)
-            },bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false)
+            },bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false,readinessPreview=true)
         }}}
+        composeRule.onNodeWithText("1",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithText("7",useUnmergedTree=true).assertExists()
+        composeRule.onNodeWithText("21 oct",useUnmergedTree=true).assertDoesNotExist()
+        val first=composeRule.onNodeWithText("1",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        val plot=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(kotlin.math.abs(first.center.x-(plot.left+plot.width/8f))<2f)
         save(composeRule.onNodeWithTag("readiness_plain_fixture").captureToImage().asAndroidBitmap(),"readiness-preview-plain.png")
     }
 

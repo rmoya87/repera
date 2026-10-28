@@ -34,7 +34,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
     EmptyHealthChart("Aún no hay suficientes registros para ver la recuperación.",0.0,10.0,readinessHeight)
    } else DayPointLineChart(trend,valueFormat={"${kotlin.math.round(it).toInt()}/10"},bounds=0.0..10.0,readinessStyle=true,chartHeight=readinessHeight)
   } else {
-   DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false,chartHeight=readinessHeight)
+   DayPointLineChart(listOf(5.0,6.0,7.0,6.0,8.0,7.0,9.0).mapIndexed {i,v ->ProgressDayPoint(today.minusDays((6-i).toLong()),v)},valueFormat={"${it.toInt()}/10"},bounds=0.0..10.0,interactive=false,readinessStyle=true,readinessGradient=false,readinessPreview=true,chartHeight=readinessHeight)
    Text("No son tus datos de recuperación",style=MaterialTheme.typography.bodySmall)
   }
   Text("Mañanas con sueño observado a las 07:00. No proyecta una nota futura con sueño supuesto.",style=MaterialTheme.typography.bodySmall)
