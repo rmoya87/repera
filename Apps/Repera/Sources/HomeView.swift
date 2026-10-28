@@ -131,6 +131,7 @@ struct HomeView: View {
     /// Semana / racha precalculados — cambiar de día no recalcula dots ni streak.
     @State private var cachedWeekDays: [DayCell] = []
     @State private var cachedCalendarDays: [DayCell] = []
+    @State private var calendarDatesByKey: [String: Date] = [:]
     @State private var cachedStreakWeeks = 0
     @State private var cachedStreakWeekDone = 0
     @State private var cachedStreakPlanned = 0
@@ -1770,6 +1771,10 @@ struct HomeView: View {
         cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
             makeWeekDays(offset: offset, lookup: lookup)
         }
+        calendarDatesByKey = Dictionary(
+            cachedCalendarDays.map { ($0.iso, $0.date) },
+            uniquingKeysWith: { _, latest in latest }
+        )
         didBuildCalendarChrome = true
         // En la primera apertura posicionar AYER como objetivo del scroll;
         // el viewport muestra solo su parte final y HOY queda como primera
@@ -1939,8 +1944,9 @@ struct HomeView: View {
     /// Actualiza el mes conforme se desplazan las casillas visibles.
     /// Se toma el centro del grupo de siete días para los cambios entre meses.
     private var visibleCalendarMonthTitle: String {
-        let leading = cachedCalendarDays.first(where: { $0.iso == calendarScrollID })?.date
-            ?? selectedDay
+        // scrollPosition can change on every drag frame; lookup is O(1)
+        // instead of scanning the entire 735-day carousel each time.
+        let leading = calendarScrollID.flatMap { calendarDatesByKey[$0] } ?? selectedDay
         let center = calendar.date(byAdding: .day, value: 3, to: leading) ?? leading
         return SpanishDate.monthHeadline(from: center, to: center, calendar: calendar)
     }
