@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,11 +11,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +63,9 @@ fun SessionPreviewSheet(
             .padding(bottom = 28.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onClose) {
+                Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
+            }
             Column(Modifier.weight(1f)) {
                 Text(routine.title, style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold)
@@ -68,16 +76,19 @@ fun SessionPreviewSheet(
             }
             var menuOpen by remember { mutableStateOf(false) }
             var confirmDelete by remember { mutableStateOf(false) }
-            TextButton(onClick = { menuOpen = true }) { Text("⋯") }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Editar") },
-                    onClick = { menuOpen = false; onEdit() })
-                DropdownMenuItem(
-                    text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
-                    onClick = { menuOpen = false; confirmDelete = true })
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "Más")
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Editar") },
+                        onClick = { menuOpen = false; onEdit() })
+                    DropdownMenuItem(
+                        text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
+                        onClick = { menuOpen = false; confirmDelete = true })
+                }
             }
-            // showDeleteConfirm iOS: borrar una rutina pide confirmación.
             if (confirmDelete) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { confirmDelete = false },
@@ -105,7 +116,7 @@ fun SessionPreviewSheet(
                 ReperaCard(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 ) {
-                    Column(Modifier.padding(12.dp),
+                    Column(Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(block.title, style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
@@ -120,8 +131,6 @@ fun SessionPreviewSheet(
                             Row(entryModifier, verticalAlignment = Alignment.CenterVertically) {
                             val detail = buildString {
                                 append(entry.name)
-                                // Apple 8a940bc5: la vista previa muestra metros
-                                // y kg (14 m · 18 kg), nunca "reps" para metros.
                                 val unitLabel = when (entry.quantityUnit) {
                                     "meters" -> " m"; "calories" -> " cal"; else -> ""
                                 }
@@ -138,9 +147,13 @@ fun SessionPreviewSheet(
                             }
                             Text("· $detail", style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f))
-                            // Apple e3f1d652: conservar el chevron de disclosure.
-                            if (tappable) Text("›",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (tappable) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             }
                         }
                     }
@@ -151,9 +164,9 @@ fun SessionPreviewSheet(
         Button(
             onClick = { onStart(); onClose() },
             enabled = !busy && routine.supported,
+            colors = reperaPrimaryButtonColors(),
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (routine.supported) "Empezar entrenamiento" else "Formato no disponible") }
-        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Cerrar") }
     }
 }
 

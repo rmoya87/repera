@@ -92,10 +92,33 @@ internal fun CreateTab(
     ) {
         item { ReperaPageHeader(title = "Crear") }
         item {
-            OutlinedButton(onClick = onOpenFreeWorkout, enabled = !busy,
-                modifier = Modifier.fillMaxWidth().testTag("create_free_workout")) { Text("Crear entreno") }
+            ReperaCard(
+                onClick = { if (!busy) onOpenFreeWorkout() },
+                modifier = Modifier.fillMaxWidth().testTag("create_free_workout")
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.AddCircleOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text("Crear entreno", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Entreno libre sin plantilla previa",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
         if (overview != null) {
+            item { ReperaSectionTitle("Plantillas") }
             item {
                 RoutineCreatorCard(
                     exercises = overview.exerciseEntries,
@@ -120,6 +143,7 @@ internal fun CreateTab(
                 )
             }
         }
+        item { ReperaSectionTitle("Herramientas") }
         item {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp),
@@ -153,9 +177,7 @@ internal fun CreateTab(
                 onAdd = onAddWodTemplate)
         }
         item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
-        item {
-            AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
-        }
     }
     }
 }
+

@@ -15,9 +15,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -88,35 +97,38 @@ fun RoutineBlocksEditorScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Apple 040227d5 (corte): Volver NEUTRO a la izquierda; la
             // confirmación (Guardar/Empezar) mantiene el verde de acento.
-            TextButton(onClick = onBack, enabled = !busy,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface)) { Text("Volver") }
+            IconButton(onClick = onBack, enabled = !busy) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+            }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = {
+            Button(
+                colors = reperaPrimaryButtonColors(),
+                onClick = {
                 val drafts = mutableListOf<RoutineBlockDraft>()
                 error = null
                 for (block in blocks) {
                     val parsed = block.toDraft() ?: run {
                         error = "Revisa los campos numéricos de «" +
                             block.title.ifBlank { "bloque" } + "»"
-                        return@TextButton
+                        return@Button
                     }
                     drafts.add(parsed)
                 }
                 if(editableTitle) {
-                    if(draftTitle.trim().isBlank()) {error="Escribe un título válido";return@TextButton}
+                    if(draftTitle.trim().isBlank()) {error="Escribe un título válido";return@Button}
                     onTitleSuggested(draftTitle.trim())
                 } else suggestedTitle?.let(onTitleSuggested)
                 if (sessionMode) onFavoriteChosen(asFavorite)
                 onReplace(drafts)
             }, enabled = !busy) { Text(if (sessionMode) "Empezar" else "Guardar") }
         }
-        Text("Contenido de «" + routine.title + "»",
-            style = MaterialTheme.typography.titleLarge)
+        ReperaPageHeader(title = if (editableTitle) draftTitle.ifBlank { "Nueva rutina" } else routine.title,
+            subtitle = "Contenido del plan")
         if(editableTitle) OutlinedTextField(value=draftTitle,onValueChange={draftTitle=it},enabled=!busy,
             label={Text("Nombre de la rutina")},modifier=Modifier.testTag("new_template_title"))
         if (sessionMode) Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Switch(checked = asFavorite, onCheckedChange = { asFavorite = it },
+                colors = reperaSwitchColors(),
                 modifier = Modifier.testTag("session_favorite_switch"))
             Text("  Favorito")
         }
@@ -440,7 +452,7 @@ private fun BlockEditorCard(
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("⠿", modifier = handle.testTag("plan_block_drag").padding(8.dp))
+                Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("plan_block_drag").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = block.title,
                     onValueChange = { block.title = it },
@@ -448,8 +460,10 @@ private fun BlockEditorCard(
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(enabled = onBlockUp != null, modifier = Modifier.testTag("plan_block_up"), onClick = { onBlockUp?.invoke() }) { Text("↑") }
-                TextButton(enabled = onBlockDown != null, modifier = Modifier.testTag("plan_block_down"), onClick = { onBlockDown?.invoke() }) { Text("↓") }
+                IconButton(enabled = onBlockUp != null, modifier = Modifier.testTag("plan_block_up"), onClick = { onBlockUp?.invoke() }) {
+                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
+                IconButton(enabled = onBlockDown != null, modifier = Modifier.testTag("plan_block_down"), onClick = { onBlockDown?.invoke() }) {
+                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
                 onRemove?.let {
                     TextButton(onClick = it) { Text("Quitar") }
                 }
@@ -601,7 +615,7 @@ private fun EntryEditorRow(
     else null
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("⠿", modifier = handle.testTag("plan_entry_drag").padding(8.dp))
+            Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("plan_entry_drag").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(resolvedName, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f))
             var moving by remember { mutableStateOf(false) }
@@ -614,8 +628,10 @@ private fun EntryEditorRow(
                     }
                 }
             }
-            TextButton(enabled = onUp != null, modifier = Modifier.testTag("plan_entry_up"), onClick = { onUp?.invoke() }) { Text("↑") }
-            TextButton(enabled = onDown != null, modifier = Modifier.testTag("plan_entry_down"), onClick = { onDown?.invoke() }) { Text("↓") }
+            IconButton(enabled = onUp != null, modifier = Modifier.testTag("plan_entry_up"), onClick = { onUp?.invoke() }) {
+                Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
+            IconButton(enabled = onDown != null, modifier = Modifier.testTag("plan_entry_down"), onClick = { onDown?.invoke() }) {
+                Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
             TextButton(onClick = onRemove) { Text("Quitar") }
         }
         if (isRest) {
@@ -707,7 +723,7 @@ private fun EntryEditorRow(
                         TextButton(enabled = entry.plannedSets.size > 1, onClick = {
                             entry.plannedSets.removeAt(idx)
                             syncWodPlannedSets(entry)
-                        }) { Text("×") }
+                        }) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
                     }
                 }
                 TextButton(enabled = entry.plannedSets.size < 20, onClick = {
@@ -862,7 +878,7 @@ private fun EntryEditorRow(
 
                             },
                             enabled = entry.plannedSets.size > 1,
-                            modifier = Modifier.weight(0.4f)) { Text("✕") }
+                            modifier = Modifier.weight(0.4f)) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
                     }
                 }
                 TextButton(onClick = {
