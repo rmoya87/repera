@@ -26,7 +26,7 @@ final class RestLiveActivityCoordinator {
         do {
             let activity = try Activity.request(
                 attributes: attributes,
-                content: .init(state: state, staleDate: endDate),
+                content: .init(state: state, staleDate: nil),
                 pushType: nil
             )
             guard gen == generation else {
@@ -38,6 +38,28 @@ final class RestLiveActivityCoordinator {
             logger.error("Live Activity request failed: \(String(describing: error), privacy: .public)")
             current = nil
         }
+    }
+
+    func pause(remainingSeconds: Int) async {
+        let remaining = max(0, remainingSeconds)
+        for activity in Activity<RestActivityAttributes>.activities {
+            var state = activity.content.state
+            state.pausedRemainingSeconds = remaining
+            await activity.update(ActivityContent(state: state, staleDate: nil))
+        }
+    }
+
+    func resume(totalSeconds: Int, endDate: Date, exerciseName: String?) async {
+        let active = Activity<RestActivityAttributes>.activities
+        guard let activity = active.first else {
+            await start(totalSeconds: totalSeconds, endDate: endDate, exerciseName: exerciseName)
+            return
+        }
+        let state = RestActivityAttributes.ContentState(
+            endDate: endDate, totalSeconds: totalSeconds
+        )
+        await activity.update(ActivityContent(state: state, staleDate: nil))
+        current = activity
     }
 
     func end() async {
