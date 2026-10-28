@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — RIR/RPE editores/Wear, voz km, Eliminar mi cuenta, HC distancia, docs Ramón billing (base: sync kg/lb, timerDetails, racha, badge Google).
+**Última actualización:** 2026-10-28 — Wear drop/RP + clock WOD local; editor WOD fino; Center 12h/Actualizar; sin widgets phone.
 
 Implementación nativa independiente en `android/`:
 
