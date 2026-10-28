@@ -1,9 +1,26 @@
 # Bloqueadores que requieren a Ramón
 
-**Última actualización:** 2026-10-28 (enlace `BILLING_DEPLOY.md`)
+**Última actualización:** 2026-10-28 (Google Auth Client IDs + `BILLING_DEPLOY.md`)
 
 Pasos exactos que **no** puede completar el agente (secretos / Console / deploy /
 hardware). Decisiones de producto cerradas abajo.
+
+## RP-28 — Login Google Auth HTTP 400 (Client IDs / nonce)
+
+**Código (repo):** el nonce ya alinea Android con iOS/Supabase
+(`GoogleAuthNonce`: hash a Credential Manager, raw a GoTrue). El mensaje
+«revisa Google Client IDs» es genérico ante cualquier Auth 400.
+
+**Solo Dashboard (Ramón) — checklist:**
+
+1. Google Cloud → cliente Android `com.app.repera` con SHA-1 Play App Signing
+   `AA:A1:93:52:FE:D0:C3:8C:B0:5D:CD:A9:60:3D:53:7B:39:59:D6:93` (además del debug).
+2. Supabase Auth → Google: Client ID/Secret del **Web**; Authorized Client IDs =
+   Web + Android (detalle en `GOOGLE_IDENTITY_DRIVE.md`).
+3. Cuenta de prueba en OAuth consent Testing.
+4. Reinstalar APK/AAB firmado con esa SHA y reintentar login.
+
+No es un fallo de billing.
 
 ## RP-4 — Play Billing
 

@@ -46,8 +46,6 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.security.SecureRandom
-
 /**
  * Native Google identity, separate consent for private appDataFolder.
  * The Google ID token is never accepted as Supabase authorization: backend token
@@ -1578,11 +1576,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         status = null
         lifecycleScope.launch {
             try {
-                val nonceBytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
-                val nonce = nonceBytes.joinToString("") { "%02x".format(it) }
+                // Google gets SHA-256(raw); Supabase gets raw (same as iOS GIDSignIn).
+                val nonce = GoogleAuthNonce.generate()
                 val option = GetSignInWithGoogleOption.Builder(
                     BuildConfig.GOOGLE_WEB_CLIENT_ID
-                ).setNonce(nonce).build()
+                ).setNonce(nonce.hashedHex).build()
                 val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
                 val result = credentialManager.getCredential(context = this@MainActivity, request = request)
                 val credential = result.credential as? CustomCredential
@@ -1593,7 +1591,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 check(id.isNotBlank() && google.idToken.isNotBlank())
                 // The native Google identity must be verified by GoTrue before any login.
                 val session = withContext(Dispatchers.IO) {
-                    SupabaseIdentity().signInWithGoogle(google.idToken, nonce)
+                    SupabaseIdentity().signInWithGoogle(google.idToken, nonce.raw)
                 }
                 verifiedSupabase = session
                 refreshCenter()

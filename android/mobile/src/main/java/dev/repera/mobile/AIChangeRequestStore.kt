@@ -85,7 +85,7 @@ class AIChangeRequestStore(
                 .header("Authorization", "Bearer " + session.accessToken)
                 .get().build()
             val rows = executeAuthorized(request).use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string()
                 authorize()
                 if (!response.isSuccessful)
                     throw IllegalStateException("HTTP " + response.code)
@@ -297,7 +297,7 @@ class AIChangeRequestStore(
                 .header("Authorization", "Bearer " + session.accessToken)
                 .get().build()
             val stored = executeAuthorized(storedRequest).use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string()
                 authorize()
                 if (!response.isSuccessful)
                     throw IllegalStateException("HTTP " + response.code)
@@ -336,8 +336,8 @@ class AIChangeRequestStore(
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
         executeAuthorized(request).use { response ->
-            val body = response.body?.string().orEmpty()
-                authorize()
+            val body = response.body.string()
+            authorize()
             if (!response.isSuccessful || JSONArray(body).length() == 0) return null
             val row = JSONArray(body).getJSONObject(0)
             return row.optString("updated_at").ifBlank { null } to

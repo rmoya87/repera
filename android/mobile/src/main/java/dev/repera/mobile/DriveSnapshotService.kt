@@ -260,7 +260,7 @@ class DriveSnapshotService(
             if (!response.isSuccessful) {
                 throw IllegalStateException("Google Drive HTTP " + response.code)
             }
-            val received = response.body?.bytes() ?: byteArrayOf()
+            val received = response.body.bytes()
             // Conservar el formato original del ETag (incluidas comillas si las trae).
             val etag = response.header("ETag")?.takeIf { it.isNotBlank() }
                 ?: response.header("Etag")?.takeIf { it.isNotBlank() }
