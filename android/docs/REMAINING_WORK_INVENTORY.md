@@ -898,3 +898,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Mismo bloque grafico parcial377, hallazgo nuevo contrastado HealthRecovery791-808: preview ficticio dibuja LineMark sin PointMark, Android heredaba circulo terminal generico. Suprimido solo con readinessPreview; serie observada conserva punto e interaccion.
 - Regresion pixel fallo antes por circulo sobrante, verde despues. 2 focalizados/1XML96s,0fallos/errores/omitidos. PNG360x244preview y360x262observado inspeccionados: trazo ficticio sin punto, curva observada/gradiente/punto intactos, sin recortes. AutoX/fontmetrics/nativo siguen abiertos.
 - Completa mobile/dominio/Wear377 pendiente; ultima completa375mobile690/163domain558/93Wear8/1+ambosassemble109s.735/70sin cierres, lector parcial. No push niApps/Packages.
+
+## Continuidad graficos parciales y matrices 11:28 28oct
+-377 bateria completa mobile690/163XML11lotes43/65/75/64/52/68/85/41/77/44/75s,domain558/93XML37s,Wear8/1XML+ambosassemble70sverdes0fallos/errores/omitidos. Backup377recuperado65338db7:arbold4a982968e586546808240bc812b650dcbd10558identico,clonlimpio.
+-378 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas377,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/nativoabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
