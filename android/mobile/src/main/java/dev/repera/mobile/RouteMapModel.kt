@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import dev.repera.domain.WorkoutRoutePoint
+import dev.repera.domain.AdaptiveRoutePace
 
 /**
  * Modelo puro del mapa de ruta (paridad HealthWorkoutRouteMap iOS,
@@ -17,7 +18,8 @@ internal object RouteMapModel {
                       val spanLat: Double, val spanLon: Double)
 
     fun segments(points: List<WorkoutRoutePoint>, water: Boolean = false,
-                 reference: List<WorkoutRoutePoint> = emptyList()): List<Segment> {
+                 reference: List<WorkoutRoutePoint> = emptyList(),
+                 mode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING): List<Segment> {
         if (points.size < 2) return emptyList()
         var speeds: List<Double?> = (0 until points.lastIndex).map { i ->
             val a = points[i];val b = points[i+1]
@@ -51,13 +53,6 @@ internal object RouteMapModel {
                 val w = if (n == i) 2.0 else 1.0;total += leg * w;weightSum += w }
             if (weightSum > 0.0) total / weightSum else null
         }
-        // Escala relativa a ESTE entrenamiento (Apple b74ad790): recorte de
-        // percentiles 5/95 con >=20 muestras para que un salto GPS aislado no
-        // pinte toda la ruta del mismo verde; la escala ignora tramos estimados.
-        fun estimatedPair(i: Int) = points[i].isEstimated == true || points[i + 1].isEstimated == true
-        val real = smoothed.filterIndexed { i, v -> v != null && !estimatedPair(i) }.filterNotNull()
-        val pool = (if (real.isNotEmpty()) real else smoothed.filterNotNull())
-            .filter { it.isFinite() && it >= 0 }.sorted()
         speeds = smoothed
         // Tramos: velocidad real, o puente visual estimado cuando el hueco es
         // compatible (Apple d5c263d3 visualBridge; solo pantalla).
@@ -75,19 +70,17 @@ internal object RouteMapModel {
                     .map { (pa, pb, spd) -> Leg(pa, pb, spd, true) }
             }
         }
-        // Apple d5c263d3: sin velocidades reales, la escala usa TODOS los
-        // tramos (estimados incluidos); sin tramos no hay ruta que pintar.
-        val effectivePool = if (pool.isNotEmpty()) pool
-            else legs.map { it.speed }.filter { it.isFinite() && it >= 0 }.sorted()
-        if (effectivePool.isEmpty()) return emptyList()
-        val absMin = effectivePool.first();val absMax = effectivePool.last()
-        var minS = absMin;var maxS = maxOf(absMax, absMin + 0.1)
-        if (effectivePool.size >= 20) {
-            val lower = effectivePool[(effectivePool.size - 1) * 5 / 100]
-            val upper = effectivePool[(effectivePool.size - 1) * 95 / 100]
-            if (upper - lower >= 0.12) { minS = lower;maxS = upper }
+        val scale = AdaptiveRoutePace.scale(legs.map { leg ->
+            AdaptiveRoutePace.Sample(leg.speed,
+                dev.repera.domain.LiveGPXTurnDetection.distance(leg.a, leg.b),
+                leg.estimated)
+        }, mode)
+        return legs.map { leg ->
+            Segment(leg.a, leg.b,
+                AdaptiveRoutePace.color(scale?.position(leg.speed) ?: 0.5, water),
+                leg.estimated)
         }
-        return legs.map { Segment(it.a, it.b, speedColor(it.speed, minS, maxS, water), it.estimated) }
+
     }
 
     /** Apple HistoryView.visualBridge (d5c263d3, ventana e048d814): solo
@@ -166,24 +159,11 @@ internal object RouteMapModel {
             spanLon = maxOf((maxLon - minLon) * 1.5, 0.008))
     }
 
-    /** Apple HistoryView.speedColor (live main, b74ad790): four stops, slow to
-     *  fast; the slow stop is greener for water sports. La curva pow(t, 0.72)
-     *  da presencia a amarillo/naranja incluso en rutas cuyos ritmos se
-     *  concentran cerca del minimo, sin cambiar los datos registrados. */
-    fun speedColor(speed: Double, minSpeed: Double, maxSpeed: Double, water: Boolean = false): Long {
-        val normalized = ((speed - minSpeed) / maxOf(maxSpeed - minSpeed, 0.1)).coerceIn(0.0, 1.0)
-        val t = Math.pow(normalized, 0.72)
-        val stops = listOf(
-            if (water) Triple(0.00, 1.00, 0.45) else Triple(0.00, 1.00, 0.25),
-            Triple(1.00, 0.98, 0.00), Triple(1.00, 0.43, 0.00), Triple(1.00, 0.07, 0.15))
-        val scaled = t * 3
-        val index = minOf(2, scaled.toInt())
-        val amount = scaled - index
-        val a = stops[index]; val bb = stops[index + 1]
-        val r = a.first + (bb.first - a.first) * amount
-        val g = a.second + (bb.second - a.second) * amount
-        val b = a.third + (bb.third - a.third) * amount
-        fun c(v: Double): Long = (v.coerceIn(0.0, 1.0) * 255).toLong()
-        return 0xFF000000L or (c(r) shl 16) or (c(g) shl 8) or c(b)
+    /** Leyenda cromática: intervalo 0..1, misma paleta que iOS. */
+    fun speedColor(speed: Double, minSpeed: Double, maxSpeed: Double,
+                   water: Boolean = false): Long {
+        val normalized = ((speed - minSpeed) / maxOf(maxSpeed - minSpeed, 0.1))
+            .coerceIn(0.0, 1.0)
+        return AdaptiveRoutePace.color(normalized, water)
     }
 }
