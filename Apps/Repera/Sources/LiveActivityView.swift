@@ -1127,9 +1127,9 @@ final class LiveActivityRecorder: NSObject {
             do {
                 try audio.setCategory(
                     .playback, mode: .spokenAudio,
-                    // Preservar el comportamiento elegido: pausar otros audios
-                    // mientras suena la indicación, no mezclarlos.
-                    options: []
+                    // Navegación: bajar música durante la frase y pausar podcasts hablados.
+                    // Al terminar se libera el audio para restaurar el volumen anterior.
+                    options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
                 )
                 try audio.setActive(true)
                 guidanceAudioActive = true
@@ -1338,11 +1338,10 @@ final class LiveActivityRecorder: NSObject {
         if sport.usesGPS {
             startGPS()
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
-            if !spokenGuidanceEnabled {
-                UNUserNotificationCenter.current().requestAuthorization(
-                    options: [.alert]
-                ) { _, _ in }
-            }
+            // Los kilómetros se muestran en la pantalla bloqueada incluso con voz.
+            UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert]
+            ) { _, _ in }
         }
         persistSnapshot()
         updateLiveActivity()
@@ -1682,7 +1681,7 @@ final class LiveActivityRecorder: NSObject {
         } else {
             result = "\(split.clock) min/km"
         }
-        latestKilometerReport = "Km \(split.kilometer) · \(result)"
+        latestKilometerReport = "Km \(split.kilometer) · \(split.clock) · \(ReperaNumberFormat.decimal(3600 / split.seconds)) km/h"
         if sport.usesGPS,
            let message = KilometerVoiceAnnouncement.message(
                kilometer: split.kilometer,
@@ -1692,22 +1691,21 @@ final class LiveActivityRecorder: NSObject {
             // Incluye velocidad media TAMBIÉN en caminata/senderismo, no solo
             // en ciclismo, y usa el instante GPS del cruce, no el reloj al
             // volver a primer plano.
-            let didSpeak = speakNavigation(message)
-            if spokenGuidanceEnabled && !didSpeak {
-                notifyDuringBackground(
-                    identifier: "repera.km.\(gpsSessionID.uuidString).\(split.kilometer)",
-                    title: "Kilómetro \(split.kilometer) completado",
-                    body: latestKilometerReport ?? message,
-                    fallbackWhenSpeechFailed: true
-                )
-            }
+            // El aviso visual es independiente de la voz: siempre disponible
+            // en bloqueo si el usuario permite notificaciones, sin sonido duplicado.
+            notifyDuringBackground(
+                identifier: "repera.km.\(gpsSessionID.uuidString).\(split.kilometer)",
+                title: "Kilómetro \(split.kilometer) completado",
+                body: latestKilometerReport ?? message
+            )
+            _ = speakNavigation(message)
         }
         if UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-        // Parciales conserva el informe aunque el sistema haya interrumpido
-        // una locución o la app se encuentre en segundo plano.
+        // Publicar de inmediato el último parcial en la Live Activity bloqueada.
         persistSnapshot()
+        updateLiveActivity()
     }
 
     private func updateUpcomingTurn(position: CLLocation) {
@@ -1827,11 +1825,9 @@ final class LiveActivityRecorder: NSObject {
         identifier: String, title: String, body: String,
         fallbackWhenSpeechFailed: Bool = false
     ) {
-        // Con voz activa, los kilómetros y giros se anuncian solo por audio;
-        // nunca reemplazarlos por una notificación con icono de la app.
-        // Si el usuario desactiva la voz, el aviso visual es opcional.
-        guard UIApplication.shared.applicationState != .active,
-              (!spokenGuidanceEnabled || fallbackWhenSpeechFailed) else { return }
+        // Notificación silenciosa visual en bloqueo, haya o no reproducción por voz.
+        // Los ajustes de notificación/Concentración del sistema siguen mandando.
+        guard UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -1859,11 +1855,12 @@ final class LiveActivityRecorder: NSObject {
         let distance = recordedDistanceMeters
         let kmh = averageSpeedKmh
         let navigation = status == .completed ? nil : navigationCue
+        let lastSplit = latestKilometerReport
         Task {
             await WorkoutLiveActivityCoordinator.shared.updateFree(
                 startedAt: startedAt, sport: sport, phase: status,
                 elapsedSeconds: elapsed, distanceMeters: distance, speedKmh: kmh,
-                navigation: navigation
+                navigation: navigation, lastSplit: lastSplit
             )
         }
     }
@@ -2170,12 +2167,27 @@ struct LiveActivityView: View {
                 }
                 if let current = recorder.currentCoordinate {
                     Annotation("Tú", coordinate: current) {
-                        Circle()
-                            .fill(OG.accent)
-                            .frame(width: 16, height: 16)
-                            .padding(5)
-                            .background(.white, in: Circle())
-                            .shadow(radius: 2)
+                        Group {
+                            if let course = recorder.currentCourseDegrees {
+                                Image(systemName: "location.north.fill")
+                                    .font(.system(size: 25, weight: .black))
+                                    .foregroundStyle(OG.accent)
+                                    .rotationEffect(.degrees(course - (lastVisibleMapCamera?.heading ?? 0)))
+                                    .frame(width: 38, height: 38)
+                                    .background(.white.opacity(0.90), in: Circle())
+                                    .shadow(color: .black.opacity(0.3), radius: 3)
+                            } else {
+                                Circle()
+                                    .fill(OG.accent)
+                                    .frame(width: 16, height: 16)
+                                    .padding(5)
+                                    .background(.white, in: Circle())
+                                    .shadow(radius: 2)
+                            }
+                        }
+                        .accessibilityLabel(recorder.currentCourseDegrees == nil
+                            ? "Posición GPS, esperando rumbo fiable"
+                            : "Posición y dirección de marcha")
                     }
                 }
             }
@@ -2965,6 +2977,18 @@ struct LiveActivityView: View {
         recorder.finish()
         title = recorder.sport.title
         notes = ""
+        let activityStart = recorder.startedAt
+        let sport = recorder.sport
+        let first = recorder.routePoints.first
+        let last = recorder.routePoints.last
+        // Sugerencia editable, nunca reemplazar el título si el usuario ya escribió.
+        Task { @MainActor in
+            let suggested = await LiveActivityLocationName.suggest(
+                sport: sport, start: first, end: last)
+            guard recorder.phase == .review, recorder.startedAt == activityStart,
+                  title == sport.title, let suggested else { return }
+            title = suggested
+        }
     }
 
     /// Misma presentación de detalle que Entreno/Historial: mapa y parciales

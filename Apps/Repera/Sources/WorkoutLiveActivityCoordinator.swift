@@ -19,7 +19,8 @@ final class WorkoutLiveActivityCoordinator {
     func updateFree(
         startedAt: Date, sport: LiveSport, phase: TrainingActivityAttributes.ContentState.Phase,
         elapsedSeconds: TimeInterval, distanceMeters: Double, speedKmh: Double?,
-        navigation: TrainingActivityAttributes.ContentState.NavigationCue? = nil
+        navigation: TrainingActivityAttributes.ContentState.NavigationCue? = nil,
+        lastSplit: String? = nil
     ) async {
         let key = "free:" + String(Int64(startedAt.timeIntervalSince1970 * 1000))
         let elapsed = max(0, Int(elapsedSeconds.rounded(.down)))
@@ -37,7 +38,7 @@ final class WorkoutLiveActivityCoordinator {
         let isGPS = sport.usesGPS
         let state = TrainingActivityAttributes.ContentState(
             phase: phase, title: sport.title, symbol: sport.symbol,
-            subtitle: isGPS ? "" : "Entrenamiento libre",
+            subtitle: isGPS ? (lastSplit ?? "") : "Entrenamiento libre",
             timerAnchor: Date().addingTimeInterval(-TimeInterval(elapsed)), elapsedSeconds: elapsed,
             primaryValue: isGPS ? pace : "—",
             primaryLabel: isGPS ? (sport.displaysSpeed ? "Veloc. media" : "Ritmo medio") : "FC (ppm)",
