@@ -109,6 +109,10 @@ class ReviewSpacingRenderTest {
         val plot=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue(kotlin.math.abs(middle.center.y-plot.center.y)<=2f)
         org.junit.Assert.assertTrue(middle.right<plot.left)
+        val pixels=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true)
+            .captureToImage().asAndroidBitmap()
+        org.junit.Assert.assertNotEquals("readiness midpoint date grid must be visible",
+            pixels.getPixel(pixels.width/2+4,5),pixels.getPixel(pixels.width/2,5))
 
         save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
             "readiness-multiday-curve.png")

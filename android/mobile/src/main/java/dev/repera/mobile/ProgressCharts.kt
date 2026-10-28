@@ -472,6 +472,13 @@ internal fun DayPointLineChart(
                         strokeWidth=2f,pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f,8f)))
                 }
                 if(readinessStyle) {
+                    // Source declares X AxisGridLine. Keep the existing truthful
+                    // calendar anchors; automatic Swift tick selection stays open.
+                    listOf(firstDay,midDay,lastDay).distinct().forEach {day ->
+                        val inset=8.dp.toPx()
+                        val gridX=inset+DayChartPositions.dateFraction(firstDay,lastDay,day)*(size.width-2*inset)
+                        drawLine(line.copy(alpha=0.12f),Offset(gridX,0f),Offset(gridX,size.height),0.5.dp.toPx())
+                    }
                     val curve=Path()
                     val observed=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
                     curve.moveTo(observed.first().x,observed.first().y)

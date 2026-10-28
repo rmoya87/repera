@@ -876,3 +876,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad graficos parciales y matrices 10:29 28oct
 -371 bateria completa mobile690/163XML11lotes39/60/72/65/51/67/80/40/73/43/69s,domain558/93XML37s,Wear8/1XML+ambosassemble62sverdes0fallos/errores/omitidos. Combinadaanteriorsinassemblefinalnocontada,repetidaseparadaverde. Backup371recuperado65338db7:arbol5b71080f50db788cad323d6a85fdb8a94c226906identico,clonlimpio.
 -372 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas371,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/nativoabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
+
+## Revision graficos, grid X Readiness 10:33 28oct
+- Mismo bloquegraficoparcial373: añadegridXverticalenReadinesscomoAxisGridLinefuenteHealthRecovery1293-1296,alineadoalosanclajescalendariorealesactualesfirst/mid/last. No cambiaalgoritmodelabels/ticksniinventafechasobservadas;autoXSwift/fontmetrics/nativosiguenabiertos.
+- Regresionpixelantesfallaba(sinlineaverticalcentral). Testexistenteampliadoconpixeldegrid;2focalizados/1XML93sverdes0fallos/errores/omitidos. PNG360actual/previewinspeccionados:gridtenuelegible,0/5/10sinchoques,curva/gradienteintactos. Completa mobile/Wear373pendientes;ultimacompleta371mobile690/163domain558/93Wear8/1+ambosassemble62s.735/70sin cierres,lectorparcial,no push niApps/Packages.
