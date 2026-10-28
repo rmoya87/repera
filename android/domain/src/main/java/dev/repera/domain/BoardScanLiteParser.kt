@@ -288,6 +288,11 @@ object BoardScanLiteParser {
         val upper = line.uppercase(Locale.ROOT)
             .replace("’", "'").replace("′", "'").replace("×", "X")
 
+        Regex("""^(\d+)\s+(?:RFQ|FOR\s+QUALITY|ROUNDS?\s+(?:FOR\s+QUALITY|RFQ))$""").matchEntire(upper)?.let { match ->
+            val rounds=match.groupValues[1].toIntOrNull()
+            if(rounds==null || rounds !in 1..200) return null
+            return Header(line,WODFormat.ROUNDS_FOR_QUALITY,null,rounds=rounds)
+        }
         if (Regex("^\\d+\\s+ROUNDS?\\s+(?:FOR\\s+QUALITY|RFQ)\\b").containsMatchIn(upper)) {
             return Header(line, WODFormat.ROUNDS_FOR_QUALITY, null, rounds = firstInt(upper))
         }

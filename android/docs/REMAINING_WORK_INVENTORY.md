@@ -806,3 +806,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, calidad inicial 07:26 28oct
 - Mismo lector parcial355: FOR QUALITY/RFQ/ROUNDS FOR QUALITY exactos antesdeexistirbloque reconocenROUNDS_FOR_QUALITYsegunfuente528-535,sin cap/rondasinventados,tituloynotasoriginales. Si ya existeEMOM,RFQ/FORQUALITYsiguenanotacionLite,sinpartirbloque. No regla containsglobal,ni nueva interpretacion de QUALITY/FORfragmentados.
 - Regresion fallo antes:cabecerainicialdesapareciayterminabaCHIPPER.1testdominio3cabeceras+anotacionEMOMy1wirenuevos;dominio548/93XML66s,wire13/1XML57sverdes0fallos/errores/omitidos. Mobile completa/Wear355pendientes;ultima completa353mobile682/163,domain547/93,Wear8/1+ambosassemble66s.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, calidad con rondas explicitas 07:38 28oct
+-355 bateria completa mobile683/163XML5lotes86/65/97/80/82s,domain548/93XML66s,Wear8/1XML+ambosassemble66sverdes. Backup355recuperado65338db7:arbol5c5af28c5bc44ed1bfcce837344796c5a6f129a9identico,clonlimpio.
+- Mismo lector parcial356: cabeceraexacta N RFQ/N FOR QUALITY reconoceROUNDS_FOR_QUALITYyNrondas1..200segunfuente528-535;sin capinventado. NRoundsForQualityanteriorconservado. No containsglobal,3RFQPRESSbajoAMRAPsiguesiendounmovimiento,anotacionesEMOMsinfragmentar.
+- Regresion fallo antes:3RFQnoempezababloque.1testdominio3cabecerasentrebloques+nombreordinarioy1wirenuevos;dominio549/93XML64s,wire14/1XML58sverdes0fallos/errores/omitidos. Mobile completa/Wear356pendientes;735/70sin cierres,nativo pendiente,no push.

@@ -839,4 +839,20 @@ class BoardScanLiteParserTest {
         assertEquals(1,annotated.movements.size)
         assertTrue(annotated.wodNotes!!.contains("FOR QUALITY"))
     }
+    @Test fun numberedRfqHeaderStartsQualityBlockWithoutFalseMovement() {
+        for(header in listOf("3 RFQ","3 FOR QUALITY","3 ROUNDS FOR QUALITY")) {
+            val blocks=BoardScanLiteParser.parse("AMRAP 10'\n2 AIR SQUAT\n"+header+"\n4 PUSH PRESS",catalog=catalog).blocks
+            assertEquals(header,2,blocks.size)
+            assertEquals(WODFormat.AMRAP,blocks[0].wodFormat)
+            val block=blocks[1]
+            assertEquals(header,WODFormat.ROUNDS_FOR_QUALITY,block.wodFormat)
+            assertEquals(3,block.rounds)
+            assertNull(block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n3 RFQ PRESS",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.AMRAP,block.wodFormat)
+        assertEquals(1,block.movements.size)
+    }
 }

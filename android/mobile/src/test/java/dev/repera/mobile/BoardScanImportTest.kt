@@ -192,4 +192,14 @@ class BoardScanImportTest {
             assertTrue(wire.getString("wodNotes").contains(header))
         }
     }
+    @Test fun numberedRfqHeaderKeepsExplicitRoundsInWire() {
+        val header="3 RFQ"
+        val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        val wire=BoardScanImport.wireBlock(block)
+        assertEquals("roundsForQuality",wire.getString("wodFormat"))
+        assertEquals(3,wire.getInt("rounds"))
+        assertEquals(1,wire.getJSONArray("movements").length())
+        assertFalse(wire.has("timeCapMinutes"))
+        assertTrue(wire.getString("wodNotes").contains(header))
+    }
 }
