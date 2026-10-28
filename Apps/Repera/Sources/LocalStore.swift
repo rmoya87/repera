@@ -150,6 +150,42 @@ actor AppStatePersistence {
         }
     }
 
+    /// Elimina el documento iCloud de forma coordinada y el snapshot local.
+    /// La operación no considera éxito una copia de iCloud inaccesible.
+    func purgeAccountFiles() throws {
+        guard iCloudStatus() == .available, let cloudURL = iCloudDocumentsURL() else {
+            throw PersistenceError.cloudUnavailable
+        }
+        coalesceTask?.cancel()
+        coalesceTask = nil
+        pendingState = nil
+        lastWriteGeneration &+= 1
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinationError: NSError?
+        var deletionError: Error?
+        coordinator.coordinate(writingItemAt: cloudURL, options: .forDeleting, error: &coordinationError) { url in
+            do {
+                if FileManager.default.fileExists(atPath: url.path) {
+                    try FileManager.default.removeItem(at: url)
+                }
+            } catch {
+                deletionError = error
+            }
+        }
+        guard coordinationError == nil, deletionError == nil else {
+            throw PersistenceError.writeFailed
+        }
+        do {
+            if FileManager.default.fileExists(atPath: localURL.path) {
+                try FileManager.default.removeItem(at: localURL)
+            }
+        } catch {
+            throw PersistenceError.writeFailed
+        }
+        warmedLocalRead = nil
+        lastCommittedRevision = -1
+    }
+
     /// Write snapshot then flush any coalesce — single barrier for background / session end.
     func persistAndFlush(_ state: AppState) async throws {
         coalesceTask?.cancel()
@@ -379,6 +415,7 @@ final class LocalStore {
     private let persistence = AppStatePersistence.shared
     /// Chains recover/upload so parallel refresh + persist cannot interleave cloud I/O.
     private var cloudTail: Task<Void, Never>?
+    private(set) var accountDeletionLocked = false
     private(set) var iCloudStatus: ICloudStatus = .temporarilyUnavailable
     private(set) var syncPhase: AppSyncPhase = .loadingLocal
     private(set) var lastPersistenceError: PersistenceError?
@@ -509,6 +546,7 @@ final class LocalStore {
 
     /// Local durable write (coalesced). Does **not** touch iCloud.
     func persistLocal(_ state: AppState, immediate: Bool = false) {
+        guard !accountDeletionLocked else { return }
         lastPersistenceError = nil
         Task {
             do {
@@ -571,7 +609,9 @@ final class LocalStore {
     }
 
     func pushToiCloudIfSafe(_ state: AppState) async {
+        guard !accountDeletionLocked else { return }
         await withCloudSerial { [self] in
+            guard !self.accountDeletionLocked else { return }
             let status = await self.persistence.iCloudStatus()
             self.iCloudStatus = status
             guard status == .available, let url = await self.persistence.iCloudDocumentsURL() else { return }
@@ -589,6 +629,32 @@ final class LocalStore {
                 self.lastPersistenceError = .writeFailed
             }
         }
+    }
+
+    /// Bloquea escrituras mientras se elimina una cuenta, esperando al final
+    /// de cualquier subida anterior antes de retirar los documentos.
+    func purgeDeletedAccountDocuments() async throws {
+        accountDeletionLocked = true
+        let outcome: Result<Bool, PersistenceError> = await withCloudSerial { [self] in
+            do {
+                try await self.persistence.purgeAccountFiles()
+                return .success(true)
+            } catch let error as PersistenceError {
+                return .failure(error)
+            } catch {
+                return .failure(.writeFailed)
+            }
+        }
+        switch outcome {
+        case .success: return
+        case .failure(let error):
+            accountDeletionLocked = false
+            throw error
+        }
+    }
+
+    func resumeStorageForNewLogin() {
+        accountDeletionLocked = false
     }
 
     /// FIFO cloud ops: each waits for the previous recover/upload to finish.
