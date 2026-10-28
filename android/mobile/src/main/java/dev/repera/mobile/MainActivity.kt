@@ -1093,6 +1093,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onLiveActivitySaved = {
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
                 },
+                onRemoveSportFavorite = { favId ->
+                    runWorkoutAction { removeFavoriteSportActivity(favId) }
+                },
                 onSaveTimerSession = { completion ->
                     val account = profile?.uniqueId ?: return@ReperaMobileScreen false
                     val details = dev.repera.domain.TimerCompletionDetails(
@@ -1900,7 +1903,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             subscriptions.syncCounts(
                 libraryRoutines = it.libraryRoutineCount,
                 customExercises = it.exerciseEntries.count { e -> e.isCustom },
-                favorites = it.routineEntries.count { r -> r.isFavorite }
+                // Paridad iOS favoriteCount: rutinas ★ + actividades Comenzar.
+                favorites = it.routineEntries.count { r -> r.isFavorite } +
+                    it.favoriteSportActivities.size
             )
         }
         activeWorkout = active
@@ -2250,6 +2255,7 @@ data class StateOverview(
     val exerciseSessions: Map<String, List<ExerciseSessionHistory.Visit>> = emptyMap(),
     val recovery: RecoveryState? = null,
     val favoriteTimerCount: Int = 0,
+    val favoriteSportActivities: List<FavoriteSportActivity> = emptyList(),
     val chartsByRange: Map<String, dev.repera.domain.ProgressPreparedCharts> = emptyMap(),
     /** Archivo completo, no la ventana de 20 registros recientes. */
     val liveSportSessions: List<dev.repera.domain.LiveSportHistory.LiveSession> = emptyList(),
@@ -2651,6 +2657,7 @@ data class StateOverview(
                 liveSportSessions = LiveSportSnapshot.sessions(json),
                 recovery = recoveryState,
                 favoriteTimerCount = json.optJSONArray("favoriteTimers")?.length() ?: 0,
+                favoriteSportActivities = WorkoutFavoriteSupport.listFavoriteSportActivities(json),
                 workouts = workoutTitles.size,
                 workoutsThisWeek = workoutsThisWeek,
                 routines = routineEntries.size,

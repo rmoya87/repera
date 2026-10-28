@@ -33,10 +33,22 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
     hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {},
     onMapRendered: (() -> Unit)? = null,
-    onSavedDay: (Long) -> Unit = {}) {
+    onSavedDay: (Long) -> Unit = {},
+    initialSportId: String? = null,
+    onInitialSportConsumed: () -> Unit = {}) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
-    var navigationMode by remember { mutableStateOf(false) }
+    // Paridad iOS AppStorage("repera.live.map.navigation3D.enabled").
+    val mapPrefs = remember {
+        context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
+    }
+    var navigationMode by remember {
+        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", false))
+    }
+    fun setNavigationMode(enabled: Boolean) {
+        navigationMode = enabled
+        mapPrefs.edit().putBoolean("navigation3D.enabled", enabled).apply()
+    }
     var followingMap by remember { mutableStateOf(true) }
     var recenterToken by remember { mutableStateOf(0) }
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
@@ -45,6 +57,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     // congela la duracion por diseno (tiempo activo).
     var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
     var previewMessage by remember { mutableStateOf<String?>(null) }
+    // Cuenta atrás 3-2-1 antes de empezar (paridad beginStartCountdown iOS).
+    var startCountdown by remember { mutableStateOf(0) }
+    var startCountdownToken by remember { mutableStateOf(0) }
     fun capturePosition() { scope.launch {
         val pin = runCatching { WorkoutLocationTracker(context).capturePin() }.getOrNull()
         followingMap=true;recenterToken++
@@ -60,6 +75,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
+    LaunchedEffect(initialSportId, state.phase) {
+        val sportId = initialSportId ?: return@LaunchedEffect
+        if (state.phase != LiveActivityState.Phase.IDLE) {
+            onInitialSportConsumed(); return@LaunchedEffect
+        }
+        LiveSport.byId(sportId)?.let { runtime.choose(it) }
+        onInitialSportConsumed()
+    }
     LaunchedEffect(state.phase) {
         while (state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
             kotlinx.coroutines.delay(1000L); nowTick = System.currentTimeMillis()
@@ -124,8 +147,38 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         if (runtime.recoveryBlocked) { error=runtime.lastError;return }
         runtime.start();showingMetrics = state.sport.usesGPS;startService()
     }
+    fun cancelStartCountdown() {
+        startCountdownToken++
+        startCountdown = 0
+    }
+    /** Los tres pitidos son los del temporizador; el GPS empieza DESPUÉS. */
+    fun beginStartCountdown() {
+        if (currentActiveWorkout) { currentOpenWorkout(); return }
+        if (runtime.recoveryBlocked) { error = runtime.lastError; return }
+        if (startCountdown > 0 || state.phase != LiveActivityState.Phase.IDLE) return
+        startCountdownToken++
+        startCountdown = 3
+        LiveStartFeedback.tick(context, 3, sound = runtime.spokenGuidanceEnabled)
+    }
+    LaunchedEffect(startCountdownToken) {
+        val token = startCountdownToken
+        if (startCountdown <= 0) return@LaunchedEffect
+        for (second in listOf(2, 1, 0)) {
+            delay(1000L)
+            if (token != startCountdownToken || state.phase != LiveActivityState.Phase.IDLE) return@LaunchedEffect
+            startCountdown = second
+            if (second > 0) {
+                LiveStartFeedback.tick(context, second, sound = runtime.spokenGuidanceEnabled)
+            } else {
+                LiveStartFeedback.complete(context, sound = runtime.spokenGuidanceEnabled)
+                start()
+            }
+        }
+    }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { start() }
+    val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        beginStartCountdown()
+    }
     val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             try {
@@ -193,6 +246,23 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         title={Text("¿Descartar actividad?")},text={Text("No se guardará esta actividad.")},
         confirmButton={TextButton(onClick={ if(runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false };confirmDiscard=false }) {Text("Descartar")}},
         dismissButton={TextButton(onClick={confirmDiscard=false}) {Text("Cancelar")}})
+    if (startCountdown > 0) {
+        AlertDialog(
+            onDismissRequest = { cancelStartCountdown() },
+            title = { Text("Empezando…", modifier = Modifier.testTag("live_start_countdown")) },
+            text = {
+                Text(
+                    "$startCountdown",
+                    style = MaterialTheme.typography.displayLarge,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { cancelStartCountdown() }) { Text("Cancelar") }
+            }
+        )
+    }
     if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics && !showRoutes) {
         val planned = routes.firstOrNull { it.id == state.selectedRouteID }
         // Una captura puntual no se convierte en ubicación viva por quedarse
@@ -218,7 +288,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     }
                     Text("Mapa del recorrido · guía GPX orientativa", style=MaterialTheme.typography.bodySmall)
                     Row {
-                        TextButton(onClick={navigationMode=!navigationMode}) {
+                        TextButton(onClick={ setNavigationMode(!navigationMode) }) {
                             Text(if(navigationMode) "Vista 2D" else "Modo navegador")
                         }
                         if(!followingMap && (state.points.isNotEmpty() || freshPosition!=null))
@@ -255,10 +325,17 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             }
                             Button(onClick={
                                 if(hasActiveWorkout) onOpenWorkout()
+                                else if(startCountdown > 0) cancelStartCountdown()
                                 else if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
                                     permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
-                                else start()
-                            },modifier=Modifier.testTag("live_start")) { Text(if(hasActiveWorkout) "Continuar entrenamiento" else "Iniciar") }
+                                else beginStartCountdown()
+                            },modifier=Modifier.testTag("live_start")) {
+                                Text(when {
+                                    hasActiveWorkout -> "Continuar entrenamiento"
+                                    startCountdown > 0 -> "Cancelar ($startCountdown)"
+                                    else -> "Iniciar"
+                                })
+                            }
                         }
                         FlowRow {
                             TextButton(onClick={showRoutes=true;showingMetrics=true}) {Text("Rutas")}
@@ -382,10 +459,17 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             }
             Button(onClick={
                 if (hasActiveWorkout) onOpenWorkout()
+                else if (startCountdown > 0) cancelStartCountdown()
                 else if(state.sport.usesGPS && ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
                     permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
-                else start()
-            },modifier=Modifier.testTag("live_start")) {Text(if (hasActiveWorkout) "Continuar entrenamiento" else "Empezar actividad")}
+                else beginStartCountdown()
+            },modifier=Modifier.testTag("live_start")) {
+                Text(when {
+                    hasActiveWorkout -> "Continuar entrenamiento"
+                    startCountdown > 0 -> "Cancelar ($startCountdown)"
+                    else -> "Empezar actividad"
+                })
+            }
             TextButton(onClick=onOpenTools) {Text("Crear entrenamiento")}
             onOpenCenter?.let {TextButton(onClick=it) {Text("Center")}}
         } else {
@@ -490,5 +574,39 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
+    }
+}
+
+/** Pitidos/vibración de la cuenta atrás 3-2-1 (paridad RestFeedback.tick iOS). */
+private object LiveStartFeedback {
+    fun tick(context: android.content.Context, remaining: Int, sound: Boolean) {
+        if (remaining !in 1..3) return
+        if (sound) {
+            runCatching {
+                val tg = android.media.ToneGenerator(android.media.AudioManager.STREAM_ALARM, 85)
+                tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120)
+            }
+        }
+        runCatching {
+            val vibrator = context.getSystemService(android.os.Vibrator::class.java)
+            vibrator?.vibrate(
+                android.os.VibrationEffect.createOneShot(80, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        }
+    }
+
+    fun complete(context: android.content.Context, sound: Boolean) {
+        if (sound) {
+            runCatching {
+                val tg = android.media.ToneGenerator(android.media.AudioManager.STREAM_ALARM, 85)
+                tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 400)
+            }
+        }
+        runCatching {
+            val vibrator = context.getSystemService(android.os.Vibrator::class.java)
+            vibrator?.vibrate(
+                android.os.VibrationEffect.createOneShot(250, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        }
     }
 }

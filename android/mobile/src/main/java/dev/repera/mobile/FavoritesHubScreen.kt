@@ -30,9 +30,10 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Hub de favoritos del menú «＋» de día (port de FavoritesHubView iOS):
- * entrenos y temporizadores habituales listos para empezar. Los
- * temporizadores se abren en el temporizador libre con su configuración
- * cargada y se pueden eliminar desde aquí, como el swipe-to-delete de iOS.
+ * entrenos, actividades Comenzar y temporizadores habituales listos para
+ * empezar. Los temporizadores se abren en el temporizador libre con su
+ * configuración cargada y se pueden eliminar desde aquí, como el
+ * swipe-to-delete de iOS.
  */
 @Composable
 internal fun FavoritesHubScreen(
@@ -43,12 +44,15 @@ internal fun FavoritesHubScreen(
     onOpenTimer: (String?) -> Unit,
     onBack: () -> Unit,
     /** «También en Programado» (DayEditorView modo favorito): día de la semana opcional del favorito. */
-    onSetWeekday: (routine: RoutineEntry, weekday: Int?) -> Unit = { _, _ -> }
+    onSetWeekday: (routine: RoutineEntry, weekday: Int?) -> Unit = { _, _ -> },
+    onOpenSport: (sportID: String) -> Unit = {},
+    onRemoveSportFavorite: (id: String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val timerStore = remember { StandaloneTimerStore(context) }
     var favoriteTimers by remember { mutableStateOf(timerStore.favorites()) }
     val favorites = overview?.routineEntries.orEmpty().filter { it.isFavorite }
+    val sportFavorites = overview?.favoriteSportActivities.orEmpty()
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("favorites_hub"),
         contentPadding = PaddingValues(16.dp),
@@ -60,9 +64,9 @@ internal fun FavoritesHubScreen(
                 Text("Favoritos", style = MaterialTheme.typography.headlineMedium)
             }
         }
-        if (favorites.isEmpty() && favoriteTimers.isEmpty()) {
+        if (favorites.isEmpty() && favoriteTimers.isEmpty() && sportFavorites.isEmpty()) {
             item {
-                Text("Marca entrenos o temporizadores con ★ para tenerlos aquí.",
+                Text("Marca entrenos, actividades o temporizadores con ★ para tenerlos aquí.",
                     fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -86,6 +90,28 @@ internal fun FavoritesHubScreen(
                             androidx.compose.material3.FilterChip(selected = routine.weekday == i + 1, enabled = !busy,
                                 modifier = Modifier.testTag("fav_weekday_" + (i + 1) + "_" + routine.id),
                                 onClick = { onSetWeekday(routine, i + 1) }, label = { Text(d) })
+                        }
+                    }
+                }
+            }
+        }
+        if (sportFavorites.isNotEmpty()) {
+            item {
+                Text("Actividades", style = MaterialTheme.typography.titleMedium)
+            }
+            items(sportFavorites, key = { "favsport:" + it.id }) { activity ->
+                Card(modifier = Modifier.fillMaxWidth()
+                    .clickable(enabled = !busy) { onOpenSport(activity.sportID) }
+                    .testTag("fav_sport_" + activity.id)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(activity.title, style = MaterialTheme.typography.titleMedium)
+                            Text("Iniciar otra actividad del mismo tipo", fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { onRemoveSportFavorite(activity.id) }) {
+                            Text("Eliminar")
                         }
                     }
                 }

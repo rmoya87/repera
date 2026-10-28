@@ -5,15 +5,15 @@ import org.json.JSONObject
 import java.util.UUID
 
 /**
- * Port de ReperaStore.isWorkoutFavorite / toggleWorkoutFavorite (Apple c5aae1cc).
- * El favorito de un entreno completado se mantiene tras cerrar y reabrir el
- * detalle; marca o desmarca SIN modificar la programación original. Las sesiones
- * sueltas conservan el ID de su plantilla favorita (favoriteRoutineId) para no
- * duplicarla.
+ * Port de ReperaStore.isWorkoutFavorite / toggleWorkoutFavorite (Apple c5aae1cc +
+ * favoriteSportActivities). El favorito de un entreno completado se mantiene tras
+ * cerrar y reabrir el detalle; marca o desmarca SIN modificar la programación
+ * original. Las sesiones Comenzar (liveSportID) guardan un acceso reutilizable al
+ * deporte en `favoriteSportActivities`, nunca una rutina vacía.
  *
- * Límite más conservador que Apple (abierto): Apple crea siempre plantilla aunque
- * la sesión no produzca bloques (con un bloque strength vacío por defecto); aquí,
- * como en el flujo saveAsFavorite ya portado, no se crea plantilla vacía.
+ * Límite más conservador que Apple (abierto) para plantillas de fuerza: Apple
+ * crea siempre plantilla aunque la sesión no produzca bloques; aquí, como en el
+ * flujo saveAsFavorite ya portado, no se crea plantilla vacía.
  */
 internal object WorkoutFavoriteSupport {
 
@@ -35,8 +35,59 @@ internal object WorkoutFavoriteSupport {
         return null
     }
 
-    /** isWorkoutFavorite iOS: favoriteRoutineId → rutina.isFavorite; si no, routineId. */
+    private fun sportFavorites(state: JSONObject): JSONArray {
+        val existing = state.optJSONArray("favoriteSportActivities")
+        if (existing != null) return existing
+        return JSONArray().also { state.put("favoriteSportActivities", it) }
+    }
+
+    /** Rutinas ★ + actividades Comenzar (paridad favoriteCount iOS). */
+    fun favoriteCount(state: JSONObject): Int {
+        val routines = state.optJSONArray("routines")
+        var count = 0
+        if (routines != null) {
+            for (i in 0 until routines.length()) {
+                if (routines.getJSONObject(i).optBoolean("isFavorite")) count++
+            }
+        }
+        count += state.optJSONArray("favoriteSportActivities")?.length() ?: 0
+        return count
+    }
+
+    fun listFavoriteSportActivities(state: JSONObject): List<FavoriteSportActivity> {
+        val arr = state.optJSONArray("favoriteSportActivities") ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val sportID = o.optString("sportID").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            FavoriteSportActivity(
+                id = id,
+                sourceWorkoutId = o.optString("sourceWorkoutId"),
+                sportID = sportID,
+                title = o.optString("title").ifBlank { "Mi actividad" }
+            )
+        }
+    }
+
+    fun removeFavoriteSportActivity(state: JSONObject, id: String): Boolean {
+        val arr = state.optJSONArray("favoriteSportActivities") ?: return false
+        for (i in 0 until arr.length()) {
+            if (arr.getJSONObject(i).optString("id") == id) {
+                arr.remove(i)
+                return true
+            }
+        }
+        return false
+    }
+
+    /** isWorkoutFavorite iOS: sport favorites → favoriteRoutineId → routineId. */
     fun isWorkoutFavorite(state: JSONObject, id: String): Boolean {
+        val sports = state.optJSONArray("favoriteSportActivities")
+        if (sports != null) {
+            for (i in 0 until sports.length()) {
+                if (sports.getJSONObject(i).optString("sourceWorkoutId") == id) return true
+            }
+        }
         val session = findWorkout(state, id) ?: return false
         session.optString("favoriteRoutineId").takeIf { it.isNotBlank() }?.let { fid ->
             return findRoutine(state, fid)?.optBoolean("isFavorite") == true
@@ -45,9 +96,48 @@ internal object WorkoutFavoriteSupport {
         return findRoutine(state, routineId)?.optBoolean("isFavorite") == true
     }
 
-    /** toggleWorkoutFavorite iOS. Devuelve true si hubo cambio que persistir. */
-    fun toggleWorkoutFavorite(state: JSONObject, id: String): Boolean {
+    /**
+     * toggleWorkoutFavorite iOS. [allowNewFavorite] aplica solo al crear un
+     * favorito nuevo (cupo Gratis); quitar siempre está permitido.
+     * Devuelve true si hubo cambio que persistir.
+     */
+    fun toggleWorkoutFavorite(
+        state: JSONObject,
+        id: String,
+        allowNewFavorite: Boolean = true
+    ): Boolean {
         val session = findWorkout(state, id) ?: return false
+        val sports = sportFavorites(state)
+        for (i in 0 until sports.length()) {
+            if (sports.getJSONObject(i).optString("sourceWorkoutId") == session.optString("id")) {
+                sports.remove(i)
+                return true
+            }
+        }
+        val sportID = session.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" }
+        if (sportID != null) {
+            // Legacy: favorito vía rutina vinculada a un live sport → desmarcar.
+            val legacyIds = listOfNotNull(
+                session.optString("favoriteRoutineId").takeIf { it.isNotBlank() },
+                session.optString("routineId").takeIf { it.isNotBlank() }
+            )
+            for (rid in legacyIds) {
+                val linked = findRoutine(state, rid) ?: continue
+                if (linked.optBoolean("isFavorite")) {
+                    linked.put("isFavorite", false)
+                    return true
+                }
+            }
+            if (!allowNewFavorite) return false
+            sports.put(
+                JSONObject()
+                    .put("id", UUID.randomUUID().toString())
+                    .put("sourceWorkoutId", session.optString("id"))
+                    .put("sportID", sportID)
+                    .put("title", session.optString("title").ifBlank { "Mi actividad" })
+            )
+            return true
+        }
         session.optString("favoriteRoutineId").takeIf { it.isNotBlank() }?.let { fid ->
             val routine = findRoutine(state, fid) ?: return false
             routine.put("isFavorite", !routine.optBoolean("isFavorite"))
@@ -59,6 +149,7 @@ internal object WorkoutFavoriteSupport {
             return true
         }
         // Sesión suelta: plantilla favorita nueva desde la sesión, sin duplicarla.
+        if (!allowNewFavorite) return false
         val src = CompletedWorkoutEditing.blocksFrom(session, null)
         val copy = JSONArray()
         for (k in 0 until src.length())
@@ -74,3 +165,11 @@ internal object WorkoutFavoriteSupport {
         return true
     }
 }
+
+/** Acceso reutilizable a un deporte de Comenzar (paridad FavoriteSportActivity iOS). */
+data class FavoriteSportActivity(
+    val id: String,
+    val sourceWorkoutId: String,
+    val sportID: String,
+    val title: String
+)

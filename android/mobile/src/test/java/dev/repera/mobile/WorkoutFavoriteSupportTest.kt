@@ -82,4 +82,44 @@ class WorkoutFavoriteSupportTest {
         assertFalse(WorkoutFavoriteSupport.isWorkoutFavorite(state, "nope"))
         assertFalse(WorkoutFavoriteSupport.toggleWorkoutFavorite(state, "nope"))
     }
+
+    @Test fun liveSportSessionCreatesSportFavoriteNotEmptyRoutine() {
+        val session = JSONObject()
+            .put("id", "live-1")
+            .put("title", "Carrera parque")
+            .put("liveSportID", "running")
+        val state = stateWith(JSONArray().put(session), JSONArray())
+        assertTrue(WorkoutFavoriteSupport.toggleWorkoutFavorite(state, "live-1"))
+        assertEquals(0, state.getJSONArray("routines").length())
+        val sports = state.getJSONArray("favoriteSportActivities")
+        assertEquals(1, sports.length())
+        assertEquals("running", sports.getJSONObject(0).getString("sportID"))
+        assertEquals("Carrera parque", sports.getJSONObject(0).getString("title"))
+        assertTrue(WorkoutFavoriteSupport.isWorkoutFavorite(state, "live-1"))
+        assertEquals(1, WorkoutFavoriteSupport.favoriteCount(state))
+        // Segundo toque quita el favorito de deporte.
+        assertTrue(WorkoutFavoriteSupport.toggleWorkoutFavorite(state, "live-1"))
+        assertEquals(0, sports.length())
+        assertFalse(WorkoutFavoriteSupport.isWorkoutFavorite(state, "live-1"))
+    }
+
+    @Test fun liveSportFavoriteRespectsQuota() {
+        val session = JSONObject()
+            .put("id", "live-2")
+            .put("title", "Bici")
+            .put("liveSportID", "cycling")
+        val state = stateWith(JSONArray().put(session), JSONArray())
+        assertFalse(WorkoutFavoriteSupport.toggleWorkoutFavorite(state, "live-2", allowNewFavorite = false))
+        assertFalse(state.has("favoriteSportActivities") &&
+            state.getJSONArray("favoriteSportActivities").length() > 0)
+    }
+
+    @Test fun removeFavoriteSportActivityById() {
+        val state = stateWith(JSONArray(), JSONArray())
+        state.put("favoriteSportActivities", JSONArray().put(JSONObject()
+            .put("id", "fav-1").put("sourceWorkoutId", "w1")
+            .put("sportID", "running").put("title", "Run")))
+        assertTrue(WorkoutFavoriteSupport.removeFavoriteSportActivity(state, "fav-1"))
+        assertEquals(0, state.getJSONArray("favoriteSportActivities").length())
+    }
 }

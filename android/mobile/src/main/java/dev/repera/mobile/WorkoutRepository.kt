@@ -2096,11 +2096,32 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     }
 
     /** Marca o desmarca entrenos registrados sin modificar la programación
-     *  original (paridad toggleWorkoutFavorite iOS, c5aae1cc). Las sesiones
-     *  sueltas conservan el ID de su plantilla favorita para no duplicarla. */
-    @Synchronized fun toggleWorkoutFavorite(id: String): Boolean {
+     *  original (paridad toggleWorkoutFavorite iOS, c5aae1cc + sport favorites).
+     *  [canSaveFavorite] recibe el conteo actual (rutinas ★ + actividades) al
+     *  crear un favorito nuevo; quitar siempre está permitido. */
+    @Synchronized fun toggleWorkoutFavorite(
+        id: String,
+        canSaveFavorite: (Int) -> Boolean = { true }
+    ): Boolean {
         val state = loadOrNull() ?: return false
-        if (!WorkoutFavoriteSupport.toggleWorkoutFavorite(state, id)) return false
+        val count = WorkoutFavoriteSupport.favoriteCount(state)
+        val allowNew = canSaveFavorite(count)
+        if (!WorkoutFavoriteSupport.toggleWorkoutFavorite(state, id, allowNewFavorite = allowNew)) {
+            return false
+        }
+        save(state)
+        return true
+    }
+
+    /** Actividades Comenzar marcadas ★ (paridad favoriteSportActivities). */
+    @Synchronized fun favoriteSportActivities(): List<FavoriteSportActivity> {
+        val state = loadOrNull() ?: return emptyList()
+        return WorkoutFavoriteSupport.listFavoriteSportActivities(state)
+    }
+
+    @Synchronized fun removeFavoriteSportActivity(id: String): Boolean {
+        val state = loadOrNull() ?: return false
+        if (!WorkoutFavoriteSupport.removeFavoriteSportActivity(state, id)) return false
         save(state)
         return true
     }

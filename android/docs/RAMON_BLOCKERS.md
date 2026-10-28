@@ -45,6 +45,12 @@ Detalle: `android/docs/MONETIZATION_PLAY_BILLING.md`.
 - Cámara/galería pizarra.
 - Wear físico (ACK series, plan hoy, WOD per-movement con reloj de bloque).
 
+## CI GitHub Actions
+
+Los jobs `android-native` fallan al arrancar si **Billing & plans** del org/cuenta
+tiene pagos fallidos o el spending limit agotado (no es un fallo de código).
+Hay que restablecer billing para que CI vuelva a ejecutar.
+
 ## Decisiones de producto abiertas
 
 | Tema | Nota |
@@ -52,4 +58,4 @@ Detalle: `android/docs/MONETIZATION_PLAY_BILLING.md`.
 | Clima en Comenzar | iOS WeatherKit; Android **sin** proveedor en repo. Candidato gratis: Open-Meteo (no cableado; requiere OK explícito). |
 | POI | Photon + Geocoder ya en app (`PlaceSearchSheet`); calidad vs Places de pago. |
 | Wear autonomía total | MVP fuerza+ACK; WOD sin reloj de bloque no registra (decisión mantenida). |
-| Fusión `App-android` → `main` | Cuándo mergear y actualizar docs raíz. |
+| Fusión `App-android` → `main` | Tip #121 ya mergeado a `App-android` y a `main` (2026-10-28). |
