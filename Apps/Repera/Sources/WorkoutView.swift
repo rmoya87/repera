@@ -1585,7 +1585,7 @@ struct WorkoutView: View {
                 }
             }
 
-            WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
+            WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
                 addLiveSet(from: current)
             }
             .padding(.top, 4)
@@ -3440,7 +3440,7 @@ private struct PlayEditableSetsView: View {
                     rowEditor(index: index, row: row)
                 }
             }
-            WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
+            WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
                 guard rows.count < 20 else { return }
                 let last = rows.last
                 rows.append(Row(
