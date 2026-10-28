@@ -305,6 +305,7 @@ struct WorkoutView: View {
                     liveExerciseID = nil
                     liveSets = []
                     store.refreshActiveSessionPlan(from: edited)
+                    store.updateActiveSessionLocation(edited.locationPin)
                     prefill()
                 },
                 embedsNavigationStack: false,
@@ -567,10 +568,11 @@ struct WorkoutView: View {
             // Play puede haber cambiado número, pesos o reps; el borrador
             // de la sesión es más reciente que la plantilla reutilizable.
             routine.blocks = session.routineBlocks ?? routine.blocks
+            routine.locationPin = session.locationPin
             return routine
         }
         if let blocks = session.routineBlocks, !blocks.isEmpty {
-            return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks)
+            return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks, locationPin: session.locationPin)
         }
         var blocks: [RoutineBlock] = []
         for exercise in session.exercises {
@@ -608,7 +610,7 @@ struct WorkoutView: View {
                 ))
             }
         }
-        return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks)
+        return Routine(id: session.routineId ?? UUID(), title: session.title, blocks: blocks, locationPin: session.locationPin)
     }
 
 
@@ -1270,7 +1272,9 @@ struct WorkoutView: View {
         Binding(
             get: {
                 guard let block = store.state.activeSession?.routineBlocks?
-                    .first(where: { $0.id == blockID }) else { return 0 }
+                    .first(where: { $0.id == blockID })
+                    ?? routineForEditing()?.blocks.first(where: { $0.id == blockID })
+                else { return 0 }
                 switch field {
                 case .duration: return block.timeCapMinutes ?? 12
                 case .interval: return block.emomIntervalSeconds ?? 60
@@ -1299,7 +1303,8 @@ struct WorkoutView: View {
 
     @ViewBuilder
     private func playBlockFormatSettings(_ entry: WorkoutBlockEntry) -> some View {
-        if let block = store.state.activeSession?.routineBlocks?.first(where: { $0.id == entry.id }) {
+        if let block = store.state.activeSession?.routineBlocks?.first(where: { $0.id == entry.id })
+            ?? routineForEditing()?.blocks.first(where: { $0.id == entry.id }) {
             VStack(alignment: .leading, spacing: 20) {
                 Divider().padding(.vertical, 5)
                 Button {
