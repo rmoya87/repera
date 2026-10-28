@@ -702,9 +702,20 @@ struct WorkoutView: View {
                             Spacer(minLength: 8)
                         }
                         .padding(.vertical, 5)
-                    }
-                    .onMove { from, to in
-                        editPlayReorderDraft { $0.blocks.move(fromOffsets: from, toOffset: to) }
+                        .contentShape(Rectangle())
+                        .draggable("block:\(block.id.uuidString)")
+                        .dropDestination(for: String.self) { tokens, _ in
+                            guard let token = tokens.first, token.hasPrefix("block:"),
+                                  let movedID = UUID(uuidString: String(token.dropFirst(6))),
+                                  movedID != block.id else { return false }
+                            editPlayReorderDraft { draft in
+                                guard let from = draft.blocks.firstIndex(where: { $0.id == movedID }) else { return }
+                                let moved = draft.blocks.remove(at: from)
+                                let target = draft.blocks.firstIndex(where: { $0.id == block.id }) ?? draft.blocks.count
+                                draft.blocks.insert(moved, at: target)
+                            }
+                            return true
+                        }
                     }
                 } header: {
                     Label("Orden de bloques", systemImage: "square.stack.3d.up")
@@ -717,7 +728,6 @@ struct WorkoutView: View {
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(OG.bg)
-        .environment(\.editMode, .constant(.active))
         .navigationTitle("Reordenar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -740,12 +750,6 @@ struct WorkoutView: View {
                         blockID: block.id, itemID: exercise.id, kind: block.kind
                     )
                 }
-                .onMove { from, to in
-                    editPlayReorderDraft { draft in
-                        guard let i = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
-                        draft.blocks[i].exercises.move(fromOffsets: from, toOffset: to)
-                    }
-                }
             } else {
                 ForEach(block.movements) { movement in
                     playReorderRow(
@@ -753,12 +757,17 @@ struct WorkoutView: View {
                         blockID: block.id, itemID: movement.id, kind: block.kind
                     )
                 }
-                .onMove { from, to in
-                    editPlayReorderDraft { draft in
-                        guard let i = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
-                        draft.blocks[i].movements.move(fromOffsets: from, toOffset: to)
-                    }
-                }
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.to.line")
+                Text("Mover aquí")
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(OG.label3)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .dropDestination(for: String.self) { tokens, _ in
+                movePlayReorderToken(tokens.first, into: block.id)
             }
         } header: {
             Text(block.title)
@@ -768,47 +777,69 @@ struct WorkoutView: View {
         }
     }
 
-    private func movePlayReorderToken(_ token: String?, into blockID: UUID) -> Bool {
-        guard let parts = token?.split(separator: ":"), parts.count == 2,
+    private func movePlayReorderToken(
+        _ token: String?, into blockID: UUID, before itemID: UUID? = nil
+    ) -> Bool {
+        guard let token, !token.hasPrefix("block:"),
+              let parts = token.split(separator: ":") as [Substring]?,
+              parts.count == 2,
               let from = UUID(uuidString: String(parts[0])),
-              let itemID = UUID(uuidString: String(parts[1])),
-              from != blockID else { return false }
-        movePlayReorderItem(itemID, from: from, into: blockID)
+              let sourceItem = UUID(uuidString: String(parts[1])),
+              !(from == blockID && sourceItem == itemID),
+              let draft = playReorderDraft,
+              let source = draft.blocks.first(where: { $0.id == from }),
+              let target = draft.blocks.first(where: { $0.id == blockID })
+        else { return false }
+        if source.kind == .strength {
+            guard source.exercises.contains(where: { $0.id == sourceItem }) else { return false }
+        } else {
+            guard let move = source.movements.first(where: { $0.id == sourceItem }),
+                  !(move.isRest && target.kind == .strength) else { return false }
+        }
+        movePlayReorderItem(sourceItem, from: from, into: blockID, before: itemID)
         return true
     }
 
     private func movePlayReorderItem(
-        _ itemID: UUID, from sourceID: UUID, into targetID: UUID
+        _ itemID: UUID, from sourceID: UUID, into targetID: UUID, before nextID: UUID? = nil
     ) {
         editPlayReorderDraft { draft in
             guard let from = draft.blocks.firstIndex(where: { $0.id == sourceID }),
-                  let to = draft.blocks.firstIndex(where: { $0.id == targetID }),
-                  from != to else { return }
+                  let to = draft.blocks.firstIndex(where: { $0.id == targetID })
+            else { return }
             if draft.blocks[from].kind == .strength {
                 guard let index = draft.blocks[from].exercises.firstIndex(where: { $0.id == itemID })
                 else { return }
                 let item = draft.blocks[from].exercises[index]
+                let title = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
                 if draft.blocks[to].kind == .strength {
-                    draft.blocks[to].exercises.append(item)
+                    draft.blocks[from].exercises.remove(at: index)
+                    let destination = nextID.flatMap { id in
+                        draft.blocks[to].exercises.firstIndex(where: { $0.id == id })
+                    } ?? draft.blocks[to].exercises.count
+                    draft.blocks[to].exercises.insert(item, at: destination)
                 } else {
-                    let title = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
-                    draft.blocks[to].movements.append(
-                        WODMovement(
-                            id: item.id,
-                            exerciseId: item.exerciseId,
-                            name: title,
-                            reps: item.plannedSets.first?.targetReps ?? 8,
-                            explicitPlannedSets: item.plannedSets
-                        )
+                    draft.blocks[from].exercises.remove(at: index)
+                    let move = WODMovement(
+                        id: item.id, exerciseId: item.exerciseId,
+                        name: title, reps: item.plannedSets.first?.targetReps ?? 8,
+                        explicitPlannedSets: item.plannedSets
                     )
+                    let destination = nextID.flatMap { id in
+                        draft.blocks[to].movements.firstIndex(where: { $0.id == id })
+                    } ?? draft.blocks[to].movements.count
+                    draft.blocks[to].movements.insert(move, at: destination)
                 }
-                draft.blocks[from].exercises.remove(at: index)
             } else {
                 guard let index = draft.blocks[from].movements.firstIndex(where: { $0.id == itemID })
                 else { return }
                 let movement = draft.blocks[from].movements[index]
                 if draft.blocks[to].kind == .wod {
-                    draft.blocks[to].movements.append(movement)
+                    draft.blocks[from].movements.remove(at: index)
+                    let destination = nextID.flatMap { id in
+                        draft.blocks[to].movements.firstIndex(where: { $0.id == id })
+                    } ?? draft.blocks[to].movements.count
+                    draft.blocks[to].movements.insert(movement, at: destination)
                 } else {
                     guard !movement.isRest else { return }
                     var catalogID = movement.exerciseId.flatMap { id in
@@ -831,14 +862,17 @@ struct WorkoutView: View {
                         playReorderError = "No se encontró un ejercicio compatible para este bloque."
                         return
                     }
-                    draft.blocks[to].exercises.append(RoutineExercise(
-                        id: movement.id,
-                        exerciseId: catalogID,
+                    let item = RoutineExercise(
+                        id: movement.id, exerciseId: catalogID,
                         plannedSets: movement.explicitPlannedSets ?? movement.plannedSetsFromReps,
                         quantityUnit: movement.prescribedQuantityUnit
-                    ))
+                    )
+                    draft.blocks[from].movements.remove(at: index)
+                    let destination = nextID.flatMap { id in
+                        draft.blocks[to].exercises.firstIndex(where: { $0.id == id })
+                    } ?? draft.blocks[to].exercises.count
+                    draft.blocks[to].exercises.insert(item, at: destination)
                 }
-                draft.blocks[from].movements.remove(at: index)
             }
         }
     }
@@ -856,6 +890,9 @@ struct WorkoutView: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(OG.label)
             Spacer(minLength: 8)
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(OG.label3)
+                .accessibilityHidden(true)
             if let draft = playReorderDraft {
                 let targets = draft.blocks.filter { $0.id != blockID }
                 if !targets.isEmpty {
@@ -883,7 +920,7 @@ struct WorkoutView: View {
         .listRowBackground(OG.surface)
         .draggable("\(blockID.uuidString):\(itemID.uuidString)")
         .dropDestination(for: String.self) { tokens, _ in
-            movePlayReorderToken(tokens.first, into: blockID)
+            movePlayReorderToken(tokens.first, into: blockID, before: itemID)
         }
     }
 
