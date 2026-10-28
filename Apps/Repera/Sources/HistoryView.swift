@@ -22,7 +22,10 @@ struct HistoryView: View {
 
         var sortDate: Date {
             switch self {
-            case .repera(let s): return s.finishedAt ?? s.startedAt ?? .distantPast
+            case .repera(let s):
+                return s.timerDetails != nil
+                    ? (s.startedAt ?? s.finishedAt ?? .distantPast)
+                    : (s.finishedAt ?? s.startedAt ?? .distantPast)
             case .health(let a): return a.start
             }
         }
@@ -195,7 +198,8 @@ struct HistoryView: View {
             HStack(alignment: .top, spacing: 12) {
                 // Historial: icono de fuerza (Inicio usa check).
                 OGRegisterLeadingIcon(
-                    systemName: "figure.strengthtraining.traditional",
+                    systemName: session.timerDetails == nil
+                        ? "figure.strengthtraining.traditional" : "timer",
                     tint: OG.accent
                 )
                 VStack(alignment: .leading, spacing: 2) {
@@ -357,6 +361,13 @@ struct WorkoutDetailView: View {
             // Let the first historical card paint before optional HK queries.
             await Task.yield()
             guard !Task.isCancelled else { return }
+            if session.timerDetails != nil {
+                // Un cronómetro no es una sesión HealthKit: no buscar por
+                // solape ni calcular FC, kcal o una nota de rendimiento.
+                healthExtras = nil
+                didHydrateDetail = true
+                return
+            }
             if session.sessionReview == nil {
                 _ = store.ensureSessionReview(for: sessionId)
                 draft = store.state.workouts.first(where: { $0.id == sessionId })
@@ -669,6 +680,38 @@ struct WorkoutDetailView: View {
                     }
                 }
 
+                if let timer = session.timerDetails {
+                    Section {
+                        LabeledContent("Modalidad", value: timer.modeTitle)
+                        LabeledContent(
+                            "Duración", value: DurationText.format(timer.configuredSeconds)
+                        )
+                        if timer.modeRaw == "intervals" {
+                            LabeledContent("Rondas", value: "\(timer.rounds)")
+                            LabeledContent("Trabajo", value: DurationText.format(timer.workSeconds))
+                            LabeledContent("Descanso", value: DurationText.format(timer.restSeconds))
+                        }
+                        LabeledContent(
+                            "Cuenta atrás",
+                            value: timer.countdownSeconds > 0
+                                ? "\(timer.countdownSeconds) s" : "Desactivada"
+                        )
+                    } header: {
+                        Text("Temporizador")
+                            .foregroundStyle(OG.accent)
+                            .textCase(nil)
+                    }
+                    if let pin = session.locationPin {
+                        Section {
+                            WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                                .frame(height: 180)
+                                .ogCardListRow()
+                        } header: {
+                            Text("Lugar").textCase(nil)
+                        }
+                    }
+                }
+
                 // El mapa va directamente debajo de la fecha y las tiles.
                 if !isEditing, sessionMapContent(session) != .none {
                     Section {
@@ -906,6 +949,7 @@ struct WorkoutDetailView: View {
                     }
                 }
             } else {
+                if draft?.timerDetails == nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         Task { await toggleHistoricalFavorite() }
@@ -917,8 +961,10 @@ struct WorkoutDetailView: View {
                     .accessibilityLabel(store.isWorkoutFavorite(sessionId) ? "Quitar de favoritos" : "Guardar en favoritos")
                     .disabled(isSavingFavorite)
                 }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        if draft?.timerDetails == nil {
                         Button {
                             guard let session = draft else { return }
                             preparedCompletedRoutine = CompletedWorkoutEditing.routine(
@@ -930,6 +976,7 @@ struct WorkoutDetailView: View {
                             showCompletedEditor = true
                         } label: {
                             Label("Editar", systemImage: "pencil")
+                        }
                         }
                         Button(role: .destructive) {
                             showDeleteConfirm = true
@@ -988,7 +1035,8 @@ struct WorkoutDetailView: View {
         return HStack(spacing: 10) {
             summaryTile(
                 title: "Tiempo",
-                value: minutes > 0 ? "\(Int(minutes.rounded()))′" : "—",
+                value: session.timerDetails.map { DurationText.format($0.configuredSeconds) }
+                    ?? (minutes > 0 ? "\(Int(minutes.rounded()))′" : "—"),
                 icon: "clock.fill",
                 tint: OG.blue
             )
