@@ -287,9 +287,14 @@ struct SettingsView: View {
                             await subscriptions.refreshEntitlementsForFeatureAction()
                             isVerifyingSubscription = false
                             accessFeedbackTitle = "Comprobar acceso Pro"
-                            restoreMessage = subscriptions.policy.isPro
-                                ? "Acceso Pro verificado en este dispositivo."
-                                : "No se ha encontrado un acceso Pro activo para esta cuenta de compras. Si ya activaste una suscripción de prueba, utiliza «Restaurar compras»."
+                            if subscriptions.snapshot.grantsProAccess,
+                               subscriptions.snapshot.status == .unknown {
+                                restoreMessage = "Acceso Pro conservado desde la última verificación. No se ha podido comprobar de nuevo la compra ahora mismo. Prueba «Restaurar compras» cuando tengas conexión."
+                            } else if subscriptions.snapshot.grantsProAccess {
+                                restoreMessage = "Acceso \(subscriptions.status.displayName) verificado en este dispositivo. Las compras de prueba de TestFlight no tienen por qué aparecer en la lista de suscripciones reales de Apple."
+                            } else {
+                                restoreMessage = "No se ha encontrado un acceso Pro activo para esta cuenta de compras. Si ya activaste una suscripción de prueba, utiliza «Restaurar compras»."
+                            }
                         }
                     } label: {
                         Label(
