@@ -32,7 +32,7 @@ class TimerLastConfigurationContract(unittest.TestCase):
             init
         )
         self.assertIn("editingFavoriteId: UUID? = nil", init)
-        self.assertIn("StandaloneTimerView(embedsNavigation: false)", HUB)
+        self.assertIn("StandaloneTimerView(embedsNavigation: false, onSaved: onSavedTimer)", HUB)
 
     def test_setting_changes_and_opening_clock_persist_the_configuration(self):
         self.assertIn(".onChange(of: config) { _, updated in", TIMER)
