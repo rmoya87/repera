@@ -68,6 +68,21 @@ class LockScreenTimerContracts(unittest.TestCase):
         self.assertIn("RestLocalNotifier.cancel(token: notifyToken)", rest)
 
     def test_add_workout_has_exact_requested_four_options_in_order(self):
+        modal = read(IOS / "DayPlusSheet.swift")
+        modal_menu = modal.split("private var menuContent:", 1)[1].split(
+            "private var menuDivider:", 1
+        )[0]
+        modal_titles = (
+            'title: "Crear entreno"',
+            'title: "Temporizador"',
+            'title: "Escanear entreno"',
+            'title: "Favoritos"',
+        )
+        positions = [modal_menu.index(value) for value in modal_titles]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn('title: "Escanear pizarra o TV"', modal_menu)
+        self.assertEqual(modal_menu.count("menuDivider"), 3)
+
         sheet = read(IOS / "StartHubSheet.swift")
         visible = sheet.split('Section("Entrenamiento") {', 1)[1].split("if isReading {", 1)[0]
         requested = (
