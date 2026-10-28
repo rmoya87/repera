@@ -23,6 +23,7 @@ import dev.repera.domain.LiveActivityState
 import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.LiveSport
 import dev.repera.domain.LiveSportHistory
+import dev.repera.domain.AdaptiveRoutePace
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -273,6 +274,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             val overlayWidth=liveMapOverlayWidth(maxWidth.value)
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
                 isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2, waterSport = state.sport.isWaterSport,
+                paceMode = AdaptiveRoutePace.modeForSport(state.sport.name),
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
                 onMapRendered = onMapRendered,navigationMode=navigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
@@ -505,6 +507,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 if(previewPoints.size>=2) RouteMapTapTarget(label = "Abrir recorrido a pantalla completa",
                     modifier = Modifier.fillMaxWidth().height(220.dp)) { interactive, mapModifier ->
                     RouteMapView(previewPoints,isInteractive=interactive,modifier=mapModifier,waterSport=state.sport.isWaterSport,
+                        paceMode=AdaptiveRoutePace.modeForSport(state.sport.name),
                         plannedRoute=!previewRecorded,
                         plannedPoints=if (previewRecorded) chosenRoutePoints else emptyList(),onMapRendered=onMapRendered)
                 }
