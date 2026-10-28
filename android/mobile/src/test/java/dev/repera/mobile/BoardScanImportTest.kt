@@ -242,4 +242,12 @@ class BoardScanImportTest {
         assertEquals("ZPRESS",move.getString("name"))
         assertEquals(1,move.getInt("reps"))
     }
+    @Test fun spacedTouchAndGoModifierKeepsExactIdentityInWire() {
+        val official=CatalogExercise("official","ZPRESS",emptyList())
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS T & G",listOf(official)).blocks.single()
+        val move=BoardScanImport.wireBlock(block).getJSONArray("movements").getJSONObject(0)
+        assertEquals("official",move.getString("exerciseId"))
+        assertEquals("ZPRESS",move.getString("name"))
+        assertEquals(1,move.getInt("reps"))
+    }
 }

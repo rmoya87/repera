@@ -859,3 +859,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 09:48 28oct
 -367 bateria completa mobile689/163XML11lotes39/60/75/63/49/68/80/46/83/46/75s,domain557/93XML81s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Backup367recuperado65338db7:arbol351e01f666d39c98812d70aad8a055dfc2e52916identico,clonlimpio.
 -368 solo documentacion: c6f89c28/88db5bb7reconciliadas367,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, T & G con espacios 09:51 28oct
+- Mismo lector parcial369: ampliasubset367amodificadorT&GconespaciosopcionalessegunstripMovementModifiersfuente936-950,matchingexactosinfuzzyglobalni prescripcioninventada. T&GcompactoyaquedabacubiertoporLite,formaconT & Gperdiaidentidadexacta.
+- Regresion fallo antesenT & G.1testdominio3variantesy1wirenuevos;dominio558/93XML71s,wire20/1XML59sverdes0fallos/errores/omitidos. Mobile completa/Wear369pendientes;ultima completa367mobile689/163,domain557/93,Wear8/1+ambosassemble68s.735/70sin cierres,nativo pendiente,no push.

@@ -615,7 +615,7 @@ object BoardScanLiteParser {
             explicit.matchEntire(body)?.groupValues?.get(1)?.toIntOrNull()?.let {it in 1..100000}==true &&
             !body.contains('@') && !body.contains('#') && !body.contains('/') &&
             !Regex("""\b(?:kg|kgs|lb|lbs)\b""",RegexOption.IGNORE_CASE).containsMatchIn(body) &&
-            Regex("""\b(?:BN|BTN|AFAP|UNBROKEN|UAT|BEHIND\s+NECK|TOUCH\s+AND\s+GO)\b""",RegexOption.IGNORE_CASE).containsMatchIn(body)) {
+            Regex("""\b(?:BN|BTN|AFAP|UNBROKEN|UAT|T\s*&\s*G|BEHIND\s+NECK|TOUCH\s+AND\s+GO)\b""",RegexOption.IGNORE_CASE).containsMatchIn(body)) {
             val parsed=movement(raw,aliases)
             val exactName=catalogIndex(catalog)[norm(parsed.name)] ?: BoardStrengthLines.bestMatch(parsed.name,catalog,allowFuzzy=false)
             val match=exactName ?: BoardStrengthLines.bestMatch(body,catalog,allowFuzzy=false)

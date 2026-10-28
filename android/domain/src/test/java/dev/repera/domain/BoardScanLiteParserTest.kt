@@ -941,4 +941,14 @@ class BoardScanLiteParserTest {
         assertEquals("variant",block.movements.single().exerciseId)
         assertEquals(parsed.name,block.movements.single().name)
     }
+    @Test fun touchAndGoSingleCandidateKeepsExactIdentityWithoutFuzzy() {
+        val exact=CatalogExercise("exact","ZPRESS",emptyList())
+        val alias=CatalogExercise("alias","Press oficial",listOf("ZPRESS"))
+        for(label in listOf("T&G","T & G","TOUCH AND GO")) {
+            val block=BoardScanLiteParser.parse("AMRAP 10'\n1 ZPRESS $label",listOf(exact,alias)).blocks.single()
+            assertEquals(label,"exact",block.movements.single().exerciseId)
+            assertEquals(label,"ZPRESS",block.movements.single().name)
+            assertEquals(1,block.movements.single().reps)
+        }
+    }
 }
