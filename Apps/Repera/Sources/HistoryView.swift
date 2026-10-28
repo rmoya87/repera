@@ -465,10 +465,15 @@ struct WorkoutDetailView: View {
                 decision.paywallContext, feature: .unlimitedRoutines
             )
         } else {
-            favoriteSaveError = store.lastFavoriteSaveError
-                ?? (subscriptions.snapshot.status == .unknown && !subscriptions.isPro
-                    ? "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
-                    : "No se ha podido guardar la plantilla. Inténtalo de nuevo.")
+            if let explicitError = store.lastFavoriteSaveError {
+                favoriteSaveError = explicitError
+            } else if store.lastAccessDenial != nil && subscriptions.policy.isPro {
+                favoriteSaveError = "Tu acceso Pro está activo, pero esta actividad sigue rechazando el guardado por una restricción de acceso. Actualiza Repera desde TestFlight y vuelve a intentarlo."
+            } else if subscriptions.snapshot.status == .unknown && !subscriptions.isPro {
+                favoriteSaveError = "No hemos podido verificar tu suscripción. Comprueba la conexión o utiliza «Restaurar compras» en Ajustes."
+            } else {
+                favoriteSaveError = "No se ha podido guardar esta actividad como favorita. El entrenamiento original no se ha modificado."
+            }
         }
     }
 
