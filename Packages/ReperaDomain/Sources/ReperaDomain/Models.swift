@@ -1589,6 +1589,8 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     /// En una sesión planificada, UUID de la COPIA independiente en Favoritos.
     /// El vínculo permite desmarcar la estrella sin modificar la planificación.
     public var favoriteTemplateId: UUID?
+    /// Lugar escogido para el entrenamiento; independiente de la posición GPS en vivo.
+    public var locationPin: WorkoutLocationPin?
     /// Bloques del entreno (fuerza y/o WOD). Fuente de verdad.
     public var blocks: [RoutineBlock]
     public var progression: ProgressionPolicy
@@ -1630,7 +1632,8 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         blocks: [RoutineBlock]? = nil,
         progression: ProgressionPolicy = .linear,
         isFavorite: Bool = false,
-        favoriteTemplateId: UUID? = nil
+        favoriteTemplateId: UUID? = nil,
+        locationPin: WorkoutLocationPin? = nil
     ) {
         self.id = id
         self.title = title
@@ -1643,6 +1646,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         }
         self.isFavorite = isFavorite
         self.favoriteTemplateId = favoriteTemplateId
+        self.locationPin = locationPin
         if let blocks, !blocks.isEmpty {
             self.blocks = blocks
         } else if !exercises.isEmpty {
@@ -1666,7 +1670,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, weekday, scheduledDate, scheduledTimeMinutes, exercises, blocks, progression, isFavorite, favoriteTemplateId
+        case id, title, weekday, scheduledDate, scheduledTimeMinutes, exercises, blocks, progression, isFavorite, favoriteTemplateId, locationPin
     }
 
     public init(from decoder: Decoder) throws {
@@ -1687,6 +1691,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         }
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         favoriteTemplateId = try c.decodeIfPresent(UUID.self, forKey: .favoriteTemplateId)
+        locationPin = try c.decodeIfPresent(WorkoutLocationPin.self, forKey: .locationPin)
         progression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .progression) ?? .linear
         let legacy = try c.decodeIfPresent([RoutineExercise].self, forKey: .exercises) ?? []
         let decodedBlocks = try c.decodeIfPresent([RoutineBlock].self, forKey: .blocks) ?? []
@@ -1708,6 +1713,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         try c.encodeIfPresent(normalizedScheduledTimeMinutes, forKey: .scheduledTimeMinutes)
         try c.encode(isFavorite, forKey: .isFavorite)
         try c.encodeIfPresent(favoriteTemplateId, forKey: .favoriteTemplateId)
+        try c.encodeIfPresent(locationPin, forKey: .locationPin)
         try c.encode(blocks, forKey: .blocks)
         try c.encode(exercises, forKey: .exercises)
         try c.encode(progression, forKey: .progression)
@@ -2019,7 +2025,7 @@ public enum SessionPhase: String, Codable, Sendable, Equatable {
 }
 
 /// Pin de ubicación de un entreno (gimnasio / punto de inicio).
-public struct WorkoutLocationPin: Codable, Sendable, Equatable {
+public struct WorkoutLocationPin: Codable, Sendable, Hashable {
     public var latitude: Double
     public var longitude: Double
     public var recordedAt: Date
