@@ -31,7 +31,6 @@ struct SettingsView: View {
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
     @State private var googleLinkFeedback: String?
-    @State private var workoutSync = BusinessWorkoutSyncStore.shared
     var body: some View {
         @Bindable var store = store
         Form {
@@ -44,7 +43,7 @@ struct SettingsView: View {
                         ZStack(alignment: .bottomTrailing) {
                             iCloudAvatarBadge
                                 .frame(width: 52, height: 52)
-                            Image(systemName: "apple.logo")
+                            Image(systemName: businessAuth.isGoogleSignedIn ? "g.circle.fill" : "apple.logo")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 20, height: 20)
@@ -84,15 +83,17 @@ struct SettingsView: View {
                                 )
                             }
                         }
-                        HStack(spacing: 5) {
-                            Text(businessAuth.isConnected ? "Sesión iniciada" : "Sin sesión")
-                            if let email = businessAuth.accountEmail ?? appleAuth.email, !email.isEmpty {
-                                Text("·")
-                                Text(email).lineLimit(1).truncationMode(.middle)
-                            }
+                        if let email = businessAuth.accountEmail ?? appleAuth.email, !email.isEmpty {
+                            Text(email)
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
                         }
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
+                        Button("Cerrar sesión", role: .destructive) {
+                            confirmSignOut = true
+                        }
+                        .font(.subheadline.weight(.medium))
                     }
                     Spacer(minLength: 0)
                 }
@@ -114,23 +115,6 @@ struct SettingsView: View {
                         photoItem = nil
                     }
                 }
-
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .foregroundStyle(OG.label2)
-                    Text("Sincronización automática")
-                        .foregroundStyle(OG.label2)
-                    Spacer()
-                    if workoutSync.isSyncing {
-                        ProgressView().controlSize(.small)
-                    } else if let lastSync = workoutSync.lastSyncAt {
-                        Text(lastSync, style: .relative)
-                            .font(.caption)
-                            .foregroundStyle(OG.label3)
-                    }
-                }
-                .font(.footnote)
-                .padding(.vertical, 4)
 
                 if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
                     Button {
@@ -175,24 +159,6 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(OG.label2)
                 }
-                HStack(spacing: 10) {
-                    Image(systemName: businessAuth.isGoogleSignedIn
-                        ? "person.crop.circle" : "apple.logo")
-                        .foregroundStyle(OG.label)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(businessAuth.isGoogleSignedIn ? "Google" : "Apple")
-                            .font(.subheadline.weight(.medium))
-                        if let email = businessAuth.accountEmail ?? appleAuth.email {
-                            Text(email).font(.caption).foregroundStyle(OG.label2)
-                                .lineLimit(1).truncationMode(.middle)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    Button("Cerrar sesión", role: .destructive) {
-                        confirmSignOut = true
-                    }
-                    .font(.subheadline.weight(.semibold))
-                }
             } header: {
                 Text("Cuenta")
             }
@@ -210,7 +176,7 @@ struct SettingsView: View {
                 NavigationLink {
                     FindCenterTrainerView()
                 } label: {
-                    Label("Buscar centro o entrenador", systemImage: "magnifyingglass")
+                    Label("Buscar", systemImage: "magnifyingglass")
                         .foregroundStyle(OG.label)
                 }
 
@@ -411,15 +377,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Button {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        openURL(url)
-                    }
-                } label: {
-                    Label("Abrir Ajustes del sistema", systemImage: "gearshape")
-                        .foregroundStyle(OG.label)
-                }
-
                 NavigationLink {
                     HealthGoalsView()
                 } label: {
@@ -471,24 +428,6 @@ struct SettingsView: View {
                     Text("kg").tag(WeightUnit.kg)
                     Text("lb").tag(WeightUnit.lb)
                 }
-                Picker("Modo de plan", selection: Binding(
-                    get: { store.state.settings.scheduleMode },
-                    set: { store.setScheduleMode($0) }
-                )) {
-                    ForEach(ScheduleMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                if store.state.settings.scheduleMode == .rotation {
-                    NavigationLink {
-                        RotationPlanEditor()
-                    } label: {
-                        Label("Editar rotación", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                }
-                Text("Los días del plan semanal se editan en Diario → Programado / Rutinas.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
                 Picker("Semana empieza", selection: Binding(
                     get: { store.state.settings.weekStartsOn },
                     set: {
@@ -516,7 +455,6 @@ struct SettingsView: View {
             }
 
             Section("Datos") {
-                LabeledContent("Entrenamientos", value: "\(store.state.workouts.count)")
                 Button("Exportar JSON") { exportBackup() }
                 Button("Importar JSON") { showingImporter = true }
                 Button("Importar CSV Strong/Hevy") { showingCSVImporter = true }
