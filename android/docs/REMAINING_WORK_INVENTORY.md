@@ -872,3 +872,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Retomaelbloqueabiertorevisionconstantes/graficos,lectorpermaneceparcial370. Hallazgo contrastadoHealthRecovery1288-1296:ReadinessfuenteY0/5/10,Androidmostrabasolo0/10.371incorpora5intermedioyposicionalabelssegunfracciondelmismoplot(7.5/50/92.5%),sinmoverdatosniejesdeotrasmetricas. No cierreautoejesX/fontmetrics/nativo.
 - Regresionfalloantespor5/10ausente. Testexistingampliadoexistenciayboundscentrados/columnaizquierda;2focalizados/1XML83sverdes0fallos/errores/omitidos. PNG360claroactualypreviewinspeccionados:0/5/10legibles,separadosdefechas,curve/gradientyaltosintactos. Otrofallodefixturebuscabaplotenmergedtree,corregidoaunmerged,sincambioproducto.
 - Completa mobile/Wear371pendientes;ultimacompleta369mobile690/163domain558/93Wear8/1+ambosassemble66s.735/70sin cierres,lectorparcial,nativopendiente,no push niApps/Packages.
+
+## Continuidad graficos parciales y matrices 10:29 28oct
+-371 bateria completa mobile690/163XML11lotes39/60/72/65/51/67/80/40/73/43/69s,domain558/93XML37s,Wear8/1XML+ambosassemble62sverdes0fallos/errores/omitidos. Combinadaanteriorsinassemblefinalnocontada,repetidaseparadaverde. Backup371recuperado65338db7:arbol5b71080f50db788cad323d6a85fdb8a94c226906identico,clonlimpio.
+-372 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas371,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/nativoabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
