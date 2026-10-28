@@ -41,10 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -135,6 +132,7 @@ internal fun ProgressTab(
                 listOf("Entreno","Actividad","Recuperación").forEachIndexed {index,label ->
                     SegmentedButton(selected=topic==label,onClick={topic=label},modifier=Modifier.testTag("progress_topic_$index"),
                         shape=androidx.compose.material3.SegmentedButtonDefaults.itemShape(index,3),
+                        colors=reperaSegmentedButtonColors(),
                         contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp),
                         icon={}, label={Text(label,maxLines=2,
                             style=MaterialTheme.typography.labelMedium)})
@@ -152,7 +150,7 @@ internal fun ProgressTab(
             }
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -177,7 +175,7 @@ internal fun ProgressTab(
             ) {
                 ProgressTimeRange.entries.forEach { range ->
                     val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
-                    FilterChip(
+                    ReperaFilterChip(
                         selected = selectedRange == range.wire,
                         onClick = {
                             // Gate Gratis = solo semana (paridad iOS
@@ -219,7 +217,7 @@ internal fun ProgressTab(
                 }
             }
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Resumen · " + snapshot.range.subtitleLabel,
@@ -235,7 +233,7 @@ internal fun ProgressTab(
                 }
             }
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Constancia", style = MaterialTheme.typography.titleMedium)
@@ -291,7 +289,7 @@ internal fun ProgressTab(
             }
             if (snapshot.cardioSeries.isNotEmpty()) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Cardio", style = MaterialTheme.typography.titleMedium)
@@ -332,7 +330,7 @@ internal fun ProgressTab(
         if(topic=="Entreno") {
         if (overview?.weeklyMuscleGroups?.isNotEmpty() == true) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Series por grupo · esta semana",
@@ -418,7 +416,7 @@ internal fun WeightPreviewCard(today:LocalDate) {
   WeightStatTiles(null,goalKg)
   EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
  }} else {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Peso corporal", style = MaterialTheme.typography.titleMedium)

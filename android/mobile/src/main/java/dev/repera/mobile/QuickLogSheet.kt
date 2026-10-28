@@ -27,15 +27,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
  var notes by draft::notes;var includeNotes by draft::includeNotes
  val requestId=draft.requestId
  var error by remember {mutableStateOf<String?>(null)}
- ModalBottomSheet(onDismissRequest={if(!busy) onDismiss()}) {
+ ReperaModalBottomSheet(onDismissRequest={if(!busy) onDismiss()}) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
    Text("Apuntar ejercicio",style=MaterialTheme.typography.titleLarge)
    Text(entry.displayName,style=MaterialTheme.typography.titleMedium)
    if(repsOrMeters) Row {
     // Apple: Picker "Repeticiones"/"Metros" para supportsRepsOrMeters.
-    listOf("reps","meters").forEach {value ->FilterChip(selected=unit==value,onClick={unit=value;rows.indices.forEach {i ->rows[i]=rows[i].copy(unit=value)}},label={Text(if(value=="meters") "Metros" else "Repeticiones")},enabled=!busy)}
+    listOf("reps","meters").forEach {value ->ReperaFilterChip(selected=unit==value,onClick={unit=value;rows.indices.forEach {i ->rows[i]=rows[i].copy(unit=value)}},label={Text(if(value=="meters") "Metros" else "Repeticiones")},enabled=!busy)}
    } else if(mode==ExerciseInputMode.MACHINE_WORK && ExerciseInput.supportsCaloriesAndMeters(entry.name,entry.equipment)) Row {
-    listOf("calories","meters").forEach {value ->FilterChip(selected=unit==value,onClick={unit=value;rows.indices.forEach {i ->rows[i]=rows[i].copy(unit=value)}},label={Text(if(value=="meters") "Metros" else "Cal")},enabled=!busy)}
+    listOf("calories","meters").forEach {value ->ReperaFilterChip(selected=unit==value,onClick={unit=value;rows.indices.forEach {i ->rows[i]=rows[i].copy(unit=value)}},label={Text(if(value=="meters") "Metros" else "Cal")},enabled=!busy)}
    }
    rows.indices.forEach {i ->key(rowKeys[i]) {Card {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
     Text("Serie ${i+1}")
@@ -46,12 +46,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
     TextButton(onClick={rows.removeAt(i);rowKeys.removeAt(i)},enabled=!busy) {Text("Eliminar serie ${i+1}")}
    }}}}
    TextButton(onClick={rows.add(rows.lastOrNull() ?: defaultRow);rowKeys.add(java.util.UUID.randomUUID().toString())},enabled=!busy && rows.size<100) {Text("Añadir serie")}
-   Row {Switch(includeNotes,{includeNotes=it},enabled=!busy);Text("Añadir nota",Modifier.padding(12.dp))}
+   Row {Switch(includeNotes,{includeNotes=it},enabled=!busy,colors=reperaSwitchColors());Text("Añadir nota",Modifier.padding(12.dp))}
    if(includeNotes) OutlinedTextField(notes,{notes=it},label={Text("Cómo te sentiste, carga…")},enabled=!busy)
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
    Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     OutlinedButton(onClick=onDismiss,enabled=!busy) {Text("Cancelar")}
-    Button(onClick={runCatching {QuickLogRows.validate(rows.toList(),mode,ExerciseInput.defaultQuantityUnit(entry.name,entry.equipment),ExerciseInput.supportsCaloriesAndMeters(entry.name,entry.equipment),entry.mobilityHold,repsOrMeters)}.onSuccess {error=null;onSave(it,notes.takeIf {includeNotes},requestId)}.onFailure {error=it.localizedMessage ?: "Revisa las series"}},enabled=!busy && rows.isNotEmpty()) {Text("Guardar")}
+    Button(colors=reperaPrimaryButtonColors(),onClick={runCatching {QuickLogRows.validate(rows.toList(),mode,ExerciseInput.defaultQuantityUnit(entry.name,entry.equipment),ExerciseInput.supportsCaloriesAndMeters(entry.name,entry.equipment),entry.mobilityHold,repsOrMeters)}.onSuccess {error=null;onSave(it,notes.takeIf {includeNotes},requestId)}.onFailure {error=it.localizedMessage ?: "Revisa las series"}},enabled=!busy && rows.isNotEmpty()) {Text("Guardar")}
    }
    Text("Guarda directamente en el historial sin abrir ni modificar una sesión activa.",style=MaterialTheme.typography.bodySmall)
    Spacer(Modifier.height(20.dp))

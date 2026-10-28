@@ -294,7 +294,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 recenterToken=recenterToken,onCameraGesture={followingMap=false})
             Surface(Modifier.align(if(mapLandscape) Alignment.TopStart else Alignment.TopCenter)
                 .padding(12.dp).then(if(mapLandscape) Modifier.width(overlayWidth.dp) else Modifier),
-                shape = MaterialTheme.shapes.large,tonalElevation = 4.dp) {
+                shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp, shadowElevation = 2.dp) {
                 Column(Modifier.then(if(mapLandscape) Modifier.heightIn(max=(maxHeight*0.4f))
                     .verticalScroll(rememberScrollState()) else Modifier).padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -327,7 +327,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     Alignment.BottomStart else Alignment.BottomCenter)
                 .padding(start=12.dp,end=12.dp,top=12.dp,bottom=48.dp)
                 .then(if(mapLandscape) Modifier.width(if(state.phase==LiveActivityState.Phase.IDLE) 570.dp else overlayWidth.dp) else Modifier),
-                shape = MaterialTheme.shapes.large,tonalElevation = 4.dp) {
+                shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp, shadowElevation = 2.dp) {
                 Column(Modifier.then(if(mapLandscape) Modifier.heightIn(max=(maxHeight*0.4f))
                     .verticalScroll(rememberScrollState()) else Modifier).padding(12.dp),
                     verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -426,7 +426,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) { Text("Importar GPX") }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf("Últimas 5", "Favoritas", "Todas").forEach { mode ->
-                            FilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })
+                            ReperaFilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })
                         }
                     }
                     val visibleRoutes = when (routeListMode) {
@@ -458,7 +458,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                     Text("Deporte: ${routeSport?.let(LiveSport::byId)?.title ?: "Sin deporte"}")
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         listOf<LiveSport?>(null).plus(LiveSport.selectableCases).forEach { option ->
-                                            FilterChip(selected = routeSport == option?.id,
+                                            ReperaFilterChip(selected = routeSport == option?.id,
                                                 onClick = { routeSport = option?.id }, label = { Text(option?.title ?: "Sin deporte") })
                                         }
                                     }

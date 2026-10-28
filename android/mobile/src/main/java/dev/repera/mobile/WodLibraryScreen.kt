@@ -76,7 +76,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             item {Text("WODs",style=MaterialTheme.typography.headlineMedium)}
             item {OutlinedTextField(value=query,onValueChange={query=it},label={Text("Nombre o formato")},modifier=Modifier.fillMaxWidth())}
             item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                listOf("Alfabético","Músculo").forEach {mode ->FilterChip(selected=sort==mode,onClick={sort=mode},label={Text(mode)})}
+                listOf("Alfabético","Músculo").forEach {mode ->ReperaFilterChip(selected=sort==mode,onClick={sort=mode},label={Text(mode)})}
             }}
             if(matches.isEmpty() && query.isNotBlank()) {
                 val fallback=exercises.map {it to dev.repera.domain.ExerciseAliasSearch.score(query,it.name,aliases,it.disciplineTags.joinToString(" "), it.searchAliases)}

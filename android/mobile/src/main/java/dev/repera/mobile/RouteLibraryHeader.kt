@@ -2,7 +2,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.sp
   Text("Mis rutas",fontSize=31.sp,fontWeight=FontWeight.Bold,
    color=MaterialTheme.colorScheme.onSurface,modifier=Modifier.weight(1f))
   IconButton(onClick=onClose) {
-   Icon(Icons.Default.Close,contentDescription="Cerrar Mis rutas",
+   Icon(Icons.Outlined.Close,contentDescription="Cerrar Mis rutas",
     tint=MaterialTheme.colorScheme.onSurface)
   }
  }

@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,8 +33,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -487,7 +486,7 @@ internal fun StandaloneTimerScreen(
                 } ?: config.defaultFavoriteTitle
                 showSaveDialog = true
             }) {
-                Icon(Icons.Default.Star, contentDescription =
+                Icon(Icons.Outlined.Star, contentDescription =
                     if (editingFavoriteId == null) "Guardar en favoritos"
                     else "Actualizar favorito")
             }
@@ -501,7 +500,7 @@ internal fun StandaloneTimerScreen(
                 Text("Tipo de temporizador", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StandaloneTimerMode.entries.forEach { mode ->
-                        FilterChip(
+                        ReperaFilterChip(
                             selected = config.mode == mode,
                             onClick = { config = config.copy(mode = mode) },
                             label = { Text(mode.title) }
@@ -546,7 +545,7 @@ internal fun StandaloneTimerScreen(
                             onCheckedChange = {
                                 config = config.copy(countdownBeforeStart = it)
                             },
-                            colors = SwitchDefaults.colors(checkedTrackColor = brandGreen)
+                            colors = reperaSwitchColors()
                         )
                     }
                 }
@@ -585,7 +584,7 @@ internal fun StandaloneTimerScreen(
                                     }
                                     favorites = store.favorites()
                                 }) {
-                                    Icon(Icons.Default.Delete,
+                                    Icon(Icons.Outlined.Delete,
                                         contentDescription = "Eliminar favorito")
                                 }
                             }

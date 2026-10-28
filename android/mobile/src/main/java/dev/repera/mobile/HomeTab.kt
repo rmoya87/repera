@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -34,10 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +43,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import dev.repera.domain.ExerciseAliasSearch
@@ -165,7 +160,7 @@ internal fun HomeTab(
             }
             val visibleRoutines = HomePlannedFilter.visible(dayRoutines, { it.id },
                 HomePlannedFilter.completedRoutineIds(overview?.completeHistory.orEmpty(), day), activeWorkout?.routineId, day, LocalDate.now())
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Calendario y entrenamientos",
@@ -190,7 +185,7 @@ internal fun HomeTab(
                         }
                         if (preview) {
                             @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-                            androidx.compose.material3.ModalBottomSheet(
+                            ReperaModalBottomSheet(
                                 onDismissRequest = { preview = false }
                             ) {
                                 SessionPreviewSheet(
@@ -213,9 +208,8 @@ internal fun HomeTab(
                     Button(onClick = { showDayPlus = true },
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = brandGreen, contentColor = Color.Black
-                        )) { Text("Añadir nuevo entrenamiento") }
+                        colors = reperaPrimaryButtonColors()
+                    ) { Text("Añadir nuevo entrenamiento") }
                     if (showDayPlus) {
                         val dayName = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL,
                             java.util.Locale("es")).replaceFirstChar { it.uppercase() }
@@ -240,7 +234,7 @@ internal fun HomeTab(
                         routine.scheduledDate?.let {runCatching {LocalDate.parse(it.take(10))}.getOrNull()},routine.weekday)
                 })
             val activityContent: @Composable () -> Unit = {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)

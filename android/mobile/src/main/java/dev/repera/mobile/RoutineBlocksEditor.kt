@@ -459,7 +459,7 @@ private fun BlockEditorCard(
             @androidx.compose.runtime.Composable
             fun chips() {
                 blockFormats.forEach { wire ->
-                    FilterChip(
+                    ReperaFilterChip(
                         selected = block.format == wire,
                         onClick = { block.format = wire },
                         label = { Text(formatLabel(wire), maxLines = 1, softWrap = false) }
@@ -661,13 +661,13 @@ private fun EntryEditorRow(
                 else if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters")) "meters" else "calories"
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (weightedRepsOrMeters) {
-                    androidx.compose.material3.FilterChip(selected = current == "reps", onClick = { entry.unit = "reps" },
+                    ReperaFilterChip(selected = current == "reps", onClick = { entry.unit = "reps" },
                         label = { Text("Repeticiones") }, modifier = Modifier.testTag("plan_unit_reps"))
                 } else {
-                    androidx.compose.material3.FilterChip(selected = current == "calories", onClick = { entry.unit = "calories" },
+                    ReperaFilterChip(selected = current == "calories", onClick = { entry.unit = "calories" },
                         label = { Text("Calorías") }, modifier = Modifier.testTag("plan_unit_calories"))
                 }
-                androidx.compose.material3.FilterChip(selected = current == "meters", onClick = { entry.unit = "meters" },
+                ReperaFilterChip(selected = current == "meters", onClick = { entry.unit = "meters" },
                     label = { Text("Metros") }, modifier = Modifier.testTag("plan_unit_meters"))
             }
         }

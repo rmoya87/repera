@@ -51,7 +51,7 @@ import androidx.compose.ui.platform.testTag
    route?.toWorkoutRoutePoints())?.let { routeRead = it }
   consentRequestedFor=null
  }
- ModalBottomSheet(onDismissRequest=onClose) {
+ ReperaModalBottomSheet(onDismissRequest=onClose) {
   ExternalHealthDetailColumn(entry,detail,loading,routeRead,
    onConsentLaunch ?: {id:String -> consentLauncher.launch(id)},
    consentRequestedFor,{consentRequestedFor=ExternalRouteSheetModel.consentKey(ownerKey,it)},onClose)

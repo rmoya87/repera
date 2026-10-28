@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (Android UI verde Repera/M3; unificación edición Play; ownership Play)
+Última actualización: 2026-10-28 (Android UI M3 2.º pase; verde Repera; edición Play; ownership)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -535,6 +535,7 @@ cambios de producto Apple.
 ### Android UI marca Material 3 (2026-10-28)
 
 `ReperaTheme` envuelve la app (onboarding incluido) con el verde OG (`#30D158` /
-claro legible `#0E7A38`), no el púrpura M3 por defecto. Permisos usan iconos
-Material Outlined; launcher desde AppIcon iOS. Detalle: `android/README.md`,
-`docs/ARCHITECTURE.md`.
+claro legible `#0E7A38`), no el púrpura M3 por defecto. 2.º pase: `ReperaCard` /
+`ReperaFilterChip` / `ReperaModalBottomSheet`, tipografía de títulos, DayPlus y
+paywall con iconos Outlined; launcher desde AppIcon iOS. Detalle:
+`android/README.md`, `docs/ARCHITECTURE.md`.

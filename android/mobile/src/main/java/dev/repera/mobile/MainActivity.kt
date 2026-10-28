@@ -28,7 +28,6 @@ import com.google.android.gms.wearable.Wearable
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.Box
 import dev.repera.mobile.monetization.FreeUsageStore
@@ -1177,7 +1176,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             if (subscriptions.paywall.isPresented) {
                 @OptIn(ExperimentalMaterial3Api::class)
-                ModalBottomSheet(onDismissRequest = { subscriptions.dismissPaywall() }) {
+                ReperaModalBottomSheet(onDismissRequest = { subscriptions.dismissPaywall() }) {
                     PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
                 }
             }

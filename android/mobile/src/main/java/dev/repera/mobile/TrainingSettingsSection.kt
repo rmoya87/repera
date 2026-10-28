@@ -13,21 +13,21 @@ import dev.repera.domain.ProgressionPolicy
         Text("Entrenamiento",style=MaterialTheme.typography.titleMedium)
         Text("Unidad")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            listOf("kg","lb").forEach {unit -> FilterChip(selected=value.weightUnit==unit,enabled=!busy,onClick={onChange(value.copy(weightUnit=unit))},label={Text(unit)})}
+            listOf("kg","lb").forEach {unit -> ReperaFilterChip(selected=value.weightUnit==unit,enabled=!busy,onClick={onChange(value.copy(weightUnit=unit))},label={Text(unit)})}
         }
         Text("Esfuerzo")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            listOf("rir","rpe").forEach {unit -> FilterChip(selected=value.effortUnit==unit,enabled=!busy,onClick={onChange(value.copy(effortUnit=unit))},label={Text(unit.uppercase())})}
+            listOf("rir","rpe").forEach {unit -> ReperaFilterChip(selected=value.effortUnit==unit,enabled=!busy,onClick={onChange(value.copy(effortUnit=unit))},label={Text(unit.uppercase())})}
         }
         Text("Modo de plan")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected=value.scheduleMode=="fixedWeek",enabled=!busy,onClick={onChange(value.copy(scheduleMode="fixedWeek"))},label={Text("Semana fija")})
-            FilterChip(selected=value.scheduleMode=="rotation",enabled=!busy,onClick={onChange(value.copy(scheduleMode="rotation"))},label={Text("Rotación A→B→C")})
+            ReperaFilterChip(selected=value.scheduleMode=="fixedWeek",enabled=!busy,onClick={onChange(value.copy(scheduleMode="fixedWeek"))},label={Text("Semana fija")})
+            ReperaFilterChip(selected=value.scheduleMode=="rotation",enabled=!busy,onClick={onChange(value.copy(scheduleMode="rotation"))},label={Text("Rotación A→B→C")})
         }
         Text("Semana empieza")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected=value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=true))},label={Text("Lunes")})
-            FilterChip(selected=!value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=false))},label={Text("Domingo")})
+            ReperaFilterChip(selected=value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=true))},label={Text("Lunes")})
+            ReperaFilterChip(selected=!value.weekStartsOnMonday,enabled=!busy,onClick={onChange(value.copy(weekStartsOnMonday=false))},label={Text("Domingo")})
         }
         Text("Descanso: ${value.defaultRestSeconds}s")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -38,7 +38,7 @@ import dev.repera.domain.ProgressionPolicy
         Row { Text("Vibración en countdown",modifier=Modifier.weight(1f));Switch(checked=value.restHapticEnabled,enabled=!busy,onCheckedChange={onChange(value.copy(restHapticEnabled=it))}) }
         Text("Progresión por defecto")
         ProgressionPolicy.entries.forEach { policy ->
-            FilterChip(selected=value.defaultProgression==policy.wire,enabled=!busy,
+            ReperaFilterChip(selected=value.defaultProgression==policy.wire,enabled=!busy,
                 onClick={onChange(value.copy(defaultProgression=policy.wire))},label={Text(policy.displayName)})
         }
         Text("Incremento: ${dev.repera.domain.ReperaNumberFormat.decimal(value.weightIncrementKg)} kg")

@@ -3,7 +3,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.AddCircleOutline
@@ -30,9 +30,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.ui.window.Dialog
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,8 +46,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,10 +55,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Switch
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -279,9 +275,9 @@ internal fun ActiveWorkoutCard(
                 if (active.cardioToggle || active.repsMetersToggle) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val first=if(active.repsMetersToggle) "reps" else "calories"
-                        FilterChip(selected = editingUnit == first,
+                        ReperaFilterChip(selected = editingUnit == first,
                             onClick = { editingUnit = first }, label = { Text(if(active.repsMetersToggle) "Reps" else "Cal") })
-                        FilterChip(selected = editingUnit == "meters",
+                        ReperaFilterChip(selected = editingUnit == "meters",
                             onClick = { editingUnit = "meters" }, label = { Text("m") })
                     }
                 }
@@ -318,7 +314,7 @@ internal fun ActiveWorkoutCard(
             var showClassic by remember(active.id, active.index) { mutableStateOf(false) }
             active.liveRows?.let { rows ->
                 LiveSetRows(active, rows, effortUnit)
-                FilterChip(selected = showClassic, onClick = { showClassic = !showClassic },
+                ReperaFilterChip(selected = showClassic, onClick = { showClassic = !showClassic },
                     label = { Text("Calentamiento o técnica (dropset, rest-pause)") })
             }
             if (active.liveRows == null || showClassic) {
@@ -348,9 +344,9 @@ internal fun ActiveWorkoutCard(
             if (active.cardioToggle || active.repsMetersToggle) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val first=if(active.repsMetersToggle) "reps" else "calories"
-                    FilterChip(selected = unit == first,
+                    ReperaFilterChip(selected = unit == first,
                         onClick = { unit = first }, label = { Text(if(active.repsMetersToggle) "Repeticiones" else "Calorías") })
-                    FilterChip(selected = unit == "meters",
+                    ReperaFilterChip(selected = unit == "meters",
                         onClick = { unit = "meters" }, label = { Text("Metros") })
                 }
             }
@@ -409,7 +405,7 @@ internal fun ActiveWorkoutCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("normal" to "Normal", "dropset" to "Dropset",
                         "restpause" to "Rest-pause").forEach { option ->
-                        FilterChip(selected = technique == option.first,
+                        ReperaFilterChip(selected = technique == option.first,
                             onClick = { technique = option.first },
                             label = { Text(option.second) })
                     }
@@ -822,8 +818,8 @@ internal fun ScheduledRoutineCard(
                     onSetFavorite(routine.id, !routine.isFavorite)
                 }, enabled = !busy) {
                     Icon(
-                        if (routine.isFavorite) Icons.Default.Star
-                        else Icons.Default.StarBorder,
+                        if (routine.isFavorite) Icons.Outlined.Star
+                        else Icons.Outlined.StarBorder,
                         contentDescription = if (routine.isFavorite)
                             "Quitar de favoritas" else "Marcar como favorita",
                         tint = if (routine.isFavorite) brandGreen
@@ -848,7 +844,7 @@ internal fun ScheduledRoutineCard(
                     modifier = Modifier.horizontalScroll(
                         androidx.compose.foundation.rememberScrollState())) {
                     dev.repera.domain.ProgressionPolicy.entries.forEach { policy ->
-                        FilterChip(
+                        ReperaFilterChip(
                             selected = routine.progression == policy.wire,
                             onClick = { onSetProgression(routine.id, policy.wire) },
                             label = { Text(policy.displayName,
@@ -893,7 +889,7 @@ internal fun ScheduledRoutineCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("library" to "Sin fecha", "date" to "Día concreto",
                         "weekly" to "Semanal").forEach { option ->
-                        FilterChip(selected = editPlanning == option.first,
+                        ReperaFilterChip(selected = editPlanning == option.first,
                             onClick = { editPlanning = option.first },
                             label = { Text(option.second) })
                     }
@@ -911,7 +907,7 @@ internal fun ScheduledRoutineCard(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, day ->
-                        FilterChip(selected = editWeekday == index + 1,
+                        ReperaFilterChip(selected = editWeekday == index + 1,
                             onClick = { editWeekday = index + 1 },
                             label = { Text(day) })
                     }
@@ -1025,7 +1021,7 @@ internal fun RoutineCreatorCard(
                     "ladder" to "Ladder", "deathBy" to "Muerte por",
                     "partner" to "Partner", "roundsForQuality" to "RFQ",
                     "maxEffort" to "Max effort").forEach { option ->
-                        FilterChip(
+                        ReperaFilterChip(
                             selected = kind == option.first,
                             onClick = {
                                 kind = option.first
@@ -1112,7 +1108,7 @@ internal fun RoutineCreatorCard(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("library" to "Sin fecha", "date" to "Día concreto", "weekly" to "Semanal")
                     .forEach { option ->
-                        FilterChip(selected = planning == option.first,
+                        ReperaFilterChip(selected = planning == option.first,
                             onClick = { planning = option.first },
                             label = { Text(option.second) })
                     }
@@ -1129,7 +1125,7 @@ internal fun RoutineCreatorCard(
                 Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, label ->
-                        FilterChip(selected = weekday == index + 1,
+                        ReperaFilterChip(selected = weekday == index + 1,
                             onClick = { weekday = index + 1 },
                             label = { Text(label) })
                     }
@@ -1470,7 +1466,7 @@ internal fun WorkoutHistoryCard(
                 Text(workout.title, style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f))
                 IconButton(onClick = { pendingDelete = true }, enabled = !busy) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar registro")
+                    Icon(Icons.Outlined.Delete, contentDescription = "Eliminar registro")
                 }
             }
             if (workout.startedAt.isNotBlank()) {
@@ -1782,7 +1778,7 @@ internal fun RouteMapTapTarget(label: String, modifier: Modifier = Modifier,
                     Surface(shape=androidx.compose.foundation.shape.CircleShape,
                         color=MaterialTheme.colorScheme.surface,
                         contentColor=MaterialTheme.colorScheme.onSurface) {
-                        Icon(Icons.Default.Close, contentDescription = "Cerrar mapa",
+                        Icon(Icons.Outlined.Close, contentDescription = "Cerrar mapa",
                             modifier=Modifier.padding(8.dp))
                     }
                 }

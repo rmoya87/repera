@@ -3,6 +3,7 @@ package dev.repera.mobile.monetization
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,12 +21,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -144,7 +146,7 @@ fun PaywallScreen(
                     onClick = { subscriptions.dismissPaywall() },
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
                 }
             }
         }
@@ -164,7 +166,7 @@ private fun PaywallHeader(mode: PaywallMode, context: PaywallContext) {
             }
         } else {
             Icon(
-                Icons.Default.FitnessCenter,
+                Icons.Outlined.FitnessCenter,
                 contentDescription = null,
                 tint = brandGreen,
                 modifier = Modifier.size(36.dp)
@@ -186,7 +188,12 @@ private fun PaywallHeader(mode: PaywallMode, context: PaywallContext) {
 
 @Composable
 private fun PaywallBenefits(context: PaywallContext) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -194,7 +201,7 @@ private fun PaywallBenefits(context: PaywallContext) {
             context.prioritizedBenefits.forEach { benefit ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(
-                        Icons.Default.CheckCircle,
+                        Icons.Outlined.CheckCircle,
                         contentDescription = null,
                         tint = brandGreen,
                         modifier = Modifier.size(20.dp)
@@ -219,7 +226,12 @@ private fun PaywallPlans(
     onSelect: (String) -> Unit
 ) {
     if (subscriptions.offerings.packages.isEmpty()) {
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -265,17 +277,18 @@ private fun PlanRow(
             .semantics { role = androidx.compose.ui.semantics.Role.RadioButton; this.selected = selected }
             .border(
                 width = 1.5.dp,
-                color = if (selected) brandGreen else androidx.compose.ui.graphics.Color.Transparent,
+                color = if (selected) brandGreen else MaterialTheme.colorScheme.outlineVariant,
                 shape = shape
             ),
-        shape = shape
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier.padding(20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                if (selected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
+                if (selected) Icons.Outlined.CheckCircle else Icons.Outlined.Circle,
                 contentDescription = null,
                 tint = if (selected) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp)

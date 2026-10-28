@@ -23,12 +23,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -108,8 +108,8 @@ internal fun ExerciseDetailScreen(
                     androidx.compose.material3.IconButton(onClick = onToggleFavorite, enabled = !busy,
                         modifier = Modifier.testTag("exercise_detail_favorite")) {
                         androidx.compose.material3.Icon(
-                            if (entry.isFavorite) androidx.compose.material.icons.Icons.Default.Star
-                            else androidx.compose.material.icons.Icons.Default.StarBorder,
+                            if (entry.isFavorite) androidx.compose.material.icons.Icons.Outlined.Star
+                            else androidx.compose.material.icons.Icons.Outlined.StarBorder,
                             contentDescription = if (entry.isFavorite) "Quitar de favoritos" else "Favorito",
                             tint = if (entry.isFavorite) brandGreen
                             else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -309,14 +309,14 @@ internal fun ExerciseEvolutionSection(
                 modifier = Modifier.fillMaxWidth()
                     .horizontalScroll(rememberScrollState())) {
                 metrics.forEach { m ->
-                    FilterChip(selected = m.wire == metric,
+                    ReperaFilterChip(selected = m.wire == metric,
                         onClick = { metric = m.wire },
                         label = { Text(m.title) })
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ExerciseProgressRange.entries.forEach { r ->
-                    FilterChip(selected = r.wire == range,
+                    ReperaFilterChip(selected = r.wire == range,
                         onClick = { range = r.wire },
                         label = { Text(r.title) })
                 }

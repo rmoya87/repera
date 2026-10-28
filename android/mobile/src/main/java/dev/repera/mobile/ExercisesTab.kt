@@ -35,8 +35,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SortByAlpha
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.Text
@@ -46,8 +46,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -287,9 +285,9 @@ internal fun ExercisesTab(
         item { Text("Ejercicios", style = MaterialTheme.typography.headlineLarge) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
-                FilterChip(selected=false,onClick={libraryMode="WODs"},label={Text("WODs")})
-                FilterChip(selected = false, onClick = { libraryMode = "Deportes" }, label = { Text("Deportes") })
+                ReperaFilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
+                ReperaFilterChip(selected=false,onClick={libraryMode="WODs"},label={Text("WODs")})
+                ReperaFilterChip(selected = false, onClick = { libraryMode = "Deportes" }, label = { Text("Deportes") })
             }
         }
         item { CountCard("Catálogo local", overview?.exercises, overview != null) }
@@ -327,11 +325,10 @@ internal fun ExercisesTab(
                         modifier = Modifier.padding(top = 4.dp))
                 }
                 items(groupEntries, key = { it.id }) { entry ->
-        Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
+        ReperaCard(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
             .semantics { selected = selectedExerciseId == entry.id }
             .clickable { openExercise(entry.id) },
-            colors = CardDefaults.cardColors(containerColor = if (selectedExerciseId == entry.id)
-                MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
+            selected = selectedExerciseId == entry.id) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -342,8 +339,8 @@ internal fun ExercisesTab(
                         onSetExerciseFavorite(entry.id, !entry.isFavorite)
                     }, enabled = !busy) {
                         Icon(
-                            if (entry.isFavorite) Icons.Default.Star
-                            else Icons.Default.StarBorder,
+                            if (entry.isFavorite) Icons.Outlined.Star
+                            else Icons.Outlined.StarBorder,
                             contentDescription = if (entry.isFavorite)
                                 "Quitar de favoritos" else "Marcar favorito",
                             tint = if (entry.isFavorite) brandGreen
@@ -413,11 +410,10 @@ internal fun ExercisesTab(
             }
         } else {
         items(entries, key = { it.id }) { entry ->
-Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
+ReperaCard(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
     .semantics { selected = selectedExerciseId == entry.id }
     .clickable { openExercise(entry.id) },
-    colors = CardDefaults.cardColors(containerColor = if (selectedExerciseId == entry.id)
-        MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
+    selected = selectedExerciseId == entry.id) {
     Column(modifier = Modifier.padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically) {
@@ -428,8 +424,8 @@ Card(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
                 onSetExerciseFavorite(entry.id, !entry.isFavorite)
             }, enabled = !busy) {
                 Icon(
-                    if (entry.isFavorite) Icons.Default.Star
-                    else Icons.Default.StarBorder,
+                    if (entry.isFavorite) Icons.Outlined.Star
+                    else Icons.Outlined.StarBorder,
                     contentDescription = if (entry.isFavorite)
                         "Quitar de favoritos" else "Marcar favorito",
                     tint = if (entry.isFavorite) brandGreen

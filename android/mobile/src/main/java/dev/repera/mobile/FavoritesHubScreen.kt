@@ -83,11 +83,11 @@ internal fun FavoritesHubScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
-                        androidx.compose.material3.FilterChip(selected = routine.weekday == null && routine.scheduledDate == null,
+                        ReperaFilterChip(selected = routine.weekday == null && routine.scheduledDate == null,
                             enabled = !busy, modifier = Modifier.testTag("fav_weekday_none_" + routine.id),
                             onClick = { onSetWeekday(routine, null) }, label = { Text("Solo favorito") })
                         listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { i, d ->
-                            androidx.compose.material3.FilterChip(selected = routine.weekday == i + 1, enabled = !busy,
+                            ReperaFilterChip(selected = routine.weekday == i + 1, enabled = !busy,
                                 modifier = Modifier.testTag("fav_weekday_" + (i + 1) + "_" + routine.id),
                                 onClick = { onSetWeekday(routine, i + 1) }, label = { Text(d) })
                         }

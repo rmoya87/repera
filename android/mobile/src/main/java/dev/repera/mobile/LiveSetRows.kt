@@ -59,7 +59,7 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
  }
  Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
   if(active.cardioToggle || active.repsMetersToggle) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-   listOf((if(active.repsMetersToggle) "reps" to "Repeticiones" else "calories" to "Calorías"),"meters" to "Metros").forEach {(v,l) ->FilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
+   listOf((if(active.repsMetersToggle) "reps" to "Repeticiones" else "calories" to "Calorías"),"meters" to "Metros").forEach {(v,l) ->ReperaFilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
   }
   rows.forEachIndexed {i,row ->
    key(row.id) {Card {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
