@@ -169,19 +169,25 @@ final class TimerLiveActivityCoordinator {
             if let activity = Activity<RestActivityAttributes>.activities.first(where: {
                 $0.attributes.sourceKey == source.rawValue
             }) {
-                await activity.update(.init(state: state, staleDate: nil))
-            } else {
-                do {
-                    _ = try Activity.request(
-                        attributes: RestActivityAttributes(
-                            exerciseName: title, sourceKey: source.rawValue
-                        ),
-                        content: .init(state: state, staleDate: nil),
-                        pushType: nil
-                    )
-                } catch {
-                    logger.error("Timer Live Activity failed: \(String(describing: error), privacy: .public)")
+                if activity.attributes.exerciseName == title {
+                    await activity.update(.init(state: state, staleDate: nil, relevanceScore: 100))
+                    return
                 }
+                // Activity attributes are immutable: a different block title
+                // needs a new activity, never a stale name from the last block.
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+            guard self.generations[source] == token else { return }
+            do {
+                _ = try Activity.request(
+                    attributes: RestActivityAttributes(
+                        exerciseName: title, sourceKey: source.rawValue
+                    ),
+                    content: .init(state: state, staleDate: nil, relevanceScore: 100),
+                    pushType: nil
+                )
+            } catch {
+                logger.error("Timer Live Activity failed: \(String(describing: error), privacy: .public)")
             }
         }
     }
