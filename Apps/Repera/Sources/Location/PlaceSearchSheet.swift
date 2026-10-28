@@ -206,6 +206,9 @@ private struct PlaceSearchContent: View {
             }
 
             if isTyping {
+                // Mantener los tres últimos sitios mientras se escribe;
+                // MapKit aparece debajo sin reemplazar los recuerdos.
+                recentSuggestionsList
                 searchResultsList
             } else if isSearchPresented {
                 recentResultsList
@@ -213,6 +216,43 @@ private struct PlaceSearchContent: View {
         }
         .frame(maxWidth: .infinity)
         .background(.bar)
+    }
+
+    /// Los tres últimos sitios seleccionados, visibles desde el primer carácter.
+    @ViewBuilder
+    private var recentSuggestionsList: some View {
+        let latest = Array(recentPins.prefix(3))
+        if !latest.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Últimos lugares")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+                ForEach(latest, id: \.recentIdentity) { pin in
+                    Button {
+                        selectRecent(pin)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 14))
+                                .foregroundStyle(OG.accent)
+                            placeResultLabel(
+                                title: pin.name?.nilIfBlank ?? "Lugar",
+                                subtitle: nil
+                            )
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 16)
+                }
+            }
+        }
     }
 
     @ViewBuilder
