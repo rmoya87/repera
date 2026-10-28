@@ -540,9 +540,11 @@ object BoardScanLiteParser {
         val multiplier=multiplierMatch?.groupValues?.get(1)?.toIntOrNull()
         if(multiplierMatch!=null && (multiplier==null || multiplier !in 1..200)) return listOf(movement(raw,aliases))
         val body=when {validWave!=null ->unloaded.removeRange(waveMatch!!.range);multiplierMatch!=null ->unloaded.removeRange(multiplierMatch.range);else ->unloaded}
-        val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}.filter {it.isNotEmpty()}
-        val explicit=Regex("^\\d+\\s+[^0-9].*")
-        if(parts.size<2 || parts.withIndex().any {(i,part) -> !(i==0 && validWave!=null) && !explicit.matches(part)} ||
+        val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}
+        val explicit=Regex("^(\\d+)\\s+[^0-9].*")
+        if(parts.size<2 || parts.any {it.isEmpty()} || parts.withIndex().any {(i,part) ->
+                !(i==0 && validWave!=null) && explicit.matchEntire(part)?.groupValues?.get(1)?.toIntOrNull()?.let {it in 1..100000} != true
+            } ||
             unloaded.contains('/') || unloaded.contains('@') || unloaded.contains('#') ||
             Regex("\\b(?:kg|kgs|lb|lbs)\\b",RegexOption.IGNORE_CASE).containsMatchIn(unloaded) ||
             Regex("^\\d+\\s*[-–]").containsMatchIn(body)) return listOf(movement(raw,aliases))

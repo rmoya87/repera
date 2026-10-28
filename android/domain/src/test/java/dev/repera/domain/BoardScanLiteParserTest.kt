@@ -570,4 +570,10 @@ class BoardScanLiteParserTest {
             assertEquals(at,1,block.movements.size)
         }
     }
+    @Test fun emptyComplexPartsAndUnboundedQuantitiesRemainReview() {
+        for(line in listOf("1 PUSH PRESS ++ 2 AIR SQUAT","+ 1 PUSH PRESS + 2 AIR SQUAT","1 PUSH PRESS + 2 AIR SQUAT +","0 PUSH PRESS + 2 AIR SQUAT","100001 PUSH PRESS + 2 AIR SQUAT","1 PUSH PRESS + 999999999999 AIR SQUAT")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
+            assertEquals(line,1,block.movements.size)
+        }
+    }
 }

@@ -657,3 +657,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -322 bateria completa mobile677/163XML64/77/59/59s,domain516/93XML54s,Wear8/1XML+ambosassemble49s verdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo bloque parcial323: @numero entero/decimal al final del complejo pasa como nota literal compartida, no peso ni reps ni plannedSets, siguiendo BoardImportParser665-668. No etiqueta arbitraria RPE. Subconjunto acotado al sufijo; token con kg/exponente/signo/decimal malformado y RPEdecimal siguen sin dividir para review.
 -2tests nuevos,dominio518/93XML55s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear323 pendientes;735/70sin cierres,default3x8 no inferido,nativo pendiente,no push.
+
+## Lector completo, limites de partes 02:26 28oct
+-323 bateria completa mobile677/163XML67/80/62/59s,domain518/93XML55s,Wear8/1XML+ambosassemble50s verdes0fallos/errores/omitidos. Backup323 recuperado desde65338db7,arbol747c01cc663b8732399e53e2dffb17267f99825a identico,clon limpio.
+- Hallazgo nuevo en subconjunto de complejos: filtro de partes vacias aceptaba '++' eliminando evidencia, y cantidad explicita sin cota podia perder reps por overflow. Regresion fallo antes de corregir con doble '+';324 conserva linea sin dividir ante parte vacia o cantidad fuera1..100000. No agrega cantidades inferidas.
+-1test nuevo de6casos;dominio519/93XML50s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear324 pendientes. Mismo lector parcial735/70sin cierres,no push,nativo pendiente.
