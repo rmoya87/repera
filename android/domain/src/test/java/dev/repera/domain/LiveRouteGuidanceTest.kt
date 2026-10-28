@@ -12,6 +12,26 @@ class LiveRouteGuidanceTest {
         assertTrue(cue.display.contains("derecha"));assertNotNull(cue.speech)
         assertNull(guide.update(route[2])!!.speech)
     }
+    @Test fun announcesWhenTurnBecomesVisibleThenOnceAgainNearTheTurn() {
+        val longRoute=(0..6).map { i -> p(40.0 + i * 0.0004,-3.0) } +
+            p(40.0024,-2.999)
+        val guide=LiveRouteGuidance(longRoute,LiveSport.WALKING)
+        assertEquals("Sigue el recorrido", guide.update(longRoute[0])!!.display)
+        assertNull(guide.update(longRoute[0])!!.speech)
+        val approach=guide.update(longRoute[1])!!
+        assertTrue(approach.display.contains("derecha"))
+        assertNotNull(approach.speech)
+        assertNull(guide.update(longRoute[1])!!.speech)
+        val near=guide.update(longRoute[5])!!
+        assertNotNull(near.speech)
+        assertNull(guide.update(longRoute[5])!!.speech)
+    }
+    @Test fun arrivingInitiallyNearTurnDoesNotEnqueueTwoMessages() {
+        val guide=LiveRouteGuidance(route,LiveSport.WALKING)
+        assertNotNull(guide.update(route[2])!!.speech)
+        assertNull(guide.update(route[2])!!.speech)
+        assertNull(guide.update(route[3])!!.speech)
+    }
     @Test fun offRouteProducesVisualWarningNotFalseTurnAndFinishedRouteContinues() {
         val guide=LiveRouteGuidance(route,LiveSport.RUNNING)
         val far=guide.update(p(41.0,-3.0))!!

@@ -976,6 +976,8 @@ final class LiveActivityRecorder: NSObject {
     private var selectedRouteDistance: [Double] = []
     private var selectedRouteTurns: [LiveRouteTurn] = []
     private var announcedTurnIndices: Set<Int> = []
+    /// Avisos de aproximación, una vez por giro; los avisos cercanos se controlan aparte.
+    private var announcedApproachTurnIndices: Set<Int> = []
     // Los avisos por voz son opt-out; las notificaciones de segundo plano
     // siguen dependiendo del permiso del usuario.
     private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
@@ -1172,6 +1174,7 @@ final class LiveActivityRecorder: NSObject {
             points, along: selectedRouteDistance
         )
         announcedTurnIndices = []
+        announcedApproachTurnIndices = []
         upcomingTurn = chosenRoute == nil ? nil : "Ruta cargada"
         upcomingTurnInstruction = nil
         upcomingTurnMeters = nil
@@ -1315,6 +1318,7 @@ final class LiveActivityRecorder: NSObject {
         lastKilometerBoundarySeconds = 0
         previousFixActiveSeconds = nil
         announcedTurnIndices = []
+        announcedApproachTurnIndices = []
         if let coordinate = currentCoordinate, chosenRoute != nil {
             updateUpcomingTurn(position: CLLocation(
                 latitude: coordinate.latitude, longitude: coordinate.longitude
@@ -1786,17 +1790,30 @@ final class LiveActivityRecorder: NSObject {
             followingTurnMeters = nil
             followingTurnSymbol = nil
         }
-        if remaining > 250 {
+        // El aviso hablado empieza cuando la instrucción pasa a ser
+        // accionable en el mapa. No depende de que la pantalla esté encendida.
+        let approachDistance = sport.isCycling ? 450.0 : 250.0
+        let nearDistance = sport.isCycling ? 120.0 : 70.0
+        if remaining > approachDistance {
             upcomingTurn = "Sigue el recorrido"
         } else {
             let meters = Int((remaining / 10).rounded() * 10)
             upcomingTurn = "\(next.instruction) aprox. en \(meters) m"
-            if phase == .recording,
-               remaining <= (sport.isCycling ? 120 : 70),
-               !announcedTurnIndices.contains(next.routeIndex) {
-                announcedTurnIndices.insert(next.routeIndex)
-                // La guía procede solo de la geometría GPX: no sustituye
-                // señalización ni navegación vial oficial.
+            // Dos momentos por giro como máximo: aproximación y cercanía.
+            // Si el primer fix ya está cerca, omitir el aviso de aproximación.
+            // El redibujado de SwiftUI y los fixes siguientes nunca relanzan voz.
+            let shouldAnnounceNear = remaining <= nearDistance
+                && !announcedTurnIndices.contains(next.routeIndex)
+            let shouldAnnounceApproach = remaining > nearDistance
+                && !announcedApproachTurnIndices.contains(next.routeIndex)
+            if phase == .recording && (shouldAnnounceNear || shouldAnnounceApproach) {
+                if shouldAnnounceNear {
+                    announcedTurnIndices.insert(next.routeIndex)
+                    announcedApproachTurnIndices.insert(next.routeIndex)
+                } else {
+                    announcedApproachTurnIndices.insert(next.routeIndex)
+                }
+                // La guía procede solo de geometría GPX, no sustituye señales viales.
                 let naturalDirection: String
                 if abs(next.angleDegrees) > 145 {
                     naturalDirection = "cambia de sentido"
@@ -1808,10 +1825,11 @@ final class LiveActivityRecorder: NSObject {
                     ? "Ahora, \(naturalDirection)."
                     : "En unos \(meters) metros, \(naturalDirection)."
                 let didSpeak = speakNavigation(spokenTurn)
-                // Los giros se notifican si la voz está desactivada o no pudo encolarse.
+                // La notificación es respaldo visual de fondo, nunca una
+                // segunda locución si el usuario tiene voz activada.
                 if !spokenGuidanceEnabled || !didSpeak {
                     notifyDuringBackground(
-                        identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex)",
+                        identifier: "repera.turn.\(startedAt?.timeIntervalSince1970 ?? 0).\(next.routeIndex).\(shouldAnnounceNear ? "near" : "approach")",
                         title: "Giro orientativo del GPX",
                         body: upcomingTurn ?? next.instruction
                     )
