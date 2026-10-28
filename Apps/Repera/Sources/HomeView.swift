@@ -421,6 +421,11 @@ struct HomeView: View {
                 if let day {
                     lastAppliedFocusDay = day
                     selectedDay = calendar.startOfDay(for: day)
+                    // Al volver de la hoja Crear puede seguir visible el
+                    // Home anterior. Forzar el nuevo registro y el punto
+                    // del calendario sin esperar una nueva aparición de la tab.
+                    rebuildDayBuckets()
+                    rebuildWeekChrome()
                 }
             }
             .onChange(of: selectedDay) { _, newDay in
