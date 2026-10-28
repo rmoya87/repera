@@ -1752,6 +1752,78 @@ struct DayEditorView: View {
     }
 }
 
+/// El editor WOD inserta las series dentro de una única fila de Form.
+/// Cada fila posee su propio desplazamiento limitado y UNA sola papelera.
+/// No utilizar .swipeActions aquí: afecta a la fila contenedora completa.
+private struct InlineSetSwipeDeleteRow<Content: View>: View {
+    let canDelete: Bool
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var isRevealed = false
+    @State private var activeDrag: CGFloat = 0
+    private let revealWidth: CGFloat = 72
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if canDelete {
+                Button {
+                    withAnimation(.smooth(duration: 0.2)) {
+                        isRevealed = false
+                        activeDrag = 0
+                    }
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(OG.red))
+                        .frame(width: revealWidth, alignment: .trailing)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Eliminar serie")
+            }
+
+            content()
+                .frame(maxWidth: .infinity)
+                .background(OG.surface)
+                .offset(x: canDelete ? max(-revealWidth, min(0,
+                    (isRevealed ? -revealWidth : 0) + activeDrag
+                )) : 0)
+        }
+        .contentShape(Rectangle())
+        .clipped()
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 18)
+                .onChanged { value in
+                    guard canDelete,
+                          abs(value.translation.width) > abs(value.translation.height) * 1.25
+                    else { return }
+                    activeDrag = value.translation.width
+                }
+                .onEnded { value in
+                    guard canDelete else { return }
+                    let projected = (isRevealed ? -revealWidth : 0)
+                        + value.predictedEndTranslation.width
+                    withAnimation(.smooth(duration: 0.22)) {
+                        isRevealed = projected < -revealWidth * 0.4
+                        activeDrag = 0
+                    }
+                }
+        )
+        .onChange(of: canDelete) { _, allowed in
+            if !allowed {
+                isRevealed = false
+                activeDrag = 0
+            }
+        }
+        .accessibilityAction(named: "Eliminar serie") {
+            if canDelete { onDelete() }
+        }
+    }
+}
+
 // MARK: - Inline WOD sets (en la página de crear/editar entreno)
 
 /// Controles de series WOD embebidos (mismo comportamiento que `WODMovementEditor`).
@@ -1834,14 +1906,22 @@ private struct InlineWODMovementSets: View {
                 showsRIR: loggingStyle.usesRIR
             )
             ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
-                setRow(index: index)
-                    .contextMenu {
-                        if draftSets.count > 1 {
-                            Button("Eliminar serie", role: .destructive) {
-                                removeSet(at: index)
-                            }
+                // Aquí las series viven dentro de una sola fila del Form.
+                // .swipeActions no llega a cada serie: un reveal propio por
+                // UUID impide que aparezcan varias papeleras a la vez.
+                InlineSetSwipeDeleteRow(
+                    canDelete: draftSets.count > 1,
+                    onDelete: { removeSet(at: index) }
+                ) {
+                    setRow(index: index)
+                }
+                .contextMenu {
+                    if draftSets.count > 1 {
+                        Button("Eliminar serie", role: .destructive) {
+                            removeSet(at: index)
                         }
                     }
+                }
             }
             Button {
                 addSet()
