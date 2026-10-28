@@ -1002,6 +1002,33 @@ struct WorkoutView: View {
         }
     }
 
+    private func insertPlayRest(after blockID: UUID) {
+        mutatePlayRoutine { draft in
+            guard let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+            let rest = WODMovement(name: "REST", isRest: true, restSeconds: 60)
+            if draft.blocks[index].kind == .wod {
+                draft.blocks[index].movements.append(rest)
+            } else {
+                draft.blocks.insert(
+                    RoutineBlock(title: "Descanso", kind: .wod, movements: [rest]),
+                    at: index + 1
+                )
+            }
+        }
+    }
+
+    private func beginPlayFreeMovement(after blockID: UUID) {
+        guard let draft = routineForEditing(),
+              let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        if draft.blocks[index].kind == .wod {
+            createFreeMovementForBlock = blockID
+        } else {
+            let newBlock = RoutineBlock(title: "Movimiento libre", kind: .wod)
+            mutatePlayRoutine { $0.blocks.insert(newBlock, at: index + 1) }
+            createFreeMovementForBlock = newBlock.id
+        }
+    }
+
     /// Play comparte los controles de bloques/ejercicios y series del editor,
     /// añadiendo el reloj de cada bloque y el registro real de resultados.
     private struct WorkoutBlockEntry: Identifiable {
@@ -1196,24 +1223,11 @@ struct WorkoutView: View {
                         .listRowBackground(OG.surface)
                     }
 
-                    if session.routineBlocks?.first(where: { $0.id == block.id })?.kind == .wod {
-                        WorkoutWODInsertActions(
-                            onExercise: { addPlayExerciseToBlock = block.id },
-                            onRest: {
-                                mutatePlayRoutine { draft in
-                                    guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
-                                    draft.blocks[index].movements.append(
-                                        WODMovement(name: "REST", isRest: true, restSeconds: 60)
-                                    )
-                                }
-                            },
-                            onFreeMovement: { createFreeMovementForBlock = block.id }
-                        )
-                    } else {
-                        WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus.circle.fill") {
-                            addPlayExerciseToBlock = block.id
-                        }
-                    }
+                    WorkoutWODInsertActions(
+                        onExercise: { addPlayExerciseToBlock = block.id },
+                        onRest: { insertPlayRest(after: block.id) },
+                        onFreeMovement: { beginPlayFreeMovement(after: block.id) }
+                    )
                 } header: {
                     HStack(spacing: 6) {
                         Text("Bloque")
@@ -1571,14 +1585,9 @@ struct WorkoutView: View {
                 }
             }
 
-            Button {
+            WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
                 addLiveSet(from: current)
-            } label: {
-                Label("Añadir serie", systemImage: "plus")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
             }
-            .buttonStyle(.plain)
             .padding(.top, 4)
         }
         .padding(.vertical, 8)
@@ -3431,7 +3440,7 @@ private struct PlayEditableSetsView: View {
                     rowEditor(index: index, row: row)
                 }
             }
-            Button {
+            WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
                 guard rows.count < 20 else { return }
                 let last = rows.last
                 rows.append(Row(
@@ -3440,12 +3449,7 @@ private struct PlayEditableSetsView: View {
                     rir: last?.rir
                 ))
                 persist()
-            } label: {
-                Label("Añadir serie", systemImage: "plus")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
             }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 6)
         .onAppear(perform: seedIfNeeded)
