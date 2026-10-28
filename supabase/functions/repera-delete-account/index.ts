@@ -16,16 +16,16 @@ const respond = (status: number, data: Record<string, unknown>) =>
 
 // Deleting a professional owner without transferring their business would
 // break other athletes' bookings/payments. Refuse rather than cascade those.
-const businessBlockers = [
-  ["organizations", "created_by"],
-  ["clients", "created_by"],
-  ["organization_invitations", "invited_by"],
-  ["service_passes", "issued_by"],
-  ["organization_memberships", "user_id", "owner"],
-] as const;
+const businessBlockers: Array<{ table: string; column: string; ownerRole?: string }> = [
+  { table: "organizations", column: "created_by" },
+  { table: "clients", column: "created_by" },
+  { table: "organization_invitations", column: "invited_by" },
+  { table: "service_passes", column: "issued_by" },
+  { table: "organization_memberships", column: "user_id", ownerRole: "owner" },
+];
 
 async function businessResponsibilities(userID: string): Promise<boolean> {
-  for (const [table, column, ownerRole] of businessBlockers) {
+  for (const { table, column, ownerRole } of businessBlockers) {
     let query = admin.from(table).select("*", { count: "exact", head: true }).eq(column, userID);
     if (ownerRole) query = query.eq("role", ownerRole);
     const { count, error } = await query;
@@ -37,7 +37,7 @@ async function businessResponsibilities(userID: string): Promise<boolean> {
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return respond(405, { error: "Método no permitido" });
-  const bearer = /^Bearer ([\\w.-]+)$/.exec(req.headers.get("authorization") ?? "");
+  const bearer = /^Bearer ([\w.-]+)$/.exec(req.headers.get("authorization") ?? "");
   if (!bearer) return respond(401, { error: "Inicia sesión antes de eliminar la cuenta." });
   const { data: { user }, error } = await admin.auth.getUser(bearer[1]);
   if (error || !user) return respond(401, { error: "Sesión no válida." });
