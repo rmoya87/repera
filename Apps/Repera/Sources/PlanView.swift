@@ -265,6 +265,11 @@ struct DayEditorView: View {
                         completedScoreEditor(for: block)
                     }
                     .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        OGSwipeDeleteButton(accessibilityLabel: "Eliminar bloque") {
+                            routine.blocks.removeAll { $0.id == block.id }
+                        }
+                    }
                     if block.kind == .strength {
                         if isEditingCompletedWorkout,
                            let format = block.wodFormat,
