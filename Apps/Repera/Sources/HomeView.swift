@@ -1678,7 +1678,7 @@ struct HomeView: View {
         return "\(set.reps)×\(w)"
     }
 
-    /// Como openGym: la racha abre el calendario/historial de entrenos (no Stats).
+    /// La tarjeta de racha abre el historial unificado de entrenamientos.
     private var streakCard: some View {
         NavigationLink {
             HistoryView()
@@ -1911,7 +1911,7 @@ struct HomeView: View {
         return "\(weekDone) esta semana · \(total) entrenos en total"
     }
 
-    /// Semanas consecutivas con al menos un entreno (Repera o Salud), como openGym `streakWeeks`.
+    /// Semanas consecutivas con al menos un entreno registrado en Repera o Salud.
     private func consecutiveWeekStreak() -> Int {
         var weekCal = calendar
         weekCal.firstWeekday = store.state.settings.weekStartsOn == .monday ? 2 : 1
