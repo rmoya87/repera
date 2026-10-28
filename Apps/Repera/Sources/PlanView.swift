@@ -554,6 +554,13 @@ struct DayEditorView: View {
             }
         } header: {
             Text(block.title)
+                .dropDestination(for: String.self) { tokens, _ in
+                    guard let token = tokens.first else { return false }
+                    withAnimation(.smooth) {
+                        applyReorder(token, into: block.id, before: nil)
+                    }
+                    return true
+                }
         }
     }
 
@@ -599,6 +606,14 @@ struct DayEditorView: View {
         }
         .padding(.vertical, 4)
         .listRowBackground(OG.surface)
+        .draggable("\(type):\(blockID.uuidString):\(itemID.uuidString)")
+        .dropDestination(for: String.self) { tokens, _ in
+            guard let token = tokens.first else { return false }
+            withAnimation(.smooth) {
+                applyReorder(token, into: blockID, before: itemID)
+            }
+            return true
+        }
     }
 
     private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool, isRest: Bool = false) -> some View {
