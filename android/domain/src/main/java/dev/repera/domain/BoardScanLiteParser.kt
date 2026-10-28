@@ -500,7 +500,7 @@ object BoardScanLiteParser {
     /** Bounded Full-parser complex subset: trailing explicit kg pair belongs only
      * to the first part. Multiplier is a note, never inferred reps/sets. */
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
-        val loadSuffix=Regex("(?<![0-9.,-])#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(raw)
+        val loadSuffix=Regex("(?<!\\S)#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(raw)?.takeUnless {raw.substring(0,it.range.first).trimEnd().endsWith("-") || raw.substring(0,it.range.first).trimEnd().endsWith("–")}
         val parentLoad=loadSuffix?.let {CrossFitGlossary.parseMaleFemaleWeights(it.value)?.takeIf {pair ->pair.first.isFinite() && pair.second.isFinite() && pair.second>0}}
         val unloaded=if(parentLoad!=null) raw.removeRange(loadSuffix!!.range).trim() else raw
         val waveMatch=Regex("^(\\d+(?:\\s*[-–]\\s*\\d+)+)\\s+").find(unloaded)

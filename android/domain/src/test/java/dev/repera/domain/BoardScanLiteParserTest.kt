@@ -497,4 +497,10 @@ class BoardScanLiteParserTest {
         assertEquals(2,block.movements[1].reps)
         assertTrue(block.movements.all {it.notes!!.contains("Complejo ×3")})
     }
+    @Test fun malformedOrNonPositiveParentKgPairNeverSplitsComplex() {
+        for(load in listOf("-25/40kg","- 25/40kg","25/-40kg","0/40kg","25..5/40kg","1e3/40kg")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 2 AIR SQUAT "+load,catalog=catalog).blocks.single()
+            assertEquals(load,1,block.movements.size)
+        }
+    }
 }

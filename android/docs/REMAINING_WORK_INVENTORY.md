@@ -627,3 +627,9 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -1testdominio+1wire nuevos;domaincompleto509/93XMLverde26s0fallo/error/
  omitidos;wiremobile6/1XMLverde55s. Carga50/35kg solo primerJSON,nosegundo.
 - Mobilecompleta/Wear317+assemblependientes.735/70nativopendiente,nopush.
+
+## Lector completo, limites de sufijo kg 01:44 28oct
+- Continuidad: full317 mobile676/163XML,domain509/93XML,Wear8/1XML y ambos assemble verdes. No cierre funcional ni nativo.
+- Hallazgo nuevo en el subconjunto317: un signo negativo separado (- 25/40kg) o exponente (1e3/40kg) podia reconocer una cola positiva y separar indebidamente. Prueba de regresion fallo con negativo separado antes de corregir.
+-318 exige frontera de token y rechaza signo negativo separado antes del par; valores cero, negativos y decimales malformados quedan en review sin dividir. No cambia la interpretacion de cargas validas.
+- Bateria dominio completa realmente ejecutada510/93XML,47s,0fallos/errores/omitidos. Mobile/Wear318 pendientes; matrices735/70 sin cierres. Lector completo sigue parcial; no push.
