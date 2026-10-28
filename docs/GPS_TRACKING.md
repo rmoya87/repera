@@ -65,6 +65,14 @@ Evitar dos desarrollos paralelos: `Comenzar` (sesión libre) y `Play` (entrenami
 - Ni la actividad en directo ni la app garantizan reconstrucción de rutas en periodos sin callbacks. Si el usuario fuerza el cierre o iOS termina el proceso pueden perderse puntos y la continuidad de la ruta.
 - Las voces internas de Siri no se exponen directamente a apps de terceros: las indicaciones utilizan voces españolas disponibles mediante `AVSpeechSynthesizer`.
 
+## Flecha en Comenzar y voz al bloquear (28/10/2026)
+
+- El marcador **Tú** muestra una flecha antes de iniciar, durante y al finalizar la grabación. Cuando hay rumbo GPS fiable se usa ese dato; si aún no se está avanzando, se utiliza el rumbo de brújula del único `WorkoutLocationTracker`. Sin orientación válida se atenúa la flecha. La vista previa no inicia una ruta ni crea otro propietario del GPS.
+- La brújula se activa únicamente con el mapa de Comenzar visible, y se detiene al abandonar la vista o bloquear el teléfono. El registro de distancia y las sesiones GPS en segundo plano no se detienen por este motivo.
+- `AVSpeechSynthesizer` usa expresamente la sesión de reproducción de Repera: categoría `.playback`, modo `.spokenAudio`, `.duckOthers` y `.interruptSpokenAudioAndMixWithOthers`, según las recomendaciones de Apple para indicaciones ocasionales. La música de otras aplicaciones reduce temporalmente su volumen mientras suena la locución, recuperándolo al desactivarse la sesión.
+- Kilómetros y giros se anuncian desde el grabador que recibe Core Location, nunca desde el redibujado de la pantalla. Las mismas notificaciones de recorrido funcionan en primer plano y con bloqueo si iOS sigue entregando datos y audio. El ajuste de voz se respeta en ambos estados.
+- **Validación pendiente:** comprobar voz efectiva en iPhone físico, con pantalla bloqueada/desbloqueada, música/podcast, AirPods/Bluetooth y posibles interrupciones de sistema. Las pruebas de código no certifican reproducción real del hardware.
+
 ## Avisos de kilómetro y audio en segundo plano (27/10/2026)
 
 - **Comenzar → actividades con GPS:** al superar cada kilómetro GPS aceptado se calcula el tiempo activo exacto del tramo interpolando la muestra del cruce, sin contar pausas. La locución anuncia el número de kilómetro, su tiempo y velocidad media en km/h, **también para Caminata y Senderismo**; desde el km 2 añade velocidad media acumulada hasta ese punto. Los números se leen en español. No se inventa frecuencia cardíaca ni calorías no medidas.
