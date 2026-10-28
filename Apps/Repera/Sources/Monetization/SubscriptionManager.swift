@@ -173,8 +173,13 @@ final class SubscriptionManager {
                 let storeKit = StoreKitEntitlementProvider()
                 let fallback = try await storeKit.offerings()
                 if !fallback.packages.isEmpty {
-                    provider = storeKit
-                    applySnapshot(await storeKit.refresh())
+                    // Abrir el catálogo NO puede revocar un derecho Pro
+                    // previamente comprobado. Un proveedor puede reconocer una
+                    // suscripción mientras el otro no tiene el mismo contexto.
+                    if !snapshot.grantsProAccess {
+                        provider = storeKit
+                        applySnapshot(await storeKit.refresh())
+                    }
                     loaded = fallback
                 }
             }
@@ -184,7 +189,7 @@ final class SubscriptionManager {
             do {
                 let storeKit = StoreKitEntitlementProvider()
                 offerings = try await storeKit.offerings()
-                if !offerings.packages.isEmpty {
+                if !offerings.packages.isEmpty, !snapshot.grantsProAccess {
                     provider = storeKit
                     applySnapshot(await storeKit.refresh())
                 }
