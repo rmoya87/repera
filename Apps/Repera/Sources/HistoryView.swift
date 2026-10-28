@@ -294,6 +294,13 @@ struct WorkoutDetailView: View {
 
     var sessionId: UUID
 
+    /// Preload the selected workout before SwiftUI begins the navigation
+    /// animation. Callers without a snapshot keep the existing lazy fallback.
+    init(sessionId: UUID, initialSession: WorkoutSession? = nil) {
+        self.sessionId = sessionId
+        _draft = State(initialValue: initialSession)
+    }
+
     @State private var draft: WorkoutSession?
     @State private var didHydrateDetail = false
     @State private var isEditing = false
@@ -358,8 +365,14 @@ struct WorkoutDetailView: View {
             // large MainActor work and unnecessary disk/iCloud writes.
             loadDraft()
             guard let session = draft else { return }
-            // Let the first historical card paint before optional HK queries.
-            await Task.yield()
+            // A push animation needs a stable, already populated tree.
+            // Defer store mutations, review calculations and HealthKit work
+            // until after the navigation transition, not merely one yield.
+            do {
+                try await Task.sleep(for: .milliseconds(400))
+            } catch {
+                return
+            }
             guard !Task.isCancelled else { return }
             if session.timerDetails != nil {
                 // Un cronómetro no es una sesión HealthKit: no buscar por
