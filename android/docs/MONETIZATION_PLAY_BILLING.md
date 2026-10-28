@@ -127,9 +127,13 @@ verificación pendiente; la caché offline solo usa snapshots ya verificados.
   coincidirá y el verify **sigue** pudiendo restaurar Pro.
 - Tabla privada `play_subscription_purchases` + RPC `claim_play_subscription`
   (solo `service_role`): hash de token, anti-hijack entre owners **vivos**,
-  supersede por `linkedPurchaseToken`. `owner_id … ON DELETE SET NULL` deja la
-  fila huérfana al borrar Auth; el claim **reclaim** al nuevo UUID cuando el
-  mismo `purchaseToken` de Play se presenta de nuevo (análogo StoreKit ↔ Apple ID).
+  supersede por `linkedPurchaseToken` **solo** en reemplazo completado
+  (ACTIVE/CANCELED/gracia/hold/paused/expired). En
+  `PENDING_PURCHASE_CANCELED` (y PENDING) se **consulta** el token enlazado y
+  no se invalida la compra previa todavía pagada. `owner_id … ON DELETE SET NULL`
+  deja la fila huérfana al borrar Auth; el claim **reclaim** al nuevo UUID
+  cuando el mismo `purchaseToken` de Play se presenta de nuevo (análogo
+  StoreKit ↔ Apple ID).
 - Eliminar cuenta **no** cancela la suscripción Play (copy UI + Edge
   `repera-delete-account`). Pro se recupera con queryPurchases + verify/restore.
 - Migración y Edge: código listo; **no** aplicar/desplegar desde este PR sin

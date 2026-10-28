@@ -1,5 +1,11 @@
 import {ANNUAL, MONTHLY, mapSubscription, sha256, grantsPro} from "./policy.ts";
-import {OwnershipError, verifySubscription, type VerificationDependencies} from "./verification.ts";
+import {
+  OwnershipError,
+  maySupersedeLinkedPurchase,
+  shouldConsultLinkedPurchase,
+  verifySubscription,
+  type VerificationDependencies,
+} from "./verification.ts";
 function assert(value: unknown, message = "assertion failed"): asserts value {
   if (!value) throw new Error(message);
 }
@@ -68,10 +74,54 @@ Deno.test("ownership conflict and superseded token reject without acknowledgemen
   let rejected=false;try{await verifySubscription(owner,"token",f.deps,now);}catch(e){rejected=e instanceof OwnershipError;}
   assert(rejected && f.acks.length===0);
 });
-Deno.test("linked purchase hash reaches atomic claim",async()=>{
+Deno.test("completed replacement passes linked hash to atomic claim",async()=>{
   const f=await fixtures();f.deps.getSubscription=async()=>({...f.sub,linkedPurchaseToken:"old"});
   await verifySubscription(owner,"new",f.deps,now);
   assert((f.claims[0] as {linkedHash:string}).linkedHash===await sha256("old"));
+  assert(maySupersedeLinkedPurchase("SUBSCRIPTION_STATE_ACTIVE"));
+  assert(!maySupersedeLinkedPurchase("SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED"));
+  assert(shouldConsultLinkedPurchase("SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED"));
+});
+Deno.test("PENDING_PURCHASE_CANCELED consults linked prior and never supersedes it", async () => {
+  const prior = {...base, acknowledgementState: "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"};
+  const canceled = {
+    ...base,
+    subscriptionState: "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED",
+    linkedPurchaseToken: "prior-active",
+    acknowledgementState: "ACKNOWLEDGEMENT_STATE_PENDING",
+  };
+  const claims: unknown[] = [];
+  const acks: unknown[] = [];
+  const deps: VerificationDependencies = {
+    getSubscription: async (token) => token === "canceled-attempt" ? canceled : token === "prior-active" ? prior : null,
+    claim: async (record) => { claims.push(record); return true; },
+    acknowledge: async (token, product) => { acks.push({token, product}); },
+  };
+  const result = await verifySubscription(owner, "canceled-attempt", deps, now);
+  assert(result.status === "proMonthly" && result.acknowledged);
+  assert(result.playState === "SUBSCRIPTION_STATE_ACTIVE");
+  assert(claims.length === 1);
+  assert((claims[0] as {tokenHash: string}).tokenHash === await sha256("prior-active"));
+  assert((claims[0] as {linkedHash: string | null}).linkedHash === null);
+  assert(acks.length === 0);
+});
+Deno.test("PENDING with linked also follows prior without superseding", async () => {
+  const prior = {...base, acknowledgementState: "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"};
+  const pending = {
+    ...base,
+    subscriptionState: "SUBSCRIPTION_STATE_PENDING",
+    linkedPurchaseToken: "prior-active",
+  };
+  const claims: unknown[] = [];
+  const deps: VerificationDependencies = {
+    getSubscription: async (token) => token === "upgrade-pending" ? pending : prior,
+    claim: async (record) => { claims.push(record); return true; },
+    acknowledge: async () => {},
+  };
+  const result = await verifySubscription(owner, "upgrade-pending", deps, now);
+  assert(result.status === "proMonthly");
+  assert(claims.length === 1);
+  assert((claims[0] as {linkedHash: string | null}).linkedHash === null);
 });
 Deno.test("ack failure fails closed and next verification retries",async()=>{
   const f=await fixtures();let calls=0;
