@@ -183,6 +183,10 @@ final class WorkoutClockCoordinator {
             syncFromWallClock()
             if isRunning { scheduleFeedback() }
         }
+        if hasStarted {
+            if isRunning { publishLiveAndAlerts() }
+            else { publishPausedLiveTimer() }
+        }
     }
 
     /// Guardado local de fechas absolutas; no reinicia a cero tras el cierre.
@@ -458,6 +462,7 @@ final class WorkoutClockCoordinator {
             }
             checkpoint()
             scheduleFeedback()
+            publishLiveAndAlerts()
         } else {
             finishComplete()
         }
@@ -482,6 +487,8 @@ final class WorkoutClockCoordinator {
             pausedPreCountdownRemaining = max(0.01, preCountdownEnd.timeIntervalSinceNow)
             self.preCountdownEnd = nil
             // No mezclar los segundos de preinicio con la fase del WOD.
+            TimerBoundaryNotifier.cancel(.workout)
+            publishPausedLiveTimer()
             checkpoint()
             return
         }
@@ -492,6 +499,8 @@ final class WorkoutClockCoordinator {
             pausedRemaining = max(0, phaseEndDate.timeIntervalSinceNow)
             self.phaseEndDate = nil
         }
+        TimerBoundaryNotifier.cancel(.workout)
+        publishPausedLiveTimer()
         checkpoint()
     }
 
@@ -508,6 +517,7 @@ final class WorkoutClockCoordinator {
             countUpAnchor = now.addingTimeInterval(-pausedCountUpElapsed)
             checkpoint()
             scheduleFeedback()
+            publishLiveAndAlerts()
             return
         }
         if pausedRemaining > 0 {
@@ -518,10 +528,13 @@ final class WorkoutClockCoordinator {
             beginWorkPhase(from: now)
         }
         checkpoint()
+        publishLiveAndAlerts()
     }
 
     func stop(keepVisible: Bool = false) {
         cancelFeedback()
+        TimerBoundaryNotifier.cancel(.workout)
+        TimerLiveActivityCoordinator.shared.end(.workout)
         UserDefaults.standard.removeObject(forKey: checkpointKey)
         boundSessionID = nil
         restoredBlockID = nil
@@ -563,6 +576,7 @@ final class WorkoutClockCoordinator {
         preCountdownEnd = Date().addingTimeInterval(TimeInterval(seconds))
         checkpoint()
         scheduleFeedback()
+        publishLiveAndAlerts()
     }
 
     private func beginWorkPhase(from now: Date) {
@@ -570,11 +584,13 @@ final class WorkoutClockCoordinator {
             countUpAnchor = now.addingTimeInterval(-pausedCountUpElapsed)
             checkpoint()
             scheduleFeedback()
+            publishLiveAndAlerts()
             return
         }
         armCurrentInterval(from: now)
         checkpoint()
         scheduleFeedback()
+        publishLiveAndAlerts()
     }
 
     private func armCurrentInterval(from now: Date) {
@@ -610,6 +626,8 @@ final class WorkoutClockCoordinator {
 
     private func finishComplete() {
         cancelFeedback()
+        TimerBoundaryNotifier.cancel(.workout)
+        TimerLiveActivityCoordinator.shared.end(.workout)
         isRunning = false
         phaseEndDate = nil
         pausedRemaining = 0
@@ -621,6 +639,85 @@ final class WorkoutClockCoordinator {
         RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
         isVisible = false
         TimerScreenAwake.setRunning(false, for: .workout)
+    }
+
+
+    /// Publish only on phase changes. The lock-screen view uses ActivityKit
+    /// system timer text, not a one-second series of host-app updates.
+    private func publishLiveAndAlerts() {
+        guard isRunning, hasStarted else { return }
+        let now = Date()
+        let name = title.isEmpty ? "Temporizador" : title
+        let pre = max(0, preCountdownEnd?.timeIntervalSince(now) ?? 0)
+        if let preCountdownEnd {
+            TimerLiveActivityCoordinator.shared.countdown(
+                .workout, endDate: preCountdownEnd,
+                totalSeconds: max(1, Int(ceil(pre))), title: name
+            )
+        } else if isCountingUp, let anchor = countUpAnchor {
+            TimerLiveActivityCoordinator.shared.countUp(
+                .workout, anchor: anchor, title: name
+            )
+        } else if let phaseEndDate {
+            TimerLiveActivityCoordinator.shared.countdown(
+                .workout, endDate: phaseEndDate,
+                totalSeconds: max(1, Int(ceil(phaseEndDate.timeIntervalSince(now)))),
+                title: name
+            )
+        }
+        var boundaries: [TimerBoundaryNotifier.Boundary] = []
+        if pre > 0.5 {
+            boundaries.append(.init(afterSeconds: pre, title: "Comienza el entrenamiento"))
+        }
+        if isCountingUp {
+            if let cap = countUpCapSeconds, !didNotifyCountUpCap {
+                let elapsed = countUpAnchor.map { now.timeIntervalSince($0) }
+                    ?? pausedCountUpElapsed
+                let remaining = max(0, TimeInterval(cap) - elapsed)
+                boundaries.append(.init(
+                    afterSeconds: pre + remaining, title: "Tiempo límite alcanzado"
+                ))
+            }
+        } else if isIntervalMode, !phaseDurations.isEmpty {
+            var elapsed = pre
+            for index in intervalIndex..<phaseDurations.count {
+                let length = index == intervalIndex && preCountdownEnd == nil
+                    ? max(0, phaseEndDate?.timeIntervalSince(now) ?? TimeInterval(intervalLength))
+                    : TimeInterval(phaseDurations[index])
+                elapsed += length
+                let isLast = index == phaseDurations.count - 1
+                let isRest = phaseSubtitles.indices.contains(index)
+                    && phaseSubtitles[index].localizedCaseInsensitiveContains("descanso")
+                boundaries.append(.init(
+                    afterSeconds: elapsed,
+                    title: isLast ? "Temporizador finalizado"
+                        : (isRest ? "Descanso finalizado" : "Serie finalizada")
+                ))
+            }
+        } else {
+            let remaining = preCountdownEnd != nil
+                ? TimeInterval(configuredCapSeconds)
+                : max(0, phaseEndDate?.timeIntervalSince(now) ?? pausedRemaining)
+            boundaries.append(.init(
+                afterSeconds: pre + remaining, title: "Temporizador finalizado"
+            ))
+        }
+        TimerBoundaryNotifier.schedule(.workout, boundaries: boundaries)
+    }
+
+    private func publishPausedLiveTimer() {
+        guard hasStarted else { return }
+        let value: Int
+        if let pausedPreCountdownRemaining {
+            value = Int(ceil(pausedPreCountdownRemaining))
+        } else if isCountingUp {
+            value = Int(pausedCountUpElapsed)
+        } else {
+            value = Int(ceil(pausedRemaining))
+        }
+        TimerLiveActivityCoordinator.shared.pause(
+            .workout, value: max(0, value), title: title
+        )
     }
 
     private func scheduleFeedback() {
