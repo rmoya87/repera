@@ -322,6 +322,7 @@ internal fun HomeTab(
                     } else {
                         ActiveWorkoutCard(
                             effortUnit=overview?.trainingSettings?.effortUnit ?: "rir",
+                            weightUnit=overview?.trainingSettings?.weightUnit ?: "kg",
                             active = activeWorkout,
                             busy = busy,
                             onLogSet = onLogSet,

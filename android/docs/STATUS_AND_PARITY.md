@@ -1,25 +1,29 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
-Referencia Apple: `b8f45fa50feb44e06bd09d73f37e0e257bc97a09` (23/10/2026); merge de paridad Android `e43e52b`.
+Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-La implementación Android **todavía no es completa**. La rama no altera Swift, iCloud, Xcode ni Supabase.
+**Última actualización:** 2026-10-28 — sync main (kg/lb, `timerDetails`, última config temporizador, racha por días, badge Google).
+
+La implementación Android **todavía no es completa**. La rama no altera Swift, iCloud ni Xcode; Edge `repera-play-billing-verify` está en repo sin secretos de producción.
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
-| Cuenta Google | Inicio Credential Manager, cierre de sesión | Se necesita client ID OAuth y pruebas reales |
-| Google Drive personal | Carpeta appDataFolder, permiso separado, control de conflictos y backups | Pendientes E2E y revisión multi-dispositivo |
-| Importar/exportar | Selector nativo SAF JSON y exportación segura del estado local | La importación no fusiona un estado existente |
-| Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe basada en 186 aliases Swift | Faltan filtros avanzados y fichas |
-| Ejecutar fuerza existente | Crea sesiones reales de bloques fuerza y aumenta syncRevision | No inicia automáticamente bloques WOD |
-| Registro de series | Fuerza y cardio local con calorías, metros, reps y duración, corrección y borrado | Técnicas avanzadas y flujo completo de timers pendientes |
-| Reanudar sesión | Desde JSON `activeSession`, incluso tras recreación de Activity | La sesión se gestiona actualmente en el teléfono |
-| Finalizar | Archiva la sesión sin duplicarla y limpia estado activo | Falta reconciliación con Health Connect |
-| WOD | 14 formatos, resultados y matemáticas de reloj AMRAP/EMOM/For Time/Tabata/Circuito | Falta motor de ejecución y editor de bloques |
-| Watch | Wear Material 3, lectura Data Layer, cola offline de sets de fuerza con ACK idempotente | Faltan Wear WOD, Health Services, E2E físico y sincronización de fondo |
-| Actividad/Salud | Lectura Inicio + escritura sesión HC + anti-duplicado; UI permiso vs vacío | E2E HC en dispositivo |
-| Business | No habilitado | OAuth Google verificado por servidor, RLS y planes |
-| Compras Pro | Cliente Play + verify Edge cableados; Pro solo tras backend SA | Secretos Play SA + productos Console (Ramón) |
-| OCR pizarra | ML Kit + lite parser + preprocess lienzo oscuro | QA cámara/dispositivo físico |
+| Cuenta Google | Credential Manager + badge identidad en Ajustes; cierre de sesión | E2E OAuth; **borrar cuenta definitiva** aún no en app (solo iOS) |
+| Google Drive personal | appDataFolder + If-Match/headRevisionId | E2E multi-dispositivo |
+| Importar/exportar | SAF JSON + CSV Strong/Hevy con columna `weight_lbs` → kg | Import JSON no fusiona estado existente |
+| kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | Wear/editores WOD finos parciales |
+| Temporizador libre | Última config, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |
+| Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe | Filtros avanzados / fichas |
+| Ejecutar fuerza existente | Sesiones reales fuerza + WOD | — |
+| Registro de series | Fuerza/cardio + RIR/RPE + kg/lb | Técnicas/UX fina vs iOS |
+| Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
+| Finalizar | Archiva sin duplicar | HC E2E |
+| WOD | 14 formatos + relojes | Editores/fidelidad landscape |
+| Watch | Wear plan hoy TTL + series fuerza ACK | WOD autónomo / Health Services / físico |
+| Actividad/Salud | Lectura Inicio + escritura HC + UI permiso/vacío | E2E HC |
+| Business / Center | Parcial | E2E business |
+| Compras Pro | Cliente Play + verify Edge cableados | **Secretos SA + Play Console (Ramón)** |
+| OCR pizarra | ML Kit + lite + preprocess oscuro + EXIF | QA cámara |
 
 Pruebas de regresión declaradas: `domain/src/test` para reloj, WOD, presets y
 conflictos; `mobile/src/androidTest` para persistencia e identidad de sesiones.

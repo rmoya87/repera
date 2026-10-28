@@ -90,22 +90,43 @@ private object TimerFeedback {
  * Temporizador libre (pestaña Crear): configuración + reloj LED a pantalla
  * completa, paridad de StandaloneTimerView (iOS). El estado se ancla al reloj
  * de pared (System.currentTimeMillis), nunca a acumulación de ticks.
+ *
+ * @param onPersistSession persiste el resumen en historial (timerDetails); false si falla.
+ * @param onSavedDay epoch millis del día a enfocar en Inicio tras Guardar.
  */
 @Composable
-internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = null) {
+internal fun StandaloneTimerScreen(
+    onBack: () -> Unit,
+    favoriteId: String? = null,
+    onPersistSession: (StandaloneTimerCompletion) -> Boolean = { false },
+    onSavedDay: (Long) -> Unit = {}
+) {
     val context = LocalContext.current
     val store = remember { StandaloneTimerStore(context) }
     // Apertura desde el hub de favoritos (paridad FavoritesHubView iOS):
     // carga la configuración guardada y la edición queda anclada a ese id.
+    // Sin favorito: restaurar última configuración (main 30aa3a37).
     val openedFavorite = remember(favoriteId) {
         favoriteId?.let { id -> store.favorites().firstOrNull { it.id == id } }
     }
-    var config by remember { mutableStateOf(openedFavorite?.config ?: StandaloneTimerConfig()) }
+    val usesLastConfiguration = openedFavorite == null
+    var config by remember {
+        mutableStateOf(
+            openedFavorite?.config
+                ?: store.loadLastConfiguration()
+                ?: StandaloneTimerConfig()
+        )
+    }
     var favorites by remember { mutableStateOf(store.favorites()) }
     var editingFavoriteId by remember { mutableStateOf<String?>(openedFavorite?.id) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var saveTitle by remember { mutableStateOf("") }
     var showClock by remember { mutableStateOf(false) }
+    var completedSummary by remember {
+        mutableStateOf(store.loadPendingCompletion())
+    }
+    var completionSaveError by remember { mutableStateOf<String?>(null) }
+    var timerStartedAtMs by remember { mutableStateOf<Long?>(null) }
 
     // Estado del reloj (anclado a reloj de pared).
     var isRunning by remember { mutableStateOf(false) }
@@ -117,6 +138,60 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
     var phaseEndMs by remember { mutableLongStateOf(0L) }
     var phaseStartMs by remember { mutableLongStateOf(0L) }
     var pausedDisplaySeconds by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(config) {
+        if (usesLastConfiguration) store.saveLastConfiguration(config)
+    }
+    LaunchedEffect(Unit) {
+        if (completedSummary == null) completedSummary = store.loadPendingCompletion()
+        if (usesLastConfiguration && !showClock && !isRunning &&
+            completedSummary == null
+        ) {
+            store.loadLastConfiguration()?.let { config = it }
+        }
+    }
+
+    fun recordTimerCompletion(finishedAtMs: Long = System.currentTimeMillis()) {
+        if (completedSummary != null) return
+        val started = minOf(
+            timerStartedAtMs ?: (finishedAtMs - config.configuredDurationSeconds * 1000L),
+            finishedAtMs
+        )
+        val summary = StandaloneTimerCompletion(
+            startedAtMillis = started,
+            finishedAtMillis = finishedAtMs,
+            config = config
+        )
+        completedSummary = summary
+        store.savePendingCompletion(summary)
+        showClock = false
+        isRunning = false
+        preCountdownEndMs = 0L
+        phaseEndMs = 0L
+        phaseStartMs = 0L
+    }
+
+    fun dismissCompletedTimer() {
+        showClock = false
+        isRunning = false
+        store.clearPendingCompletion()
+        completedSummary = null
+        completionSaveError = null
+        timerStartedAtMs = null
+    }
+
+    fun saveCompletedTimer() {
+        val summary = completedSummary ?: return
+        val ok = onPersistSession(summary)
+        if (!ok) {
+            completionSaveError =
+                "No se ha podido registrar la sesión en el historial. Puedes volver a intentarlo sin perder el temporizador."
+            return
+        }
+        onSavedDay(summary.startedAtMillis)
+        dismissCompletedTimer()
+        onBack()
+    }
 
     fun liveDisplaySeconds(nowMs: Long): Int = when {
         preCountdownEndMs > 0L ->
@@ -188,6 +263,7 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
             isRunning = false
             phaseEndMs = 0L
             TimerFeedback.complete(context)
+            recordTimerCompletion(nowMs)
             return
         }
         val phaseLen = (if (phaseIsWork) config.workTotalSeconds
@@ -235,6 +311,7 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
                     isRunning = false
                     phaseStartMs = 0L
                     TimerFeedback.complete(context)
+                    recordTimerCompletion(nowMs)
                 }
             }
             StandaloneTimerMode.DOWN -> {
@@ -245,6 +322,7 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
                     isRunning = false
                     phaseEndMs = 0L
                     TimerFeedback.complete(context)
+                    recordTimerCompletion(nowMs)
                 } else {
                     TimerFeedback.tick(remaining)
                 }
@@ -267,6 +345,8 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
         phaseEndMs = 0L
         phaseStartMs = 0L
         pausedDisplaySeconds = null
+        timerStartedAtMs = null
+        completionSaveError = null
         showClock = true
     }
 
@@ -284,6 +364,7 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
         } else {
             isRunning = true
             pausedDisplaySeconds = null
+            if (timerStartedAtMs == null) timerStartedAtMs = nowMs
             if (preCountdown > 0) {
                 preCountdownEndMs = nowMs + preCountdown * 1000L
             } else when (config.mode) {
@@ -334,7 +415,34 @@ internal fun StandaloneTimerScreen(onBack: () -> Unit, favoriteId: String? = nul
         )
     }
 
-    if (showClock) {
+    completedSummary?.let { summary ->
+        AlertDialog(
+            onDismissRequest = { /* mantener pendiente hasta Guardar/Descartar */ },
+            title = { Text("Temporizador · ${summary.config.mode.title}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Duración configurada: %d:%02d".format(
+                            summary.configuredSeconds / 60,
+                            summary.configuredSeconds % 60
+                        )
+                    )
+                    Text("¿Guardar en el historial del día?")
+                    completionSaveError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { saveCompletedTimer() }) { Text("Guardar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dismissCompletedTimer() }) { Text("Descartar") }
+            }
+        )
+    }
+
+    if (showClock && completedSummary == null) {
         StandaloneClock(
             title = "Temporizador",
             subtitle = when {

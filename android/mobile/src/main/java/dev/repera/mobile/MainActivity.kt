@@ -1093,6 +1093,34 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onLiveActivitySaved = {
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
                 },
+                onSaveTimerSession = { completion ->
+                    val account = profile?.uniqueId ?: return@ReperaMobileScreen false
+                    val details = dev.repera.domain.TimerCompletionDetails(
+                        modeRaw = completion.config.mode.wire,
+                        configuredSeconds = completion.configuredSeconds.coerceAtLeast(1),
+                        rounds = if (completion.config.mode == StandaloneTimerMode.INTERVALS)
+                            completion.config.rounds.coerceAtLeast(1) else 1,
+                        workSeconds = completion.config.workTotalSeconds,
+                        restSeconds = completion.config.restTotalSeconds,
+                        countdownSeconds = if (completion.config.countdownBeforeStart) 3 else 0
+                    )
+                    val ok = runCatching {
+                        WorkoutRepository(this@MainActivity, account).saveTimerSession(
+                            id = completion.id,
+                            title = "Temporizador · ${completion.config.mode.title}",
+                            startedAtMillis = completion.startedAtMillis,
+                            finishedAtMillis = completion.finishedAtMillis,
+                            details = details
+                        )
+                        true
+                    }.getOrDefault(false)
+                    if (ok) {
+                        lifecycleScope.launch { reloadFor(account) }
+                        DriveSyncWorker.syncNow(this@MainActivity)
+                        if (verifiedSupabase != null) syncWorkoutMirror()
+                    }
+                    ok
+                },
                 onUpdateFinishedWorkout = { workoutId, edit ->
                   // Como Apple: con Favorito, si la cuota de rutinas no deja, paywall y NO se aplica nada.
                   if (edit.saveAsFavorite && !subscriptions.canCreateLibraryRoutine(isNew = true).allowed) {
@@ -2270,11 +2298,13 @@ data class StateOverview(
                         activeDurationSeconds = session.optDouble("activeDurationSeconds",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         recordedDistanceMeters = session.optDouble("recordedDistanceMeters",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         routineId = session.optString("routineId").takeIf { it.isNotBlank() && it != "null" },
+                        timerDetails = dev.repera.domain.TimerCompletionDetails.fromSession(session),
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
                         }.orEmpty(),
                         editableBlocksJson = runCatching {
-                            CompletedWorkoutEditing.blocksFrom(session, null).toString()
+                            if (dev.repera.domain.TimerCompletionDetails.fromSession(session) != null) null
+                            else CompletedWorkoutEditing.blocksFrom(session, null).toString()
                         }.getOrNull(),
                         scoreSessionJson = runCatching {
                             val slim = org.json.JSONObject().put("wodResults", session.optJSONArray("wodResults") ?: org.json.JSONArray())
@@ -2688,7 +2718,9 @@ data class WorkoutHistoryEntry(
     val liveSportID: String? = null,
     val activeDurationSeconds: Double? = null,
     val recordedDistanceMeters: Double? = null,
-    val routineId: String? = null
+    val routineId: String? = null,
+    /** Temporizador libre: no es editable como fuerza/WOD ni aporta Salud. */
+    val timerDetails: dev.repera.domain.TimerCompletionDetails? = null
 )
 data class WorkoutHistoryMovement(
     val name: String,

@@ -197,6 +197,7 @@ fun ReperaMobileScreen(
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
     onLiveActivitySaved: () -> Unit = {},
+    onSaveTimerSession: (StandaloneTimerCompletion) -> Boolean = { false },
     initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
     onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
@@ -503,7 +504,13 @@ fun ReperaMobileScreen(
                 ) { backStackEntry ->
                     StandaloneTimerScreen(
                         onBack = { navController.popBackStack() },
-                        favoriteId = backStackEntry.arguments?.getString("fav")
+                        favoriteId = backStackEntry.arguments?.getString("fav"),
+                        onPersistSession = onSaveTimerSession,
+                        onSavedDay = { millis ->
+                            homeFocusDay = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                            navigateTab("inicio")
+                        }
                     )
                 }
                 composable("escaner") {
@@ -538,7 +545,10 @@ fun ReperaMobileScreen(
                             onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
                             onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
                             onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
-                            overview?.activeLocationPin,accountId,onActivePinChange,overview?.trainingSettings?.effortUnit ?: "rir",onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,{navController.navigate("entreno-activo-editar")})
+                            overview?.activeLocationPin,accountId,onActivePinChange,
+                            overview?.trainingSettings?.effortUnit ?: "rir",
+                            overview?.trainingSettings?.weightUnit ?: "kg",
+                            onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,{navController.navigate("entreno-activo-editar")})
                     }
                 }
                 composable("en-vivo") {

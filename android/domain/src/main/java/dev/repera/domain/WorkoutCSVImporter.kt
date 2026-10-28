@@ -87,7 +87,14 @@ object WorkoutCSVImporter {
             val name = col("exercise")
             if (name.isEmpty()) { skipped += 1; continue }
             val reps = col("reps").replace(",", ".").toDoubleOrNull()?.toInt() ?: 0
-            val weightRaw = col("weight").replace(",", ".").toDoubleOrNull()
+            // Preferencia weightLbs (Hevy/Strong con columna explícita en libras)
+            // → convertir a kg; si no, weight/weight_kg como kilogramos.
+            val weightRaw: Double? = run {
+                val lbs = col("weightLbs")
+                val fromLbs = lbs.replace(",", ".").toDoubleOrNull()
+                if (fromLbs != null) WeightUnit.LB.kilograms(fromDisplayValue = fromLbs)
+                else col("weight").replace(",", ".").toDoubleOrNull()
+            }
             val seconds = col("seconds").replace(",", ".")
                 .toDoubleOrNull()?.toInt() ?: 0
             if (reps <= 0 && seconds <= 0) { skipped += 1; continue }
@@ -211,6 +218,9 @@ object WorkoutCSVImporter {
         val map = mutableMapOf<String, Int>()
         header.forEachIndexed { idx, raw ->
             val h = raw.lowercase().trim()
+            if (h in listOf("weight (lbs)", "weight (lb)", "weight_lbs", "weight lb", "weight lbs")) {
+                map["weightLbs"] = idx
+            }
             when (source) {
                 Source.STRONG -> {
                     if (h == "date") map["date"] = idx
@@ -236,7 +246,7 @@ object WorkoutCSVImporter {
                     if (h.contains("workout") || h == "title")
                         map["workout"] = idx
                     if (h.contains("exercise")) map["exercise"] = idx
-                    if (h.contains("weight")) map["weight"] = idx
+                    if (h.contains("weight") && !h.contains("lb")) map["weight"] = idx
                     if (h == "reps") map["reps"] = idx
                     if (h.contains("second") || h.contains("duration"))
                         map["seconds"] = idx
