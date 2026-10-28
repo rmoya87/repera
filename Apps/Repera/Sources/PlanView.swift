@@ -2808,7 +2808,7 @@ struct ExercisePickerView: View {
 }
 
 /// Alta de un movimiento libre como página push; se valida antes de añadirlo.
-private struct FreeWODMovementCreatePage: View {
+struct FreeWODMovementCreatePage: View {
     @Environment(\.dismiss) private var dismiss
     var onCreate: (WODMovement) -> Void
 
@@ -2937,7 +2937,7 @@ struct WODFormatPickerPage: View {
 
 // MARK: - Importar bloques de otra rutina
 
-private struct RoutineImportPickerSheet: View {
+struct RoutineImportPickerSheet: View {
     var routines: [Routine]
     var onPick: (Routine) -> Void
     var onCancel: () -> Void
