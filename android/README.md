@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 7.º pase: Settings pad/objetivos/rotación IconButtons; QuickLog/BoardScan/ExternalHealth/DayPlus chrome M3.
+**Última actualización:** 2026-10-28 — UI paridad 8.º pase: ExerciseDetail/Timer/Historial chrome M3 (ArrowBack, section titles, ReperaCard).
 
 Implementación nativa independiente en `android/`:
 
