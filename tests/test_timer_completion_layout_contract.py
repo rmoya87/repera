@@ -26,13 +26,13 @@ class TimerCompletionLayoutTests(unittest.TestCase):
         self.assertIn(".ogScrollingTitleNav()", self.summary)
         self.assertNotIn('Section("Resumen del temporizador")', self.summary)
 
-    def test_save_button_is_green_circle_with_adaptive_check(self):
-        self.assertIn('Image(systemName: "checkmark")', self.summary)
-        self.assertIn(".background(OG.accent, in: Circle())", self.summary)
-        self.assertIn("colorScheme == .dark ? Color.black : Color.white", self.summary)
-        self.assertIn('accessibilityLabel("Guardar temporizador")', self.summary)
+    def test_completion_has_only_one_save_button_at_bottom(self):
+        self.assertIn('Text("Guardar")', self.summary)
         self.assertIn("Button(action: saveCompletedTimer)", self.summary)
-        self.assertNotIn('Button("Listo")', self.summary)
+        self.assertIn("colorScheme == .dark ? Color.black : Color.white", self.summary)
+        self.assertIn(".background(OG.accent, in: Capsule())", self.summary)
+        self.assertNotIn('Image(systemName: "checkmark")', self.summary)
+        self.assertNotIn(".toolbar {", self.summary)
 
     def test_place_is_editable_without_helper_copy(self):
         self.assertIn('Text("Lugar").textCase(nil)', self.summary)
@@ -56,7 +56,12 @@ class TimerCompletionLayoutTests(unittest.TestCase):
         self.assertIn('Text("Descartar")', self.summary)
         self.assertIn("Button(action: saveCompletedTimer)", self.summary)
         self.assertIn("showDiscardCompletedTimer = true", self.summary)
-        self.assertIn("Button(\"Descartar\", role: .destructive, action: discardCompletedTimer)", self.summary)
+        self.assertIn(".sheet(isPresented: $showDiscardCompletedTimer)", self.summary)
+        self.assertIn("OGConfirmSheet(", self.summary)
+        self.assertIn('confirmTitle: "Descartar sin guardar"', self.summary)
+        self.assertIn("discardCompletedTimer()", self.summary)
+        self.assertIn("VStack(spacing: 8)", self.summary)
+        self.assertNotIn(".confirmationDialog(", self.summary)
         self.assertIn("StandaloneTimerCompletionStore.clear()", TIMER)
 
 
