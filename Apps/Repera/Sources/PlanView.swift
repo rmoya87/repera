@@ -1434,7 +1434,7 @@ struct DayEditorView: View {
                     }
                 }
 
-                WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
+                WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
                     addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -2046,7 +2046,7 @@ private struct InlineWODMovementSets: View {
                     }
                 }
             }
-            WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
+            WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
                 addSet()
             }
         }
@@ -2292,7 +2292,7 @@ struct WODMovementEditor: View {
                         }
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
-                    WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
+                    WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
                         addSet()
                     }
                 } header: {
@@ -2638,7 +2638,7 @@ struct RoutineExerciseEditor: View {
                     }
                 }
 
-                WorkoutInlineAddButton("Añadir serie", systemImage: "plus.circle.fill") {
+                WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
                     addSet()
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -3136,10 +3136,10 @@ struct WorkoutWODInsertActions: View {
 
     var body: some View {
         VStack(spacing: 9) {
-            WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus.circle.fill", action: onExercise)
+            WorkoutInlineAddButton("Ejercicio", systemImage: "plus.circle.fill", action: onExercise)
             HStack(spacing: 9) {
-                WorkoutInlineAddButton("Añadir descanso", systemImage: "pause.circle", action: onRest)
-                WorkoutInlineAddButton("Añadir movimiento libre", systemImage: "pencil.line", action: onFreeMovement)
+                WorkoutInlineAddButton("Descanso", systemImage: "pause.circle", action: onRest)
+                WorkoutInlineAddButton("Movimiento libre", systemImage: "plus.circle.fill", action: onFreeMovement)
             }
         }
         .padding(.vertical, 8)
@@ -3160,13 +3160,21 @@ struct WorkoutInlineAddButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.system(size: 14, weight: .semibold))
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(width: 19, height: 20)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.88)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
                 .foregroundStyle(OG.accent)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(OG.accent.opacity(0.35), lineWidth: 1)
