@@ -494,10 +494,12 @@ struct DayEditorView: View {
                         Spacer(minLength: 8)
                     }
                     .padding(.vertical, 5)
-                }
-                .onMove { from, to in
-                    withAnimation(.smooth) {
-                        routine.blocks.move(fromOffsets: from, toOffset: to)
+                    .contentShape(Rectangle())
+                    .draggable("block:\(block.id.uuidString)")
+                    .dropDestination(for: String.self) { tokens, _ in
+                        guard let token = tokens.first, token.hasPrefix("block:") else { return false }
+                        withAnimation(.smooth) { reorderBlockToken(token, before: block.id) }
+                        return true
                     }
                 }
             } header: {
@@ -510,7 +512,6 @@ struct DayEditorView: View {
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(OG.bg)
-        .environment(\.editMode, .constant(.active))
         .navigationTitle("Reordenar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -532,12 +533,6 @@ struct DayEditorView: View {
                         blockID: block.id, itemID: exercise.id, type: "exercise"
                     )
                 }
-                .onMove { from, to in
-                    guard let index = routine.blocks.firstIndex(where: { $0.id == block.id }) else { return }
-                    withAnimation(.smooth) {
-                        routine.blocks[index].exercises.move(fromOffsets: from, toOffset: to)
-                    }
-                }
             } else {
                 ForEach(block.movements) { move in
                     reorderExerciseRow(
@@ -545,12 +540,21 @@ struct DayEditorView: View {
                         blockID: block.id, itemID: move.id, type: "movement"
                     )
                 }
-                .onMove { from, to in
-                    guard let index = routine.blocks.firstIndex(where: { $0.id == block.id }) else { return }
-                    withAnimation(.smooth) {
-                        routine.blocks[index].movements.move(fromOffsets: from, toOffset: to)
-                    }
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.to.line")
+                Text("Mover aquí")
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(OG.label3)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .dropDestination(for: String.self) { tokens, _ in
+                guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
+                withAnimation(.smooth) {
+                    applyReorder(token, into: block.id, before: nil)
                 }
+                return true
             }
         } header: {
             Text(block.title)
@@ -575,6 +579,10 @@ struct DayEditorView: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(OG.label)
             Spacer(minLength: 8)
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(OG.label3)
+                .accessibilityHidden(true)
             Menu {
                 if routine.blocks.count > 1 {
                     Menu {
