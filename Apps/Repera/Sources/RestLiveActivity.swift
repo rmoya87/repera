@@ -180,7 +180,7 @@ final class TimerLiveActivityCoordinator {
                         pushType: nil
                     )
                 } catch {
-                    logger.error("Timer Live Activity failed: \\(String(describing: error), privacy: .public)")
+                    logger.error("Timer Live Activity failed: \(String(describing: error), privacy: .public)")
                 }
             }
         }
