@@ -40,6 +40,43 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertNotNil(updated.routineBlocks)
     }
 
+    func testReplacingExerciseResetsRecordedSetsButPreservesOtherResults() {
+        let squat = Exercise(name: "Back squat", muscleGroup: "Piernas")
+        let press = Exercise(name: "Press banca", muscleGroup: "Pecho")
+        let deadlift = Exercise(name: "Peso muerto", muscleGroup: "Espalda")
+        let source = Routine(title: "Fuerza", blocks: [
+            .strength(title: "Bloque 1", exercises: [
+                RoutineExercise(exerciseId: squat.id, plannedSets: [PlannedSet(targetReps: 5)]),
+                RoutineExercise(exerciseId: press.id, plannedSets: [PlannedSet(targetReps: 8)])
+            ])
+        ])
+        var session = SessionController.from(
+            routine: source, exercises: [squat, press, deadlift]
+        )
+        session.phase = .finished
+        session.exercises[0].loggedSets = [LoggedSet(reps: 5, weightKg: 80)]
+        session.exercises[1].loggedSets = [LoggedSet(reps: 8, weightKg: 45)]
+        let otherRecordedID = session.exercises[1].loggedSets[0].id
+        let oldExerciseID = session.exercises[0].id
+
+        var draft = CompletedWorkoutEditing.routine(from: session)
+        draft.blocks[0].exercises[0] = RoutineExercise(
+            exerciseId: deadlift.id,
+            plannedSets: [PlannedSet(targetReps: 6, targetWeightKg: nil)]
+        )
+        let saved = CompletedWorkoutEditing.applying(
+            draft, to: session, catalog: [squat, press, deadlift]
+        )
+
+        XCTAssertNotEqual(saved.exercises[0].id, oldExerciseID)
+        XCTAssertEqual(saved.exercises[0].exercise.id, deadlift.id)
+        XCTAssertTrue(saved.exercises[0].loggedSets.isEmpty)
+        XCTAssertEqual(saved.exercises[0].plannedSets[0].targetReps, 6)
+        XCTAssertEqual(saved.exercises[1].loggedSets.count, 1)
+        XCTAssertEqual(saved.exercises[1].loggedSets[0].id, otherRecordedID)
+        XCTAssertEqual(saved.exercises[1].loggedSets[0].weightKg, 45)
+    }
+
     func testNewUnloggedExerciseDoesNotInventCompletedSets() {
         let squat = Exercise(name: "Sentadilla con barra", muscleGroup: "Piernas")
         let press = Exercise(name: "Press banca", muscleGroup: "Pecho")
