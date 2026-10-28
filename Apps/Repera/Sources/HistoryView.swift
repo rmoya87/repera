@@ -443,7 +443,8 @@ struct WorkoutDetailView: View {
         favoriteSaveError = nil
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
-            customExercises: store.customExerciseCount
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
         )
         // La suscripción verificada es la fuente de verdad de esta acción.
         // No utilizar una política heredada de un lanzamiento anterior.
