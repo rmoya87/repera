@@ -657,4 +657,14 @@ class BoardScanLiteParserTest {
         assertEquals(1,tabata.movements.size)
         assertNull(tabata.timeCapMinutes)
     }
+    @Test fun standaloneNoiseLabelsDoNotBecomeExercisesAndNotesRemain() {
+        val block=BoardScanLiteParser.parse("AMRAP 10'\nSETS\nREPS\nCIRCUITO\n2 AIR SQUAT\nCIRCUIT",catalog=catalog).blocks.single()
+        assertEquals(1,block.movements.size)
+        assertEquals(2,block.movements.single().reps)
+        assertTrue(block.wodNotes!!.contains("SETS"))
+        assertTrue(block.wodNotes!!.contains("CIRCUITO"))
+        val named=BoardScanLiteParser.parse("AMRAP 10'\n2 CIRCUIT PRESS",catalog=catalog).blocks.single()
+        assertEquals(1,named.movements.size)
+        assertEquals(2,named.movements.single().reps)
+    }
 }

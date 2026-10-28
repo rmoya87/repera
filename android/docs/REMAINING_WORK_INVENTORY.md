@@ -696,3 +696,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -330 bateria completa mobile678/163XML94/113/92/82s,domain527/93XML77s,Wear8/1XML+ambosassemble69s verdes0fallos/errores/omitidos. Backup330recuperado,arbol8199407c48fe2972875555a85c40b69f0a1153deidentico,clon limpio.
 - Mismo lector parcial331: cabecera exacta N ROUND(S)[OF] con N1..200 seleccionaFOR_TIME,Nrondas y12min como fuente590-602;TABATA conserva titulo fuente+8rondas antes borradas por headernull. No3x8inferido.
 - Primer intento demasiado amplio confundio5ROUND THE WORLD;full detecto regresion propia yse acoto a cabecera exacta,ahora pasa. Textoadicional ROUND(S) sigue review.1test nuevo;dominio528/93XML67s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear331 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, etiquetas de ruido exactas 03:57 28oct
+-331 bateria completa mobile678/163XML89/107/87/81s,domain528/93XML67s,Wear8/1XML+ambosassemble69s verdes0fallos/errores/omitidos. Backup331recuperado desde65338db7:arbolb8ddfcd3046e78081a1f40a5688f4c8659c6342aidentico,clonlimpio.
+- Mismo lector parcial332: etiquetas exactas SETS/REPS/CIRCUITO/CIRCUIT no fabrican ejercicios en cuerpo;siguen en notas originales,como filtroisNoise fuente859-866/buildBlock240. No filtra nombres que solo contengan token (2CIRCUIT PRESS sigue movimiento). Cabeceras warmup ya resueltas por329.
+- Regresion fallo antes del cambio.1test nuevo;dominio529/93XML73s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear332 pendientes.735/70sin cierres,nativo pendiente,no push.
