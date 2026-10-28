@@ -804,8 +804,8 @@ struct DayEditorView: View {
     }
 
     private var importableRoutines: [Routine] {
-        store.libraryRoutines.filter {
-            $0.id != routine.id && $0.isFavorite && !$0.blocks.isEmpty
+        store.favoriteRoutines.filter {
+            $0.id != routine.id && !$0.blocks.isEmpty
         }
     }
 
@@ -935,7 +935,8 @@ struct DayEditorView: View {
                     title: edited.title,
                     blocks: edited.blocks.map { $0.duplicatingContent() },
                     progression: .off,
-                    isFavorite: true
+                    isFavorite: true,
+                    locationPin: detailsToSave.locationPin
                 )
                 guard await saveRoutineWithVerifiedAccess(favorite) else { return }
                 detailsToSave.favoriteRoutineId = favorite.id
