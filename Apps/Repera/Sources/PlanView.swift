@@ -1757,10 +1757,12 @@ struct DayEditorView: View {
 /// No utilizar .swipeActions aquí: afecta a la fila contenedora completa.
 private struct InlineSetSwipeDeleteRow<Content: View>: View {
     let canDelete: Bool
+    let setID: UUID
+    @Binding var openedSetID: UUID?
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
-    @State private var isRevealed = false
+    private var isRevealed: Bool { openedSetID == setID }
     @State private var activeDrag: CGFloat = 0
     private let revealWidth: CGFloat = 72
 
@@ -1769,7 +1771,7 @@ private struct InlineSetSwipeDeleteRow<Content: View>: View {
             if canDelete {
                 Button {
                     withAnimation(.smooth(duration: 0.2)) {
-                        isRevealed = false
+                        openedSetID = nil
                         activeDrag = 0
                     }
                     onDelete()
@@ -1807,14 +1809,14 @@ private struct InlineSetSwipeDeleteRow<Content: View>: View {
                     let projected = (isRevealed ? -revealWidth : 0)
                         + value.predictedEndTranslation.width
                     withAnimation(.smooth(duration: 0.22)) {
-                        isRevealed = projected < -revealWidth * 0.4
+                        openedSetID = projected < -revealWidth * 0.4 ? setID : nil
                         activeDrag = 0
                     }
                 }
         )
         .onChange(of: canDelete) { _, allowed in
-            if !allowed {
-                isRevealed = false
+            if !allowed, isRevealed {
+                openedSetID = nil
                 activeDrag = 0
             }
         }
@@ -1836,6 +1838,7 @@ private struct InlineWODMovementSets: View {
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
+    @State private var openedSetID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
@@ -1905,12 +1908,14 @@ private struct InlineWODMovementSets: View {
                     ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                 showsRIR: loggingStyle.usesRIR
             )
-            ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
+            ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, currentSet in
                 // Aquí las series viven dentro de una sola fila del Form.
                 // .swipeActions no llega a cada serie: un reveal propio por
                 // UUID impide que aparezcan varias papeleras a la vez.
                 InlineSetSwipeDeleteRow(
                     canDelete: draftSets.count > 1,
+                    setID: currentSet.id,
+                    openedSetID: $openedSetID,
                     onDelete: { removeSet(at: index) }
                 ) {
                     setRow(index: index)
