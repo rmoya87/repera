@@ -100,6 +100,14 @@ struct RootTabView: View {
                     showStartHub = false
                     flowPath = []
                     tab = .start
+                },
+                onSavedTimer: { date in
+                    // Misma transición que Comenzar: cerrar Crear, elegir Inicio
+                    // y seleccionar el día de inicio del registro recién guardado.
+                    homeFocusDay = date
+                    flowPath = []
+                    tab = .home
+                    showStartHub = false
                 }
             )
             .ogSheetChrome(detents: [.large])
