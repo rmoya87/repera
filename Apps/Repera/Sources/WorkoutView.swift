@@ -2411,8 +2411,9 @@ struct WorkoutView: View {
         manualRounds: Int? = nil,
         manualRoundRestSeconds: Int? = nil
     ) {
-        let sound = store.state.settings.restSoundEnabled
-        let haptic = store.state.settings.restHapticEnabled
+        // Temporizadores con sonido y vibración activados por defecto.
+        let sound = true
+        let haptic = true
         let format = current.wodFormat
         let subtitleDefault = wodPlanLabel(for: current)
         if format == .emom || format == .tabata || format == .circuit {
@@ -3203,8 +3204,8 @@ struct WorkoutView: View {
         store.restCoordinator.start(
             seconds: seconds,
             exerciseName: exerciseName,
-            sound: store.state.settings.restSoundEnabled,
-            haptic: store.state.settings.restHapticEnabled
+            sound: true,
+            haptic: true
         )
     }
 }
