@@ -146,4 +146,11 @@ class BoardStrengthLinesTest {
   assertNull(BoardStrengthLines.block(listOf("SETS","REPS","CIRCUITO"),listOf(squat)))
   assertNull(BoardStrengthLines.block(listOf("SETS","BACK SQUAT"),listOf(squat)))
  }
+ @Test fun malformedStrengthLoadCannotBecomePartialOrMissingWeight() {
+  for(load in listOf("@-60","@60..5","@1e3","@60 @70","@UNKNOWN","@"+"9".repeat(400))) {
+   assertNull(load,BoardStrengthLines.block(listOf("3x8 BACK SQUAT "+load),listOf(squat)))
+  }
+  val valid=BoardStrengthLines.block(listOf("3x8 BACK SQUAT @60,5kg"),listOf(squat))!!
+  assertEquals(60.5,valid.exercises.single().plannedSets.first().targetWeightKg!!,0.001)
+ }
 }

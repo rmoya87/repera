@@ -710,3 +710,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 04:17 28oct
 -333 bateria completa mobile678/163XML83/101/79/79s,domain530/93XML68s,Wear8/1XML+ambosassemble88sverdes0fallos/errores/omitidos. Backup333recuperado desde65338db7:arbol422adeefb3d6f1e5d993689d7f8b0b37b5d68b77identico,clonlimpio.
 -334 solo documentacion: notas c6f89c28/88db5bb7 reconciliadas329-333,sin cambiar estadosparciales.735/70sin cierres. Mismos bloques:lectorcompleto parcial;revisiongraficaautoaxes/fontmetrics/nativo abierta;default3x8/rutas/fallback/fuzzy/runtime pendientes. No push ni cambiosApps/Packages.
+
+## Lector completo, carga explicita malformada 04:20 28oct
+- Mismo lector parcial335,hallazgo nuevo del subconjunto fuerza: @-60 o@UNKNOWN podian enlazar porfuzzy yperder carga,@60..5/@1e3 podian leerprefijo parcial,overflow podia darInfinity. Regresion fallo antes del arreglo con@-60.
+- Limites: token@carga exige frontera espacio/fin,valor finito no negativo;@/#residual obliga a review sin fuerza generada. Subconjunto explicito valido@60,5kg preservado. No cambia unidadesni añade conversionLB/no3x8default.
+-1test nuevo de6malformados+validodecimal. Dominio531/93XML51s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear335 pendientes;ultima completa333mobile678/163domain530/93Wear8/1ambosassemble88s.735/70sin cierres,nativo pendiente,no push.

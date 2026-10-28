@@ -18,9 +18,13 @@ internal object BoardStrengthLines {
    // Bound allocation before review. Do not silently truncate a board.
    if(sets !in 1..200 || reps !in 1..100000) return null
    working=working.removeRange(scheme.range)
-   val load=Regex("@\\s*(\\d+(?:[.,]\\d+)?)\\s*(kg|lb)?",RegexOption.IGNORE_CASE).find(working)
+   val load=Regex("@\\s*(\\d+(?:[.,]\\d+)?)\\s*(kg|lb)?(?=\\s|$)",RegexOption.IGNORE_CASE).find(working)
    val weight=load?.groupValues?.get(1)?.replace(',','.')?.toDoubleOrNull()
-   if(load!=null) working=working.removeRange(load.range)
+   if(load!=null) {
+    if(weight==null || !weight.isFinite() || weight<0) return null
+    working=working.removeRange(load.range)
+   }
+   if(working.contains('@') || working.contains('#')) return null
    val name=working.replace(Regex("^[0-9]+[.)\\-:]?\\s*"),"").trim().trim('-','•','*','|').trim()
    val match=bestMatch(name,catalog) ?: return null
    RoutineExercise(exerciseId=match.id,plannedSets=List(sets) {PlannedSet(targetReps=reps,targetWeightKg=weight)})
