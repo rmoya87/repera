@@ -1322,7 +1322,7 @@ struct DayEditorView: View {
                         previous: {
                             let sets = store.cachedLastWorkingSession(for: ex.id)?.sets
                             return (sets?.indices.contains(setIndex) == true) ? sets?[setIndex] : nil
-                        }(),
+                        }()
                     )
                     // Aplicar swipeActions a la fila hija directa de Form,
                     // nunca dentro de PlannedSetConfigRow: en un bloque
@@ -2505,7 +2505,7 @@ struct RoutineExerciseEditor: View {
                         previous: {
                             let sets = store.cachedLastWorkingSession(for: exerciseId)?.sets
                             return (sets?.indices.contains(index) == true) ? sets?[index] : nil
-                        }(),
+                        }()
                     )
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if item.plannedSets.count > 1 {
