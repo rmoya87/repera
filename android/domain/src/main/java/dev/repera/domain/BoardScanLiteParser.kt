@@ -311,7 +311,8 @@ object BoardScanLiteParser {
             return Header(line,WODFormat.LADDER,null)
         if(upper in setOf("PARTNER WOD","PARTNER","YOU GO I GO","YGIG","YDIG"))
             return Header(line,WODFormat.PARTNER,null)
-        if(upper in setOf("STRENGTH","FUERZA","TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN"))
+        val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
+        if(upper in setOf("STRENGTH","FUERZA") || strengthHeaders.any {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:")})
             return Header(line,WODFormat.STRENGTH,null)
         if (upper.startsWith("EMOM")) {
             val mins = firstInt(upper) ?: 10

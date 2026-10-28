@@ -619,4 +619,18 @@ class BoardScanLiteParserTest {
         assertEquals("variant",block.movements[0].exerciseId)
         assertEquals(parsed.name,block.movements[0].name)
     }
+    @Test fun describedStrengthHeadersStayHeadersNotMovements() {
+        for(header in listOf("TECHNIQUE: CLEAN WORK","SUPERSET UPPER BODY","GIANT SET: ACCESSORY","WARM UP SHOULDERS","COOL DOWN: EASY")) {
+            val block=BoardScanLiteParser.parse(header+"\n1 PUSH PRESS",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.STRENGTH,block.wodFormat)
+            assertEquals(header,block.title)
+            assertEquals(1,block.movements.size)
+            assertEquals(1,block.movements.single().reps)
+        }
+    }
+    @Test fun strengthHeaderPrefixRequiresWordOrColonBoundary() {
+        val block=BoardScanLiteParser.parse("TECHNIQUELESS MOVEMENT\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.CHIPPER,block.wodFormat)
+        assertEquals(2,block.movements.size)
+    }
 }

@@ -682,3 +682,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -327 bateria completa mobile677/163XML68/85/66/62s,domain523/93XML42s,Wear8/1XML+ambosassemble85s verdes. Backup327recuperado,arbol3f68af1b72bb801edbfe1f0acaa6fd85b2af2d00identico,clonlimpio.
 -328 solo prueba/documentacion: verificado DB CLEAN conserva variante de mancuerna con catalogo generico yvariante;test pasa tambien sobre327. Intento de ajuste productivo descartado porque fixtureinicial confundia dosfichas deigualnombre yno demostraba regresion. Ningun cambio productivo328.
 - Dominio524/93XML48s0fallos/errores/omitidos. Reconciliadas notas c6f89c28/88db5bb7con322-328,sus estadosparciales intactos.735/70sin cierres. Lectorfull/default3x8/rutas/fallback/fuzzy/runtime pendientes;no push.
+
+## Lector completo, cabeceras fuerza con descripcion 03:18 28oct
+- Mismo bloque parcial,subhueco cabeceras ya abierto:329 acepta descripcion despues de TECHNIQUE/SUPERSET/GIANT SET/WARMUP/COOLDOWN ytokens fuente,solo frontera espacio o ':',como BoardImportParser610-624. Conserva titulo completo;no crea movimiento de cabecera ni inventa sets/repsdefault.
+- Regresion fallo antes del arreglo conTECHNIQUE:CLEAN WORK;2tests nuevos cubren5cabeceras yprefijo sinfrontera no aceptado. Dominio526/93XML77s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear329 pendientes;ultima completa327mobile677/163Wear8/1.735/70sin cierres,nativo pendiente,no push.
