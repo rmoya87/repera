@@ -1044,7 +1044,7 @@ struct WorkoutView: View {
                             } label: {
                                 workoutExerciseRow(
                                     entry, isOpen: true,
-                                    blockResult: session.wodResults.first(where: { $0.id == block.id })
+                                    blockResult: session.wodResults.first(where: { $0.id == block.id && $0.format == block.format })
                                 )
                             }
                             .buttonStyle(.plain)
@@ -1395,7 +1395,7 @@ struct WorkoutView: View {
         format: WODFormat,
         session: WorkoutSession
     ) -> some View {
-        let existing = session.wodResults.first(where: { $0.id == block.id })
+        let existing = session.wodResults.first(where: { $0.id == block.id && $0.format == format })
         let suggested = pendingWODConfirm?.blockId == block.id
             ? pendingWODConfirm?.elapsedSeconds : nil
         let templateID = session.routineBlocks?
