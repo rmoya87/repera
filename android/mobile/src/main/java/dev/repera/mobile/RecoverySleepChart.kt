@@ -67,9 +67,10 @@ internal fun sleepChartBounds(nights:List<RecoverySleepNight>):Pair<Double,Doubl
    }
   }
   if(ordered.size>1) Row(Modifier.fillMaxWidth()) {
-   Text(ordered.first().day.format(reperaDayFormatter),style=MaterialTheme.typography.labelSmall)
+   val axisDate=java.time.format.DateTimeFormatter.ofPattern("d MMM",java.util.Locale("es","ES"))
+   Text(ordered.first().day.format(axisDate),style=MaterialTheme.typography.labelSmall)
    Spacer(Modifier.weight(1f))
-   Text(ordered.last().day.format(reperaDayFormatter),style=MaterialTheme.typography.labelSmall)
+   Text(ordered.last().day.format(axisDate),style=MaterialTheme.typography.labelSmall)
   }
  }
 }

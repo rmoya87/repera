@@ -293,6 +293,9 @@ class ReviewSpacingRenderTest {
                 dev.repera.domain.RecoverySleepNight(today.minusDays((4-i).toLong()),h,1.0,1.0)
             },220.dp)
         }}}
+        composeRule.onNodeWithText("23 oct").assertExists()
+        composeRule.onNodeWithText("27 oct").assertExists()
+        composeRule.onNodeWithText("23 oct 2026").assertDoesNotExist()
         save(composeRule.onNodeWithTag("sleep_fixture").captureToImage().asAndroidBitmap(),"sleep-night-sky.png")
         composeRule.onNodeWithTag("recovery_sleep_chart").performClick()
         composeRule.onNodeWithText("25 oct 2026 · 6,7 h").assertExists()

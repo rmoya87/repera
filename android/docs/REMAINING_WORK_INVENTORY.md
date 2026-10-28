@@ -943,3 +943,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad G10/G11parciales y matrices 12:51 28oct
 -386 bateria completa mobile693/163XML11lotes41/62/78/70/54/67/83/44/82/49/76s,domain558/93XML37s,Wear8/1XML+ambosassemble72sverdes0fallos/errores/omitidos. Backup386recuperado65338db7:arbol9cd415db1464f366cc2bb473fdd8f52870760effidentico,clonlimpio. Evidencia interna, no nuevoTerminado ni avanceporcentual.
 -387 solo docs: matrices0d649f28/08790a22/c7878496yregistrov1reconciliados386sinreclasificar. G10/G11P/P/N;graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOcoberturafuncionaltotal.735/70abiertas,sincierres. Ultimoproducto386.No push niApps/Packages.
+
+## Graficos, fechas cortas de sueno G07 12:55 28oct
+-388 mismo bloque parcialG07:rutaactualRecoverySleepChartlabelsdeextremosincluianano,HealthRecovery1393-1403solo .day().month(.abbreviated). CambiadosdoslabelsadMMM/esES,sinmodificarfechasdedatos,textoseleccion,curva,area,dominiosnialto.
+- Regresionrenderrojaporausencia23octantes;1focalizado/1XML99sverde0fallos/errores/omitidos,confirma23oct/27octysinañoenlabels,tapcon25oct2026/6.7hconservado. PNG360x236inspeccionado:labelslegiblesenextremos,sinrecortes,curva/areanight-skyintactos.
+- G07sigueP/P/N,denominadoresv1intactos:graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOavancefuncionaltotal.735/70sin cierres,no nuevoTerminado.Full388pendiente;ultimafull386mobile693/163domain558/93Wear8/1assemble72s.No push niApps/Packages.
