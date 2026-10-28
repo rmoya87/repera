@@ -931,7 +931,8 @@ struct DayEditorView: View {
     private func confirmWithVerifiedAccess() async {
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
-            customExercises: store.customExerciseCount
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
         )
         store.featureAccess = { [subscriptions] in subscriptions.policy }
         if let onApplyCompleted, let completedDetails = completedWorkoutDraft {
@@ -1162,9 +1163,10 @@ struct DayEditorView: View {
         if store.lastAccessDenial != nil {
             await subscriptions.refreshEntitlementsForFeatureAction()
             subscriptions.syncCounts(
-                libraryRoutines: store.libraryRoutineCount,
-                customExercises: store.customExerciseCount
-            )
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
+        )
             store.featureAccess = { [subscriptions] in subscriptions.policy }
             if store.saveRoutine(candidate) { return true }
         }
@@ -1179,9 +1181,10 @@ struct DayEditorView: View {
         if store.lastAccessDenial != nil {
             await subscriptions.refreshEntitlementsForFeatureAction()
             subscriptions.syncCounts(
-                libraryRoutines: store.libraryRoutineCount,
-                customExercises: store.customExerciseCount
-            )
+            libraryRoutines: store.libraryRoutineCount,
+            customExercises: store.customExerciseCount,
+            favorites: store.favoriteCount
+        )
             store.featureAccess = { [subscriptions] in subscriptions.policy }
             if store.setRoutineFavorite(routineID, isFavorite: isFavorite) { return true }
         }
