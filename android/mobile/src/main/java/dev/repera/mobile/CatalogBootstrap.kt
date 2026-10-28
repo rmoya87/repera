@@ -22,6 +22,7 @@ object CatalogBootstrap {
             .put("workouts", JSONArray())
             .put("bodyWeights", JSONArray())
             .put("favoriteTimers", JSONArray())
+            .put("favoriteSportActivities", JSONArray())
             .put("exerciseLoadPrefs", JSONObject())
             .put("updatedAt", "1970-01-01T00:00:00Z")
             .put("syncRevision", 0)

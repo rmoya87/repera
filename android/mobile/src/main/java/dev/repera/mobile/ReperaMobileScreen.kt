@@ -198,6 +198,7 @@ fun ReperaMobileScreen(
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
     onLiveActivitySaved: () -> Unit = {},
+    onRemoveSportFavorite: (String) -> Unit = {},
     onSaveTimerSession: (StandaloneTimerCompletion) -> Boolean = { false },
     initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
     onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
@@ -275,6 +276,8 @@ fun ReperaMobileScreen(
             if (activeWorkout != null) navController.navigate("entreno-activo") else onStartRoutine(id)
         }
         var libraryModeRequest by rememberSaveable {mutableStateOf<String?>(null)}
+        // Favoritos → Comenzar: deporte a preseleccionar al abrir en-vivo.
+        var pendingLiveSportId by rememberSaveable { mutableStateOf<String?>(null) }
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
         val navigateTab: (String) -> Unit = { route ->
@@ -502,7 +505,12 @@ fun ReperaMobileScreen(
                         onSetWeekday = { r, d ->
                             onEditRoutine(r.id, r.title, RoutineSchedule(weekday = d,
                                 timeMinutes = if (d == null) null else r.timeMinutes))
-                        }
+                        },
+                        onOpenSport = { sportId ->
+                            pendingLiveSportId = sportId
+                            navigateTab("en-vivo")
+                        },
+                        onRemoveSportFavorite = onRemoveSportFavorite
                     )
                 }
                 composable(
@@ -567,7 +575,9 @@ fun ReperaMobileScreen(
                         onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
                         onSavedDay={ homeFocusDay=java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() },
                         onOpenTools = { navController.navigate("crear") },
-                        onOpenCenter = if (centerVisible) ({ showCenter = true }) else null)
+                        onOpenCenter = if (centerVisible) ({ showCenter = true }) else null,
+                        initialSportId = pendingLiveSportId,
+                        onInitialSportConsumed = { pendingLiveSportId = null })
                 }
                 composable("center") {
                     CenterTab(
