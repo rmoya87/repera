@@ -22,17 +22,95 @@ const businessBlockers: Array<{ table: string; column: string; ownerRole?: strin
   { table: "organization_invitations", column: "invited_by" },
   { table: "service_passes", column: "issued_by" },
   { table: "organization_memberships", column: "user_id", ownerRole: "owner" },
+  // Professional/business audit authors cannot be erased without transferring
+  // legal responsibility for documents held by other people.
+  { table: "professional_training_sessions", column: "coach_user_id" },
+  { table: "business_client_notifications", column: "sender_user_id" },
+  { table: "business_bulk_training_batches", column: "created_by" },
+  { table: "business_invitation_email_attempts", column: "actor_id" },
+  { table: "business_pass_offers", column: "created_by" },
+  { table: "business_subscription_intents", column: "actor" },
+  { table: "business_trainer_attendance", column: "recorded_by" },
+  { table: "business_training_groups", column: "created_by" },
+  { table: "professional_workout_templates", column: "created_by" },
+  { table: "service_credit_ledger", column: "created_by" },
+  { table: "service_pass_management_events", column: "actor" },
 ];
 
 async function businessResponsibilities(userID: string): Promise<boolean> {
   for (const { table, column, ownerRole } of businessBlockers) {
-    let query = admin.from(table).select("*", { count: "exact", head: true }).eq(column, userID);
+    let query = admin.from(table).select("id", { count: "exact", head: true }).eq(column, userID);
     if (ownerRole) query = query.eq("role", ownerRole);
     const { count, error } = await query;
     if (error) throw error;
     if ((count ?? 0) > 0) return true;
   }
   return false;
+}
+
+type LinkedClient = { id: string; org_id: string };
+
+async function freezeBusinessHistory(ownerID: string): Promise<void> {
+  const { data: linked, error: lookupError } = await admin.from("clients")
+    .select("id,org_id").eq("user_id", ownerID);
+  if (lookupError) throw lookupError;
+  const timestamp = new Date().toISOString();
+  for (const client of (linked ?? []) as LinkedClient[]) {
+    // Only copy private mirrored results when the athlete explicitly granted
+    // access and currently enabled history sharing with this exact center.
+    const [{ data: consent, error: consentError }, { data: sharing, error: shareError }] =
+      await Promise.all([
+        admin.from("athlete_business_history_consents")
+          .select("granted_at,revoked_at")
+          .eq("athlete_user_id", ownerID).eq("org_id", client.org_id)
+          .eq("client_id", client.id).maybeSingle(),
+        admin.from("athlete_workout_sharing")
+          .select("enabled")
+          .eq("athlete_id", ownerID).eq("org_id", client.org_id).maybeSingle(),
+      ]);
+    if (consentError || shareError) throw consentError ?? shareError;
+    if (consent?.granted_at && !consent.revoked_at && sharing?.enabled === true) {
+      for (let offset = 0; ; offset += 500) {
+        const { data: workouts, error: listError } = await admin
+          .from("athlete_workout_mirror")
+          .select("id,title,started_at,finished_at,payload")
+          .eq("owner_id", ownerID)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true })
+          .range(offset, offset + 499);
+        if (listError) throw listError;
+        if (!workouts?.length) break;
+        const archived = workouts.map((workout) => ({
+          org_id: client.org_id,
+          client_id: client.id,
+          workout_id: workout.id,
+          title: workout.title,
+          started_at: workout.started_at,
+          finished_at: workout.finished_at,
+          payload: workout.payload,
+          frozen_at: timestamp,
+        }));
+        const { error: archiveError } = await admin
+          .from("business_athlete_workout_snapshots")
+          .upsert(archived, { onConflict: "org_id,client_id,workout_id" });
+        if (archiveError) throw archiveError;
+        if (workouts.length < 500) break;
+      }
+    }
+    // Preserve the company-owned client card and its professional sessions.
+    // Mark inert BEFORE dropping the identity connection.
+    const { error: freezeError } = await admin.from("clients")
+      .update({ status: "cancelled", account_deleted_at: timestamp, user_id: null })
+      .eq("id", client.id).eq("user_id", ownerID);
+    if (freezeError) throw freezeError;
+  }
+
+  // Bookings are legal historical documents: keep the original requester UUID
+  // in a detached audit field, without letting it reference a live login.
+  const { error: archiveBookingError } = await admin.from("service_bookings")
+    .update({ requested_by_deleted_user_id: ownerID, requested_by: null })
+    .eq("requested_by", ownerID);
+  if (archiveBookingError) throw archiveBookingError;
 }
 
 Deno.serve(async (req: Request) => {
@@ -59,10 +137,14 @@ Deno.serve(async (req: Request) => {
   try {
     if (await businessResponsibilities(user.id)) {
       return respond(409, {
-        error: "Esta cuenta mantiene un centro, clientes o responsabilidades profesionales. Transfiere primero la propiedad o contacta con soporte para eliminarla sin afectar a terceros.",
+        error: "Esta cuenta tiene responsabilidades profesionales o documentos de auditoría. Transfiere primero el centro o solicita una baja asistida para conservar los registros de terceros.",
       });
     }
     if (action === "preflight") return respond(200, { ok: true });
+
+    // Snapshot business-accessible data before personal Supabase rows cascade.
+    // The erased account cannot authenticate or mutate archived business records.
+    await freezeBusinessHistory(user.id);
 
     // Remove personally owned Storage objects BEFORE deleting auth.users.
     // Shared business-branding is intentionally untouched.
