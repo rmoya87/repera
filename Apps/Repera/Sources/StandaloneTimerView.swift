@@ -165,6 +165,7 @@ struct TimerNumericInput: View {
 struct StandaloneTimerView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var config: StandaloneTimerConfig
     @State private var showClock = false
@@ -214,8 +215,28 @@ struct StandaloneTimerView: View {
         } message: {
             Text("Se guardará esta configuración para reutilizarla desde Favoritos.")
         }
+        .onAppear {
+            TimerScreenAwake.setRunning(isRunning, for: .standalone)
+        }
+        .onChange(of: isRunning) { _, running in
+            // Precuenta incluida. Al pausar, terminar o cerrar el reloj,
+            // restablecer automáticamente el autobloqueo normal.
+            TimerScreenAwake.setRunning(running, for: .standalone)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, isRunning {
+                // El reloj usa fechas reales: recuperarse de una suspensión
+                // sin perder el final ni mantener la pantalla despierta
+                // cuando el temporizador ya terminó.
+                syncFromWallClock()
+            }
+        }
+        .onChange(of: showClock) { _, visible in
+            if !visible { stopTimer() }
+        }
         .onDisappear {
-            // Keep the fullscreen clock running if only the config view left the hierarchy.
+            // Una fullScreenCover mantiene vivo el owner del reloj;
+            // abandonar de verdad el editor detiene el temporizador.
             if !showClock { stopTimer() }
         }
     }
