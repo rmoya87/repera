@@ -2839,8 +2839,8 @@ struct HealthWorkoutRouteMap: View {
     }
 
 
-    /// Misma función cromática que utiliza cada segmento del trazado. Las
-    /// muestras distribuidas compensan la curva de contraste (pow 0.72).
+    /// Misma paleta y centro amarillo que los segmentos del trazado;
+    /// sin curva exponencial que desplazaba el color hacia el rojo.
     private var speedLegendStops: [Gradient.Stop] {
         (0...24).map { index in
             let position = Double(index) / 24.0
