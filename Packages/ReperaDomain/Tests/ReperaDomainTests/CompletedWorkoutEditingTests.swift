@@ -95,6 +95,35 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertFalse(saved.exercises[1].isCompleted)
     }
 
+    func testWODReplacementClearsOnlyItsOwnRecordedBlockScore() {
+        let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let row = Exercise(name: "Remo", muscleGroup: "Cardio")
+        let block = RoutineBlock(
+            title: "AMRAP", kind: .wod,
+            movements: [WODMovement(exerciseId: burpee.id, name: burpee.name, reps: 10)],
+            wodFormat: .amrap, timeCapMinutes: 12
+        )
+        var session = SessionController.from(
+            routine: Routine(title: "Dos bloques", blocks: [block]),
+            exercises: [burpee, row]
+        )
+        session.phase = .finished
+        session.wodResults = [WODBlockResult(
+            id: block.id, format: .amrap, totalReps: 30, roundsCompleted: 3
+        )]
+        var draft = CompletedWorkoutEditing.routine(from: session)
+        draft.blocks[0].movements[0] = WODMovement(
+            exerciseId: row.id, name: row.name, reps: 10,
+            explicitPlannedSets: [PlannedSet(targetReps: 10)]
+        )
+        let updated = CompletedWorkoutEditing.applying(
+            draft, to: session, catalog: [burpee, row]
+        )
+        XCTAssertTrue(updated.wodResults.isEmpty)
+        XCTAssertEqual(updated.exercises[0].exercise.id, row.id)
+        XCTAssertTrue(updated.exercises[0].loggedSets.isEmpty)
+    }
+
     func testWODRestAndScoreSurviveEditingSnapshot() {
         let burpee = Exercise(name: "Burpees", muscleGroup: "Otros")
         let block = RoutineBlock(
