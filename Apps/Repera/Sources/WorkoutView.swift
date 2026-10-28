@@ -271,7 +271,14 @@ struct WorkoutView: View {
             FreeWODMovementCreatePage { movement in
                 mutatePlayRoutine { routine in
                     guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-                    routine.blocks[index].movements.append(movement)
+                    if routine.blocks[index].kind == .wod {
+                        routine.blocks[index].movements.append(movement)
+                    } else {
+                        routine.blocks.insert(
+                            RoutineBlock(title: movement.name, kind: .wod, movements: [movement]),
+                            at: index + 1
+                        )
+                    }
                 }
                 createFreeMovementForBlock = nil
             }
@@ -1018,15 +1025,8 @@ struct WorkoutView: View {
     }
 
     private func beginPlayFreeMovement(after blockID: UUID) {
-        guard let draft = routineForEditing(),
-              let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-        if draft.blocks[index].kind == .wod {
-            createFreeMovementForBlock = blockID
-        } else {
-            let newBlock = RoutineBlock(title: "Movimiento libre", kind: .wod)
-            mutatePlayRoutine { $0.blocks.insert(newBlock, at: index + 1) }
-            createFreeMovementForBlock = newBlock.id
-        }
+        guard routineForEditing()?.blocks.contains(where: { $0.id == blockID }) == true else { return }
+        createFreeMovementForBlock = blockID
     }
 
     /// Play comparte los controles de bloques/ejercicios y series del editor,
