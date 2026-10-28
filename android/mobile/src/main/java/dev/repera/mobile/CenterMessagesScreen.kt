@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
         }
     }
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item {Text("Mensajes",style=MaterialTheme.typography.headlineMedium)}
+        item {ReperaPageHeader(title = "Mensajes")}
         if(!connected || linked.isEmpty()) item {Text("Vincúlate a un centro o entrenador en Ajustes para enviar y recibir mensajes.")}
         item {OutlinedButton(onClick=onRefresh,enabled=!loading) {Text("Actualizar")}}
         error?.let {item {Text(it,color=MaterialTheme.colorScheme.error)}}

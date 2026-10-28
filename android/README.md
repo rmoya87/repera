@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 4.º pase: Play/session, editores, detalle, historial, permisos/onboarding y cards secundarias → `ReperaCard`/headers/empty.
+**Última actualización:** 2026-10-28 — UI paridad 5.º pase: empties WOD/progreso/centros, PlaceSearch Outlined, BoardScan/Peso headers, controles sesión en card.
 
 Implementación nativa independiente en `android/`:
 

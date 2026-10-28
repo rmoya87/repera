@@ -33,7 +33,11 @@ import org.json.JSONArray
             }
             if(compact && entries.length()>3) Text("+ ${entries.length()-3} movimientos · Ver todos en el historial")
         }
-        if(blocks.length()==0 && session.instructions.isEmpty()) Text("Sin bloques estructurados: el entrenador todavía no ha añadido movimientos.")
+        if(blocks.length()==0 && session.instructions.isEmpty()) Text(
+            "Sin bloques estructurados: el entrenador todavía no ha añadido movimientos.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     } }
 }
 

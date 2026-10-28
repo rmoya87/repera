@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(Int)->Unit,onNotes:(String)->Unit,onFavorite:()->Unit = {},onEdit:()->Unit = {},accountId:String="") {
@@ -16,17 +17,19 @@ internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(I
     val noteScope=remember(accountId,active.id) {org.json.JSONArray(listOf(accountId,active.id)).toString()}
     val noteSaver=remember(noteScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(noteScope,it)},restore={restoreScopedEditorValue(noteScope,it)})}
     var notes by rememberSaveable(accountId,active.id,active.notes,stateSaver=noteSaver) {mutableStateOf(active.notes.orEmpty())}
-    Column {
-    Row {
-        TextButton(enabled=!busy && active.index>0,onClick={onSelect(active.index-1)},modifier=Modifier.testTag("active_previous")) {Text("Anterior")}
-        TextButton(enabled=!busy && active.navigationEntries.isNotEmpty(),onClick={choosing=true}) {Text("Ejercicios")}
-        TextButton(enabled=!busy && active.index<active.total-1,onClick={onSelect(active.index+1)},modifier=Modifier.testTag("active_navigate_next")) {Text("Siguiente")}
-    }
-    Row {
-    TextButton(enabled=!busy,onClick={editingNotes=true}) {Text(if(active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")}
-    TextButton(enabled=!busy && !active.isFavorite,onClick=onFavorite) {Text(if(active.isFavorite) "En favoritos" else "Favorito")}
-    }
-    TextButton(enabled=!busy,onClick=onEdit) {Text("Editar entreno")}
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row {
+                TextButton(enabled=!busy && active.index>0,onClick={onSelect(active.index-1)},modifier=Modifier.testTag("active_previous")) {Text("Anterior")}
+                TextButton(enabled=!busy && active.navigationEntries.isNotEmpty(),onClick={choosing=true}) {Text("Ejercicios")}
+                TextButton(enabled=!busy && active.index<active.total-1,onClick={onSelect(active.index+1)},modifier=Modifier.testTag("active_navigate_next")) {Text("Siguiente")}
+            }
+            Row {
+                TextButton(enabled=!busy,onClick={editingNotes=true}) {Text(if(active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")}
+                TextButton(enabled=!busy && !active.isFavorite,onClick=onFavorite) {Text(if(active.isFavorite) "En favoritos" else "Favorito")}
+            }
+            TextButton(enabled=!busy,onClick=onEdit) {Text("Editar entreno")}
+        }
     }
     if(choosing) AlertDialog(onDismissRequest={choosing=false},title={Text("Ejercicios y bloques")},
         text={Column(Modifier.verticalScroll(rememberScrollState())) {

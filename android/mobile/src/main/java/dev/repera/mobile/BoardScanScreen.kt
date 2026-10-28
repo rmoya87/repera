@@ -144,7 +144,7 @@ internal fun BoardScanScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Importar pizarra", style = MaterialTheme.typography.headlineMedium) }
+        item { ReperaPageHeader(title = "Importar pizarra", subtitle = "Foto → rutina") }
         saveStatus?.let {message ->item {Text(message,color=MaterialTheme.colorScheme.error)}}
         if (blocks == null) {
             item {
