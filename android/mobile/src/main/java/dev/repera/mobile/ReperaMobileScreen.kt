@@ -64,7 +64,9 @@ private data class TabSpec(val route: String, val label: String, val icon: Image
 
 private val tabs = listOf(
     TabSpec("inicio", "Inicio", Icons.Outlined.Home),
-    TabSpec("diario", "Diario", Icons.Outlined.CalendarMonth),
+    // Diario ELIMINADO (Apple lo elimino, no lo oculto): sin pestana, sin ruta,
+    // sin pantalla. Rollback via Git. Divergencia abierta: la biblioteca Rutinas
+    // conserva acceso temporal por rutas (DIARIO_REMOVAL_TRACE).
     TabSpec("en-vivo", "Comenzar", Icons.Outlined.AddCircleOutline),
     TabSpec("progreso", "Progreso", Icons.Outlined.TrendingUp),
     TabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
@@ -423,65 +425,8 @@ fun ReperaMobileScreen(
                         onRemoveScheduledRoutine = onRemoveScheduledRoutine,
                         onOpenClock = {
                             if (activeWorkout?.wod != null) navController.navigate("reloj")
-                        }
-                    )
-                }
-                composable("diario") {
-                    val diarySubscriptions=LocalSubscriptions.current
-                    DiaryTab(
-                        accountId=accountId,
-                        canCreateTemplate={
-                            val subs=diarySubscriptions
-                            if(subs==null || subs.canCreateLibraryRoutine(true).allowed) true
-                            else {subs.presentPaywall(dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
-                                feature=dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES);false}
                         },
-                        newRoutineEditor={draft,close ->
-                            var title by remember(accountId,draft.id) {mutableStateOf(draft.title)}
-                            RoutineBlocksEditorScreen(draft,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
-                                onReplace={blocks ->onCreateTemplate(title,blocks,RoutineSchedule(weekday=draft.weekday),draft.id,close)},
-                                onBack=close,loadGuideProvider=loadGuideProvider,importableRoutines=overview?.routineEntries.orEmpty(),
-                                onTitleSuggested={title=it},saveStatus=status,editableTitle=true)
-                        },
-                        inlineRoutineEditor={routine,close ->
-                            var title by remember(accountId,routine.id) {mutableStateOf<String?>(null)}
-                            RoutineBlocksEditorScreen(routine,overview?.exerciseEntries.orEmpty(),busy,accountId=accountId,
-                                onReplace={drafts ->onReplaceRoutineBlocks(routine.id,drafts,title,close)},onBack=close,
-                                loadGuideProvider=loadGuideProvider,importableRoutines=overview?.routineEntries.orEmpty(),
-                                onTitleSuggested={title=it},saveStatus=status)
-                        },
-                        professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
-                        centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
-                        aiPrograms = aiPrograms ?: emptyList(),
-                        onOpenAIPrograms = { navController.navigate("programas-ia") },
-                        busy = busy,
-                        syncing = syncing,
-                        status = status,
-                        overview = overview,
-                        activeWorkout = activeWorkout,
-                        onStartRoutine = startOrContinueRoutine,
-                        onEditRoutine = onEditRoutine,
-                        onDeleteRoutine = onDeleteRoutine,
-                        onCopyPreviousWeek = onCopyPreviousWeek,
-                        onAssignRoutineToDate = onAssignRoutineToDate,
-                        onRemoveScheduledRoutine = onRemoveScheduledRoutine,
-                        onClearWeeklySchedule = onClearWeeklySchedule,
-                        onEditRoutineContent = { routineId ->
-                            if(expanded && currentRoute=="inicio") {showSettingsPanel=false;routinePanelId=routineId}
-                            else navController.navigate("rutina/$routineId")
-                        },
-                        onSetRoutineProgression = onSetRoutineProgression,
-                        onSetRoutineFavorite = onSetRoutineFavorite,
-                        onInitializeLocal = onInitializeLocal,
-                        onImportJson = onImportJson,
-                        onDriveSync = onDriveSync,
-                        onExportJson = onExportJson,
-                        onSignOut = onSignOut,
-                        onNavigateHome = { navigateTab("inicio") },
                         onDayPlusCreate = { dayIso, dayName ->
-                            // Borrador en memoria (equivalencia iOS DayEditorView):
-                            // nada se persiste hasta Guardar; Volver no deja
-                            // rutina vacía ni consume cuota.
                             navController.navigate(
                                 "rutina-nueva?fecha=" + dayIso + "&nombre=" +
                                     Uri.encode("Entreno · " + dayName))

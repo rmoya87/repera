@@ -1,6 +1,6 @@
 package dev.repera.mobile
 
-/** Diario owns recurring plans and reusable templates. Dated workouts belong to Inicio. */
+/** Biblioteca owns recurring plans and reusable templates. Dated workouts belong to Inicio. */
 internal object DiaryCatalog {
     fun weekly(routines:List<RoutineEntry>)=routines.filter {it.scheduledDate==null && it.weekday in 1..7}
         .sortedBy {it.weekday}

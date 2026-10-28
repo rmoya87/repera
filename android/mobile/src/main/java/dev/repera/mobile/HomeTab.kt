@@ -110,6 +110,11 @@ internal fun HomeTab(
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
 
     onNavigateCreate: () -> Unit,
+    // «＋» del día seleccionado (DayPlusSheet iOS desde HomeView, c5aae1cc).
+    onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
+    onDayPlusFavorites: () -> Unit = {},
+    onDayPlusTimer: () -> Unit = {},
+    onDayPlusScan: () -> Unit = {},
     onDeleteRoutine: (String) -> Unit = {},
     onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
     onOpenClock: () -> Unit,
@@ -124,6 +129,7 @@ internal fun HomeTab(
     dayHealthProvider:suspend (java.time.LocalDate)->TodayHealth? = {null}
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var showDayPlus by rememberSaveable(accountId) { mutableStateOf(false) }
     LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
     val selectedDay=LocalDate.parse(homeDateIso)
     var selectedHealth by remember(selectedDay) {mutableStateOf<TodayHealth?>(null)}
@@ -202,12 +208,25 @@ internal fun HomeTab(
                     }
                     // Apple 160f304c: la acción de añadir va separada de las
                     // tarjetas diarias (8dp extra sobre el espaciado de la columna).
-                    Button(onClick = onNavigateCreate,
+                    Button(onClick = { showDayPlus = true },
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = brandGreen, contentColor = Color.Black
                         )) { Text("Añadir nuevo entrenamiento") }
+                    if (showDayPlus) {
+                        val dayName = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL,
+                            java.util.Locale("es")).replaceFirstChar { it.uppercase() }
+                        DayPlusSheet(
+                            dayName = dayName,
+                            favoriteRoutines = overview?.routineEntries.orEmpty().count { it.isFavorite },
+                            favoriteTimers = overview?.favoriteTimerCount ?: 0,
+                            onCreateWorkout = { showDayPlus = false; onDayPlusCreate(homeDateIso, dayName) },
+                            onOpenFavorites = { showDayPlus = false; onDayPlusFavorites() },
+                            onOpenTimer = { showDayPlus = false; onDayPlusTimer() },
+                            onScanBoard = { showDayPlus = false; onDayPlusScan() },
+                            onDismiss = { showDayPlus = false })
+                    }
                 }
             }
         }
