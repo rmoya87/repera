@@ -11,7 +11,25 @@ struct FindCenterTrainerView: View {
 
     var body: some View {
         List {
-            OGScrollablePageTitle("Buscar centro o entrenador").ogScrollingTitleListRow()
+            OGScrollablePageTitle("Buscar").ogScrollingTitleListRow()
+            Section {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(OG.label2)
+                    TextField("Nombre del entrenador o centro", text: $query)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                    if !query.isEmpty {
+                        Button { query = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(OG.label2)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 5)
+            }
             if !businessAuth.isConnected {
                 Section {
                     Label("No se han podido cargar los centros.", systemImage: "wifi.exclamationmark")
@@ -73,6 +91,22 @@ struct FindCenterTrainerView: View {
                 if !businessAuth.isConnected {
                     Text("La búsqueda estará disponible al recuperar la conexión.")
                         .foregroundStyle(OG.label2)
+                } else if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass.circle")
+                            .font(.system(size: 38, weight: .light))
+                            .foregroundStyle(OG.accent)
+                        Text("Busca tu entrenador o centro")
+                            .font(.system(size: 17, weight: .semibold))
+                        Text("Escribe su nombre para encontrarlo y solicitar la vinculación.")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 150)
+                    .padding(14)
+                    .background(OG.surface2.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
+                    .listRowSeparator(.hidden)
                 } else if businessData.isSearchingDirectory {
                     ProgressView()
                 } else if businessData.directory.isEmpty {
@@ -93,7 +127,9 @@ struct FindCenterTrainerView: View {
                     }
                 }
             } header: {
-                Text("Resultados")
+                if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Resultados")
+                }
             }
 
             if let err = businessData.errorMessage {
@@ -104,14 +140,7 @@ struct FindCenterTrainerView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .searchable(
-            text: $query,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Nombre del centro o entrenador"
-        )
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
-        .onSubmit(of: .search) {
+         .onSubmit(of: .search) {
             guard businessAuth.isConnected else { return }
             Task { await businessData.searchDirectory(query: query) }
         }
@@ -119,6 +148,7 @@ struct FindCenterTrainerView: View {
             Task {
                 try? await Task.sleep(for: .milliseconds(350))
                 guard query == value, businessAuth.isConnected else { return }
+                guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 await businessData.searchDirectory(query: value)
             }
         }
@@ -158,7 +188,9 @@ struct FindCenterTrainerView: View {
         }
         guard businessAuth.isConnected else { return }
         await businessData.refresh()
-        await businessData.searchDirectory(query: query)
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            await businessData.searchDirectory(query: query)
+        }
     }
 }
 
