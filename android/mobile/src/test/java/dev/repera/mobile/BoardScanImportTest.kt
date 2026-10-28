@@ -158,4 +158,15 @@ class BoardScanImportTest {
         assertTrue(wire.getString("wodNotes").contains(header))
         }
     }
+    @Test fun findAHeavyDescriptionKeepsMaxEffortInWire() {
+        val header="FIND A HEAVY 3 REP BACK SQUAT"
+        val block=BoardScanLiteParser.parse(header+"\n1 PUSH PRESS",catalog=catalog).blocks.single()
+        val wire=BoardScanImport.wireBlock(block)
+        assertEquals("maxEffort",wire.getString("wodFormat"))
+        assertEquals(header,wire.getString("title"))
+        assertEquals(3,wire.getInt("timeCapMinutes"))
+        assertEquals(1,wire.getJSONArray("movements").length())
+        assertFalse(wire.has("rounds"))
+        assertTrue(wire.getString("wodNotes").contains(header))
+    }
 }

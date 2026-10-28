@@ -793,4 +793,18 @@ class BoardScanLiteParserTest {
             assertTrue(block.wodNotes!!.contains(header))
         }
     }
+    @Test fun findAHeavyHeaderKeepsDescriptionAndSourceCap() {
+        for(header in listOf("FIND A HEAVY", "FIND A HEAVY CLEAN", "FIND A HEAVY 3 REP BACK SQUAT")) {
+            val block=BoardScanLiteParser.parse(header+"\n1 PUSH PRESS",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.MAX_EFFORT,block.wodFormat)
+            assertEquals(header,block.title)
+            assertEquals(if(header.contains("3")) 3 else null,block.timeCapMinutes)
+            assertEquals(1,block.movements.size)
+            assertNull(block.rounds)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        val ordinary=BoardScanLiteParser.parse("AMRAP 10'\n2 FIND A HEAVY PRESS",catalog=catalog).blocks.single()
+        assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
+        assertEquals(1,ordinary.movements.size)
+    }
 }

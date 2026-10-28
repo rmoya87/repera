@@ -789,3 +789,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 06:56 28oct
 -350 bateria completa mobile680/163XML93/108/85/82s,domain545/93XML70s,Wear8/1XML+ambosassemble74sverdes0fallos/errores/omitidos. Backup350recuperado65338db7:arbol0427e0c908ad16655fa00bf5cc6dd86c15a972abidentico,clonlimpio.
 -351 solo documentacion: c6f89c28/88db5bb7reconciliadas349-350,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Lector completo, FIND A HEAVY 06:59 28oct
+- Mismo lector parcial352: FIND A HEAVY exacto o seguido de espacio y descripcion reconoceMAX_EFFORT,tituloynotasoriginales,capfirstInt como fuenteBoardImportParser542-546. No reglaMAXglobal ni containsglobal;nombreprecedidocantidadbajoAMRAPsiguesiendounmovimiento.
+- Regresion fallo antes.1testdominio3cabeceras+nombreordinario y1wire nuevos;dominio546/93XML74s,wire11/1XML65sverdes0fallos/errores/omitidos. Mobile completa/Wear352pendientes;ultima completa350mobile680/163,domain545/93,Wear8/1+ambosassemble74s.735/70sin cierres,nativo pendiente,no push.
