@@ -511,6 +511,14 @@ object BoardScanLiteParser {
             sharedNotes.add("RPE "+rpe.value.removePrefix("@").trim())
             annotated=annotated.removeRange(rpe.range).trim()
         }
+        var scaleAlternative:String?=null
+        val scaleParts=annotated.split(Regex("\\s+/\\s+"))
+        val trailingPair=Regex("#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*(?:kg|lb)?\\s*$",RegexOption.IGNORE_CASE).containsMatchIn(annotated)
+        if(scaleParts.size>1 && !trailingPair) {
+            if(scaleParts.drop(1).any {it.isBlank() || it.contains('+')}) return listOf(movement(raw,aliases))
+            annotated=scaleParts.first().trim()
+            scaleAlternative=scaleParts.drop(1).joinToString(" / ") {CrossFitGlossary.expand(it.trim())}
+        }
         val loadSuffix=Regex("(?<!\\S)#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(annotated)?.takeUnless {annotated.substring(0,it.range.first).trimEnd().endsWith("-") || annotated.substring(0,it.range.first).trimEnd().endsWith("–")}
         val parentLoad=loadSuffix?.let {CrossFitGlossary.parseMaleFemaleWeights(it.value)?.takeIf {pair ->pair.first.isFinite() && pair.second.isFinite() && pair.second>0}}
         val unloaded=if(parentLoad!=null) annotated.removeRange(loadSuffix!!.range).trim() else annotated
@@ -529,7 +537,8 @@ object BoardScanLiteParser {
             Regex("^\\d+\\s*[-–]").containsMatchIn(body)) return listOf(movement(raw,aliases))
         return parts.mapIndexed {index,part ->
             val parsed=movement(part,aliases)
-            parsed.copy(weightMaleKg=if(index==0) parsed.weightMaleKg ?: parentLoad?.first else parsed.weightMaleKg,
+            parsed.copy(scaleAlternative=if(index==parts.lastIndex) scaleAlternative ?: parsed.scaleAlternative else parsed.scaleAlternative,
+                weightMaleKg=if(index==0) parsed.weightMaleKg ?: parentLoad?.first else parsed.weightMaleKg,
                 weightFemaleKg=if(index==0) parsed.weightFemaleKg ?: parentLoad?.second else parsed.weightFemaleKg,
                 reps=if(index==0 && validWave!=null) null else parsed.reps,repScheme=if(index==0 && validWave!=null) validWave else parsed.repScheme,
                 notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},validWave?.let {"Series ${it.joinToString("-")}"},sharedNotes.takeIf {it.isNotEmpty()}?.joinToString(" · "),parsed.notes).joinToString(" · "))

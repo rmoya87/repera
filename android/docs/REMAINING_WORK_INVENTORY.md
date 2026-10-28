@@ -638,3 +638,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -318 validacion completa: mobile676/163XML ejecutados62/82/60/63s;domain510/93XML;Wear8/1XML reejecutado con ambos assemble44s,0fallos/errores/omitidos. Backup318 recuperado desde65338db7,arbol identico fb0f7ebc4f8bf630a48f80dbdb7d1331a04447a1.
 - Mismo bloque parcial: subconjunto319 extrae porcentaje #70%/#>80%/@70% y RPE entero @6-8 antes de separar complejo; comparte notas en todas las partes, siguiendo BoardImportParser630-669/749-790. No asigna porcentaje como carga/reps/sets. Combinacion ola+RPE+parKG mantiene carga solo en primera parte.
 - RPE decimal/at simple, alternativas escala y cargas implicitas siguen en review sin separar; no default3x8. Dos tests nuevos, mas limites en regresion. Dominio completo512/93XML y wire mobile6/1XML verdes; mobile completa/Wear319 pendientes.735/70sin cierres,no push,nativo pendiente.
+
+## Lector completo, escala ultima parte 02:01 28oct
+-319 bateria completa mobile676/163XML63/77/62/64s,domain512/93XML26s,Wear8/1XML+ambosassemble48s verdes0fallos/errores/omitidos; solo bateria cerrada.
+- Mismo bloque parcial,subconjunto320: alternativa de escala con slash espaciado se extrae antes de dividir complejo y se asigna solo a ultima parte, segun fuente BoardImportParser669-680/788. Varias alternativas se conservan expandidas. Par H/M espaciado KG sigue siendo carga solo primera parte,nunca escala.
+- Alternativa con '+' ambigua queda sin dividir para review; no inferir receta ni carga. Porcentaje y RPE compartidos preservados en JSON.2 tests dominio nuevos y1wire. Dominio514/93XML54s ywire7/1XML verdes. Mobile completa/Wear320 pendientes.735/70sin cierres,lectorfull/nativo pendientes,no push.

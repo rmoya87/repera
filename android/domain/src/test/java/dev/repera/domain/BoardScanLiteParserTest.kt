@@ -521,4 +521,21 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[1].weightMaleKg)
         assertTrue(block.movements.all {it.notes!!.contains("RPE 6–8")})
     }
+    @Test fun complexScaleAlternativesBelongOnlyToLastPart() {
+        val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n3X 1 PUSH PRESS + 40 DU / 80 SU / 60 DU #70% @7-8",catalog=catalog).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertNull(block.movements[0].scaleAlternative)
+        assertEquals(CrossFitGlossary.expand("80 SU")+" / "+CrossFitGlossary.expand("60 DU"),block.movements[1].scaleAlternative)
+        assertEquals(40,block.movements[1].reps)
+        assertTrue(block.movements.all {it.notes!!.contains("70%") && it.notes!!.contains("RPE 7-8")})
+        assertTrue(block.movements.all {it.weightMaleKg==null})
+    }
+    @Test fun complexSpacedKgPairRemainsLoadAndAmbiguousScaleStaysReview() {
+        val loaded=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 2 AIR SQUAT 50 / 35 kg",catalog=catalog).blocks.single()
+        assertEquals(2,loaded.movements.size)
+        assertEquals(50.0,loaded.movements[0].weightMaleKg!!,0.001)
+        assertTrue(loaded.movements.all {it.scaleAlternative==null})
+        val review=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 40 DU / 80 SU + 1 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(1,review.movements.size)
+    }
 }

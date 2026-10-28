@@ -118,4 +118,15 @@ class BoardScanImportTest {
         assertFalse(movements.getJSONObject(1).has("weightMaleKg"))
         assertFalse(movements.getJSONObject(1).has("weightFemaleKg"))
     }
+    @Test fun complexScaleAndSharedNotesSurviveReviewWire() {
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n1 POWER CLEAN + 40 DU / 80 SU #70% @7-8",catalog=catalog).blocks.single()
+        val wire=BoardScanImport.wireBlock(block).getJSONArray("movements")
+        assertEquals(2,wire.length())
+        assertFalse(wire.getJSONObject(0).has("scaleAlternative"))
+        assertEquals(block.movements[1].scaleAlternative,wire.getJSONObject(1).getString("scaleAlternative"))
+        for(i in 0..1) {
+            assertTrue(wire.getJSONObject(i).getString("notes").contains("RPE 7-8"))
+            assertTrue(wire.getJSONObject(i).getString("notes").contains("70%"))
+        }
+    }
 }
