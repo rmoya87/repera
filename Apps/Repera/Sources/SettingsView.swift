@@ -15,10 +15,14 @@ struct SettingsView: View {
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(WorkoutLocationTracker.self) private var location
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
     @State private var exportURL: URL?
     @State private var showingImporter = false
     @State private var showingCSVImporter = false
-    @State private var confirmReset = false
+    @State private var confirmDeleteAccount = false
+    @State private var isDeletingAccount = false
+    @State private var accountDeleteError: String?
+    @State private var importFeedback: String?
     @State private var photoItem: PhotosPickerItem?
     @State private var isPhotoPickerPresented = false
     @State private var restoreMessage: String?
@@ -28,9 +32,6 @@ struct SettingsView: View {
     @State private var confirmSignOut = false
     @State private var googleLinkFeedback: String?
     @State private var workoutSync = BusinessWorkoutSyncStore.shared
-    @State private var localSyncError: String?
-    @State private var isManualSyncing = false
-    @State private var lastManualICloudSyncAt: Date?
     var body: some View {
         @Bindable var store = store
         Form {
@@ -114,66 +115,22 @@ struct SettingsView: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 7) {
-                    Button {
-                        Task { @MainActor in
-                            guard !isManualSyncing else { return }
-                            isManualSyncing = true
-                            defer { isManualSyncing = false }
-                            localSyncError = nil
-                            // Recuperar primero el documento completo de iCloud,
-                            // incluidas las coordenadas GPS de las sesiones.
-                            await store.refreshFromiCloud()
-                            await LocalStore.shared.persistAndFlush(store.state)
-                            if let error = LocalStore.shared.lastPersistenceError {
-                                localSyncError = error.localizedDescription
-                                return
-                            }
-                            if store.iCloudStatus == .available, store.syncPhase == .ready {
-                                lastManualICloudSyncAt = Date()
-                            }
-                            if businessAuth.isConnected {
-                                _ = await workoutSync.sync(store: store)
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 9) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .frame(width: 24, alignment: .center)
-                                .rotationEffect(.degrees((isManualSyncing || workoutSync.isSyncing) ? 360 : 0))
-                                .animation(
-                                    (isManualSyncing || workoutSync.isSyncing)
-                                        ? .linear(duration: 1).repeatForever(autoreverses: false)
-                                        : .default,
-                                    value: isManualSyncing || workoutSync.isSyncing
-                                )
-                            Text((isManualSyncing || workoutSync.isSyncing) ? "Sincronizando…" : "Sincronizar ahora")
-                            Spacer()
-                            if isManualSyncing || workoutSync.isSyncing {
-                                ProgressView().controlSize(.small)
-                            }
-                        }
-                        .foregroundStyle(OG.label)
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundStyle(OG.label2)
+                    Text("Sincronización automática")
+                        .foregroundStyle(OG.label2)
+                    Spacer()
+                    if workoutSync.isSyncing {
+                        ProgressView().controlSize(.small)
+                    } else if let lastSync = workoutSync.lastSyncAt {
+                        Text(lastSync, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(OG.label3)
                     }
-                    .disabled(isManualSyncing || workoutSync.isSyncing)
-                    Group {
-                        if let failure = localSyncError ?? workoutSync.lastError {
-                            Text(failure)
-                                .font(.caption)
-                                .foregroundStyle(OG.red)
-                        } else if let syncedAt = workoutSync.lastSyncAt ?? lastManualICloudSyncAt {
-                            Text(syncedAt.formatted(date: .numeric, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        } else {
-                            Text("Tus entrenamientos se guardan en el dispositivo y se sincronizan al estar conectado.")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        }
-                    }
-                    .padding(.leading, 33)
                 }
-                .padding(.vertical, 3)
+                .font(.footnote)
+                .padding(.vertical, 4)
 
                 if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
                     Button {
@@ -184,8 +141,33 @@ struct SettingsView: View {
                                 : businessAuth.lastErrorMessage
                         }
                     } label: {
-                        Label("Vincular cuenta de Google", systemImage: "person.crop.circle.badge.plus")
+                        HStack(spacing: 12) {
+                            Image("GoogleSignInLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 22, height: 22)
+                            Text("Vincular con Google")
+                                .font(.system(size: 15, weight: .semibold))
+                            Spacer(minLength: 0)
+                            if businessAuth.isConnecting { ProgressView().controlSize(.small) }
+                        }
+                        .foregroundStyle(colorScheme == .dark
+                            ? Color(red: 227 / 255, green: 227 / 255, blue: 227 / 255)
+                            : Color(red: 31 / 255, green: 31 / 255, blue: 31 / 255))
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 50)
+                        .background(colorScheme == .dark
+                            ? Color(red: 19 / 255, green: 19 / 255, blue: 20 / 255)
+                            : .white, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(colorScheme == .dark
+                                    ? Color(red: 142 / 255, green: 145 / 255, blue: 143 / 255)
+                                    : Color(red: 116 / 255, green: 119 / 255, blue: 117 / 255),
+                                    lineWidth: 1)
+                        }
                     }
+                    .buttonStyle(.plain)
                     .disabled(businessAuth.isConnecting)
                 }
                 if let googleLinkFeedback {
@@ -193,8 +175,23 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(OG.label2)
                 }
-                Button("Cerrar sesión", role: .destructive) {
-                    confirmSignOut = true
+                HStack(spacing: 10) {
+                    Image(systemName: businessAuth.isGoogleSignedIn
+                        ? "person.crop.circle" : "apple.logo")
+                        .foregroundStyle(OG.label)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(businessAuth.isGoogleSignedIn ? "Google" : "Apple")
+                            .font(.subheadline.weight(.medium))
+                        if let email = businessAuth.accountEmail ?? appleAuth.email {
+                            Text(email).font(.caption).foregroundStyle(OG.label2)
+                                .lineLimit(1).truncationMode(.middle)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Button("Cerrar sesión", role: .destructive) {
+                        confirmSignOut = true
+                    }
+                    .font(.subheadline.weight(.semibold))
                 }
             } header: {
                 Text("Cuenta")
@@ -315,6 +312,12 @@ struct SettingsView: View {
                     }
                     .disabled(subscriptions.purchaseInFlight)
                     .foregroundStyle(OG.label)
+                }
+                NavigationLink {
+                    AIAccessView()
+                } label: {
+                    Label("Conecta tu IA", systemImage: "brain.head.profile")
+                        .foregroundStyle(OG.label)
                 }
             } header: {
                 Text("Acceso")
@@ -497,36 +500,7 @@ struct SettingsView: View {
                     Text("Lunes").tag(WeekStart.monday)
                     Text("Domingo").tag(WeekStart.sunday)
                 }
-                Stepper(
-                    "Descanso: \(store.state.settings.defaultRestSeconds)s",
-                    value: Binding(
-                        get: { store.state.settings.defaultRestSeconds },
-                        set: {
-                            var s = store.state.settings
-                            s.defaultRestSeconds = $0
-                            store.updateSettings(s)
-                        }
-                    ),
-                    in: 30...300,
-                    step: 15
-                )
-                Toggle("Sonido al terminar descanso", isOn: Binding(
-                    get: { store.state.settings.restSoundEnabled },
-                    set: {
-                        var s = store.state.settings
-                        s.restSoundEnabled = $0
-                        store.updateSettings(s)
-                    }
-                ))
-                Toggle("Vibración en countdown", isOn: Binding(
-                    get: { store.state.settings.restHapticEnabled },
-                    set: {
-                        var s = store.state.settings
-                        s.restHapticEnabled = $0
-                        store.updateSettings(s)
-                    }
-                ))
-                Picker("Esfuerzo", selection: Binding(
+                Picker("Esfuerzo (registro)", selection: Binding(
                     get: { store.state.settings.effortUnit },
                     set: {
                         var s = store.state.settings
@@ -538,43 +512,11 @@ struct SettingsView: View {
                         Text(unit.displayName).tag(unit)
                     }
                 }
-                Picker("Progresión por defecto", selection: Binding(
-                    get: { store.state.settings.defaultProgression },
-                    set: {
-                        var s = store.state.settings
-                        s.defaultProgression = $0
-                        store.updateSettings(s)
-                    }
-                )) {
-                    ForEach(ProgressionPolicy.allCases, id: \.self) { policy in
-                        Text(policy.displayName).tag(policy)
-                    }
-                }
-                Stepper(
-                    "Incremento: \(ReperaNumberFormat.decimal(store.state.settings.weightIncrementKg)) kg",
-                    value: Binding(
-                        get: { store.state.settings.weightIncrementKg },
-                        set: {
-                            var s = store.state.settings
-                            s.weightIncrementKg = $0
-                            store.updateSettings(s)
-                        }
-                    ),
-                    in: 0.5...10,
-                    step: 0.5
-                )
+
             }
 
             Section("Datos") {
-                NavigationLink {
-                    AIAccessView()
-                } label: {
-                    Label("Conecta tu IA", systemImage: "brain.head.profile")
-                        .foregroundStyle(OG.label)
-                }
                 LabeledContent("Entrenamientos", value: "\(store.state.workouts.count)")
-                LabeledContent("Ejercicios", value: "\(store.state.exercises.count)")
-                LabeledContent("Rutinas", value: "\(store.state.routines.count)")
                 Button("Exportar JSON") { exportBackup() }
                 Button("Importar JSON") { showingImporter = true }
                 Button("Importar CSV Strong/Hevy") { showingCSVImporter = true }
@@ -583,9 +525,15 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Button("Borrar mis datos", role: .destructive) {
-                    confirmReset = true
+                if let importFeedback {
+                    Text(importFeedback)
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
                 }
+                Button("Eliminar mi cuenta", role: .destructive) {
+                    confirmDeleteAccount = true
+                }
+                .disabled(isDeletingAccount)
             }
         }
         .listStyle(.insetGrouped)
@@ -855,13 +803,13 @@ struct HealthGoalsView: View {
             Section {
                 goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
                 goalRow("Calorías activas", icon: "flame", field: .energy, next: .minutes, text: $energy, unit: "kcal")
-                goalRow("Tiempo de entreno", icon: "clock", field: .minutes, next: .weekly, text: $minutes, unit: "min")
+                goalRow("T. de entreno", icon: "clock", field: .minutes, next: .weekly, text: $minutes, unit: "min")
             } header: {
                 Text("Objetivos diarios")
             }
 
             Section {
-                goalRow("Entrenamientos", icon: "checkmark.circle", field: .weekly, next: .weight, text: $weekly, unit: "semana")
+                goalRow("Entreno", icon: "checkmark.circle", field: .weekly, next: .weight, text: $weekly, unit: "semana")
             } header: {
                 Text("Objetivo semanal")
             }
