@@ -405,7 +405,14 @@ struct DayEditorView: View {
         .navigationDestination(item: $createFreeMovementForBlock) { blockID in
             FreeWODMovementCreatePage { movement in
                 if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
-                    routine.blocks[idx].movements.append(movement)
+                    if routine.blocks[idx].kind == .wod {
+                        routine.blocks[idx].movements.append(movement)
+                    } else {
+                        routine.blocks.insert(
+                            RoutineBlock(title: movement.name, kind: .wod, movements: [movement]),
+                            at: idx + 1
+                        )
+                    }
                 }
                 createFreeMovementForBlock = nil
             }
@@ -1457,14 +1464,9 @@ struct DayEditorView: View {
     }
 
     private func beginFreeMovement(after blockID: UUID) {
-        guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-        if routine.blocks[index].kind == .wod {
-            createFreeMovementForBlock = blockID
-        } else {
-            let newBlock = RoutineBlock(title: "Movimiento libre", kind: .wod)
-            routine.blocks.insert(newBlock, at: index + 1)
-            createFreeMovementForBlock = newBlock.id
-        }
+        guard routine.blocks.contains(where: { $0.id == blockID }) else { return }
+        // No insertar un bloque vacío si se cancela el editor.
+        createFreeMovementForBlock = blockID
     }
 
     private func plannedSetBinding(blockIndex: Int, exerciseIndex: Int, setIndex: Int) -> Binding<PlannedSet> {
