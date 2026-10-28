@@ -377,6 +377,7 @@ fun ReperaMobileScreen(
                         status = status,
                         overview = overview,
                         todayHealth = todayHealth,
+                        healthAccess = healthAccess,
                         dayHealthProvider=dayHealthProvider,
                         onHealthConnect = onHealthConnect,
                         activeWorkout = activeWorkout,

@@ -1,40 +1,76 @@
 package dev.repera.mobile.monetization
 
+import android.app.Activity
 import android.content.Context
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClient.BillingResponseCode
+import com.android.billingclient.api.BillingClientStateListener
+import com.android.billingclient.api.BillingFlowParams
+import com.android.billingclient.api.BillingResult
 import com.android.billingclient.api.PendingPurchasesParams
+import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
+import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import dev.repera.domain.monetization.CommercialSnapshot
 import dev.repera.domain.monetization.SubscriptionStatus
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
-
-/** Tokens detectados localmente pendientes de verificación backend. */
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Provider de Google Play Billing con modelo de seguridad estricto:
  * una compra detectada localmente NO concede Pro hasta que el backend la
  * verifique con purchases.subscriptionsv2.get (purchaseToken -> backend).
- * Por eso todos los snapshots devueltos llevan isVerified=false: la política
- * efectiva mantiene UNKNOWN y grantsProAccess=false mientras no exista el
- * paso de verificación. Documentación: android/docs/MONETIZATION_PLAY_BILLING.md.
+ * Documentación: android/docs/MONETIZATION_PLAY_BILLING.md.
  */
 class PlayBillingEntitlementProvider(
     context: Context,
-    private val onPurchasesChanged: suspend () -> Unit = {}
+    private val activityProvider: () -> Activity? = { context as? Activity }
 ) : EntitlementProvider {
 
-    var pendingVerificationTokens: List<String> = emptyList()
+    data class PendingPurchase(
+        val purchaseToken: String,
+        val productId: String?
+    )
+
+    var pendingPurchases: List<PendingPurchase> = emptyList()
         private set
 
-    private val listener = PurchasesUpdatedListener { _, purchases ->
-        pendingVerificationTokens =
-            purchases.orEmpty().mapNotNull { it.pendingVerificationToken() }
+    val pendingVerificationTokens: List<String>
+        get() = pendingPurchases.map { it.purchaseToken }
+
+    private val purchaseMutex = Mutex()
+    @Volatile private var purchaseWaiter: CompletableDeferred<CommercialSnapshot>? = null
+
+    private val listener = PurchasesUpdatedListener { result, purchases ->
+        val waiter = purchaseWaiter
+        when (result.responseCode) {
+            BillingResponseCode.OK -> {
+                val owned = purchases.orEmpty().mapNotNull { it.asPending() }
+                pendingPurchases = owned
+                waiter?.complete(
+                    CommercialSnapshot(
+                        status = SubscriptionStatus.UNKNOWN,
+                        isConfigured = true,
+                        activeProductID = owned.firstOrNull()?.productId,
+                        lastRefreshFailedOffline = false
+                    )
+                )
+            }
+            BillingResponseCode.USER_CANCELED ->
+                waiter?.completeExceptionally(EntitlementError.UserCancelled())
+            else ->
+                waiter?.completeExceptionally(
+                    EntitlementError.PurchaseFailed("Billing ${result.responseCode}")
+                )
+        }
+        if (waiter != null) purchaseWaiter = null
     }
 
     override val isConfigured: Boolean get() = true
@@ -46,59 +82,44 @@ class PlayBillingEntitlementProvider(
         .setListener(listener)
         .build()
 
-    /** Lectura de catálogo: precios REALES de Play (queryProductDetails).
-     *  Nada de importes en código; solo lectura, sin habilitar cobro ni Pro. */
-    override suspend fun offerings(): CommercialOfferings = suspendCoroutine { cont ->
-        client.startConnection(object : com.android.billingclient.api.BillingClientStateListener {
-            override fun onBillingSetupFinished(result: com.android.billingclient.api.BillingResult) {
-                if (result.responseCode != BillingResponseCode.OK) {
-                    client.endConnection()
-                    cont.resume(CommercialOfferings(
-                        packages = emptyList(),
-                        unavailableReason = "Catálogo no disponible ahora mismo."
-                    ))
-                    return
-                }
-                val products = CommercialConfig.ALL_PRODUCT_IDS.map { id ->
-                    com.android.billingclient.api.QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(id)
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build()
-                }
-                client.queryProductDetailsAsync(
-                    com.android.billingclient.api.QueryProductDetailsParams.newBuilder()
-                        .setProductList(products).build()
-                ) { queryResult, detailsResult ->
-                    client.endConnection()
-                    if (queryResult.responseCode != BillingResponseCode.OK) {
-                        cont.resume(CommercialOfferings(
+    override suspend fun offerings(): CommercialOfferings {
+        ensureConnected()
+        return suspendCancellableCoroutine { cont ->
+            val products = CommercialConfig.ALL_PRODUCT_IDS.map { id ->
+                QueryProductDetailsParams.Product.newBuilder()
+                    .setProductId(id)
+                    .setProductType(BillingClient.ProductType.SUBS)
+                    .build()
+            }
+            client.queryProductDetailsAsync(
+                QueryProductDetailsParams.newBuilder().setProductList(products).build()
+            ) { queryResult, detailsResult ->
+                if (queryResult.responseCode != BillingResponseCode.OK) {
+                    cont.resume(
+                        CommercialOfferings(
                             packages = emptyList(),
                             unavailableReason = "Catálogo no disponible ahora mismo."
-                        ))
-                        return@queryProductDetailsAsync
-                    }
-                    val packages = detailsResult.productDetailsList.mapNotNull { it.toPackageInfo() }
-                    if (packages.isEmpty()) {
-                        // Estado live 25/10: sin productos en Play Console aún.
-                        cont.resume(CommercialOfferings(
-                            packages = emptyList(),
-                            unavailableReason = "Catálogo no configurado: pendiente decisión de productos, precios y trials en Play Console."
-                        ))
-                    } else {
-                        cont.resume(CommercialOfferings(
-                            packages = packages.sortedBy { it.productID }
-                        ))
-                    }
+                        )
+                    )
+                    return@queryProductDetailsAsync
                 }
+                val packages = detailsResult.productDetailsList.mapNotNull { it.toPackageInfo() }
+                cont.resume(
+                    if (packages.isEmpty()) {
+                        CommercialOfferings(
+                            packages = emptyList(),
+                            unavailableReason =
+                                "Catálogo no configurado: pendiente decisión de productos, precios y trials en Play Console."
+                        )
+                    } else {
+                        CommercialOfferings(packages = packages.sortedBy { it.productID })
+                    }
+                )
             }
-
-            override fun onBillingServiceDisconnected() = Unit
-        })
+        }
     }
 
-    /** Plan base del producto: última fase = precio recurrente; una fase
-     *  previa a 0 € = trial. Sin importes hardcodeados. */
-    private fun com.android.billingclient.api.ProductDetails.toPackageInfo(): CommercialPackageInfo? {
+    private fun ProductDetails.toPackageInfo(): CommercialPackageInfo? {
         val offer = subscriptionOfferDetails?.firstOrNull() ?: return null
         val phases = offer.pricingPhases.pricingPhaseList
         val recurring = phases.lastOrNull() ?: return null
@@ -115,102 +136,137 @@ class PlayBillingEntitlementProvider(
         )
     }
 
-    override suspend fun purchase(productID: String): CommercialSnapshot {
-        // Sin catálogo configurado ni backend de verificación, ninguna compra concede Pro.
-        throw EntitlementError.PurchaseFailed(
-            "Compras deshabilitadas: catálogo sin configurar y verificación backend pendiente."
-        )
+    override suspend fun purchase(productID: String): CommercialSnapshot = purchaseMutex.withLock {
+        if (productID !in CommercialConfig.ALL_PRODUCT_IDS) {
+            throw EntitlementError.ProductUnavailable()
+        }
+        val activity = activityProvider()
+            ?: throw EntitlementError.PurchaseFailed("No hay Activity para lanzar la compra.")
+        ensureConnected()
+        val details = queryProductDetails(productID)
+            ?: throw EntitlementError.ProductUnavailable()
+        val offerToken = details.subscriptionOfferDetails?.firstOrNull()?.offerToken
+            ?: throw EntitlementError.ProductUnavailable()
+        val deferred = CompletableDeferred<CommercialSnapshot>()
+        purchaseWaiter = deferred
+        val flowParams = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(
+                listOf(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(details)
+                        .setOfferToken(offerToken)
+                        .build()
+                )
+            )
+            .build()
+        val launched = client.launchBillingFlow(activity, flowParams)
+        if (launched.responseCode != BillingResponseCode.OK) {
+            purchaseWaiter = null
+            throw EntitlementError.PurchaseFailed(
+                "No se pudo abrir el flujo de compra (${launched.responseCode})"
+            )
+        }
+        // Local PURCHASED ≠ Pro. UNKNOWN + pending token hasta verify backend.
+        return deferred.await()
     }
 
     override suspend fun restore(): CommercialSnapshot = refresh()
 
-    override suspend fun refresh(): CommercialSnapshot = suspendCoroutine { continuation ->
-        val resumeUnknown = {
-            continuation.resume(
-                CommercialSnapshot(
-                    status = SubscriptionStatus.UNKNOWN,
-                    isConfigured = true,
-                    lastRefreshFailedOffline = true
-                )
-            )
-            Unit
-        }
-        client.startConnection(object : com.android.billingclient.api.BillingClientStateListener {
-            override fun onBillingSetupFinished(result: com.android.billingclient.api.BillingResult) {
-                if (result.responseCode != BillingResponseCode.OK) {
-                    client.endConnection()
-                    resumeUnknown()
-                    return
+    override suspend fun refresh(): CommercialSnapshot {
+        ensureConnected()
+        return suspendCancellableCoroutine { continuation ->
+            client.queryPurchasesAsync(
+                QueryPurchasesParams.newBuilder()
+                    .setProductType(BillingClient.ProductType.SUBS)
+                    .build()
+            ) { purchasesResult, purchases ->
+                if (purchasesResult.responseCode != BillingResponseCode.OK) {
+                    continuation.resume(
+                        CommercialSnapshot(
+                            status = SubscriptionStatus.UNKNOWN,
+                            isConfigured = true,
+                            lastRefreshFailedOffline = true
+                        )
+                    )
+                    return@queryPurchasesAsync
                 }
-                client.queryPurchasesAsync(
-                    QueryPurchasesParams.newBuilder()
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build()
-                ) { purchasesResult, purchases ->
-                    client.endConnection()
-                    if (purchasesResult.responseCode != BillingResponseCode.OK) {
-                        resumeUnknown()
-                        return@queryPurchasesAsync
-                    }
-                    val active = purchases.firstOrNull {
-                        it.purchaseState == Purchase.PurchaseState.PURCHASED &&
-                            it.products.any { p -> p in CommercialConfig.ALL_PRODUCT_IDS }
-                    }
-                    if (active == null) {
-                        pendingVerificationTokens = emptyList()
-                        continuation.resume(
-                            CommercialSnapshot(
-                                status = SubscriptionStatus.FREE,
-                                isConfigured = true,
-                                lastRefreshFailedOffline = true
-                            )
+                val owned = purchases.mapNotNull { it.asPending() }
+                pendingPurchases = owned
+                continuation.resume(
+                    if (owned.isEmpty()) {
+                        CommercialSnapshot(
+                            status = SubscriptionStatus.FREE,
+                            isConfigured = true,
+                            lastRefreshFailedOffline = false
                         )
                     } else {
-                        // Detectada localmente: PENDIENTE DE VERIFICACIÓN.
-                        // UNKNOWN sin caché verificada = no concede Pro.
-                        pendingVerificationTokens = listOf(active.purchaseToken)
-                        continuation.resume(
-                            CommercialSnapshot(
-                                status = SubscriptionStatus.UNKNOWN,
-                                isConfigured = true,
-                                activeProductID = active.products.firstOrNull(),
-                                lastRefreshFailedOffline = false
-                            )
+                        CommercialSnapshot(
+                            status = SubscriptionStatus.UNKNOWN,
+                            isConfigured = true,
+                            activeProductID = owned.first().productId,
+                            lastRefreshFailedOffline = false
                         )
                     }
-                }
+                )
             }
-
-            override fun onBillingServiceDisconnected() = Unit
-        })
+        }
     }
 
-    /** Reconocimiento local de compra una vez VERIFICADA en backend (futuro). */
-    suspend fun acknowledgeVerifiedPurchase(purchaseToken: String) = suspendCoroutine<Unit> { cont ->
-        client.startConnection(object : com.android.billingclient.api.BillingClientStateListener {
-            override fun onBillingSetupFinished(result: com.android.billingclient.api.BillingResult) {
-                if (result.responseCode != BillingResponseCode.OK) {
-                    client.endConnection()
-                    cont.resumeWithException(EntitlementError.RestoreFailed("Billing no disponible"))
-                    return
-                }
-                client.acknowledgePurchase(
-                    AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchaseToken).build()
-                ) { ack ->
-                    client.endConnection()
-                    if (ack.responseCode == BillingResponseCode.OK) cont.resume(Unit)
-                    else cont.resumeWithException(
+    /** Acknowledge local solo tras verificación backend OK. */
+    suspend fun acknowledgeVerifiedPurchase(purchaseToken: String) {
+        ensureConnected()
+        return suspendCancellableCoroutine { cont ->
+            client.acknowledgePurchase(
+                AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchaseToken).build()
+            ) { ack ->
+                if (ack.responseCode == BillingResponseCode.OK ||
+                    ack.responseCode == BillingResponseCode.ITEM_ALREADY_OWNED
+                ) {
+                    cont.resume(Unit)
+                } else {
+                    cont.resumeWithException(
                         EntitlementError.RestoreFailed("Acknowledge falló: ${ack.responseCode}")
                     )
                 }
             }
-
-            override fun onBillingServiceDisconnected() = Unit
-        })
+        }
     }
 
-    private fun Purchase.pendingVerificationToken(): String? =
-        if (purchaseState == Purchase.PurchaseState.PURCHASED &&
-            products.any { it in CommercialConfig.ALL_PRODUCT_IDS }
-        ) purchaseToken else null
+    private suspend fun queryProductDetails(productID: String): ProductDetails? =
+        suspendCancellableCoroutine { cont ->
+            val product = QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(productID)
+                .setProductType(BillingClient.ProductType.SUBS)
+                .build()
+            client.queryProductDetailsAsync(
+                QueryProductDetailsParams.newBuilder().setProductList(listOf(product)).build()
+            ) { result, details ->
+                if (result.responseCode != BillingResponseCode.OK) cont.resume(null)
+                else cont.resume(details.productDetailsList.firstOrNull { it.productId == productID })
+            }
+        }
+
+    private suspend fun ensureConnected() {
+        if (client.isReady) return
+        suspendCancellableCoroutine { cont ->
+            client.startConnection(object : BillingClientStateListener {
+                override fun onBillingSetupFinished(result: BillingResult) {
+                    if (result.responseCode == BillingResponseCode.OK) cont.resume(Unit)
+                    else cont.resumeWithException(
+                        EntitlementError.RestoreFailed(
+                            "Billing no disponible (${result.responseCode})"
+                        )
+                    )
+                }
+
+                override fun onBillingServiceDisconnected() = Unit
+            })
+        }
+    }
+
+    private fun Purchase.asPending(): PendingPurchase? {
+        if (purchaseState != Purchase.PurchaseState.PURCHASED) return null
+        val productId = products.firstOrNull { it in CommercialConfig.ALL_PRODUCT_IDS } ?: return null
+        return PendingPurchase(purchaseToken = purchaseToken, productId = productId)
+    }
 }

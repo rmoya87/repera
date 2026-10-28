@@ -29,7 +29,12 @@ class DriveSnapshotService(
         data object Uploaded : Outcome
         data object Downloaded : Outcome
         data object Conflict : Outcome
+        /** Remoto cambió entre lectura y PATCH (If-Match 412). */
+        data object PreconditionFailed : Outcome
     }
+
+    class PreconditionFailedException(message: String = "Google Drive HTTP 412") :
+        IllegalStateException(message)
 
     fun synchronize(): Outcome = CloudSyncGate.driveSync { synchronizeInternal() }
 
@@ -41,7 +46,8 @@ class DriveSnapshotService(
 
     private fun synchronizeInternal(): Outcome {
         checkAuthority()
-        val remoteId = findSingleFile()
+        val remoteMeta = findSingleFile()
+        val remoteId = remoteMeta?.id
         val localBytes = local.read()
         val remoteBytes = remoteId?.let { request(
             "GET", "https://www.googleapis.com/drive/v3/files/" + encode(it) + "?alt=media"
@@ -65,8 +71,7 @@ class DriveSnapshotService(
         }
         if (!isVirgin(localBytes) && isVirgin(remoteBytes)) {
             local.preserveRemoteBackup(remoteBytes)
-            update(remoteId, localBytes)
-            return Outcome.Uploaded
+            return uploadWithMatch(remoteId, localBytes, remoteMeta?.headRevisionId)
         }
         // Local = catálogo virgen + entrenos recuperados del espejo sin editar: no es historial independiente.
         // Cualquier otra diferencia local cae al camino normal (con su Conflict).
@@ -85,11 +90,23 @@ class DriveSnapshotService(
         val localWins = compareValues(localVersion, remoteVersion) > 0
         return if (localWins) {
             local.preserveRemoteBackup(remoteBytes)
-            update(remoteId, localBytes)
-            Outcome.Uploaded
+            uploadWithMatch(remoteId, localBytes, remoteMeta?.headRevisionId)
         } else {
             // Compare under the storage lock: never replace edits made during the Drive request.
             applyDownload(localBytes,remoteBytes)
+        }
+    }
+
+    private fun uploadWithMatch(
+        id: String,
+        bytes: ByteArray,
+        headRevisionId: String?
+    ): Outcome {
+        return try {
+            update(id, bytes, headRevisionId)
+            Outcome.Uploaded
+        } catch (_: PreconditionFailedException) {
+            Outcome.PreconditionFailed
         }
     }
 
@@ -136,16 +153,23 @@ class DriveSnapshotService(
         return if (instant != 0) instant else a.writer.compareTo(b.writer)
     }
 
-    private fun findSingleFile(): String? {
+    private data class RemoteFile(val id: String, val headRevisionId: String?)
+
+    private fun findSingleFile(): RemoteFile? {
         val url = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder" +
-            "&fields=nextPageToken%2Cfiles(id%2Cname)&pageSize=100" +
+            "&fields=nextPageToken%2Cfiles(id%2Cname%2CheadRevisionId)&pageSize=100" +
             "&q=" + encode("name = 'app_state.json' and trashed = false")
         val result = JSONObject(String(request("GET", url), Charsets.UTF_8))
         val files = result.optJSONArray("files") ?: JSONArray()
         require(files.length() <= 1 && !result.has("nextPageToken")) {
             "Varias copias remotas: resolver antes de sincronizar"
         }
-        return if (files.length() == 1) files.getJSONObject(0).getString("id") else null
+        if (files.length() != 1) return null
+        val file = files.getJSONObject(0)
+        return RemoteFile(
+            id = file.getString("id"),
+            headRevisionId = file.optString("headRevisionId").takeIf { it.isNotBlank() && it != "null" }
+        )
     }
 
     private fun create(bytes: ByteArray) {
@@ -161,26 +185,44 @@ class DriveSnapshotService(
             "multipart/related; boundary=$boundary", media.toByteArray())
     }
 
-    private fun update(id: String, bytes: ByteArray) {
-        request("PATCH", "https://www.googleapis.com/upload/drive/v3/files/" +
-            encode(id) + "?uploadType=media", "application/json", bytes)
+    private fun update(id: String, bytes: ByteArray, headRevisionId: String? = null) {
+        val headers = linkedMapOf<String, String>()
+        // Drive media uploads honour If-Match against the revision resource.
+        if (!headRevisionId.isNullOrBlank()) {
+            headers["If-Match"] = headRevisionId
+        }
+        request(
+            "PATCH",
+            "https://www.googleapis.com/upload/drive/v3/files/" + encode(id) + "?uploadType=media",
+            "application/json",
+            bytes,
+            headers
+        )
     }
 
     private fun request(
-        method: String, path: String, contentType: String? = null, bytes: ByteArray? = null
+        method: String,
+        path: String,
+        contentType: String? = null,
+        bytes: ByteArray? = null,
+        extraHeaders: Map<String, String> = emptyMap()
     ): ByteArray {
         checkAuthority()
         val body = bytes?.toRequestBody((contentType ?: "application/octet-stream").toMediaType())
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url(path)
             .header("Authorization", "Bearer $token")
             .method(method, body)
-            .build()
+        extraHeaders.forEach { (k, v) -> builder.header(k, v) }
+        val request = builder.build()
         client.newCall(request).execute().use { response ->
+            if (response.code == 412) {
+                throw PreconditionFailedException()
+            }
             if (!response.isSuccessful) {
                 throw IllegalStateException("Google Drive HTTP " + response.code)
             }
-            val received=response.body?.bytes() ?: byteArrayOf()
+            val received = response.body?.bytes() ?: byteArrayOf()
             checkAuthority()
             return received
         }

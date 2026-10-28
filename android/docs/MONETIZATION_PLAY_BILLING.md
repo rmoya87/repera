@@ -91,8 +91,23 @@ coincidencia con esta decisión es posterior a la confirmación de Ramón.
 
 ## Estado de la capacidad
 
-implementado: política de dominio completa con pruebas (19 tests).
-en preparación segura: facade, store de cuotas, provider on-device estricto,
-UI paywall/teaser/choosePlan.
-bloqueado por decisión de cuenta: backend de verificación (pasos 1-4 de
-Ramón) y activación de productos/precios/trials/acuerdos en Play Console.
+**Última actualización:** 2026-10-28
+
+implementado en app:
+- política de dominio (cuotas Gratis, paywall, favoritos máx. 3, escaneos, etc.)
+- `PlayBillingEntitlementProvider` cableado desde `MainActivity` (compra real +
+  detección local → UNKNOWN, **sin** conceder Pro)
+- `PlayPurchaseVerifyClient` → `POST /functions/v1/repera-play-billing-verify`
+- acknowledge local solo tras verify OK
+- Edge Function scaffold `supabase/functions/repera-play-billing-verify/`
+  (JWT usuario + `purchases.subscriptionsv2.get` cuando hay SA)
+
+bloqueado por Ramón / ops (sin esto Pro sigue sin concederse en prod):
+1. Secretos Edge: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `PLAY_PACKAGE_NAME`
+2. Play Console: productos monthly/yearly (5,99 / 39,99 EUR) + testers
+3. Despliegue de la Edge Function
+4. (Opcional) RTDN Pub/Sub
+
+Sin esos secretos la función responde `503 { configured:false }` y la app
+muestra el mensaje de verificación pendiente; la caché offline solo usa
+snapshots ya verificados.

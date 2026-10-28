@@ -11,6 +11,8 @@ data class FeatureAccessPolicy(
     val freeUsage: FreeUsageState = FreeUsageState(),
     val libraryRoutineCount: Int = 0,
     val customExerciseCount: Int = 0,
+    /** Favoritos de rutina/actividad (límite Gratis independiente). */
+    val favoriteCount: Int = 0,
     /** Acceso completo mientras el deportista paga / está vinculado a un centro o entrenador. */
     val businessSponsoredAccess: Boolean = false
 ) {
@@ -21,7 +23,11 @@ data class FeatureAccessPolicy(
     fun decision(feature: ReperaFeature, now: Long = System.currentTimeMillis()): FeatureAccessDecision {
         if (isPro) return FeatureAccessDecision.allow()
         return when (feature) {
-            ReperaFeature.UNLIMITED_ROUTINES -> createLibraryRoutineDecision()
+            // Paridad iOS: bajo el techo de rutinas, la entrada «unlimitedRoutines»
+            // también refleja el cupo de favoritos (paywall unificado).
+            ReperaFeature.UNLIMITED_ROUTINES ->
+                if (libraryRoutineCount >= FreePlanLimits.MAX_LIBRARY_ROUTINES) createLibraryRoutineDecision()
+                else createFavoriteDecision()
             ReperaFeature.UNLIMITED_CUSTOM_EXERCISES -> createCustomExerciseDecision()
             ReperaFeature.UNLIMITED_BOARD_SCANS -> boardScanDecision(now)
             ReperaFeature.EXERCISE_FULL_HISTORY, ReperaFeature.EXERCISE_EVOLUTION ->
@@ -66,17 +72,23 @@ data class FeatureAccessPolicy(
     fun canAccess(feature: ReperaFeature): Boolean = decision(feature).allowed
 
     fun canCreateLibraryRoutine(isNew: Boolean): FeatureAccessDecision {
-        if (!isNew) return FeatureAccessDecision.allow()
+        if (!isNew || isPro) return FeatureAccessDecision.allow()
         return createLibraryRoutineDecision()
     }
 
     fun canCreateCustomExercise(isNew: Boolean): FeatureAccessDecision {
-        if (!isNew) return FeatureAccessDecision.allow()
+        if (!isNew || isPro) return FeatureAccessDecision.allow()
         return createCustomExerciseDecision()
     }
 
+    /** Gratis: tres favoritos; el cuarto requiere Pro (paridad iOS). */
+    fun canCreateFavorite(isNew: Boolean): FeatureAccessDecision {
+        if (!isNew || isPro) return FeatureAccessDecision.allow()
+        return createFavoriteDecision()
+    }
+
     fun canStartBoardScan(now: Long = System.currentTimeMillis()): FeatureAccessDecision =
-        boardScanDecision(now)
+        if (isPro) FeatureAccessDecision.allow() else boardScanDecision(now)
 
     fun canSelectProgressRange(range: ProgressTimeRange): FeatureAccessDecision {
         if (isPro || !ReperaFeature.requiresPro(range)) return FeatureAccessDecision.allow()
@@ -111,6 +123,25 @@ data class FeatureAccessPolicy(
             body = "Con Repera Gratis puedes guardar hasta $limit rutinas reutilizables. Desbloquea Repera Pro para crear todas las que necesites.",
             remainingFreeUses = 0,
             usedFreeUses = libraryRoutineCount,
+            freeLimit = limit
+        )
+    }
+
+    private fun createFavoriteDecision(): FeatureAccessDecision {
+        val limit = FreePlanLimits.MAX_FAVORITE_ITEMS
+        val remaining = maxOf(0, limit - favoriteCount)
+        if (favoriteCount < limit) {
+            return FeatureAccessDecision.allow(
+                remainingFreeUses = remaining, usedFreeUses = favoriteCount, freeLimit = limit
+            )
+        }
+        return FeatureAccessDecision.deny(
+            reason = FeatureDenialReason.FREE_LIMIT_REACHED,
+            context = PaywallContext.ROUTINES_LIMIT,
+            title = "Todos tus favoritos, sin límites",
+            body = "Con Repera Gratis puedes guardar hasta $limit favoritos de entrenamiento o actividad. Desbloquea Repera Pro para guardar el cuarto y todos los que quieras.",
+            remainingFreeUses = 0,
+            usedFreeUses = favoriteCount,
             freeLimit = limit
         )
     }

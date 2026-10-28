@@ -60,6 +60,21 @@ class FeatureAccessPolicyTest {
     }
 
     @Test
+    fun `gratis 3 favoritos OK y cuarto bloqueado`() {
+        var policy = FeatureAccessPolicy(favoriteCount = 2)
+        assertTrue(policy.canCreateFavorite(isNew = true).allowed)
+        policy = policy.copy(favoriteCount = 3)
+        assertFalse(policy.canCreateFavorite(isNew = true).allowed)
+        assertTrue(policy.canCreateFavorite(isNew = false).allowed)
+        assertEquals(PaywallContext.ROUTINES_LIMIT, policy.canCreateFavorite(isNew = true).paywallContext)
+        val pro = FeatureAccessPolicy(
+            snapshot = CommercialSnapshot(status = SubscriptionStatus.PRO_MONTHLY),
+            favoriteCount = 99
+        )
+        assertTrue(pro.canCreateFavorite(isNew = true).allowed)
+    }
+
+    @Test
     fun `periodo Progreso solo semana en Gratis`() {
         val free = FeatureAccessPolicy()
         assertTrue(free.canSelectProgressRange(ProgressTimeRange.WEEK).allowed)

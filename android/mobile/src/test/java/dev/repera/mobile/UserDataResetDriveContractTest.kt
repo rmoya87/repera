@@ -25,7 +25,7 @@ class UserDataResetDriveContractTest {
                 .body(b.toResponseBody("application/json".toMediaType())).build()
             return when {
                 req.method == "GET" && url.contains("alt=media") -> ok(bytes!!)
-                req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else """{"files":[{"id":"f1","name":"app_state.json"}]}""").toByteArray())
+                req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else """{"files":[{"id":"f1","name":"app_state.json","headRevisionId":"rev1"}]}""").toByteArray())
                 req.method == "PATCH" -> {
                     patches++
                     if (failPatch) Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(500).message("err")

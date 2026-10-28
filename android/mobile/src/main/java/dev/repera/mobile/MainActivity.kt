@@ -35,6 +35,8 @@ import dev.repera.mobile.monetization.FreeUsageStore
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.monetization.PaywallMode
 import dev.repera.mobile.monetization.PaywallScreen
+import dev.repera.mobile.monetization.PlayBillingEntitlementProvider
+import dev.repera.mobile.monetization.PlayPurchaseVerifyClient
 import dev.repera.mobile.monetization.SubscriptionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -109,10 +111,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     ) { grants ->
         if (grants.values.any { it }) beginLocationCapture()
     }
-    /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS. */
+    /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS.
+     * Play Billing detecta compras; Pro solo tras verify Edge Function. */
     private val subscriptions by lazy {
         SubscriptionManager(
-            freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization"))
+            provider = PlayBillingEntitlementProvider(this) { this },
+            freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization")),
+            verifyClient = PlayPurchaseVerifyClient(),
+            accessTokenProvider = { verifiedSupabase?.accessToken }
         )
     }
     /** Durable A-B-A identity guard for asynchronous account work. */
@@ -875,7 +881,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     if(!fav || activeWorkout?.draftRequestId==requestId || permitNewTemplate()) runWorkoutAction(onSuccess = { beginLocationCapture();saved() }) {
                         startSessionFromDrafts(title, drafts, fav,
                             subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed,requestId=requestId,
-                            canSaveFavorite={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) { before ->
+                            canSaveFavorite={count ->subscriptions.policy.copy(favoriteCount=count).canCreateFavorite(true).allowed}) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
@@ -1096,7 +1102,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                   } else
                     runWorkoutAction {
                         updateFinishedWorkout(workoutId, edit,
-                            canSaveFavorite={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) { before ->
+                            canSaveFavorite={count ->subscriptions.policy.copy(favoriteCount=count).canCreateFavorite(true).allowed}) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
@@ -1768,6 +1774,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     DriveSnapshotService.Outcome.Downloaded -> "Datos recuperados de Google Drive"
                     DriveSnapshotService.Outcome.Conflict ->
                         "Copias distintas: no se han sobrescrito los datos"
+                    DriveSnapshotService.Outcome.PreconditionFailed ->
+                        "Drive cambió en otro dispositivo: vuelve a sincronizar"
                 }
             } catch (error: Exception) {
                 if(current()) status = "Sincronización incompleta: " + error.localizedMessage
@@ -1859,7 +1867,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         overview?.let {
             subscriptions.syncCounts(
                 libraryRoutines = it.libraryRoutineCount,
-                customExercises = it.exerciseEntries.count { e -> e.isCustom }
+                customExercises = it.exerciseEntries.count { e -> e.isCustom },
+                favorites = it.routineEntries.count { r -> r.isFavorite }
             )
         }
         activeWorkout = active

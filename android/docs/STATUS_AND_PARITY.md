@@ -16,10 +16,10 @@ La implementación Android **todavía no es completa**. La rama no altera Swift,
 | Finalizar | Archiva la sesión sin duplicarla y limpia estado activo | Falta reconciliación con Health Connect |
 | WOD | 14 formatos, resultados y matemáticas de reloj AMRAP/EMOM/For Time/Tabata/Circuito | Falta motor de ejecución y editor de bloques |
 | Watch | Wear Material 3, lectura Data Layer, cola offline de sets de fuerza con ACK idempotente | Faltan Wear WOD, Health Services, E2E físico y sincronización de fondo |
-| Actividad/Salud | Lectura explícita de pasos y energía activa reales vía Health Connect, con permisos opt-in | Resto de mediciones y E2E pendientes |
+| Actividad/Salud | Lectura Inicio + escritura sesión HC + anti-duplicado; UI permiso vs vacío | E2E HC en dispositivo |
 | Business | No habilitado | OAuth Google verificado por servidor, RLS y planes |
-| Compras Pro | No habilitado | Play Billing/RevenueCat e id de productos |
-| OCR pizarra | No habilitado | ML Kit on-device + compatibilidad del parser |
+| Compras Pro | Cliente Play + verify Edge cableados; Pro solo tras backend SA | Secretos Play SA + productos Console (Ramón) |
+| OCR pizarra | ML Kit + lite parser + preprocess lienzo oscuro | QA cámara/dispositivo físico |
 
 Pruebas de regresión declaradas: `domain/src/test` para reloj, WOD, presets y
 conflictos; `mobile/src/androidTest` para persistencia e identidad de sesiones.
@@ -811,3 +811,15 @@ capturas por main, 25/10; no una preferencia estética nueva atribuida a Ramón)
 en el esquema CLARO el primary pasa a #0E7A38 con onPrimary blanco
 (~2:1 -> ~4.9:1); el esquema oscuro mantiene #30D158. Alcance: solo el esquema
 claro y sus capturas. Supersede a la nota del 23/10.
+
+---
+
+## P0 parity 2026-10-28
+
+Cableado: Play Billing verify client + Edge scaffold; rest chronometer/skip;
+Health Inicio placeholders; board dark OCR preprocess; Drive If-Match;
+Wear todayPlan TTL 18h; favoritos Gratis máx. 3 (paridad main). STATUS de
+filas OCR/billing/Health del encabezado actualizado arriba. E2E hardware,
+secretos Play y despliegue Edge siguen abiertos (Ramón).
+
+*Última actualización: 2026-10-28.*
