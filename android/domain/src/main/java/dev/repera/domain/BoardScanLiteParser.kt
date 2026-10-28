@@ -497,25 +497,30 @@ object BoardScanLiteParser {
         return Effort.toRIR((numbers[0] + numbers[1]) / 2, "rpe")
     }
 
-    /** Full-parser independently quantified unloaded complex subset. Parent multiplier
-     * is a note, never inferred reps/sets. Shared loads remain on review path. */
+    /** Bounded Full-parser complex subset: trailing explicit kg pair belongs only
+     * to the first part. Multiplier is a note, never inferred reps/sets. */
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
-        val waveMatch=Regex("^(\\d+(?:\\s*[-–]\\s*\\d+)+)\\s+").find(raw)
+        val loadSuffix=Regex("(?<![0-9.,-])#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(raw)
+        val parentLoad=loadSuffix?.let {CrossFitGlossary.parseMaleFemaleWeights(it.value)?.takeIf {pair ->pair.first.isFinite() && pair.second.isFinite() && pair.second>0}}
+        val unloaded=if(parentLoad!=null) raw.removeRange(loadSuffix!!.range).trim() else raw
+        val waveMatch=Regex("^(\\d+(?:\\s*[-–]\\s*\\d+)+)\\s+").find(unloaded)
         val wave=waveMatch?.groupValues?.get(1)?.split(Regex("\\s*[-–]\\s*"))?.mapNotNull {it.toIntOrNull()}
         val validWave=wave?.takeIf {it.size>=2 && it.size==waveMatch.groupValues[1].split(Regex("[-–]")).size && it.all {n ->n in 1..100000} && !CrossFitGlossary.isAscendingRepRange(it)}
-        val multiplierMatch=Regex("^(\\d+)\\s*[x×X]\\s*").find(raw)
+        val multiplierMatch=Regex("^(\\d+)\\s*[x×X]\\s*").find(unloaded)
         val multiplier=multiplierMatch?.groupValues?.get(1)?.toIntOrNull()
         if(multiplierMatch!=null && (multiplier==null || multiplier !in 1..200)) return listOf(movement(raw,aliases))
-        val body=when {validWave!=null ->raw.removeRange(waveMatch!!.range);multiplierMatch!=null ->raw.removeRange(multiplierMatch.range);else ->raw}
+        val body=when {validWave!=null ->unloaded.removeRange(waveMatch!!.range);multiplierMatch!=null ->unloaded.removeRange(multiplierMatch.range);else ->unloaded}
         val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}.filter {it.isNotEmpty()}
         val explicit=Regex("^\\d+\\s+[^0-9].*")
         if(parts.size<2 || parts.withIndex().any {(i,part) -> !(i==0 && validWave!=null) && !explicit.matches(part)} ||
-            raw.contains('/') || raw.contains('@') || raw.contains('#') ||
-            Regex("\\b(?:kg|kgs|lb|lbs)\\b",RegexOption.IGNORE_CASE).containsMatchIn(raw) ||
+            unloaded.contains('/') || unloaded.contains('@') || unloaded.contains('#') ||
+            Regex("\\b(?:kg|kgs|lb|lbs)\\b",RegexOption.IGNORE_CASE).containsMatchIn(unloaded) ||
             Regex("^\\d+\\s*[-–]").containsMatchIn(body)) return listOf(movement(raw,aliases))
         return parts.mapIndexed {index,part ->
             val parsed=movement(part,aliases)
-            parsed.copy(reps=if(index==0 && validWave!=null) null else parsed.reps,repScheme=if(index==0 && validWave!=null) validWave else parsed.repScheme,
+            parsed.copy(weightMaleKg=if(index==0) parsed.weightMaleKg ?: parentLoad?.first else parsed.weightMaleKg,
+                weightFemaleKg=if(index==0) parsed.weightFemaleKg ?: parentLoad?.second else parsed.weightFemaleKg,
+                reps=if(index==0 && validWave!=null) null else parsed.reps,repScheme=if(index==0 && validWave!=null) validWave else parsed.repScheme,
                 notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},validWave?.let {"Series ${it.joinToString("-")}"},parsed.notes).joinToString(" · "))
         }
     }

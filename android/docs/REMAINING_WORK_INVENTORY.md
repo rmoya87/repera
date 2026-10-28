@@ -614,3 +614,16 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  conservadosreviewunsplit. Catalogmatchingexistente+origenwodNotesintactos.
 -2tests nuevos,domaincompleto508/93XMLrealverde51s0error/fallo/omitidos.
  Mobile/Wear316+assemblependientes.735/70nativopendiente,nopush.
+
+## Lector completo, par kgcomplejo 01:36 28oct
+- Full316mobile675/163XML65/79/61/59s,domain508/93XML51s,
+ Wear8/1XMLreal+assemble38s yassemblemobile34sverdes,0fallos/errores/
+ omitidospor modulo. Solo baterias,nolectorfullninativo.
+- Mismobloque,subhuecocargapadreyaabierto:parH/MexplicitoKGalsufijo
+ de2+partes ahoraextraidoprimeropre-split,SOLOprimermovimientorecibe
+ cargaparental,comodicecorteBoardImportParser694-700/770-777.
+ Menor/mayornormalizados comohelperexistente;noautoconvertirLBnicargas
+ implicitas. Validafinito/positivo;slashsinKG/@/%/cargalocalmantienereview.
+-1testdominio+1wire nuevos;domaincompleto509/93XMLverde26s0fallo/error/
+ omitidos;wiremobile6/1XMLverde55s. Carga50/35kg solo primerJSON,nosegundo.
+- Mobilecompleta/Wear317+assemblependientes.735/70nativopendiente,nopush.

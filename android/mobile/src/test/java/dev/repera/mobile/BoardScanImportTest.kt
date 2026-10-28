@@ -108,4 +108,14 @@ class BoardScanImportTest {
         assertEquals(1,emom.getJSONArray("movements").length())
         assertEquals(blocks[1].id,emom.getString("id"))
     }
+    @Test fun complexParentKgPairStaysOnFirstWireMovement() {
+        val parsed=BoardScanLiteParser.parse("AMRAP 10'\n1 POWER CLEAN + 2 PUSH PRESS #50/35kg",catalog=catalog)
+        val wire=BoardScanImport.wireBlock(parsed.blocks.single())
+        val movements=wire.getJSONArray("movements")
+        assertEquals(2,movements.length())
+        assertEquals(50.0,movements.getJSONObject(0).getDouble("weightMaleKg"),0.001)
+        assertEquals(35.0,movements.getJSONObject(0).getDouble("weightFemaleKg"),0.001)
+        assertFalse(movements.getJSONObject(1).has("weightMaleKg"))
+        assertFalse(movements.getJSONObject(1).has("weightFemaleKg"))
+    }
 }

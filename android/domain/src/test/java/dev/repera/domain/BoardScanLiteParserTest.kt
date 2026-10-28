@@ -465,7 +465,7 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[0].explicitPlannedSets)
     }
     @Test fun complexMultiplierUnsupportedLoadsAndOverflowStayOnReviewPath() {
-        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25kg","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8")) {
+        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25lb","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8")) {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
             assertEquals(1,block.movements.size)
             assertFalse(block.movements.single().notes?.contains("Complejo ×3") == true)
@@ -481,9 +481,20 @@ class BoardScanLiteParserTest {
         assertTrue(block.movements.all {it.notes!!.contains("Series 4-3-3-2")})
     }
     @Test fun ascendingRangeOrLoadedWaveComplexRemainsUnsplit() {
-        for(line in listOf("5-10 PUSH PRESS + 2 AIR SQUAT","4-3-3-2 PUSH PRESS + 2 AIR SQUAT 40/25kg")) {
+        for(line in listOf("5-10 PUSH PRESS + 2 AIR SQUAT","4-3-3-2 PUSH PRESS + 2 AIR SQUAT 40/25lb")) {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
             assertEquals(1,block.movements.size)
         }
+    }
+    @Test fun explicitKgComplexParentPairIsOnlyOnFirstPart() {
+        val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n3X 1 PUSH PRESS + 2 AIR SQUAT #25/40kg",catalog=catalog).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertEquals(40.0,block.movements[0].weightMaleKg!!,0.001)
+        assertEquals(25.0,block.movements[0].weightFemaleKg!!,0.001)
+        assertNull(block.movements[1].weightMaleKg)
+        assertNull(block.movements[1].weightFemaleKg)
+        assertEquals(1,block.movements[0].reps)
+        assertEquals(2,block.movements[1].reps)
+        assertTrue(block.movements.all {it.notes!!.contains("Complejo ×3")})
     }
 }
