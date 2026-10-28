@@ -1378,7 +1378,13 @@ struct DayEditorView: View {
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
                 .listRowSeparator(.hidden, edges: .top)
 
-                ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, _ in
+                ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, plannedSet in
+                    OGSetSwipeDeleteRow(
+                        canDelete: routine.blocks[index].exercises[exIndex].plannedSets.count > 1,
+                        setID: plannedSet.id,
+                        openedSetID: $openedSetID,
+                        onDelete: { deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex) }
+                    ) {
                     PlannedSetConfigRow(
                         index: setIndex + 1,
                         set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
@@ -1392,15 +1398,6 @@ struct DayEditorView: View {
                             return (sets?.indices.contains(setIndex) == true) ? sets?[setIndex] : nil
                         }()
                     )
-                    // Aplicar swipeActions a la fila hija directa de Form,
-                    // nunca dentro de PlannedSetConfigRow: en un bloque
-                    // agrupado la acción se propagaba a más de una fila.
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if routine.blocks[index].exercises[exIndex].plannedSets.count > 1 {
-                            OGSwipeDeleteButton(accessibilityLabel: "Eliminar serie") {
-                                deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
-                            }
-                        }
                     }
                 }
 
@@ -1827,7 +1824,7 @@ struct DayEditorView: View {
 /// El editor WOD inserta las series dentro de una única fila de Form.
 /// Cada fila posee su propio desplazamiento limitado y UNA sola papelera.
 /// No utilizar .swipeActions aquí: afecta a la fila contenedora completa.
-private struct InlineSetSwipeDeleteRow<Content: View>: View {
+struct OGSetSwipeDeleteRow<Content: View>: View {
     let canDelete: Bool
     let setID: UUID
     @Binding var openedSetID: UUID?
@@ -1984,7 +1981,7 @@ private struct InlineWODMovementSets: View {
                 // Aquí las series viven dentro de una sola fila del Form.
                 // .swipeActions no llega a cada serie: un reveal propio por
                 // UUID impide que aparezcan varias papeleras a la vez.
-                InlineSetSwipeDeleteRow(
+                OGSetSwipeDeleteRow(
                     canDelete: draftSets.count > 1,
                     setID: currentSet.id,
                     openedSetID: $openedSetID,
@@ -2145,6 +2142,7 @@ private struct InlineWODMovementSets: View {
 
 /// Editor de movimiento WOD alineado con Apuntar: series según estilo (kg / tiempo / reps).
 struct WODMovementEditor: View {
+    @State private var openedSetID: UUID?
     @Environment(ReperaStore.self) private var store
     @Binding var movement: WODMovement
     /// Bloque padre para derivar las mismas series que Empezar/Apuntar.
@@ -2236,16 +2234,16 @@ struct WODMovementEditor: View {
                     ? (isWeightedDistance ? movement.prescribedQuantityUnit.shortLabel : "Reps") : nil,
                         showsRIR: loggingStyle.usesRIR
                     )
-                    ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
-                        wodSetRow(index: index)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if draftSets.count > 1 {
-                                    OGSwipeDeleteButton {
-                                        removeSet(at: index)
-                                    }
-                                }
-                            }
+                    ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, current in
+                        OGSetSwipeDeleteRow(
+                            canDelete: draftSets.count > 1,
+                            setID: current.id,
+                            openedSetID: $openedSetID,
+                            onDelete: { removeSet(at: index) }
+                        ) {
+                            wodSetRow(index: index)
+                        }
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
                     Button {
                         addSet()
@@ -2486,6 +2484,7 @@ struct WODMovementEditor: View {
 // MARK: - Strength exercise editor + picker
 
 struct RoutineExerciseEditor: View {
+    @State private var openedSetID: UUID?
     @Environment(ReperaStore.self) private var store
     var exerciseName: String
     var exerciseId: UUID
@@ -2569,7 +2568,13 @@ struct RoutineExerciseEditor: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
 
-                ForEach(Array(item.plannedSets.enumerated()), id: \.element.id) { index, _ in
+                ForEach(Array(item.plannedSets.enumerated()), id: \.element.id) { index, set in
+                    OGSetSwipeDeleteRow(
+                        canDelete: item.plannedSets.count > 1,
+                        setID: set.id,
+                        openedSetID: $openedSetID,
+                        onDelete: { deleteSet(at: index) }
+                    ) {
                     PlannedSetConfigRow(
                         index: index + 1,
                         set: binding(for: index),
@@ -2584,12 +2589,6 @@ struct RoutineExerciseEditor: View {
                             return (sets?.indices.contains(index) == true) ? sets?[index] : nil
                         }()
                     )
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if item.plannedSets.count > 1 {
-                            OGSwipeDeleteButton(accessibilityLabel: "Eliminar serie") {
-                                deleteSet(at: index)
-                            }
-                        }
                     }
                 }
 
