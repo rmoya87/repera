@@ -1857,16 +1857,17 @@ struct OGSetSwipeDeleteRow<Content: View>: View {
                 .accessibilityLabel("Eliminar serie")
             }
 
-            // Desplazar toda la fila; ocultar el fondo rojo bajo los inputs.
+            // La fila completa tapa la papelera y se recorta dentro
+            // de sus bordes: nunca debe asomar por el input RIR.
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background { Rectangle().fill(OG.surface) }
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
                 .offset(x: canDelete ? max(-revealWidth, min(0,
                     (isRevealed ? -revealWidth : 0) + activeDrag
                 )) : 0)
         }
-        .contentShape(Rectangle())
-        .clipped()
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .simultaneousGesture(
             DragGesture(minimumDistance: 18)
                 .onChanged { value in
