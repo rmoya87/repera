@@ -1758,7 +1758,8 @@ struct DayEditorView: View {
                         get: { routine.blocks[index].movements[mIndex] },
                         set: { routine.blocks[index].movements[mIndex] = $0 }
                     ),
-                    block: routine.blocks[index]
+                    block: routine.blocks[index],
+                    openedSetID: $openedSetID
                 )
             }
         }
@@ -1908,7 +1909,7 @@ private struct InlineWODMovementSets: View {
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
-    @State private var openedSetID: UUID?
+    @Binding var openedSetID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
