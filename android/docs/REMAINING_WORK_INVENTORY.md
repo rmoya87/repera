@@ -907,3 +907,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Mismo bloque grafico parcial379, hallazgo nuevo HealthRecovery1238-1299: serie observada solo LineMark, seleccion RuleMark+annotation sin PointMark. Android hereda circulo terminal y seleccionado genericos. Retirados ambos solo en readinessStyle; peso/otras series intactos, preview377sigue sin punto.
 - Regresion pixel terminal fallo antes; despues2focalizados/1XML97sverdes,ampliacionseleccion2/1XML90sverde0fallos/errores/omitidos. Tap extremo confirma texto fecha/valor y regla sin punto. PNG360observado/seleccioninspeccionados:curva/gradiente/ejesintactos,reglavisible,anotacionlegible,sinrecortes. Posicion/estiloannotationSwiftnoafirmadosidenticos.
 - Completa mobile/dominio/Wear379pendiente; ultima completa377mobile690/163domain558/93Wear8/1+ambosassemble70s.735/70sin cierres,lectorparcial,autoX/fontmetrics/nativoabiertos. No push niApps/Packages.
+
+## Continuidad graficos parciales y matrices 11:49 28oct
+-379 bateria completa mobile690/163XML11lotes43/64/77/63/51/63/77/44/79/46/76s,domain558/93XML38s,Wear8/1XML+ambosassemble71sverdes0fallos/errores/omitidos. Backup379recuperado65338db7:arbole6a1b699a8e9d644e2c327d8ec6b3b4a47eb3db4identico,clonlimpio.
+-380 solo documentacion: filas0d649f28/08790a22/c7878496reconciliadas379,mismos estadosparciales,735/70sin cierres. RevisiongraficaautoX/fontmetrics/annotationnativaabierta;lectorcompleto sigueparcialdefault3x8/fuzzy/rutas/headersamplios/runtimependientes. No push niApps/Packages.
