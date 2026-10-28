@@ -526,7 +526,7 @@ object BoardScanLiteParser {
         val scaleParts=annotated.split(Regex("\\s+/\\s+"))
         val trailingPair=Regex("#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*(?:kg|lb)?\\s*$",RegexOption.IGNORE_CASE).containsMatchIn(annotated)
         if(scaleParts.size>1 && !trailingPair) {
-            if(scaleParts.drop(1).any {it.isBlank() || it.contains('+')}) return listOf(movement(raw,aliases))
+            if(scaleParts.drop(1).any {it.isBlank() || it.contains('+') || it.contains('@') || it.contains('#')}) return listOf(movement(raw,aliases))
             annotated=scaleParts.first().trim()
             scaleAlternative=scaleParts.drop(1).joinToString(" / ") {CrossFitGlossary.expand(it.trim())}
         }

@@ -576,4 +576,10 @@ class BoardScanLiteParserTest {
             assertEquals(line,1,block.movements.size)
         }
     }
+    @Test fun unsupportedAnnotationsInScaleCannotBypassComplexReview() {
+        for(annotation in listOf("@7.5-8.5","#mystery","@7kg")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 40 DU / 80 SU "+annotation,catalog=catalog).blocks.single()
+            assertEquals(annotation,1,block.movements.size)
+        }
+    }
 }

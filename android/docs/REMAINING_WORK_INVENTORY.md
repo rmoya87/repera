@@ -662,3 +662,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -323 bateria completa mobile677/163XML67/80/62/59s,domain518/93XML55s,Wear8/1XML+ambosassemble50s verdes0fallos/errores/omitidos. Backup323 recuperado desde65338db7,arbol747c01cc663b8732399e53e2dffb17267f99825a identico,clon limpio.
 - Hallazgo nuevo en subconjunto de complejos: filtro de partes vacias aceptaba '++' eliminando evidencia, y cantidad explicita sin cota podia perder reps por overflow. Regresion fallo antes de corregir con doble '+';324 conserva linea sin dividir ante parte vacia o cantidad fuera1..100000. No agrega cantidades inferidas.
 -1test nuevo de6casos;dominio519/93XML50s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear324 pendientes. Mismo lector parcial735/70sin cierres,no push,nativo pendiente.
+
+## Lector completo, anotacion no soportada en escala 02:35 28oct
+-324 bateria completa mobile677/163XML63/80/63/62s,domain519/93XML50s,Wear8/1XML+ambosassemble50s verdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Hallazgo nuevo del subconjunto320: al extraer escala se ocultaba de la guardia posterior un @/# no soportado (RPEdecimal uotro token). Regresion fallo antes del arreglo.325 rechaza dividir cuando una alternativa aun contiene @/# despues de extraer anotaciones soportadas. No elimina contenido ni inventa carga;linea queda para revision.
+-1test de3casos nuevo;dominio520/93XML51s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear325 pendientes. Mismo lector parcial735/70sin cierres,nativo pendiente,no push.
