@@ -739,3 +739,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -339 bateria completa mobile678/163XML85/109/85/86s,domain535/93XML70s,Wear8/1XML+ambosassemble69sverdes. Backup339recuperado:arbol4d7c51961c0312d6bc8005c5b0cede8c4e13f5b6identico,clonlimpio.
 - Mismo lector parcial340: cabeceras exactas LADDER/ESCALERA/PYRAMID/PIRÁMIDE/PIRAMIDE seleccionan LADDER sin movimiento falso ni rondas inferidas,subconjunto fuente516-518. No habilita containsglobal que confundiria2LADDERCLIMB. Texto adicional sigue review.
 - Regresion fallo antes.1test nuevo de5cabeceras+nombreordinario. Dominio536/93XML69s ywire8/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear340 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, BUY-IN/CASH-OUT exactos 05:22 28oct
+-340 bateria completa mobile678/163XML89/104/84/81s,domain536/93XML69s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo lector parcial341: BUY-IN/BUY IN/CASH OUT/CASH-OUT/CASHOUT exactos seleccionan formato existente buyInCashOut segunfuente519-522,sin movimiento falsodecabecera ni rondas/receta inferidas. No containsglobal ni segmentacionimplicita.
+- Regresion fallo antes.1test dominio de5cabeceras y1wire nuevos;dominio537/93XML70s ywire9/1XML64sverdes0fallos/errores/omitidos. Mobile completa/Wear341 pendientes.735/70sin cierres,nativo pendiente,no push.

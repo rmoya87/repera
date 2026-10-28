@@ -138,4 +138,12 @@ class BoardScanImportTest {
             assertTrue(wire.getString("wodNotes").contains(header))
         }
     }
+    @Test fun explicitBuyInFormatSurvivesReviewWire() {
+        val block=BoardScanLiteParser.parse("BUY-IN\n200M RUN",catalog=catalog).blocks.single()
+        val wire=BoardScanImport.wireBlock(block)
+        assertEquals("buyInCashOut",wire.getString("wodFormat"))
+        assertEquals(1,wire.getJSONArray("movements").length())
+        assertEquals(200,wire.getJSONArray("movements").getJSONObject(0).getInt("distanceMeters"))
+        assertFalse(wire.has("rounds"))
+    }
 }

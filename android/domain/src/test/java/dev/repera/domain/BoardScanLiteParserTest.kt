@@ -691,4 +691,15 @@ class BoardScanLiteParserTest {
         assertEquals(WODFormat.AMRAP,ordinary.wodFormat)
         assertEquals(1,ordinary.movements.size)
     }
+    @Test fun explicitBuyInCashOutHeadersSelectFormatWithoutInventingRecipe() {
+        for(header in listOf("BUY-IN","BUY IN","CASH OUT","CASH-OUT","CASHOUT")) {
+            val block=BoardScanLiteParser.parse(header+"\n200M RUN",catalog=catalog).blocks.single()
+            assertEquals(header,WODFormat.BUY_IN_CASH_OUT,block.wodFormat)
+            assertEquals(header,block.title)
+            assertEquals(1,block.movements.size)
+            assertEquals(200,block.movements.single().distanceMeters)
+            assertNull(block.rounds)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+    }
 }

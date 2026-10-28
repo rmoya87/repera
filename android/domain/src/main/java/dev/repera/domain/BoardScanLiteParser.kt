@@ -313,6 +313,8 @@ object BoardScanLiteParser {
             return Header(line,WODFormat.LADDER,null)
         if(upper in setOf("LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE"))
             return Header(line,WODFormat.LADDER,null)
+        if(upper in setOf("BUY-IN","BUY IN","CASH OUT","CASH-OUT","CASHOUT"))
+            return Header(line,WODFormat.BUY_IN_CASH_OUT,null)
         if(upper in setOf("PARTNER WOD","PARTNER","YOU GO I GO","YGIG","YDIG"))
             return Header(line,WODFormat.PARTNER,null)
         val strengthHeaders=setOf("TECHNIQUE","TECNICA","TÉCNICA","S&C","SUPERSET","GIANT SET","WARM-UP","WARM UP","CALENTAMIENTO","COOL DOWN","COOLDOWN")
