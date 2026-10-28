@@ -447,10 +447,10 @@ struct HomeView: View {
             // Personal-record calculations depend on the workout history,
             // not on every HealthKit authorization/sample callback.
             .task(id: store.workoutsEpoch) {
-                // .task resumes after a pop too. No rebuild or HealthKit
-                // fetch if the data revision has not actually changed.
-                guard lastProcessedWorkoutsEpoch != store.workoutsEpoch else { return }
-                lastProcessedWorkoutsEpoch = store.workoutsEpoch
+                // A cancelled navigation task must be allowed to retry:
+                // mark the epoch handled only after its async work completes.
+                let epoch = store.workoutsEpoch
+                guard lastProcessedWorkoutsEpoch != epoch else { return }
                 rebuildDayBuckets()
                 rebuildWeekChrome()
                 await Task.yield()
@@ -458,10 +458,12 @@ struct HomeView: View {
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
+                guard !Task.isCancelled else { return }
+                lastProcessedWorkoutsEpoch = epoch
             }
             .task(id: health.healthDataRevision) {
-                guard lastProcessedHealthRevision != health.healthDataRevision else { return }
-                lastProcessedHealthRevision = health.healthDataRevision
+                let revision = health.healthDataRevision
+                guard lastProcessedHealthRevision != revision else { return }
                 // Health changes update calories/minutes and the day dots,
                 // but should never repeat personal-record analysis.
                 rebuildDayBuckets()
@@ -469,6 +471,7 @@ struct HomeView: View {
                 await Task.yield()
                 guard !Task.isCancelled else { return }
                 rebuildStreakChrome()
+                lastProcessedHealthRevision = revision
             }
             .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
                 let requestedDay = selectedDay
