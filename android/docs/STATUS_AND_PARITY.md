@@ -2,7 +2,7 @@
 
 Referencia Apple: `origin/main` tip `8a8dc458` (2026-10-28); línea Android `App-android` + P0 `#119` absorbido.
 
-**Última actualización:** 2026-10-28 — billing alineado; clima Open-Meteo **no** se hace en Android; leftovers #122 (favoritos deporte, 3-2-1, mapa 2D/3D).
+**Última actualización:** 2026-10-28 — DayPlus pizarra→día; labels HSPU déficit; Wear WOD «Confirmar serie»; billing alineado; sin clima Android.
 
 La implementación Android **todavía no es completa** (Wear/UX fina/E2E). Billing
 Play está **alineado** (cliente + verify Edge). No hay clima en Comenzar Android
@@ -21,7 +21,7 @@ Play está **alineado** (cliente + verify Edge). No hay clima en Comenzar Androi
 | Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
 | Finalizar | Archiva sin duplicar | HC E2E |
 | WOD | 14 formatos + relojes | Editores/fidelidad landscape |
-| Watch | Wear plan hoy TTL + series fuerza ACK + labels RIR/RPE y kg/lb | WOD autónomo / Health Services / físico |
+| Watch | Plan hoy + fuerza ACK + WOD per-movement «Confirmar serie» (con reloj teléfono) | Clock WOD local offline; Health Services E2E; físico |
 | Actividad/Salud | Lectura Inicio + escritura HC + distancia opcional en permiso | E2E HC |
 | Business / Center | Parcial | E2E business |
 | Compras Pro | Play Billing + verify Edge **alineado** | E2E compra real / testers |
@@ -60,7 +60,8 @@ Las comprobaciones de OAuth y sincronización entre dispositivos reales siguen p
 
 - Catálogo nativo original **196 movimientos** y alias bilingües **186**; el
   registro de cardio ya permite tiempo/Cal/metros y el de comba reps+tiempo.
-  El editor específico de déficit HSPU y técnicas especiales continúa pendiente.
+  Déficit HSPU: labels plan/historial + prefill QuickLog/live rows; técnicas
+  drop/rest-pause en Play; Wear drop/RP sigue parcial.
 - Las rutinas con bloques WOD no se ejecutan mediante el motor de fuerza. No
   se convierten resultados de bloque en series ficticias.
 - La nube conserva copias anteriores y bloquea historiales independientes
@@ -457,11 +458,10 @@ ninguno aparecía en las auditorías del 23/10.
 Barrido sobre los 99 ficheros `.swift` de `Apps/Repera/Sources` contrastando
 cada concepto con Android. Además de lo ya registrado:
 
-- **`DayPlusSheet` (598)**: menú «＋» de un día concreto con alta de entreno
-  suelto (editor one-off con `scheduledDate`), acceso a favoritos,
-  temporizador independiente y escaneo de pizarra para ese día. En Android no
-  existe el alta one-off por fecha desde Inicio (el modelo `RoutineEntry` ya
-  soporta `scheduledDate`; falta la UI y el menú). Estado: ABIERTO.
+- **`DayPlusSheet` (598)**: menú «＋» de un día concreto — **PORTADO**: one-off
+  con `scheduledDate`, favoritos, temporizador, y escaneo de pizarra al día
+  (`escaner?fecha=` → `createRoutineFromScan` con schedule). Timer/favoritos
+  sin fecha (igual que iOS DayPlus).
 - **`RegisterSwipeRevealCard` (382)**: tarjeta de registro con gesto swipe de
   revelado de acciones (UIKit). Las ACCIONES existen en Android como botones;
   el gesto es un ítem de fidelidad. Estado: ABIERTO (fidelidad, no capacidad).

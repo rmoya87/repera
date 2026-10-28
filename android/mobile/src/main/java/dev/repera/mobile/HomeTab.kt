@@ -115,7 +115,8 @@ internal fun HomeTab(
     onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
     onDayPlusFavorites: () -> Unit = {},
     onDayPlusTimer: () -> Unit = {},
-    onDayPlusScan: () -> Unit = {},
+    /** ISO day (`yyyy-MM-dd`) selected when opening the board scanner. */
+    onDayPlusScan: (String) -> Unit = {},
     onDeleteRoutine: (String) -> Unit = {},
     onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
     onOpenClock: () -> Unit,
@@ -225,7 +226,7 @@ internal fun HomeTab(
                             onCreateWorkout = { showDayPlus = false; onDayPlusCreate(homeDateIso, dayName) },
                             onOpenFavorites = { showDayPlus = false; onDayPlusFavorites() },
                             onOpenTimer = { showDayPlus = false; onDayPlusTimer() },
-                            onScanBoard = { showDayPlus = false; onDayPlusScan() },
+                            onScanBoard = { showDayPlus = false; onDayPlusScan(homeDateIso) },
                             onDismiss = { showDayPlus = false })
                     }
                 }

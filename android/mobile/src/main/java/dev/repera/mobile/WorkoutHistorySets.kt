@@ -15,7 +15,8 @@ internal object WorkoutHistorySets {
     data class EffectiveSet(
         val reps: Int, val weightKg: Double?, val unit: String,
         val durationSeconds: Int? = null, val mobilityHold: Boolean = false,
-        val rir: Double? = null
+        val rir: Double? = null,
+        val deficitCm: Int? = null
     )
 
     fun effectiveWorkSets(workout: JSONObject, exercise: JSONObject,
@@ -42,7 +43,10 @@ internal object WorkoutHistorySets {
                             "mobility-60","mobility-61","mobility-62","mobility-67",
                             "mobility-70","mobility-80"
                         ),
-                    rir = valueOrNull(set, "rir"))
+                    rir = valueOrNull(set, "rir"),
+                    deficitCm = set.optInt("deficitCm").takeIf {
+                        set.has("deficitCm") && !set.isNull("deficitCm")
+                    })
         }
         if (actual.isNotEmpty()) return actual
         // A score-only WOD has no work-set history. Its prescribed movement targets
