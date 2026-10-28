@@ -2595,49 +2595,202 @@ struct WODResultInlineEditor: View {
 
 // Swipe de serie en ScrollView: .swipeActions solo funciona en filas List.
 // Mantenemos los TextField interactivos y revelamos borrar al deslizar a la izquierda.
-private struct WorkoutSetSwipeDeleteRow<Content: View>: View {
-    var onDelete: () -> Void
-    @ViewBuilder var content: () -> Content
-    @State private var deleteRevealed = false
+
+private struct PlayEditableSetsView: View {
+    @Environment(ReperaStore.self) private var store
+    let exerciseEntry: SessionExercise
+
+    private struct Row: Identifiable {
+        let id: UUID
+        var weightKg: Double?
+        var deficitCm: Int?
+        var durationSeconds: Int?
+        var reps: Int
+        var rir: Double?
+    }
+
+    @State private var rows: [Row] = []
+    @State private var quantityUnit: ExerciseQuantityUnit = .reps
+    @State private var openedSetID: UUID?
+    @FocusState private var focus: OGSetFieldID?
+
+    private var exercise: Exercise { exerciseEntry.exercise }
+    private var style: ExerciseLoggingStyle { exercise.loggingStyle }
+    private var quantityLabel: String {
+        style == .machineWork || exercise.supportsRepsOrMeters
+            ? quantityUnit.shortLabel : exercise.quantityFieldLabel
+    }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
-            Button(role: .destructive) {
-                deleteRevealed = false
-                onDelete()
+        VStack(alignment: .leading, spacing: 12) {
+            if exercise.supportsRepsOrMeters ||
+                (style == .machineWork && exercise.allowsCalorieOrDistanceToggle) {
+                Picker("Unidad", selection: $quantityUnit) {
+                    if exercise.supportsRepsOrMeters {
+                        Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+                    } else {
+                        Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                    }
+                    Text("Metros").tag(ExerciseQuantityUnit.meters)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: quantityUnit) { _, _ in persist() }
+            }
+            OGSetEntryHeader(
+                firstTitle: style == .repsOnly ? quantityLabel
+                    : (style == .loadAndReps
+                        ? (exercise.loadField == .deficitCm ? "Déficit" : "KG") : "Tiempo"),
+                secondTitle: style == .repsOnly || exercise.isMobilityHold ? nil : quantityLabel,
+                showsConfirmation: false,
+                showsRIR: style.usesRIR
+            )
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                OGSetSwipeDeleteRow(
+                    canDelete: true,
+                    setID: row.id,
+                    openedSetID: $openedSetID,
+                    onDelete: {
+                        guard rows.indices.contains(index) else { return }
+                        rows.remove(at: index)
+                        persist()
+                    }
+                ) {
+                    rowEditor(index: index, row: row)
+                }
+            }
+            Button {
+                guard rows.count < 20 else { return }
+                let last = rows.last
+                rows.append(Row(
+                    id: UUID(), weightKg: last?.weightKg, deficitCm: last?.deficitCm,
+                    durationSeconds: last?.durationSeconds, reps: last?.reps ?? 8,
+                    rir: last?.rir
+                ))
+                persist()
             } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 58, height: 44)
-                    .background(OG.red, in: RoundedRectangle(cornerRadius: 10))
+                Label("Añadir serie", systemImage: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.accent)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Eliminar serie")
-            .opacity(deleteRevealed ? 1 : 0)
-            .allowsHitTesting(deleteRevealed)
-
-            content()
-                .frame(maxWidth: .infinity)
-                // Mismo fondo que la tarjeta: sin franjas negras puras entre series.
-                .background(OG.surface)
-                .offset(x: deleteRevealed ? -66 : 0)
-                .contentShape(Rectangle())
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 18)
-                        .onEnded { value in
-                            guard abs(value.translation.width) > abs(value.translation.height) * 1.2 else { return }
-                            withAnimation(.smooth(duration: 0.22)) {
-                                if value.translation.width < -35 {
-                                    deleteRevealed = true
-                                } else if value.translation.width > 30 {
-                                    deleteRevealed = false
-                                }
-                            }
-                        }
-                )
-                .accessibilityAction(named: "Eliminar serie") { onDelete() }
         }
-        .clipped()
+        .padding(.vertical, 6)
+        .onAppear(perform: seedIfNeeded)
+    }
+
+    private func rowEditor(index: Int, row: Row) -> some View {
+        let previous = store.cachedLastWorkingSession(for: exercise.id)?.sets
+        let previousSet = (previous?.indices.contains(index) == true) ? previous?[index] : nil
+        let firstValue: String = {
+            switch style {
+            case .repsOnly: return String(row.reps)
+            case .loadAndReps:
+                if exercise.loadField == .deficitCm { return row.deficitCm.map(String.init) ?? "0" }
+                return row.weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—"
+            case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
+            }
+        }()
+        return OGSetEntryRow(
+            rowID: row.id,
+            index: index + 1,
+            previous: OGSetEntryRow.previousText(previousSet),
+            firstValue: firstValue,
+            secondValue: style == .repsOnly || exercise.isMobilityHold ? nil : String(row.reps),
+            nextEditableRowID: rows.dropFirst(index + 1).first?.id,
+            firstAllowsDecimal: style == .loadAndReps && exercise.loadField == .weightKg,
+            showsConfirmation: false,
+            completed: false,
+            rir: row.rir,
+            showsRIR: style.usesRIR,
+            onRIRChange: { value in
+                guard rows.indices.contains(index) else { return }
+                rows[index].rir = value
+                persist()
+            },
+            focus: $focus,
+            onFirstCommit: { text in
+                guard rows.indices.contains(index) else { return }
+                switch style {
+                case .repsOnly:
+                    if let value = Int(text), value > 0 { rows[index].reps = value }
+                case .loadAndReps:
+                    if exercise.loadField == .deficitCm {
+                        if let value = Int(text) { rows[index].deficitCm = min(60, max(0, value)) }
+                    } else {
+                        let value = ReperaNumberFormat.parse(text) ?? 0
+                        rows[index].weightKg = value > 0 ? ((value * 10).rounded() / 10) : nil
+                    }
+                case .repsAndTime, .machineWork:
+                    rows[index].durationSeconds = DurationText.parse(text)
+                }
+                persist()
+            },
+            onSecondCommit: { text in
+                guard rows.indices.contains(index) else { return }
+                if let value = Int(text), value > 0 { rows[index].reps = value; persist() }
+            },
+            onConfirm: {}
+        )
+    }
+
+    private func seedIfNeeded() {
+        guard rows.isEmpty else { return }
+        quantityUnit = exerciseEntry.quantityUnit ?? exercise.defaultQuantityUnit
+        let prescribed = exerciseEntry.plannedSets
+        let recorded = exerciseEntry.loggedSets
+        rows = prescribed.enumerated().map { index, set in
+            let result = recorded.first(where: { $0.id == set.id })
+                ?? (recorded.indices.contains(index) ? recorded[index] : nil)
+            return Row(
+                id: result?.id ?? set.id,
+                weightKg: result?.weightKg ?? set.targetWeightKg,
+                deficitCm: result?.deficitCm ?? (exercise.loadField == .deficitCm
+                    ? set.targetWeightKg.map { Int($0.rounded()) } : nil),
+                durationSeconds: result?.durationSeconds ?? set.targetDurationSeconds,
+                reps: result?.reps ?? set.targetReps,
+                rir: result?.rir ?? set.targetRir
+            )
+        }
+        if rows.isEmpty {
+            rows = recorded.map {
+                Row(id: $0.id, weightKg: $0.weightKg, deficitCm: $0.deficitCm,
+                    durationSeconds: $0.durationSeconds, reps: $0.reps, rir: $0.rir)
+            }
+        }
+    }
+
+    private func persist() {
+        guard let current = store.state.activeSession?.exercises.first(where: { $0.id == exerciseEntry.id }) else { return }
+        let prescribed = current.plannedSets
+        let savedByID = Dictionary(uniqueKeysWithValues: current.loggedSets.map { ($0.id, $0) })
+        let revised: [PlannedSet] = rows.enumerated().map { index, row in
+            let previous = prescribed.first(where: { $0.id == row.id })
+                ?? (prescribed.indices.contains(index) ? prescribed[index] : nil)
+            let kg = exercise.loadField == .deficitCm ? row.deficitCm.map(Double.init) : row.weightKg
+            let changedLoad = kg != previous?.targetWeightKg
+            return PlannedSet(
+                id: row.id, targetReps: max(1, row.reps), targetWeightKg: kg,
+                targetDurationSeconds: row.durationSeconds, targetRir: row.rir,
+                targetPercent1RM: changedLoad ? nil : previous?.targetPercent1RM,
+                targetPercent1RMIsMinimum: !changedLoad && (previous?.targetPercent1RMIsMinimum ?? false)
+            )
+        }
+        let unit = (style == .machineWork || exercise.supportsRepsOrMeters)
+            ? quantityUnit : (current.quantityUnit ?? exercise.defaultQuantityUnit)
+        let recorded: [LoggedSet] = rows.map { row in
+            var result = savedByID[row.id] ?? LoggedSet(id: row.id, reps: row.reps, quantityUnit: unit)
+            result.reps = max(1, row.reps)
+            result.weightKg = exercise.loadField == .weightKg ? row.weightKg : nil
+            result.deficitCm = exercise.loadField == .deficitCm ? row.deficitCm : nil
+            result.durationSeconds = style.usesDuration ? row.durationSeconds : nil
+            result.quantityUnit = unit
+            result.rir = style.usesRIR ? row.rir : nil
+            result.toFailure = style.usesRIR && row.rir == 0
+            return result
+        }
+        store.updateActiveExerciseDraft(
+            id: current.id, plannedSets: revised,
+            quantityUnit: unit, performedSets: recorded
+        )
     }
 }
