@@ -426,10 +426,10 @@ struct DayEditorView: View {
                 }
             }
         }
-        .alert("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
+        .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
             get: { pendingReplacement != nil },
             set: { if !$0 { pendingReplacement = nil } }
-        )) {
+        ), titleVisibility: .visible) {
             Button("Sustituir y reiniciar", role: .destructive) {
                 if let pendingReplacement {
                     applyExerciseReplacement(target: pendingReplacement.target, with: pendingReplacement.exercise)
