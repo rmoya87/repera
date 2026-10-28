@@ -1,6 +1,6 @@
 # Rendimiento (iOS 27)
 
-Última actualización: 2026-10-19 (bundle `com.app.repera`)
+Última actualización: 2026-10-28 (Inicio, carrusel y navegación por entrenamientos antiguos)
 
 Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arranque.
 
@@ -38,11 +38,20 @@ Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arr
 ## Home + Salud
 
 - Home: buckets + semana en el primer paint; racha/PRs y `refreshAuthorizationStatus` en **utility** (no bloquean Inicio).
-- **Cambiar de día no dispara HealthKit** (solo buckets + refine opcional de Hoy).
+- **Cambiar de día** reutiliza buckets Repera/Salud. La cifra de pasos hace **una consulta puntual** `steps(for:)` por día, no siete `HKStatisticsQuery` por selección; resultados en memoria por `healthDataRevision`. Refine opcional de Hoy permanece diferido.
+- Calendario de 105 semanas: `rebuildWeekChrome` genera la tira de 735 días **solo al cambiar entrenos, planes, datos de Salud o comienzo de semana**. `rebuildSelectedWeekChrome` actualiza únicamente las 7 celdas de progreso al cambiar de semana; no mueve `scrollPosition`. Mes visible con índice `calendarDatesByKey` O(1).
+- Volver del detalle no ejecuta de nuevo cálculos de buckets, rachas, PR ni calendario si no cambió `workoutsEpoch` / `healthDataRevision`. Avatar JPEG se decodifica solo al cambiar su contenido. Las reservas Business se unen por índice de ocurrencias, evitando O(n×m).
 - Tras hydrate: `refreshToday` en el camino corto; ventana Salud 180d en `Task.utility` (no await en el launch task).
 - Cards con chips: swipe UIKit (`transform` + pan); `UIScrollView` desactivado durante el pan; no se recrea el hosting a mitad del gesto (evita temblor).
 - `HealthDiskCache`: hydrate síncrono en `HealthKitStore.init` para pintar Inicio al instante.
 - Filter key = digest estable corto (`healthFilterKey`); refrescos Home/Progreso **coalescidos** a `max(days)`.
+
+## Historial, edición y retorno
+
+- `WorkoutDetailView` ya no ejecuta `repairHistoricalWODExercisesIfNeeded()` de **todo el historial** al abrir una sesión; la reparación se realiza durante el bootstrap y la recuperación iCloud.
+- `ensureSessionReview` reutiliza la valoración guardada; `refreshSessionReviewWithCardio` evita `persistWorkouts()` cuando la valoración calculada no cambió. Esto previene escrituras y sincronizaciones redundantes al abrir y volver.
+- El detalle libera primero el primer frame con `Task.yield()`; las lecturas de Salud y GPS mantienen su comportamiento asíncrono. Para Editar, `CompletedWorkoutEditing.routine` se ejecuta una vez al pulsar el lápiz, no en cada reevaluación del destino. El modelo preparado permanece durante el pop nativo.
+- Regresión estática: `tests/test_home_history_performance_contract.py`. La validación real debe medir scroll, pushes/pops y carga con Apple Health + iCloud en dispositivo usando Instruments (Time Profiler / SwiftUI).
 
 ## Sesión / chrome
 
