@@ -183,6 +183,11 @@ final class WorkoutClockCoordinator {
             syncFromWallClock()
             if isRunning { scheduleFeedback() }
         }
+        // Restore assigns isRunning before hasStarted; refresh the lock
+        // explicitly so a paused clock also prevents auto-lock on reopen.
+        TimerScreenAwake.setRunning(
+            isRunning || (hasStarted && pendingEndReason == nil), for: .workout
+        )
         if hasStarted {
             if isRunning { publishLiveAndAlerts() }
             else { publishPausedLiveTimer() }
