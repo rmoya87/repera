@@ -1,6 +1,6 @@
 # Seguimiento por criterios v1
 
-Fecha de base: 28-oct-2026. Ultimo producto: tree390, 9ce9e134.
+Fecha de base: 28-oct-2026. Ultimo producto: tree392, a89b9b6d.
 Peticion de seguimiento: mensaje del usuario de 28-oct 12:01 y continuidad acordada a las 12:02.
 
 ## Que mide
@@ -106,3 +106,5 @@ como0%global del producto. Registrar todos los cambios de denominador y evidenci
 - Tree388: G07 fechas extremas de sueno en d MMM como HealthRecovery1393-1403; no cambia dato/seleccion/curva/area/dominio/alto. Regresion render roja/verde y PNG360 inspeccionado. G07 permanece P/P/N; denominadores y recuentos v1 intactos.
 
 - Tree390: G08 divisor entre VFC ficticia y barras con alpha0.25/spacing14 como HealthRecovery850-852; regresion de existencia/bounds y PNG360 inspeccionado. No claimcolorSwiftidentico. G08 permanece P/P/N; denominadores/recuentos v1 intactos.
+
+- Tree392: G08 fila de VFC ficticia con titulo izquierdo y ultimo valor58msderecho, como HealthRecovery827-834; regresion textos/bounds y PNG360 inspeccionado. No claimfontmetricsidenticas. G08 permanece P/P/N; denominadores/recuentos v1 intactos.

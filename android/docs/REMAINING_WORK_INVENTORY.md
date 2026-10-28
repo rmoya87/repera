@@ -966,3 +966,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -392 mismo bloque parcialG08:HealthRecovery827-834HStacktituloizquierdoyultimovalorderecho;AndroidfusionabaenunText. SeparadafilaRowtitulo+valor58msderivadodelfixture,centradosverticalmente;sinclaimfontmetricsidenticasnirestodelheaderexterior.
 - Regresionexistenciatextosseparadosrojaybounds1focalizado/1XML90sverde0fallos/errores/omitidos. PNG360x511inspeccionado:titulo/58msseparadosalineadosysinrecortes,curva/barras/textosrestantesintactos. Escalas/datosno cambian.
 - G08sigueP/P/N,denominadoresv1intactos:graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOavancefuncionaltotal.735/70sin cierres,no nuevoTerminado.Full392pendiente;ultimafull390mobile693/163domain558/93Wear8/1assemble71s.No push niApps/Packages.
+
+## Continuidad G08parcial y matrices 13:47 28oct
+-392 bateria completa mobile693/163XML11lotes45/63/75/69/51/70/81/42/77/45/71s,domain558/93XML37s,Wear8/1XML+ambosassemble70sverdes0fallos/errores/omitidos. Backup392recuperado65338db7:arbol9146fa0fd2910b33b59b97f2933e3c9bed421516identico,clonlimpio. Evidencia interna, no nuevoTerminado ni avanceporcentual.
+-393 solo docs: matrices0d649f28/08790a22/c7878496yregistrov1reconciliados392sinreclasificar. G08P/P/N;graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOcoberturafuncionaltotal.735/70abiertas,sincierres. Ultimoproducto392.No push niApps/Packages.
