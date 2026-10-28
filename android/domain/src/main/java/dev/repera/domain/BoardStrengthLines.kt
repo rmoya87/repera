@@ -12,7 +12,9 @@ internal object BoardStrengthLines {
    // the movement review path instead of falsely creating a load.
    if(Regex("[@#]\\s*>?\\s*\\d+(?:[.,]\\d+)?\\s*%|@\\s*\\d+(?:[.,]\\d+)?\\s*[-–]\\s*\\d+",RegexOption.IGNORE_CASE).containsMatchIn(raw)) return null
    var working=CrossFitGlossary.expand(raw)
-   val scheme=Regex("(\\d+)\\s*[x×X]\\s*(\\d+)").find(working) ?: return null
+   val scheme=Regex("(?<![\\p{L}\\p{N}.,+−–-])(\\d+)\\s*[x×X]\\s*(\\d+)(?![\\p{L}\\p{N}.,×+−–-])").find(working) ?: return null
+   if(working.substring(0,scheme.range.first).trimEnd().endsWith("-") ||
+      working.substring(0,scheme.range.first).trimEnd().endsWith("–")) return null
    val sets=scheme.groupValues[1].toIntOrNull() ?: return null
    val reps=scheme.groupValues[2].toIntOrNull() ?: return null
    // Bound allocation before review. Do not silently truncate a board.

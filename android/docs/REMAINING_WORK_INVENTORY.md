@@ -715,3 +715,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 - Mismo lector parcial335,hallazgo nuevo del subconjunto fuerza: @-60 o@UNKNOWN podian enlazar porfuzzy yperder carga,@60..5/@1e3 podian leerprefijo parcial,overflow podia darInfinity. Regresion fallo antes del arreglo con@-60.
 - Limites: token@carga exige frontera espacio/fin,valor finito no negativo;@/#residual obliga a review sin fuerza generada. Subconjunto explicito valido@60,5kg preservado. No cambia unidadesni añade conversionLB/no3x8default.
 -1test nuevo de6malformados+validodecimal. Dominio531/93XML51s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear335 pendientes;ultima completa333mobile678/163domain530/93Wear8/1ambosassemble88s.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, fronteras de setsxreps 04:32 28oct
+-335 bateria completa mobile678/163XML84/96/75/77s,domain531/93XML51s,Wear8/1XML+ambosassemble61sverdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo lector parcial336,hallazgo nuevo: esquema -3x8/decimal/exponente podia tomar subcadena positiva yfabricar prescripcion parcial. Regresion fallo antes con-3x8. Fronteras ahora impiden tokenembebido/decimal/signo ysignonegativo separado;no3x8default. Siete casos malformados conservan review.
+-1test nuevo;dominio532/93XML completo verde ywire8/1XMLjuntoBoardStrengthLinesTestverde80s,0fallos/errores/omitidos. Mobile completa/Wear336 pendientes.735/70sin cierres,nativo pendiente,no push.

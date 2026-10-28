@@ -153,4 +153,9 @@ class BoardStrengthLinesTest {
   val valid=BoardStrengthLines.block(listOf("3x8 BACK SQUAT @60,5kg"),listOf(squat))!!
   assertEquals(60.5,valid.exercises.single().plannedSets.first().targetWeightKg!!,0.001)
  }
+ @Test fun malformedStrengthSchemeCannotBecomePartialPrescription() {
+  for(scheme in listOf("-3x8","- 3x8","3x-8","3.5x8","3x8.5","1e3x8","3x8x2")) {
+   assertNull(scheme,BoardStrengthLines.block(listOf(scheme+" BACK SQUAT"),listOf(squat)))
+  }
+ }
 }
