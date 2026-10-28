@@ -1790,17 +1790,15 @@ struct DayEditorView: View {
             }
         }
 
-        WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus") {
-            pickMovementForBlock = routine.blocks[index].id
-        }
-        WorkoutInlineAddButton("Añadir descanso", systemImage: "pause") {
-            routine.blocks[index].movements.append(
-                WODMovement(name: "REST", isRest: true, restSeconds: 60)
-            )
-        }
-        WorkoutInlineAddButton("Añadir movimiento libre", systemImage: "pencil") {
-            createFreeMovementForBlock = routine.blocks[index].id
-        }
+        WorkoutWODInsertActions(
+            onExercise: { pickMovementForBlock = routine.blocks[index].id },
+            onRest: {
+                routine.blocks[index].movements.append(
+                    WODMovement(name: "REST", isRest: true, restSeconds: 60)
+                )
+            },
+            onFreeMovement: { createFreeMovementForBlock = routine.blocks[index].id }
+        )
 
         TextField("Notas / texto del WOD", text: Binding(
             get: { routine.blocks[index].wodNotes ?? "" },
@@ -3119,6 +3117,38 @@ extension FavoriteTimer {
 /// La altura táctil sigue siendo suficiente incluso con la línea en reposo.
 
 /// Mismo tratamiento visual para las acciones de inserción de Crear/Editar y Play.
+/// Acciones compactas: un botón principal y dos accesos secundarios.
+struct WorkoutWODInsertActions: View {
+    let onExercise: () -> Void
+    let onRest: () -> Void
+    let onFreeMovement: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus.circle.fill", action: onExercise)
+            HStack(spacing: 10) {
+                secondary("Añadir descanso", symbol: "pause.circle", action: onRest)
+                secondary("Movimiento libre", symbol: "pencil.line", action: onFreeMovement)
+            }
+        }
+        .padding(.vertical, 8)
+        .listRowSeparator(.hidden)
+    }
+
+    private func secondary(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(OG.label2)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .padding(.horizontal, 4)
+                .background(OG.surface2.opacity(0.5), in: RoundedRectangle(cornerRadius: 11))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct WorkoutInlineAddButton: View {
     let title: String
     let systemImage: String
@@ -3132,27 +3162,17 @@ struct WorkoutInlineAddButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
-                    .frame(width: 32, height: 32)
-                    .background(OG.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                Spacer(minLength: 0)
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(OG.label3)
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 52)
-            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(OG.accent)
+                .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(OG.accent.opacity(0.35), lineWidth: 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
         .listRowSeparator(.hidden)
     }
 }
-
