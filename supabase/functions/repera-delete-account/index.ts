@@ -34,6 +34,13 @@ const businessBlockers: Array<{ table: string; column: string; ownerRole?: strin
   { table: "business_training_groups", column: "created_by" },
   { table: "professional_workout_templates", column: "created_by" },
   { table: "service_pass_management_events", column: "actor" },
+  { table: "organization_athlete_requests", column: "decided_by" },
+  { table: "platform_admin_delegations", column: "actor_id" },
+  { table: "platform_admin_events", column: "actor_id" },
+  { table: "platform_org_controls", column: "updated_by" },
+  { table: "platform_org_provisioning", column: "created_by" },
+  { table: "platform_owner_email_attempts", column: "actor_id" },
+  { table: "platform_settings", column: "updated_by" },
 ];
 
 async function businessResponsibilities(userID: string): Promise<boolean> {
