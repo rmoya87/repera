@@ -781,6 +781,7 @@ struct WorkoutView: View {
                     let title = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
                     draft.blocks[to].movements.append(
                         WODMovement(
+                            id: item.id,
                             exerciseId: item.exerciseId,
                             name: title,
                             reps: item.plannedSets.first?.targetReps ?? 8,
@@ -818,6 +819,7 @@ struct WorkoutView: View {
                         return
                     }
                     draft.blocks[to].exercises.append(RoutineExercise(
+                        id: movement.id,
                         exerciseId: catalogID,
                         plannedSets: movement.explicitPlannedSets ?? movement.plannedSetsFromReps,
                         quantityUnit: movement.prescribedQuantityUnit
