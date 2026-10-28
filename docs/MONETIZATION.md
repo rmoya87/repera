@@ -141,3 +141,9 @@ StoreKit Configuration: adjuntar `ReperaProducts.storekit` al scheme Repera.
 2. Verificar offering `default` y entitlement `pro` en dashboard.
 3. Probar sandbox mensual, anual, restore, caducidad.
 4. Confirmar que Release **no** muestra Debug Pro ni desbloquea por preferencia local.
+
+
+### Android Play: revisión de seguridad, 2026-10-28
+
+Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: verificador reforzado en borrador,
+no desplegado; recuperación tras borrar/recrear cuenta pendiente. No cambia Apple.

@@ -419,3 +419,9 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Comprobar resumen global de Movilidad (sesiones + minutos reales), tanto en Gratis —semana actual— como Pro —periodo seleccionado—.
 - [ ] Comprobar que los ejercicios existentes de fuerza, cardio, comba y WOD mantienen sus campos y récords anteriores.
 
+
+
+### Android Play: revisión de seguridad, 2026-10-28
+
+Ver `android/docs/MONETIZATION_PLAY_BILLING.md`: verificador reforzado en borrador,
+no desplegado; recuperación tras borrar/recrear cuenta pendiente. No cambia Apple.

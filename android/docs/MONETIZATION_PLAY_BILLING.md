@@ -82,7 +82,7 @@ queda Gratis funcional con paywall informativo "compras no configuradas".
 (mensaje phonemsg-01M5SH836466EK865PC0YT8TJV, canal iMessage verificado).
 - Mensual (com.app.repera.premium.monthly): 5,99 EUR/mes.
 - Anual (com.app.repera.premium.yearly): 39,99 EUR/año.
-- Trial: SIN RESPUESTA aún; dato abierto para la aprobación final agrupada.
+- Trial: SIN trial Pro, confirmado por Ramón el 28/10/2026. Inicio Gratis y Pro mensual/anual.
 Estos importes NO van en código (la app los lee de Play). Se aplicarán al
 crear los productos en Play Console cuando la subida del primer AAB y la
 creación de productos estén autorizadas (hoy NO lo están). Los mismos
@@ -98,9 +98,9 @@ implementado en app:
 - `PlayBillingEntitlementProvider` cableado desde `MainActivity` (compra real +
   detección local → UNKNOWN, **sin** conceder Pro)
 - `PlayPurchaseVerifyClient` → `POST /functions/v1/repera-play-billing-verify`
-- acknowledge local solo tras verify OK
-- Edge Function scaffold `supabase/functions/repera-play-billing-verify/`
-  (JWT usuario + `purchases.subscriptionsv2.get` cuando hay SA)
+- acknowledge backend antes de devolver entitlement Pro; se reintenta en nueva verificación si falla
+- Verificador en revisión `supabase/functions/repera-play-billing-verify/`
+  (JWT usuario, catálogo estricto, estados exactos, token ownership atómico y acknowledgement backend). No desplegado por esta revisión.
 
 bloqueado por Ramón / ops (sin esto Pro sigue sin concederse en prod):
 1. Secretos Edge: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `PLAY_PACKAGE_NAME`
@@ -111,3 +111,35 @@ bloqueado por Ramón / ops (sin esto Pro sigue sin concederse en prod):
 Sin esos secretos la función responde `503 { configured:false }` y la app
 muestra el mensaje de verificación pendiente; la caché offline solo usa
 snapshots ya verificados.
+
+## Revisión de seguridad del 28/10/2026 (BORRADOR, no desplegado)
+
+- Play es la única fuente de producto y vencimiento. Un hint del cliente no
+  permite convertir productos desconocidos en Pro. ACTIVE/CANCELED necesitan
+  producto conocido y vencimiento futuro; gracia y ON_HOLD no se confunden.
+- La compra incorpora `obfuscatedAccountId=SHA256(UUID Supabase en minúsculas)`.
+  El servidor exige coincidencia con el usuario autenticado. Sin sesión no
+  se abre la compra. No se transmite email ni UUID en claro a Play.
+- Nueva tabla privada y RPC service_role-only reclaman hash de token de forma
+  atómica y marcan el token sustituido como superseded. No se almacena el token
+  de compra en claro. RLS no concede acceso a anon/authenticated.
+- La migración `20261028173000_play_subscription_ownership.sql` es un BORRADOR.
+  Su comportamiento actual de ownerNULL al borrar una cuenta impide reasignar
+  compras automáticamente. La política de recuperación/retención tras borrar y
+  recrear cuenta NO está decidida: no aplicar esta migración ni desplegar el
+  verificador hasta acordarla e implementar una vía de recuperación real.
+- No se han cambiado productos/precios, Apple, release pública o merge main
+  desde esta revisión. El alcance de Console se verifica por separado.
+
+Pruebas locales: `deno test supabase/functions/repera-play-billing-verify/verification_test.ts`
+(19 casos) y `deno check .../index.ts`. PostgreSQL embebido valida sintaxis,
+permisos, restores mismo dueño, rechazos, reemplazo y FK al borrar cuenta.
+NO demuestra esquema remoto, concurrencia multisesión, integración Google real
+ni build Android. Cuenta tester no equivale a compra con medio de prueba.
+
+Rollback seguro: si ya hubiera datos de compra, deshabilitar el endpoint o
+restaurar una versión segura manteniendo ownership; no volver al scaffold que
+concede Pro ni borrar tabla/hashes para recuperar servicio. Antes de cualquier
+aplicación remota comprobar esquema/migraciones existentes y guardar definición.
+La migración es aditiva, no altera tablas de negocio. Sin compras reales aún,
+revisión local puede descartarse sin mutaciones de producción.

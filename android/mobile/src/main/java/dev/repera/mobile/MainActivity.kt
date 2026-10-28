@@ -35,6 +35,7 @@ import dev.repera.mobile.monetization.FreeUsageStore
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.monetization.PaywallMode
 import dev.repera.mobile.monetization.PaywallScreen
+import dev.repera.mobile.monetization.PlayBillingAccountIdentity
 import dev.repera.mobile.monetization.PlayBillingEntitlementProvider
 import dev.repera.mobile.monetization.PlayPurchaseVerifyClient
 import dev.repera.mobile.monetization.SubscriptionManager
@@ -115,7 +116,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
      * Play Billing detecta compras; Pro solo tras verify Edge Function. */
     private val subscriptions by lazy {
         SubscriptionManager(
-            provider = PlayBillingEntitlementProvider(this) { this },
+            provider = PlayBillingEntitlementProvider(
+                this,
+                billingAccountId = { verifiedSupabase?.userId?.let(PlayBillingAccountIdentity::fromUserId) }
+            ) { this },
             freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization")),
             verifyClient = PlayPurchaseVerifyClient(),
             accessTokenProvider = { verifiedSupabase?.accessToken }

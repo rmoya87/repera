@@ -31,6 +31,7 @@ import kotlinx.coroutines.sync.withLock
  */
 class PlayBillingEntitlementProvider(
     context: Context,
+    private val billingAccountId: () -> String? = { null },
     private val activityProvider: () -> Activity? = { context as? Activity }
 ) : EntitlementProvider {
 
@@ -145,6 +146,8 @@ class PlayBillingEntitlementProvider(
         if (productID !in CommercialConfig.ALL_PRODUCT_IDS) {
             throw EntitlementError.ProductUnavailable()
         }
+        val accountId = billingAccountId()?.takeIf { it.matches(Regex("[0-9a-f]{64}")) }
+            ?: throw EntitlementError.PurchaseFailed("Inicia sesión antes de comprar Pro.")
         val activity = activityProvider()
             ?: throw EntitlementError.PurchaseFailed("No hay Activity para lanzar la compra.")
         if (!ensureConnected()) {
@@ -157,6 +160,7 @@ class PlayBillingEntitlementProvider(
         val deferred = CompletableDeferred<CommercialSnapshot>()
         purchaseWaiter = deferred
         val flowParams = BillingFlowParams.newBuilder()
+            .setObfuscatedAccountId(accountId)
             .setProductDetailsParamsList(
                 listOf(
                     BillingFlowParams.ProductDetailsParams.newBuilder()
