@@ -40,7 +40,7 @@ object BoardScanLiteParser {
         fun flush() {
             val cur = current ?: return
             val orphanStrength=if(cur.header=="Añadir entreno" || cur.format==WODFormat.STRENGTH)
-                BoardStrengthLines.block(cur.body,catalog)?.also {it.title=cur.header} else null
+                BoardStrengthLines.block(cur.body,catalog)?.also {it.title=cur.header;it.wodNotes=(listOf(cur.originalHeader,cur.header).distinct()+cur.body).joinToString("\n")} else null
             val structured = orphanStrength ?: structuredIntervalComplex(
                 cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog, searchAliases
             ) ?: structuredStrength(

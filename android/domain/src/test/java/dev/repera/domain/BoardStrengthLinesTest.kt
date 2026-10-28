@@ -135,4 +135,15 @@ class BoardStrengthLinesTest {
   assertTrue(block.movements[0].notes.orEmpty().contains("70%"))
   assertTrue(block.movements[1].notes.orEmpty().contains(">80%"))
  }
+ @Test fun explicitStrengthIgnoresExactNoiseLabelsButKeepsReviewNotes() {
+  val block=BoardScanLiteParser.parse("SETS\nREPS\n3x8 BACK SQUAT @60\nCIRCUITO",listOf(squat)).blocks.single()
+  assertEquals(RoutineBlockKind.STRENGTH,block.kind)
+  assertEquals(1,block.exercises.size)
+  assertEquals(3,block.exercises.single().plannedSets.size)
+  assertEquals(8,block.exercises.single().plannedSets.first().targetReps)
+  assertTrue(block.wodNotes.orEmpty().contains("SETS"))
+  assertTrue(block.wodNotes.orEmpty().contains("CIRCUITO"))
+  assertNull(BoardStrengthLines.block(listOf("SETS","REPS","CIRCUITO"),listOf(squat)))
+  assertNull(BoardStrengthLines.block(listOf("SETS","BACK SQUAT"),listOf(squat)))
+ }
 }

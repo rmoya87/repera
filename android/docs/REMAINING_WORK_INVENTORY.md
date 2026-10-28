@@ -701,3 +701,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -331 bateria completa mobile678/163XML89/107/87/81s,domain528/93XML67s,Wear8/1XML+ambosassemble69s verdes0fallos/errores/omitidos. Backup331recuperado desde65338db7:arbolb8ddfcd3046e78081a1f40a5688f4c8659c6342aidentico,clonlimpio.
 - Mismo lector parcial332: etiquetas exactas SETS/REPS/CIRCUITO/CIRCUIT no fabrican ejercicios en cuerpo;siguen en notas originales,como filtroisNoise fuente859-866/buildBlock240. No filtra nombres que solo contengan token (2CIRCUIT PRESS sigue movimiento). Cabeceras warmup ya resueltas por329.
 - Regresion fallo antes del cambio.1test nuevo;dominio529/93XML73s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear332 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, ruido antes de fuerza explicita 04:09 28oct
+-332 bateria completa mobile678/163XML92/111/91/87s,domain529/93XML73s,Wear8/1XML+ambosassemble74s verdes0fallos/errores/omitidos. Solo bateria cerrada.
+- Mismo lector parcial333: etiquetas exactasSETS/REPS/CIRCUITO/CIRCUIT se filtran tambien antes del subconjunto fuerza explicita,como strengthBlockFromLines175-181,evitandoque ruido bloquee3x8explicitoyaescrito. Sin receta si falta setsxreps. Notas originales conservadas al enrutar fuerza,antes ausentes.
+- Regresion fallo antes del cambio.1test nuevoincluido ruido solo/ejercicio sin esquema ->no fuerza. Dominio530/93XML68s ywire8/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear333 pendientes.735/70sin cierres,nativo pendiente,no push.
