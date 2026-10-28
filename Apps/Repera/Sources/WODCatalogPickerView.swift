@@ -81,6 +81,7 @@ struct WODCatalogPickerView: View {
 }
 
 struct WODTemplateDetailView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
     var template: WODTemplate
@@ -191,9 +192,12 @@ struct WODTemplateDetailView: View {
                     } label: {
                         Text("Usar este WOD")
                             .font(.system(size: 17, weight: .bold))
-                            .frame(maxWidth: .infinity)
+                            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                            .frame(maxWidth: .infinity, minHeight: 48)
                     }
+                    .buttonStyle(.borderedProminent)
                     .tint(OG.accent)
+                    .controlSize(.large)
                 }
             }
         }
