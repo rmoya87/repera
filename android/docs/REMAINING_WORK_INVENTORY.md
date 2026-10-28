@@ -847,3 +847,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Lector completo, escala con espacios OCR 09:10 28oct
 - Mismo lector parcial365: separador de escala de movimiento simple acepta whitespacealrededordeslashincluyendotabuladores,comofuente676-688. Conservaalternativasexpandidas,sinconvertircargas/caloriasparesenescala. Sin nuevomatching ni default3x8.
 - Regresion fallo antes contabuladores.1testdominio3varianteswhitespacey1wirenuevos;dominio555/93XML74s,wire18/1XML67sverdes0fallos/errores/omitidos. Mobile completa/Wear365pendientes;ultima completa362mobile687/163,domain552/93,Wear8/1+ambosassemble73s.735/70sin cierres,nativo pendiente,no push.
+
+## Continuidad lector parcial y matrices 09:26 28oct
+-365 bateria completa mobile688/163XML11lotes47/69/85/70/55/68/83/40/81/50/70s,domain555/93XML74s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Backup365recuperado65338db7:arbole7831426ad3b2b4c521f30c22feb24e1e02bb1ecidentico,clonlimpio.
+-366 solo documentacion: c6f89c28/88db5bb7reconciliadas364-365,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
