@@ -53,11 +53,13 @@ targets:
         excludes:
           - RemoteExerciseCatalogStore.swift
           - LiveActivityView.swift
+          - LiveActivityLocationName.swift
           - WorkoutLiveActivityCoordinator.swift
           - LiveSportHistoryView.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
       # Referencias explícitas: XcodeGen no puede omitir estas fuentes del target.
       - path: Apps/Repera/Sources/LiveActivityView.swift
+      - path: Apps/Repera/Sources/LiveActivityLocationName.swift
       - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift
       - path: Apps/Repera/Sources/LiveSportHistoryView.swift
       - path: Apps/Shared/RestActivityAttributes.swift

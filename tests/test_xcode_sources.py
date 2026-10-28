@@ -26,6 +26,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AIChangeRequestStore.swift").write_text("// AI change store", encoding="utf-8")
         (directory / "RemoteExerciseCatalogStore.swift").write_text("// Catalog feed", encoding="utf-8")
         (directory / "LiveActivityView.swift").write_text("// En vivo", encoding="utf-8")
+        (directory / "LiveActivityLocationName.swift").write_text("// Ruta localidad", encoding="utf-8")
         (directory / "WorkoutLiveActivityCoordinator.swift").write_text("// ActivityKit", encoding="utf-8")
         (directory / "LiveSportHistoryView.swift").write_text("// Sport progress", encoding="utf-8")
         watch = self.root / "Apps/ReperaWatch/Sources"
@@ -39,6 +40,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "      - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift\n"
             "      - path: Apps/Repera/Sources/LiveActivityView.swift\n"
+            "      - path: Apps/Repera/Sources/LiveActivityLocationName.swift\n"
             "      - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift\n"
             "      - path: Apps/Repera/Sources/LiveSportHistoryView.swift\n"
             "      - path: Apps/Shared/TrainingActivityAttributes.swift\n"
@@ -54,7 +56,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "AITrainingInboxStore.swift", "AIAccessView.swift",
             "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
             "AIChangeRequestStore.swift", "RemoteExerciseCatalogStore.swift",
-            "LiveActivityView.swift", "WorkoutLiveActivityCoordinator.swift",
+            "LiveActivityView.swift", "LiveActivityLocationName.swift",
+            "WorkoutLiveActivityCoordinator.swift",
             "LiveSportHistoryView.swift",
         )
         app_pbx = (
@@ -224,7 +227,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             validate(self.root)
 
     def test_missing_live_source_requires_checkout_update(self):
-        for name in ("LiveActivityView.swift", "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift"):
+        for name in ("LiveActivityView.swift", "LiveActivityLocationName.swift",
+                     "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift"):
             source = self.root / "Apps/Repera/Sources" / name
             original = source.read_text(encoding="utf-8")
             source.unlink()
@@ -233,7 +237,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             source.write_text(original, encoding="utf-8")
 
     def test_stale_live_sources_in_generated_target_are_rejected(self):
-        for name in ("LiveActivityView.swift", "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift"):
+        for name in ("LiveActivityView.swift", "LiveActivityLocationName.swift",
+                     "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift"):
             pbx = self.pbx.read_text(encoding="utf-8")
             self.pbx.write_text(pbx.replace(f"{name} in Sources", ""), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, name):
