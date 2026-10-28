@@ -266,6 +266,15 @@ enum LiveSport: String, CaseIterable, Identifiable {
         }
     }
 
+    var routePaceMode: AdaptiveRoutePace.Mode {
+        switch self {
+        case .walking, .hiking, .golf: .walking
+        case .running, .trail: .running
+        case .cycling, .mountainBike, .gravel: .cycling
+        default: isWaterSport ? .water : .other
+        }
+    }
+
     var isCycling: Bool { self == .cycling || self == .mountainBike || self == .gravel }
     var isWaterSport: Bool {
         switch self {
@@ -1990,6 +1999,7 @@ struct LiveActivityView: View {
                 WorkoutMapZoomDestination(
                     points: fullScreenRoutePoints,
                     isWaterSport: recorder.sport.isWaterSport,
+                    paceMode: recorder.sport.routePaceMode,
                     referenceRoutePoints: recorder.routePoints.count >= 2
                         ? (recorder.chosenRoute?.points ?? []) : [],
                     onClose: { showFullScreenRoute = false }
@@ -2073,16 +2083,16 @@ struct LiveActivityView: View {
     /// Ruta detallada por velocidad, manteniendo tramos discontinuos cuando
     /// se pierde la señal. Se agrupan colores consecutivos para no crear miles
     /// de overlays en MapKit durante entrenamientos prolongados.
+    /// Mismo motor adaptativo del historial, incluyendo muestras GPS estimadas.
     private var coloredLiveSegments: [LiveColoredMapSegment] {
         let points = recorder.routePoints
         guard points.count >= 2 else { return [] }
-        let limit = recorder.sport.isCycling ? 22.0 : 12.0
+        let limit = recorder.sport.maxGPSMetersPerSecond
         var measurements: [(index: Int, start: CLLocationCoordinate2D,
                             end: CLLocationCoordinate2D, speed: Double,
-                            isEstimated: Bool)] = []
+                            meters: Double, isEstimated: Bool)] = []
         for index in 1..<points.count {
-            let a = points[index - 1]
-            let b = points[index]
+            let a = points[index - 1], b = points[index]
             let seconds = b.recordedAt.timeIntervalSince(a.recordedAt)
             guard seconds > 0, seconds <= 30 else { continue }
             let start = CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude)
@@ -2091,29 +2101,46 @@ struct LiveActivityView: View {
                 .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
             let derived = meters / seconds
             guard derived.isFinite, derived <= limit else { continue }
-            let speed = b.speedMps.flatMap { $0 > 0 && $0 <= limit ? $0 : nil } ?? derived
+            let speed = b.speedMps.flatMap { $0 >= 0.2 && $0 <= limit ? $0 : nil } ?? derived
             measurements.append((
-                index, start, end, speed,
+                index, start, end, speed, meters,
                 a.isEstimated == true || b.isEstimated == true
             ))
         }
         guard !measurements.isEmpty else { return [] }
-        let slowest = measurements.map { $0.speed }.min() ?? 0
-        let fastest = max(measurements.map { $0.speed }.max() ?? 0, slowest + 0.1)
+        // Promedio mínimo 1-2-1 sobre tramos consecutivos, sin saltar pausas.
+        let smoothed: [Double] = measurements.indices.map { i in
+            var total = measurements[i].speed * 2
+            var weight = 2.0
+            if i > 0 && measurements[i-1].index + 1 == measurements[i].index &&
+                measurements[i-1].isEstimated == measurements[i].isEstimated {
+                total += measurements[i-1].speed; weight += 1
+            }
+            if i + 1 < measurements.count && measurements[i].index + 1 == measurements[i+1].index &&
+                measurements[i+1].isEstimated == measurements[i].isEstimated {
+                total += measurements[i+1].speed; weight += 1
+            }
+            return total / weight
+        }
+        let scale = AdaptiveRoutePace.scale(samples: measurements.indices.map {
+            AdaptiveRoutePace.Sample(speedMps: smoothed[$0],
+                                     distanceMeters: measurements[$0].meters,
+                                     isEstimated: measurements[$0].isEstimated)
+        }, mode: recorder.sport.routePaceMode)
         var output: [LiveColoredMapSegment] = []
-        var previousIndex = -1
-        var previousBucket = -1
-        for sample in measurements {
-            let fraction = min(1, max(0, (sample.speed - slowest) / (fastest - slowest)))
-            let bucket = min(5, Int((fraction * 5).rounded()))
+        var previousIndex = -1, previousBucket = -1
+        for (i, sample) in measurements.enumerated() {
+            let fraction = scale?.position(for: smoothed[i]) ?? 0.5
+            let bucket = min(8, Int((fraction * 8).rounded()))
             if sample.index == previousIndex + 1, bucket == previousBucket,
-               !output.isEmpty,
-               output[output.count - 1].isEstimated == sample.isEstimated {
+               !output.isEmpty, output[output.count - 1].isEstimated == sample.isEstimated {
                 output[output.count - 1].coordinates.append(sample.end)
             } else {
+                let rgb = AdaptiveRoutePace.rgb(position: Double(bucket) / 8,
+                                                water: recorder.sport.isWaterSport)
                 output.append(LiveColoredMapSegment(
                     id: sample.index, coordinates: [sample.start, sample.end],
-                    color: Self.traceColor(Double(bucket) / 5, water: recorder.sport.isWaterSport),
+                    color: Color(red: rgb.red, green: rgb.green, blue: rgb.blue),
                     isEstimated: sample.isEstimated
                 ))
             }
@@ -2121,25 +2148,6 @@ struct LiveActivityView: View {
             previousBucket = bucket
         }
         return output
-    }
-
-    /// Ruta terrestre: azul → amarillo → naranja → rojo.
-    /// Agua: verde → amarillo → naranja → rojo.
-    private static func traceColor(_ fraction: Double, water: Bool) -> Color {
-        let t = min(1, max(0, fraction))
-        let stops: [(r: Double, g: Double, b: Double)] = [
-            water ? (0.08, 0.72, 0.31) : (0.06, 0.39, 0.98),
-            (0.98, 0.82, 0.12), (1.0, 0.49, 0.07), (0.92, 0.14, 0.12)
-        ]
-        let scaled = t * 3
-        let index = min(2, Int(scaled))
-        let mix = scaled - Double(index)
-        let a = stops[index], b = stops[index + 1]
-        return Color(
-            red: a.r + (b.r - a.r) * mix,
-            green: a.g + (b.g - a.g) * mix,
-            blue: a.b + (b.b - a.b) * mix
-        )
     }
 
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
@@ -3060,6 +3068,7 @@ struct LiveActivityView: View {
                                 HealthWorkoutRouteMap(
                                     points: route, isInteractive: false,
                                     isWaterSport: recorder.sport.isWaterSport,
+                                    paceMode: recorder.sport.routePaceMode,
                                     referenceRoutePoints: isRecordedRoute
                                         ? (recorder.chosenRoute?.points ?? []) : []
                                 )
