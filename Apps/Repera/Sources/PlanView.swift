@@ -78,7 +78,7 @@ enum DayEditorMode: Equatable {
     case favorite(isNew: Bool)
 }
 
-private struct WorkoutReplacementTarget: Identifiable {
+private struct WorkoutReplacementTarget: Identifiable, Hashable {
     let id = UUID()
     let blockID: UUID
     let itemID: UUID
