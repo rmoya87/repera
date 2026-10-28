@@ -214,6 +214,13 @@ public enum CompletedWorkoutEditing {
         updated.routineBlocks = routine.blocks
         var unused = original.exercises
         var output: [SessionExercise] = []
+        // Los reemplazos usan un ID nuevo: nunca reasociar resultados de un
+        // ejercicio eliminado por coincidencia de nombre o de bloque.
+        // El fallback solo aplica a sesiones históricas sin IDs de ítem estables.
+        let sourceItemIDs = Set((original.routineBlocks ?? []).flatMap { block in
+            block.exercises.map(\.id) + block.movements.map(\.id)
+        })
+        let usesLegacyIDs = !original.exercises.contains { sourceItemIDs.contains($0.id) }
 
         for block in routine.blocks {
             let items: [(UUID, UUID?, String?, [PlannedSet], ExerciseQuantityUnit?)] =
@@ -225,10 +232,10 @@ public enum CompletedWorkoutEditing {
             for (itemID, exerciseID, name, sets, unit) in items {
                 // ID de la sesión antes que nombre: distingue ejercicios repetidos y arrastres.
                 let foundIndex = unused.firstIndex(where: { $0.id == itemID })
-                    ?? unused.firstIndex(where: {
+                    ?? (usesLegacyIDs ? unused.firstIndex(where: {
                         $0.blockId == block.id && (exerciseID == $0.exercise.id ||
                             (name != nil && $0.exercise.name.localizedCaseInsensitiveCompare(name!) == .orderedSame))
-                    })
+                    }) : nil)
                 let old = foundIndex.map { unused.remove(at: $0) }
                 let exercise = exerciseID.flatMap { id in catalog.first(where: { $0.id == id }) }
                     ?? old?.exercise
