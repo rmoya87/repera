@@ -76,6 +76,15 @@ struct HomeView: View {
     /// Un año a cada lado del presente, con desplazamiento continuo día a día.
     private static let weekCarouselRadius = 52
     @State private var calendarScrollID: String?
+    /// Keep the 735-day carousel stable while selecting days or returning from detail.
+    @State private var didBuildDayBuckets = false
+    @State private var didBuildCalendarChrome = false
+    /// A selected week is only seven cells; the full carousel changes on data mutations.
+    @State private var cachedCalendarLookup = CalendarDayLookup(
+        planned: [], trainerPlans: [], bookings: []
+    )
+    @State private var stepsByDayKey: [String: Int] = [:]
+    @State private var stepsCacheRevision = -1
     @State private var isExpandedLayout = false
     @State private var showSettingsPanel = false
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
@@ -365,11 +374,15 @@ struct HomeView: View {
                     selectedDay = calendar.startOfDay(for: focusDay)
                 }
                 // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
-                rebuildDayBuckets()
-                rebuildWeekChrome()
-                Task(priority: .utility) {
-                    rebuildStreakChrome()
-                    prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                if !didBuildDayBuckets { rebuildDayBuckets() }
+                if !didBuildCalendarChrome { rebuildWeekChrome() }
+                // Reentrar desde un detalle no debe recalcular rachas y PRs
+                // ni regenerar el calendario. Los epochs actualizan cambios reales.
+                if prCountBySessionId.isEmpty {
+                    Task(priority: .utility) {
+                        rebuildStreakChrome()
+                        prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                    }
                 }
                 Task(priority: .utility) {
                     health.refreshAuthorizationStatus()
@@ -397,7 +410,7 @@ struct HomeView: View {
                 }
             }
             .onChange(of: weekOffset) { _, _ in
-                rebuildWeekChrome()
+                rebuildSelectedWeekChrome()
             }
             .onChange(of: health.isAuthorized) { _, authorized in
                 if authorized {
@@ -425,17 +438,25 @@ struct HomeView: View {
             .task(id: "\(dayKey(selectedDay))-\(health.healthDataRevision)-\(health.isAuthorized)") {
                 let requestedDay = selectedDay
                 let requestedKey = dayKey(requestedDay)
+                if stepsCacheRevision != health.healthDataRevision {
+                    stepsByDayKey.removeAll(keepingCapacity: true)
+                    stepsCacheRevision = health.healthDataRevision
+                }
+                if let cached = stepsByDayKey[requestedKey] {
+                    selectedDaySteps = cached
+                    return
+                }
                 selectedDaySteps = nil
-                let series = await health.dailySteps(endingAt: requestedDay)
+                // Inicio muestra UN día, no una serie de siete consultas a HK.
+                let steps = await health.steps(for: requestedDay)
                 guard !Task.isCancelled, dayKey(selectedDay) == requestedKey else { return }
-                selectedDaySteps = series.first(where: {
-                    calendar.isDate($0.date, inSameDayAs: requestedDay)
-                })?.steps
+                if let steps { stepsByDayKey[requestedKey] = steps }
+                selectedDaySteps = steps
             }
             // Salud diferida: no bloquear el primer paint de Inicio.
-            .task(id: "\(weekOffset)-\(store.isHydrated)") {
+            .task(id: store.isHydrated) {
                 guard store.isHydrated else { return }
-                rebuildWeekChrome()
+                if !didBuildCalendarChrome { rebuildWeekChrome() }
                 try? await Task.sleep(for: .milliseconds(120))
                 await refreshProgressiveHealthIfNeeded()
                 if calendar.isDateInToday(selectedDay) {
@@ -1689,6 +1710,7 @@ struct HomeView: View {
         healthByDayKey = healthMap
         kcalByDayKey = kcals
         healthMinutesByDayKey = minutes.filter { $0.value > 0 }
+        didBuildDayBuckets = true
     }
 
     /// Completado significa actividad real de Repera o Salud. Los puntos
@@ -1699,14 +1721,20 @@ struct HomeView: View {
             || !(healthByDayKey[key]?.isEmpty ?? true)
     }
 
+    private func rebuildSelectedWeekChrome() {
+        // Selecting a square never rebuilds the year-long horizontal carousel.
+        cachedWeekDays = makeWeekDays(offset: weekOffset, lookup: cachedCalendarLookup)
+    }
+
     private func rebuildWeekChrome() {
-        // One indexed pass for every planned/remote day, not 105 passes
-        // scanning all routines and joining every booking on every week.
+        // Full reconstruction is reserved for actual workout/plan/Health changes.
         let lookup = makeCalendarDayLookup()
+        cachedCalendarLookup = lookup
         cachedWeekDays = makeWeekDays(offset: weekOffset, lookup: lookup)
         cachedCalendarDays = (-Self.weekCarouselRadius...Self.weekCarouselRadius).flatMap { offset in
             makeWeekDays(offset: offset, lookup: lookup)
         }
+        didBuildCalendarChrome = true
         // En la primera apertura posicionar AYER como objetivo del scroll;
         // el viewport muestra solo su parte final y HOY queda como primera
         // casilla completa. No volver a
