@@ -15,9 +15,11 @@ final class WorkoutClockCoordinator {
     private(set) var isVisible = false
     private(set) var isRunning = false {
         didSet {
-            // Preinicio, intervalos, cuenta atrás y cronómetro comparten esta
-            // bandera. El observer cubre pause/resume/stop, fin y restauración.
-            TimerScreenAwake.setRunning(isRunning, for: .workout)
+            // En pausa seguimos mostrando el reloj, por lo que el iPhone
+            // tampoco debe autobloquearse hasta finalizar o cerrar.
+            TimerScreenAwake.setRunning(
+                isRunning || (hasStarted && pendingEndReason == nil), for: .workout
+            )
         }
     }
     private(set) var isCountingUp = false
@@ -531,6 +533,7 @@ final class WorkoutClockCoordinator {
         pausedRemaining = 0
         pausedCountUpElapsed = 0
         lastTickAnnounced = -1
+        TimerScreenAwake.setRunning(false, for: .workout)
         if !keepVisible {
             isVisible = false
             hasStarted = false
@@ -617,6 +620,7 @@ final class WorkoutClockCoordinator {
         checkpoint()
         RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
         isVisible = false
+        TimerScreenAwake.setRunning(false, for: .workout)
     }
 
     private func scheduleFeedback() {
