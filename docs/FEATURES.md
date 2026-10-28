@@ -16,6 +16,8 @@
 - El teclado numérico personalizado presenta e introduce «,», acepta pegado en formato español como «1.234,56» o anterior «1234.56» y no permite más de dos decimales. Los campos de ajustes y planificación usan el parser común para aceptar los separadores españoles.
 - El formato es exclusivo de la presentación: las magnitudes de GPS, HealthKit, la persistencia local y las serializaciones del backend conservan su precisión original.
 
+- **Comenzar (28/10):** el punto `Tú` incluye una flecha direccional también antes de Iniciar, con rumbo GPS o brújula del sensor compartido (atenuada si no hay rumbo fiable). En la leyenda de velocidad, la mínima, **Media** y máxima aparecen en una única línea bajo el degradado. El sintetizador de voz comparte sesión de audio con la app, incluidos avisos de kilómetros y giros bajo bloqueo y reducción de volumen de otros reproductores. Requiere validación final en iPhone físico.
+
 ## Comenzar, sesión y Progreso (26/10/2026)
 
 - Supabase Auth mantiene tokens en Keychain con renovación automática del JWT antes de sincronizar y al volver a primer plano. Si el servidor invalida irreversiblemente la sesión, Repera muestra login; ante ausencia temporal de red permite ver lo guardado localmente y reintenta después. No existe promesa de sesión perpetua.
