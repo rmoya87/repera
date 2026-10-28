@@ -607,10 +607,11 @@ struct WorkoutView: View {
 
     /// Keep format defaults out of the SwiftUI destination builder so the
     /// type checker only needs to infer a small navigation closure.
-    private func updatePlayWODFormat(_ format: WODFormat, for blockID: UUID) {
+    private func updatePlayWODFormat(_ format: WODFormat?, for blockID: UUID) {
         mutatePlayRoutine { routine in
             guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
             routine.blocks[index].wodFormat = format
+            guard let format else { return }
             switch format {
             case .tabata:
                 routine.blocks[index].workSeconds = routine.blocks[index].workSeconds ?? 20
