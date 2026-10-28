@@ -1602,6 +1602,7 @@ struct OGSetFieldID: Hashable {
 
 /// Cabecera compacta compartida por planificación, registro final y sesión en curso.
 struct OGSetEntryHeader: View {
+    @Environment(ReperaStore.self) private var store
     var firstTitle: String
     var secondTitle: String? = nil
     var showsConfirmation = false
@@ -1616,7 +1617,7 @@ struct OGSetEntryHeader: View {
                 caption(secondTitle.uppercased()).frame(maxWidth: .infinity)
             }
             if showsRIR {
-                caption("RIR").frame(width: 43)
+                caption(store.state.settings.effortUnit.displayName).frame(width: 43)
             }
             if showsConfirmation {
                 Image(systemName: "checkmark")
@@ -1640,6 +1641,7 @@ struct OGSetEntryHeader: View {
 
 /// Misma retícula para editar objetivos y apuntar series reales. Sin +/-.
 struct OGSetEntryRow: View {
+    @Environment(ReperaStore.self) private var store
     var rowID: UUID
     var index: Int
     var previous: String?
@@ -1707,19 +1709,30 @@ struct OGSetEntryRow: View {
 
             if showsRIR {
                 Menu {
-                    Button("Sin RIR") { onRIRChange(nil) }
-                    ForEach(0...5, id: \.self) { value in
-                        Button("RIR \(value)") { onRIRChange(Double(value)) }
+                    Button("Sin \(store.state.settings.effortUnit.displayName)") { onRIRChange(nil) }
+                    if store.state.settings.effortUnit == .rpe {
+                        ForEach(5...10, id: \.self) { value in
+                            Button("RPE \(value)") {
+                                onRIRChange(Effort.toRIR(value: Double(value), unit: .rpe))
+                            }
+                        }
+                    } else {
+                        ForEach(0...5, id: \.self) { value in
+                            Button("RIR \(value)") { onRIRChange(Double(value)) }
+                        }
                     }
                 } label: {
-                    Text(rir.map { "\(Int($0.rounded()))" } ?? "—")
+                    Text(rir.map {
+                        ReperaNumberFormat.decimal(Effort.fromRIR($0, unit: store.state.settings.effortUnit),
+                            maximumFractionDigits: 0)
+                    } ?? "—")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(rir == nil ? OG.label3 : OG.label)
                         .frame(width: 43, height: 44)
                         .background(OG.inputSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .disabled(!enabled || completed)
-                .accessibilityLabel("RIR serie \(index)")
+                .accessibilityLabel("\(store.state.settings.effortUnit.displayName) serie \(index)")
             }
 
             if showsConfirmation {
