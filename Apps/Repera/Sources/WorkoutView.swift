@@ -39,6 +39,8 @@ struct WorkoutView: View {
     @State private var addPlayExerciseToBlock: UUID?
     @State private var selectPlayFormatForBlock: UUID?
     @State private var showPlayWODCatalog = false
+    @State private var showPlayRoutinePicker = false
+    @State private var createFreeMovementForBlock: UUID?
     @State private var openedSetID: UUID?
     @State private var notesDraft = ""
     @State private var favoriteSaveError: String?
@@ -320,6 +322,15 @@ struct WorkoutView: View {
                 addPlayExerciseToBlock = nil
             }
         }
+        .navigationDestination(item: $createFreeMovementForBlock) { blockID in
+            FreeWODMovementCreatePage { movement in
+                mutatePlayRoutine { routine in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
+                    routine.blocks[index].movements.append(movement)
+                }
+                createFreeMovementForBlock = nil
+            }
+        }
         .navigationDestination(item: $selectPlayFormatForBlock) { blockID in
             WODFormatPickerPage { format in
                 mutatePlayRoutine { routine in
@@ -347,6 +358,18 @@ struct WorkoutView: View {
                 mutatePlayRoutine { $0.blocks.append(template.makeBlock()) }
                 showPlayWODCatalog = false
             }
+        }
+        .sheet(isPresented: $showPlayRoutinePicker) {
+            RoutineImportPickerSheet(
+                routines: store.libraryRoutines,
+                onPick: { selected in
+                    mutatePlayRoutine { draft in
+                        draft.blocks.append(contentsOf: selected.blocks.map { $0.duplicatingContent() })
+                    }
+                    showPlayRoutinePicker = false
+                },
+                onCancel: { showPlayRoutinePicker = false }
+            )
         }
         .confirmationDialog("¿Sustituir ejercicio y reiniciar sus series?", isPresented: Binding(
             get: { pendingPlayReplacement != nil },
@@ -847,6 +870,24 @@ struct WorkoutView: View {
                         }
                         .listRowBackground(OG.surface)
                     }
+
+                    Button("Añadir ejercicio", systemImage: "plus") {
+                        addPlayExerciseToBlock = block.id
+                    }
+                    .foregroundStyle(OG.accent)
+                    if session.routineBlocks?.first(where: { $0.id == block.id })?.kind == .wod {
+                        Button("Añadir descanso", systemImage: "pause") {
+                            mutatePlayRoutine { draft in
+                                guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                                draft.blocks[index].movements.append(
+                                    WODMovement(name: "REST", isRest: true, restSeconds: 60)
+                                )
+                            }
+                        }
+                        Button("Añadir movimiento libre", systemImage: "pencil") {
+                            createFreeMovementForBlock = block.id
+                        }
+                    }
                 } header: {
                     HStack(spacing: 6) {
                         Text("Bloque")
@@ -868,6 +909,11 @@ struct WorkoutView: View {
                 }
                 Button("Elegir WOD", systemImage: "list.bullet.rectangle.portrait") {
                     showPlayWODCatalog = true
+                }
+                if !store.libraryRoutines.isEmpty {
+                    Button("Añadir rutina", systemImage: "list.bullet.rectangle") {
+                        showPlayRoutinePicker = true
+                    }
                 }
             }
 
