@@ -216,12 +216,15 @@ struct StandaloneTimerView: View {
             Text("Se guardará esta configuración para reutilizarla desde Favoritos.")
         }
         .onAppear {
-            TimerScreenAwake.setRunning(isRunning, for: .standalone)
+            TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
         }
-        .onChange(of: isRunning) { _, running in
-            // Precuenta incluida. Al pausar, terminar o cerrar el reloj,
-            // restablecer automáticamente el autobloqueo normal.
-            TimerScreenAwake.setRunning(running, for: .standalone)
+        .onChange(of: isRunning) { _, _ in
+            // Mantener el iPhone despierto durante ejecución Y pausa.
+            // Solo finalizar o cerrar el reloj restaura el autobloqueo.
+            TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
+        }
+        .onChange(of: pausedDisplaySeconds) { _, _ in
+            TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active, isRunning {
@@ -673,6 +676,7 @@ struct StandaloneTimerView: View {
             isRunning = false
             pausedDisplaySeconds = nil
             preCountdown = 0
+            TimerScreenAwake.setRunning(false, for: .standalone)
         }
     }
 }
