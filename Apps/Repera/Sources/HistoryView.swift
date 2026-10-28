@@ -491,6 +491,7 @@ struct WorkoutDetailView: View {
             isWaterSport: draft?.liveSportID.flatMap {
                 LiveSport(rawValue: $0)?.isWaterSport
             } ?? false,
+            paceMode: draft?.liveSportID.flatMap { LiveSport(rawValue: $0)?.routePaceMode } ?? .walking,
             referenceRoutePoints: draft.map { referenceRoutePoints($0) } ?? [],
             showsSpeedLegend: true,
             onClose: { showFullScreenRoute = false }
@@ -627,6 +628,7 @@ struct WorkoutDetailView: View {
                         isWaterSport: session.liveSportID.flatMap {
                             LiveSport(rawValue: $0)?.isWaterSport
                         } ?? false,
+                        paceMode: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.routePaceMode } ?? .walking,
                         referenceRoutePoints: referenceRoutePoints(session),
                         showsSpeedLegend: true
                     )
@@ -645,6 +647,7 @@ struct WorkoutDetailView: View {
                     isWaterSport: session.liveSportID.flatMap {
                         LiveSport(rawValue: $0)?.isWaterSport
                     } ?? false,
+                    paceMode: session.liveSportID.flatMap { LiveSport(rawValue: $0)?.routePaceMode } ?? .walking,
                     referenceRoutePoints: referenceRoutePoints(session),
                     showsSpeedLegend: true
                 )
@@ -2132,6 +2135,7 @@ struct WorkoutMapZoomDestination: View {
     var points: [HealthKitStore.RoutePoint]
     var pin: WorkoutLocationPin? = nil
     var isWaterSport: Bool = false
+    var paceMode: AdaptiveRoutePace.Mode = .walking
     var referenceRoutePoints: [WorkoutRoutePoint] = []
     /// Solo los recorridos ya guardados muestran su escala de color.
     var showsSpeedLegend: Bool = false
@@ -2145,7 +2149,7 @@ struct WorkoutMapZoomDestination: View {
                 } else {
                     HealthWorkoutRouteMap(
                         points: points, isInteractive: true,
-                        isWaterSport: isWaterSport,
+                        isWaterSport: isWaterSport, paceMode: paceMode,
                         referenceRoutePoints: referenceRoutePoints,
                         showsSpeedLegend: showsSpeedLegend
                     )
@@ -2464,6 +2468,7 @@ struct HealthWorkoutRouteMap: View {
     var points: [HealthKitStore.RoutePoint]
     var isInteractive: Bool = true
     var isWaterSport: Bool = false
+    var paceMode: AdaptiveRoutePace.Mode = .walking
     /// Trazado GPX cargado por el usuario, solo para reparar huecos de pantalla.
     var referenceRoutePoints: [WorkoutRoutePoint] = []
     var showsSpeedLegend: Bool = false
@@ -2471,14 +2476,15 @@ struct HealthWorkoutRouteMap: View {
     // MapKit overlays are expensive: cache the route geometry between SwiftUI
     // updates (including continuous GPS changes from another active session).
     @State private var cachedRuns: [SpeedRun] = []
+    @State private var cachedScale: AdaptiveRoutePace.Scale?
     private var routeCacheKey: String {
-        "\(points.count)-\(points.first?.date.timeIntervalSince1970 ?? 0)-\(points.last?.date.timeIntervalSince1970 ?? 0)-\(points.isEmpty ? 0 : points[points.count / 2].date.timeIntervalSince1970)-\(referenceRoutePoints.count)-\(referenceRoutePoints.first?.latitude ?? 0)-\(referenceRoutePoints.last?.longitude ?? 0)-\(isWaterSport)"
+        "\(points.count)-\(points.first?.date.timeIntervalSince1970 ?? 0)-\(points.last?.date.timeIntervalSince1970 ?? 0)-\(points.isEmpty ? 0 : points[points.count / 2].date.timeIntervalSince1970)-\(referenceRoutePoints.count)-\(referenceRoutePoints.first?.latitude ?? 0)-\(referenceRoutePoints.last?.longitude ?? 0)-\(isWaterSport)-\(String(describing: paceMode))"
     }
 
     /// Mantiene el trazado GPS original; los enlaces de una interrupción
     /// solo existen en la capa de presentación, nunca en Salud o en los datos.
-    private var routeRuns: [SpeedRun] {
-        guard points.count >= 2 else { return [] }
+    private var routeStyle: (runs: [SpeedRun], scale: AdaptiveRoutePace.Scale?) {
+        guard points.count >= 2 else { return ([], nil) }
         var legs: [SpeedLeg?] = []
         legs.reserveCapacity(points.count - 1)
 
@@ -2534,33 +2540,12 @@ struct HealthWorkoutRouteMap: View {
             }
         }
 
-        let realSpeeds = legs.compactMap { leg -> Double? in
-            guard let leg, !leg.isEstimated else { return nil }
-            return leg.speed
-        }
-        // Escala relativa a ESTE entrenamiento (no una escala global fija).
-        // Eliminar extremos aislados GPS evita que un salto espurio haga que
-        // todos los kilómetros se pinten prácticamente del mismo verde.
-        let speeds = (realSpeeds.isEmpty ? legs.compactMap { $0?.speed } : realSpeeds)
-            .filter { $0.isFinite && $0 >= 0 }
-            .sorted()
-        guard let absoluteMin = speeds.first, let absoluteMax = speeds.last else { return [] }
-        let slowest: Double
-        let fastest: Double
-        if speeds.count >= 20 {
-            let lower = speeds[Int(Double(speeds.count - 1) * 0.05)]
-            let upper = speeds[Int(Double(speeds.count - 1) * 0.95)]
-            if upper - lower >= 0.12 {
-                slowest = lower
-                fastest = upper
-            } else {
-                slowest = absoluteMin
-                fastest = max(absoluteMax, absoluteMin + 0.1)
-            }
-        } else {
-            slowest = absoluteMin
-            fastest = max(absoluteMax, absoluteMin + 0.1)
-        }
+        let scale = AdaptiveRoutePace.scale(samples: legs.compactMap { leg in
+            guard let leg else { return nil }
+            return AdaptiveRoutePace.Sample(speedMps: leg.speed,
+                                            distanceMeters: leg.distance,
+                                            isEstimated: leg.isEstimated)
+        }, mode: paceMode)
         var groups: [[SpeedLeg]] = []
         var current: [SpeedLeg] = []
         for leg in legs {
@@ -2577,9 +2562,7 @@ struct HealthWorkoutRouteMap: View {
             }
         }
         if !current.isEmpty { groups.append(current) }
-        return groups.map {
-            Self.makeRun($0, minSpeed: slowest, maxSpeed: fastest, water: isWaterSport)
-        }
+        return (groups.map { Self.makeRun($0, scale: scale, water: isWaterSport) }, scale)
     }
 
     /// Enlaza un corte de GPS sin inventar distancia registrada. Cuando se
@@ -2679,7 +2662,7 @@ struct HealthWorkoutRouteMap: View {
     }
 
     private static func makeRun(
-        _ legs: [SpeedLeg], minSpeed: Double, maxSpeed: Double, water: Bool
+        _ legs: [SpeedLeg], scale: AdaptiveRoutePace.Scale?, water: Bool
     ) -> SpeedRun {
         let originals = [legs[0].start] + legs.map(\.end)
         let coordinates = softenCorners(originals, legs: legs)
@@ -2724,7 +2707,9 @@ struct HealthWorkoutRouteMap: View {
             } else {
                 speed = (velocities[index - 1] + velocities[index]) / 2
             }
-            let color = speedColor(speed, minSpeed: minSpeed, maxSpeed: maxSpeed, water: water)
+            let rgb = AdaptiveRoutePace.rgb(
+                position: scale?.position(for: speed) ?? 0.5, water: water)
+            let color = Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
             let offset = lengths[index] / totalLength
             if coreStops.isEmpty || offset > coreStops[coreStops.count - 1].location {
                 coreStops.append(.init(color: color, location: offset))
@@ -2856,10 +2841,9 @@ struct HealthWorkoutRouteMap: View {
     private var speedLegendStops: [Gradient.Stop] {
         (0...24).map { index in
             let position = Double(index) / 24.0
-            return Gradient.Stop(
-                color: Self.speedColor(position, minSpeed: 0, maxSpeed: 1, water: isWaterSport),
-                location: position
-            )
+            let rgb = AdaptiveRoutePace.rgb(position: position, water: isWaterSport)
+            return Gradient.Stop(color: Color(red: rgb.red, green: rgb.green, blue: rgb.blue),
+                                 location: position)
         }
     }
 
@@ -2871,17 +2855,24 @@ struct HealthWorkoutRouteMap: View {
                     startPoint: .leading,
                     endPoint: .trailing
                 ))
-                .frame(width: 130, height: 7)
+                .frame(width: 164, height: 7)
 
             HStack {
-                Text("Lento")
+                Text(cachedScale.map { ReperaNumberFormat.decimal($0.lowMps * 3.6) } ?? "Lento")
                 Spacer(minLength: 10)
-                Text("Rápido")
+                Text(cachedScale.map { ReperaNumberFormat.decimal($0.highMps * 3.6) } ?? "Rápido")
             }
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(OG.label)
+            Text(cachedScale.map {
+                $0.hasMeaningfulVariation
+                    ? "Habitual " + ReperaNumberFormat.decimal($0.medianMps * 3.6) + " km/h"
+                    : "Ritmo uniforme"
+            } ?? "Velocidad (km/h)")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(OG.label2)
         }
-        .frame(width: 130)
+        .frame(width: 164)
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
         .background(.regularMaterial, in: RoundedRectangle(
@@ -2966,31 +2957,10 @@ struct HealthWorkoutRouteMap: View {
         .task(id: routeCacheKey) {
             // Rebuild only for a different route; never on unrelated tab/store
             // invalidations while a workout is recording in the background.
-            cachedRuns = routeRuns
+            let style = routeStyle
+            cachedRuns = style.runs
+            cachedScale = style.scale
         }
-    }
-
-    private static func speedColor(
-        _ speed: Double, minSpeed: Double, maxSpeed: Double, water: Bool
-    ) -> Color {
-        let normalized = Swift.min(1, Swift.max(0,
-            (speed - minSpeed) / Swift.max(0.1, maxSpeed - minSpeed)))
-        // Dar presencia a amarillo/naranja incluso en rutas cuyos ritmos
-        // se concentran cerca del mínimo, sin cambiar los datos registrados.
-        let t = pow(normalized, 0.72)
-        let stops: [(r: Double, g: Double, b: Double)] = [
-            water ? (0.00, 1.00, 0.45) : (0.00, 1.00, 0.25),
-            (1.00, 0.98, 0.00), (1.00, 0.43, 0.00), (1.00, 0.07, 0.15)
-        ]
-        let scaled = t * 3
-        let index = Swift.min(2, Int(scaled))
-        let amount = scaled - Double(index)
-        let first = stops[index], second = stops[index + 1]
-        return Color(
-            red: first.r + (second.r - first.r) * amount,
-            green: first.g + (second.g - first.g) * amount,
-            blue: first.b + (second.b - first.b) * amount
-        )
     }
 
 }
