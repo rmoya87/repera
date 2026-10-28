@@ -28,7 +28,7 @@ internal object RecoveryPhysiologyPreview {
 @Composable
 internal fun RecoveryPhysiologyPreviewCard(today:LocalDate,chartHeight:Dp=128.dp) {
     ReperaCard(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de constantes fisiológicas, datos ficticios."}) {
-        Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Constantes · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
             Text("No son tus datos de Salud",style=MaterialTheme.typography.bodySmall)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),

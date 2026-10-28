@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-28 (Android UI M3 10.º pase WeightPreview; verde Repera)
+Última actualización: 2026-10-28 (Android UI M3 paridad visual ~100% salvo plataforma; verde Repera)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 

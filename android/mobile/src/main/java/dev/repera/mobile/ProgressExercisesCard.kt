@@ -4,6 +4,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,7 +20,7 @@ internal fun ProgressExercisesCard(exercises:List<ProgressExerciseRow>,onExercis
    Text(e.name,modifier=Modifier.weight(1f));e.topWeight?.let {Text("${formatWeight(it)} kg")}
   }}
  }
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Progreso por ejercicio",style=MaterialTheme.typography.titleMedium)
   if(exercises.isEmpty()) ReperaEmptyState(
   title = "Sin ejercicios aún",
@@ -35,11 +37,11 @@ internal fun ProgressExercisesCard(exercises:List<ProgressExerciseRow>,onExercis
 /** Apple mobilityProgressCard: recorded time, sessions and (Pro) links to the first 3 mobility exercises. */
 @Composable
 internal fun ProgressMobilityCard(sessions:Int,seconds:Int,proLinks:List<ProgressExerciseRow>,onExercise:(String)->Unit) {
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Movilidad",style=MaterialTheme.typography.titleMedium)
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Tiempo registrado");Text(ProgressTilesModel.mobilityDuration(seconds))}
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Sesiones con movilidad");Text("$sessions")}
-  proLinks.forEach {e -> TextButton(onClick={onExercise(e.id)}) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text(e.name,modifier=Modifier.weight(1f));Text("›")}}}
+  proLinks.forEach {e -> TextButton(onClick={onExercise(e.id)}) {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text(e.name,modifier=Modifier.weight(1f));Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,contentDescription=null,tint=MaterialTheme.colorScheme.onSurfaceVariant)}}}
  }}
 }
 
@@ -47,7 +49,7 @@ internal fun ProgressMobilityCard(sessions:Int,seconds:Int,proLinks:List<Progres
 @Composable
 internal fun ProgressExerciseTrendPreview(today:java.time.LocalDate) {
  val weights=listOf(42.0,45.0,44.0,49.0,47.0,52.0,55.0)
- ReperaCard(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de evolución por ejercicio, datos simulados."}) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de evolución por ejercicio, datos simulados."}) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Evolución por ejercicio",style=MaterialTheme.typography.titleMedium);Text("Ejemplo",style=MaterialTheme.typography.labelMedium)}
   Text("Evolución de carga · datos ficticios",style=MaterialTheme.typography.bodySmall)
   ExerciseTrendPreviewChart(weights)

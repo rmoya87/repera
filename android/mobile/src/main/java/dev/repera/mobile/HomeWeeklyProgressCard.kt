@@ -18,7 +18,7 @@ internal fun HomeWeeklyProgressCard(days:List<WeeklyWorkoutDay>,goal:Int?,modifi
     val count=days.sumOf {it.completedCount}
     val trained=days.count {it.completedCount>0}
     ReperaCard(modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text("Progreso semanal",style=MaterialTheme.typography.titleMedium)
             // Paridad HomeView.streakSubtitle (main 153a90b0): días distintos
             // con actividad / planificados, no suma bruta de sesiones.

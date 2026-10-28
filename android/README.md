@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 10.º pase: WeightPreview → ReperaCard; pad 16 Progress peso.
+**Última actualización:** 2026-10-28 — UI paridad ~100%: ArrowBack hubs; chevrons Outlined; pad 16; solo diffs plataforma.
 
 Implementación nativa independiente en `android/`:
 

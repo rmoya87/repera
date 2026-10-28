@@ -27,7 +27,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  val cards=mutableListOf<@Composable ()->Unit>()
  cards.add {TrainingReadinessCard(recovery)}
  cards.add {
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text(if(pro) "Evolución de recuperación" else "Evolución de recuperación · Ejemplo ficticio",style=MaterialTheme.typography.titleMedium)
   if(pro) {
    if(trend.size<2) {
@@ -41,7 +41,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  }}
  }
  cards.add {
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("Sueño · ${range.title}",style=MaterialTheme.typography.titleMedium)
   if(nights.isEmpty()) {
    EmptyHealthChart("Sin noches registradas en el periodo. Activa el análisis de descanso en Ajustes para leer sueño.",0.0,10.0,sleepHeight)
@@ -66,7 +66,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  }
  cards.add {
  if(pro) {
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("Constantes · ${range.title}",style=MaterialTheme.typography.titleMedium)
   val hrv=vitals.mapNotNull {it.hrvMilliseconds?.let {v ->ProgressDayPoint(it.day,v)}}
   val rest=vitals.mapNotNull {it.restingHeartRateBpm?.let {v ->ProgressDayPoint(it.day,v)}}
@@ -117,7 +117,7 @@ private fun CycleHistoryCard(recovery:RecoveryState,monday:Boolean) {
   RecoveryEngine.CyclePhase.LUTEAL->"Fase lútea estimada"
   RecoveryEngine.CyclePhase.UNKNOWN->"Fase no disponible"
  }
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("Ciclo menstrual",style=MaterialTheme.typography.titleMedium)
   Text(label,style=MaterialTheme.typography.titleSmall)
   if(recovery.menstrualDays.isEmpty()) Text("Sin registros de menstruación. Activa el seguimiento del ciclo en Ajustes para leer los datos autorizados.")

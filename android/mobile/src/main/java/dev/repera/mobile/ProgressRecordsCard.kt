@@ -21,7 +21,7 @@ internal fun ProgressRecordsCard(records:List<PersonalRecord>,onExercise:(String
    Text(Instant.ofEpochMilli(r.epochMillis).atZone(ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter),style=MaterialTheme.typography.bodySmall)
   }}
  }
- ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Récords del periodo",style=MaterialTheme.typography.titleMedium)
   if(recent.isEmpty()) ReperaEmptyState(
     title = "Sin récords en el periodo",

@@ -255,7 +255,7 @@ internal fun HomeTab(
             val activityContent: @Composable () -> Unit = {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text("Actividad · ${selectedDay.format(reperaDayFormatter)}", style = MaterialTheme.typography.titleMedium)
@@ -302,7 +302,7 @@ internal fun HomeTab(
             HomeRecoveryModel.of(recovery.lastNightHours,recovery.sleepIndex,recovery.menstrualDays,LocalDate.now())?.let {model ->
                 item {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(18.dp)) {
+                        Column(Modifier.padding(16.dp)) {
                             Text("Tu estado de hoy", style = MaterialTheme.typography.titleMedium)
                             model.sleepHours?.let {
                                 Text("${dev.repera.domain.ReperaNumberFormat.decimal(it)} h de sueño")

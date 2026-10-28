@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
@@ -41,7 +42,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
     androidx.activity.compose.BackHandler(onBack=back)
     val listContent:@Composable (Modifier)->Unit = {listModifier ->
     LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp),modifier=listModifier.fillMaxSize()) {
-        item {TextButton(onClick=back) {Text("Volver")}}
+        item {IconButton(onClick=back) {Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription="Volver")}}
         if(selected!=null) {
             item { ReperaPageHeader(title = selected.name) }
             item {IconButton(enabled=!busy,onClick={onToggle(selected.id)},modifier=Modifier.testTag("wod_toggle_favorite")) {
