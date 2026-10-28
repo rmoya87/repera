@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.*
+import dev.repera.domain.AdaptiveRoutePace
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 
@@ -92,7 +93,8 @@ import androidx.compose.ui.platform.testTag
      Text("Recorrido GPS de la fuente",style=MaterialTheme.typography.titleSmall)
      RouteMapTapTarget(label="Ampliar recorrido de Salud",
       modifier=Modifier.fillMaxWidth().height(200.dp)) { interactive,mapModifier ->
-      RouteMapView(points=presented.points,isInteractive=interactive,modifier=mapModifier)
+      RouteMapView(points=presented.points,isInteractive=interactive,modifier=mapModifier,
+       paceMode=AdaptiveRoutePace.modeForSport(entry.exerciseTypeKey))
      }
     }
     ExternalRouteSheetModel.State.ConsentNeeded -> {
