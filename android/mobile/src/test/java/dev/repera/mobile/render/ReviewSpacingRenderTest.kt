@@ -304,6 +304,25 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("1").assertExists()
         val chart=composeRule.onNodeWithTag("physiology_preview_curve").captureToImage().asAndroidBitmap()
         org.junit.Assert.assertEquals(128,chart.height)
+        val bars=composeRule.onNodeWithTag("physiology_preview_bars_lpm",useUnmergedTree=true)
+            .captureToImage().asAndroidBitmap()
+        val background=bars.getPixel(0,bars.height-8)
+        val left=(0 until bars.width/2).first {bars.getPixel(it,bars.height-8)!=background}
+        val right=(left until bars.width/2).first {bars.getPixel(it,bars.height-8)==background}
+        org.junit.Assert.assertTrue("first preview bar is centered on ordinal1 of domain0..8",
+            kotlin.math.abs((left+right-1)/2f-bars.width/8f)<=1f)
+        val spans=mutableListOf<Pair<Int,Int>>()
+        var start:Int?=null
+        for(x in 0 until bars.width) {
+            if(bars.getPixel(x,bars.height-8)!=background && start==null) start=x
+            if(bars.getPixel(x,bars.height-8)==background && start!=null) {
+                spans.add(start to x-1);start=null
+            }
+        }
+        org.junit.Assert.assertEquals(7,spans.size)
+        spans.forEachIndexed {i,(a,b) ->org.junit.Assert.assertTrue(
+            "ordinal ${i+1} centered within one pixel",
+            kotlin.math.abs((a+b)/2f-(i+1)*bars.width/8f)<=1f)}
         save(composeRule.onNodeWithTag("physiology_fixture").captureToImage().asAndroidBitmap(),"physiology-preview-ordinal.png")
     }
  @Test fun physiologyObservedLinearAndEmptyAxes() {

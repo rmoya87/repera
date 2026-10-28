@@ -49,12 +49,12 @@ private fun PhysiologyPreviewBars(title:String,unit:String,values:List<Double>,m
             Text(title,style=MaterialTheme.typography.labelMedium)
             Text("${values.last().toInt()} $unit",style=MaterialTheme.typography.titleMedium)
             val color=MaterialTheme.colorScheme.primary.copy(alpha=0.8f)
-            Canvas(Modifier.fillMaxWidth().height(98.dp)) {
+            Canvas(Modifier.fillMaxWidth().height(98.dp).testTag("physiology_preview_bars_$unit")) {
                 val width=size.width/(values.size+2)
                 val maximum=(values.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
                 values.forEachIndexed {i,v ->
                     val height=(v/maximum*size.height).toFloat()
-                    drawRoundRect(color,Offset((i+1)*width+width*0.15f,size.height-height),Size(width*0.7f,height),androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+                    drawRoundRect(color,Offset((i+1)/8f*size.width-width*0.35f,size.height-height),Size(width*0.7f,height),androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
                 }
             }
         }
