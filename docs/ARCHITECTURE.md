@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-28 (Android UI M3 5.º pase empties/icons + Play/editores; ReperaTheme; GPX)
+Última actualización: 2026-10-28 (Android UI M3 6.º pase Play chrome + editores iconos M3; ReperaTheme; GPX)
 
 ## Series de movilidad (iOS)
 

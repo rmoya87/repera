@@ -15,6 +15,11 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +47,7 @@ internal fun FinishedWorkoutEditorSection(
     val hasRoute = workout.routePoints.size >= 2
     if (!editing) {
         if (!hasRoute && workout.locationPin != null) {
-            Text("Lugar", style = MaterialTheme.typography.titleMedium)
+            ReperaSectionTitle("Lugar")
             Text(workout.locationPin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa")
             RouteMapTapTarget(label="Ampliar ubicación",
                 modifier=Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp))) { interactive,mapModifier ->
@@ -51,7 +56,7 @@ internal fun FinishedWorkoutEditorSection(
             }
         }
         workout.notes?.let {
-            Text("Notas", style = MaterialTheme.typography.titleMedium)
+            ReperaSectionTitle("Notas")
             Text(it, style = MaterialTheme.typography.bodyMedium)
         }
         TextButton(onClick = { editing = true }, enabled = !busy,
@@ -85,7 +90,7 @@ internal fun FinishedWorkoutEditorSection(
         DateTimeRow("Inicio", startIso, "edit_start") { startIso = it }
         DateTimeRow("Fin", endIso, "edit_end") { endIso = it }
         if (!hasRoute) {
-            Text("Lugar", style = MaterialTheme.typography.titleMedium)
+            ReperaSectionTitle("Lugar")
             WorkoutPlacePickerRow(pin = pin, accountId = accountId,
                 onPinChange = { pin = it; pinEdited = true })
         }
@@ -131,6 +136,7 @@ internal fun FinishedWorkoutEditorSection(
         var saveAsFavorite by remember { mutableStateOf(false) }
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             androidx.compose.material3.Switch(checked = saveAsFavorite, onCheckedChange = { saveAsFavorite = it },
+                colors = reperaSwitchColors(),
                 modifier = Modifier.testTag("edit_save_favorite"))
             Text("  Guardar también como favorito")
         }
@@ -194,14 +200,14 @@ private fun FinishedContentEditor(
             val block = blocks.getJSONObject(b)
             var title by remember(block.optString("id")) { mutableStateOf(block.optString("title")) }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("⠿", modifier = handle.testTag("block_drag_$b").padding(8.dp))
+                Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("block_drag_$b").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(value = title, singleLine = true, label = { Text("Bloque ${b + 1}") },
                     modifier = Modifier.weight(1f).testTag("block_title_$b"),
                     onValueChange = { title = it; block.put("title", it); onEdited() })
                 TextButton(enabled = b > 0, modifier = Modifier.testTag("block_up_$b"), onClick = {
-                    EditorBlockOps.moveBlock(blocks, b, b - 1); onChanged() }) { Text("↑") }
+                    EditorBlockOps.moveBlock(blocks, b, b - 1); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
                 TextButton(enabled = b < blocks.length() - 1, modifier = Modifier.testTag("block_down_$b"), onClick = {
-                    EditorBlockOps.moveBlock(blocks, b, b + 1); onChanged() }) { Text("↓") }
+                    EditorBlockOps.moveBlock(blocks, b, b + 1); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
                 TextButton(modifier = Modifier.testTag("block_remove_$b"), onClick = {
                     EditorBlockOps.removeBlock(blocks, b); onChanged() }) { Text("Quitar") }
             }
@@ -231,15 +237,15 @@ private fun FinishedContentEditor(
                     onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[item.optString("id")] = top to bottom }) { handle ->
                 SwipeRemove(item.optString("id"), "ex_swipe", { val ix = (0 until items.length()).firstOrNull { items.getJSONObject(it).optString("id") == item.optString("id") }; if (ix != null) { items.remove(ix); onChanged() } }) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Text("⠿", modifier = handle.testTag("ex_drag_${b}_$i").padding(8.dp))
+                    Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("ex_drag_${b}_$i").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(item.optString("exerciseId").let { id ->
                         if (id.startsWith(EditorBlockOps.PENDING_PREFIX)) id.removePrefix(EditorBlockOps.PENDING_PREFIX) + " (nuevo, se crea al guardar)"
                         else nameById[id] ?: "Ejercicio" },
                         style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     TextButton(enabled = i > 0, modifier = Modifier.testTag("ex_up_${b}_$i"), onClick = {
-                        swap(items, i, i - 1); onChanged() }) { Text("↑") }
+                        swap(items, i, i - 1); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
                     TextButton(enabled = i < items.length() - 1, modifier = Modifier.testTag("ex_down_${b}_$i"), onClick = {
-                        swap(items, i, i + 1); onChanged() }) { Text("↓") }
+                        swap(items, i, i + 1); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
                     var moving by remember { mutableStateOf(false) }
                     val targets = (0 until blocks.length()).filter { it != b }
                     if (targets.isNotEmpty()) {
@@ -342,7 +348,7 @@ private fun FinishedContentEditor(
                                 onEdited()
                             })
                         TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
-                            onClick = { sets.remove(s); onChanged() }) { Text("×") }
+                            onClick = { sets.remove(s); onChanged() }) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
                     }
                     }
                 }
@@ -439,14 +445,14 @@ private fun WodMovementsEditor(
             onBounds = { top, bottom -> geo.items.getOrPut(b) { mutableMapOf() }[id] = top to bottom }) { handle ->
         SwipeRemove(id, "mv_swipe", { val ix = (0 until moves.length()).firstOrNull { moves.getJSONObject(it).optString("id") == id }; if (ix != null) { moves.remove(ix); onChanged() } }) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("⠿", modifier = handle.testTag("mv_drag_${b}_$i").padding(8.dp))
+            Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("mv_drag_${b}_$i").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(if (m.optBoolean("isRest")) "REST" else m.optString("name"),
                 style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             TextButton(enabled = i > 0, modifier = Modifier.testTag("mv_up_${b}_$i"), onClick = {
-                EditorBlockOps.moveItem(blocks, b, id, b, moves.getJSONObject(i - 1).optString("id"), { "" }, { null }); onChanged() }) { Text("↑") }
+                EditorBlockOps.moveItem(blocks, b, id, b, moves.getJSONObject(i - 1).optString("id"), { "" }, { null }); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
             TextButton(enabled = i < moves.length() - 1, modifier = Modifier.testTag("mv_down_${b}_$i"), onClick = {
                 val next = if (i + 2 < moves.length()) moves.getJSONObject(i + 2).optString("id") else null
-                EditorBlockOps.moveItem(blocks, b, id, b, next, { "" }, { null }); onChanged() }) { Text("↓") }
+                EditorBlockOps.moveItem(blocks, b, id, b, next, { "" }, { null }); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
             var moving by remember { mutableStateOf(false) }
             val targets = (0 until blocks.length()).filter { it != b }
             if (targets.isNotEmpty() && !m.optBoolean("isRest") || targets.any { blocks.getJSONObject(it).optString("kind") != "strength" }) {
@@ -586,7 +592,7 @@ private fun WodMovementsEditor(
                             EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 }
                 TextButton(enabled = sets.length() > 1, modifier = Modifier.testTag("mv_set_remove_${b}_${i}_$s"),
-                    onClick = { sets.remove(s); EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged() }) { Text("×") }
+                    onClick = { sets.remove(s); EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged() }) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
             }
         }
         TextButton(enabled = sets.length() < 20, modifier = Modifier.testTag("mv_set_add_${b}_$i"), onClick = {

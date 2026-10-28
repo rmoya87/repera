@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 5.º pase: empties WOD/progreso/centros, PlaceSearch Outlined, BoardScan/Peso headers, controles sesión en card.
+**Última actualización:** 2026-10-28 — UI paridad 6.º pase: Play chrome IconButtons, editores DragHandle/flechas, Create hub sin AccountSync, preview MoreVert.
 
 Implementación nativa independiente en `android/`:
 

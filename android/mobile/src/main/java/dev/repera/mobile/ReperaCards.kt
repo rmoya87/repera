@@ -476,7 +476,12 @@ internal fun ActiveWorkoutCard(
             OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                 Text(if (active.index + 1 == active.total) "Terminar último ejercicio" else "Siguiente ejercicio")
             }
-            TextButton(onClick = onFinish, enabled = !busy) { Text("Finalizar entrenamiento") }
+            Button(
+                onClick = onFinish,
+                enabled = !busy,
+                colors = reperaPrimaryButtonColors(),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Finalizar entrenamiento") }
             // Descartar sin guardar (endActiveSession(save: false) iOS, con confirmación).
             var confirmDiscard by remember(active.id) { mutableStateOf(false) }
             TextButton(onClick = { confirmDiscard = true }, enabled = !busy) {
