@@ -957,3 +957,7 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -390 mismo bloque parcialG08:HealthRecovery850-852Divider.opacity0.25entreVFCpreviewybarras,VStackspacing14. Androidcareciadeseparador. AñadidoHorizontalDivideroutlineVariantalfa0.25enmismaColumnspacing14;sinclaimcolorpixelequivalenteSwiftniotrasmetricas.
 - Regresionexistenciapreviafallo;1focalizado/1XML87sverde0fallos/errores/omitidos,compruebaposicionentrelacurvaybarras/anchoigualplot. PNG360x511inspeccionado:separadormuytenue,contenidoseparadoysinrecortes,curva/barras/textosintactos. Escalas/datosintactos.
 - G08sigueP/P/N,denominadoresv1intactos:graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOavancefuncionaltotal.735/70sin cierres,no nuevoTerminado.Full390pendiente;ultimafull388mobile693/163domain558/93Wear8/1assemble71s.No push niApps/Packages.
+
+## Continuidad G08parcial y matrices 13:28 28oct
+-390 bateria completa mobile693/163XML11lotes41/63/78/67/54/66/84/43/80/46/80s,domain558/93XML39s,Wear8/1XML+ambosassemble71sverdes0fallos/errores/omitidos. Backup390recuperado65338db7:arbolb0e1ed7bdc3b18f1723c9d3ba492abd66fed22a7identico,clonlimpio. Evidencia interna, no nuevoTerminado ni avanceporcentual.
+-391 solo docs: matrices0d649f28/08790a22/c7878496yregistrov1reconciliados390sinreclasificar. G08P/P/N;graficosI+C4/13=30.8%,lector4/11=36.4%,V0ambos,NOcoberturafuncionaltotal.735/70abiertas,sincierres. Ultimoproducto390.No push niApps/Packages.
