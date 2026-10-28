@@ -31,6 +31,19 @@ class FavoriteProEntitlementContractTests(unittest.TestCase):
         self.assertIn("guard verified.grantsProAccess else { return snapshot }", manager)
         self.assertIn("provider = apple", manager)
 
+    def test_restore_falls_back_to_verified_apple_transaction(self):
+        manager = read(MONETIZATION / "SubscriptionManager.swift")
+        restore = manager.split("func restorePurchases() async -> Bool", 1)[1].split(
+            "private func refresh(reason:", 1
+        )[0]
+        self.assertIn("try await provider.restore()", restore)
+        self.assertIn("try? await apple.restore()", restore)
+        self.assertIn("await apple.refresh()", restore)
+        self.assertIn("if appleSnapshot.grantsProAccess", restore)
+        self.assertIn("provider = apple", restore)
+        self.assertIn("verifiedRestore = true", restore)
+        self.assertIn("if verifiedRestore {", restore)
+
     def test_active_workout_does_not_assume_all_failures_are_quotas(self):
         view = read(IOS / "WorkoutView.swift")
         code = view.split("private func saveCurrentWorkoutFavorite() async", 1)[1].split(
