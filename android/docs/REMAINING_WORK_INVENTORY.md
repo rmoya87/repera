@@ -588,3 +588,17 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
  3tileslegibles,avisoejemplo/noseleccionconservados. Datosrealesintactos.
 - Completa314+assemblependientes.Yautoaxes/XScoreautomatico/nativo
  pendientes735/70,nopush,domain504/93Wear8/1anteriores.
+
+## Lector completo, avance parcial 01:19 28oct
+- Transicionreportadaparent01:15:revisiongraficosquedaabierta,Yautoejes/
+ XScoreautomatico/fontmetrics/nativo. Ultimovalidado314mobile675/163XML,
+ domain504/93Wear8/1realmente reejecutados01:14;assemblemobile34s.
+ Copia314recuperada5fb41cf4133bca11293eeb7d0d69523417bcb1cbidentica.
+- Bloquelectorcompletosigueparcial;subhuecoconocidomultiplicadorcomplejo
+ descargado(corteBoardImportParser705-800):3X1PushPress+1OHSQsplit2partes
+ connotesComplejo×3,NOtriplicarepsnisets. Solo1..200y2+partesconcantidad
+ explicita,sinwave/cargacompartida/@/#/kg/slash. OrigenwodNotesconservado.
+-2nuevostests+testviejoactualizadoquedocumentabalimitacionyaimplementada.
+ Primercompleto506/93fallóSOLOexpectativaviejaunsplit;corregidasegunfuente,
+ completofinaldomain506/93verde40s0error/fallo/omitidos. Noparserfull.
+- Mobile/Wearpost315yassemblependientes;735/70nativopendiente,nopush.

@@ -497,19 +497,22 @@ object BoardScanLiteParser {
         return Effort.toRIR((numbers[0] + numbers[1]) / 2, "rpe")
     }
 
-    /** Full-parser complex split, deliberately restricted to independently
-     * quantified parts. Parent multipliers/waves/shared-load semantics remain
-     * on the existing review path rather than inventing quantities. */
+    /** Full-parser independently quantified unloaded complex subset. Parent multiplier
+     * is a note, never inferred reps/sets. Waves/shared loads remain on review path. */
     private fun simpleComplexMovements(raw:String,aliases:Map<String,String>):List<WODMovement> {
-        val parts=raw.split(Regex("\\s*\\+\\s*")).map {it.trim()}.filter {it.isNotEmpty()}
+        val multiplierMatch=Regex("^(\\d+)\\s*[x×X]\\s*").find(raw)
+        val multiplier=multiplierMatch?.groupValues?.get(1)?.toIntOrNull()
+        if(multiplierMatch!=null && (multiplier==null || multiplier !in 1..200)) return listOf(movement(raw,aliases))
+        val body=if(multiplierMatch!=null) raw.removeRange(multiplierMatch.range) else raw
+        val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}.filter {it.isNotEmpty()}
         val explicit=Regex("^\\d+\\s+[^0-9].*")
         if(parts.size<2 || parts.any {!explicit.matches(it)} ||
             raw.contains('/') || raw.contains('@') || raw.contains('#') ||
             Regex("\\b(?:kg|kgs|lb|lbs)\\b",RegexOption.IGNORE_CASE).containsMatchIn(raw) ||
-            Regex("^\\d+\\s*[x×X]|^\\d+\\s*[-–]").containsMatchIn(raw)) return listOf(movement(raw,aliases))
+            Regex("^\\d+\\s*[-–]").containsMatchIn(body)) return listOf(movement(raw,aliases))
         return parts.mapIndexed {index,part ->
             val parsed=movement(part,aliases)
-            parsed.copy(notes=listOfNotNull("Parte ${index+1}/${parts.size}",parsed.notes).joinToString(" · "))
+            parsed.copy(notes=listOfNotNull("Parte ${index+1}/${parts.size}",multiplier?.let {"Complejo ×$it"},parsed.notes).joinToString(" · "))
         }
     }
 

@@ -109,9 +109,10 @@ class BoardStrengthLinesTest {
   assertTrue(block.movements[0].notes.orEmpty().contains("Parte 1/2"))
   assertTrue(block.movements[1].notes.orEmpty().contains("Parte 2/2"))
  }
- @Test fun sharedMultiplierComplexStaysUnsplitUntilSupported() {
+ @Test fun sharedMultiplierUnloadedComplexIsSplitWithParentNote() {
   val block=BoardScanLiteParser.parse("AMRAP 10'\n3X 1 PUSH PRESS + 1 OHSQ").blocks.single()
-  assertEquals(1,block.movements.size)
+  assertEquals(2,block.movements.size)
+  assertTrue(block.movements.all {it.reps==1 && it.notes.orEmpty().contains("Complejo ×3")})
   assertTrue(block.wodNotes.orEmpty().contains("3X 1 PUSH PRESS + 1 OHSQ"))
  }
  @Test fun parentLoadComplexStaysOnReviewPathWithoutReassigningWeight() {

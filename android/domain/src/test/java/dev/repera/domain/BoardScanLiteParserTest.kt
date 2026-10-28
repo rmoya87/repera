@@ -455,4 +455,20 @@ class BoardScanLiteParserTest {
         assertEquals("Fondos en anillas", result.blocks[1].movements[0].name)
         assertNotNull(result.blocks[1].movements[0].exerciseId)
     }
+    @Test fun unloadedComplexParentMultiplierStaysAnnotationNotInventedSets() {
+        val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n3X 1 PUSH PRESS + 2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(2,block.movements.size)
+        assertEquals(1,block.movements[0].reps)
+        assertEquals(2,block.movements[1].reps)
+        assertTrue(block.movements[0].notes!!.contains("Complejo ×3"))
+        assertTrue(block.movements[1].notes!!.contains("Parte 2/2"))
+        assertNull(block.movements[0].explicitPlannedSets)
+    }
+    @Test fun complexMultiplierUnsupportedLoadsAndOverflowStayOnReviewPath() {
+        for(line in listOf("3X 1 PUSH PRESS + 2 AIR SQUAT 40/25kg","999999999999X 1 PUSH PRESS + 2 AIR SQUAT","3X 1 PUSH PRESS + 2 AIR SQUAT @7-8")) {
+            val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n"+line,catalog=catalog).blocks.single()
+            assertEquals(1,block.movements.size)
+            assertFalse(block.movements.single().notes?.contains("Complejo ×3") == true)
+        }
+    }
 }
