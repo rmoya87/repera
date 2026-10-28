@@ -148,6 +148,21 @@ private struct StandaloneTimerCompletion: Codable {
     }
 }
 
+/// Última configuración del temporizador, independiente de los favoritos.
+private enum StandaloneTimerConfigurationStore {
+    private static let key = "repera.timer.lastConfiguration.v1"
+
+    static func load() -> StandaloneTimerConfig? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(StandaloneTimerConfig.self, from: data)
+    }
+
+    static func save(_ configuration: StandaloneTimerConfig) {
+        guard let data = try? JSONEncoder().encode(configuration) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
 private enum StandaloneTimerCompletionStore {
     // v2 guarda solo resultados pendientes de decisión; no reabre los resúmenes
     // antiguos de solo lectura como si todavía esperasen Guardar/Descartar.
@@ -236,6 +251,7 @@ struct StandaloneTimerView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var config: StandaloneTimerConfig
+    private let usesLastConfiguration: Bool
     @State private var showClock = false
     @State private var isRunning = false
     @State private var displaySeconds = 0
@@ -260,11 +276,16 @@ struct StandaloneTimerView: View {
 
     init(
         embedsNavigation: Bool = true,
-        config: StandaloneTimerConfig = StandaloneTimerConfig(),
+        config: StandaloneTimerConfig? = nil,
         editingFavoriteId: UUID? = nil
     ) {
         self.embedsNavigation = embedsNavigation
-        _config = State(initialValue: config)
+        // Una configuración enviada por Favoritos tiene prioridad sobre
+        // la última usada; sin preset, recuperar los ajustes anteriores.
+        usesLastConfiguration = config == nil
+        _config = State(initialValue:
+            config ?? StandaloneTimerConfigurationStore.load() ?? StandaloneTimerConfig()
+        )
         _editingFavoriteId = State(initialValue: editingFavoriteId)
         _saveTitle = State(initialValue: "")
     }
@@ -289,7 +310,15 @@ struct StandaloneTimerView: View {
         }
         .onAppear {
             if completedSummary == nil { completedSummary = StandaloneTimerCompletionStore.load() }
+            if usesLastConfiguration, !showClock, !isRunning,
+               completedSummary == nil,
+               let lastUsed = StandaloneTimerConfigurationStore.load() {
+                config = lastUsed
+            }
             TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
+        }
+        .onChange(of: config) { _, updated in
+            StandaloneTimerConfigurationStore.save(updated)
         }
         .onChange(of: isRunning) { _, _ in
             // Mantener el iPhone despierto durante ejecución Y pausa.
@@ -757,6 +786,7 @@ struct StandaloneTimerView: View {
     }
 
     private func prepareAndShowClock() {
+        StandaloneTimerConfigurationStore.save(config)
         completedSummary = nil
         timerStartedAt = nil
         StandaloneTimerCompletionStore.clear()
