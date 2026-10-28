@@ -33,6 +33,8 @@ internal fun RecoveryPhysiologyPreviewCard(today:LocalDate,chartHeight:Dp=128.dp
             Text("No son tus datos de Salud",style=MaterialTheme.typography.bodySmall)
             Text("Variabilidad cardíaca (VFC) · 58 ms",style=MaterialTheme.typography.titleSmall)
             PhysiologyPreviewCurve(chartHeight)
+            HorizontalDivider(Modifier.testTag("physiology_preview_divider"),
+                color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.25f))
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 PhysiologyPreviewBars("Pulso en reposo","lpm",RecoveryPhysiologyPreview.resting,Modifier.weight(1f))
                 PhysiologyPreviewBars("Respiración","rpm",RecoveryPhysiologyPreview.breathing,Modifier.weight(1f))

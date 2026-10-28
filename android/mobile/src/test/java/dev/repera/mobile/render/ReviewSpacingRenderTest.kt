@@ -305,6 +305,12 @@ class ReviewSpacingRenderTest {
             dev.repera.mobile.RecoveryPhysiologyPreviewCard(LocalDate.of(2026,10,27))
         }}}
         composeRule.onNodeWithText("1").assertExists()
+        val divider=composeRule.onNodeWithTag("physiology_preview_divider",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        val curveBounds=composeRule.onNodeWithTag("physiology_preview_curve",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        val barBounds=composeRule.onNodeWithTag("physiology_preview_bars_lpm",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(divider.top>curveBounds.bottom)
+        org.junit.Assert.assertTrue(divider.bottom<barBounds.top)
+        org.junit.Assert.assertTrue(kotlin.math.abs(divider.width-curveBounds.width)<=1f)
         val chart=composeRule.onNodeWithTag("physiology_preview_curve").captureToImage().asAndroidBitmap()
         org.junit.Assert.assertEquals(128,chart.height)
         val bars=composeRule.onNodeWithTag("physiology_preview_bars_lpm",useUnmergedTree=true)
