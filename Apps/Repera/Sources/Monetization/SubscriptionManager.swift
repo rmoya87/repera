@@ -22,6 +22,7 @@ final class SubscriptionManager {
 
     /// Conteos deportivos inyectados desde ReperaStore (no viven aquí).
     private(set) var libraryRoutineCount = 0
+    private(set) var favoriteCount = 0
     private(set) var customExerciseCount = 0
 
     @ObservationIgnored private var provider: any EntitlementProviding
@@ -33,6 +34,7 @@ final class SubscriptionManager {
             snapshot: snapshot,
             freeUsage: freeUsage.state,
             libraryRoutineCount: libraryRoutineCount,
+            favoriteCount: favoriteCount,
             customExerciseCount: customExerciseCount,
             businessSponsoredAccess: businessSponsoredAccess
         )
@@ -105,10 +107,13 @@ final class SubscriptionManager {
         await refresh(reason: "foreground")
     }
 
-    func syncCounts(libraryRoutines: Int, customExercises: Int) {
-        guard libraryRoutineCount != libraryRoutines || customExerciseCount != customExercises else { return }
+    func syncCounts(libraryRoutines: Int, customExercises: Int, favorites: Int = 0) {
+        guard libraryRoutineCount != libraryRoutines
+            || customExerciseCount != customExercises
+            || favoriteCount != favorites else { return }
         libraryRoutineCount = libraryRoutines
         customExerciseCount = customExercises
+        favoriteCount = favorites
     }
 
     func decision(for feature: ReperaFeature) -> FeatureAccessDecision {
