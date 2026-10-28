@@ -261,6 +261,17 @@ struct DayEditorView: View {
                                 } label: {
                                     Label("Reordenar", systemImage: "arrow.up.arrow.down")
                                 }
+                                Button("Añadir ejercicio", systemImage: "plus") {
+                                    if block.kind == .strength {
+                                        pickExerciseForBlock = block.id
+                                    } else {
+                                        pickMovementForBlock = block.id
+                                    }
+                                }
+                                Button("Cambiar formato", systemImage: "slider.horizontal.3") {
+                                    selectFormatForBlock = block.id
+                                }
+                                Divider()
                                 Button(role: .destructive) {
                                     routine.blocks.removeAll { $0.id == block.id }
                                 } label: {
@@ -588,42 +599,31 @@ struct DayEditorView: View {
 
     }
 
-    private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool) -> some View {
+    private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool, isRest: Bool = false) -> some View {
         let kind = isWOD ? "movement" : "exercise"
         return Menu {
-            Button("Subir ejercicio", systemImage: "arrow.up") {
-                moveExercise(type: kind, blockID: blockID, itemID: itemID, offset: -1)
+            if !isRest {
+                Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
+                    replacingExercise = WorkoutReplacementTarget(
+                        blockID: blockID, itemID: itemID, isWOD: isWOD
+                    )
+                }
             }
-            Button("Bajar ejercicio", systemImage: "arrow.down") {
-                moveExercise(type: kind, blockID: blockID, itemID: itemID, offset: 1)
+            Button("Reordenar", systemImage: "arrow.up.arrow.down") {
+                showsReorder = true
             }
+            Divider()
             Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
                 deleteReorderExercise(type: kind, blockID: blockID, itemID: itemID)
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(OG.label)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+                .frame(width: 38, height: 38)
+                .glassEffect(.regular.interactive(), in: .circle)
         }
         .accessibilityLabel("Opciones del ejercicio")
-    }
-
-    private func replacementButton(blockID: UUID, itemID: UUID, isWOD: Bool) -> some View {
-        Button {
-            replacingExercise = WorkoutReplacementTarget(
-                blockID: blockID, itemID: itemID, isWOD: isWOD
-            )
-        } label: {
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(OG.accent)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Sustituir ejercicio")
     }
 
     private func applyExerciseReplacement(target: WorkoutReplacementTarget, with selected: Exercise) {
@@ -1333,7 +1333,6 @@ struct DayEditorView: View {
                         }
                     }
                     .accessibilityHint("Ver ficha del ejercicio")
-                    replacementButton(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
                     exerciseOptions(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
@@ -1693,7 +1692,6 @@ struct DayEditorView: View {
                         completedWODScalingFields(movementID: move.id, exercise: resolved)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    replacementButton(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
                     exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -1712,10 +1710,7 @@ struct DayEditorView: View {
                             movementRowLabel(move: move, resolved: resolved, showSummary: false)
                         }
                     }
-                    if !move.isRest {
-                        replacementButton(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
-                    }
-                    exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true)
+                    exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true, isRest: move.isRest)
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
             }
@@ -1831,7 +1826,7 @@ struct OGSetSwipeDeleteRow<Content: View>: View {
 
     var body: some View {
         ZStack(alignment: .trailing) {
-            if canDelete {
+            if canDelete && (isRevealed || activeDrag < -2) {
                 Button {
                     withAnimation(.smooth(duration: 0.2)) {
                         openedSetID = nil
@@ -1843,16 +1838,17 @@ struct OGSetSwipeDeleteRow<Content: View>: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 48, height: 48)
-                        .background(Circle().fill(OG.red))
+                        .background(OG.red, in: RoundedRectangle(cornerRadius: 12))
                         .frame(width: revealWidth, alignment: .trailing)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Eliminar serie")
             }
 
+            // Desplazar toda la fila; ocultar el fondo rojo bajo los inputs.
             content()
-                .frame(maxWidth: .infinity)
-                .background(OG.surface)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background { Rectangle().fill(OG.surface) }
                 .offset(x: canDelete ? max(-revealWidth, min(0,
                     (isRevealed ? -revealWidth : 0) + activeDrag
                 )) : 0)
