@@ -455,115 +455,106 @@ struct DayEditorView: View {
     }
 
     /// Ordenación únicamente mediante menús de acciones accesibles.
+    /// Reordenación nativa con asas de arrastre: bloques y ejercicios.
     private var reorderSheet: some View {
-        // Ordenación accesible con menús; el arrastre está deshabilitado.
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(routine.blocks) { block in
-                    VStack(spacing: 0) {
-                        HStack(spacing: 10) {
+        List {
+            Section {
+                ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { position, block in
+                    HStack(spacing: 12) {
+                        Text("\(position + 1)")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 34, height: 34)
+                            .background(OG.accent.opacity(0.12), in: Circle())
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(block.title)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                            Spacer(minLength: 6)
-                            Text(block.wodFormat?.displayName ?? "Libre")
+                            Text(block.wodFormat?.displayName ?? (block.kind == .strength ? "Fuerza" : "Libre"))
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
-                            Menu {
-                                Button("Subir bloque", systemImage: "arrow.up") {
-                                    moveBlock(block.id, offset: -1)
-                                }
-                                .disabled(routine.blocks.first?.id == block.id)
-                                Button("Bajar bloque", systemImage: "arrow.down") {
-                                    moveBlock(block.id, offset: 1)
-                                }
-                                .disabled(routine.blocks.last?.id == block.id)
-                                Divider()
-                                Button("Eliminar bloque", systemImage: "trash", role: .destructive) {
-                                    routine.blocks.removeAll { $0.id == block.id }
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
-                                    .font(.system(size: 19))
-                                    .foregroundStyle(OG.accent)
-                                    .frame(width: 40, height: 44)
-                            }
-                            .accessibilityLabel("Opciones de \(block.title)")
                         }
-                        .frame(minHeight: 50)
-                        .contentShape(Rectangle())
-
-                        if block.kind == .strength {
-                            ForEach(block.exercises) { exercise in
-                                reorderExerciseRow(
-                                    store.state.exercises.first(where: { $0.id == exercise.exerciseId })?.name ?? "Ejercicio",
-                                    blockID: block.id,
-                                    itemID: exercise.id,
-                                    type: "exercise"
-                                )
-                            }
-                        } else {
-                            ForEach(block.movements) { move in
-                                reorderExerciseRow(
-                                    move.isRest ? "Descanso" : move.name,
-                                    blockID: block.id,
-                                    itemID: move.id,
-                                    type: "movement"
-                                )
-                            }
-                        }
+                        Spacer(minLength: 8)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                    .padding(.vertical, 5)
                 }
+                .onMove { from, to in
+                    withAnimation(.smooth) {
+                        routine.blocks.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            } header: {
+                Label("Orden de bloques", systemImage: "square.stack.3d.up")
+            } footer: {
+                Text("Mantén pulsada el asa de la derecha y arrastra para ordenar.")
             }
-            .padding(.horizontal, OG.pad)
-            .padding(.vertical, 12)
+            ForEach(routine.blocks) { block in
+                reorderExercisesSection(for: block)
+            }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(OG.bg)
+        .environment(\.editMode, .constant(.active))
         .navigationTitle("Reordenar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Listo") { showsReorder = false }
                     .fontWeight(.semibold)
-                    .foregroundStyle(OG.accent)
+                    .tint(OG.accent)
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            Text("Usa los menús de tres puntos para subir, bajar, mover o eliminar.")
-                .font(.footnote)
-                .foregroundStyle(OG.label2)
-                .padding(.horizontal, OG.pad)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(OG.bg)
         }
     }
 
-    private func reorderExerciseRow(
-        _ name: String,
-        blockID: UUID,
-        itemID: UUID,
-        type: String
-    ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "arrow.turn.down.right")
-                .font(.system(size: 12))
-                .foregroundStyle(OG.label3)
-                .padding(.leading, 12)
+    @ViewBuilder
+    private func reorderExercisesSection(for block: RoutineBlock) -> some View {
+        Section {
+            if block.kind == .strength {
+                ForEach(block.exercises) { exercise in
+                    reorderExerciseRow(
+                        store.state.exercises.first(where: { $0.id == exercise.exerciseId })?.name ?? "Ejercicio",
+                        blockID: block.id, itemID: exercise.id, type: "exercise"
+                    )
+                }
+                .onMove { from, to in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                    withAnimation(.smooth) {
+                        routine.blocks[index].exercises.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            } else {
+                ForEach(block.movements) { move in
+                    reorderExerciseRow(
+                        move.isRest ? "Descanso" : move.name,
+                        blockID: block.id, itemID: move.id, type: "movement"
+                    )
+                }
+                .onMove { from, to in
+                    guard let index = routine.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                    withAnimation(.smooth) {
+                        routine.blocks[index].movements.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            }
+        } header: {
+            Text(block.title)
+        } footer: {
+            Text("Arrastra para cambiar el orden. Los tres puntos permiten mover a otro bloque.")
+        }
+    }
+
+    private func reorderExerciseRow(_ name: String, blockID: UUID, itemID: UUID, type: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: type == "movement" ? "figure.strengthtraining.functional" : "dumbbell")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(OG.accent)
+                .frame(width: 32, height: 32)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 9))
             Text(name)
-                .font(.system(size: 14))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(OG.label)
             Spacer(minLength: 8)
             Menu {
-                Button("Subir ejercicio", systemImage: "arrow.up") {
-                    moveExercise(type: type, blockID: blockID, itemID: itemID, offset: -1)
-                }
-                Button("Bajar ejercicio", systemImage: "arrow.down") {
-                    moveExercise(type: type, blockID: blockID, itemID: itemID, offset: 1)
-                }
                 if routine.blocks.count > 1 {
                     Menu {
                         ForEach(routine.blocks.filter { $0.id != blockID }) { target in
@@ -571,8 +562,7 @@ struct DayEditorView: View {
                                 withAnimation(.smooth) {
                                     applyReorder(
                                         "\(type):\(blockID.uuidString):\(itemID.uuidString)",
-                                        into: target.id,
-                                        before: nil
+                                        into: target.id, before: nil
                                     )
                                 }
                             }
@@ -581,22 +571,20 @@ struct DayEditorView: View {
                         Label("Mover a otro bloque", systemImage: "arrowshape.turn.up.right")
                     }
                 }
-                Divider()
                 Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
                     deleteReorderExercise(type: type, blockID: blockID, itemID: itemID)
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 18))
-                    .foregroundStyle(OG.accent)
-                    .frame(width: 40, height: 44)
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .frame(width: 36, height: 36)
+                    .glassEffect(.regular.interactive(), in: .circle)
             }
             .accessibilityLabel("Opciones de \(name)")
         }
-        .padding(.leading, 8)
-        .frame(minHeight: 46)
-        .contentShape(Rectangle())
-
+        .padding(.vertical, 4)
+        .listRowBackground(OG.surface)
     }
 
     private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool, isRest: Bool = false) -> some View {
