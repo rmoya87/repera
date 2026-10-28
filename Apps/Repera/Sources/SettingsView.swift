@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var isPhotoPickerPresented = false
     @State private var restoreMessage: String?
+    @State private var isVerifyingSubscription = false
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
     @State private var googleLinkFeedback: String?
@@ -278,6 +279,24 @@ struct SettingsView: View {
                     .foregroundStyle(OG.label)
                 }
                 if !subscriptions.businessSponsoredAccess {
+                    Button {
+                        guard !isVerifyingSubscription else { return }
+                        isVerifyingSubscription = true
+                        Task {
+                            await subscriptions.refreshEntitlementsForFeatureAction()
+                            isVerifyingSubscription = false
+                            restoreMessage = subscriptions.policy.isPro
+                                ? "Acceso Pro verificado en este dispositivo."
+                                : "No se ha encontrado un acceso Pro activo para esta cuenta de compras. Si ya activaste una suscripción de prueba, utiliza «Restaurar compras»."
+                        }
+                    } label: {
+                        Label(
+                            isVerifyingSubscription ? "Comprobando acceso…" : "Comprobar acceso Pro",
+                            systemImage: "checkmark.shield"
+                        )
+                    }
+                    .disabled(isVerifyingSubscription || subscriptions.purchaseInFlight)
+                    .foregroundStyle(OG.label)
                     Button("Restaurar compras") {
                         Task {
                             let ok = await subscriptions.restorePurchases()
