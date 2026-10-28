@@ -867,3 +867,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 ## Continuidad lector parcial y matrices 10:06 28oct
 -369 bateria completa mobile690/163XML11lotes39/59/73/67/56/66/84/41/79/48/76s,domain558/93XML71s,Wear8/1XML+ambosassemble66sverdes0fallos/errores/omitidos. Backup369recuperado65338db7:arbol840acaf5116723a6c3823dd23190f89bacc9ef19identico,clonlimpio.
 -370 solo documentacion: c6f89c28/88db5bb7reconciliadas369,mismos estadosparciales,735/70sin cierres. Lectorcompleto sigue parcial;default3x8/fuzzy/rutas/headersamplios/runtimependientes. Revisiongraficaautoaxes/fontmetrics/nativoabierta. No push niApps/Packages.
+
+## Revision graficos, eje Y Readiness fijo 10:12 28oct
+- Retomaelbloqueabiertorevisionconstantes/graficos,lectorpermaneceparcial370. Hallazgo contrastadoHealthRecovery1288-1296:ReadinessfuenteY0/5/10,Androidmostrabasolo0/10.371incorpora5intermedioyposicionalabelssegunfracciondelmismoplot(7.5/50/92.5%),sinmoverdatosniejesdeotrasmetricas. No cierreautoejesX/fontmetrics/nativo.
+- Regresionfalloantespor5/10ausente. Testexistingampliadoexistenciayboundscentrados/columnaizquierda;2focalizados/1XML83sverdes0fallos/errores/omitidos. PNG360claroactualypreviewinspeccionados:0/5/10legibles,separadosdefechas,curve/gradientyaltosintactos. Otrofallodefixturebuscabaplotenmergedtree,corregidoaunmerged,sincambioproducto.
+- Completa mobile/Wear371pendientes;ultimacompleta369mobile690/163domain558/93Wear8/1+ambosassemble66s.735/70sin cierres,lectorparcial,nativopendiente,no push niApps/Packages.

@@ -399,6 +399,24 @@ internal fun DayPointLineChart(
             // Columna de valores (máx arriba, mín abajo) separada de las
             // fechas: antes el mínimo compartía fila con la primera fecha y
             // colisionaban ("80.9 25 sept").
+            if(readinessStyle) {
+                androidx.compose.ui.layout.Layout(
+                    content={listOf(10.0,5.0,0.0).forEach {value ->
+                        Text(valueFormat(value),style=MaterialTheme.typography.labelSmall,
+                            maxLines=1,softWrap=false)
+                    }},
+                    modifier=Modifier.width(52.dp).height(plotHeight).padding(end=4.dp)
+                ) {measurables,constraints ->
+                    val labels=measurables.map {it.measure(constraints.copy(minWidth=0,minHeight=0))}
+                    layout(constraints.maxWidth,constraints.maxHeight) {
+                        labels.forEachIndexed {index,label ->
+                            val fraction=listOf(0.075f,0.5f,0.925f)[index]
+                            label.placeRelative(0,(constraints.maxHeight*fraction-label.height/2f).toInt()
+                                .coerceIn(0,(constraints.maxHeight-label.height).coerceAtLeast(0)))
+                        }
+                    }
+                }
+            } else
             Column(
                 modifier = Modifier
                     .width(52.dp)

@@ -104,6 +104,12 @@ class ReviewSpacingRenderTest {
                 }
             }
         }
+        composeRule.onNodeWithText("5/10",useUnmergedTree=true).assertExists()
+        val middle=composeRule.onNodeWithText("5/10",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        val plot=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(kotlin.math.abs(middle.center.y-plot.center.y)<=2f)
+        org.junit.Assert.assertTrue(middle.right<plot.left)
+
         save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
             "readiness-multiday-curve.png")
     }
