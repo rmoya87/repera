@@ -1776,12 +1776,23 @@ final class LiveActivityRecorder: NSObject {
             clearStreetCue()
             return
         }
-        resolveStreet(for: next, on: route)
         let remaining = max(0, next.metersAlongRoute - along)
-        upcomingTurnInstruction = next.instruction
-        upcomingTurnMeters = Int((remaining / 10).rounded() * 10)
-        upcomingTurnSymbol = next.symbol
-        if let following = selectedRouteTurns.first(where: {
+        // Voz y banner muestran la maniobra en el mismo tramo de aproximación.
+        // Antes de ese tramo mostrar solo "Sigue el recorrido", no una flecha
+        // de giro prematura que todavía no se puede locutar.
+        let approachDistance = sport.isCycling ? 450.0 : 250.0
+        let nearDistance = sport.isCycling ? 120.0 : 70.0
+        let maneuverIsVisible = remaining <= approachDistance
+        upcomingTurnInstruction = maneuverIsVisible ? next.instruction : "Sigue el recorrido"
+        upcomingTurnMeters = maneuverIsVisible
+            ? Int((remaining / 10).rounded() * 10) : nil
+        upcomingTurnSymbol = maneuverIsVisible ? next.symbol : "arrow.up"
+        if maneuverIsVisible {
+            resolveStreet(for: next, on: route)
+        } else {
+            clearStreetCue()
+        }
+        if maneuverIsVisible, let following = selectedRouteTurns.first(where: {
             $0.routeIndex > next.routeIndex && $0.metersAlongRoute > next.metersAlongRoute
         }) {
             followingTurnMeters = Int(((following.metersAlongRoute - next.metersAlongRoute) / 10).rounded() * 10)
@@ -1790,11 +1801,7 @@ final class LiveActivityRecorder: NSObject {
             followingTurnMeters = nil
             followingTurnSymbol = nil
         }
-        // El aviso hablado empieza cuando la instrucción pasa a ser
-        // accionable en el mapa. No depende de que la pantalla esté encendida.
-        let approachDistance = sport.isCycling ? 450.0 : 250.0
-        let nearDistance = sport.isCycling ? 120.0 : 70.0
-        if remaining > approachDistance {
+        if !maneuverIsVisible {
             upcomingTurn = "Sigue el recorrido"
         } else {
             let meters = Int((remaining / 10).rounded() * 10)
