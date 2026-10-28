@@ -1335,10 +1335,15 @@ final class ReperaStore: NSObject {
         var session = state.workouts[idx]
         let show = presentIfPending && pendingReviewedSessionId == sessionId
         attachSessionReview(&session, present: show, cardio: cardio)
-        state.workouts[idx] = session
         if show, let review = session.sessionReview {
             pendingSessionReview = review
         }
+        // Al volver desde detalle, no reescribir el historial ni sincronizar
+        // iCloud/Business si la valoración de Salud no ha cambiado.
+        guard state.workouts[idx].sessionReview != session.sessionReview else {
+            return session.sessionReview
+        }
+        state.workouts[idx] = session
         persistWorkouts()
         return session.sessionReview
     }
@@ -1350,8 +1355,14 @@ final class ReperaStore: NSObject {
     @discardableResult
     func ensureSessionReview(for sessionId: UUID) -> SessionReview? {
         guard let idx = state.workouts.firstIndex(where: { $0.id == sessionId }) else { return nil }
+        // La migración de versión de fórmula se aplica durante bootstrap.
+        // Abrir un detalle no debe recalcular todo ni guardar un JSON idéntico.
+        if let existing = state.workouts[idx].sessionReview { return existing }
         var session = state.workouts[idx]
         attachSessionReview(&session, present: false)
+        guard session.sessionReview != state.workouts[idx].sessionReview else {
+            return session.sessionReview
+        }
         state.workouts[idx] = session
         persistWorkouts()
         return session.sessionReview
