@@ -1318,8 +1318,8 @@ struct DayEditorView: View {
             if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId })
                 ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
                 HStack(spacing: 4) {
-                    NavigationLink {
-                        ExerciseDetailView(exerciseId: ex.id)
+                    Button {
+                        exerciseDetailID = ex.id
                     } label: {
                         HStack(spacing: 12) {
                             ExerciseThumb(exercise: ex, size: 48)
@@ -1329,6 +1329,7 @@ struct DayEditorView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
+                    .buttonStyle(.plain)
                     .accessibilityHint("Ver ficha del ejercicio")
                     exerciseOptions(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
                 }
@@ -1404,7 +1405,9 @@ struct DayEditorView: View {
 
             }
         }
-        Button("Añadir ejercicio") { pickExerciseForBlock = routine.blocks[index].id }
+        WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus") {
+            pickExerciseForBlock = routine.blocks[index].id
+        }
     }
 
     private func plannedSetBinding(blockIndex: Int, exerciseIndex: Int, setIndex: Int) -> Binding<PlannedSet> {
@@ -1661,23 +1664,25 @@ struct DayEditorView: View {
                format.resultCapture != .perMovementSets {
                 HStack(alignment: .top, spacing: 8) {
                     if hasCatalog {
-                        NavigationLink {
-                            ExerciseDetailView(exerciseId: resolved.id)
+                        Button {
+                            exerciseDetailID = resolved.id
                         } label: {
                             ExerciseThumb(exercise: resolved, size: 48)
                         }
+                        .buttonStyle(.plain)
                     } else {
                         ExerciseThumb(exercise: resolved, size: 48)
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         if hasCatalog {
-                            NavigationLink {
-                                ExerciseDetailView(exerciseId: resolved.id)
+                            Button {
+                                exerciseDetailID = resolved.id
                             } label: {
                                 Text(resolved.name)
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundStyle(OG.label)
                             }
+                            .buttonStyle(.plain)
                         } else {
                             Text(resolved.name)
                                 .font(.system(size: 17, weight: .semibold))
@@ -1697,11 +1702,12 @@ struct DayEditorView: View {
                 HStack(spacing: 4) {
                     Group {
                         if hasCatalog {
-                            NavigationLink {
-                                ExerciseDetailView(exerciseId: resolved.id)
+                            Button {
+                                exerciseDetailID = resolved.id
                             } label: {
                                 movementRowLabel(move: move, resolved: resolved, showSummary: false)
                             }
+                            .buttonStyle(.plain)
                             .accessibilityHint("Ver ficha del ejercicio")
                         } else {
                             movementRowLabel(move: move, resolved: resolved, showSummary: false)
@@ -1748,13 +1754,15 @@ struct DayEditorView: View {
             }
         }
 
-        Button("Añadir ejercicio al WOD") { pickMovementForBlock = routine.blocks[index].id }
-        Button("Añadir descanso") {
+        WorkoutInlineAddButton("Añadir ejercicio", systemImage: "plus") {
+            pickMovementForBlock = routine.blocks[index].id
+        }
+        WorkoutInlineAddButton("Añadir descanso", systemImage: "pause") {
             routine.blocks[index].movements.append(
                 WODMovement(name: "REST", isRest: true, restSeconds: 60)
             )
         }
-        Button("Añadir movimiento libre") {
+        WorkoutInlineAddButton("Añadir movimiento libre", systemImage: "pencil") {
             createFreeMovementForBlock = routine.blocks[index].id
         }
 
@@ -2996,3 +3004,42 @@ struct RoutineImportPickerSheet: View {
 
 /// Línea de inserción real entre elementos, no sobre la fila arrastrable.
 /// La altura táctil sigue siendo suficiente incluso con la línea en reposo.
+
+/// Mismo tratamiento visual para las acciones de inserción de Crear/Editar y Play.
+struct WorkoutInlineAddButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    init(_ title: String, systemImage: String, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.accent)
+                    .frame(width: 32, height: 32)
+                    .background(OG.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Spacer(minLength: 0)
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(OG.label3)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 52)
+            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .listRowSeparator(.hidden)
+    }
+}
+
