@@ -744,3 +744,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -340 bateria completa mobile678/163XML89/104/84/81s,domain536/93XML69s,Wear8/1XML+ambosassemble68sverdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo lector parcial341: BUY-IN/BUY IN/CASH OUT/CASH-OUT/CASHOUT exactos seleccionan formato existente buyInCashOut segunfuente519-522,sin movimiento falsodecabecera ni rondas/receta inferidas. No containsglobal ni segmentacionimplicita.
 - Regresion fallo antes.1test dominio de5cabeceras y1wire nuevos;dominio537/93XML70s ywire9/1XML64sverdes0fallos/errores/omitidos. Mobile completa/Wear341 pendientes.735/70sin cierres,nativo pendiente,no push.
+
+## Lector completo, alias AMRAP explicitos 05:33 28oct
+-341 bateria completa mobile679/163XML91/112/86/84s,domain537/93XML70s,Wear8/1XML+ambosassemble66sverdes. Backup341recuperado:arbol2995cf04f767624845b2ce511d6e874860f7b8c6identico,clonlimpio.
+- Mismo lector parcial342: AS MANY ROUNDS/AS MANY REPS exactos conminutosopcional reconocen AMRAP,cap indicado o12fuente487-494,titulo normalizado ycabeceraoriginal ennotas. No modifica default10 de AMRAPLiteexistente ni activa containsglobal;texto adicional sigue review.
+- Regresion fallo antes.1test nuevo de2formas+default12;dominio538/93XML69s ywire9/1XMLverdes0fallos/errores/omitidos. Mobile completa/Wear342 pendientes.735/70sin cierres,nativo pendiente,no push.

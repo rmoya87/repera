@@ -329,6 +329,11 @@ object BoardScanLiteParser {
             val mins = firstInt(upper) ?: 10
             return Header(line, WODFormat.EMOM, mins)
         }
+        if(Regex("^AS MANY (?:ROUNDS|REPS)(?:\\s+\\d+\\s*['\"]?)?\\s*$").matches(upper)) {
+            val minutes=firstInt(upper) ?: 12
+            if(minutes !in 1..(Int.MAX_VALUE/60)) return null
+            return Header("AMRAP $minutes'",WODFormat.AMRAP,minutes)
+        }
         if (upper.startsWith("AMRAP")) {
             val mins = firstInt(upper) ?: 10
             return Header(line, WODFormat.AMRAP, mins)

@@ -702,4 +702,16 @@ class BoardScanLiteParserTest {
             assertTrue(block.wodNotes!!.contains(header))
         }
     }
+    @Test fun explicitAsManyHeadersUseAmrapWithoutFakeMovement() {
+        for(header in listOf("AS MANY ROUNDS 14'","AS MANY REPS 14'")) {
+            val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()
+            assertEquals(WODFormat.AMRAP,block.wodFormat)
+            assertEquals(14,block.timeCapMinutes)
+            assertEquals("AMRAP 14'",block.title)
+            assertEquals(1,block.movements.size)
+            assertTrue(block.wodNotes!!.contains(header))
+        }
+        val defaults=BoardScanLiteParser.parse("AS MANY ROUNDS\n2 AIR SQUAT",catalog=catalog).blocks.single()
+        assertEquals(12,defaults.timeCapMinutes)
+    }
 }
