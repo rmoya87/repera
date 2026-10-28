@@ -2900,7 +2900,7 @@ private struct FreeWODMovementCreatePage: View {
 }
 
 /// Selección del formato como subpágina, nunca confirmationDialog.
-private struct WODFormatPickerPage: View {
+struct WODFormatPickerPage: View {
     var onPick: (WODFormat?) -> Void
 
     var body: some View {
