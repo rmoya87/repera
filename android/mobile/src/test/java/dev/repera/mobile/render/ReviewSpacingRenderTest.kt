@@ -8,6 +8,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.captureToImage
@@ -113,9 +115,23 @@ class ReviewSpacingRenderTest {
             .captureToImage().asAndroidBitmap()
         org.junit.Assert.assertNotEquals("readiness midpoint date grid must be visible",
             pixels.getPixel(pixels.width/2+4,5),pixels.getPixel(pixels.width/2,5))
+        val endX=pixels.width-8
+        val endY=(pixels.height*(0.075f+0.85f*0.2f)).toInt()
+        org.junit.Assert.assertEquals("observed readiness has no unselected endpoint dot",
+            pixels.getPixel(endX+7,endY),pixels.getPixel(endX+4,endY))
 
         save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
             "readiness-multiday-curve.png")
+        composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true).performTouchInput {
+            click(androidx.compose.ui.geometry.Offset(endX.toFloat(),endY.toFloat()))
+        }
+        composeRule.onNodeWithText("27 oct 2026: 8/10",useUnmergedTree=true).assertExists()
+        val selectedPixels=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true)
+            .captureToImage().asAndroidBitmap()
+        org.junit.Assert.assertEquals("selected readiness uses a rule, not a point dot",
+            selectedPixels.getPixel(endX+7,endY),selectedPixels.getPixel(endX+4,endY))
+        save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
+            "readiness-selected-rule.png")
     }
 
     @Test

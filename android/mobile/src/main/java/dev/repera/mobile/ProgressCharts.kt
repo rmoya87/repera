@@ -513,7 +513,7 @@ internal fun DayPointLineChart(
                     if(physiologyStyle) clipRect {drawPath(path,color=line,style=Stroke(width=2.dp.toPx()))}
                     else drawPath(path,color=line,style=Stroke(width=4f))
                 }
-                if(!physiologyStyle && !readinessPreview) drawCircle(color = line, radius = 6f,
+                if(!physiologyStyle && !readinessStyle) drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))
                 selected?.let { i ->
                     drawLine(
@@ -523,7 +523,7 @@ internal fun DayPointLineChart(
                         strokeWidth = if(physiologyStyle) 1.dp.toPx() else 2f,
                         pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(if(physiologyStyle) floatArrayOf(3.dp.toPx(),4.dp.toPx()) else floatArrayOf(6f,6f))
                     )
-                    if(!physiologyStyle) drawCircle(color = line, radius = 8f,
+                    if(!physiologyStyle && !readinessStyle) drawCircle(color = line, radius = 8f,
                         center = Offset(x(i), y(points[i].value)))
                 }
             }
