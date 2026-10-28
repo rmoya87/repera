@@ -1,0 +1,167 @@
+Current URL: https://github.com/rmoya87/repera/commit/11ea29a69517ddda1675c2d86c10d2ab6ef863c5.patch
+
+From 11ea29a69517ddda1675c2d86c10d2ab6ef863c5 Mon Sep 17 00:00:00 2001
+From: rmoya87 <rmoya87@gmail.com>
+Date: Tue, 27 Oct 2026 09:42:56 +0100
+Subject: [PATCH] Refresh remote exercise catalog at app and workout milestones
+ instead of foreground polling
+
+---
+ Apps/Repera/Sources/QuickLogSheet.swift |  6 +++++-
+ Apps/Repera/Sources/ReperaApp.swift     | 18 ------------------
+ Apps/Repera/Sources/ReperaStore.swift   | 24 ++++++++++++++++++++++++
+ Apps/Repera/Sources/RootTabView.swift   | 11 +++++++++++
+ 4 files changed, 40 insertions(+), 19 deletions(-)
+
+diff --git a/Apps/Repera/Sources/QuickLogSheet.swift b/Apps/Repera/Sources/QuickLogSheet.swift
+index ed0766c7..b0596c6e 100644
+--- a/Apps/Repera/Sources/QuickLogSheet.swift
++++ b/Apps/Repera/Sources/QuickLogSheet.swift
+@@ -128,7 +128,11 @@ struct QuickLogSheet: View {
+                     .opacity(canSave ? 1 : 0.4)
+                 }
+             }
+-            .onAppear { seedRows() }
++            .onAppear {
++                seedRows()
++                // Registro rápido: actualizar alias al abrir, sin polling.
++                store.requestExerciseCatalogRefresh()
++            }
+         }
+         .ogSheetChrome(detents: [.medium, .large])
+     }
+diff --git a/Apps/Repera/Sources/ReperaApp.swift b/Apps/Repera/Sources/ReperaApp.swift
+index 20d55201..144ee830 100644
+--- a/Apps/Repera/Sources/ReperaApp.swift
++++ b/Apps/Repera/Sources/ReperaApp.swift
+@@ -237,24 +237,6 @@ struct ReperaApp: App {
+     /// all environment, overlay, lifecycle and synchronization modifiers at once.
+     private var appScenePhaseContent: some View {
+         appLaunchContent
+-                // Refresco periódico real SOLO en primer plano. El trabajo BG
+-                // sigue siendo oportunista y no garantiza un horario concreto.
+-                // Consulta un único ID de evento y descarga datos solo si cambia.
+-                .task(id: scenePhase) {
+-                    guard scenePhase == .active else { return }
+-                    while !Task.isCancelled {
+-                        do {
+-                            try await Task.sleep(for: .seconds(300))
+-                        } catch {
+-                            return
+-                        }
+-                        guard scenePhase == .active,
+-                              businessAuth.isConnected,
+-                              !businessAuth.requiresReauthentication,
+-                              !store.hasWorkoutInProgress else { continue }
+-                        await RemoteExerciseCatalogStore.shared.refresh(store: store)
+-                    }
+-                }
+                 .onChange(of: scenePhase) { _, phase in
+                     if phase == .background {
+                         if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
+diff --git a/Apps/Repera/Sources/ReperaStore.swift b/Apps/Repera/Sources/ReperaStore.swift
+index c3ce652a..0bfcf01a 100644
+--- a/Apps/Repera/Sources/ReperaStore.swift
++++ b/Apps/Repera/Sources/ReperaStore.swift
+@@ -56,6 +56,24 @@ final class ReperaStore: NSObject {
+ 
+     func bumpCatalogEpoch() { catalogEpoch &+= 1 }
+ 
++    /// Refresco del catálogo solicitado por una acción del usuario: entrar
++    /// en Ejercicios, apuntar/registrar o guardar un entrenamiento.
++    /// No hacemos polling en primer plano ni tocamos una sesión en curso.
++    /// RemoteExerciseCatalogStore evita descargas concurrentes y amortigua
++    /// peticiones durante 60 s; si el feed no cambió, reconcilia igualmente
++    /// los alias con el historial local.
++    func requestExerciseCatalogRefresh() {
++        guard BusinessAuthStore.shared.isConnected,
++              !BusinessAuthStore.shared.requiresReauthentication,
++              !hasWorkoutInProgress else { return }
++        Task { @MainActor [weak self] in
++            guard let self, !self.hasWorkoutInProgress,
++                  BusinessAuthStore.shared.isConnected,
++                  !BusinessAuthStore.shared.requiresReauthentication else { return }
++            await RemoteExerciseCatalogStore.shared.refresh(store: self)
++        }
++    }
++
+     /// Reenvía al reloj el contexto de sesión tras una corrección del catálogo.
+     func notifyCatalogChangedForWatch() { pushActiveToWatch(immediate: true) }
+     func bumpWorkoutsEpoch() { workoutsEpoch &+= 1; statsCache.invalidate() }
+@@ -1067,6 +1085,7 @@ final class ReperaStore: NSObject {
+             "\(result.source.rawValue): \(result.workouts.count) entrenos, \(result.matchedSets) series"
+             + (result.createdExercises.isEmpty ? "" : ", \(result.createdExercises.count) ejercicios nuevos")
+         persistWorkouts()
++        if !result.workouts.isEmpty { requestExerciseCatalogRefresh() }
+         return result
+     }
+ 
+@@ -1107,6 +1126,7 @@ final class ReperaStore: NSObject {
+             upsertWorkout(session)
+             advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
+             persistWorkouts()
++            requestExerciseCatalogRefresh()
+ 
+             let sessionId = session.id
+             let title = session.title
+@@ -1558,6 +1578,7 @@ final class ReperaStore: NSObject {
+         attachSessionReview(&saved, present: true)
+         upsertWorkout(saved)
+         persistWorkouts()
++        requestExerciseCatalogRefresh()
+ 
+         let sessionId = saved.id
+         let title = saved.title
+@@ -1640,6 +1661,7 @@ final class ReperaStore: NSObject {
+         }
+         upsertWorkout(draft)
+         persistWorkouts()
++        requestExerciseCatalogRefresh()
+         if draft.phase == .finished {
+             Task {
+                 // Una edición permite reintentar una escritura de Salud pendiente.
+@@ -2162,6 +2184,8 @@ final class ReperaStore: NSObject {
+         }
+         persist()
+         pushActiveToWatch()
++        // Guardar una planificación también puede contener alias escaneados.
++        requestExerciseCatalogRefresh()
+         return true
+     }
+ 
+diff --git a/Apps/Repera/Sources/RootTabView.swift b/Apps/Repera/Sources/RootTabView.swift
+index 9461b082..77bda305 100644
+--- a/Apps/Repera/Sources/RootTabView.swift
++++ b/Apps/Repera/Sources/RootTabView.swift
+@@ -47,6 +47,9 @@ struct RootTabView: View {
+                         onSaved: { date in
+                             homeFocusDay = date
+                             tab = .home
++                            // Un registro de Comenzar guardado también es un
++                            // evento de refresco (fuera de la grabación activa).
++                            store.requestExerciseCatalogRefresh()
+                         },
+                         onOpenWorkout: openWorkout,
+                         onOpenCenter: showsCenterTab ? { showCenter = true } : nil
+@@ -98,6 +101,11 @@ struct RootTabView: View {
+         }
+         .animation(.easeInOut(duration: 0.32), value: flowPath.isEmpty)
+         .tint(OG.accent)
++        .onChange(of: tab) { _, newTab in
++            // Solo al entrar en Ejercicios, no mientras permanece abierta.
++            // El refresco es incremental y evita peticiones sucesivas en <60 s.
++            if newTab == .exercises { store.requestExerciseCatalogRefresh() }
++        }
+         .task {
+             // Nuevo proceso: volver a la pantalla real de grabación.
+             // No reabrir Inicio ni iniciar un entrenamiento distinto.
+@@ -224,6 +232,9 @@ struct RootTabView: View {
+     }
+ 
+     private func openRoutinePreview(_ routine: Routine) {
++        // Entrar en el flujo de registrar un entreno: resolver alias antes
++        // del inicio de la sesión sin interferir con su grabación.
++        store.requestExerciseCatalogRefresh()
+         previewRoutine = routine
+         flowPath = [.sessionPreview(routineId: routine.id)]
+     }

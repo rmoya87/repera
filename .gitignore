@@ -52,3 +52,10 @@ reference/
 # Web: no versionar zips de subida manual a hosting
 web/*.zip
 web/Archivo.zip
+**/.kotlin/
+
+# Nunca commitear claves de firma ni cuentas de servicio
+*.keystore
+*.jks
+*.pem
+repera-sa.json

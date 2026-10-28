@@ -1,0 +1,429 @@
+name: Android and Wear OS native
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-native-ci.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-native-ci.yml'
+
+# Validate the newest tree instead of spending runner capacity on superseded pushes.
+concurrency:
+  group: android-native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-native:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Install API 37
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Domain parity tests + native builds
+        run: gradle -p android :domain:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
+      - name: Upload JVM test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-domain-test-results
+          path: |
+            android/domain/build/test-results/**
+            android/domain/build/reports/tests/**
+          if-no-files-found: ignore
+
+  android-instrumented:
+    name: Phone integration tests on emulator (API ${{ matrix.api }})
+    needs: android-native
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.job_timeout || 30 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cobertura de ejecución real en teléfono: minSdk 30, API 35 y
+        # API 36.1 (imágenes estables publicadas). Android 17 (API 37)
+        # tiene su propio job con la imagen canary verificada (ver
+        # android-instrumented-android17): la imagen
+        # system-images;android-canary-20261007 reporta
+        # ro.build.version.sdk_full=37.2 en su build.prop.
+        # Teléfono 36.1 RETIRADO (25/10, run 40185662289): los tres renderers
+        # mueren pre-app en el display en esta config de CI — gpu por defecto
+        # (40124402423), swiftshader_indirect (RegionSamplingThread x2 +
+        # 40136277749 sin boot + 40185662289 sin adb) y guest→lavapipe
+        # (SIGABRT de surfaceflinger al boot_completed, 40184763940). Firma
+        # documentada en STATUS_AND_PARITY.md; no reintentar sin señal nueva.
+        api: ['30', '35']
+        include:
+          # Baseline que ejecutó 30/35 verdes (40136277749): set POR
+          # DEFECTO de la acción (-no-window -gpu swiftshader_indirect
+          # -no-snapshot -noaudio -no-boot-anim). El fallo libpulse.so.0
+          # de 40137591889/40139016470/40140641763 NO venía de
+          # swiftshader_indirect: viene de QUITAR -noaudio, que es la
+          # flag que hace al launcher escoger qemu-system-x86_64-headless
+          # (el qemu completo enlaza libpulse y el runner no la tiene).
+          - api: '30'
+            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
+          - api: '35'
+            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Android 17 compile SDK
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Free runner disk for emulator images
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
+          df -h /
+      - name: Run real SQLite/JSON workout persistence tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-build: ${{ matrix.emulator_build || '' }}
+          # La imagen 36.1 + APKs mobile y wear agotaban la partición de datos
+          # por defecto: los tests "pasaban" sin ejecutarse (0 tests).
+          disk-size: 8G
+          disable-animations: true
+          # API 36.1: surfaceflinger (RegionSamplingThread) ha crasheado en 2
+          # runs y el boot no llega a completar dentro de la ventana; forzar
+          # renderizado por software y arranque limpio sin snapshots.
+          emulator-options: ${{ matrix.emu_opts }}
+          # UNA sola línea: android-emulator-runner ejecuta cada línea del
+          # script en un sh -c distinto, así que un TEST_EXIT en su propia
+          # línea se pierde y el paso sale verde aunque fallen los tests.
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; adb shell wm dismiss-keyguard || true; adb shell dumpsys window | grep -E 'mDreamingLockscreen|mShowingLockscreen' || true; gradle -p android :mobile:installDebug :wear:installDebug --no-daemon --stacktrace; echo '=== ESPERA DESBLOQUEO (sonda CE run-as) ==='; for i in $(seq 1 60); do if adb shell run-as com.app.repera true 2>/dev/null; then echo "usuario-desbloqueado-$i"; break; fi; adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; sleep 10; done; adb shell run-as com.app.repera true && echo CE-OK || echo CE-NO-DISPONIBLE; adb shell getprop sys.boot_completed; adb shell df -h /data; adb shell ls -ld /data/user/0 || true; gradle -p android :mobile:connectedDebugAndroidTest :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile wear; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$TEST_EXIT" -ne 0 ] || [ "$OK" = 0 ]; then adb logcat -d -b crash -b system -t 2500 || true; adb shell df -h /data || true; adb shell ls -la /data/user/0/com.app.repera/files/users/ || true; adb shell ls -la /data/user/0/com.app.repera/files/ || true; adb shell run-as com.app.repera sh -c 'mkdir -p files/users/probe && echo ok > files/users/probe/w.txt && cat files/users/probe/w.txt' || true; fi; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
+      - name: Explain failing emulator tests
+        if: failure()
+        run: |
+          echo "## Instrumented test failures" >> "$GITHUB_STEP_SUMMARY"
+          find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -print -exec grep -nE 'failure|error|testcase' {} \; || true
+          find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -exec sh -c 'for f; do grep -n -A 15 -B 2 "<failure" "$f" || true; done' sh {} + >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      - name: Upload visual verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-visual-screenshots-api${{ matrix.api }}
+          path: android/screenshots/**
+          if-no-files-found: ignore
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumentation-results-api${{ matrix.api }}
+          path: |
+            android/mobile/build/outputs/androidTest-results/**
+            android/mobile/build/reports/androidTests/**
+            android/wear/build/outputs/androidTest-results/**
+            android/wear/build/reports/androidTests/**
+          if-no-files-found: ignore
+  android-instrumented-android17:
+    name: Phone integration tests on Android 17 (API 37.2 canary)
+    needs: android-native
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Android 17 compile SDK
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumented tests on Android 17 (API 37.2)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          # La imagen android-canary-20261007 reporta
+          # ro.build.version.sdk=37 / sdk_full=37.2 (build.prop de la
+          # imagen, verificado 24/10/2026): es la imagen publicada de
+          # Android 17. Fijada por fecha para que un salto del canal
+          # CANARY a otra versión mayor falle en voz alta.
+          api-level: CANARY
+          system-image-api-level: canary-20261007
+          target: google_apis_ps16k
+          channel: canary
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: adb shell getprop ro.build.version.sdk_full; gradle -p android :mobile:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
+      - name: Upload visual verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-visual-screenshots-api37
+          path: android/screenshots/**
+          if-no-files-found: ignore
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumentation-results-api37
+          path: |
+            android/mobile/build/outputs/androidTest-results/**
+            android/mobile/build/reports/androidTests/**
+          if-no-files-found: ignore
+
+  wear-instrumented:
+    name: Wear integration tests on Wear OS images
+    needs: android-native
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Imágenes Wear OS publicadas: 35 = Wear OS 5.1 (preview),
+        # 36.1 = Wear OS 6.1 (android-wear-signed).
+        # La pata 6.1 queda retirada: la imagen signed no termina de
+        # arrancar en el runner en dos intentos (timeout de 600 s y de
+        # 1200 s). Se documenta como ejecución no validada en
+        # android/docs/STATUS_AND_PARITY.md.
+        include:
+          - api: '35'
+            target: android-wear
+            label: 'Wear OS 5.1 (API 35)'
+            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim'
+          # Intento controlado 36.1 (STATUS_AND_PARITY.md 25/10): la imagen
+          # Wear OS 6.1 se publica como android-wear-signed (android-wear no
+          # existe para 36.1: "Failed to find package" en 40164143521).
+          # -verbose y el log de arranque van a artefacto.
+          # Wear OS 6.1 (36.1_signed_r01) NO arranca en CI: con swiftshader y
+          # con guest/lavapipe, el guest entra en bucle de crash tipo
+          # system_server ~17 s tras el boot (crash_dump64 -> init mata zygote
+          # cada ~2.5 s; kernel log 40181550822). Es el ÚNICO build publicado
+          # de 6.1. Aislamiento acotado: probar el build oficial inmediato
+          # anterior, Wear OS 6.0 (36, también android-wear-signed). Si 6.0
+          # arranca, la firma es específica del build 6.1; si también entra
+          # en bucle, es de la clase de imágenes signed en este runner. Un
+          # solo intento; después se documenta y se detienen reintentos.
+          - api: '36'
+            target: android-wear-signed
+            label: 'Wear OS 6.0 (API 36, aislamiento boot 6.1)'
+            emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -wipe-data -verbose -show-kernel'
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Android 17 compile SDK
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run wear instrumented tests on ${{ matrix.label }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          channel: canary
+          # Las imágenes Wear OS arrancan más lento que las de teléfono;
+          # 600 s por defecto no bastan (timeout observado con 36.1).
+          emulator-boot-timeout: 1200
+          arch: x86_64
+          profile: wearos_small_round
+          disable-animations: true
+          emulator-options: ${{ matrix.emu_opts }}
+          script: gradle -p android :wear:connectedDebugAndroidTest --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots-wear; adb pull /sdcard/Pictures/ReperaVerification android/screenshots-wear/ || true; ls -laR android/screenshots-wear/ || true; OK=1; for f in wear; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
+      - name: Upload wear visual verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wear-visual-screenshots-${{ matrix.api }}
+          path: android/screenshots-wear/**
+          if-no-files-found: ignore
+      - name: Upload wear instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wear-instrumentation-results-${{ matrix.api }}
+          path: |
+            android/wear/build/outputs/androidTest-results/**
+            android/wear/build/reports/androidTests/**
+          if-no-files-found: ignore
+      - name: Reporte obligatorio de validación Wear (${{ matrix.label }})
+        if: always()
+        env:
+          LEG_EXPERIMENTAL: ${{ matrix.experimental || false }}
+          LEG_API: ${{ matrix.api }}
+          LEG_LABEL: ${{ matrix.label }}
+        run: |
+          X=$(ls android/wear/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1)
+          N=0
+          if [ -n "$X" ]; then N=$(grep -o 'tests="[0-9]*"' "$X" | head -1 | grep -o '[0-9]*'); fi
+          {
+            echo "### Wear ${{ matrix.label }} — resultado de validación"
+            echo "- tests ejecutados: ${N}"
+            if [ "$N" -lt 1 ]; then
+              echo "- **NO VALIDADO**: 0 tests ejecutados (boot/timeout/fallo de harness). No interpretar el workflow verde como validación."
+            elif [ "$LEG_EXPERIMENTAL" = "true" ]; then
+              echo "- **NO VALIDADO (experimental)**: la pata corre con continue-on-error; revisar resultado antes de declarar soporte."
+            else
+              echo "- Ejecutado; revisar fallos individuales arriba."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # El guardián de conteo manda también en la pata experimental:
+          # con 0 tests el paso falla aunque continue-on-error absorba el job.
+          if [ "$N" -lt 1 ]; then exit 1; fi
+
+  # Despliegue beta: SOLO rama beta, SOLO si TODOS los tests (JVM, telefono,
+  # wear) estan verdes, SOLO AAB de telefono a track INTERNA. No existe job
+  # de produccion: la via de publicacion queda bloqueada hasta nueva
+  # autorizacion (ver android/docs/DEPLOY_PLAY.md).
+  deploy-internal-beta:
+    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
+    needs: [android-native, android-instrumented, wear-instrumented]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Install API 37
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Decode upload keystore
+        run: echo "${{ secrets.REPERA_UPLOAD_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/repera-upload.keystore"
+      - name: Guardia de commit obsoleto
+        run: |
+          # Solo el HEAD actual de beta puede desplegar: un re-run de un run
+          # viejo aborta aqui en vez de subir un artefacto obsoleto.
+          git fetch origin beta --depth=1
+          if [ "$(git rev-parse origin/beta)" != "${{ github.sha }}" ]; then
+            echo "::error::Este run ya no es el HEAD de beta; despliegue abortado (commit obsoleto)."
+            exit 1
+          fi
+      - name: Versioning (max Play + 1, suelo epoch)
+        env:
+          REPERA_PLAY_SA_JSON: ${{ secrets.REPERA_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          # versionCode = max(versionCode maximo en Play + 1, minutos desde
+          # 2026-01-01 UTC). El maximo de Play se consulta EN VIVO justo antes
+          # del build que se subira: ni colisiones por re-runs ni uploads
+          # fuera de orden. Limite Play 2100000000: holgado.
+          pip install -q pyjwt cryptography
+          python3 - <<'PYSCRIPT'
+          import json, os, time, jwt, urllib.request
+          sa = json.loads(os.environ["REPERA_PLAY_SA_JSON"])
+          now = int(time.time())
+          tok = jwt.encode({"iss": sa["client_email"],
+              "scope": "https://www.googleapis.com/auth/androidpublisher",
+              "aud": "https://oauth2.googleapis.com/token",
+              "iat": now, "exp": now + 600}, sa["private_key"], algorithm="RS256")
+          req = urllib.request.Request("https://oauth2.googleapis.com/token",
+              data=("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=" + tok).encode())
+          acc = json.load(urllib.request.urlopen(req))["access_token"]
+          H = {"Authorization": "Bearer " + acc, "Content-Type": "application/json"}
+          base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.app.repera"
+          edit = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits", data=b"{}", headers=H, method="POST")))
+          eid = edit["id"]
+          play_max = 0
+          try:
+              tracks = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid + "/tracks", headers=H)))
+              for t in tracks.get("tracks", []):
+                  for r in t.get("releases", []):
+                      for vc in r.get("versionCodes", []):
+                          play_max = max(play_max, int(vc))
+              # Bundles subidos aunque no esten en ninguna release (p.ej. el
+              # draft subido a mano): tambien cuentan para el maximo.
+              bundles = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid + "/bundles", headers=H)))
+              for bd in bundles.get("bundles", []):
+                  play_max = max(play_max, int(bd.get("versionCode", 0)))
+          finally:
+              urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid, headers=H, method="DELETE"))
+          epoch_min = now // 60 - 29453760
+          vc = max(play_max + 1, epoch_min)
+          print("play_max=%d epoch_min=%d -> versionCode=%d" % (play_max, epoch_min, vc))
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write("REPERA_VERSION_CODE=%d\n" % vc)
+          PYSCRIPT
+          TAG=$(git describe --tags --exact-match 2>/dev/null || true)
+          VNAME="${TAG:-0.1.0-beta.${{ github.run_number }}}"
+          echo "versionName=$VNAME"
+          echo "REPERA_VERSION_NAME=$VNAME" >> "$GITHUB_ENV"
+      - name: Build release AAB (telefono)
+        run: gradle -p android :mobile:bundleRelease -PREPERA_VERSION_CODE="$REPERA_VERSION_CODE" -PREPERA_VERSION_NAME="$REPERA_VERSION_NAME" --no-daemon --stacktrace
+        env:
+          REPERA_UPLOAD_KEYSTORE_FILE: ${{ runner.temp }}/repera-upload.keystore
+          REPERA_UPLOAD_STORE_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
+          REPERA_UPLOAD_KEY_ALIAS: repera-upload
+          # PKCS12: la password de clave ES la del almacen (un solo secret).
+          REPERA_UPLOAD_KEY_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
+      - name: Upload AAB to Play internal track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.REPERA_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.app.repera
+          releaseFiles: android/mobile/build/outputs/bundle/release/mobile-release.aab
+          track: internal
+          status: completed

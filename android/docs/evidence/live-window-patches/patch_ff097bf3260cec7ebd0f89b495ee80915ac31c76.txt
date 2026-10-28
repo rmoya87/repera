@@ -1,0 +1,208 @@
+Current URL: https://github.com/rmoya87/repera/commit/ff097bf3260cec7ebd0f89b495ee80915ac31c76.patch
+
+From ff097bf3260cec7ebd0f89b495ee80915ac31c76 Mon Sep 17 00:00:00 2001
+From: rmoya87 <rmoya87@gmail.com>
+Date: Tue, 27 Oct 2026 09:35:26 +0100
+Subject: [PATCH] Periodically refresh Supabase catalog and relink historic WOD
+ aliases even without new events
+
+---
+ Apps/Repera/Sources/HistoryView.swift         |  6 +++
+ .../Sources/RemoteExerciseCatalogStore.swift  | 44 ++++++++++++++-----
+ Apps/Repera/Sources/ReperaApp.swift           | 18 ++++++++
+ Apps/Repera/Sources/ReperaStore.swift         | 18 ++++++--
+ .../Sources/ReperaDomain/Models.swift         |  8 +++-
+ .../WODHistoryPresentationTests.swift         |  3 ++
+ 6 files changed, 82 insertions(+), 15 deletions(-)
+
+diff --git a/Apps/Repera/Sources/HistoryView.swift b/Apps/Repera/Sources/HistoryView.swift
+index 1f3c7583..3a232acd 100644
+--- a/Apps/Repera/Sources/HistoryView.swift
++++ b/Apps/Repera/Sources/HistoryView.swift
+@@ -330,6 +330,12 @@ struct WorkoutDetailView: View {
+             }
+         }
+         .onAppear { loadDraft() }
++        .onChange(of: store.catalogEpoch) { _, _ in
++            // Si llegan los alias mientras el detalle ya está abierto, usar
++            // la sesión reconciliada sin cerrar/recrear la navegación.
++            guard !isEditing else { return }
++            draft = store.state.workouts.first(where: { $0.id == sessionId })
++        }
+         .task(id: sessionId) {
+             guard !didHydrateDetail else { return }
+             store.repairHistoricalWODExercisesIfNeeded()
+diff --git a/Apps/Repera/Sources/RemoteExerciseCatalogStore.swift b/Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
+index f5c3a5b9..c3402887 100644
+--- a/Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
++++ b/Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
+@@ -110,11 +110,10 @@ final class RemoteExerciseCatalogStore {
+         var saved = await localSnapshot()
+         guard saved.revision > 0 else { return }
+         let originalIDs = saved.localIDs
+-        if await apply(saved: &saved, to: store) {
+-            _ = store.relinkScheduledWODMovementsToCatalog()
+-            store.bumpCatalogEpoch()
+-            store.persistLocalOnly(immediate: true)
+-        }
++        // La revisión remota puede ser la misma, pero los entrenamientos
++        // restaurados desde iCloud conservan UUIDs y nombres anteriores.
++        // Reconciliar siempre el catálogo cacheado Y sus copias históricas.
++        _ = await applyAndRelink(saved: &saved, to: store)
+         snapshot = saved
+         // Do not rewrite 288 entries on every iCloud restore or app launch.
+         if originalIDs != saved.localIDs {
+@@ -126,7 +125,12 @@ final class RemoteExerciseCatalogStore {
+     func refresh(store: ReperaStore? = nil, force: Bool = false) async {
+         guard !isRefreshing, BusinessAuthStore.shared.isConnected,
+               let client = BusinessAuthStore.shared.apiClient else { return }
+-        if !force, let lastProbeAt, Date().timeIntervalSince(lastProbeAt) < 60 { return }
++        if !force, let lastProbeAt, Date().timeIntervalSince(lastProbeAt) < 60 {
++            // Dos triggers de primer plano en menos de 60 s tampoco deben
++            // impedir aplicar el catálogo ya descargado a las sesiones locales.
++            if let store { await restoreCached(to: store) }
++            return
++        }
+         isRefreshing = true
+         defer { isRefreshing = false }
+ 
+@@ -144,6 +148,12 @@ final class RemoteExerciseCatalogStore {
+             var working = await localSnapshot()
+             if working.revision > head { working = DiskSnapshot() }
+             guard head > working.revision else {
++                // Sin eventos nuevos NO significa que el estado local esté
++                // enlazado: iCloud o un snapshot antiguo pueden restaurarlo.
++                if let store {
++                    _ = await applyAndRelink(saved: &working, to: store)
++                    snapshot = working
++                }
+                 lastSuccessfulSync = Date()
+                 lastErrorMessage = nil
+                 return
+@@ -193,10 +203,7 @@ final class RemoteExerciseCatalogStore {
+             try await disk.write(working)
+             snapshot = working
+             let idsBeforeMerge = working.localIDs
+-            if let store, await apply(saved: &working, to: store) {
+-                _ = store.relinkScheduledWODMovementsToCatalog()
+-                store.bumpCatalogEpoch()
+-                store.persistLocalOnly(immediate: true)
++            if let store, await applyAndRelink(saved: &working, to: store) {
+                 store.notifyCatalogChangedForWatch()
+             }
+             snapshot = working
+@@ -212,6 +219,23 @@ final class RemoteExerciseCatalogStore {
+         }
+     }
+ 
++    /// Aplicar catálogo y referencias de WOD antiguos es una sola operación
++    /// lógica. Las llamadas anteriores actualizaban solo las plantillas,
++    /// dejando sin reconciliar SessionExercise.exercise de AMRAP ya terminados.
++    @discardableResult
++    private func applyAndRelink(saved: inout DiskSnapshot, to store: ReperaStore) async -> Bool {
++        let catalogChanged = await apply(saved: &saved, to: store)
++        let historyChanged = store.relinkOrphanSessionExercisesToCatalog()
++        let plannedChanged = store.relinkScheduledWODMovementsToCatalog()
++        guard catalogChanged || historyChanged || plannedChanged else { return false }
++        store.bumpCatalogEpoch()
++        if historyChanged { store.bumpWorkoutsEpoch() }
++        // Escribir localmente, sin sustituir sesiones activas ni sus resultados.
++        // Solo cambian referencias y metadatos de ejercicios.
++        store.persistLocalOnly(immediate: true)
++        return true
++    }
++
+     /// Mezcla por clave editorial + UUID persistente + alias original de la clave.
+     /// Nunca se reemplazan los UUID históricos ni los favoritos del usuario.
+     @discardableResult
+diff --git a/Apps/Repera/Sources/ReperaApp.swift b/Apps/Repera/Sources/ReperaApp.swift
+index 144ee830..20d55201 100644
+--- a/Apps/Repera/Sources/ReperaApp.swift
++++ b/Apps/Repera/Sources/ReperaApp.swift
+@@ -237,6 +237,24 @@ struct ReperaApp: App {
+     /// all environment, overlay, lifecycle and synchronization modifiers at once.
+     private var appScenePhaseContent: some View {
+         appLaunchContent
++                // Refresco periódico real SOLO en primer plano. El trabajo BG
++                // sigue siendo oportunista y no garantiza un horario concreto.
++                // Consulta un único ID de evento y descarga datos solo si cambia.
++                .task(id: scenePhase) {
++                    guard scenePhase == .active else { return }
++                    while !Task.isCancelled {
++                        do {
++                            try await Task.sleep(for: .seconds(300))
++                        } catch {
++                            return
++                        }
++                        guard scenePhase == .active,
++                              businessAuth.isConnected,
++                              !businessAuth.requiresReauthentication,
++                              !store.hasWorkoutInProgress else { continue }
++                        await RemoteExerciseCatalogStore.shared.refresh(store: store)
++                    }
++                }
+                 .onChange(of: scenePhase) { _, phase in
+                     if phase == .background {
+                         if businessAuth.isConnected || businessAuth.hasPriorSupabaseBinding {
+diff --git a/Apps/Repera/Sources/ReperaStore.swift b/Apps/Repera/Sources/ReperaStore.swift
+index 2c82f6fb..c3ce652a 100644
+--- a/Apps/Repera/Sources/ReperaStore.swift
++++ b/Apps/Repera/Sources/ReperaStore.swift
+@@ -460,9 +460,21 @@ final class ReperaStore: NSObject {
+     /// Esto evita que una copia de sesión «BTt» vuelva a pintarse como custom
+     /// aun cuando el usuario ya tenga los alias correctos en Supabase.
+     func historicalDisplayExercise(_ snapshot: Exercise) -> Exercise {
+-        officialHistoricalWODExercise(for: snapshot)
+-            ?? resolvedCatalogExercise(id: snapshot.id)
+-            ?? snapshot
++        if let official = officialHistoricalWODExercise(for: snapshot) {
++            return official
++        }
++        // Último respaldo visual para copias históricas que no encuentran aún
++        // su UUID de catálogo: el nombre canónico permite usar la miniatura
++        // empaquetada y no muestra un ejercicio inexistente «BTt»/«T2B».
++        // La reparación persistente se realiza en la sincronización y al
++        // abrir el detalle; aquí no se modifican datos del usuario.
++        if let officialName = WODHistoryPresentation.officialName(for: snapshot.name) {
++            var display = snapshot
++            display.name = officialName
++            display.isCustom = false
++            return display
++        }
++        return resolvedCatalogExercise(id: snapshot.id) ?? snapshot
+     }
+ 
+     /// Resuelve un ID de sesión contra el catálogo, incluso si existe una
+diff --git a/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift b/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift
+index aef9360b..38788172 100644
+--- a/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift
++++ b/Packages/ReperaDomain/Sources/ReperaDomain/Models.swift
+@@ -1711,8 +1711,12 @@ public enum WODHistoryPresentation {
+     /// Aliases inequívocos. Deliberadamente no aplica equivalencias difusas a
+     /// otros ejercicios que el usuario haya elegido manualmente.
+     public static func officialName(for rawName: String) -> String? {
+-        let name = rawName.lowercased()
+-            .folding(options: [.caseInsensitive, .diacriticInsensitive],
++        // OCR puede insertar Unicode de otros alfabetos con aspecto idéntico
++        // (p. ej. la T cirílica en «BTт»). Transliterar antes de comprobar
++        // equivalencias evita dejar iconos genéricos en sesiones antiguas.
++        let latin = rawName.applyingTransform(.toLatin, reverse: false) ?? rawName
++        let name = latin.lowercased()
++            .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                      locale: Locale(identifier: "en_US_POSIX"))
+             .replacingOccurrences(of: #"[^a-z0-9]+"#, with: " ", options: .regularExpression)
+             .trimmingCharacters(in: .whitespacesAndNewlines)
+diff --git a/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift b/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift
+index bb2c7a0f..d1d9ab05 100644
+--- a/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift
++++ b/Packages/ReperaDomain/Tests/ReperaDomainTests/WODHistoryPresentationTests.swift
+@@ -9,6 +9,9 @@ final class WODHistoryPresentationTests: XCTestCase {
+         for raw in ["T2B", "t2b", "T 2 B", "TTB", "toes-to-bar"] {
+             XCTAssertEqual(WODHistoryPresentation.officialName(for: raw), "Toes to bar")
+         }
++        // Variantes que OCR produce con grafías indistinguibles.
++        XCTAssertEqual(WODHistoryPresentation.officialName(for: "BTт"), "Burpee to target")
++        XCTAssertEqual(WODHistoryPresentation.officialName(for: "Ｔ２Ｂ"), "Toes to bar")
+         XCTAssertNil(WODHistoryPresentation.officialName(for: "Wall ball"))
+     }
+ 

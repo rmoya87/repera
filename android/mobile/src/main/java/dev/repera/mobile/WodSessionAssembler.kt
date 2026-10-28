@@ -1,0 +1,129 @@
+package dev.repera.mobile
+
+import dev.repera.domain.ResultCapture
+import dev.repera.domain.WodFormat
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+
+/**
+ * Builds WOD session movements from actual RoutineBlock.movements.
+ * Ports the source-of-truth block/movement layout, not artificial logged sets.
+ * Per-movement formats remain gated until their recorder is functional.
+ */
+object WodSessionAssembler {
+    fun supports(block: JSONObject): Boolean {
+        if (block.optString("kind") != "wod") return false
+        val format = WodFormat.fromWire(block.optString("wodFormat")) ?: return false
+        val moves = block.optJSONArray("movements") ?: return false
+        return (0 until moves.length()).any { !moves.getJSONObject(it).optBoolean("isRest") }
+    }
+
+    fun append(block: JSONObject, catalog: JSONArray, result: JSONArray,
+               packaged: JSONArray = JSONArray()) {
+        require(supports(block)) { "Bloque WOD no válido" }
+        val format = WodFormat.fromWire(block.getString("wodFormat"))!!
+        val movements = block.getJSONArray("movements")
+        val catalogEntries = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+        val packagedEntries = (0 until packaged.length()).map { packaged.getJSONObject(it) }
+        val domainCatalog = catalogEntries.map {
+            dev.repera.domain.CatalogExercise(it.optString("id"), it.optString("name"),
+                PublishedCatalogAliases.read(it), it.optBoolean("isCustom"),
+                it.optBoolean("isCatalogArchived"))
+        }
+        val domainPackaged = packagedEntries.map {
+            dev.repera.domain.CatalogExercise(it.optString("id"), it.optString("name"),
+                PublishedCatalogAliases.read(it), it.optBoolean("isCustom"),
+                it.optBoolean("isCatalogArchived"))
+        }
+        for (n in 0 until movements.length()) {
+            val move = movements.getJSONObject(n)
+            if (move.optBoolean("isRest")) continue
+            val name = move.getString("name")
+            // Apple cf25922e: SessionController re-resuelve con
+            // CrossFitGlossary.catalogExercise al iniciar (canónico oficial,
+            // alias publicados, abreviaturas BTT/T2B con respaldo empaquetado);
+            // no inventa un ID de catálogo si no está disponible.
+            val domainMove = dev.repera.domain.WODMovement(
+                name = name,
+                exerciseId = move.optString("exerciseId").takeIf { it.isNotBlank() },
+                notes = move.optString("notes").takeIf { it.isNotBlank() })
+            val match = dev.repera.domain.CrossFitGlossary.catalogExercise(
+                domainMove, domainCatalog, domainPackaged)
+            // Swift SessionController.from can resolve an unrecognized WOD name
+            // as a custom movement (con nombre canónico), but that must never
+            // imply it was performed.
+            val exercise = match?.let { m ->
+                val source = (catalogEntries + packagedEntries).firstOrNull {
+                    it.optString("id") == m.id
+                }
+                source?.let { JSONObject(it.toString()) }
+            } ?: JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("name", dev.repera.domain.CrossFitGlossary.resolveCatalogName(
+                    name, move.optString("notes").takeIf { it.isNotBlank() }))
+                .put("muscleGroup", "WOD")
+                .put("isCustom", true)
+            // Apple SessionController.from: SessionExercise.id = id del movimiento de la rutina.
+            val sessionMovement = JSONObject()
+                .put("id", move.optString("id").ifBlank { UUID.randomUUID().toString() })
+                .put("exercise", exercise)
+                .put("plannedSets", plannedSets(move))
+                .put("loggedSets", JSONArray())
+                .put("completedReps", 0)
+                .put("isCompleted", false)
+                .put("blockId", block.getString("id"))
+                .put("blockKind", "wod")
+                .put("wodFormat", format.wireName)
+                .put("blockHeader", block.optString("title"))
+            if (block.has("timeCapMinutes") && !block.isNull("timeCapMinutes"))
+                sessionMovement.put("blockTimeCapMinutes", block.getInt("timeCapMinutes"))
+            if (block.has("emomIntervalSeconds") && !block.isNull("emomIntervalSeconds"))
+                sessionMovement.put("blockIntervalSeconds", block.getInt("emomIntervalSeconds"))
+            if (block.has("rounds") && !block.isNull("rounds"))
+                sessionMovement.put("blockRounds", block.getInt("rounds"))
+            if (block.has("workSeconds") && !block.isNull("workSeconds"))
+                sessionMovement.put("blockWorkSeconds", block.getInt("workSeconds"))
+            if (block.has("restSeconds") && !block.isNull("restSeconds"))
+                sessionMovement.put("blockRestSeconds", block.getInt("restSeconds"))
+            if (block.has("restBetweenRoundsSeconds") && !block.isNull("restBetweenRoundsSeconds"))
+                sessionMovement.put("blockRestBetweenRoundsSeconds", block.getInt("restBetweenRoundsSeconds"))
+            // Preserve the actual amount and unit from the board for previews;
+            // WOD block scoring never creates individual movement logs.
+            if (move.has("calories") && !move.isNull("calories"))
+                sessionMovement.put("quantityUnit", "calories")
+            else if (move.has("distanceMeters") && !move.isNull("distanceMeters"))
+                sessionMovement.put("quantityUnit", "meters")
+            else if(dev.repera.domain.ExerciseInput.supportsRepsOrMeters(exercise.getString("name")))
+                sessionMovement.put("quantityUnit","reps")
+            result.put(sessionMovement)
+        }
+    }
+
+    /** WODMovement.plannedSetsFromReps, never counted as confirmed performance. */
+    private fun plannedSets(move: JSONObject): JSONArray {
+        val explicit = move.optJSONArray("explicitPlannedSets")
+        if (explicit != null && explicit.length() > 0)
+            return JSONArray(explicit.toString())
+        val scheme = move.optJSONArray("repScheme")
+        val values = scheme?.let { (0 until it.length()).map { index -> it.getInt(index) } }
+            ?: emptyList()
+        val range = values.size == 2 && values[0] < values[1] &&
+            values[1] - values[0] <= 20
+        val reps = if (values.isNotEmpty() && !range) values
+            else listOf(if (range) values[1] else move.optInt(
+                if (move.has("calories")) "calories"
+                else if (move.has("distanceMeters")) "distanceMeters" else "reps", 10
+            ))
+        return JSONArray().apply {
+            for (rep in reps) {
+                val planned = JSONObject()
+                    .put("id", UUID.randomUUID().toString())
+                    .put("targetReps", rep.coerceAtLeast(1))
+                if (move.has("weightMaleKg") && !move.isNull("weightMaleKg"))
+                    planned.put("targetWeightKg", move.getDouble("weightMaleKg"))
+                put(planned)
+            }
+        }
+    }
+}

@@ -1,0 +1,258 @@
+package dev.repera.mobile
+
+import android.graphics.Path as AndroidPath
+import android.graphics.RectF
+import android.graphics.Region
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path as ComposePath
+import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import dev.repera.domain.MuscleTaxonomy
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+
+/** 0 gris · 1 verde · 2 amarillo · 3 naranja · 4 rojo (port de BodyMapPalette iOS). */
+internal object BodyMapPalette {
+    val yellow = Color(1f, 214f / 255f, 10f / 255f)
+    val orange = Color(1f, 159f / 255f, 10f / 255f)
+    val red = Color(1f, 69f / 255f, 58f / 255f)
+    val gray = Color(0.23f, 0.23f, 0.24f)
+
+    fun fill(level: Int, neutral: Color = gray): Color = when (level) {
+        1 -> brandGreen
+        2 -> yellow
+        3 -> orange
+        4 -> red
+        else -> neutral
+    }
+
+    // Neutral anatomy must remain distinct from the card in both themes.
+    fun neutralFor(background: Color): Color =
+        if (background.luminance() < 0.25f) Color(0.68f, 0.68f, 0.70f) else gray
+    fun silhouetteFor(background: Color): Color = neutralFor(background).copy(alpha = 0.70f)
+}
+
+internal class CompiledBodyView(
+    val viewBox: RectF,
+    val inertPaths: Map<String, List<AndroidPath>>,
+    val musclePaths: Map<String, List<AndroidPath>>
+)
+
+internal class CompiledBodyPaths(val front: CompiledBodyView, val back: CompiledBodyView) {
+    companion object {
+        @Volatile private var cached: CompiledBodyPaths? = null
+
+        /** Parsea una vez fuera del hilo principal (port de BodyPathsLoader iOS). */
+        suspend fun shared(context: android.content.Context): CompiledBodyPaths? {
+            cached?.let { return it }
+            val compiled = withContext(Dispatchers.Default) {
+                runCatching {
+                    val text = context.assets.open("BodyPaths.json").bufferedReader().use { it.readText() }
+                    val root = JSONObject(text)
+                    val male = root.getJSONObject("male")
+                    CompiledBodyPaths(
+                        front = compile(male.getJSONObject("front")),
+                        back = compile(male.getJSONObject("back"))
+                    )
+                }.onFailure {
+                    android.util.Log.e("BodyMap", "BodyPaths.json NO cargó: ${it.javaClass.simpleName}: ${it.message}", it)
+                }.onSuccess {
+                    android.util.Log.i("BodyMap", "cargado: frente ${it.front.musclePaths.size} músculos " +
+                        "(${it.front.musclePaths.values.sumOf { l -> l.size }} rutas), espalda " +
+                        "${it.back.musclePaths.size} músculos (${it.back.musclePaths.values.sumOf { l -> l.size }} rutas), " +
+                        "cabeza=${it.front.inertPaths.containsKey("head")}, vb=${it.front.viewBox}")
+                }.getOrNull()
+            }
+            cached = compiled
+            return compiled
+        }
+
+        private fun compile(view: JSONObject): CompiledBodyView {
+            val parts = view.getString("vb").split(" ").mapNotNull { it.toDoubleOrNull() }
+            val vb = if (parts.size == 4) RectF(
+                parts[0].toFloat(), parts[1].toFloat(),
+                (parts[0] + parts[2]).toFloat(), (parts[1] + parts[3]).toFloat()
+            ) else RectF()
+            val inert = mutableMapOf<String, MutableList<AndroidPath>>()
+            val muscles = mutableMapOf<String, MutableList<AndroidPath>>()
+            val paths = view.getJSONObject("p")
+            for (slug in paths.keys()) {
+                // Rostro y pelo se sustituyen por una cabeza neutra (port iOS).
+                if (slug == "head" || slug == "hair") continue
+                val arr = paths.getJSONArray(slug)
+                val list = mutableListOf<AndroidPath>()
+                for (i in 0 until arr.length()) {
+                    val ops = SvgPathParser.parse(arr.getString(i))
+                    if (ops.isNotEmpty()) list += ops.toAndroidPath()
+                }
+                if (list.isEmpty()) continue
+                if (MuscleTaxonomy.inert.contains(slug)) inert.getOrPut(slug) { mutableListOf() }.addAll(list)
+                else if (MuscleTaxonomy.muscles.contains(slug)) muscles.getOrPut(slug) { mutableListOf() }.addAll(list)
+            }
+            if (vb.width() > 0) {
+                val headRect = RectF(vb.centerX() - 57, vb.top + 12, vb.centerX() + 57, vb.top + 12 + 143)
+                inert["head"] = mutableListOf(AndroidPath().apply { addOval(headRect, AndroidPath.Direction.CW) })
+            }
+            return CompiledBodyView(vb, inert, muscles)
+        }
+    }
+}
+
+internal fun List<SvgPathParser.PathOp>.toAndroidPath(): AndroidPath {
+    val p = AndroidPath()
+    for (op in this) {
+        when (op) {
+            is SvgPathParser.PathOp.MoveTo -> p.moveTo(op.x.toFloat(), op.y.toFloat())
+            is SvgPathParser.PathOp.LineTo -> p.lineTo(op.x.toFloat(), op.y.toFloat())
+            is SvgPathParser.PathOp.CubicTo -> p.cubicTo(
+                op.c1x.toFloat(), op.c1y.toFloat(),
+                op.c2x.toFloat(), op.c2y.toFloat(),
+                op.x.toFloat(), op.y.toFloat()
+            )
+            is SvgPathParser.PathOp.QuadTo -> p.quadTo(op.cx.toFloat(), op.cy.toFloat(), op.x.toFloat(), op.y.toFloat())
+            SvgPathParser.PathOp.Close -> p.close()
+        }
+    }
+    return p
+}
+
+/** Silueta frente/espalda sombreada por fatiga / intensidad (verde → rojo). Port 1:1 de BodyMapView iOS. */
+@Composable
+internal fun BodyMapView(
+    load: Map<String, Double>,
+    fatigueScores: Map<String, Double>?,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current.applicationContext
+    val compiled by produceState<CompiledBodyPaths?>(null, context) {
+        value = CompiledBodyPaths.shared(context)
+    }
+    val levels: Map<String, Int> = if (fatigueScores != null) {
+        dev.repera.domain.MuscleMapEngine.levels(fatigueScores)
+    } else {
+        dev.repera.domain.MuscleLoadEngine.levels(load)
+    }
+
+    val paths = compiled
+    if (paths == null) {
+        Spacer(modifier.height(220.dp).fillMaxWidth())
+        return
+    }
+    Row(modifier.height(220.dp).fillMaxWidth().testTag("body_map_loaded")) {
+        // weight(1f) en una Row solo fija el ANCHO; sin fillMaxHeight el
+        // Canvas (sin contenido intrínseco) medía altura 0 y no dibujaba nada.
+        BodySilhouetteView(paths.front, levels, selected, onSelect,
+            Modifier.weight(1f).fillMaxHeight())
+        Spacer(Modifier.width(4.dp))
+        BodySilhouetteView(paths.back, levels, selected, onSelect,
+            Modifier.weight(1f).fillMaxHeight())
+    }
+}
+
+@Composable
+private fun BodySilhouetteView(
+    view: CompiledBodyView,
+    levels: Map<String, Int>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val background = MaterialTheme.colorScheme.surfaceContainerHighest
+    val neutral = BodyMapPalette.neutralFor(background)
+    val silhouette = BodyMapPalette.silhouetteFor(background)
+    Canvas(
+        modifier.pointerInput(view, selected) {
+            detectTapGestures { offset ->
+                hitTest(view, offset, size)?.let(onSelect)
+            }
+        }
+    ) {
+        val vb = view.viewBox
+        if (vb.width() <= 0 || vb.height() <= 0) return@Canvas
+        val scale = minOf(size.width / vb.width(), size.height / vb.height())
+        val dx = (size.width - vb.width() * scale) / 2 - vb.left * scale
+        val dy = (size.height - vb.height() * scale) / 2 - vb.top * scale
+
+        android.util.Log.i("BodyMap", "draw size=$size vb=$vb scale=$scale " +
+            "músculos=${view.musclePaths.size} rutas=${view.musclePaths.values.sumOf { it.size }} " +
+            "inertes=${view.inertPaths.mapValues { it.value.size }}")
+        // Orden 1:1 con iOS: inertes (sin cabeza) detrás, músculos encima y la
+        // cabeza neutra la última. Transformación con la API idiomática de
+        // DrawScope (withTransform), no con save/restore del canvas crudo.
+        withTransform({
+            translate(dx, dy)
+            scale(scale, scale, Offset.Zero)
+        }) {
+            for (key in view.inertPaths.keys.sorted()) {
+                if (key == "head") continue
+                for (path in view.inertPaths[key] ?: emptyList()) {
+                    drawPath(path.asComposePath(), color = silhouette)
+                }
+            }
+            for (slug in MuscleTaxonomy.muscles) {
+                val level = levels[slug] ?: 0
+                val isSel = selected == slug
+                for (path in view.musclePaths[slug] ?: emptyList()) {
+                    val compose = path.asComposePath()
+                    drawPath(compose, color = BodyMapPalette.fill(level, neutral))
+                    if (isSel) {
+                        drawPath(compose, color = Color.White, style = Stroke(width = 1.5f / scale))
+                    }
+                }
+            }
+            for (path in view.inertPaths["head"] ?: emptyList()) {
+                drawPath(path.asComposePath(), color = silhouette)
+            }
+        }
+    }
+}
+
+
+private fun hitTest(view: CompiledBodyView, point: Offset, size: androidx.compose.ui.unit.IntSize): String? {
+    val vb = view.viewBox
+    if (vb.width() <= 0 || vb.height() <= 0) return null
+    val scale = minOf(size.width / vb.width(), size.height / vb.height())
+    val dx = (size.width - vb.width() * scale) / 2 - vb.left * scale
+    val dy = (size.height - vb.height() * scale) / 2 - vb.top * scale
+    val px = ((point.x - dx) / scale).toInt()
+    val py = ((point.y - dy) / scale).toInt()
+    val clip = Region(
+        (vb.left - 1).toInt(), (vb.top - 1).toInt(),
+        (vb.right + 1).toInt(), (vb.bottom + 1).toInt()
+    )
+    for (slug in MuscleTaxonomy.muscles.asReversed()) {
+        for (path in view.musclePaths[slug] ?: emptyList()) {
+            val region = Region()
+            region.setPath(path, clip)
+            if (region.contains(px, py)) return slug
+        }
+    }
+    return null
+}

@@ -1,0 +1,130 @@
+package dev.repera.mobile
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import dev.repera.domain.LiveActivityState
+import dev.repera.domain.LiveSport
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.util.UUID
+
+/** Cuenta sintética aislada, sin sensores, red ni Salud. */
+@RunWith(AndroidJUnit4::class)
+class LiveActivitySaveInstrumentedTest {
+    @get:org.junit.Rule val compose = androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @Test fun evolutionMapCapturesRealWindowAfterStyleLoaded() {
+        val loaded = java.util.concurrent.CountDownLatch(1)
+        val route = LiveSavedRoute(title = "Ruta sintética Madrid", sportID = "running", points = (0..20).map { i ->
+            val t = if (i <= 10) i/10.0 else (i-10)/10.0
+            dev.repera.domain.WorkoutRoutePoint(i,
+                if (i <= 10) 40.438+0.003*t else 40.441-0.002*t,
+                if (i <= 10) -3.703+0.003*t else -3.700+0.003*t,
+                i*15_000L)
+        })
+        compose.setContent {
+            androidx.compose.material3.MaterialTheme(colorScheme = reperaColorScheme(false)) {
+                LiveRouteEvolutionScreen(route, LiveSport.RUNNING, emptyList(), {}, {}, { loaded.countDown() })
+            }
+        }
+        assertTrue("No cargó el estilo del mapa real", loaded.await(60, java.util.concurrent.TimeUnit.SECONDS))
+        Thread.sleep(8_000)
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        assertNotNull(bitmap)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "deportes_evolucion_mapa_real.png")
+            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ReperaVerification")
+        }
+        val uri = context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)!!
+        context.contentResolver.openOutputStream(uri)!!.use { bitmap!!.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+    }
+
+    @Test fun saveLiveActivityIsIdempotentAndDoesNotInventExerciseOrHealthValues() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val account="test-live-save-${UUID.randomUUID()}"
+        val local=LocalSnapshotStore(context,account)
+        local.write(JSONObject().put("workouts",JSONArray()).put("exercises",JSONArray())
+            .put("routines",JSONArray()).toString().toByteArray())
+        val recorder=LiveActivityState();recorder.choose(LiveSport.PADEL)
+        recorder.start(1_000_000,"synthetic-live");recorder.pause(1_060_000)
+        recorder.resume(1_120_000);recorder.finish(1_180_000)
+        val repo=WorkoutRepository(context,account)
+        repeat(2) { repo.saveLiveActivity(recorder.snapshot(1_180_000)!!,1_180_000,
+            recorder.durationSeconds(1_180_000),"  Partido  ","  nota  ") }
+        val archive=JSONObject(String(local.read()!!)).getJSONArray("workouts")
+        assertEquals(1,archive.length())
+        val s=archive.getJSONObject(0)
+        assertEquals("Partido",s.getString("title"));assertEquals("padel",s.getString("liveSportID"))
+        assertEquals(120.0,s.getDouble("activeDurationSeconds"),0.0)
+        assertEquals(0,s.getJSONArray("exercises").length())
+        assertFalse(s.has("recordedDistanceMeters"));assertFalse(s.has("appleActiveEnergyKcal"))
+        assertFalse(s.has("appleAverageHeartRateBpm"))
+        val overview=StateOverview.fromBytes(local.read())!!
+        assertEquals(1,overview.liveSportSessions.size)
+        assertEquals("synthetic-live",overview.completeHistory.single().id)
+    }
+    @Test fun savingNewGPSRouteArchivesStableRouteWithoutDuplicates() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val account = "test-route-archive-${UUID.randomUUID()}"
+        val local = LocalSnapshotStore(context,account)
+        local.write(JSONObject().put("workouts",JSONArray()).put("exercises",JSONArray()).put("routines",JSONArray()).toString().toByteArray())
+        val recorder = LiveActivityState();recorder.start(1_000_000,"synthetic-gps")
+        recorder.receive("synthetic-gps",dev.repera.domain.WorkoutRoutePoint(0,40.438,-3.703,1_000_000),0.0)
+        recorder.receive("synthetic-gps",dev.repera.domain.WorkoutRoutePoint(1,40.441,-3.700,1_060_000),400.0)
+        recorder.finish(1_060_000)
+        val repo = WorkoutRepository(context,account)
+        repeat(2) { repo.saveLiveActivity(recorder.snapshot(1_060_000)!!,1_060_000,60.0,"Parque","") }
+        val workout = JSONObject(String(local.read()!!)).getJSONArray("workouts").getJSONObject(0)
+        val route = LiveRoutesStore(context,account).routes.single()
+        assertEquals(route.id,workout.getString("liveRouteID"))
+        assertEquals(recorder.points,route.points)
+        assertFalse(route.isFavorite)
+        assertEquals("running",route.sportID)
+    }
+    @Test fun corruptCheckpointCannotBeOverwrittenUntilExplicitDiscard() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val account="test-corrupt-${UUID.randomUUID()}"
+        val hash=java.security.MessageDigest.getInstance("SHA-256").digest(account.toByteArray()).joinToString("") { "%02x".format(it) }
+        val file=java.io.File(context.filesDir,"users/$hash/live_activity.json")
+        file.parentFile!!.mkdirs();file.writeText("original-corrupt-checkpoint")
+        val runtime=LiveActivityRuntime.forAccount(context,account)
+        assertTrue(runtime.recoveryBlocked)
+        assertTrue(LiveActivityRuntime.hasPendingActivity(context,account))
+        runtime.start()
+        assertEquals(LiveActivityState.Phase.IDLE,runtime.state.phase)
+        assertEquals("original-corrupt-checkpoint",file.readText())
+        assertTrue(runtime.discard());assertFalse(file.exists())
+        assertFalse(runtime.recoveryBlocked)
+        assertFalse(LiveActivityRuntime.hasPendingActivity(context,account))
+        LiveActivityRuntime.stopAll()
+    }
+    @Test fun runtimeRestoresCheckpointPausedAcrossAccountIsolationAndDiscardsLocally() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val account = "test-runtime-${UUID.randomUUID()}"
+        val runtime = LiveActivityRuntime.forAccount(context, account)
+        runtime.choose(LiveSport.PADEL)
+        runtime.start()
+        assertEquals(LiveActivityState.Phase.RECORDING, runtime.state.phase)
+        val session = runtime.state.gpsSessionID
+        runtime.pause()
+        val elapsed = runtime.state.durationSeconds(System.currentTimeMillis())
+        assertTrue(elapsed >= 0)
+        // Cambio de cuenta: sin sensor GPS en deporte interior;
+        // checkpoint aislado y restauración en pausa.
+        LiveActivityRuntime.forAccount(context, "test-other-${UUID.randomUUID()}")
+        val restored = LiveActivityRuntime.forAccount(context, account)
+        assertEquals(LiveActivityState.Phase.PAUSED, restored.state.phase)
+        assertEquals(session, restored.state.gpsSessionID)
+        assertEquals(elapsed, restored.state.durationSeconds(System.currentTimeMillis()), 0.1)
+        restored.resume();restored.finish()
+        assertEquals(LiveActivityState.Phase.REVIEW, restored.state.phase)
+        assertTrue(restored.discard())
+        assertEquals(LiveActivityState.Phase.IDLE, restored.state.phase)
+        LiveActivityRuntime.stopAll()
+    }
+
+}

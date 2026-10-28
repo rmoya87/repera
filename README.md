@@ -67,6 +67,14 @@ App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**
 
 El acceso Google usa el SDK oficial `GoogleSignIn` 10.1.0. Su botón tiene presentación SwiftUI adaptada al de Apple: contenido centrado, sin sombra y esquinas redondeadas; la autenticación sigue siendo del SDK. Los identificadores públicos del cliente OAuth **iOS** de `com.app.repera`, su esquema de retorno y el cliente Web del backend están configurados en `Configs/GoogleSignIn.xcconfig`. Regenerar XcodeGen antes de compilar. Configuración y validación pendiente en [docs/GOOGLE_AUTH_IOS.md](docs/GOOGLE_AUTH_IOS.md).
 
+Android / Wear OS (en desarrollo)
+
+Proyecto nativo independiente en [android/](android/) con Kotlin, Material 3,
+login de Google y Google Drive appDataFolder. **No equivale aún a las apps Apple
+ni está autorizado para producción**. Véanse
+[estado de paridad](android/docs/STATUS_AND_PARITY.md) e
+[identidad/sincronización](android/docs/GOOGLE_IDENTITY_DRIVE.md).
+
 ## Documentación
 
 | Documento | Contenido |
