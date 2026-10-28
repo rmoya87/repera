@@ -299,6 +299,17 @@ public enum CompletedWorkoutEditing {
                 // Borrar el bloque es una acción explícita: se borra su resultado.
                 return nil
             }
+            if block.kind == .wod,
+               let old = original.routineBlocks?.first(where: { $0.id == block.id && $0.kind == .wod }) {
+                let before = Set(old.movements.filter { !$0.isRest }.map(\.id))
+                let after = Set(block.movements.filter { !$0.isRest }.map(\.id))
+                if before.count == after.count,
+                   before.subtracting(after).count == 1,
+                   after.subtracting(before).count == 1 {
+                    // Una sustitución invalida el score del bloque, no otros WOD.
+                    return nil
+                }
+            }
             guard let currentFormat = block.wodFormat else { return saved }
             var result = saved
             if result.format == nil {
