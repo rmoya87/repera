@@ -42,7 +42,7 @@ final class RestLiveActivityCoordinator {
 
     func pause(remainingSeconds: Int) async {
         let remaining = max(0, remainingSeconds)
-        for activity in Activity<RestActivityAttributes>.activities {
+        for activity in Activity<RestActivityAttributes>.activities where activity.attributes.sourceKey == nil || activity.attributes.sourceKey == "rest" {
             var state = activity.content.state
             state.pausedRemainingSeconds = remaining
             await activity.update(ActivityContent(state: state, staleDate: nil))
@@ -51,7 +51,9 @@ final class RestLiveActivityCoordinator {
 
     func resume(totalSeconds: Int, endDate: Date, exerciseName: String?) async {
         let active = Activity<RestActivityAttributes>.activities
-        guard let activity = active.first else {
+        guard let activity = active.first(where: {
+            $0.attributes.sourceKey == nil || $0.attributes.sourceKey == "rest"
+        }) else {
             await start(totalSeconds: totalSeconds, endDate: endDate, exerciseName: exerciseName)
             return
         }
@@ -69,7 +71,7 @@ final class RestLiveActivityCoordinator {
     }
 
     private func endAllActivities() async {
-        for activity in Activity<RestActivityAttributes>.activities {
+        for activity in Activity<RestActivityAttributes>.activities where activity.attributes.sourceKey == nil || activity.attributes.sourceKey == "rest" {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
     }
@@ -95,6 +97,92 @@ enum RestLiveActivity {
     static func endDetached() {
         Task { @MainActor in
             await RestLiveActivityCoordinator.shared.end()
+        }
+    }
+}
+
+ 
+/// Uses the same ActivityKit widget as rest, but owns the standalone and
+/// workout-block clocks independently so the rest timer cannot dismiss them.
+@MainActor
+final class TimerLiveActivityCoordinator {
+    enum Source: String, Hashable {
+        case standalone
+        case workout
+    }
+
+    static let shared = TimerLiveActivityCoordinator()
+    private var generations: [Source: UInt64] = [:]
+    private let logger = Logger(subsystem: "com.app.repera", category: "TimerLiveActivity")
+
+    func countdown(
+        _ source: Source, endDate: Date, totalSeconds: Int, title: String
+    ) {
+        scheduleUpdate(
+            source, title: title,
+            state: .init(endDate: endDate, totalSeconds: max(1, totalSeconds))
+        )
+    }
+
+    func countUp(_ source: Source, anchor: Date, title: String) {
+        scheduleUpdate(
+            source, title: title,
+            state: .init(endDate: anchor, totalSeconds: 0, countUpAnchor: anchor)
+        )
+    }
+
+    func pause(_ source: Source, value: Int, title: String) {
+        generations[source, default: 0] &+= 1
+        let token = generations[source, default: 0]
+        Task { @MainActor in
+            guard self.generations[source] == token else { return }
+            for activity in Activity<RestActivityAttributes>.activities
+            where activity.attributes.sourceKey == source.rawValue {
+                var state = activity.content.state
+                state.pausedRemainingSeconds = max(0, value)
+                state.countUpAnchor = nil
+                await activity.update(.init(state: state, staleDate: nil))
+            }
+        }
+    }
+
+    func end(_ source: Source) {
+        generations[source, default: 0] &+= 1
+        let token = generations[source, default: 0]
+        Task { @MainActor in
+            guard self.generations[source] == token else { return }
+            for activity in Activity<RestActivityAttributes>.activities
+            where activity.attributes.sourceKey == source.rawValue {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+    }
+
+    private func scheduleUpdate(
+        _ source: Source, title: String, state: RestActivityAttributes.ContentState
+    ) {
+        generations[source, default: 0] &+= 1
+        let token = generations[source, default: 0]
+        Task { @MainActor in
+            guard self.generations[source] == token,
+                  ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+            if let activity = Activity<RestActivityAttributes>.activities.first(where: {
+                $0.attributes.sourceKey == source.rawValue
+            }) {
+                await activity.update(.init(state: state, staleDate: nil))
+            } else {
+                do {
+                    _ = try Activity.request(
+                        attributes: RestActivityAttributes(
+                            exerciseName: title, sourceKey: source.rawValue
+                        ),
+                        content: .init(state: state, staleDate: nil),
+                        pushType: nil
+                    )
+                } catch {
+                    logger.error("Timer Live Activity failed: \\(String(describing: error), privacy: .public)")
+                }
+            }
         }
     }
 }
