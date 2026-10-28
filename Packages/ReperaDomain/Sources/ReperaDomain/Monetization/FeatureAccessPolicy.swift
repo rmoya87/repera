@@ -5,6 +5,8 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
     public var snapshot: CommercialSnapshot
     public var freeUsage: FreeUsageState
     public var libraryRoutineCount: Int
+    /// Favoritos reales de entrenamientos y deportes; no incluye rutinas sin estrella.
+    public var favoriteCount: Int
     public var customExerciseCount: Int
     /// Acceso completo mientras el deportista paga / está vinculado a un centro o entrenador.
     public var businessSponsoredAccess: Bool
@@ -13,12 +15,14 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
         snapshot: CommercialSnapshot = CommercialSnapshot(),
         freeUsage: FreeUsageState = FreeUsageState(),
         libraryRoutineCount: Int = 0,
+        favoriteCount: Int = 0,
         customExerciseCount: Int = 0,
         businessSponsoredAccess: Bool = false
     ) {
         self.snapshot = snapshot
         self.freeUsage = freeUsage
         self.libraryRoutineCount = libraryRoutineCount
+        self.favoriteCount = favoriteCount
         self.customExerciseCount = customExerciseCount
         self.businessSponsoredAccess = businessSponsoredAccess
     }
@@ -38,7 +42,10 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
 
         switch feature {
         case .unlimitedRoutines:
-            return createLibraryRoutineDecision(now: now)
+            // Este feature protege tanto la biblioteca como los favoritos.
+            return libraryRoutineCount >= FreePlanLimits.maxLibraryRoutines
+                ? createLibraryRoutineDecision(now: now)
+                : createFavoriteDecision()
         case .unlimitedCustomExercises:
             return createCustomExerciseDecision()
         case .unlimitedBoardScans:
@@ -86,17 +93,24 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
     }
 
     public func canCreateLibraryRoutine(isNew: Bool) -> FeatureAccessDecision {
-        guard isNew else { return .allow() }
+        guard isNew, !isPro else { return .allow() }
         return createLibraryRoutineDecision()
     }
 
+    /// Gratis: tres favoritos de actividad/entrenamiento; cuarto y siguientes requieren Pro.
+    public func canCreateFavorite(isNew: Bool) -> FeatureAccessDecision {
+        guard isNew, !isPro else { return .allow() }
+        return createFavoriteDecision()
+    }
+
     public func canCreateCustomExercise(isNew: Bool) -> FeatureAccessDecision {
-        guard isNew else { return .allow() }
+        guard isNew, !isPro else { return .allow() }
         return createCustomExerciseDecision()
     }
 
     public func canStartBoardScan(now: Date = Date()) -> FeatureAccessDecision {
-        boardScanDecision(now: now)
+        guard !isPro else { return .allow() }
+        return boardScanDecision(now: now)
     }
 
     public func canSelectProgressRange(_ range: ProgressTimeRange) -> FeatureAccessDecision {
@@ -137,6 +151,23 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
             body: "Con Repera Gratis puedes guardar hasta \(limit) rutinas reutilizables. Desbloquea Repera Pro para crear todas las que necesites.",
             remainingFreeUses: 0,
             usedFreeUses: libraryRoutineCount,
+            freeLimit: limit
+        )
+    }
+
+    private func createFavoriteDecision() -> FeatureAccessDecision {
+        let limit = FreePlanLimits.maxFavoriteItems
+        let remaining = max(0, limit - favoriteCount)
+        if favoriteCount < limit {
+            return .allow(remainingFreeUses: remaining, usedFreeUses: favoriteCount, freeLimit: limit)
+        }
+        return .deny(
+            reason: .freeLimitReached,
+            context: .routinesLimit,
+            title: "Todos tus favoritos, sin límites",
+            body: "Con Repera Gratis puedes guardar hasta \(limit) favoritos de entrenamiento o actividad. Desbloquea Repera Pro para guardar el cuarto y todos los que quieras.",
+            remainingFreeUses: 0,
+            usedFreeUses: favoriteCount,
             freeLimit: limit
         )
     }
