@@ -2548,10 +2548,10 @@ final class ReperaStore: NSObject {
         if let sportID = session.liveSportID, !sportID.isEmpty {
             // Los favoritos de deportes de versiones antiguas podían apuntar
             // a una rutina. Desmarcar ese vínculo en vez de duplicarlo.
-            if let oldFavoriteID = session.favoriteRoutineId,
-               let linked = state.routines.first(where: {
-                   $0.id == oldFavoriteID && $0.isFavorite
-               }) {
+            let legacyFavoriteIDs = [session.favoriteRoutineId, session.routineId].compactMap { $0 }
+            if let linked = state.routines.first(where: {
+                legacyFavoriteIDs.contains($0.id) && $0.isFavorite
+            }) {
                 return setRoutineFavorite(linked.id, isFavorite: false)
             }
             var policy = featureAccess?() ?? FeatureAccessPolicy()
