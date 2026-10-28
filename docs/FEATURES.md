@@ -311,6 +311,9 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 5 custom,
 
 ## Temporizador
 
+- **Pantalla activa mientras corre un temporizador (28/10/2026):** el reloj independiente (precuenta de 3 s, Arriba, Abajo, Intervalos), el reloj WOD de Play (incluido minimizado) y el temporizador de descanso mantienen el iPhone encendido, sin autobloqueo, mientras estén en marcha y Repera permanezca en primer plano. `TimerScreenAwake` usa `UIApplication.isIdleTimerDisabled` con fuentes independientes para que detener un reloj no desbloquee la pantalla si sigue funcionando otro. Pausar, completar, cancelar o cerrar el último reloj restablece el autobloqueo; la escena inactiva/segundo plano lo restablece temporalmente y, al volver, las fechas reales recalculan el estado. Los avisos acústicos siguen usando los tonos existentes de `RestFeedback` a través de una sesión `AVAudioSession.playback`, sin modificar su tono ni su duración. El bloqueo manual del dispositivo y la suspensión por iOS en segundo plano no pueden impedirse. Contrato: `tests/test_timer_screen_awake_contract.py` (validación final en iPhone pendiente).
+
+
 - `StandaloneTimerView`: cronómetro ascendente (**Arriba**), cuenta atrás (**Abajo**) e **Intervalos**, con favoritos de temporizador. El selector de modalidad omite el encabezado «Tipo de temporizador» y presenta las tres pestañas con el mismo control segmentado nativo grande y cápsula Liquid Glass que **Progreso → Entreno / Actividad / Recuperación**. La tarjeta de parámetros no tiene encabezado «Configuración»: la primera fila («Rondas» en Intervalos o «Duración» en los otros modos) se alinea con el margen interior superior de 14 pt sin dejar un espacio vacío.
 
 ## Fuera de producto
