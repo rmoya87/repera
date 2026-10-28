@@ -96,6 +96,12 @@ internal fun CenterTab(
                 }
             }
         } else {
+            item {
+                OutlinedButton(onClick = onRefresh, enabled = !loading && !submitting,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text("Actualizar")
+                }
+            }
             if (loading) {
                 item {
                     Column(modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -109,7 +115,8 @@ internal fun CenterTab(
                 item { Text(msg, color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall) }
             }
-            val centers = snapshot?.centers ?: emptyList()
+            val linkedIds = snapshot?.athleteCenterIds.orEmpty()
+            val centers = (snapshot?.centers ?: emptyList()).filter { it.id in linkedIds }
             val invitations = snapshot?.invitations ?: emptyList()
             if (centers.isEmpty() && invitations.isEmpty() && !loading) {
                 item {
@@ -227,8 +234,8 @@ internal fun CenterTab(
                                 Text("Cancelar reserva",
                                     color = MaterialTheme.colorScheme.error)
                             }
-                            Text("Política provisional: cancelaciones con más de " +
-                                "12 horas de antelación recuperan el crédito.",
+                            Text(dev.repera.domain.CenterCancellationPolicy.notice(
+                                occurrence.startsAt, now),
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         places == 0 -> {
@@ -268,8 +275,13 @@ internal fun CenterTab(
         AlertDialog(
             onDismissRequest = { pendingCancellation = null },
             title = { Text("¿Cancelar la reserva?") },
-            text = { Text("Política provisional: cancelaciones con más de 12 horas " +
-                "de antelación recuperan el crédito.") },
+            text = {
+                val occurrence = snapshot?.occurrences?.firstOrNull {
+                    it.id == cancelling.occurrenceId
+                }
+                Text(dev.repera.domain.CenterCancellationPolicy.notice(
+                    occurrence?.startsAt, now))
+            },
             confirmButton = {
                 TextButton(onClick = {
                     pendingCancellation = null

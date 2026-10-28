@@ -90,4 +90,29 @@ class WearPendingSetStoreInstrumentedTest {
         val saved=WearPendingSetStore(context).all().single()
         assertTrue(saved.getBoolean("warmup"));org.junit.Assert.assertFalse(saved.getBoolean("toFailure"))
     }
+
+    @Test fun appendPersistsDropAndRestPauseTechniques() {
+        val store = WearPendingSetStore(context)
+        store.append("s", 0, 10, 60.0, kind = "dropset",
+            drops = listOf(8 to 50.0, 6 to 40.0))
+        val drop = store.all().single()
+        assertEquals("dropset", drop.getString("kind"))
+        assertEquals(2, drop.getJSONArray("drops").length())
+        store.clear()
+        store.append("s", 0, 13, 80.0, kind = "restpause",
+            clusters = listOf(8 to 15, 5 to 15))
+        val rp = store.all().single()
+        assertEquals("restpause", rp.getString("kind"))
+        assertEquals(2, rp.getJSONArray("clusters").length())
+        assertEquals(15, rp.getJSONArray("clusters").getJSONObject(0).getInt("restSeconds"))
+    }
+
+    @Test fun warmupForcesStraightEvenIfKindDropset() {
+        val store = WearPendingSetStore(context)
+        store.append("s", 0, 5, 20.0, warmup = true, kind = "dropset",
+            drops = listOf(4 to 15.0))
+        val saved = store.all().single()
+        assertEquals("straight", saved.getString("kind"))
+        assertTrue(!saved.has("drops") || saved.optJSONArray("drops") == null)
+    }
 }

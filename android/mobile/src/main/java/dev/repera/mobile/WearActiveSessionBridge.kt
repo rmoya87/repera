@@ -73,6 +73,8 @@ object WearActiveSessionBridge {
             .put("restSeconds", execution.restSeconds ?: JSONObject.NULL)
             .put("restBetweenRoundsSeconds",
                 execution.restBetweenRoundsSeconds ?: JSONObject.NULL)
+            .put("stations", execution.stations.coerceAtLeast(1))
+            .put("plannedIntervals", execution.plannedIntervals ?: JSONObject.NULL)
             .put("running", state.running)
             .put("elapsedSeconds", state.elapsedSeconds)
             .put("zeroAtWallMs", if (state.running)

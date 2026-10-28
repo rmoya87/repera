@@ -47,19 +47,22 @@ WatchStrengthRest. Tests +2 (8/8 reloj REAL).
 HECHO UI Wear (2026-10-28): `WearHomeContent` muestra «Registrar serie» /
 Confirmar en WOD `wodUsesSeries` cuando hay reloj de bloque matching; sin
 reloj matching avisa «Inicia el reloj del bloque…».
+HECHO clock local offline (2026-10-28 tarde): `WearLocalWodClock` seed desde
+ejercicio del snapshot; Iniciar/Pausar/Reiniciar locales; `wearWodIntervalIndex`
+usa timer local si no hay DataItem matching; teléfono matching sustituye local;
+`stations`/`plannedIntervals` publicados desde Play.
+HECHO drop/RP Wear (2026-10-28 tarde): picker Normal/Drop/RP + steppers; outbox
+kind/drops/clusters; teléfono `logWearSet` → `logDropSet`/`logRestPauseSet` con
+mismo setId.
 
 PENDIENTE:
-- Validacion visual/runtime Wear ABIERTA (sin emulador KVM): UI "Registrar serie"
-  en bloque WOD, estado sin reloj, ack saved/rejected en reloj real.
-- Diferencia funcional MANTENIDA (decision padre 16:00): sin reloj del bloque
-  activo el reloj no registra; no se inventa intervalIndex.
-- Cobertura relajamiento currentIndex (padre 16:00): tests 10/10 telefono -
-  otro bloque misma sesion, otra sesion, bloque desplazado tras fuerza
-  (movementIndex no posicional), reintento mismo setId, cero rechazado.
+- Validacion visual/runtime Wear ABIERTA (sin emulador KVM / reloj fisico).
+- Sin reloj activo (ni local ni telefono) el reloj no registra; no inventa
+  intervalIndex.
+- Health Services E2E y merge fino telefono↔Wear si ambos arrancan el reloj.
 
 ## Riesgos / preguntas abiertas
 - recordWodMovement opera sobre currentIndex del telefono: confirmar como se mapea un
   movimiento no actual del bloque (movementIndex vs indice global de exercises).
-- Intervalo derivado en reloj vs telefono: usar el reloj del bloque (WodTimerStore) o
-  el timestamp; Apple usa su blockElapsed local.
-- El reloj Wear no tiene reloj de bloque WOD propio (WearWodTimerScope existe - revisar alcance).
+- Si telefono y Wear arrancan el reloj a la vez, gana el DataItem del telefono al
+  llegar; el local se limpia. No hay sync bidireccional de elapsed.
