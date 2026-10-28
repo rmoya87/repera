@@ -4,9 +4,10 @@ import dev.repera.domain.WorkoutRoutePoint
 import dev.repera.domain.AdaptiveRoutePace
 
 /**
- * Modelo puro del mapa de ruta (paridad HealthWorkoutRouteMap iOS,
- * HistoryView.swift): segmentos coloreados por velocidad (verde lento →
- * amarillo → rojo rápido), cámara = centro de bounds con margen 1.5× y span
+ * Modelo puro del mapa de ruta (paridad HealthWorkoutRouteMap iOS):
+ * segmentos coloreados por velocidad relativa a la mediana del recorrido
+ * (verde lento → amarillo habitual → rojo claramente rápido).
+ * Cámara = centro de bounds con margen 1.5× y span
  * mínimo 0.008°, puntos de inicio/fin. Sin dependencias Android: testable en
  * JVM y reutilizable por el mapa real y por el degradado en Canvas.
  */
