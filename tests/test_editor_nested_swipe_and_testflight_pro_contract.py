@@ -14,50 +14,52 @@ MANAGER = (IOS / "Monetization" / "SubscriptionManager.swift").read_text(encodin
 
 
 class EditorSwipeAndTestFlightProContracts(unittest.TestCase):
-    def test_each_block_header_has_one_delete_action(self):
+    def test_block_and_exercise_deletion_uses_menus_only(self):
         block = EDITOR.split("ForEach(Array(routine.blocks.enumerated())", 1)[1].split(
-            'Text(block.title)', 1
+            'if block.kind == .strength', 1
         )[0]
-        self.assertIn('OGSwipeDeleteButton(accessibilityLabel: "Eliminar bloque")', block)
-        self.assertIn("routine.blocks.removeAll { $0.id == block.id }", block)
-        self.assertIn(".swipeActions(edge: .trailing, allowsFullSwipe: false)", block)
-
-    def test_exercise_and_strength_set_have_separate_swipe_actions(self):
-        block = EDITOR.split("private func strengthBlock(index: Int)", 1)[1].split(
+        self.assertIn('Label("Eliminar bloque", systemImage: "trash")', block)
+        self.assertNotIn(".swipeActions(", block)
+        strength = EDITOR.split("private func strengthBlock(index: Int)", 1)[1].split(
             "private func plannedSetBinding", 1
         )[0]
-        self.assertEqual(block.count('accessibilityLabel: "Quitar ejercicio"'), 1)
-        self.assertEqual(block.count('accessibilityLabel: "Eliminar serie"'), 1)
-        self.assertIn("deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)", block)
-        self.assertIn(".swipeActions(edge: .trailing, allowsFullSwipe: false)", block)
-        self.assertIn("routine.blocks[index].exercises.removeAll { $0.id == item.id }", block)
+        self.assertIn("exerciseOptions(blockID:", strength)
+        self.assertIn("replacementButton(blockID:", strength)
+        self.assertNotIn(".swipeActions(", strength)
+        self.assertIn('Button("Eliminar ejercicio", systemImage: "trash", role: .destructive)', EDITOR)
 
-    def test_series_swipe_is_attached_at_form_row_not_inside_reusable_row(self):
-        reusable = EDITOR.split("private struct PlannedSetConfigRow: View", 1)[1].split(
-            "struct ExercisePickerView:", 1
-        )[0]
-        self.assertNotIn(".swipeActions(", reusable)
-        strengthEditor = EDITOR.split("struct RoutineExerciseEditor: View", 1)[1].split(
-            "private struct PlannedSetConfigRow:", 1
-        )[0]
-        self.assertIn("OGSwipeDeleteButton(accessibilityLabel: \"Eliminar serie\")", strengthEditor)
-        self.assertIn("if item.plannedSets.count > 1", strengthEditor)
-
-    def test_wod_inline_sets_reveal_a_single_clamped_trash_button(self):
-        impl = EDITOR.split("private struct InlineSetSwipeDeleteRow<", 1)[1].split(
+    def test_only_series_support_bounded_swipe(self):
+        impl = EDITOR.split("struct OGSetSwipeDeleteRow<", 1)[1].split(
             "// MARK: - Inline WOD sets", 1
         )[0]
         self.assertIn("private var isRevealed: Bool { openedSetID == setID }", impl)
         self.assertIn("openedSetID = projected < -revealWidth * 0.4 ? setID : nil", impl)
         self.assertIn('Image(systemName: "trash.fill")', impl)
         self.assertIn("max(-revealWidth, min(0,", impl)
-        self.assertNotIn(".swipeActions(", impl)
-        inline = EDITOR.split("private struct InlineWODMovementSets: View", 1)[1].split(
-            "private struct WODMovementEditor:", 1
+        strength = EDITOR.split("private func strengthBlock(index: Int)", 1)[1].split(
+            "private func plannedSetBinding", 1
         )[0]
+        self.assertIn("OGSetSwipeDeleteRow(", strength)
+        self.assertIn("deleteStrengthSet(blockIndex:", strength)
+        inline = EDITOR.split("private struct InlineWODMovementSets: View", 1)[1].split(
+            "struct WODMovementEditor:", 1
+        )[0]
+        self.assertIn("OGSetSwipeDeleteRow(", inline)
         self.assertIn("openedSetID: $openedSetID", inline)
-        self.assertIn("setID: currentSet.id", inline)
-        self.assertIn("onDelete: { removeSet(at: index) }", inline)
+
+    def test_drag_and_drop_is_removed_from_workout_editor(self):
+        self.assertNotIn(".draggable(", EDITOR)
+        self.assertNotIn(".dropDestination(", EDITOR)
+        self.assertNotIn(".reorderable(", EDITOR)
+        self.assertNotIn(".reorderContainer(", EDITOR)
+        self.assertIn("moveBlock(block.id, offset:", EDITOR)
+        self.assertIn("moveExercise(type:", EDITOR)
+
+    def test_replacement_resets_item_identity_and_warns_about_results(self):
+        self.assertIn('¿Sustituir ejercicio y reiniciar sus series?', EDITOR)
+        self.assertIn('registered?.loggedSets.isEmpty == false', EDITOR)
+        self.assertIn('routine.blocks[blockIndex].exercises[index] = RoutineExercise(', EDITOR)
+        self.assertIn('routine.blocks[blockIndex].movements[index] = WODMovement(', EDITOR)
 
     def test_paid_catalog_fallback_does_not_revoke_verified_pro(self):
         self.assertIn("if !snapshot.grantsProAccess {", MANAGER)
