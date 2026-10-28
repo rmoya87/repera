@@ -780,9 +780,9 @@ struct WorkoutView: View {
     private func movePlayReorderToken(
         _ token: String?, into blockID: UUID, before itemID: UUID? = nil
     ) -> Bool {
-        guard let token, !token.hasPrefix("block:"),
-              let parts = token.split(separator: ":") as [Substring]?,
-              parts.count == 2,
+        guard let token, !token.hasPrefix("block:") else { return false }
+        let parts = token.split(separator: ":")
+        guard parts.count == 2,
               let from = UUID(uuidString: String(parts[0])),
               let sourceItem = UUID(uuidString: String(parts[1])),
               !(from == blockID && sourceItem == itemID),
