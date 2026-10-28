@@ -2188,11 +2188,17 @@ final class ReperaStore: NSObject {
     /// Guarda una rutina. Devuelve `false` si la política freemium bloquea una **nueva** plantilla de biblioteca.
     @discardableResult
     func saveRoutine(_ routine: Routine) -> Bool {
-        let isNew = !state.routines.contains { $0.id == routine.id }
+        let existing = state.routines.first { $0.id == routine.id }
+        let isNew = existing == nil
         let isLibraryTemplate = routine.scheduledDate == nil && routine.weekday == nil
-        if isNew && isLibraryTemplate {
-            let decision = featureAccess?().canCreateLibraryRoutine(isNew: true)
-                ?? FeatureAccessDecision.allow()
+        if isLibraryTemplate {
+            var policy = featureAccess?() ?? FeatureAccessPolicy()
+            policy.libraryRoutineCount = libraryRoutineCount
+            policy.favoriteCount = favoriteCount
+            let addsFavorite = routine.isFavorite && (isNew || existing?.isFavorite == false)
+            let decision = addsFavorite
+                ? policy.canCreateFavorite(isNew: true)
+                : policy.canCreateLibraryRoutine(isNew: isNew && !routine.isFavorite)
             if !decision.allowed {
                 lastAccessDenial = decision
                 return false
@@ -2382,10 +2388,20 @@ final class ReperaStore: NSObject {
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
-    /// Conteo barato para gates freemium (sin sort ni arrays intermedios).
+    /// Rutinas de biblioteca que NO son favoritos, con su propia cuota Gratis.
     var libraryRoutineCount: Int {
+        state.routines.reduce(into: 0) {
+            if $1.isLibraryRoutine && !$1.isFavorite { $0 += 1 }
+        }
+    }
+
+    /// Los tres favoritos gratuitos se cuentan sobre objetos reutilizables
+    /// reales, no sobre cada copia fechada de una plantilla.
+    var favoriteCount: Int {
         state.routines.reduce(into: state.favoriteSportActivities.count) {
-            if $1.isLibraryRoutine { $0 += 1 }
+            if $1.isFavorite && ($1.scheduledDate == nil || $1.favoriteTemplateId == nil) {
+                $0 += 1
+            }
         }
     }
 
@@ -2421,6 +2437,23 @@ final class ReperaStore: NSObject {
         lastAccessDenial = nil
         guard let index = state.routines.firstIndex(where: { $0.id == id }) else { return false }
         let source = state.routines[index]
+
+        if isFavorite {
+            let linkedActive = source.favoriteTemplateId.flatMap { favoriteID in
+                state.routines.first(where: { $0.id == favoriteID })?.isFavorite
+            } == true
+            let alreadyFavorite = linkedActive
+                || (source.isFavorite && source.favoriteTemplateId == nil)
+            if !alreadyFavorite {
+                var policy = featureAccess?() ?? FeatureAccessPolicy()
+                policy.favoriteCount = favoriteCount
+                let decision = policy.canCreateFavorite(isNew: true)
+                guard decision.allowed else {
+                    lastAccessDenial = decision
+                    return false
+                }
+            }
+        }
 
         if source.scheduledDate != nil {
             if isFavorite {
@@ -2557,8 +2590,8 @@ final class ReperaStore: NSObject {
                 return setRoutineFavorite(linked.id, isFavorite: false)
             }
             var policy = featureAccess?() ?? FeatureAccessPolicy()
-            policy.libraryRoutineCount = libraryRoutineCount
-            let decision = policy.canCreateLibraryRoutine(isNew: true)
+            policy.favoriteCount = favoriteCount
+            let decision = policy.canCreateFavorite(isNew: true)
             guard decision.allowed else {
                 lastAccessDenial = decision
                 return false
