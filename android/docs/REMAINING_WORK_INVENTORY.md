@@ -677,3 +677,8 @@ partial/in-progress en lugar de n/a (paisaje, Wear, auth cache).
 -326 bateria completa mobile677/163XML92/114/84/84s,domain521/93XML66s,Wear8/1XML+ambosassemble97s verdes0fallos/errores/omitidos. Solo bateria cerrada.
 - Mismo bloque parcial327: complejos acotados ahora usan candidatos por segmento original, quitando modificadores BN/BTN/etc como fuente870-899, prioridad exacto oficial>alias editorial>exacto custom. Respuesta mantiene id/nombre elegidos en matching posterior. No se habilita fallback fuzzy ni cambia matching de lineas simples. Helper existente de fuerza conserva fuzzy por defecto.
 - Regresion fallo antes de corregir con alias oficial frente a custom conBN;2tests nuevos cubren prioridad exacta y ausencia defuzzy. Dominio523/93XML42s ywire7/1XML verdes0fallos/errores/omitidos. Mobile completa/Wear327 pendientes.735/70sin cierres,lectorfull/fuzzy/rutas/nativo pendientes,no push.
+
+## Lector parcial, comprobacion y continuidad 03:14 28oct
+-327 bateria completa mobile677/163XML68/85/66/62s,domain523/93XML42s,Wear8/1XML+ambosassemble85s verdes. Backup327recuperado,arbol3f68af1b72bb801edbfe1f0acaa6fd85b2af2d00identico,clonlimpio.
+-328 solo prueba/documentacion: verificado DB CLEAN conserva variante de mancuerna con catalogo generico yvariante;test pasa tambien sobre327. Intento de ajuste productivo descartado porque fixtureinicial confundia dosfichas deigualnombre yno demostraba regresion. Ningun cambio productivo328.
+- Dominio524/93XML48s0fallos/errores/omitidos. Reconciliadas notas c6f89c28/88db5bb7con322-328,sus estadosparciales intactos.735/70sin cierres. Lectorfull/default3x8/rutas/fallback/fuzzy/runtime pendientes;no push.

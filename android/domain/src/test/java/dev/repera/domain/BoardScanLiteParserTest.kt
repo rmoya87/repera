@@ -610,4 +610,13 @@ class BoardScanLiteParserTest {
         val single=BoardScanLiteParser.parse("AMRAP 10'\n1 UNKNOWN EXTRA",listOf(near)).blocks.single()
         assertNull(single.movements.single().exerciseId)
     }
+    @Test fun complexExactCandidateKeepsExistingDumbbellCleanVariant() {
+        val raw="1 DB CLEAN"
+        val parsed=CrossFitGlossary.parseMovementLine(raw)
+        val variant=CatalogExercise("variant",parsed.name,emptyList())
+        val generic=CatalogExercise("generic","Cargada",emptyList())
+        val block=BoardScanLiteParser.parse("AMRAP 10'\n"+raw+" + 2 AIR SQUAT",listOf(generic,variant)).blocks.single()
+        assertEquals("variant",block.movements[0].exerciseId)
+        assertEquals(parsed.name,block.movements[0].name)
+    }
 }
