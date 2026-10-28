@@ -50,6 +50,46 @@ struct FeatureAccessPolicyTests {
         }
     }
 
+    @Test("Pro de TestFlight también salta todos los límites de acciones")
+    func paidActionGatesHonorEntitlement() {
+        let activeStatuses: [SubscriptionStatus] = [.trial, .proMonthly, .proAnnual, .gracePeriod]
+        for status in activeStatuses {
+            let policy = FeatureAccessPolicy(
+                snapshot: CommercialSnapshot(status: status, isConfigured: true),
+                libraryRoutineCount: 100,
+                favoriteCount: 100,
+                customExerciseCount: 100
+            )
+            #expect(policy.canCreateLibraryRoutine(isNew: true).allowed)
+            #expect(policy.canCreateFavorite(isNew: true).allowed)
+            #expect(policy.canCreateCustomExercise(isNew: true).allowed)
+            #expect(policy.canStartBoardScan().allowed)
+        }
+        let business = FeatureAccessPolicy(
+            libraryRoutineCount: 100,
+            favoriteCount: 100,
+            customExerciseCount: 100,
+            businessSponsoredAccess: true
+        )
+        #expect(business.canCreateFavorite(isNew: true).allowed)
+        #expect(business.canStartBoardScan().allowed)
+    }
+
+    @Test("Gratis: tres favoritos reales, cuarto bloqueado; las rutinas normales no consumen el cupo")
+    func favoriteLimitsAreIndependent() {
+        var policy = FeatureAccessPolicy(libraryRoutineCount: 3, favoriteCount: 2)
+        #expect(policy.canCreateFavorite(isNew: true).allowed)
+        policy.favoriteCount = 3
+        let fourth = policy.canCreateFavorite(isNew: true)
+        #expect(!fourth.allowed)
+        #expect(fourth.reason == .freeLimitReached)
+        #expect(fourth.freeLimit == 3)
+        #expect(fourth.paywallContext == .routinesLimit)
+        #expect(policy.canCreateFavorite(isNew: false).allowed)
+        policy.libraryRoutineCount = 0
+        #expect(!policy.canCreateFavorite(isNew: true).allowed)
+    }
+
     @Test("Gratis: 3 rutinas OK, 4ª bloqueada; edición permitida")
     func routineLimits() {
         var policy = FeatureAccessPolicy(libraryRoutineCount: 2)
