@@ -135,23 +135,6 @@ enum class ScoreBasis(val wire: String, val blurbLabel: String) {
     companion object { fun fromWire(w: String) = entries.firstOrNull { it.wire == w } }
 }
 
-/** Bandas de score publicadas para un WOD de catálogo. */
-data class WODScoreBands(
-    val eliteMaxSeconds: Int? = null,
-    val advancedMaxSeconds: Int? = null,
-    val intermediateMaxSeconds: Int? = null,
-    val beginnerMaxSeconds: Int? = null,
-    val eliteMinRounds: Double? = null,
-    val advancedMinRounds: Double? = null,
-    val intermediateMinRounds: Double? = null,
-    val beginnerMinRounds: Double? = null
-) {
-    val hasTimeBands: Boolean
-        get() = intermediateMaxSeconds != null || advancedMaxSeconds != null || eliteMaxSeconds != null
-    val hasRoundsBands: Boolean
-        get() = intermediateMinRounds != null || advancedMinRounds != null || eliteMinRounds != null
-}
-
 data class MovementReview(
     val id: String = UUID.randomUUID().toString(),
     val exerciseId: String? = null,

@@ -23,7 +23,15 @@ data class WodScoreBands(
     val advancedMinRounds: Double? = null,
     val intermediateMinRounds: Double? = null,
     val beginnerMinRounds: Double? = null
-)
+) {
+    val hasTimeBands: Boolean
+        get() = intermediateMaxSeconds != null || advancedMaxSeconds != null || eliteMaxSeconds != null
+    val hasRoundsBands: Boolean
+        get() = intermediateMinRounds != null || advancedMinRounds != null || eliteMinRounds != null
+}
+
+/** Historical spelling; same type as [WodScoreBands]. */
+typealias WODScoreBands = WodScoreBands
 
 data class WodTemplate(
     val id: String,

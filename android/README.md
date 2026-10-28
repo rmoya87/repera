@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — Paridad shippable Android cerrada (#127); abierto solo Ramón/hardware (STATUS).
+**Última actualización:** 2026-10-28 — `WodFormat` canónico en `:domain` (`WODFormat`/`WODScoreBands` = typealias); `:mobile:compileDebugKotlin` verde.
 
 Implementación nativa independiente en `android/`:
 

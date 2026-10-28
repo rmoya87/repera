@@ -8,12 +8,8 @@ import java.util.UUID
  * parser; la capa mobile los convierte al formato wire (RoutineBlockDraft).
  */
 
-enum class WODFormat(val raw: String) {
-    AMRAP("amrap"), EMOM("emom"), FOR_TIME("forTime"), TABATA("tabata"),
-    CHIPPER("chipper"), DEATH_BY("deathBy"), STRENGTH("strength"), AFAP("afap"),
-    LADDER("ladder"), PARTNER("partner"), BUY_IN_CASH_OUT("buyInCashOut"),
-    ROUNDS_FOR_QUALITY("roundsForQuality"), CIRCUIT("circuit"), MAX_EFFORT("maxEffort")
-}
+/** Historical spelling used by the board scanner; same type as [WodFormat]. */
+typealias WODFormat = WodFormat
 
 enum class RoutineBlockKind { STRENGTH, WOD }
 
