@@ -778,6 +778,14 @@ final class BusinessAuthStore {
     }
 
     /// Sign out from business platform independently of the Apple/iCloud personal store.
+    /// La cuenta se ha borrado en el servidor: permitir un nuevo propietario
+    /// en este dispositivo sin heredar los vínculos de la identidad eliminada.
+    func forgetDeletedAccountBinding() {
+        UserDefaults.standard.removeObject(forKey: localOwnerUserIDKey)
+        UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
+        UserDefaults.standard.removeObject(forKey: googleSignedInKey)
+    }
+
     func signOut() async {
         googleAuthAttemptID = UUID()
         GIDSignIn.sharedInstance.signOut()
