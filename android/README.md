@@ -81,8 +81,9 @@ tests unitarios y pruebas instrumentadas en emulador. Las incorporaciones
 posteriores de cronómetro y Diario tienen sus propios runs de CI.
 **No se ha realizado aún el E2E OAuth/Drive con una cuenta Google ni pruebas
 en un reloj físico.** Falta la paridad completa con iOS/watchOS.
-Véanse `docs/STATUS_AND_PARITY.md`, `docs/GOOGLE_IDENTITY_DRIVE.md`
-y `docs/AUDIT_2026_10_23.md`.
+Véanse `docs/STATUS_AND_PARITY.md`, `docs/GOOGLE_IDENTITY_DRIVE.md`,
+`docs/AUDIT_2026_10_23.md`, `docs/MONETIZATION_PLAY_BILLING.md`,
+`docs/RAMON_BLOCKERS.md` y `docs/BILLING_DEPLOY.md` (migrate/deploy verify).
 
 ## WOD (primera integración real)
 

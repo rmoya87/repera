@@ -1,6 +1,6 @@
 # Bloqueadores que requieren a Ramón
 
-**Última actualización:** 2026-10-28
+**Última actualización:** 2026-10-28 (enlace `BILLING_DEPLOY.md`)
 
 Pasos exactos que **no** puede completar el agente (secretos / Console / deploy /
 hardware). Decisiones de producto cerradas abajo.
@@ -32,8 +32,10 @@ token Play sigue válido.
 1. Aplicar migración `play_subscription_ownership` en producción
    (`supabase/migrations/20261028173000_play_subscription_ownership.sql`).
 2. Desplegar Edge `repera-play-billing-verify` (proyecto `uvzgujlrqohreoucirms`).
-3. Activar productos Play (siguen en borrador).
+3. Activar productos Play (siguen en borrador) — **solo tras** migrate+deploy.
 4. E2E delete/restore solo con **identidad desechable** (no cuenta real).
+
+Comandos exactos: `android/docs/BILLING_DEPLOY.md`.
 
 ## RP-6 — Eliminar mi cuenta
 
