@@ -100,8 +100,8 @@ internal fun ExerciseDetailScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            TextButton(onClick = onBack) { Text("‹ Ejercicios") }
-            Text(entry.displayName, style = MaterialTheme.typography.headlineMedium)
+            TextButton(onClick = onBack) { Text("Volver") }
+            ReperaPageHeader(title = entry.displayName)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick=onQuickLog,enabled=!busy) {Text("Apuntar ejercicio")}
                 if (onToggleFavorite != null) {
@@ -166,7 +166,7 @@ internal fun ExerciseDetailScreen(
         }
         entry.detailDescription?.let { description ->
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(description, style = MaterialTheme.typography.bodyMedium)
@@ -175,9 +175,9 @@ internal fun ExerciseDetailScreen(
             }
         }
         if (entry.instructions.isNotEmpty()) {
-            item { Text("Cómo hacerlo", style = MaterialTheme.typography.titleMedium) }
+            item { ReperaSectionTitle("Cómo hacerlo") }
             itemsIndexed(entry.instructions, key = { index, _ -> index }) { index, step ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("${index + 1}. $step", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -186,8 +186,10 @@ internal fun ExerciseDetailScreen(
         }
         if (entry.detailDescription == null && entry.instructions.isEmpty()) {
             item {
-                Text("Ficha sin textos todavía; el arte y el registro ya están disponibles.",
-                    style = MaterialTheme.typography.bodySmall)
+                ReperaEmptyState(
+                    title = "Ficha sin textos todavía",
+                    subtitle = "El arte y el registro ya están disponibles"
+                )
             }
         }
     }
@@ -237,7 +239,7 @@ internal fun ExerciseEvolutionSection(
     }
     var selectedPoint by remember(entry.id,metric,range) {mutableStateOf<Int?>(null)}
     val ceiling=testedOneRM?.takeIf { entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime" && (selectedMetric==ExerciseProgressMetric.TOP_SET || selectedMetric==ExerciseProgressMetric.ESTIMATED_ONE_RM) }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Evolución", style = MaterialTheme.typography.titleLarge)
@@ -437,7 +439,7 @@ private fun ThisSessionCard(
         !thisAppearance.wodTemplateName.isNullOrBlank())
         "Esta sesión · " + thisAppearance.wodTemplateName
     else "Esta sesión"
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(sectionTitle, style = MaterialTheme.typography.titleSmall)
@@ -514,8 +516,7 @@ internal fun MuscleEquipmentCard(entry: ExerciseEntry) {
     val equipments = entry.equipment.split(",").map { it.trim() }.filter { it.isNotEmpty() }
     val sports = entry.disciplineTags.filter { it.isNotBlank() }
     if (primary.isBlank()) return
-    Card(colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             MetaChipRow("Músculo") {

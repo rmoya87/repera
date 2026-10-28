@@ -57,7 +57,7 @@ internal fun MuscleBalanceCard(
     val fatigue = if (hardOnly) fatigueHard else fatigueAll
     val (worked, missed) = MuscleLoadEngine.ranked(load)
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Equilibrio muscular", style = MaterialTheme.typography.titleMedium)
 

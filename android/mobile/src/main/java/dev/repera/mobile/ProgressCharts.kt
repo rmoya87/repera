@@ -58,7 +58,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
 }
 
 @Composable internal fun ProgressCardioCard(charts:ProgressPreparedCharts,preview:Boolean) {
- Card(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
+ ReperaCard(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
   Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
     Text("Cardio",style=MaterialTheme.typography.titleMedium)
@@ -70,7 +70,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
  }
 }
 @Composable internal fun ProgressCaloriesCard(charts:ProgressPreparedCharts,preview:Boolean) {
- Card(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
+ ReperaCard(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
   Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
     Text("Calorías",style=MaterialTheme.typography.titleMedium)
@@ -181,7 +181,7 @@ internal fun ActivityHeatmapCard(
     val dayLabels = grid.dayLabels
     val today = levels.last().first
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text("Actividad", style = MaterialTheme.typography.titleLarge)
             // Picker .segmented de iOS.

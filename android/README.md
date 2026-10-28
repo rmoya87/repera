@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad 3.er pase: `ReperaSectionTitle` / `ReperaPageHeader` / `ReperaEmptyState`; tabs sin TopAppBar global; cards/settings/progress alineados a iOS en M3.
+**Última actualización:** 2026-10-28 — UI paridad 4.º pase: Play/session, editores, detalle, historial, permisos/onboarding y cards secundarias → `ReperaCard`/headers/empty.
 
 Implementación nativa independiente en `android/`:
 

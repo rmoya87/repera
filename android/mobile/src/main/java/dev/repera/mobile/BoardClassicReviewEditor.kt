@@ -16,7 +16,7 @@ import dev.repera.domain.BoardClassicReview
   Text("Revisar como fuerza clásica",style=MaterialTheme.typography.titleMedium)
   Text("Si no hay esquema, se proponen 3 series de 8 repeticiones. Revisa y cambia cada línea antes de crear. No modifica la lectura WOD original.")
   drafts.forEachIndexed {index,draft ->
-   Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+   ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
     Row {Checkbox(draft.included,{onChange(index,draft.copy(included=it))},enabled=!busy);Text(draft.line.raw)}
     OutlinedTextField(draft.name,{onChange(index,draft.copy(name=it))},label={Text("Ejercicio ${index+1}")},enabled=!busy,modifier=Modifier.fillMaxWidth())
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {

@@ -32,7 +32,7 @@ internal fun BodyWeightHistoryScreen(entries:List<BodyWeightHistoryEntry>,busy:B
         item {Text("Historial",style=MaterialTheme.typography.titleMedium)}
         if(entries.isEmpty()) item {Text("Aún no hay pesos registrados.")}
         items(entries,key={it.id}) {entry ->
-            Card(Modifier.fillMaxWidth()) {
+            ReperaCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(entry.day.format(reperaDayFormatter))

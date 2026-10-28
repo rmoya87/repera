@@ -50,7 +50,7 @@ internal fun LiveSportsCatalogScreen(
         } else {
             item { Text("Deportes registrados", style = MaterialTheme.typography.titleMedium) }
             items(sports, key = { it.id }) { sport ->
-                Card(Modifier.fillMaxWidth().testTag("sport_${sport.id}").clickable { onOpenSport(sport) }) {
+                ReperaCard(Modifier.fillMaxWidth().testTag("sport_${sport.id}").clickable { onOpenSport(sport) }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                             Icon(sport.materialIcon,contentDescription=null,tint=MaterialTheme.colorScheme.primary)
@@ -82,7 +82,7 @@ internal fun LiveSportHistoryScreen(
             Text(sport.title, style = MaterialTheme.typography.headlineMedium)
         }
         item {
-            Card(Modifier.fillMaxWidth()) {
+            ReperaCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Resumen", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -102,7 +102,7 @@ internal fun LiveSportHistoryScreen(
         }
         if (own.isNotEmpty()) item {
             val records = LiveSportHistory.records(sport, sessions)
-            Card(Modifier.fillMaxWidth()) {
+            ReperaCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Mejores marcas · ${sport.title}", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -121,7 +121,7 @@ internal fun LiveSportHistoryScreen(
             item { Text("Rutas favoritas · evolución", style = MaterialTheme.typography.titleMedium) }
             items(favoriteRoutes, key = { "route-${it.id}" }) { route ->
                 OutlinedButton(onClick = { onOpenRoute(route) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("★ ${route.title} · ${own.count { it.liveRouteID == route.id }} veces realizada")
+                    Text("${route.title} · ${own.count { it.liveRouteID == route.id }} veces · favorita")
                 }
             }
         }
@@ -130,7 +130,7 @@ internal fun LiveSportHistoryScreen(
         items(own, key = { it.id }) { session ->
             SaveRouteSwipeRow(session.id, sport.usesGPS && canSaveRoute(session.id),
                 { onSaveRoute(session.id) }) {
-            Card(Modifier.fillMaxWidth().testTag("live_session_${session.id}").clickable { onOpenSession(session.id) }) {
+            ReperaCard(Modifier.fillMaxWidth().testTag("live_session_${session.id}").clickable { onOpenSession(session.id) }) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(session.title, style = MaterialTheme.typography.titleSmall)
                     (session.startedEpochMillis ?: session.finishedEpochMillis)?.let {

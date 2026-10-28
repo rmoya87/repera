@@ -265,7 +265,7 @@ fun AIAccessScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             else -> tokens.forEach { token ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -334,7 +334,7 @@ fun AIAccessScreen(
             Text("Cambios solicitados por la IA",
                 style = MaterialTheme.typography.titleMedium)
             changes.forEach { change ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(change.summary,

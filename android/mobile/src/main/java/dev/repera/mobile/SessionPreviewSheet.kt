@@ -96,14 +96,14 @@ fun SessionPreviewSheet(
         }
         Spacer(Modifier.height(12.dp))
         if (routine.blocks.isEmpty()) {
-            Text("Esta rutina no tiene bloques",
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ReperaEmptyState(
+                title = "Esta rutina no tiene bloques",
+                subtitle = "Edítala para añadir ejercicios"
+            )
         } else {
             routine.blocks.forEach { block ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ReperaCard(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 ) {
                     Column(Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {

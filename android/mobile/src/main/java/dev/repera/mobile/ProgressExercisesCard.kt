@@ -18,7 +18,7 @@ internal fun ProgressExercisesCard(exercises:List<ProgressExerciseRow>,onExercis
    Text(e.name,modifier=Modifier.weight(1f));e.topWeight?.let {Text("${formatWeight(it)} kg")}
   }}
  }
- Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Progreso por ejercicio",style=MaterialTheme.typography.titleMedium)
   if(exercises.isEmpty()) Text("Sin ejercicios aún. Cuando registres series, verás el progreso aquí.")
   exercises.take(5).forEach {row(it)}
@@ -32,7 +32,7 @@ internal fun ProgressExercisesCard(exercises:List<ProgressExerciseRow>,onExercis
 /** Apple mobilityProgressCard: recorded time, sessions and (Pro) links to the first 3 mobility exercises. */
 @Composable
 internal fun ProgressMobilityCard(sessions:Int,seconds:Int,proLinks:List<ProgressExerciseRow>,onExercise:(String)->Unit) {
- Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text("Movilidad",style=MaterialTheme.typography.titleMedium)
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Tiempo registrado");Text(ProgressTilesModel.mobilityDuration(seconds))}
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Sesiones con movilidad");Text("$sessions")}
@@ -44,7 +44,7 @@ internal fun ProgressMobilityCard(sessions:Int,seconds:Int,proLinks:List<Progres
 @Composable
 internal fun ProgressExerciseTrendPreview(today:java.time.LocalDate) {
  val weights=listOf(42.0,45.0,44.0,49.0,47.0,52.0,55.0)
- Card(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de evolución por ejercicio, datos simulados."}) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+ ReperaCard(Modifier.fillMaxWidth().semantics {contentDescription="Ejemplo de evolución por ejercicio, datos simulados."}) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {Text("Evolución por ejercicio",style=MaterialTheme.typography.titleMedium);Text("Ejemplo",style=MaterialTheme.typography.labelMedium)}
   Text("Evolución de carga · datos ficticios",style=MaterialTheme.typography.bodySmall)
   ExerciseTrendPreviewChart(weights)

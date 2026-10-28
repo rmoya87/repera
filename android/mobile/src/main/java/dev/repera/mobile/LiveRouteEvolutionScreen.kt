@@ -46,7 +46,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
             RouteMapView(route.points,isInteractive=true,plannedRoute=true,modifier=Modifier.fillMaxWidth().height(220.dp), onStyleLoaded=onMapStyleLoaded)
         }
         item {
-            Card(Modifier.fillMaxWidth()) {
+            ReperaCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Text("Evolución del recorrido",style=MaterialTheme.typography.titleMedium)
                     Text("${attempts.size} veces · Mejor tiempo: ${fastest?.let {LiveSportHistory.formatDuration(it.activeDurationSeconds!!)} ?: "Sin datos"}")

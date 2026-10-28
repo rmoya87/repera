@@ -73,7 +73,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             }}}
 
         } else {
-            item {Text("WODs",style=MaterialTheme.typography.headlineMedium)}
+            item { ReperaPageHeader(title = "WODs") }
             item {OutlinedTextField(value=query,onValueChange={query=it},label={Text("Nombre o formato")},modifier=Modifier.fillMaxWidth())}
             item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 listOf("Alfabético","Músculo").forEach {mode ->ReperaFilterChip(selected=sort==mode,onClick={sort=mode},label={Text(mode)})}
@@ -87,9 +87,9 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
                     TextButton(onClick={if(split) selectedExerciseId=exercise.id else onExercise(exercise.id)},modifier=Modifier.testTag("wod_fallback_${exercise.id}")) {Text(exercise.displayName)}
                 }
             } else if(matches.isEmpty()) item {Text("Sin WODs coincidentes")}
-            items(matches,key={it.id}) {template ->Card(Modifier.fillMaxWidth().testTag("wod_catalog_${template.id}").clickable {selectedId=template.id}) {
+            items(matches,key={it.id}) {template ->ReperaCard(Modifier.fillMaxWidth().testTag("wod_catalog_${template.id}").clickable {selectedId=template.id}) {
                 Column(Modifier.padding(16.dp)) {
-                    Text(template.name+if(template.id in favorites) " ★" else "",style=MaterialTheme.typography.titleMedium)
+                    Text(template.name + if (template.id in favorites) " · favorito" else "", style = MaterialTheme.typography.titleMedium)
                     Text(template.formatLabel);Text(template.musclesLabel)
                     template.typicalLabel?.let {Text(it)}
                     history[template.id]?.firstOrNull()?.let {Text(it.summary)}
