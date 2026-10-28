@@ -4,12 +4,12 @@ import os
 
 /// Serializes Live Activity start/end on the main actor.
 /// Generation token prevents a stale `end()` from killing a newer rest session.
-/// End via `Activity.activities` to avoid sending a stored `Activity` across isolation.
+/// ActivityKit operations are resolved by ID off the main actor to avoid
+/// sending non-Sendable Activity instances across isolation.
 @MainActor
 final class RestLiveActivityCoordinator {
     static let shared = RestLiveActivityCoordinator()
 
-    private var current: Activity<RestActivityAttributes>?
     private var generation: UInt64 = 0
     private let logger = Logger(subsystem: "com.app.repera", category: "RestLiveActivity")
 
@@ -24,7 +24,7 @@ final class RestLiveActivityCoordinator {
         let attributes = RestActivityAttributes(exerciseName: exerciseName ?? "Descanso")
         let state = RestActivityAttributes.ContentState(endDate: endDate, totalSeconds: totalSeconds)
         do {
-            let activity = try Activity.request(
+            _ = try Activity.request(
                 attributes: attributes,
                 content: .init(state: state, staleDate: nil),
                 pushType: nil
@@ -33,10 +33,8 @@ final class RestLiveActivityCoordinator {
                 await endAllActivities()
                 return
             }
-            current = activity
         } catch {
             logger.error("Live Activity request failed: \(String(describing: error), privacy: .public)")
-            current = nil
         }
     }
 
@@ -45,7 +43,7 @@ final class RestLiveActivityCoordinator {
         for activity in Activity<RestActivityAttributes>.activities where activity.attributes.sourceKey == nil || activity.attributes.sourceKey == "rest" {
             var state = activity.content.state
             state.pausedRemainingSeconds = remaining
-            await activity.update(ActivityContent(state: state, staleDate: nil))
+            await RestActivityIO.update(id: activity.id, state: state)
         }
     }
 
@@ -60,20 +58,19 @@ final class RestLiveActivityCoordinator {
         let state = RestActivityAttributes.ContentState(
             endDate: endDate, totalSeconds: totalSeconds
         )
-        await activity.update(ActivityContent(state: state, staleDate: nil))
-        current = activity
+        await RestActivityIO.update(id: activity.id, state: state)
     }
 
     func end() async {
         generation &+= 1
-        current = nil
         await endAllActivities()
     }
 
     private func endAllActivities() async {
-        for activity in Activity<RestActivityAttributes>.activities where activity.attributes.sourceKey == nil || activity.attributes.sourceKey == "rest" {
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
+        let ids = Activity<RestActivityAttributes>.activities
+            .filter { $0.attributes.sourceKey == nil || $0.attributes.sourceKey == "rest" }
+            .map(\.id)
+        await RestActivityIO.end(ids: ids)
     }
 }
 
@@ -143,7 +140,7 @@ final class TimerLiveActivityCoordinator {
                 var state = existing.content.state
                 state.pausedRemainingSeconds = max(0, value)
                 state.countUpAnchor = nil
-                await existing.update(.init(state: state, staleDate: nil, relevanceScore: 100))
+                await RestActivityIO.update(id: existing.id, state: state, relevanceScore: 100)
             } else if ActivityAuthorizationInfo().areActivitiesEnabled {
                 // Very fast start → pause: the previous asynchronous Activity
                 // request may be cancelled before being created.
@@ -173,10 +170,10 @@ final class TimerLiveActivityCoordinator {
         let token = generations[source, default: 0]
         Task { @MainActor in
             guard self.generations[source] == token else { return }
-            for activity in Activity<RestActivityAttributes>.activities
-            where activity.attributes.sourceKey == source.rawValue {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
+            let ids = Activity<RestActivityAttributes>.activities
+                .filter { $0.attributes.sourceKey == source.rawValue }
+                .map(\.id)
+            await RestActivityIO.end(ids: ids)
         }
     }
 
@@ -192,12 +189,12 @@ final class TimerLiveActivityCoordinator {
                 $0.attributes.sourceKey == source.rawValue
             }) {
                 if activity.attributes.exerciseName == title {
-                    await activity.update(.init(state: state, staleDate: nil, relevanceScore: 100))
+                    await RestActivityIO.update(id: activity.id, state: state, relevanceScore: 100)
                     return
                 }
                 // Activity attributes are immutable: a different block title
                 // needs a new activity, never a stale name from the last block.
-                await activity.end(nil, dismissalPolicy: .immediate)
+                await RestActivityIO.end(ids: [activity.id])
             }
             guard self.generations[source] == token else { return }
             do {
@@ -212,5 +209,34 @@ final class TimerLiveActivityCoordinator {
                 logger.error("Timer Live Activity failed: \(String(describing: error), privacy: .public)")
             }
         }
+    }
+}
+/// ActivityKit's Activity is not Sendable. Resolve it inside a detached task;
+/// only a Sendable identifier and ContentState cross the actor boundary.
+private enum RestActivityIO {
+    static func update(
+        id: String,
+        state: RestActivityAttributes.ContentState,
+        relevanceScore: Double = 0
+    ) async {
+        await Task.detached {
+            guard let activity = Activity<RestActivityAttributes>.activities.first(where: {
+                $0.id == id
+            }) else { return }
+            await activity.update(
+                .init(state: state, staleDate: nil, relevanceScore: relevanceScore)
+            )
+        }.value
+    }
+
+    static func end(ids: [String]) async {
+        guard !ids.isEmpty else { return }
+        await Task.detached {
+            let matchingIDs = Set(ids)
+            for activity in Activity<RestActivityAttributes>.activities
+            where matchingIDs.contains(activity.id) {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }.value
     }
 }
