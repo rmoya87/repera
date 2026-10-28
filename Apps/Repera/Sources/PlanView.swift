@@ -739,6 +739,7 @@ struct DayEditorView: View {
             if targetKind == .wod {
                 let name = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
                 targetMovement = WODMovement(
+                    id: item.id,
                     exerciseId: item.exerciseId,
                     name: name,
                     reps: item.plannedSets.first?.targetReps ?? 8,
@@ -778,6 +779,7 @@ struct DayEditorView: View {
                 }
                 guard let resolvedID = catalogID else { return }
                 targetExercise = RoutineExercise(
+                    id: move.id,
                     exerciseId: resolvedID,
                     plannedSets: move.explicitPlannedSets ?? move.plannedSetsFromReps,
                     quantityUnit: move.prescribedQuantityUnit
