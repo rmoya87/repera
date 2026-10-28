@@ -437,7 +437,7 @@ private fun RouteMapFallback(points: List<WorkoutRoutePoint>, modifier: Modifier
     mode: AdaptiveRoutePace.Mode = AdaptiveRoutePace.Mode.WALKING,
     userPosition:WorkoutRoutePoint?=null,userHeadingDegrees:Double?=null) {
     val allPoints=points+plannedPoints+listOfNotNull(userPosition)
-    val segments = remember(points, plannedRoute,plannedPoints,water) {
+    val segments = remember(points, plannedRoute,plannedPoints,water,mode) {
         val measured=if (plannedRoute) points.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }
         else RouteMapModel.segments(points,water,reference = plannedPoints,mode = mode)
         plannedPoints.zipWithNext().map { (a,b) -> RouteMapModel.Segment(a,b,0xFF0A84FF) }+measured
