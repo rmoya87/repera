@@ -1264,9 +1264,11 @@ struct DayEditorView: View {
                 }
                 .accessibilityHint("Ver ficha del ejercicio. Arrastra para cambiar el orden.")
                 .listRowSeparator(.hidden, edges: .bottom)
-                .swipeActions {
-                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
-                        routine.blocks[index].exercises.remove(at: exIndex)
+                // Una sola acción para la CABECERA de este ejercicio.
+                // Las series inferiores gestionan su propio swipe.
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar ejercicio") {
+                        routine.blocks[index].exercises.removeAll { $0.id == item.id }
                     }
                 }
 
@@ -1316,9 +1318,17 @@ struct DayEditorView: View {
                             let sets = store.cachedLastWorkingSession(for: ex.id)?.sets
                             return (sets?.indices.contains(setIndex) == true) ? sets?[setIndex] : nil
                         }(),
-                        canDelete: routine.blocks[index].exercises[exIndex].plannedSets.count > 1,
-                        onDelete: { deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex) }
                     )
+                    // Aplicar swipeActions a la fila hija directa de Form,
+                    // nunca dentro de PlannedSetConfigRow: en un bloque
+                    // agrupado la acción se propagaba a más de una fila.
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if routine.blocks[index].exercises[exIndex].plannedSets.count > 1 {
+                            OGSwipeDeleteButton(accessibilityLabel: "Eliminar serie") {
+                                deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
+                            }
+                        }
+                    }
                 }
 
                 Button {
@@ -1617,9 +1627,9 @@ struct DayEditorView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.vertical, 5)
-                .swipeActions {
-                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
-                        routine.blocks[index].movements.remove(at: mIndex)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar movimiento") {
+                        routine.blocks[index].movements.removeAll { $0.id == move.id }
                     }
                 }
             } else {
@@ -1635,9 +1645,9 @@ struct DayEditorView: View {
                         movementRowLabel(move: move, resolved: resolved, showSummary: false)
                     }
                 }
-                .swipeActions {
-                    OGSwipeDeleteButton(accessibilityLabel: "Quitar") {
-                        routine.blocks[index].movements.remove(at: mIndex)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    OGSwipeDeleteButton(accessibilityLabel: "Quitar movimiento") {
+                        routine.blocks[index].movements.removeAll { $0.id == move.id }
                     }
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
@@ -2067,7 +2077,7 @@ struct WODMovementEditor: View {
                     ForEach(Array(draftSets.enumerated()), id: \.element.id) { index, _ in
                         wodSetRow(index: index)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 if draftSets.count > 1 {
                                     OGSwipeDeleteButton {
                                         removeSet(at: index)
@@ -2411,9 +2421,14 @@ struct RoutineExerciseEditor: View {
                             let sets = store.cachedLastWorkingSession(for: exerciseId)?.sets
                             return (sets?.indices.contains(index) == true) ? sets?[index] : nil
                         }(),
-                        canDelete: item.plannedSets.count > 1,
-                        onDelete: { deleteSet(at: index) }
                     )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if item.plannedSets.count > 1 {
+                            OGSwipeDeleteButton(accessibilityLabel: "Eliminar serie") {
+                                deleteSet(at: index)
+                            }
+                        }
+                    }
                 }
 
                 Button {
@@ -2558,8 +2573,6 @@ private struct PlannedSetConfigRow: View {
     var isMobility: Bool = false
     var isMobilityHold: Bool = false
     var previous: ExerciseLastSession.WorkSet? = nil
-    var canDelete: Bool
-    var onDelete: () -> Void
     @FocusState private var focusedSetField: OGSetFieldID?
 
     var body: some View {
@@ -2600,11 +2613,6 @@ private struct PlannedSetConfigRow: View {
             }
         )
         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if canDelete {
-                OGSwipeDeleteButton(action: onDelete)
-            }
-        }
     }
 }
 
