@@ -5,6 +5,17 @@ import kotlin.math.*
 
 /** Heading from measured geometry only. No heading or current position invented. */
 internal object LiveMapCamera {
+    const val FOLLOW_RESUME_DELAY_MS = 5_000L
+
+    /** Reanudar únicamente después de cinco segundos SIN nuevas interacciones. */
+    fun shouldResumeFollowing(
+        following: Boolean,
+        lastUserMoveMs: Long,
+        nowMs: Long
+    ): Boolean = !following && lastUserMoveMs > 0 &&
+        nowMs >= lastUserMoveMs &&
+        nowMs - lastUserMoveMs >= FOLLOW_RESUME_DELAY_MS
+
     data class Target(val latitude:Double,val longitude:Double,val bearing:Double,val pitch:Double,val zoom:Double)
     /** Solo cuando hay desplazamiento medido; nunca inferir rumbo de puntos casi inmóviles. */
     fun measuredHeading(trace: List<WorkoutRoutePoint>): Double? {
