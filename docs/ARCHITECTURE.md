@@ -191,14 +191,14 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 - Confirmaciones (eliminar, vaciar…): `OGConfirmSheet` (mismo glass)
 - Filas Inicio/Historial: `OGRegisterLeadingIcon` + `WorkoutRegisterChips` / `OGRegisterChipsRow` (`RegisterSessionChrome.swift`); minutos = `displayDurationMinutes`; Inicio usa check, Historial icono de fuerza
 
-Android (`android/mobile`, Material 3 — 2026-10-28):
+Android (`android/mobile`, Material 3 — 2026-10-29):
 
 - `ReperaTheme` / `reperaColorScheme` mapean `OG.*` (primary verde, superficies, outline); se aplica en la raíz de `MainActivity` para onboarding, permisos y tabs (evita el púrpura M3 por defecto).
 - `ReperaComponents`: `ReperaCard` (surface + borde, radio 14, sin tonal purple; overload clicable), `ReperaFilterChip`, `ReperaModalBottomSheet`, `ReperaSectionTitle` (≈ `OGCardSectionTitle`), `ReperaPageHeader` (≈ `OGFixedTopBar`/`OGPageHeader`), `ReperaEmptyState`, switches/botones/segmentados verdes; tipografía `reperaTypography` con títulos semibold.
-- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; NavigationBar M3; **sin TopAppBar «repera» en las 4 tabs** (título large in-content como iOS); TopAppBar solo en rutas anidadas.
+- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; **tab bar flotante** `ReperaFloatingTabBar` / `ReperaTabBarChrome` (píldora blanca inset ~16 dp, borde `outlineVariant`, sombra suave, icono+label verde con cápsula `primaryContainer` detrás del icono; pestañas Comenzar/Progreso con `PlayCircle`/`Speed`; accesorio «Continuar» encima; **oculta fuera de las 4 rutas tab**); **sin TopAppBar «repera» en las 4 tabs** (título large in-content como iOS); TopAppBar solo en rutas anidadas.
 - Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
-- Sigue distinto de iOS a propósito: Material 3 (no Liquid Glass), NavigationBar M3, MapLibre vs MapKit, sin glass toolbar 44.
-- Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). Diffs de plataforma: NavigationBar M3, sin Liquid Glass en el engranaje.
+- Sigue distinto de iOS a propósito: Material 3 (cristal simulado con Surface, no Liquid Glass nativo), MapLibre vs MapKit, sin glass toolbar 44 del sistema.
+- Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). `HomeProfileButton` sin avatar: círculo `surfaceVariant` + borde (≈ botón glass del engranaje iOS).
 
 ## Datos y sync
 

@@ -16,14 +16,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.Apartment
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,11 +25,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,7 +42,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -60,18 +51,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-
-private data class TabSpec(val route: String, val label: String, val icon: ImageVector)
-
-private val tabs = listOf(
-    TabSpec("inicio", "Inicio", Icons.Outlined.Home),
-    // Diario ELIMINADO (Apple lo elimino, no lo oculto): sin pestana, sin ruta,
-    // sin pantalla. Rollback via Git. Divergencia abierta: la biblioteca Rutinas
-    // conserva acceso temporal por rutas (DIARIO_REMOVAL_TRACE).
-    TabSpec("en-vivo", "Comenzar", Icons.Outlined.AddCircleOutline),
-    TabSpec("progreso", "Progreso", Icons.Outlined.TrendingUp),
-    TabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -360,11 +339,11 @@ fun ReperaMobileScreen(
         val openSettings:()->Unit = {
             if(expanded && currentRoute=="inicio") {routinePanelId=null;showSettingsPanel=true} else navigateTab("ajustes")
         }
-        val visibleTabs = tabs
         // Paridad iOS: las 4 tabs usan large title in-content (`ogFixedTopBar` /
         // título en scroll), no un TopAppBar global «repera» encima de todas.
         // Ajustes se abre desde el avatar de Inicio o la ruta `ajustes`.
-        val tabRoutes = tabs.map { it.route }.toSet()
+        val tabRoutes = reperaTabRoutes
+        val showTabBar = currentRoute in tabRoutes
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -386,75 +365,22 @@ fun ReperaMobileScreen(
                 }
             },
             bottomBar = {
-                Column {
-                    // Accesorio «Continuar» (§1.6 / ContinueAccessory iOS) sobre la tab bar.
-                    val session = activeWorkout
-                    if (session != null && currentRoute in tabRoutes) {
-                        val title = session.exerciseName.takeIf { it.isNotBlank() }
-                            ?: session.title.takeIf { it.isNotBlank() }
-                            ?: "Entreno"
-                        val progress = if (session.total > 0)
-                            "${session.index + 1}/${session.total}" else ""
-                        Surface(
-                            tonalElevation = 2.dp,
-                            color = MaterialTheme.colorScheme.surface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navController.navigate("entreno-activo") }
-                                .testTag("continuar_accessory")
-                        ) {
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "Continuar",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
-                                    )
-                                }
-                                if (progress.isNotEmpty()) {
-                                    Text(
-                                        progress,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ) {
-                        visibleTabs.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentRoute == tab.route,
-                                onClick = { navigateTab(tab.route) },
-                                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                icon = { Icon(imageVector = tab.icon, contentDescription = null) },
-                                label = { Text(tab.label) }
-                            )
-                        }
-                    }
-                }
+                val session = activeWorkout
+                val continueTitle = if (session != null && showTabBar) {
+                    session.exerciseName.takeIf { it.isNotBlank() }
+                        ?: session.title.takeIf { it.isNotBlank() }
+                        ?: "Entreno"
+                } else null
+                val continueProgress = if (session != null && session.total > 0)
+                    "${session.index + 1}/${session.total}" else ""
+                ReperaTabBarChrome(
+                    showTabBar = showTabBar,
+                    selectedRoute = currentRoute,
+                    onTabSelected = navigateTab,
+                    continueTitle = continueTitle,
+                    continueProgress = continueProgress,
+                    onContinue = { navController.navigate("entreno-activo") }
+                )
             }
         ) { padding ->
             androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(padding)) {
