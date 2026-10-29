@@ -135,10 +135,10 @@ internal fun RouteMapView(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap) {
+    androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap,userHeadingDegrees) {
         val map=loadedMap ?: return@LaunchedEffect
         val center=cameraCenter ?: return@LaunchedEffect
-        val camera=LiveMapCamera.target(center,points,navigationMode)
+        val camera=LiveMapCamera.target(center,currentPoints,navigationMode,userHeadingDegrees)
         map.moveCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder()
             .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
             .bearing(camera.bearing).tilt(camera.pitch).build()))
@@ -202,8 +202,22 @@ internal fun RouteMapView(
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) onStart()
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) onResume()
                 getMapAsync { map ->
+                    // Identificar únicamente gestos del usuario, no movimientos
+                    // hechos por la app al seguir el GPS. Reiniciar el plazo de
+                    // cinco segundos durante el arrastre, zoom, rotación e inercia
+                    // y una última vez al finalizar la animación del gesto.
+                    var userGestureMovingCamera = false
                     map.addOnCameraMoveStartedListener { reason ->
-                        if(reason==MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) currentGesture?.invoke()
+                        userGestureMovingCamera =
+                            reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE
+                        if (userGestureMovingCamera) currentGesture?.invoke()
+                    }
+                    map.addOnCameraMoveListener {
+                        if (userGestureMovingCamera) currentGesture?.invoke()
+                    }
+                    map.addOnCameraIdleListener {
+                        if (userGestureMovingCamera) currentGesture?.invoke()
+                        userGestureMovingCamera = false
                     }
                     map.uiSettings.apply {
                         isLogoEnabled = true
