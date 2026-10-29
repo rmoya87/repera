@@ -44,16 +44,19 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Una sola lista jerárquica Bloque→ejercicios (paridad FINAL_REVIEW).
- * Sin sección «Orden de bloques». Arrastrar bloque reordena bloques;
- * arrastrar ejercicio reordena dentro del bloque; menú mueve entre bloques.
+ * Arrastrar el bloque mueve cabecera+ejercicios (altura real del grupo).
+ * Mover entre bloques pasa por [PlanEntryMoves.move] (conversión fuerza↔WOD).
  */
 @Composable
 internal fun PlanReorderSheet(
     blocks: SnapshotStateList<BlockDraftUi>,
     nameById: Map<String, String>,
-    onDone: () -> Unit
+    exercises: List<ExerciseEntry>,
+    onDone: () -> Unit,
+    onMoveMessage: (String?) -> Unit = {}
 ) {
     val scroll = rememberScrollState()
+    // Alturas de bloques COMPLETOS (cabecera + entradas), no solo la card.
     val blockHeights = remember { mutableStateMapOf<Int, Int>() }
     ProvideScrollDragAutoScroll(scroll) {
         Column(
@@ -78,7 +81,9 @@ internal fun PlanReorderSheet(
             }
 
             blocks.forEachIndexed { blockIndex, block ->
-                ReorderInsertionGap(visible = blockIndex == 0 || true)
+                ReorderInsertionGap(visible = true)
+                // P2: el DragReorderItem envuelve cabecera + ejercicios para que
+                // blockHeights / dragTargetIndex usen la geometría del bloque entero.
                 DragReorderItem(
                     index = blockIndex,
                     heights = blockHeights,
@@ -93,60 +98,62 @@ internal fun PlanReorderSheet(
                             val moved = blocks.removeAt(blockIndex); blocks.add(t, moved)
                         }
                     }
-                ) { handle ->
-                    ReorderBlockCard(
-                        position = blockIndex,
-                        title = block.title.ifBlank { "Bloque ${blockIndex + 1}" },
-                        subtitle = blockFormatSubtitle(block),
-                        handle = handle
-                    )
-                }
+                ) { blockHandle ->
+                    Column(Modifier.fillMaxWidth()) {
+                        ReorderBlockCard(
+                            position = blockIndex,
+                            title = block.title.ifBlank { "Bloque ${blockIndex + 1}" },
+                            subtitle = blockFormatSubtitle(block),
+                            handle = blockHandle
+                        )
 
-                val entryHeights = remember(block) { mutableStateMapOf<Int, Int>() }
-                if (block.entries.isEmpty()) {
-                    ReorderInsertionGap(visible = true, label = "Vacío · soltar aquí")
-                }
-                block.entries.forEachIndexed { entryIndex, entry ->
-                    ReorderInsertionGap(visible = true)
-                    DragReorderItem(
-                        index = entryIndex,
-                        heights = entryHeights,
-                        count = block.entries.size,
-                        onDrop = { _, t ->
-                            if (t != entryIndex && t in block.entries.indices) {
-                                val moved = block.entries.removeAt(entryIndex)
-                                block.entries.add(t, moved)
-                            }
-                        },
-                        onMoveTo = { t ->
-                            if (t != entryIndex && t in block.entries.indices) {
-                                val moved = block.entries.removeAt(entryIndex)
-                                block.entries.add(t, moved)
+                        val entryHeights = remember(block) { mutableStateMapOf<Int, Int>() }
+                        if (block.entries.isEmpty()) {
+                            ReorderInsertionGap(visible = true, label = "Vacío · soltar aquí")
+                        }
+                        block.entries.forEachIndexed { entryIndex, entry ->
+                            ReorderInsertionGap(visible = true)
+                            DragReorderItem(
+                                index = entryIndex,
+                                heights = entryHeights,
+                                count = block.entries.size,
+                                onDrop = { _, t ->
+                                    if (t != entryIndex && t in block.entries.indices) {
+                                        val moved = block.entries.removeAt(entryIndex)
+                                        block.entries.add(t, moved)
+                                    }
+                                },
+                                onMoveTo = { t ->
+                                    if (t != entryIndex && t in block.entries.indices) {
+                                        val moved = block.entries.removeAt(entryIndex)
+                                        block.entries.add(t, moved)
+                                    }
+                                }
+                            ) { entryHandle ->
+                                ReorderExerciseCard(
+                                    name = entryDisplayName(entry, nameById),
+                                    handle = entryHandle,
+                                    otherBlocks = blocks.mapIndexedNotNull { i, b ->
+                                        if (i == blockIndex) null
+                                        else i to b.title.ifBlank { "Bloque ${i + 1}" }
+                                    },
+                                    onMoveToBlock = { target ->
+                                        // P1: conversión fuerza↔WOD / rechazo REST→fuerza.
+                                        val msg = PlanEntryMoves.move(
+                                            blocks, blockIndex, entryIndex, target,
+                                            nameById, exercises
+                                        )
+                                        onMoveMessage(msg)
+                                    }
+                                )
                             }
                         }
-                    ) { handle ->
-                        ReorderExerciseCard(
-                            name = entryDisplayName(entry, nameById),
-                            handle = handle,
-                            otherBlocks = blocks.mapIndexedNotNull { i, b ->
-                                if (i == blockIndex) null
-                                else i to b.title.ifBlank { "Bloque ${i + 1}" }
-                            },
-                            onMoveToBlock = { target ->
-                                if (target in blocks.indices && target != blockIndex
-                                    && entryIndex in block.entries.indices
-                                ) {
-                                    val moved = block.entries.removeAt(entryIndex)
-                                    blocks[target].entries.add(moved)
-                                }
-                            }
+                        ReorderInsertionGap(
+                            visible = true,
+                            label = "Soltar al final"
                         )
                     }
                 }
-                ReorderInsertionGap(
-                    visible = true,
-                    label = "Soltar al final"
-                )
             }
         }
     }

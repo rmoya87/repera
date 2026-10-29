@@ -96,7 +96,9 @@ fun RoutineBlocksEditorScreen(
             PlanReorderSheet(
                 blocks = blocks,
                 nameById = nameById,
-                onDone = { showReorder = false }
+                exercises = exercises,
+                onDone = { showReorder = false },
+                onMoveMessage = { msg -> if (msg != null) error = msg }
             )
         }
     }
