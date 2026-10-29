@@ -161,7 +161,8 @@ struct PaywallView: View {
             .font(.system(size: 10, weight: .semibold))
             .padding(.bottom, 3)
 
-            ForEach(comparisonRows, id: \.label) { item in
+            ForEach(comparisonRows.indices, id: \.self) { index in
+                let item = comparisonRows[index]
                 HStack(alignment: .center, spacing: 8) {
                     Text(item.label)
                         .font(.system(size: 12, weight: .medium))
