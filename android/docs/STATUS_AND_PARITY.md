@@ -4,13 +4,15 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-28 — Inicio visual = iOS (banda blanca/gris, cards, CTA); resto UI ~100% (solo diffs plataforma: M3 nav, MapLibre, Health Connect, Icons.Filled) (Play/session, editores, detalle,
-historial, permisos/onboarding, cards secundarias → Repera*); `#136`/`#137`/`#138`
-en main; ownership Play (#131); sin clima Android; POI = Places si gratis else Photon.
+**Última actualización:** 2026-10-29 — Flujos desde Inicio (DayPlus / Favoritos /
+editar / swipe / editor bloques / escáner Empezar) alineados con iOS; tip post-#147.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
-Inicio: `HomeTab` reescrito a composición iOS (`HomeDayCards`, progreso, actividad). Sin clima en Comenzar Android (`weather_android: none`).
+Inicio: composición iOS + flujos DayPlus (orden Crear→Tempo→Escanear→Favoritos),
+editar planificado → `rutina/{id}`, favoritos con `assignRoutineToDate`, swipe
+reveal en cards del día, semilla «Bloque 1», movimiento libre / Entre rondas /
+Empezar tras OCR. Sin clima en Comenzar (`weather_android: none`).
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |
@@ -463,10 +465,16 @@ ninguno aparecía en las auditorías del 23/10.
 Barrido sobre los 99 ficheros `.swift` de `Apps/Repera/Sources` contrastando
 cada concepto con Android. Además de lo ya registrado:
 
-- **`DayPlusSheet` (598)**: menú «＋» de un día concreto — **PORTADO**: one-off
-  con `scheduledDate`, favoritos, temporizador, y escaneo de pizarra al día
-  (`escaner?fecha=` → `createRoutineFromScan` con schedule). Timer/favoritos
-  sin fecha (igual que iOS DayPlus).
+- **`DayPlusSheet`**: menú «＋» — Crear → Temporizador → Escanear entreno →
+  Favoritos; one-off con fecha + semilla «Bloque 1»; Favoritos pasa ISO y
+  `assignRoutineToDate`; al volver de Favoritos/Tempo se reapre el sheet.
+  Escáner review: **Crear rutina** + **Empezar**.
+- **`HomeSwipeRevealCard`**: swipe en cards compactas de Inicio (eliminar /
+  editar planificado → `rutina/{id}`).
+- **`FavoritesHub`**: crear/editar/eliminar entreno favorito; tap con fecha =
+  copiar al día.
+- **`RoutineBlocksEditor`**: EMOM/circuit Tiempo+Intervalo; forTime «Entre
+  rondas»; Descanso + Movimiento libre; bloque descanso tras fuerza.
 - **`RegisterSwipeRevealCard` (382)**: tarjeta de registro con gesto swipe de
   revelado de acciones (UIKit). Las ACCIONES existen en Android como botones;
   el gesto es un ítem de fidelidad. Estado: ABIERTO (fidelidad, no capacidad).

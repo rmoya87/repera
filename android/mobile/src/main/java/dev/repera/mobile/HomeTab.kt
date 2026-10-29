@@ -112,14 +112,19 @@ internal fun HomeTab(
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
 
     onNavigateCreate: () -> Unit,
+    /** Editar contenido de una rutina planificada (ruta `rutina/{id}`). */
+    onEditRoutineContent: (String) -> Unit = {},
     // «＋» del día seleccionado (DayPlusSheet iOS desde HomeView, c5aae1cc).
     onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
-    onDayPlusFavorites: () -> Unit = {},
+    onDayPlusFavorites: (String) -> Unit = {},
     onDayPlusTimer: () -> Unit = {},
     /** ISO day (`yyyy-MM-dd`) selected when opening the board scanner. */
     onDayPlusScan: (String) -> Unit = {},
     onDeleteRoutine: (String) -> Unit = {},
     onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
+    /** iOS `restoresAddSheetAfterPage`: reabrir DayPlus al volver de Favoritos/Tempo. */
+    restoreDayPlus: Boolean = false,
+    onRestoreDayPlusConsumed: () -> Unit = {},
     onOpenClock: () -> Unit,
     modifier: Modifier = Modifier,
     focusDay: java.time.LocalDate? = null,
@@ -134,6 +139,12 @@ internal fun HomeTab(
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var showDayPlus by rememberSaveable(accountId) { mutableStateOf(false) }
     LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
+    LaunchedEffect(restoreDayPlus) {
+        if (restoreDayPlus) {
+            showDayPlus = true
+            onRestoreDayPlusConsumed()
+        }
+    }
     val selectedDay=LocalDate.parse(homeDateIso)
     var selectedHealth by remember(selectedDay) {mutableStateOf<TodayHealth?>(null)}
     LaunchedEffect(selectedDay,todayHealth,overview?.dayEnergyKcal) {selectedHealth=dayHealthProvider(selectedDay)}
@@ -217,7 +228,15 @@ internal fun HomeTab(
                 ) {
                     dayWorkouts.forEach { workout ->
                         var expanded by rememberSaveable(workout.id) { mutableStateOf(false) }
-                        HomeCompletedWorkoutCard(workout, day) { expanded = !expanded }
+                        HomeSwipeRevealCard(
+                            key = workout.id,
+                            busy = busy,
+                            onDelete = { onDeleteWorkout(workout.id) },
+                            onEdit = if (workout.timerDetails == null)
+                                ({ expanded = true }) else null
+                        ) {
+                            HomeCompletedWorkoutCard(workout, day) { expanded = !expanded }
+                        }
                         if (expanded) {
                             WorkoutHistoryCard(
                                 workout, busy,
@@ -248,7 +267,17 @@ internal fun HomeTab(
                     }
                     visibleRoutines.forEach { routine ->
                         var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
-                        HomePlannedRoutineCard(routine, day) { preview = true }
+                        HomeSwipeRevealCard(
+                            key = routine.id,
+                            busy = busy,
+                            onDelete = { onRemoveScheduledRoutine(routine.id) },
+                            onEdit = {
+                                preview = false
+                                onEditRoutineContent(routine.id)
+                            }
+                        ) {
+                            HomePlannedRoutineCard(routine, day) { preview = true }
+                        }
                         if (preview) {
                             @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
                             ReperaModalBottomSheet(onDismissRequest = { preview = false }) {
@@ -256,7 +285,10 @@ internal fun HomeTab(
                                     routine = routine,
                                     busy = busy,
                                     onStart = { onStartRoutine(routine.id) },
-                                    onEdit = { onNavigateCreate() },
+                                    onEdit = {
+                                        preview = false
+                                        onEditRoutineContent(routine.id)
+                                    },
                                     onDelete = {
                                         preview = false
                                         onRemoveScheduledRoutine(routine.id)
@@ -295,7 +327,9 @@ internal fun HomeTab(
                             onCreateWorkout = {
                                 showDayPlus = false; onDayPlusCreate(homeDateIso, dayName)
                             },
-                            onOpenFavorites = { showDayPlus = false; onDayPlusFavorites() },
+                            onOpenFavorites = {
+                                showDayPlus = false; onDayPlusFavorites(homeDateIso)
+                            },
                             onOpenTimer = { showDayPlus = false; onDayPlusTimer() },
                             onScanBoard = { showDayPlus = false; onDayPlusScan(homeDateIso) },
                             onDismiss = { showDayPlus = false })
