@@ -4,6 +4,8 @@
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
+- **Iconos de navegación iOS/Android (29/10/2026):** Comenzar usa `play.circle` sin seleccionar y `play.circle.fill` al estar activo; Progreso usa `chart.bar` y `chart.bar.fill` respectivamente. En Android se emplean los equivalentes Material `PlayCircle` y `BarChart` (Outlined/Filled). El icono depende de la pestaña seleccionada, sin afectar Inicio ni Ejercicios.
+
 - Las páginas con título grande integrado en una List/Form eliminan el margen superior automático de `insetGrouped` mediante `contentMargins(.top, 0, for: .scrollContent)`; la primera fila de título conserva solo 6 pt internos. Esto acerca el texto a los botones sin cambiar su fuente ni fijarlo en la barra. Los ScrollView independientes (como Temporizador y las fichas de ejercicios) omiten expresamente ese modificador de márgenes, conservando únicamente el padding del contenido y la topbar transparente.
 
 - Las topbars de Inicio, Ejercicios, Comenzar, Entreno, Historial y las subpáginas usan un fondo realmente transparente, incluso durante scroll. Las acciones quedan fijas; en Ejercicios se mantienen dos filas de controles, búsqueda y filtros, sin añadir un lienzo opaco.
