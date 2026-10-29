@@ -6,11 +6,9 @@ import UIKit
 enum ExerciseArt {
     /// Nombre del hero para listas (sin sondear pasos `_1`…`_8`).
     static func imageName(for exercise: Exercise) -> String? {
-        // No reutilizar por similitud arte de fuerza en movimientos de movilidad:
-        // solo arte propio con coincidencia exacta de nombre (nameMap), nunca el
-        // fallback difuso. Verificado visualmente antes de dar de alta cada stem.
-        if exercise.isMobility { return mobilityArtBase(forExerciseName: exercise.name) }
-        return heroImageName(for: exercise)
+        // El picker, Reordenar y el detalle consultan el MISMO resolver.
+        // Movilidad mantiene coincidencia exacta dentro de heroImageName.
+        heroImageName(for: exercise)
     }
 
     static func imageName(forExerciseName name: String, muscleGroup: String) -> String? {
@@ -82,17 +80,25 @@ enum ExerciseArt {
         return base
     }
 
-    /// Solo cache hit (nunca decodifica). Usar en `body` para no bloquear el buscador.
+    /// Solo cache hit (nunca decodifica). Usar en body para no bloquear listas.
     static func cachedThumb(for exercise: Exercise, pointSize: CGFloat = 48) -> UIImage? {
         guard let name = heroImageName(for: exercise) else { return nil }
+        return cachedThumb(named: name, pointSize: pointSize)
+    }
+
+    static func cachedThumb(named name: String, pointSize: CGFloat = 48) -> UIImage? {
         let pixel = max(1, Int((pointSize * 3).rounded()))
         return ThumbMemoryCache.shared.image(for: "\(name)#\(pixel)")
     }
 
-    /// Decode + downscale fuera del main actor (concurrencia acotada + dedupe).
+    /// Decode + downscale fuera del main actor, deduplicado para todas las filas.
     static func loadThumb(for exercise: Exercise, pointSize: CGFloat = 48) async -> UIImage? {
-        if let hit = cachedThumb(for: exercise, pointSize: pointSize) { return hit }
         guard let name = heroImageName(for: exercise) else { return nil }
+        return await loadThumb(named: name, pointSize: pointSize)
+    }
+
+    static func loadThumb(named name: String, pointSize: CGFloat = 48) async -> UIImage? {
+        if let hit = cachedThumb(named: name, pointSize: pointSize) { return hit }
         let pixel = max(1, Int((pointSize * 3).rounded()))
         let t0 = CFAbsoluteTimeGetCurrent()
         let loaded = await ThumbImageLoader.shared.load(named: name, maxPixel: pixel)
@@ -104,12 +110,15 @@ enum ExerciseArt {
     }
 
     /// Prefetch only the visible window (default first ~16). No second full-catalog pass.
-    static func prefetchThumbs(
+    @MainActor private static var prefetchTask: Task<Void, Never>?
+
+    @MainActor static func prefetchThumbs(
         for exercises: [Exercise],
         pointSize: CGFloat = 48,
         limit: Int = 16
     ) {
-        Task(priority: .utility) {
+        prefetchTask?.cancel()
+        prefetchTask = Task(priority: .utility) {
             let t0 = CFAbsoluteTimeGetCurrent()
             let pixel = max(1, Int((pointSize * 3).rounded()))
             let manifest = await ThumbImageLoader.shared.ensureManifest()
@@ -127,8 +136,11 @@ enum ExerciseArt {
         }
     }
 
-    static func cancelThumbPrefetch() {
-        Task { await ThumbImageLoader.shared.cancelAllInFlight() }
+    @MainActor static func cancelThumbPrefetch() {
+        // El selector puede desaparecer mientras una celda visible carga
+        // su imagen. Cancelar todos los inFlight abortaba también esa celda.
+        prefetchTask?.cancel()
+        prefetchTask = nil
     }
 
     /// Warm JPG existence set so carousel probing avoids missing-file I/O.
@@ -257,16 +269,45 @@ enum ExerciseArt {
         return resolved
     }
 
-    /// Hero: solo mapa de nombres (sin FileManager / decode). Si el JPG falta, el thumb muestra SF Symbol.
+    /// Hero para listas: alias editoriales ES/EN tienen prioridad sobre el
+    /// fallback difuso, con el mismo archivo verificado que en el detalle.
     private static func heroImageName(for exercise: Exercise) -> String? {
-        if exercise.isMobility { return mobilityArtBase(forExerciseName: exercise.name) }
-        let key = exercise.name
+        let key = "\(exercise.id.uuidString)|\(exercise.name)|\(exercise.sportTag ?? "")|\(exercise.searchAliases.joined(separator: "|"))"
         if let cached = lookup.heroName(for: key) {
             return cached.isEmpty ? nil : cached
         }
-        let base = imageName(forExerciseName: exercise.name, muscleGroup: exercise.muscleGroup) ?? ""
-        lookup.setHeroName(base, for: key)
-        return base.isEmpty ? nil : base
+        let base: String?
+        if exercise.isMobility {
+            // Nunca coger arte de fuerza por parecido para un ejercicio de movilidad.
+            base = mobilityArtBase(forExerciseName: exercise.name)
+                ?? exercise.searchAliases.lazy
+                    .compactMap { mobilityArtBase(forExerciseName: $0) }
+                    .first
+        } else {
+            let aliases = exercise.searchAliases.flatMap {
+                $0.components(separatedBy: ";")
+            }.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            // Usar alias SOLO con coincidencia exacta/canónica, antes del
+            // fallback histórico por fragmentos (evita miniaturas incorrectas).
+            let aliasHero = aliases.lazy.compactMap { candidate -> String? in
+                guard !candidate.isEmpty else { return nil }
+                let canonical = CrossFitGlossary.canonicalName(for: candidate)
+                return acceptedHero(nameMap[candidate])
+                    ?? acceptedHero(nameMap[SportExerciseNames.spanishAlias(for: candidate) ?? candidate])
+                    ?? acceptedHero(nameMap[canonical])
+            }.first
+            base = acceptedHero(nameMap[exercise.name])
+                ?? aliasHero
+                ?? imageName(forExerciseName: exercise.name, muscleGroup: exercise.muscleGroup)
+        }
+        lookup.setHeroName(base ?? "", for: key)
+        return base
+    }
+
+    /// WOD libre sin ID de catálogo: resolver la miniatura usando el nombre
+    /// real, sin fabricar otro ejercicio ni cambiar los datos del entreno.
+    static func imageName(forFreeMovement name: String) -> String? {
+        imageName(forExerciseName: name, muscleGroup: "")
     }
 
     nonisolated private static func downscale(_ image: UIImage, maxPixel: Int) -> UIImage {
@@ -693,6 +734,8 @@ enum ExerciseArt {
         "Hang power clean": "art_cf_hpc",
         "Arrancada colgante": "art_hl_hang_snatch",
         "Arrancada colgante completa": "art_hl_hang_sq_snatch",
+        "Hang squat snatch": "art_hl_hang_sq_snatch",
+        "Hang Squat Snatch": "art_hl_hang_sq_snatch",
         "Arrancada muscular": "art_hl_muscle_snatch",
         "Arrancada desde bloques": "art_hl_block_snatch",
         "Arrancada con pausa": "art_hl_pause_snatch",
@@ -869,13 +912,35 @@ enum ExerciseArt {
 
 /// Miniatura reutilizable (lista, picker, plan). Prioriza cache síncrona (sin Task) para no trabar el teclado.
 struct ExerciseThumb: View {
-    let exercise: Exercise
+    private let exercise: Exercise?
+    private let freeMovementName: String?
     var size: CGFloat = 48
     @State private var fetched: UIImage?
+    @State private var fetchedName: String?
+
+    init(exercise: Exercise, size: CGFloat = 48) {
+        self.exercise = exercise
+        self.freeMovementName = nil
+        self.size = size
+    }
+
+    /// Para movimientos libres de WOD que todavía no tienen exerciseId.
+    init(name: String, size: CGFloat = 48) {
+        self.exercise = nil
+        self.freeMovementName = name
+        self.size = size
+    }
+
+    private var assetName: String? {
+        if let exercise { return ExerciseArt.imageName(for: exercise) }
+        if let freeMovementName { return ExerciseArt.imageName(forFreeMovement: freeMovementName) }
+        return nil
+    }
 
     var body: some View {
-        let cached = ExerciseArt.cachedThumb(for: exercise, pointSize: size)
-        let shown = cached ?? fetched
+        let name = assetName
+        let cached = name.flatMap { ExerciseArt.cachedThumb(named: $0, pointSize: size) }
+        let shown = cached ?? (fetchedName == name ? fetched : nil)
         Group {
             if let shown {
                 Image(uiImage: shown)
@@ -884,7 +949,7 @@ struct ExerciseThumb: View {
             } else {
                 ZStack {
                     OG.surface2
-                    Image(systemName: exercise.isMobility ? "figure.flexibility" : "figure.strengthtraining.traditional")
+                    Image(systemName: exercise?.isMobility == true ? "figure.flexibility" : "figure.strengthtraining.traditional")
                         .font(.system(size: size * 0.35))
                         .foregroundStyle(OG.label3)
                 }
@@ -893,10 +958,16 @@ struct ExerciseThumb: View {
         .frame(width: size, height: size)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
-        .task(id: "\(exercise.id.uuidString)-\(exercise.name)-\(Int(size))") {
-            // No vaciar `fetched` al reiniciar: en List el task se cancela a menudo.
-            guard ExerciseArt.cachedThumb(for: exercise, pointSize: size) == nil else { return }
-            let image = await ExerciseArt.loadThumb(for: exercise, pointSize: size)
+        .task(id: "\(name ?? "none")|\(Int(size))") {
+            // Un List reutiliza vistas: no mostrar la foto del ejercicio anterior.
+            fetchedName = name
+            fetched = nil
+            guard let name else { return }
+            if let hit = ExerciseArt.cachedThumb(named: name, pointSize: size) {
+                fetched = hit
+                return
+            }
+            let image = await ExerciseArt.loadThumb(named: name, pointSize: size)
             if Task.isCancelled { return }
             fetched = image
         }

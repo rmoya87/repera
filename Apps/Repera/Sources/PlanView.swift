@@ -624,14 +624,39 @@ struct DayEditorView: View {
         }
     }
 
+    @ViewBuilder
+    private func reorderExerciseThumb(blockID: UUID, itemID: UUID, type: String) -> some View {
+        if let block = routine.blocks.first(where: { $0.id == blockID }) {
+            if type == "exercise",
+               let item = block.exercises.first(where: { $0.id == itemID }),
+               let exercise = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
+                ExerciseThumb(exercise: exercise, size: 32)
+            } else if type == "movement",
+                      let movement = block.movements.first(where: { $0.id == itemID }) {
+                if movement.isRest {
+                    Image(systemName: "pause.circle")
+                        .foregroundStyle(OG.label3)
+                        .frame(width: 32, height: 32)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 9))
+                } else if let id = movement.exerciseId,
+                          let exercise = store.state.exercises.first(where: { $0.id == id }) {
+                    ExerciseThumb(exercise: exercise, size: 32)
+                } else {
+                    ExerciseThumb(name: movement.name, size: 32)
+                }
+            } else {
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .foregroundStyle(OG.label3)
+                    .frame(width: 32, height: 32)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 9))
+            }
+        }
+    }
+
     private func reorderExerciseRow(_ name: String, blockID: UUID, itemID: UUID, type: String) -> some View {
         let dragToken = "\(type):\(blockID.uuidString):\(itemID.uuidString)"
         return HStack(spacing: 12) {
-            Image(systemName: type == "movement" ? "figure.strengthtraining.functional" : "dumbbell")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(OG.accent)
-                .frame(width: 32, height: 32)
-                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 9))
+            reorderExerciseThumb(blockID: blockID, itemID: itemID, type: type)
             Text(name)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(OG.label)
@@ -648,9 +673,7 @@ struct DayEditorView: View {
         .draggable(dragToken) {
             OGReorderDragPreview(cornerRadius: 12) {
                 HStack(spacing: 12) {
-                    Image(systemName: type == "movement" ? "figure.strengthtraining.functional" : "dumbbell")
-                        .foregroundStyle(OG.accent)
-                        .frame(width: 32, height: 32)
+                    reorderExerciseThumb(blockID: blockID, itemID: itemID, type: type)
                     Text(name)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(OG.label)
