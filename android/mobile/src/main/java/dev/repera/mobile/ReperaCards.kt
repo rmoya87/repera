@@ -484,23 +484,23 @@ internal fun ActiveWorkoutCard(
                 colors = reperaPrimaryButtonColors(),
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Finalizar entrenamiento") }
-            // Descartar sin guardar (endActiveSession(save: false) iOS, con confirmación).
-            var confirmDiscard by remember(active.id) { mutableStateOf(false) }
-            TextButton(onClick = { confirmDiscard = true }, enabled = !busy) {
-                Text("Descartar entreno", color = MaterialTheme.colorScheme.error)
+            // Cancelar sin guardar (endActiveSession(save: false) iOS) — siempre con confirmación.
+            var confirmCancel by remember(active.id) { mutableStateOf(false) }
+            TextButton(onClick = { confirmCancel = true }, enabled = !busy) {
+                Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
             }
-            if (confirmDiscard) {
+            if (confirmCancel) {
                 AlertDialog(
-                    onDismissRequest = { confirmDiscard = false },
+                    onDismissRequest = { confirmCancel = false },
                     confirmButton = {
-                        TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
-                            Text("Descartar", color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = { confirmCancel = false; onDiscard() }) {
+                            Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { confirmDiscard = false }) { Text("Cancelar") }
+                        TextButton(onClick = { confirmCancel = false }) { Text("Seguir entrenando") }
                     },
-                    title = { Text("Descartar entreno en curso") },
+                    title = { Text("¿Cancelar entreno?") },
                     text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") }
                 )
             }
@@ -763,23 +763,23 @@ internal fun WodScoreCard(
             TextButton(onClick = onFinish, enabled = !busy) {
                 Text("Finalizar sin añadir otro resultado")
             }
-            // Descartar sin guardar (endActiveSession(save: false) iOS).
-            var confirmDiscard by remember(active.id) { mutableStateOf(false) }
-            TextButton(onClick = { confirmDiscard = true }, enabled = !busy) {
-                Text("Descartar entreno", color = MaterialTheme.colorScheme.error)
+            // Cancelar sin guardar (endActiveSession(save: false) iOS) — siempre con confirmación.
+            var confirmCancel by remember(active.id) { mutableStateOf(false) }
+            TextButton(onClick = { confirmCancel = true }, enabled = !busy) {
+                Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
             }
-            if (confirmDiscard) {
+            if (confirmCancel) {
                 AlertDialog(
-                    onDismissRequest = { confirmDiscard = false },
+                    onDismissRequest = { confirmCancel = false },
                     confirmButton = {
-                        TextButton(onClick = { confirmDiscard = false; onDiscard() }) {
-                            Text("Descartar", color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = { confirmCancel = false; onDiscard() }) {
+                            Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { confirmDiscard = false }) { Text("Cancelar") }
+                        TextButton(onClick = { confirmCancel = false }) { Text("Seguir entrenando") }
                     },
-                    title = { Text("Descartar entreno en curso") },
+                    title = { Text("¿Cancelar entreno?") },
                     text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") }
                 )
             }

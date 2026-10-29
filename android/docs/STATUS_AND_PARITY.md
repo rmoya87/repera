@@ -4,8 +4,9 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Flujos desde Inicio (DayPlus / Favoritos /
-editar / swipe / editor bloques / escáner Empezar) alineados con iOS; tip post-#147.
+**Última actualización:** 2026-10-29 — Ampliación Ramón (mobile): Inicio lienzo
+`OG.bg` tras Actividad; «Cancelar entreno» con diálogo; «Ver instrucciones» IA;
+mapa de lugar full-bleed + chip; accesorio «Continuar» sobre tab bar. Tip post-#148.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

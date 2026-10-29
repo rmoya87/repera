@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Flujos Inicio (DayPlus/Favoritos/editar/swipe/editor/escáner) paridad iOS.
+**Última actualización:** 2026-10-29 — Ampliación Ramón Android: Inicio gris post-Actividad, Cancelar entreno+confirm, Ver instrucciones IA, mapa lugar chip/full-bleed, accesorio Continuar.
 
 Implementación nativa independiente en `android/`:
 

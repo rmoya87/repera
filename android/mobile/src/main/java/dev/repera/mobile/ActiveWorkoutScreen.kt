@@ -57,11 +57,15 @@ internal fun ActiveWorkoutScreen(
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
                 onFinish=onFinish,onDiscard=onDiscard)
         }
-        item { ReperaSectionTitle("Lugar") }
+        if (pin == null) item { ReperaSectionTitle("Lugar") }
         item {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    WorkoutPlacePickerRow(pin=pin,accountId=accountId,onPinChange=onPinChange)
+                if (pin != null) {
+                    WorkoutPlacePickerRow(pin = pin, accountId = accountId, onPinChange = onPinChange)
+                } else {
+                    Column(Modifier.padding(16.dp)) {
+                        WorkoutPlacePickerRow(pin = null, accountId = accountId, onPinChange = onPinChange)
+                    }
                 }
             }
         }
