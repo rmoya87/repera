@@ -94,7 +94,6 @@ import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Point
 
-private const val MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 private const val PIN_SOURCE = "place-pin-source"
 private const val PIN_LAYER = "place-pin-layer"
 
@@ -185,7 +184,11 @@ internal fun PlacePinMap(
                         setAllGesturesEnabled(isInteractive)
                         isCompassEnabled = isInteractive
                     }
-                    map.setStyle(MAP_STYLE) { style ->
+                    val dark = (context.resources.configuration.uiMode and
+                        android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES
+                    map.setStyle(ReperaMapAppearance.styleUrl(dark)) { style ->
+                        ReperaMapAppearance.apply(style,dark,navigation3D=false)
                         val point = Point.fromLngLat(longitude, latitude)
                         style.addSource(GeoJsonSource(PIN_SOURCE, point))
                         style.addLayer(

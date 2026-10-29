@@ -41,6 +41,12 @@ class LiveMapCameraTest {
         val idle=LiveMapCamera.target(p,emptyList(),true)
         assertEquals(p.latitude,idle.latitude,0.0);assertEquals(p.longitude,idle.longitude,0.0)
     }
+    @Test fun idleCameraUsesSensorBearingAndNoGpsAheadOffset() {
+        val target=LiveMapCamera.target(p,emptyList(),true,210.0)
+        assertEquals(210.0,target.bearing,0.0)
+        assertEquals(p.latitude,target.latitude,0.0)
+        assertEquals(p.longitude,target.longitude,0.0)
+    }
     @Test fun returnsToUserAfterFiveSecondsSinceLastGestureOnly() {
         assertFalse(LiveMapCamera.shouldResumeFollowing(false,1000L,5999L))
         assertTrue(LiveMapCamera.shouldResumeFollowing(false,1000L,6000L))

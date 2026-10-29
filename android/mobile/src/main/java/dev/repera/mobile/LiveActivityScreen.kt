@@ -88,8 +88,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
     }
     var navigationMode by remember {
-        // R5 P1-12: Comenzar en 3D como iOS sim; default true.
-        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", true))
+        // Instalación nueva: 2D como MapKit iOS; conservar preferencia guardada.
+        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", false))
     }
     fun setNavigationMode(enabled: Boolean) {
         navigationMode = enabled
@@ -141,6 +141,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         mutableStateOf<Double?>(null)
     }
     val currentMeasuredHeading = LiveMapCamera.measuredHeading(state.points)
+    val compassHeading = rememberLiveMapCompassHeading(
+        enabled = state.sport.usesGPS && state.phase == LiveActivityState.Phase.IDLE,
+        latitude = previewPosition?.latitude, longitude = previewPosition?.longitude
+    )
     LaunchedEffect(currentMeasuredHeading) {
         if (currentMeasuredHeading != null) lastReliableHeading = currentMeasuredHeading
     }
@@ -187,7 +191,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
     var sportQuery by remember {mutableStateOf("")}
-    var showingMetrics by remember { mutableStateOf(false) }
+    var showingMetrics by remember(accountId) {
+        mutableStateOf(mapPrefs.getBoolean("preferredDisplay.metrics", false))
+    }
+    LaunchedEffect(showingMetrics) {
+        mapPrefs.edit().putBoolean("preferredDisplay.metrics", showingMetrics).apply()
+    }
     var previewHealth by remember { mutableStateOf<dev.repera.domain.SessionCardioSample?>(null) }
     LaunchedEffect(state.phase, state.gpsSessionID) {
         previewHealth = null
@@ -225,7 +234,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         // antes: puede haberse reactivado un entreno clásico mientras tanto.
         if (currentActiveWorkout) { currentOpenWorkout();return }
         if (runtime.recoveryBlocked) { error=runtime.lastError;return }
-        runtime.start();showingMetrics = state.sport.usesGPS;startService()
+        runtime.start();startService()
     }
     fun cancelStartCountdown() {
         startCountdownToken++
@@ -444,8 +453,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
                 onMapRendered = onMapRendered,navigationMode=navigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
+                cameraTrace=state.points,
                 userPosition=state.points.lastOrNull() ?: freshPosition,
-                userHeadingDegrees=currentMeasuredHeading ?: lastReliableHeading,
+                userHeadingDegrees=currentMeasuredHeading ?: lastReliableHeading ?: compassHeading,
                 recenterToken=recenterToken,
                 onCameraGesture={
                     followingMap = false
@@ -480,16 +490,34 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
-            runtime.upcomingTurn?.let {
-                Text(
-                    it,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .statusBarsPadding()
-                        .padding(top = 8.dp, start = 56.dp, end = 72.dp),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            if (state.selectedRouteID != null && state.phase != LiveActivityState.Phase.IDLE) {
+                val cue = runtime.upcomingCue
+                val instruction = cue?.instruction ?: runtime.upcomingTurn ?: "Sigue el recorrido"
+                val direction = when {
+                    cue?.offRoute == true -> "!"
+                    instruction.contains("derecha", true) -> "↱"
+                    instruction.contains("izquierda", true) -> "↰"
+                    instruction.contains("sentido", true) -> "↶"
+                    else -> "↑"
+                }
+                Row(
+                    Modifier.align(Alignment.TopStart).statusBarsPadding()
+                        .padding(top = 12.dp, start = 14.dp, end = 80.dp)
+                        .background(Color(0xFF30D272), RoundedCornerShape(18.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(direction, style = MaterialTheme.typography.headlineLarge, color = Color.Black)
+                    Column {
+                        Text(instruction, style = MaterialTheme.typography.titleMedium, color = Color.Black)
+                        cue?.distanceMeters?.let { meters ->
+                            Text(if (meters >= 1000) "%.1f km".format(java.util.Locale.US, meters/1000.0)
+                                 else "$meters m",
+                                 style = MaterialTheme.typography.titleSmall, color = Color.Black)
+                        }
+                    }
+                }
             }
             (error ?: runtime.lastError)?.let {
                 Text(
@@ -576,7 +604,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             label = if (state.selectedRouteID == null) "Cargar ruta" else "Ruta elegida",
                             filledGreen = false,
                             tag = "live_load_route",
-                            onClick = { showRoutes = true; showingMetrics = true }
+                            onClick = { showRoutes = true }
                         )
                     }
                 } else {
@@ -830,7 +858,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             label = if (state.selectedRouteID == null) "Cargar ruta" else "Ruta elegida",
                             filledGreen = false,
                             tag = "live_load_route",
-                            onClick = { showRoutes = true; showingMetrics = true }
+                            onClick = { showRoutes = true }
                         )
                     }
                 }

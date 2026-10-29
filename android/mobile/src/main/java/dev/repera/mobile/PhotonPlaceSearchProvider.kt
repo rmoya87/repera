@@ -154,8 +154,23 @@ class CompositePlaceSearchProvider(
         biasMinLat: Double?, biasMinLon: Double?,
         biasMaxLat: Double?, biasMaxLon: Double?
     ): List<PlaceSearchResult> {
-        val first = primary.search(query, biasMinLat, biasMinLon, biasMaxLat, biasMaxLon)
-        if (first.isNotEmpty()) return first
-        return fallback.search(query, biasMinLat, biasMinLon, biasMaxLat, biasMaxLon)
+        val first = primary.search(query,biasMinLat,biasMinLon,biasMaxLat,biasMaxLon)
+        if (first.size >= dev.repera.domain.PlaceSearchPolicy.MAX_RESULTS) return first
+        // Los POI y las direcciones son complementarios; sin Google ni facturación.
+        val more = runCatching {
+            fallback.search(query,biasMinLat,biasMinLon,biasMaxLat,biasMaxLon)
+        }.getOrDefault(emptyList())
+        return (first + more).filter {
+            it.latitude.isFinite() && it.longitude.isFinite() &&
+                it.latitude in -90.0..90.0 && it.longitude in -180.0..180.0
+        }.fold(mutableListOf<PlaceSearchResult>()) { items, candidate ->
+            val duplicate = items.any {
+                it.name.trim().equals(candidate.name.trim(),ignoreCase=true) &&
+                    kotlin.math.abs(it.latitude-candidate.latitude)<0.0005 &&
+                    kotlin.math.abs(it.longitude-candidate.longitude)<0.0005
+            }
+            if (!duplicate) items.add(candidate)
+            items
+        }.take(dev.repera.domain.PlaceSearchPolicy.MAX_RESULTS)
     }
 }

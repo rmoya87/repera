@@ -23,6 +23,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     private val voicePrefs = app.getSharedPreferences("repera.live.guidance", Context.MODE_PRIVATE)
     var spokenGuidanceEnabled = voicePrefs.getBoolean("enabled", true); private set
     var upcomingTurn: String? = null; private set
+    var upcomingCue: dev.repera.domain.LiveRouteGuidance.Cue? = null; private set
     var latestKilometerReport: String? = null; private set
     private var guidance: dev.repera.domain.LiveRouteGuidance? = null
     fun toggleSpokenGuidance() {
@@ -37,6 +38,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         }
         guidance = route?.let { dev.repera.domain.LiveRouteGuidance(it.points, state.sport) }
         upcomingTurn = null
+        upcomingCue = null
     }
     var recoveryBlocked: Boolean = false; private set
     var lastError: String? = null; private set
@@ -69,6 +71,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             }
             guidance?.update(update.point)?.let { cue ->
                 upcomingTurn = cue.display
+                upcomingCue = cue
                 cue.speech?.let {
                     if (spokenGuidanceEnabled) {
                         val delivered = voice.speak(it, queue = true)
@@ -130,7 +133,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { store.clear() } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        voice.stop();location.stop(state.gpsSessionID);state.discard();recoveryBlocked=false;guidance=null;upcomingTurn=null;latestKilometerReport=null;lastError=null;publish();return true
+        voice.stop();location.stop(state.gpsSessionID);state.discard();recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
         val now=System.currentTimeMillis()

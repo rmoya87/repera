@@ -97,6 +97,8 @@ internal fun RouteMapView(
     onMapRendered: (() -> Unit)? = null,
     navigationMode:Boolean = false,
     cameraCenter:WorkoutRoutePoint? = null,
+    /** Solo GPS medido, nunca ruta GPX planificada. */
+    cameraTrace:List<WorkoutRoutePoint> = points,
     userPosition:WorkoutRoutePoint? = null,
     userHeadingDegrees:Double? = null,
     recenterToken:Int = 0,
@@ -135,13 +137,16 @@ internal fun RouteMapView(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap,userHeadingDegrees) {
+    androidx.compose.runtime.LaunchedEffect(navigationMode,loadedMap) {
+        loadedMap?.getStyle { style -> ReperaMapAppearance.setBuildings3D(style,navigationMode) }
+    }
+    androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap,userHeadingDegrees,cameraTrace) {
         val map=loadedMap ?: return@LaunchedEffect
         val center=cameraCenter ?: return@LaunchedEffect
-        val camera=LiveMapCamera.target(center,currentPoints,navigationMode,userHeadingDegrees)
-        map.moveCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder()
+        val camera=LiveMapCamera.target(center,cameraTrace,navigationMode,userHeadingDegrees)
+        map.animateCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder()
             .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
-            .bearing(camera.bearing).tilt(camera.pitch).build()))
+            .bearing(camera.bearing).tilt(camera.pitch).build()), 550)
     }
     // SOLO ausencia de enlace nativo de MapLibre (ABI sin .so, Robolectric)
     // degrada al Canvas. Cualquier otro error de configuracion/inicializacion
@@ -238,11 +243,8 @@ internal fun RouteMapView(
                     val dark = (context.resources.configuration.uiMode and
                         android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                         android.content.res.Configuration.UI_MODE_NIGHT_YES
-                    val styleUrl = if (dark)
-                        "https://tiles.openfreemap.org/styles/dark"
-                    else
-                        "https://tiles.openfreemap.org/styles/liberty"
-                    map.setStyle(styleUrl) { style ->
+                    map.setStyle(ReperaMapAppearance.styleUrl(dark)) { style ->
+                        ReperaMapAppearance.apply(style,dark,navigationMode)
                         applyPlannedOverlay(style,currentPlan)
                         applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan,mode=paceMode)
                         updateUserDirection(style, userPosition, userHeadingDegrees)

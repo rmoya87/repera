@@ -102,6 +102,19 @@ class PhotonPlaceSearchProviderTest {
         assertEquals(listOf(fb), CompositePlaceSearchProvider(primary, fallback).search("abc"))
     }
 
+    @Test fun searchCombinesFreePoiAndGeocoderAddresses() = runBlocking {
+        val poi=PlaceSearchResult("Parque Norte",40.50,-3.65,"osm:N1")
+        val addr=PlaceSearchResult("Calle Mayor",40.51,-3.65,"geocoder:street")
+        val primary=object:PlaceSearchProvider {
+            override suspend fun search(query:String,a:Double?,b:Double?,c:Double?,d:Double?)=listOf(poi)
+        }
+        val fallback=object:PlaceSearchProvider {
+            override suspend fun search(query:String,a:Double?,b:Double?,c:Double?,d:Double?)=
+                listOf(addr,poi.copy(providerId="geocoder:poi"))
+        }
+        assertEquals(listOf(poi,addr),CompositePlaceSearchProvider(primary,fallback).search("parque"))
+    }
+
     /** Respuesta REAL del servicio (consulta sintética «Berlin Hauptbahnhof», 25/10/2026,
      *  sin ubicación del usuario): comprueba que el contrato asumido coincide con el servicio. */
     private val realResponse = """{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"osm_type":"N","osm_id":3856100103,"osm_key":"railway","osm_value":"station","type":"house","housenumber":"1","name":"Berlin Hauptbahnhof","street":"Europaplatz","locality":"Europacity","district":"Moabit","city":"Berlin","country":"Deutschland","postcode":"10557","countrycode":"DE"},"geometry":{"type":"Point","coordinates":[13.3696614,52.5249451]}},{"type":"Feature","properties":{"osm_type":"R","osm_id":3600565,"osm_key":"building","osm_value":"train_station","type":"house","name":"Berlin Hauptbahnhof","street":"Eingangsebene","locality":"Europacity","district":"Moabit","city":"Berlin","country":"Deutschland","postcode":"10557","countrycode":"DE","extent":[13.3682756,52.52574,13.3706245,52.5242887]},"geometry":{"type":"Point","coordinates":[13.369448,52.5250175]}}]}"""

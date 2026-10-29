@@ -56,3 +56,39 @@ Fuentes (consultadas 24/10/2026):
 - https://openfreemap.org/tos/ y https://openfreemap.org/quick_start/
 - https://developers.google.com/maps/billing-and-pricing/faq
 - https://developers.google.com/maps/billing-and-pricing/pricing
+
+
+## Paridad de Android con MapKit iOS: mapa gratuito (29/10/2026)
+
+Apple/iOS no cambia. Android continúa con MapLibre + teselas OpenFreeMap;
+Photon público y Geocoder cubren POI y direcciones sin claves ni facturación.
+El buscador combina resultados de ambos y descarta duplicados; mantiene
+el pin manual cuando el proveedor no responde. No se utiliza Google Places.
+
+El aspecto se centraliza en ReperaMapAppearance y se aplica a rutas,
+mapa de actividad y pin de ubicación. Colores inspirados en la legibilidad
+de Apple Maps, sin copiar sus recursos propietarios. Claro: fondo #F6F7F5,
+agua #CFE7F5, parque #DDEDD9, edificio #E6E8EA, carretera principal
+#FFF0C7, texto #39464F. Oscuro: fondo #19232B, agua #294657,
+parque #294235 y edificios #46525A. Las extrusiones de edificios se
+activan solamente en navegación 3D, si OSM aporta geometría/altura;
+en 2D se dibujan planos incluso a zoom alto. No se promete fotogrametría
+ni elevación real del terreno.
+
+Una instalación nueva empieza en 2D, conservando la preferencia si el
+usuario cambia de modo. La cámara sigue rumbo GPS medido, no el final
+de un GPX cargado; antes de Play utiliza sensor de orientación si existe.
+Tras manipular mapa, vuelve al seguimiento 5 s desde el último gesto.
+La vista Mapa/Métricas se conserva al iniciar la sesión. La guía GPX usa
+banda verde, flecha y distancia sin inventar calles ni rutas recalculadas.
+
+Limitaciones: Photon público no tiene SLA y puede limitar el volumen;
+OpenFreeMap no garantiza disponibilidad. Coste de APIs contratadas = 0,
+no garantía de coste operativo cero a gran escala. Mantener atribución
+OpenStreetMap/OpenFreeMap. Revisión física pendiente: sensores en distintos
+fabricantes, noche/día, ciudades con edificios de altura conocida, 2D/3D,
+5 s de gestos y audio al bloquear la pantalla.
+
+Refs: https://openfreemap.org/quick_start/ ;
+https://maplibre.org/maplibre-native/android/examples/styling/building-layer/ ;
+https://github.com/komoot/photon .

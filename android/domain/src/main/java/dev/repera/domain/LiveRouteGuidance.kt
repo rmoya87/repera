@@ -6,7 +6,9 @@ import kotlin.math.roundToInt
 /** Guía orientativa derivada SOLO de GPX, no calles ni navegación vial.
  * Port updateUpcomingTurn de LiveActivityRecorder Apple 5890215d. */
 class LiveRouteGuidance(private val points: List<WorkoutRoutePoint>, private val sport: LiveSport) {
-    data class Cue(val display: String, val speech: String? = null)
+    data class Cue(val display: String, val speech: String? = null,
+        val instruction: String? = null, val distanceMeters: Int? = null,
+        val offRoute: Boolean = false)
     private val along=LiveGPXTurnDetection.cumulative(points)
     private val turns=LiveGPXTurnDetection.detect(points,along)
     private val announcedNear=mutableSetOf<Int>()
@@ -19,7 +21,7 @@ class LiveRouteGuidance(private val points: List<WorkoutRoutePoint>, private val
             val distance=LiveGPXTurnDetection.distance(position,points[index])
             if(distance<nearest) {nearest=distance;best=index}
         }
-        if(nearest>=55) return Cue("Fuera de ruta · revisa el mapa")
+        if(nearest>=55) return Cue("Fuera de ruta · revisa el mapa",instruction="Fuera de ruta · revisa el mapa",offRoute=true)
         val distance=along[best]
         val next=turns.firstOrNull {it.routeIndex>best && it.metersAlongRoute>distance+8}
             ?: return Cue("Sigue el recorrido")
@@ -39,6 +41,6 @@ class LiveRouteGuidance(private val points: List<WorkoutRoutePoint>, private val
         } else remaining>nearDistance && announcedApproach.add(next.routeIndex)
         val speech=if(shouldSpeakNear || shouldSpeakApproach)
             LiveSpokenPhrases.turn(meters,next.spokenDirection) else null
-        return Cue(display,speech)
+        return Cue(display,speech,instruction=next.instruction,distanceMeters=meters)
     }
 }
