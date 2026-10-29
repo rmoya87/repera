@@ -4,7 +4,11 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
+<<<<<<< HEAD
 **Última actualización:** 2026-10-29 — R4 parity: temporizador libre sección «Lugar» + `locationPin` en completion/save; Acceso IA disclosure «Conexión manual». Antes: P0 restore gate + Cerrar sesión/`busy`; acento `#30D158`; tab glass; Progreso; Centro «Buscar»; Formato; timer default Abajo; chip Día libre; Salud.
+=======
+**Última actualización:** 2026-10-29 — Revisión 4 Android: PlaceSearch mapa a sangre + card glass flotante (✕ circular, título centrado, cápsula «Buscar otro sitio…», MyLocation/GPS, Últimos lugares, haversine); P0 restore gate + Cerrar sesión/`busy`; acento `#30D158`; tab cápsula glass; Progreso scroll único; Centro «Buscar»; Formato orden iOS; timer default Abajo; chip Día libre `surfaceVariant`.
+>>>>>>> 88429e1c (fix(android): PlaceSearch glass header + capsule field (R4 #9))
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
