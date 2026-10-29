@@ -2352,6 +2352,11 @@ struct LiveActivityView: View {
             if next == .active { startMapHeadingIfNeeded() }
             else { stopMapHeadingIfNeeded() }
         }
+        .onChange(of: position.positionedByUser) { _, movedByUser in
+            // El binding puede actualizarse después del callback de cámara
+            // del primer frame del gesto: cubrir también esa transición.
+            if movedByUser { suspendMapFollowingForUserGesture() }
+        }
         .onDisappear {
             stopMapHeadingIfNeeded()
             cancelPendingMapRecenter()
