@@ -16,6 +16,9 @@ import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,6 +58,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -106,6 +111,10 @@ internal fun ProgressTab(
     var topic by rememberSaveable {mutableStateOf("Entreno")}
     val pro=subscriptions?.isPro ?: true
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
+    var showRangePicker by rememberSaveable { mutableStateOf(false) }
+    val selectedRangeTitle = remember(selectedRange) {
+        ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }?.title ?: "Esta semana"
+    }
     LaunchedEffect(pro) {if(!pro) selectedRange=ProgressTimeRange.WEEK.wire}
     // Apple 479d8407: la cobertura de Salud sigue al rango elegido (tambien al
     // aparecer la pestana); MainActivity solo amplia la ventana si hace falta.
@@ -122,27 +131,49 @@ internal fun ProgressTab(
     var shownTopic by remember {mutableStateOf(topic)}
     LaunchedEffect(topic) {if(topic!=shownTopic) {shownTopic=topic;dragListState.scrollToItem(0)}}
     ProvideLazyDragAutoScroll(dragListState) {
+    if (showRangePicker) {
+        ProgressRangePickerSheet(
+            selectedWire = selectedRange,
+            isPro = pro,
+            subscriptions = subscriptions,
+            onDismiss = { showRangePicker = false },
+            onSelect = { wire ->
+                showRangePicker = false
+                selectedRange = wire
+            }
+        )
+    }
     LazyColumn(
         state = dragListState,
         modifier = modifier.fillMaxSize().then(Modifier.testTag("progress_list")),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { ReperaPageHeader(title = "Progreso") }
         item {
-            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf("Entreno","Actividad","Recuperación").forEachIndexed {index,label ->
-                    SegmentedButton(selected=topic==label,onClick={topic=label},modifier=Modifier.testTag("progress_topic_$index"),
-                        shape=androidx.compose.material3.SegmentedButtonDefaults.itemShape(index,3),
-                        colors=reperaSegmentedButtonColors(),
-                        contentPadding=PaddingValues(horizontal=6.dp,vertical=8.dp),
-                        icon={}, label={Text(label,maxLines=2,
-                            style=MaterialTheme.typography.labelMedium)})
+            ReperaPageHeader(
+                title = "Progreso",
+                subtitle = selectedRangeTitle,
+                trailing = {
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.CalendarMonth,
+                        contentDescription = "Filtrar periodo",
+                        onClick = { showRangePicker = true },
+                        modifier = Modifier.testTag("progress_range_picker")
+                    )
                 }
-            }
+            )
+        }
+        item {
+            ReperaTopicSegmentedPicker(
+                options = listOf("Entreno", "Actividad", "Recuperación"),
+                selected = topic,
+                onSelected = { topic = it }
+            )
+        }
+        if (topic == "Entreno" && snapshot != null) {
+            item { ProgressMetricsTilesGrid(snapshot, pro) }
         }
         if(topic=="Entreno") {
-        item { CountCard("Entrenamientos registrados", overview?.workouts, overview != null) }
         // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
         if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
             ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
@@ -170,74 +201,8 @@ internal fun ProgressTab(
         }
         }
         if(topic=="Actividad") item { TextButton(onClick=onOpenBodyWeights,enabled=overview!=null) {Text("Peso corporal · registrar e historial")} }
-        item {
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ProgressTimeRange.entries.forEach { range ->
-                    val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
-                    ReperaFilterChip(
-                        selected = selectedRange == range.wire,
-                        onClick = {
-                            // Gate Gratis = solo semana (paridad iOS
-                            // ReperaFeature.requiresPro / canSelectProgressRange).
-                            if (allowed) {
-                                selectedRange = range.wire
-                            } else {
-                                subscriptions?.presentPaywall(
-                                    dev.repera.domain.monetization.PaywallContext.PROGRESS,
-                                    feature = dev.repera.domain.monetization.ReperaFeature.PROGRESS_PERIOD_BEYOND_WEEK
-                                )
-                            }
-                        },
-                        label = {
-                            Text(
-                                if (allowed || range == ProgressTimeRange.WEEK) range.title
-                                else "${range.title} · Pro"
-                            )
-                        }
-                    )
-                }
-            }
-        }
         if (snapshot != null) {
             if(topic=="Entreno") {
-            item {
-                val tiles=ProgressTilesModel.tiles(snapshot.summary.sessionCount,snapshot.summary.totalMinutes,snapshot.previousSummary?.sessionCount,
-                    snapshot.previousSummary?.totalMinutes,snapshot.streak,snapshot.previousStreak,pro)
-                // Apple OGAdaptiveMetricLayout(minimumItemWidth: 96): columns follow the available width, and the
-                // minimum scales with the font so large text wraps to fewer columns instead of clipping.
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val minItem=(96*LocalDensity.current.fontScale).dp
-                    val cols=((maxWidth+8.dp)/(minItem+8.dp)).toInt().coerceIn(1,tiles.size)
-                    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                        tiles.chunked(cols).forEach { rowTiles ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                rowTiles.forEach { t ->
-                                    ReperaCard(modifier = Modifier.weight(1f)) {
-                                        Column(
-                                            Modifier.fillMaxWidth().padding(vertical=12.dp, horizontal=6.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(t.label, style=MaterialTheme.typography.labelMedium)
-                                            Text(t.value, style=MaterialTheme.typography.headlineMedium, maxLines=1)
-                                            Text(
-                                                ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit) ?: "+0",
-                                                style=MaterialTheme.typography.labelSmall,
-                                                color=if (ProgressTilesModel.deltaLabel(t.delta, t.deltaUnit) == null)
-                                                    androidx.compose.ui.graphics.Color.Transparent
-                                                else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-                                repeat(cols - rowTiles.size) { Spacer(Modifier.weight(1f)) }
-                            }
-                        }
-                    }
-                }
-            }
             item { ReperaSectionTitle("Resumen · " + snapshot.range.subtitleLabel) }
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
@@ -450,6 +415,184 @@ internal fun ProgressTab(
         }
         }
     }
+    }
+}
+
+
+@Composable
+private fun ProgressMetricsTilesGrid(snapshot: ProgressSnapshotData, pro: Boolean) {
+    val tiles = ProgressTilesModel.tiles(
+        snapshot.summary.sessionCount,
+        snapshot.summary.totalMinutes,
+        snapshot.previousSummary?.sessionCount,
+        snapshot.previousSummary?.totalMinutes,
+        snapshot.streak,
+        snapshot.previousStreak,
+        pro
+    )
+    val icons = listOf(
+        Icons.Outlined.FitnessCenter,
+        Icons.Outlined.Schedule,
+        Icons.Outlined.LocalFireDepartment
+    )
+    val iconColors = listOf(
+        brandGreen,
+        Color(0xFF0A84FF),
+        Color(0xFFFF9F0A)
+    )
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val minItem = (96 * LocalDensity.current.fontScale).dp
+        val cols = ((maxWidth + 8.dp) / (minItem + 8.dp)).toInt().coerceIn(1, tiles.size)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tiles.chunked(cols).forEachIndexed { rowIndex, rowTiles ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowTiles.forEachIndexed { colIndex, tile ->
+                        val index = rowIndex * cols + colIndex
+                        ReperaCard(modifier = Modifier.weight(1f)) {
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        icons.getOrElse(index) { Icons.Outlined.FitnessCenter },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = iconColors.getOrElse(index) { brandGreen }
+                                    )
+                                    Text(
+                                        tile.label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                                Text(
+                                    tile.value,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    maxLines = 1
+                                )
+                                val deltaText = progressTileDeltaText(tile.delta, tile.deltaUnit)
+                                Text(
+                                    deltaText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = progressTileDeltaColor(tile.delta)
+                                )
+                            }
+                        }
+                    }
+                    repeat(cols - rowTiles.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+}
+
+private fun progressTileDeltaText(delta: Int?, unit: String): String = when (delta) {
+    null -> "—"
+    else -> "${if (delta > 0) "+" else ""}${dev.repera.domain.ReperaNumberFormat.integer(delta)}$unit"
+}
+
+@Composable
+private fun progressTileDeltaColor(delta: Int?): Color = when (delta) {
+    null -> MaterialTheme.colorScheme.onSurfaceVariant
+    0 -> MaterialTheme.colorScheme.onSurfaceVariant
+    else -> if (delta > 0) brandGreen else Color(0xFFFFD60A)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProgressRangePickerSheet(
+    selectedWire: String,
+    isPro: Boolean,
+    subscriptions: dev.repera.mobile.monetization.SubscriptionManager?,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    ReperaModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ReperaPageHeader(
+                title = "Periodo",
+                trailing = {
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.Close,
+                        contentDescription = "Cerrar",
+                        onClick = onDismiss
+                    )
+                }
+            )
+            ReperaCard(Modifier.fillMaxWidth()) {
+                Column {
+                    ProgressTimeRange.entries.forEachIndexed { index, range ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 50.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                            )
+                        }
+                        val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
+                        val selected = selectedWire == range.wire
+                        TextButton(
+                            onClick = {
+                                if (!allowed) {
+                                    onDismiss()
+                                    subscriptions?.presentPaywall(
+                                        dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                        feature = dev.repera.domain.monetization.ReperaFeature.PROGRESS_PERIOD_BEYOND_WEEK
+                                    )
+                                } else if (!selected) {
+                                    onSelect(range.wire)
+                                } else {
+                                    onDismiss()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.CalendarMonth,
+                                contentDescription = null,
+                                tint = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                range.title,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 12.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            if (dev.repera.domain.monetization.ReperaFeature.requiresPro(range) && !isPro) {
+                                Text(
+                                    "Pro",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else if (selected) {
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

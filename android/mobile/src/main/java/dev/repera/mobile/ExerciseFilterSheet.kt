@@ -11,6 +11,8 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -62,9 +64,11 @@ internal fun ExerciseFilterContent(filters:List<String>,filter:String,sort:Strin
             alphabeticExerciseFacets(filters).forEach {value ->
                 val selected=filter==value
                 val icon=when(value) {
-                    "Todos" -> if(selected) Icons.Outlined.GridView else Icons.Outlined.GridView
+                    "Todos" -> Icons.Outlined.GridView
                     "Cardio" -> if(selected) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder
                     "Favoritos" -> if(selected) Icons.Outlined.Star else Icons.Outlined.StarBorder
+                    "WODs" -> Icons.Outlined.Timer
+                    "Deportes" -> Icons.Outlined.DirectionsRun
                     else -> ExerciseCategorySymbols.discipline(value)
                 }
                 ExerciseFacetRow(value,icon,selected) {onFilter(value)}
