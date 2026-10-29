@@ -3016,53 +3016,75 @@ struct RoutineImportPickerSheet: View {
     var onPickTimer: (FavoriteTimer) -> Void
     var onCancel: () -> Void
 
+    private var favoriteCount: Int { routines.count + timers.count }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             OGPageHeader(title: "Añadir favorito") {
                 CloseToolbarButton(action: onCancel, large: true)
             }
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(routines) { source in
-                        Button { onPick(source) } label: {
-                            favoriteRow(
-                                title: source.title,
-                                subtitle: importSubtitle(source),
-                                systemImage: "dumbbell"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    if !timers.isEmpty {
-                        Text("Temporizadores")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                            .padding(.top, routines.isEmpty ? 0 : 8)
-                        ForEach(timers) { timer in
-                            Button { onPickTimer(timer) } label: {
-                                favoriteRow(
-                                    title: timer.title,
-                                    subtitle: timer.modeRaw == "intervals" ? "\(timer.rounds) rondas" :
-                                        (timer.modeRaw == "up" ? "Cronómetro" :
-                                            "Cuenta atrás · \(timer.durationMinutes)m \(timer.durationSeconds)s"),
-                                    systemImage: "timer"
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+            Group {
+                if favoriteCount > 6 {
+                    ScrollView { favoritesList }
+                        .frame(maxHeight: 440)
+                } else {
+                    favoritesList
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             }
-            .frame(maxHeight: 520)
         }
         .padding(.horizontal, OG.pad)
         .padding(.top, 14)
         .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // El detent se mide con el contenido real; sin altura fija cuando
+        // hay pocos favoritos y scroll solo para listas largas.
+        .ogFittedHeight()
         .ogFittedSheet()
+    }
+
+    private var favoritesList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(routines.enumerated()), id: \.element.id) { index, source in
+                if index > 0 {
+                    Divider().padding(.leading, 58)
+                }
+                Button { onPick(source) } label: {
+                    favoriteRow(
+                        title: source.title,
+                        subtitle: importSubtitle(source),
+                        systemImage: "dumbbell"
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            if !timers.isEmpty {
+                if !routines.isEmpty { Divider() }
+                Text("Temporizadores")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 12)
+                    .padding(.bottom, 4)
+                ForEach(Array(timers.enumerated()), id: \.element.id) { index, timer in
+                    if index > 0 {
+                        Divider().padding(.leading, 58)
+                    }
+                    Button { onPickTimer(timer) } label: {
+                        favoriteRow(
+                            title: timer.title,
+                            subtitle: timer.modeRaw == "intervals" ? "\(timer.rounds) rondas" :
+                                (timer.modeRaw == "up" ? "Cronómetro" :
+                                    "Cuenta atrás · \(timer.durationMinutes)m \(timer.durationSeconds)s"),
+                            systemImage: "timer"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
     private func favoriteRow(title: String, subtitle: String, systemImage: String) -> some View {
@@ -3079,12 +3101,12 @@ struct RoutineImportPickerSheet: View {
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
             Image(systemName: "plus.circle.fill")
                 .foregroundStyle(OG.accent)
         }
-        .padding(14)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
     }
 

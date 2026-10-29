@@ -312,7 +312,7 @@ struct HomeView: View {
             // Tras «Actividad de hoy» el gris debe continuar hasta el borde
             // inferior (sin franja blanca). El bloque calendario/entreno pinta
             // su propio OG.surface; el topbar transparente deja ver ese blanco.
-            .background(OG.surface.ignoresSafeArea())
+            .background(OG.bg.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
@@ -381,7 +381,7 @@ struct HomeView: View {
             // Do not reveal the system's black background between a topbar
             // refresh and re-layout of the calendar cards. The content below
             // still paints its own grouped OG.bg surface.
-            .background(OG.surface.ignoresSafeArea())
+            .background(OG.bg.ignoresSafeArea())
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
                 refreshAvatarIfNeeded()

@@ -719,13 +719,21 @@ struct WorkoutDetailView: View {
                             .textCase(nil)
                     }
                     if let pin = session.locationPin {
-                        // Historial: mapa simple sin chip (el chip es de editor/Play).
+                        // El lugar se muestra bajo el mapa, nunca encima.
                         Section {
-                            WorkoutLocationPinMap(pin: pin, isInteractive: false)
-                                .frame(height: 180)
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                                .ogCardListRow()
+                            VStack(spacing: 0) {
+                                WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                                    .frame(height: 180)
+                                    .frame(maxWidth: .infinity)
+                                    .clipped()
+                                if pin.hasChosenPlace {
+                                    Divider().opacity(0.35)
+                                    WorkoutPlaceSummaryRow(pin: pin)
+                                }
+                            }
+                            .background(OG.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                            .ogCardListRow()
                         } header: {
                             Text("Lugar").textCase(nil)
                         }
@@ -739,7 +747,8 @@ struct WorkoutDetailView: View {
                         SessionMapWeatherCard(
                             latitude: coordinate?.lat,
                             longitude: coordinate?.lon,
-                            workoutDate: session.startedAt ?? session.finishedAt ?? Date()
+                            workoutDate: session.startedAt ?? session.finishedAt ?? Date(),
+                            placePin: session.locationPin
                         ) {
                             sessionMapView(session)
                         }

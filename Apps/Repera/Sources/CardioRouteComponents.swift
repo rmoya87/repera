@@ -542,41 +542,37 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            // WeatherKit exige la marca oficial y un enlace a las fuentes legales.
-            // Usar el logotipo de la apariencia correspondiente: negro en claro,
-            // blanco en oscuro. Si falla la imagen, el enlace sigue accesible.
+            // Mostrar el distintivo oficial de WeatherKit, sin alterar su
+            // proporción ni sustituirlo por texto, y enlazar a sus fuentes legales.
             if hasWeather, let attributionURL {
                 Link(destination: attributionURL) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Text("Fuente:")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(OG.label2)
                         if let mark = colorScheme == .dark
                             ? attributionMarkDarkURL : attributionMarkLightURL {
                             AsyncImage(url: mark) { phase in
                                 if let image = phase.image {
                                     image.resizable().scaledToFit()
                                 } else {
-                                    HStack(spacing: 3) {
-                                        Image(systemName: "apple.logo")
-                                        Text("Weather")
-                                    }
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(OG.label2)
+                                    Label("Weather", systemImage: "apple.logo")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(OG.label2)
                                 }
                             }
-                            .frame(width: 94, height: 18)
+                            .frame(width: 72, height: 15)
                         } else {
-                            Text("Apple Weather")
-                                .font(.system(size: 12, weight: .medium))
+                            Label("Weather", systemImage: "apple.logo")
+                                .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(OG.label2)
                         }
-                        Text("Fuentes")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(OG.label2)
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Apple Weather: fuentes y atribución legal")
-                .padding(.top, 8)
+                .accessibilityLabel("Fuente: Apple Weather. Ver fuentes legales")
+                .padding(.top, 6)
             }
             if !hasWeather {
                 if let failureHint {
@@ -733,6 +729,7 @@ struct SessionMapWeatherCard<MapContent: View>: View {
     var latitude: Double?
     var longitude: Double?
     var workoutDate: Date
+    var placePin: WorkoutLocationPin? = nil
     @ViewBuilder var map: () -> MapContent
 
     var body: some View {
@@ -741,6 +738,10 @@ struct SessionMapWeatherCard<MapContent: View>: View {
                 .frame(height: mapHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
+            if let placePin, placePin.hasChosenPlace {
+                Divider().opacity(0.35)
+                WorkoutPlaceSummaryRow(pin: placePin)
+            }
             if let latitude, let longitude {
                 Divider().opacity(0.35)
                 RouteWeatherStrip(

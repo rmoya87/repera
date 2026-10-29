@@ -654,6 +654,13 @@ final class PlaceSearchCompleterModel: NSObject, ObservableObject, MKLocalSearch
 struct WorkoutPlacePickerRow: View {
     @Binding var pin: WorkoutLocationPin?
     @State private var showSearch = false
+    /// Evita reconstruir la tarjeta/mapa subyacente durante la animación
+    /// de cierre: la selección se aplica únicamente en onDismiss.
+    @State private var pendingSelection: PlaceSelection?
+
+    private struct PlaceSelection {
+        var pin: WorkoutLocationPin?
+    }
 
     /// Solo un lugar elegido (nombre o MapItem) abre el mapa; un pin GPS
     /// anónimo (captura automática) no sustituye «Añadir lugar».
@@ -668,36 +675,19 @@ struct WorkoutPlacePickerRow: View {
                 Button {
                     showSearch = true
                 } label: {
-                    // Mismo lenguaje que PlaceSearchSheet: mapa a bleed de card + chip overlay.
-                    WorkoutLocationPinMap(pin: pin, isInteractive: false)
-                        .frame(height: 220)
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                        .overlay(alignment: .bottom) {
-                            // Deja ~28 pt libres bajo el chip para el «Legal» nativo de MapKit
-                            // (abajo-izquierda); no taparlo con el material del lugar.
-                            HStack(alignment: .center, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(pin.name?.nilIfBlank ?? "Lugar en el mapa")
-                                        .font(.system(size: 17, weight: .semibold))
-                                        .foregroundStyle(OG.label)
-                                        .lineLimit(2)
-                                    if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
-                                        Text(category)
-                                            .font(.system(size: 13))
-                                            .foregroundStyle(OG.label2)
-                                    }
-                                }
-                                Spacer(minLength: 0)
-                                PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .padding(.horizontal, 12)
-                            .padding(.bottom, 34)
-                        }
-                        .contentShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                    // Mapa completo, y lugar debajo igual que la franja meteorológica.
+                    // No se tapa la atribución de MapKit con ninguna capa.
+                    VStack(spacing: 0) {
+                        WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                            .frame(height: 220)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                        Divider().opacity(0.35)
+                        WorkoutPlaceSummaryRow(pin: pin)
+                    }
+                    .background(OG.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Editar lugar: \(pin.name?.nilIfBlank ?? "mapa")")
@@ -726,13 +716,56 @@ struct WorkoutPlacePickerRow: View {
                 .buttonStyle(.plain)
             }
         }
-        .sheet(isPresented: $showSearch) {
+        .sheet(isPresented: $showSearch, onDismiss: {
+            if let pendingSelection {
+                pin = pendingSelection.pin
+                self.pendingSelection = nil
+            }
+        }) {
             PlaceSearchSheet(initialPin: selectedPlace ?? pin) { selected in
-                pin = selected
+                pendingSelection = PlaceSelection(pin: selected)
             }
             .presentationDetents([.large])
             .ogSheetCorners()
         }
+    }
+}
+
+/// Franja inferior del mapa; compartida por crear, editar, Play e historial.
+/// Icono a la izquierda, título y tipo al lado, sin overlay sobre el mapa.
+struct WorkoutPlaceSummaryRow: View {
+    let pin: WorkoutLocationPin
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if PlaceCategoryStyle.style(forRaw: pin.pointOfInterestCategory) != nil {
+                PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
+            } else {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(OG.accent)
+                    .frame(width: 32, height: 32)
+                    .accessibilityHidden(true)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pin.name?.nilIfBlank ?? "Lugar en el mapa")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
+                    Text(category)
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface)
     }
 }
 
