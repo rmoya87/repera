@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -44,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -351,7 +353,10 @@ fun ReperaEmptyState(
     }
 }
 
-/** Botón circular estilo `OGToolbarGlassButton` (surfaceVariant + borde fino). */
+/**
+ * Botón circular toolbar (paridad OGToolbarGlassButton / R7).
+ * Touch target mínimo 48 dp; círculo visible 44 dp; icono 24 dp M3.
+ */
 @Composable
 fun ReperaToolbarGlassIconButton(
     icon: ImageVector,
@@ -360,24 +365,30 @@ fun ReperaToolbarGlassIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        border = BorderStroke(
-            0.7.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
-        ),
-        modifier = modifier.size(40.dp)
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.onSurface
-            )
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            border = BorderStroke(
+                0.7.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
+            ),
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }
@@ -436,6 +447,8 @@ internal fun libraryExerciseSubtitle(entry: ExerciseEntry): String {
         raw?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
     val parts = LinkedHashSet<String>()
     clean(entry.muscleGroup)?.let { parts += it }
+    // R7 P2: sportTag (p. ej. Movilidad) + disciplineTags (LinkedHashSet dedupe).
+    clean(entry.sportTag)?.let { parts += it }
     entry.disciplineTags.mapNotNull { clean(it) }.forEach { parts += it }
     clean(entry.equipment)?.let { parts += it }
     return parts.joinToString(" · ")

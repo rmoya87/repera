@@ -64,16 +64,14 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
  LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement= Arrangement.spacedBy(12.dp)) {
   item {
    if (onBack != null) {
-    IconButton(
+    // R7 P2: mismo círculo glass 48/44/24 que el resto de toolbars.
+    ReperaToolbarGlassIconButton(
+     icon = Icons.AutoMirrored.Outlined.ArrowBack,
+     contentDescription = "Volver",
      onClick = onBack,
      enabled = !busy,
-     modifier = Modifier
-      .size(44.dp)
-      .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-      .testTag("complete_history_back")
-    ) {
-     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
-    }
+     modifier = Modifier.testTag("complete_history_back")
+    )
    }
    ReperaPageHeader(title = "Historial")
   }
@@ -200,9 +198,12 @@ internal fun WorkoutHistoryDetailScreen(
   verticalArrangement = Arrangement.spacedBy(12.dp)
  ) {
   item {
-   TextButton(onClick = onBack, modifier = Modifier.testTag("workout_history_detail_back")) {
-    Text("Volver")
-   }
+   ReperaToolbarGlassIconButton(
+    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+    contentDescription = "Volver",
+    onClick = onBack,
+    modifier = Modifier.testTag("workout_history_detail_back")
+   )
   }
   item {
    WorkoutHistoryCard(

@@ -34,6 +34,7 @@ class PhotonPlaceSearchProviderTest {
         assertTrue(u, u.contains("q=gym+%26+caf%C3%A9"))
         assertTrue(u, u.contains("lat=41.12&lon=2.99"))
         assertFalse(u, u.contains("41.123"))
+        assertTrue(u, u.contains("lang="))
     }
 
     @Test fun shortQueryNeverHitsNetwork() = runBlocking {

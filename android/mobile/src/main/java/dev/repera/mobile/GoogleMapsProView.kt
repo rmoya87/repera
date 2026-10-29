@@ -107,7 +107,8 @@ internal fun GoogleRouteMapView(
                 ready.setPadding(0, 0, 0, bottom)
             }
             ready.uiSettings.apply {
-                isCompassEnabled = isInteractive
+                // R7 P1: sin brújula nativa sobre la status bar.
+                isCompassEnabled = false
                 isRotateGesturesEnabled = isInteractive
                 isScrollGesturesEnabled = isInteractive
                 isTiltGesturesEnabled = isInteractive
@@ -270,7 +271,7 @@ internal fun GooglePlacePinMap(
             // Evitar que la ficha de confirmación tape el logo de Google.
             map.setPadding(0, 0, 0, (view.resources.displayMetrics.density * 72).toInt())
             map.uiSettings.apply {
-                isCompassEnabled = isInteractive
+                isCompassEnabled = false
                 isScrollGesturesEnabled = isInteractive
                 isZoomGesturesEnabled = isInteractive
                 isRotateGesturesEnabled = isInteractive

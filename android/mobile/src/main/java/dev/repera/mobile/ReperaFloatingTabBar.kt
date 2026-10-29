@@ -99,7 +99,8 @@ internal fun reperaRouteKeepsTabBar(route: String?): Boolean {
         route == "historial" -> true
         route == "center" -> true
         route == "acceso-ia" -> true
-        route == "temporizador" -> true
+        // R7 P1: destino real es «temporizador?fav={fav}», no solo «temporizador».
+        route.startsWith("temporizador") -> true
         route.startsWith("ajustes-") -> true
         else -> false
     }

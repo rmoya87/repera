@@ -4,9 +4,10 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Edge-to-edge P0: `enableEdgeToEdge`,
-Scaffold `contentWindowInsets=0`, Inicio banda = `surface` bajo status bar,
-Comenzar/mapas 100% detrás status+nav/tab; R6 copy/UX leftovers previos.
+**Última actualización:** 2026-10-29 — R7: Lugar mapa a sangre; reloj status
+negra; Pro insets; Comenzar sin solape tab; sombras mapa suaves; toolbar 48/44/24;
+series Play solo `completed`; Sin formato con nombre; tab Temporizador;
+`configChanges=uiMode`; Movilidad/Photon `lang`; Pro copy Mapa 2D.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

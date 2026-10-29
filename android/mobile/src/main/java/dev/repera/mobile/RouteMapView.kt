@@ -258,7 +258,8 @@ internal fun RouteMapView(
                         }
                         setAllGesturesEnabled(isInteractive)
                         isTiltGesturesEnabled = isInteractive && effectiveNavigationMode
-                        isCompassEnabled = isInteractive
+                        // R7 P1: brújula nativa pisa la status bar; rumbo va en cámara.
+                        isCompassEnabled = false
                     }
                     // R5 P1-12: estilo oscuro en modo noche (liberty es claro).
                     val dark = (context.resources.configuration.uiMode and

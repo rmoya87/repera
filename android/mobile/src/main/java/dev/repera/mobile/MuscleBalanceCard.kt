@@ -15,9 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,20 +56,17 @@ internal fun MuscleBalanceCard(
 
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Equilibrio muscular", style = MaterialTheme.typography.titleMedium)
-
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = !hardOnly,
-                    onClick = { hardOnly = false; selected = null; expanded = false },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                ) { Text("Fatiga") }
-                SegmentedButton(
-                    selected = hardOnly,
-                    onClick = { hardOnly = true; selected = null; expanded = false },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                ) { Text("Esfuerzo") }
-            }
+            // R7 P1: sin título interno duplicado («EQUILIBRIO MUSCULAR» ya va fuera).
+            ReperaTopicSegmentedPicker(
+                options = listOf("Fatiga", "Esfuerzo"),
+                selected = if (hardOnly) "Esfuerzo" else "Fatiga",
+                onSelected = { label ->
+                    hardOnly = label == "Esfuerzo"
+                    selected = null
+                    expanded = false
+                },
+                optionTestTag = { i, _ -> "muscle_balance_mode_$i" }
+            )
 
             BodyMapView(
                 load = load,

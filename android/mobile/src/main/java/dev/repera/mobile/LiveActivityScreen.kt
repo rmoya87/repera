@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -609,13 +610,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     modifier = Modifier.align(Alignment.Center)
                 ) { Text("Descartar recuperación dañada") }
             }
+            // R7: nunca solapar la tab bar — navBars + holgura de la píldora.
             Surface(
                 Modifier
                     .align(
                         if (mapLandscape && state.phase != LiveActivityState.Phase.IDLE)
                             Alignment.BottomStart else Alignment.BottomCenter
                     )
-                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 88.dp)
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 72.dp)
                     .then(
                         if (mapLandscape)
                             Modifier.width(
@@ -627,7 +630,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 tonalElevation = 0.dp,
-                shadowElevation = 4.dp,
+                // R7: sombra suave sobre mapa (evitar bandas/halos fuertes).
+                shadowElevation = 1.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
             ) {
                 if (state.phase == LiveActivityState.Phase.IDLE) {
@@ -875,12 +879,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 Surface(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 88.dp)
+                        .navigationBarsPadding()
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 72.dp)
                         .testTag("live_idle_panel"),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                     tonalElevation = 0.dp,
-                    shadowElevation = 4.dp,
+                    shadowElevation = 1.dp,
                     border = BorderStroke(
                         1.dp,
                         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
@@ -941,7 +946,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp),
+                        .navigationBarsPadding()
+                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 72.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FlowRow {
@@ -1115,22 +1121,28 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
 }
 
-/** FAB circular glass del mapa (LiveActivityView.mapCircleButton, 44 dp). */
+/** FAB circular glass del mapa (LiveActivityView.mapCircleButton). R7: touch 48 / círculo 44 / icono 24. */
 @Composable
 private fun LiveMapCircleFab(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        shadowElevation = 2.dp,
-        border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)),
+    Box(
         modifier = Modifier
-            .size(44.dp)
-            .semantics { contentDescription = label }
+            .size(48.dp)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
     ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp))
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            // R7: sombra suave sobre mapa.
+            shadowElevation = 1.dp,
+            border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)),
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(24.dp))
+            }
         }
     }
 }

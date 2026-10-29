@@ -46,6 +46,7 @@
             android:name=".MainActivity"
             android:launchMode="singleTop"
             android:exported="true"
+            android:configChanges="uiMode"
             android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

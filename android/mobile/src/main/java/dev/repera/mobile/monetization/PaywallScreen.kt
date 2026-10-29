@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -102,6 +104,7 @@ fun PaywallScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .statusBarsPadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 12.dp),
@@ -131,8 +134,14 @@ fun PaywallScreen(
                 PaywallLegalFooter(packages, selectedProductID)
             }
 
+            // R7 P0: CTA por encima de la barra de gestos (navigationBarsPadding).
             Surface(color = MaterialTheme.colorScheme.background) {
-                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                ) {
                     PaywallPrimaryCTA(
                         subscriptions = subscriptions,
                         packages = packages,
@@ -172,11 +181,13 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (mode == PaywallMode.SHEET) {
-                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                // R7: touch 48 / círculo 44 / icono 24.
+                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
                     Icon(
                         androidx.compose.material.icons.Icons.Outlined.ArrowBack,
                         contentDescription = "Volver",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -231,7 +242,8 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
 private fun PaywallComparison() {
     val limits = dev.repera.domain.monetization.FreePlanLimits
     val rows = listOf(
-        Triple("Navegación 3D", "No incluida", "Incluida"),
+        // Paridad PaywallView.swift: («Mapa», «2D», «2D + 3D»).
+        Triple("Mapa", "2D", "2D + 3D"),
         Triple("Progreso", "Esta semana", "Todos los periodos"),
         Triple("Por ejercicio", "Última + récord", "Historial completo"),
         Triple("Rutinas / favoritos",
@@ -392,7 +404,8 @@ private fun PaywallPrimaryCTA(
     scope: kotlinx.coroutines.CoroutineScope
 ) {
     val selected = packages.firstOrNull { it.productID == selectedProductID }
-    val title = if (selected?.hasFreeTrial == true) "Probar Repera Pro" else "Continuar con Repera Pro"
+    // PaywallView.swift: «Continuar con Pro» (no «…con Repera Pro»).
+    val title = if (selected?.hasFreeTrial == true) "Probar Repera Pro" else "Continuar con Pro →"
     Surface(
         onClick = {
             val id = selectedProductID ?: return@Surface

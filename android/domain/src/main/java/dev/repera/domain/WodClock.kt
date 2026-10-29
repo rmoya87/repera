@@ -134,7 +134,8 @@ object WodClock {
                 }
                 else -> {
                     intervalRemaining = null
-                    label = if (!countsUp && cap > 0) spec.format?.wireName
+                    // R7 P2: «AMRAP» (displayName), no wire «amrap».
+                    label = if (!countsUp && cap > 0) spec.format?.displayName
                         else if (countsUp && spec.blockTimeCapMinutes != null &&
                             elapsed > spec.blockTimeCapMinutes * 60) "TC superado" else null
                 }

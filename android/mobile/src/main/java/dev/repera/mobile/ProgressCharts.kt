@@ -183,21 +183,16 @@ internal fun ActivityHeatmapCard(
 
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Título de sección vive fuera (ProgressTab «ACTIVIDAD»); aquí solo métrica.
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier.fillMaxWidth()
-                    .testTag("heatmap_metric")
-            ) {
-                listOf("time" to "Tiempo", "volume" to "Volumen").forEachIndexed { i, (key, label) ->
-                    SegmentedButton(
-                        selected = metric == key,
-                        onClick = { metric = key },
-                        shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(
-                            index = i, count = 2),
-                        modifier = Modifier.testTag("heatmap_metric_$key"),
-                        label = { Text(label) })
+            // R7 P1: píldora iOS (sin ✓ Material) Tiempo/Volumen.
+            ReperaTopicSegmentedPicker(
+                options = listOf("Tiempo", "Volumen"),
+                selected = if (metric == "volume") "Volumen" else "Tiempo",
+                onSelected = { label -> metric = if (label == "Volumen") "volume" else "time" },
+                modifier = Modifier.fillMaxWidth().testTag("heatmap_metric"),
+                optionTestTag = { _, label ->
+                    "heatmap_metric_${if (label == "Volumen") "volume" else "time"}"
                 }
-            }
+            )
 
             BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 // HeatmapLayout.resolve de iOS, en dp.

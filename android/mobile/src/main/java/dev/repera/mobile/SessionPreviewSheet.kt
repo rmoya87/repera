@@ -105,7 +105,7 @@ fun SessionPreviewSheet(
                         text = { Text("Editar") },
                         onClick = { menuOpen = false; onEdit() })
                     DropdownMenuItem(
-                        text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
+                        text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuOpen = false; confirmDelete = true })
                 }
             }
@@ -124,10 +124,11 @@ fun SessionPreviewSheet(
                 )
             }
             if (confirmDelete) {
+                // Paridad iOS (terminados): «¿Eliminar entreno?» / «Eliminar».
                 ReperaConfirmSheet(
-                    title = "¿Borrar entreno?",
-                    message = "Se borra «${routine.title}». Esta acción no se puede deshacer.",
-                    confirmTitle = "Borrar entreno",
+                    title = "¿Eliminar entreno?",
+                    message = "Se eliminará «${routine.title}» de este día.",
+                    confirmTitle = "Eliminar",
                     onConfirm = { confirmDelete = false; onDelete() },
                     onCancel = { confirmDelete = false }
                 )
@@ -158,7 +159,8 @@ fun SessionPreviewSheet(
                             else Modifier.fillMaxWidth()
                             Row(entryModifier, verticalAlignment = Alignment.CenterVertically) {
                             val detail = buildString {
-                                append(entry.name)
+                                // R7 P1: nombre del ejercicio (no «· — 3×8»).
+                                append(entry.name.ifBlank { "Ejercicio" })
                                 val unitLabel = when (entry.quantityUnit) {
                                     "meters" -> " m"; "calories" -> " cal"; else -> ""
                                 }
@@ -188,13 +190,7 @@ fun SessionPreviewSheet(
                 }
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = { onStart(); onClose() },
-            enabled = !busy && routine.supported,
-            colors = reperaPrimaryButtonColors(),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(if (routine.supported) "Empezar entrenamiento" else "Formato no disponible") }
+        // R7 P1: sin CTA extra «Empezar entrenamiento» (iOS solo tiene ▶ en cabecera).
     }
 }
 

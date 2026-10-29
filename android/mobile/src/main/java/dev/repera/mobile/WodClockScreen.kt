@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,11 +14,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -76,6 +82,14 @@ internal fun WodClockScreen(
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
+    // R7 P0: barra de estado negra con iconos claros sobre el reloj LED.
+    androidx.compose.runtime.SideEffect {
+        val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
+        androidx.core.view.WindowInsetsControllerCompat(window, view).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
@@ -117,11 +131,14 @@ internal fun WodClockScreen(
         WodFormat.EMOM, WodFormat.DEATH_BY, WodFormat.TABATA, WodFormat.CIRCUIT)
     val roundNumber = if (format in intervalFormats && !face.finishedIntervals)
         WodClock.activeIntervalIndex(spec, elapsedClock) + 1 else null
-    // "Terminar" con la semántica de canFinishByUser (iOS): cronómetros que
-    // cuentan hacia arriba (For Time, Chipper, AFAP, Ladder, BuyIn/CashOut) o
-    // Death By (intervalos con cierre anticipado), una vez iniciado.
-    val canFinish = (face.countsUp || format == WodFormat.DEATH_BY) &&
+    // "Terminar" / «Terminar bloque»: counts-up, Death By y AMRAP/Max Effort con
+    // time cap (iOS BlockTimerScreen: cerrar bloque anticipado).
+    val canFinish = (face.countsUp || format == WodFormat.DEATH_BY ||
+        format == WodFormat.AMRAP || format == WodFormat.MAX_EFFORT) &&
         elapsedClock > 0 && !face.finishedIntervals
+    val blockTitle = active.wod?.title?.takeIf { it.isNotBlank() && !it.equals(active.title, true) }
+        ?: "Bloque 1"
+    val firstMove = active.wod?.movements?.firstOrNull { !it.isRest }
     // Pantalla completa en negro con dígitos LED, como BlockTimerScreen (iOS).
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(24.dp)) {
@@ -196,7 +213,13 @@ internal fun WodClockScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = brandGreen, contentColor = Color.Black
                     )
-                ) { Text("Terminar", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                ) {
+                    Text(
+                        if (format == WodFormat.AMRAP || format == WodFormat.MAX_EFFORT)
+                            "Terminar bloque" else "Terminar",
+                        fontSize = 18.sp, fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
         @Composable
@@ -205,14 +228,30 @@ internal fun WodClockScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // I-42: Minimizar (no «Volver») → barra flotante en la sesión.
-                TextButton(
+                // R7 P1: Minimizar como chevron circular (iOS), no texto.
+                IconButton(
                     onClick = onBack,
-                    modifier = Modifier.testTag("wod_clock_minimize")
-                ) { Text("Minimizar", color = Color.White) }
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("wod_clock_minimize")
+                ) {
+                    Box(
+                        Modifier
+                            .size(44.dp)
+                            .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = "Minimizar",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
                 if (showTitle) {
                     Text(
-                        active.title,
+                        blockTitle,
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White,
                         maxLines = 1,
@@ -230,6 +269,14 @@ internal fun WodClockScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     ClockBlock()
+                    firstMove?.name?.takeIf { it.isNotBlank() }?.let { moveName ->
+                        Text(
+                            moveName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.75f),
+                            maxLines = 1
+                        )
+                    }
                     Row(
                         modifier = Modifier.widthIn(max = 500.dp)
                             .fillMaxWidth().padding(top = 14.dp),
@@ -252,10 +299,18 @@ internal fun WodClockScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        active.title,
+                        blockTitle,
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White
                     )
+                    firstMove?.name?.takeIf { it.isNotBlank() }?.let { moveName ->
+                        Text(
+                            moveName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.75f),
+                            maxLines = 1
+                        )
+                    }
                     ClockBlock()
                 }
                 Column(

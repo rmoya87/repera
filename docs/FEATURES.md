@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-29 (Android edge-to-edge mapas/Inicio + R6 copy/UX)
+Última actualización: 2026-10-29 (Android R7 paridad E2E/Play/Pro/Comenzar)
 
 ## Completar una clase de CrossFit grabada desde «Comenzar» (29/10/2026)
 
@@ -102,6 +102,7 @@
 
 - **Android Inicio (`HomeTab`, 28/10/2026):** misma composición que iOS — cabecera «repera» + fecha + engranaje circular; carrusel de días con celda seleccionada verde sólido y texto `onAccent` negro; cards de registro («ENTRENO · hora», icono en círculo, chips); CTA verde «Añadir nuevo entreno»; banda blanca (calendario + entreno) sobre banda gris (`OG.bg`) con Progreso semanal («X de Y días», checks) y Actividad de hoy (Pasos/Calorías/Tiempo). Sin AccountSync ni historial completo en el scroll de Inicio.
 - **Android edge-to-edge (29/10/2026):** `MainActivity.enableEdgeToEdge` con barras transparentes; `Scaffold` con `contentWindowInsets = 0`. En Inicio la banda superior (`surface` blanca/oscuro) se prolonga bajo la status bar (sin franja de otro color). En Comenzar y mapas a pantalla completa el lienzo MapLibre/Google llena status + nav/tab bar; overlays y FABs usan `statusBarsPadding`. El resto de rutas aplican insets en el host o en cabeceras propias.
+- **Android R7 (29/10/2026):** Lugar mapa a sangre (sin scrim); reloj LED con status bar negra; Pro con insets status/nav; Comenzar panel idle con `navigationBarsPadding`+holgura tab (sin solape); sombras suaves sobre mapa; toolbar glass touch 48 / círculo 44 / icono 24; marcar 1 serie no marca todas; Temporizador mantiene tab bar; `configChanges=uiMode`.
 
 - Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.

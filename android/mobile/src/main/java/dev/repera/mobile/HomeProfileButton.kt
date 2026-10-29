@@ -32,31 +32,18 @@ internal fun HomeProfileButton(profile: ProfileSettings, onOpenSettings: () -> U
         }.getOrNull()
     }
     if (bitmap == null) {
-        Surface(
-            onClick = onOpenSettings,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            border = BorderStroke(
-                0.7.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
-            ),
-            modifier = Modifier.size(40.dp)
-        ) {
-            Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Outlined.Settings,
-                    "Ajustes y cuenta",
-                    modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
+        // R7: touch 48 / círculo 44 / icono 24 (mismo token que toolbar glass).
+        ReperaToolbarGlassIconButton(
+            icon = Icons.Outlined.Settings,
+            contentDescription = "Ajustes y cuenta",
+            onClick = onOpenSettings
+        )
     } else {
-        IconButton(onClick = onOpenSettings) {
+        IconButton(onClick = onOpenSettings, modifier = Modifier.size(48.dp)) {
             Image(
                 bitmap.asImageBitmap(),
                 "Ajustes y cuenta",
-                Modifier.size(40.dp).clip(CircleShape),
+                Modifier.size(44.dp).clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
         }
