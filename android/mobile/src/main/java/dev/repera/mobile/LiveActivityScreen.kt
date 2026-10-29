@@ -91,8 +91,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
     }
     var navigationMode by remember {
-        // Instalación nueva: 2D como MapKit iOS; conservar preferencia guardada.
-        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", false))
+        // Primera instalación: 3D activo (producto); conservar preferencia guardada.
+        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", true))
     }
     fun setNavigationMode(enabled: Boolean) {
         navigationMode = enabled
@@ -357,7 +357,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     if (showRoutes) {
         @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-        ReperaModalBottomSheet(onDismissRequest = { showRoutes = false }) {
+        ReperaModalBottomSheet(onDismissRequest = {
+            showRoutes = false
+            recenterToken++
+        }) {
             Column(
                 Modifier.fillMaxWidth().heightIn(max = 560.dp)
                     .verticalScroll(rememberScrollState()).padding(16.dp),
@@ -451,7 +454,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             }
         }
     }
-    if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics && !showRoutes) {
+    // El mapa permanece compuesto con la hoja de rutas encima (no se desmonta).
+    if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics) {
         val planned = routes.firstOrNull { it.id == state.selectedRouteID }
         // Una captura puntual no se convierte en ubicación viva por quedarse
         // en memoria: caduca aunque el usuario no haya salido de esta pantalla.

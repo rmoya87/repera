@@ -913,7 +913,8 @@ fun ReperaMobileScreen(
                         onBook = onCenterBook,
                         onCancel = onCenterCancel,
                         directory=centerDirectory,directorySearching=centerDirectorySearching,onSearchDirectory=onSearchCenterDirectory,
-                        onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter
+                        onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("progreso") {
@@ -1136,11 +1137,16 @@ fun ReperaMobileScreen(
                         onOpenSports = {
                             libraryModeRequest = "Deportes"
                             navController.navigate("ejercicios")
-                        }
+                        },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("peso-corporal") {
-                    BodyWeightHistoryScreen(overview?.bodyWeightHistory.orEmpty(),busy,onLogBodyWeight,onDeleteBodyWeight,accountId)
+                    BodyWeightHistoryScreen(
+                        overview?.bodyWeightHistory.orEmpty(), busy,
+                        onLogBodyWeight, onDeleteBodyWeight, accountId,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
                 composable("mensajes") {
                     LaunchedEffect(Unit) {onCenterRefresh()}
@@ -1178,7 +1184,8 @@ fun ReperaMobileScreen(
                         onRevoke = onAIRevoke,
                         onDecide = onAIDecide,
                         onDismissCreated = onAIDismissCreated,
-                        onCopyCreated = onAICopyCreated
+                        onCopyCreated = onAICopyCreated,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(

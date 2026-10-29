@@ -348,7 +348,7 @@ internal fun ReorderInsertionGap(visible: Boolean, label: String = "Soltar aquí
 }
 
 private fun blockFormatSubtitle(block: BlockDraftUi): String = when {
-    block.format.isBlank() -> "Sin formato"
+    block.format.isBlank() -> "Sin formato · libre"
     block.format == "strength" -> "Fuerza"
     block.format == "amrap" -> "AMRAP"
     block.format == "emom" -> "EMOM"

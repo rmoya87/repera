@@ -73,6 +73,8 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
             "favorito-nuevo",
             "ajustes",
             "reloj",
+            // R6 P0-2: peso/historial/center/ia ocultan chrome repera+gear
+            // pero llevan Volver propio y mantienen tab bar (keepsTabBar).
             "historial",
             "acceso-ia",
             "peso-corporal",
@@ -85,13 +87,20 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
     }
 }
 
-/** R5 P2.9: push que en iOS mantienen la tab bar (Crear / Ajustes / ficha ejercicio). */
+/** Push que en iOS mantienen la tab bar (Crear / Ajustes / ficha / subpáginas Ajustes). */
 internal fun reperaRouteKeepsTabBar(route: String?): Boolean {
     if (route.isNullOrBlank()) return false
     return when {
         route == "ajustes" -> true
         route.startsWith("rutina-nueva") -> true
         route.startsWith("ejercicio") -> true
+        // R6 P0-2 / P2-9 / P1-4 timer: paridad iOS con tab bar.
+        route == "peso-corporal" -> true
+        route == "historial" -> true
+        route == "center" -> true
+        route == "acceso-ia" -> true
+        route == "temporizador" -> true
+        route.startsWith("ajustes-") -> true
         else -> false
     }
 }

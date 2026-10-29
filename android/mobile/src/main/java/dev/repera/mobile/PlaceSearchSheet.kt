@@ -829,7 +829,7 @@ fun PlaceSearchSheet(
                                     } else {
                                         item {
                                             Text(
-                                                "Últimos lugares",
+                                                "Recientes",
                                                 style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier

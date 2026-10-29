@@ -183,10 +183,9 @@ internal fun ActivityHeatmapCard(
 
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Actividad", style = MaterialTheme.typography.titleLarge)
-            // Picker .segmented de iOS.
+            // Título de sección vive fuera (ProgressTab «ACTIVIDAD»); aquí solo métrica.
             SingleChoiceSegmentedButtonRow(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                modifier = Modifier.fillMaxWidth()
                     .testTag("heatmap_metric")
             ) {
                 listOf("time" to "Tiempo", "volume" to "Volumen").forEachIndexed { i, (key, label) ->

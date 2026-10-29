@@ -4,9 +4,10 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — R5 leftovers: clima histórico Open-Meteo
-(`weather_android: open_meteo`) en detalle/ruta; P2 glass toolbar, UISwitch,
-confirm sheets, dumbbell tab, lista Ejercicios agrupada, miniaturas Reordenar.
+**Última actualización:** 2026-10-29 — R6 copy/UX leftovers: mapa Comenzar
+permanece compuesto con hoja de rutas; 3D por defecto; temporizador Día+ modo
+Arriba; «Terminar bloque»; «Sin formato · libre»; Progreso ACTIVIDAD/EQUILIBRIO;
+Recientes; ENTRENO/Hoy; Abdominales; «¿Borrar entreno?»; avatar placeholder.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

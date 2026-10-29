@@ -623,7 +623,8 @@ internal fun WodScoreCard(
         ) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Bloque · " + (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
+                "Bloque · " + (WodFormat.fromWire(wod.format)?.displayName
+                    ?: wod.format.replaceFirstChar { it.uppercase() }),
                 style = MaterialTheme.typography.titleMedium,
                 color = brandGreen
             )
@@ -641,7 +642,20 @@ internal fun WodScoreCard(
                 OutlinedButton(onClick = { onTimerAction("reset") }, enabled = !busy) {
                     Text("Reiniciar")
                 }
-                TextButton(onClick = onOpenClock) {
+                TextButton(onClick = {
+                    // Formatos con cap / intervalo: arrancar antes de abrir (iOS).
+                    val freeFormat = wod.format.isBlank() ||
+                        wod.format.equals("strength", ignoreCase = true)
+                    val hasPrescribed = (wod.timeCapMinutes ?: 0) > 0 ||
+                        (wod.intervalSeconds ?: 0) > 0 ||
+                        (wod.workSeconds ?: 0) > 0
+                    if ((!freeFormat || hasPrescribed) &&
+                        timer?.running != true && !face.finishedIntervals
+                    ) {
+                        onTimerAction("start")
+                    }
+                    onOpenClock()
+                }) {
                     Text("Pantalla completa")
                 }
             }
@@ -649,7 +663,8 @@ internal fun WodScoreCard(
             Text("Resultado del bloque", style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold)
             Text(wod.title + " · " +
-                (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
+                (WodFormat.fromWire(wod.format)?.displayName
+                    ?: wod.format.replaceFirstChar { it.uppercase() }),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             active.liveRows?.let { rows ->
@@ -732,7 +747,7 @@ internal fun WodScoreCard(
                     }
                 }
                 Button(onClick = onCompleteBlock, enabled = !busy && wod.recorded.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()) { Text("Terminar bloque y continuar") }
+                    modifier = Modifier.fillMaxWidth()) { Text("Terminar bloque") }
             } else if (scoreIsTime) {
                 Text("Tiempo total realizado", style = MaterialTheme.typography.titleSmall)
                 if (elapsedClock > 0) {
@@ -1369,7 +1384,9 @@ internal object WeekCalendarGeometry {
 @Composable
 internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
-    val monthTitle = selected.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("es", "ES"))
+    // Mes dominante de la semana visible (p. ej. mid-week), no solo selected.month.
+    val monthTitle = weekStart.plusDays(3).month
+        .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("es", "ES"))
         .replaceFirstChar { it.uppercase() }
     Column(
         modifier = Modifier.fillMaxWidth().testTag("week_calendar_card"),
@@ -1468,9 +1485,9 @@ internal fun WorkoutHistoryCard(
     var pendingDelete by remember(workout.id) { mutableStateOf(false) }
     if (pendingDelete) {
         ReperaConfirmSheet(
-            title = "¿Eliminar entreno?",
+            title = "¿Borrar entreno?",
             message = "Se borrará «" + workout.title + "». No se puede deshacer.",
-            confirmTitle = "Eliminar",
+            confirmTitle = "Borrar entreno",
             onConfirm = {
                 pendingDelete = false
                 onDeleteWorkout(workout.id)

@@ -2821,8 +2821,16 @@ data class StateOverview(
                                 id = block.optString("id").ifBlank { null },
                                 sourceJson = block.toString(),
                                 title = block.optString("title"),
-                                format = if (kind == "strength") "strength"
-                                    else block.optString("wodFormat", "strength"),
+                                // iOS: strength + wodFormat nil → «Sin formato»;
+                                // strength + .strength → «Fuerza / Skill».
+                                format = when {
+                                    kind == "strength" ->
+                                        block.optString("wodFormat").takeIf {
+                                            it.isNotBlank() && it != "null" &&
+                                                block.has("wodFormat") && !block.isNull("wodFormat")
+                                        }.orEmpty()
+                                    else -> block.optString("wodFormat").ifBlank { "strength" }
+                                },
                                 timeCapMinutes = block.optInt("timeCapMinutes", 12),
                                 rounds = block.optInt("rounds", 1),
                                 emomIntervalSeconds = block.optInt("emomIntervalSeconds", 60),
@@ -3147,8 +3155,13 @@ data class WorkoutHistoryEntry(
         if (start != null) {
             val end = finishedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
                 ?: start.plusSeconds(60)
-            val wall = java.time.Duration.between(start, end).seconds / 60.0
-            if (wall > 0) return wall
+            // Reloj de pared (iOS Models.displayDurationMinutes): segundos/60.
+            // Sub-minuto: 1′ al redondear chips (25s → 1′, no 0′); ~2 min
+            // se queda en fracción (p. ej. 119s → 1.98 → round 2′, no ceil 3′).
+            val seconds = java.time.Duration.between(start, end).seconds
+            if (seconds > 0) {
+                return if (seconds < 60) 1.0 else seconds / 60.0
+            }
         }
         return activeDurationSeconds?.takeIf { it > 0 }?.div(60.0) ?: 0.0
     }

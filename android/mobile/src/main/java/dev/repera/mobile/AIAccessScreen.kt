@@ -1,14 +1,20 @@
 package dev.repera.mobile
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,8 +110,10 @@ fun AIAccessScreen(
     onRevoke: (String) -> Unit,
     onDecide: (AIChangeRequestStore.Change, Boolean) -> Unit,
     onDismissCreated: () -> Unit,
-    onCopyCreated: () -> Unit
+    onCopyCreated: () -> Unit,
+    onBack: (() -> Unit)? = null
 ) {
+    if (onBack != null) BackHandler(onBack = onBack)
     var tokenName by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("90d") }
     var canWrite by remember { mutableStateOf(true) }
@@ -129,62 +137,89 @@ fun AIAccessScreen(
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
         var disconnectingProvider by remember {
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
-        Text("Conecta tu IA", style = MaterialTheme.typography.titleMedium)
-        Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // R6 P0-2: Volver + título large + tarjeta «Elige tu asistente».
+        if (onBack != null) {
+            IconButton(
+                onClick = onBack,
+                enabled = !busy,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    .testTag("ai_access_back")
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+            }
+        }
+        ReperaPageHeader(title = "Conecta tu IA")
         if (providers?.second == true) {
             Text("No se pudo comprobar la disponibilidad de las conexiones.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        // Apple d61c5d52: filas sin separador con insets top/bottom 3 ->
-        // 6dp entre botones de proveedor (el resto de la pantalla usa 10dp).
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        providers?.first?.forEach { provider ->
-            // Apple 0a640da8 connectedToken: oauth_client_id del catálogo debe
-            // existir y coincidir con un token hasConnected (activo + usado).
-            val verified = provider.oauthClientID != null && tokens.orEmpty().any {
-                it.oauthClientID == provider.oauthClientID && it.hasConnected }
-            OutlinedButton(
-                onClick = {
-                    if (verified) disconnectingProvider = provider
-                    else instructionsFor = provider
-                },
-                enabled = connected,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-                modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Icon(
-                    androidx.compose.ui.res.painterResource(when (provider.id) {
-                        "chatgpt" -> dev.repera.mobile.R.drawable.ai_logo_openai
-                        "claude" -> dev.repera.mobile.R.drawable.ai_logo_claude
-                        else -> dev.repera.mobile.R.drawable.ai_logo_grok
-                    }),
-                    contentDescription = null,
-                    tint = if (provider.id == "claude") androidx.compose.ui.graphics.Color.Unspecified
-                           else androidx.compose.material3.LocalContentColor.current,
-                    modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(if (verified) "${provider.name} conectado"
-                     else "Continuar con ${provider.name}")
+        ReperaSectionTitle("Elige tu asistente")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    providers?.first?.forEach { provider ->
+                        val verified = provider.oauthClientID != null && tokens.orEmpty().any {
+                            it.oauthClientID == provider.oauthClientID && it.hasConnected
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                if (verified) disconnectingProvider = provider
+                                else instructionsFor = provider
+                            },
+                            enabled = connected,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(
+                                androidx.compose.ui.res.painterResource(
+                                    when (provider.id) {
+                                        "chatgpt" -> dev.repera.mobile.R.drawable.ai_logo_openai
+                                        "claude" -> dev.repera.mobile.R.drawable.ai_logo_claude
+                                        else -> dev.repera.mobile.R.drawable.ai_logo_grok
+                                    }
+                                ),
+                                contentDescription = null,
+                                tint = if (provider.id == "claude")
+                                    androidx.compose.ui.graphics.Color.Unspecified
+                                else androidx.compose.material3.LocalContentColor.current,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                if (verified) "${provider.name} conectado"
+                                else "Continuar con ${provider.name}"
+                            )
+                        }
+                    }
+                }
+                if (!connected) {
+                    Text(
+                        "Inicia sesión en Repera para conectar tu asistente.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TextButton(
+                    onClick = {
+                        instructionsFor = providers?.first?.firstOrNull()
+                            ?: AIAccessStore.AIProvider("grok", "Grok", null, null)
+                    },
+                    enabled = true,
+                    modifier = Modifier.testTag("ai_ver_instrucciones")
+                ) { Text("Ver instrucciones") }
             }
         }
-        }
-        if (!connected) {
-            Text("Inicia sesión en Repera para conectar tu asistente.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        // «Ver instrucciones» (AIAccessView iOS): muestra el texto del primer
-        // proveedor del catálogo (o Grok) sin lanzar OAuth.
-        TextButton(
-            onClick = {
-                instructionsFor = providers?.first?.firstOrNull()
-                    ?: AIAccessStore.AIProvider("grok", "Grok", null, null)
-            },
-            enabled = true,
-            modifier = Modifier.testTag("ai_ver_instrucciones")
-        ) { Text("Ver instrucciones") }
         // Apple 0a640da8: confirmationDialog "Desconectar asistente".
         disconnectingProvider?.let { provider ->
             val token = tokens.orEmpty().firstOrNull {

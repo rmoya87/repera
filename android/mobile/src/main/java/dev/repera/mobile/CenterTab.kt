@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,13 +9,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -27,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -57,8 +68,10 @@ internal fun CenterTab(
     onSearchDirectory:(String)->Unit = {},
     onRequestLink:(BusinessCenterStore.Organization,String,String?)->Unit = {_,_,_->},
     onLeave:(BusinessCenterStore.Organization)->Unit = {},
-    accountId:String = ""
+    accountId:String = "",
+    onBack: (() -> Unit)? = null
 ) {
+    if (onBack != null) BackHandler(onBack = onBack)
     var showDirectory by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf(false)}
     var detail by remember {mutableStateOf<BusinessCenterStore.Organization?>(null)}
     var section by remember { mutableStateOf("class") }
@@ -80,20 +93,69 @@ internal fun CenterTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // R5 P1-16: iOS solo campo + vacío «Busca tu entrenador o centro».
-        item { Text("Buscar", style = MaterialTheme.typography.displayLarge) }
+        // R6 P1-16 / P0-2: iOS «Buscar» con Volver, campo y tarjeta vacía.
         item {
-            OutlinedButton(
-                onClick = { showDirectory = true },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Busca tu entrenador o centro") }
+            if (onBack != null) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        .testTag("center_back")
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+                }
+            }
+            ReperaPageHeader(title = "Buscar")
+        }
+        item {
+            var query by remember(accountId) { mutableStateOf("") }
+            OutlinedTextField(
+                value = query,
+                onValueChange = {
+                    query = it
+                    if (connected) onSearchDirectory(it)
+                },
+                placeholder = { Text("Nombre del entrenador o centro") },
+                leadingIcon = {
+                    Icon(Icons.Outlined.Search, contentDescription = null)
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("center_search_field"),
+                shape = MaterialTheme.shapes.extraLarge
+            )
+            if (query.isNotBlank()) {
+                TextButton(
+                    onClick = { showDirectory = true },
+                    modifier = Modifier.padding(top = 4.dp)
+                ) { Text("Ver resultados") }
+            }
         }
         if (!connected) {
             item {
-                ReperaEmptyState(
-                    title = "Busca tu entrenador o centro",
-                    subtitle = "Cuando te inviten, aparecerán aquí."
-                )
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(24.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Search,
+                            contentDescription = null,
+                            tint = brandGreen,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            "Busca tu entrenador o centro",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "Escribe su nombre para encontrarlo y solicitar la vinculación.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         } else {
             if (loading) {
@@ -115,10 +177,27 @@ internal fun CenterTab(
             if (centers.isEmpty() && invitations.isEmpty() && !loading) {
                 item {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Text("Todavía no perteneces a ningún centro. Tu entrenador o " +
-                            "gimnasio puede invitarte al correo de tu cuenta.",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium)
+                        Column(
+                            Modifier.padding(24.dp).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Search,
+                                contentDescription = null,
+                                tint = brandGreen,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Text(
+                                "Busca tu entrenador o centro",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Escribe su nombre para encontrarlo y solicitar la vinculación.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
