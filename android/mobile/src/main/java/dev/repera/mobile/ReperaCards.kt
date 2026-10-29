@@ -1435,9 +1435,10 @@ internal fun WorkoutHistoryCard(
     /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
      *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
-    effortUnit: String = "rir"
+    effortUnit: String = "rir",
+    startsExpanded: Boolean = false,
 ) {
-    var expanded by remember(workout.id) { mutableStateOf(false) }
+    var expanded by remember(workout.id) { mutableStateOf(startsExpanded) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
     var editingSetId by remember(workout.id) { mutableStateOf<String?>(null) }
     var editQuantity by remember(workout.id) { mutableStateOf("") }

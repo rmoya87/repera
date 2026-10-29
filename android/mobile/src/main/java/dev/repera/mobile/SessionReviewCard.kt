@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,7 +20,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -128,20 +125,18 @@ private fun IndicatorRow(indicator: ReviewIndicator) {
 }
 
 /**
- * Hoja post-entreno (SessionReviewSheet iOS): título + nota + acciones
- * Guardar / Descartar / Crear favorito (I-45).
+ * Hoja post-entreno (SessionReviewSheet iOS): título + card + «Listo».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SessionReviewSheet(
     review: SessionReview,
     onDismiss: () -> Unit,
-    onDiscard: (() -> Unit)? = null,
-    onCreateFavorite: (() -> Unit)? = null
 ) {
     ReperaModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp)
+            .padding(top = 28.dp)
             .padding(bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
@@ -149,37 +144,11 @@ internal fun SessionReviewSheet(
                 Text("Tu rendimiento", fontSize = 23.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f))
                 TextButton(onClick = onDismiss) {
-                    Text("Listo", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Listo", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                        color = brandGreen)
                 }
             }
             SessionReviewCard(review, startsExpanded = true)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.testTag("session_review_save")
-                ) {
-                    Text("Guardar", fontWeight = FontWeight.SemiBold)
-                }
-                if (onDiscard != null) {
-                    TextButton(
-                        onClick = { onDiscard(); onDismiss() },
-                        modifier = Modifier.testTag("session_review_discard")
-                    ) {
-                        Text("Descartar", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-                if (onCreateFavorite != null) {
-                    TextButton(
-                        onClick = { onCreateFavorite(); onDismiss() },
-                        modifier = Modifier.testTag("session_review_favorite")
-                    ) {
-                        Text("Crear favorito", color = brandGreen, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
         }
     }
 }

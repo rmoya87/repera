@@ -58,9 +58,12 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
         route.startsWith("temporizador") -> true
         route in setOf(
             "entreno-libre",
+            "entreno-activo",
             "entreno-activo-editar",
             "favorito-nuevo",
-            "ajustes"
+            "ajustes",
+            "reloj",
+            "historial"
         ) -> true
         else -> false
     }

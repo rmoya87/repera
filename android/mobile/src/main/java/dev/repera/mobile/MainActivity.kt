@@ -1247,25 +1247,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             // Hoja post-entreno (SessionReviewSheet iOS): se presenta una vez
             // al terminar una sesión con valoración verificable (I-45).
             pendingReview?.let { review ->
-                val reviewSessionId = pendingReviewSessionId
                 SessionReviewSheet(
                     review = review,
                     onDismiss = { pendingReview = null; pendingReviewSessionId = null },
-                    onDiscard = reviewSessionId?.let { id ->
-                        {
-                            runWorkoutAction { deleteWorkout(id) }
-                        }
-                    },
-                    onCreateFavorite = reviewSessionId?.let { id ->
-                        {
-                            runWorkoutAction {
-                                toggleWorkoutFavorite(id) { count ->
-                                    subscriptions.policy.copy(favoriteCount = count)
-                                        .canCreateFavorite(true).allowed
-                                }
-                            }
-                        }
-                    }
                 )
             }
             if (subscriptions.paywall.isPresented) {

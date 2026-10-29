@@ -621,8 +621,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     else -> "Empezar actividad"
                 })
             }
-            TextButton(onClick=onOpenTools) {Text("Crear entrenamiento")}
-            onOpenCenter?.let {TextButton(onClick=it) {Text("Center")}}
         } else {
             Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),style=MaterialTheme.typography.displayMedium)
             if(state.sport.usesGPS) {
