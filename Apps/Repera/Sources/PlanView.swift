@@ -547,7 +547,7 @@ struct DayEditorView: View {
                     }
                 }
                 .onDrop(
-                    of: [UTType.plainText.identifier],
+                    of: [UTType.plainText],
                     delegate: OGReorderDropDelegate(
                         draggedToken: $reorderDraggedToken,
                         accepts: { $0.hasPrefix("block:") },
@@ -568,7 +568,7 @@ struct DayEditorView: View {
                     .frame(maxWidth: .infinity, minHeight: 104)
                     .contentShape(Rectangle())
                     .onDrop(
-                        of: [UTType.plainText.identifier],
+                        of: [UTType.plainText],
                         delegate: OGReorderDropDelegate(
                             draggedToken: $reorderDraggedToken,
                             accepts: { _ in true },
@@ -599,7 +599,7 @@ struct DayEditorView: View {
                         row.name, blockID: block.id, itemID: row.id, type: row.type
                     )
                     .onDrop(
-                        of: [UTType.plainText.identifier],
+                        of: [UTType.plainText],
                         delegate: OGReorderDropDelegate(
                             draggedToken: $reorderDraggedToken,
                             accepts: { _ in true },

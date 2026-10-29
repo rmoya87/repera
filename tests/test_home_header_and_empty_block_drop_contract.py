@@ -103,11 +103,11 @@ class HomeBackgroundAndEmptyReorderContracts(unittest.TestCase):
         self.assertIn("func validateDrop(info: DropInfo) -> Bool", shared)
         self.assertIn("func dropUpdated(info: DropInfo) -> DropProposal?", shared)
         self.assertIn("func performDrop(info: DropInfo) -> Bool", shared)
-        self.assertIn("return info.hasItemsConforming(to: [UTType.plainText.identifier])", shared)
+        self.assertIn("return info.hasItemsConforming(to: [UTType.plainText])", shared)
         self.assertIn("let changed = performMove(draggedToken, info.location)", shared)
         self.assertIn("if changed { self.draggedToken = nil }", shared)
         for swift in (PLAN, PLAY):
-            self.assertIn("UTType.plainText.identifier", swift)
+            self.assertIn("UTType.plainText", swift)
             self.assertIn("@State private var ", swift)
 
 

@@ -787,7 +787,7 @@ struct WorkoutView: View {
                     }
                 }
                 .onDrop(
-                    of: [UTType.plainText.identifier],
+                    of: [UTType.plainText],
                     delegate: OGReorderDropDelegate(
                         draggedToken: $playReorderDraggedToken,
                         accepts: { $0.hasPrefix("block:") },
@@ -808,7 +808,7 @@ struct WorkoutView: View {
                     .frame(maxWidth: .infinity, minHeight: 104)
                     .contentShape(Rectangle())
                     .onDrop(
-                        of: [UTType.plainText.identifier],
+                        of: [UTType.plainText],
                         delegate: OGReorderDropDelegate(
                             draggedToken: $playReorderDraggedToken,
                             accepts: { _ in true },
@@ -837,7 +837,7 @@ struct WorkoutView: View {
                         name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
                     )
                     .onDrop(
-                        of: [UTType.plainText.identifier],
+                        of: [UTType.plainText],
                         delegate: OGReorderDropDelegate(
                             draggedToken: $playReorderDraggedToken,
                             accepts: { _ in true },

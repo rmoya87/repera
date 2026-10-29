@@ -770,7 +770,7 @@ struct OGReorderDropDelegate: DropDelegate {
 
     func validateDrop(info: DropInfo) -> Bool {
         guard let draggedToken, accepts(draggedToken) else { return false }
-        return info.hasItemsConforming(to: [UTType.plainText.identifier])
+        return info.hasItemsConforming(to: [UTType.plainText])
     }
 
     func dropEntered(info: DropInfo) {
@@ -841,7 +841,7 @@ struct OGReorderInsertionGap: View {
         .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.15), value: isTargeted)
         .onDrop(
-            of: [UTType.plainText.identifier],
+            of: [UTType.plainText],
             delegate: OGReorderDropDelegate(
                 draggedToken: $draggedToken,
                 accepts: accepts,
