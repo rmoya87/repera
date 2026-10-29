@@ -528,6 +528,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                     subscriptions.snapshot.status ==
                                         dev.repera.domain.monetization.SubscriptionStatus.UNKNOWN ||
                                     subscriptions.snapshot.lastRefreshFailedOffline ||
+                                    !subscriptions.snapshot.isConfigured ||
                                     !subscriptions.verificationBackendConfigured -> {
                                         show3DAccessVerificationError = true
                                     }
