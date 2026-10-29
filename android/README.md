@@ -10,9 +10,9 @@ Implementación nativa independiente en `android/`:
   (`timerDetails`), programación por fecha/semana y persistencia compatible con `AppState` Swift.
 - `domain`: reloj, `WeightUnit`, `TimerCompletionDetails`, WOD, CSV Hevy/Strong (incl. libras),
   resolución de conflictos.
-- `wear`: Compose for Wear OS Material 3, sesión desde Data Layer y registro de series de fuerza
-  con cola offline y confirmaciones; faltan reconciliación automática sin abrir el móvil,
-  ejecución completa de WOD y Health Services.
+- `wear`: Compose for Wear OS Material 3 con paridad Watch (ready/outline/running/blockReview/
+  resumen W-01 sin bug de duración, Tile + complicaciones); Data Layer + cola offline;
+  Health Services E2E físico pendiente.
 - `Health Connect`: lectura voluntaria de pasos y calorías activas reales, sin datos inventados ni escrituras.
 
 Google reemplaza a Apple en Android; Google Drive reemplaza a iCloud para

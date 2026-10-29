@@ -56,10 +56,6 @@ class WearVisualVerificationInstrumentedTest {
         }
     }
 
-    // TransformingLazyColumn compone los items bajo demanda: un nodo fuera
-    // del viewport NO existe en el árbol de semántica. Hay que hacer scroll
-    // en el contenedor hasta que el item se componga (performScrollToNode),
-    // no performScrollTo sobre el texto (que exige que ya exista).
     private fun scrollHastaTexto(texto: String) {
         compose.onNode(hasScrollToIndexAction())
             .performScrollToNode(androidx.compose.ui.test.hasText(texto))
@@ -70,12 +66,9 @@ class WearVisualVerificationInstrumentedTest {
     private fun WearFrame(content: @Composable () -> Unit) {
         MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
             primary = Color(0xFF30D158), onPrimary = Color.Black)) {
-            // Viewport REDONDO y oscuro como un reloj real: recorta esquinas
-            // y fuerza a verificar que todo el contenido es accesible con
-            // scroll, no solo visible en un marco cuadrado.
             Box(modifier = Modifier.size(320.dp)
                 .clip(androidx.compose.foundation.shape.CircleShape)
-                .background(Color(0xFF121212))) {
+                .background(Color.Black)) {
                 content()
             }
         }
@@ -89,7 +82,9 @@ class WearVisualVerificationInstrumentedTest {
             exerciseIndex = 1, exerciseCount = 3, recordedSets = 2,
             prescribedReps = 5, prescribedWeightKg = 100.0,
             wodFormatLabel = null, globalScore = false,
-            wodMovements = emptyList(), inputMode = "reps")
+            wodMovements = emptyList(), inputMode = "strength",
+            plannedWorkSets = 3, phase = "counting",
+            blockHeader = "Bloque 1")
         compose.setContent {
             WearFrame {
                 WearHomeContent(
@@ -102,24 +97,18 @@ class WearVisualVerificationInstrumentedTest {
                         repsInput = 5, weightInput = 100.0, rirInput = 2.0,
                         durationInput = 30, unitInput = "reps", deficitInput = 5,
                         pendingCount = 0, confirmDiscardPending = false,
-                        sendStatus = null),
+                        sendStatus = null, elapsedSeconds = 12),
                     callbacks = WearHomeCallbacks(),
                     modifier = Modifier.fillMaxSize())
             }
         }
         compose.waitForIdle()
-        // Dos nodos contienen "5 reps" (prescripción cabecera y entrada de
-        // registro): coincidencias exactas para no ambiguar el matcher.
-        compose.onNodeWithText("5 reps · 100.0 kg").assertExists()
+        compose.onNodeWithText("Back Squat", substring = true).assertExists()
+        compose.onNodeWithText("145 lpm", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
-        // Posición inicial (cabecera + Pausar) y posición desplazada
-        // (controles inferiores): el cierre exige ambas.
         save("wear_sesion_fuerza_inicio", compose.onRoot().captureToImage())
-        // Todos los controles alcanzables con scroll en el viewport redondo.
-        scrollHastaTexto("Registrar serie")
-        compose.onNodeWithText("Registrar serie").assertIsDisplayed()
-        scrollHastaTexto("5 reps")
-        compose.onNodeWithText("5 reps").assertIsDisplayed()
+        scrollHastaTexto("Reps")
+        compose.onNodeWithText("Reps").assertIsDisplayed()
         save("wear_sesion_fuerza", compose.onRoot().captureToImage())
     }
 
@@ -146,31 +135,116 @@ class WearVisualVerificationInstrumentedTest {
             }
         }
         compose.waitForIdle()
-        compose.onNodeWithText("Entreno de hoy", substring = true).assertExists()
+        compose.onNodeWithText("Iniciar entreno", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
         scrollHastaTexto("Reintentar sincronización")
         compose.onNodeWithText("Reintentar sincronización").assertIsDisplayed()
         save("wear_entreno_de_hoy", compose.onRoot().captureToImage())
     }
 
-    @Test fun wodFinishUsesCommonConsumerWithoutInventingScore() {
-        val session=WatchSessionSummary("wod-session","WOD",false,false,"Remo",1,1,0,null,null,"AMRAP",true,listOf("500 m Remo"))
-        var finished:String?=null
-        compose.setContent {WearFrame {WearHomeContent(
-            WearHomeState(session,false,null,null,false,null,null,0,false,0,0,null,null,60,"meters",0,0,false,null),
-            WearHomeCallbacks(onFinishSession={finished=it.sessionId}),Modifier.fillMaxSize())}}
-        scrollHastaTexto("Terminar sesión")
-        compose.onNodeWithText("Terminar sesión").performClick()
-        org.junit.Assert.assertEquals("wod-session",finished)
-        save("wear_wod_finish_consumer",compose.onRoot().captureToImage())
+    @Test
+    fun capturaWearResultadoSinBugDuracion() {
+        val finished = FinishedSummary(
+            sessionId = "fin-1",
+            title = "Entreno · Viernes",
+            durationLabel = "33:00",
+            exercises = 6,
+            sets = 13,
+            reps = 104,
+            volumeKg = 40,
+            kcal = 120,
+            avgHr = 110
+        )
+        compose.setContent {
+            WearFrame {
+                WearHomeContent(
+                    state = WearHomeState(
+                        session = null, showingCachedSession = false,
+                        finishedSummary = finished, todayPlan = null,
+                        syncProblem = false, health = null,
+                        wodTimerJson = null, wodTickSeconds = 0,
+                        sessionPaused = false, restRemaining = 0,
+                        repsInput = 0, weightInput = null, rirInput = null,
+                        durationInput = 30, unitInput = "reps", deficitInput = 5,
+                        pendingCount = 0, confirmDiscardPending = false,
+                        sendStatus = null),
+                    callbacks = WearHomeCallbacks(),
+                    modifier = Modifier.fillMaxSize())
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("¡Bien hecho!").assertExists()
+        compose.onNodeWithText("33:00").assertExists()
+        compose.onAllNodesWithText("5865", substring = true).assertCountEquals(0)
+        scrollHastaTexto("Volver al inicio")
+        compose.onNodeWithText("Volver al inicio").assertIsDisplayed()
+        save("wear_resultado_w01", compose.onRoot().captureToImage())
     }
+
+    @Test fun wodFinishUsesCommonConsumerWithoutInventingScore() {
+        val session = WatchSessionSummary(
+            "wod-session", "WOD", false, false, "Remo", 1, 1, 0, null, null,
+            "AMRAP", globalScore = true, wodMovements = listOf("500 m Remo"),
+            phase = "counting", wodFormatWire = "amrap"
+        )
+        var reviewed = false
+        compose.setContent {
+            WearFrame {
+                WearHomeContent(
+                    WearHomeState(
+                        session, false, null, null, false, null, null, 0, false, 0,
+                        0, null, null, 60, "meters", 0, 0, false, null
+                    ),
+                    WearHomeCallbacks(onReviewBlock = { reviewed = true }),
+                    Modifier.fillMaxSize()
+                )
+            }
+        }
+        scrollHastaTexto("Terminar bloque")
+        compose.onNodeWithText("Terminar bloque").performClick()
+        org.junit.Assert.assertTrue(reviewed)
+        save("wear_wod_finish_consumer", compose.onRoot().captureToImage())
+    }
+
     @Test fun pausedStrengthCannotConfirmSet() {
-        val session=WatchSessionSummary("pause-session","Fuerza",true,true,"Sentadilla",1,1,0,5,20.0,null,false,emptyList())
-        compose.setContent {WearFrame {WearHomeContent(
-            WearHomeState(session,false,null,null,false,null,null,0,true,0,5,20.0,2.0,60,"reps",0,0,false,null),
-            WearHomeCallbacks(),Modifier.fillMaxSize())}}
-        scrollHastaTexto("Confirmar serie")
-        compose.onNodeWithText("Confirmar serie").assertIsNotEnabled()
-        save("wear_paused_confirmation",compose.onRoot().captureToImage())
+        val session = WatchSessionSummary(
+            "pause-session", "Fuerza", true, true, "Sentadilla", 1, 1, 0, 5, 20.0,
+            null, globalScore = false, wodMovements = emptyList(),
+            plannedWorkSets = 3, phase = "counting", inputMode = "strength"
+        )
+        compose.setContent {
+            WearFrame {
+                WearHomeContent(
+                    WearHomeState(
+                        session, false, null, null, false, null, null, 0, true, 0,
+                        5, 20.0, 2.0, 60, "reps", 0, 0, false, null,
+                        elapsedSeconds = 8
+                    ),
+                    WearHomeCallbacks(),
+                    Modifier.fillMaxSize()
+                )
+            }
+        }
+        compose.waitForIdle()
+        // El botón → / confirmar queda deshabilitado en pausa.
+        compose.onNodeWithText("→").assertIsNotEnabled()
+        save("wear_paused_confirmation", compose.onRoot().captureToImage())
+    }
+
+    @Test fun emptyShowsSinPlanDescargado() {
+        compose.setContent {
+            WearFrame {
+                WearHomeContent(
+                    WearHomeState(
+                        null, false, null, null, false, null, null, 0, false, 0,
+                        0, null, null, 30, "reps", 5, 0, false, null
+                    ),
+                    WearHomeCallbacks(),
+                    Modifier.fillMaxSize()
+                )
+            }
+        }
+        compose.onNodeWithText("Sin plan descargado").assertExists()
+        compose.onNodeWithText("Sincronizar").assertExists()
     }
 }

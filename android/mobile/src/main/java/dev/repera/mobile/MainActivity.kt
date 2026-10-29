@@ -1302,6 +1302,27 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             return
         }
+        if (event.path == "/repera/wod-score") {
+            val payload = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
+                ?: return
+            runOnUiThread {
+                if (busy) return@runOnUiThread
+                val account = profile?.uniqueId ?: return@runOnUiThread
+                val sessionId = payload.optString("sessionId")
+                if (activeWorkout?.id != sessionId) return@runOnUiThread
+                val rounds = if (payload.has("roundsCompleted") && !payload.isNull("roundsCompleted"))
+                    payload.optInt("roundsCompleted") else null
+                val reps = if (payload.has("totalReps") && !payload.isNull("totalReps"))
+                    payload.optInt("totalReps") else null
+                val elapsed = if (payload.has("elapsedSeconds") && !payload.isNull("elapsedSeconds"))
+                    payload.optInt("elapsedSeconds") else null
+                runWorkoutAction {
+                    WorkoutRepository(this@MainActivity, account)
+                        .recordWodScore(rounds, reps, elapsed)
+                }
+            }
+            return
+        }
         if (event.path != "/repera/log-set") return
         val payload = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
             ?: return
