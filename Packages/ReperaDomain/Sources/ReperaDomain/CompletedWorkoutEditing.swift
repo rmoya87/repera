@@ -199,7 +199,12 @@ public enum CompletedWorkoutEditing {
                 blocks.append(block)
             }
         }
-        return Routine(id: session.routineId ?? session.id, title: session.title, blocks: blocks)
+        return Routine(
+            id: session.routineId ?? session.id,
+            title: session.title,
+            blocks: blocks,
+            locationPin: session.locationPin
+        )
     }
 
     /// Mantiene IDs, tiempos, ruta, HealthKit y técnicas registradas de los ejercicios
