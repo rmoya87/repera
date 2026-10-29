@@ -40,6 +40,24 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertNotNil(updated.routineBlocks)
     }
 
+    func testRoutineFromSessionCopiesLocationPin() {
+        let squat = Exercise(name: "Sentadilla", muscleGroup: "Piernas")
+        let routine = Routine(
+            title: "Fuerza",
+            blocks: [.strength(title: "Bloque A", exercises: [
+                RoutineExercise(exerciseId: squat.id, plannedSets: [PlannedSet(targetReps: 5)])
+            ])]
+        )
+        var session = SessionController.from(routine: routine, exercises: [squat])
+        session.phase = .finished
+        session.locationPin = WorkoutLocationPin(
+            latitude: 40.42, longitude: -3.70, name: "Box A6"
+        )
+        let draft = CompletedWorkoutEditing.routine(from: session)
+        XCTAssertEqual(draft.locationPin?.name, "Box A6")
+        XCTAssertEqual(draft.locationPin?.latitude ?? -1, 40.42, accuracy: 0.0001)
+    }
+
     func testReplacingExerciseResetsRecordedSetsButPreservesOtherResults() {
         let squat = Exercise(name: "Back squat", muscleGroup: "Piernas")
         let press = Exercise(name: "Press banca", muscleGroup: "Pecho")
