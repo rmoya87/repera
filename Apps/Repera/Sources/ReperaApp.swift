@@ -123,6 +123,13 @@ struct ReperaApp: App {
                     }
                 }
                 .animation(.easeInOut(duration: 0.28), value: subscriptions.paywall.isPresented)
+                .onChange(of: subscriptions.isPro) { _, hasAccess in
+                    // Si StoreKit/RevenueCat verifica Pro después de abrir
+                    // la página, ocultar inmediatamente la venta obsoleta.
+                    if hasAccess && subscriptions.paywall.isPresented {
+                        subscriptions.dismissPaywall()
+                    }
+                }
     }
 
     /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
