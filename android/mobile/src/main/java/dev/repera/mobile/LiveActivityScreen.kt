@@ -408,7 +408,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         if (mapLandscape && state.phase != LiveActivityState.Phase.IDLE)
                             Alignment.BottomStart else Alignment.BottomCenter
                     )
-                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 56.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 88.dp)
                     .then(
                         if (mapLandscape)
                             Modifier.width(
@@ -510,6 +510,253 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+        return
+    }
+    // Métricas GPS (LiveActivityView.metricsView): tiles con Spacers, no lista scroll.
+    if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW &&
+        showingMetrics && !showRoutes
+    ) {
+        val durationSec = state.durationSeconds(nowTick)
+        val durationText = run {
+            val total = maxOf(0, durationSec.toInt())
+            "%02d:%02d:%02d".format(total / 3600, (total / 60) % 60, total % 60)
+        }
+        val average = state.averageSpeedKmh(nowTick)
+        val paceOrSpeed = when {
+            average == null || average <= 0.1 ->
+                if (state.sport.displaysSpeed) "—" else "—:—"
+            state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
+            else -> {
+                val secs = (3600.0 / average).toInt()
+                if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
+            }
+        }
+        val paceLabel = if (state.sport.displaysSpeed)
+            "Velocidad media (km/h)" else "Ritmo medio (min/km)"
+        val km = state.distanceMeters / 1000.0
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .testTag("live_activity_screen")
+        ) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .heightIn(min = 54.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    state.sport.materialIcon,
+                    contentDescription = null,
+                    tint = brandGreen,
+                    modifier = Modifier.size(28.dp)
+                )
+                Text(
+                    state.sport.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    LiveMapCircleFab(
+                        if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp
+                        else Icons.Outlined.VolumeOff,
+                        if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz"
+                        else "Activar avisos por voz"
+                    ) {
+                        runtime.toggleSpokenGuidance()
+                        if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    LiveMapCircleFab(Icons.Outlined.Map, "Ver mapa") {
+                        showingMetrics = false
+                    }
+                }
+            }
+            Spacer(Modifier.weight(1f, fill = true).heightIn(min = 16.dp))
+            Text(
+                durationText,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 68.sp,
+                    letterSpacing = 0.sp
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+            Text(
+                "Duración",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            if (state.phase != LiveActivityState.Phase.IDLE) {
+                LiveKilometerSplitsSection(
+                    state.splitsSeconds,
+                    state.sport.displaysSpeed,
+                )
+            }
+            Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
+            Text(
+                paceOrSpeed,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 78.sp,
+                    letterSpacing = 0.sp
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+            Text(
+                paceLabel,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
+            Text(
+                ReperaNumberFormat.decimal(km),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 55.sp,
+                    letterSpacing = 0.sp
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+            Text(
+                "Distancia (km)",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            if (state.sport.tracksElevation && state.hasElevationSamples) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "+%.0f m".format(state.elevationGainMeters),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "−%.0f m".format(state.elevationLossMeters),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.weight(1f, fill = true).heightIn(min = 12.dp))
+            if (state.phase == LiveActivityState.Phase.IDLE) {
+                Surface(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 88.dp)
+                        .testTag("live_idle_panel"),
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 4.dp,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                    )
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LiveIdleSelectionAction(
+                            icon = state.sport.materialIcon,
+                            label = state.sport.title,
+                            filledGreen = false,
+                            tag = "live_sport_picker",
+                            onClick = { showSportPicker = true }
+                        )
+                        LiveIdleSelectionAction(
+                            icon = Icons.Filled.PlayArrow,
+                            label = when {
+                                hasActiveWorkout -> "Continuar"
+                                startCountdown > 0 -> "Cancelar"
+                                else -> "Iniciar"
+                            },
+                            filledGreen = true,
+                            countdown = startCountdown.takeIf { it > 0 },
+                            size = 70.dp,
+                            tag = "live_start",
+                            onClick = {
+                                if (hasActiveWorkout) onOpenWorkout()
+                                else if (startCountdown > 0) cancelStartCountdown()
+                                else if (ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    permissions.launch(
+                                        arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                } else beginStartCountdown()
+                            }
+                        )
+                        LiveIdleSelectionAction(
+                            icon = Icons.Outlined.Timeline,
+                            label = if (state.selectedRouteID == null) "Cargar ruta" else "Ruta elegida",
+                            filledGreen = false,
+                            tag = "live_load_route",
+                            onClick = { showRoutes = true; showingMetrics = true }
+                        )
+                    }
+                }
+            } else {
+                // Controles compactos (panel mapa en grabación/pausa).
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FlowRow {
+                        if (state.phase == LiveActivityState.Phase.RECORDING)
+                            TextButton(
+                                onClick = { runtime.pause() },
+                                modifier = Modifier.testTag("live_pause")
+                            ) { Text("Pausar") }
+                        else TextButton(
+                            onClick = { runtime.resume(); startService() },
+                            modifier = Modifier.testTag("live_resume")
+                        ) { Text("Reanudar") }
+                        TextButton(
+                            onClick = {
+                                runtime.finish(); LiveActivityService.stop(context)
+                            },
+                            modifier = Modifier.testTag("live_finish")
+                        ) { Text("Finalizar") }
+                        TextButton(onClick = { confirmDiscard = true }) { Text("Descartar") }
+                    }
+                    (error ?: runtime.lastError)?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
