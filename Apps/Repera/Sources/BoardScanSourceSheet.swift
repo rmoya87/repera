@@ -124,47 +124,10 @@ struct BoardScanIntoRoutineView: View {
                         onDone: { _ in }
                     )
                 } else {
-                    List {
-                        Section {
-                            Text("Escanea la pizarra de tu clase para añadir sus bloques al entreno que ya has registrado. Revisa las series y las marcas antes de guardarlas como realizadas.")
-                                .font(.footnote)
-                                .foregroundStyle(OG.label2)
-                            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                                Button("Tomar foto", systemImage: "camera.fill") {
-                                    guard checkScanPermission() else { return }
-                                    showCamera = true
-                                }
-                            }
-                            Button("Elegir de la galería", systemImage: "photo.on.rectangle") {
-                                guard checkScanPermission() else { return }
-                                showLibrary = true
-                            }
-                        }
-                        if reading {
-                            Section {
-                                HStack {
-                                    ProgressView()
-                                    Text("Leyendo pizarra…")
-                                }
-                            }
-                        }
-                        if let failure {
-                            Section { Text(failure).foregroundStyle(OG.red) }
-                        }
-                    }
-                    .ogListChrome()
-                    .navigationTitle("Escanear pizarra")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancelar") {
-                                scanTask?.cancel()
-                                dismiss()
-                            }
-                        }
-                    }
+                    scanSourceMenu
                 }
             }
+            // Cámara y galería siguen siendo presentaciones a pantalla completa.
             .fullScreenCover(isPresented: $showCamera, onDismiss: processCapturedImage) {
                 CameraPicker(image: $captured).ignoresSafeArea()
             }
@@ -172,6 +135,93 @@ struct BoardScanIntoRoutineView: View {
                 LibraryPicker(image: $captured).ignoresSafeArea()
             }
         }
+        .tint(OG.accent)
+        // Igual que el menú de Inicio: contenido intrínseco en la selección
+        // de foto, pantalla grande únicamente al revisar los bloques OCR.
+        .ogFittedSheet(expanded: review != nil, freezeHeight: showCamera || showLibrary)
+    }
+
+    /// Hoja compacta, sin List: List y NavigationStack sin tamaño intrínseco
+    /// expandían la selección de foto hasta ocupar toda la pantalla.
+    private var scanSourceMenu: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Escanear pizarra") {
+                CloseToolbarButton(action: {
+                    scanTask?.cancel()
+                    dismiss()
+                }, large: true)
+            }
+            .padding(.top, 4)
+
+            VStack(spacing: 0) {
+                Text("Escanea la pizarra de tu clase para añadir los ejercicios al entreno ya registrado. Después podrás revisar las series y las marcas.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+
+                Divider().opacity(0.35).padding(.leading, 52)
+
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button {
+                        guard checkScanPermission() else { return }
+                        showCamera = true
+                    } label: {
+                        scanSourceRow("Tomar foto", symbol: "camera.fill", tint: OG.accent)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().opacity(0.35).padding(.leading, 52)
+                }
+
+                Button {
+                    guard checkScanPermission() else { return }
+                    showLibrary = true
+                } label: {
+                    scanSourceRow("Elegir de la galería", symbol: "photo.on.rectangle", tint: OG.blue)
+                }
+                .buttonStyle(.plain)
+            }
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            if reading {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Leyendo pizarra…").foregroundStyle(OG.label2)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 4)
+            }
+            if let failure {
+                Text(failure)
+                    .font(.footnote)
+                    .foregroundStyle(OG.red)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func scanSourceRow(_ title: String, symbol: String, tint: Color) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 20))
+                .foregroundStyle(tint)
+                .frame(width: 28)
+            Text(title)
+                .font(.body)
+                // OG.label = negro en día, blanco en noche, igual que Inicio.
+                .foregroundStyle(OG.label)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 
     private func checkScanPermission() -> Bool {
