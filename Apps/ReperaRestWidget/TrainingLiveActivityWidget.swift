@@ -91,6 +91,7 @@ struct TrainingLiveActivityWidget: Widget {
 
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<TrainingActivityAttributes>) -> some View {
+        let hasNavigation = context.state.navigation != nil && context.state.phase != .completed
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
@@ -103,12 +104,11 @@ struct TrainingLiveActivityWidget: Widget {
             }
             .foregroundStyle(context.state.phase == .paused ? .black : .white)
             .padding(.horizontal, 16)
-            // La fila se centra en altura, también cuando hay indicaciones de ruta.
-            // minHeight respeta textos más grandes sin recortar el título.
-            .frame(
-                minHeight: context.state.navigation != nil && context.state.phase != .completed ? 56 : 52,
-                alignment: .center
-            )
+            // La altura mínima anterior creaba aire vacío bajo el título y
+            // forzaba a ActivityKit a recortar la parte inferior del widget.
+            // Margen explícito y equilibrado, sin reservar altura artificial.
+            .padding(.top, hasNavigation ? 18 : 12)
+            .padding(.bottom, hasNavigation ? 16 : 12)
             .background(context.state.phase == .paused ? pauseYellow :
                         context.state.phase == .completed ? green : Color.black)
 
@@ -116,7 +116,6 @@ struct TrainingLiveActivityWidget: Widget {
                context.state.phase != .completed {
                 navigationStrip(cue, compact: false)
                     .padding(.horizontal, 12)
-                    .padding(.top, 10)
             }
 
             HStack(alignment: .center, spacing: 0) {
@@ -125,12 +124,15 @@ struct TrainingLiveActivityWidget: Widget {
                 lockMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
             }
             .padding(.horizontal, 14)
-            .padding(.top, 16)
-            .padding(.bottom, 21)
+            // Ahorramos espacio ENTRE la tarjeta de navegación y los datos
+            // para que la reserva bajo las etiquetas sea realmente visible.
+            .padding(.top, hasNavigation ? 10 : 14)
+            .padding(.bottom, hasNavigation ? 21 : 18)
             .foregroundStyle(.white)
             .background(.black)
 
-            if context.state.phase != .completed, !context.state.subtitle.isEmpty {
+            if !hasNavigation, context.state.phase != .completed,
+               !context.state.subtitle.isEmpty {
                 Text(context.state.subtitle)
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.8))
@@ -176,7 +178,9 @@ struct TrainingLiveActivityWidget: Widget {
         }
         .foregroundStyle(.black)
         .padding(.horizontal, compact ? 9 : 12)
-        .padding(.vertical, compact ? 8 : 11)
+        // Menos altura en bloqueo: evita recortar las etiquetas inferiores.
+        // La isla expandida mantiene sus márgenes compactos originales.
+        .padding(.vertical, 8)
         .background(green, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
