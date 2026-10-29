@@ -756,6 +756,7 @@ fun ReperaMobileScreen(
                     StandaloneTimerScreen(
                         onBack = { navController.popBackStack() },
                         favoriteId = backStackEntry.arguments?.getString("fav"),
+                        accountId = accountId,
                         onPersistSession = onSaveTimerSession,
                         onSavedDay = { millis ->
                             restoreDayPlus = false

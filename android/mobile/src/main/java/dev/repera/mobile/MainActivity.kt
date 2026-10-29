@@ -1198,7 +1198,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             title = "Temporizador · ${completion.config.mode.title}",
                             startedAtMillis = completion.startedAtMillis,
                             finishedAtMillis = completion.finishedAtMillis,
-                            details = details
+                            details = details,
+                            locationPin = completion.locationPin
                         )
                         true
                     }.getOrDefault(false)

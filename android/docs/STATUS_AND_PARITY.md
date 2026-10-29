@@ -4,7 +4,7 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Revisión 4 Android: P0 restore gate (`centerGate.revision` post-`verifiedSupabase`) + Cerrar sesión/`busy`; acento `#30D158`/onPrimary negro; tab cápsula glass; Progreso scroll único iOS; Centro «Buscar»; Formato orden iOS; timer default Abajo; chip Día libre `surfaceVariant`; status Salud no en editor.
+**Última actualización:** 2026-10-29 — R4 parity: temporizador libre sección «Lugar» + `locationPin` en completion/save; Acceso IA disclosure «Conexión manual». Antes: P0 restore gate + Cerrar sesión/`busy`; acento `#30D158`; tab glass; Progreso; Centro «Buscar»; Formato; timer default Abajo; chip Día libre; Salud.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
@@ -19,7 +19,7 @@ Empezar tras OCR. Sin clima en Comenzar (`weather_android: none`).
 | Google Drive personal | appDataFolder + If-Match con ETag del GET media | E2E multi-dispositivo |
 | Importar/exportar | SAF JSON + CSV Strong/Hevy con columna `weight_lbs` → kg | Import JSON no fusiona estado existente |
 | kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | QA dispositivo |
-| Temporizador libre | Última config, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |
+| Temporizador libre | Última config, sección «Lugar» (`WorkoutPlacePickerRow`), `locationPin` en pending/save, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |
 | Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe | Filtros avanzados / fichas |
 | Ejecutar fuerza existente | Sesiones reales fuerza + WOD; menú Sustituir/Eliminar ejercicio (`ExerciseSubstitutes`); Añadir favorito en editor | Menú RIR dedicado; selector Todos/Favoritos 1:1 |
 | Reloj de bloque | LED fullscreen + **Minimizar** → barra flotante Ronda/tiempo; Continuar | Chrome chevron ⌄ exacto |
