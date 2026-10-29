@@ -85,7 +85,7 @@ struct FavoritesHubView: View {
                                 }
                             } icon: {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(OG.yellow)
+                                    .foregroundStyle(OG.favoriteAmber)
                             }
                         }
                         // Derecha: editar la plantilla guardada, nunca iniciar
@@ -132,7 +132,7 @@ struct FavoritesHubView: View {
                                 }
                             } icon: {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(OG.yellow)
+                                    .foregroundStyle(OG.favoriteAmber)
                             }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {

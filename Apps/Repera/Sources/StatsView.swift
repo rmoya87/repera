@@ -34,7 +34,7 @@ struct StatsView: View {
                 // El título y el calendario se desplazan con el contenido; sin franja opaca.
                 // Solo las pestañas quedan ancladas al alcanzar la parte superior.
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    OGFixedTopBar(title: "Progreso", subtitle: model.range.title) {
+                    OGFixedTopBar(title: "Progreso", subtitle: model.range.title, drawsBackground: false) {
                         Button {
                             showRangePicker = true
                         } label: {

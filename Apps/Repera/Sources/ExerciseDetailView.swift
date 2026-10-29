@@ -353,7 +353,7 @@ struct ExerciseDetailView: View {
                                 } label: {
                                     Image(systemName: exercise.isFavorite ? "star.fill" : "star")
                                         .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(exercise.isFavorite ? OG.yellow : OG.label)
+                                        .foregroundStyle(OG.favoriteAmber)
                                         .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
                                         .glassEffect(.regular.interactive(), in: .circle)
                                 }
@@ -424,7 +424,7 @@ struct ExerciseDetailView: View {
                         OGToolbarGlassButton(
                             systemName: exercise.isFavorite ? "star.fill" : "star",
                             accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Favorito",
-                            tint: exercise.isFavorite ? OG.yellow : OG.label
+                            tint: OG.favoriteAmber
                         ) {
                             store.toggleFavorite(resolvedId)
                         }

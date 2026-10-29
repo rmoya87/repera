@@ -64,6 +64,9 @@ enum OG {
     static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255) // #30d158
     static let onAccent = Color.black
     static let yellow = Color(red: 1, green: 214 / 255, blue: 10 / 255)
+    /// Ámbar de Favoritos (#FFB700), ligeramente anaranjado.
+    /// No modifica el amarillo de avisos, métricas y temporizadores.
+    static let favoriteAmber = Color(red: 1, green: 183 / 255, blue: 0 / 255)
     static let orange = Color(red: 1, green: 159 / 255, blue: 10 / 255)
     static let blue = Color(red: 10 / 255, green: 132 / 255, blue: 1)
     static let red = Color(red: 1, green: 69 / 255, blue: 58 / 255)

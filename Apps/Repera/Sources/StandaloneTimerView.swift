@@ -462,7 +462,7 @@ struct StandaloneTimerView: View {
                 OGToolbarGlassButton(
                     systemName: editingFavoriteId == nil ? "star" : "star.fill",
                     accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
-                    tint: OG.yellow
+                    tint: OG.favoriteAmber
                 ) {
                     saveTitle = editingFavoriteId.flatMap { id in
                         store.state.favoriteTimers.first { $0.id == id }?.title

@@ -133,7 +133,7 @@ struct StartHubSheet: View {
                             }
                         } icon: {
                             Image(systemName: "star.fill")
-                                .foregroundStyle(OG.yellow)
+                                .foregroundStyle(OG.favoriteAmber)
                         }
                     }
 

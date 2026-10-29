@@ -391,7 +391,7 @@ struct LibraryView: View {
                                 if store.isWODTemplateFavorite(template.id) {
                                     Image(systemName: "star.fill")
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(OG.yellow)
+                                        .foregroundStyle(OG.favoriteAmber)
                                 }
                             }
                             Text(template.formatLabel)
@@ -847,7 +847,7 @@ private struct LibraryExerciseList: View {
                     } label: {
                         Image(systemName: row.isFavorite ? "star.slash" : "star")
                     }
-                    .tint(OG.yellow)
+                    .tint(OG.favoriteAmber)
                     .accessibilityLabel(row.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
                 }
                 if row.isCustom {
@@ -944,7 +944,7 @@ private struct LibraryExerciseRowLabel: View {
                     if row.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption2)
-                            .foregroundStyle(OG.yellow)
+                            .foregroundStyle(OG.favoriteAmber)
                     }
                 }
                 Text(row.subtitle)
