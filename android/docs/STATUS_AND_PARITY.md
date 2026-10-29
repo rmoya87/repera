@@ -4,14 +4,17 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — R5 parity P1: Play/nav/Photon/Progreso segmentado/preview página/músculos ES/Comenzar sheets/timer/formatos/series SERIE·ANTERIOR. Base tip post-#170.
+**Última actualización:** 2026-10-29 — R5 leftovers: clima histórico Open-Meteo
+(`weather_android: open_meteo`) en detalle/ruta; P2 glass toolbar, UISwitch,
+confirm sheets, dumbbell tab, lista Ejercicios agrupada, miniaturas Reordenar.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
 Inicio: composición iOS + flujos DayPlus (orden Crear→Tempo→Escanear→Favoritos),
 editar planificado → `rutina/{id}`, favoritos con `assignRoutineToDate`, swipe
 reveal en cards del día, semilla «Bloque 1», movimiento libre / Entre rondas /
-Empezar tras OCR. Sin clima en Comenzar (`weather_android: none`).
+Empezar tras OCR. Clima en detalle de entreno/ruta vía Open-Meteo (no WeatherKit;
+atribución «Open-Meteo»; no se persiste).
 
 | Función | Situación en Android | Restricción vigente |
 | --- | --- | --- |

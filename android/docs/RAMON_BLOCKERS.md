@@ -1,6 +1,6 @@
 # Bloqueadores que requieren a Ramón
 
-**Última actualización:** 2026-10-28 (Google Auth Client IDs + `BILLING_DEPLOY.md`)
+**Última actualización:** 2026-10-29 (`weather_android: open_meteo`)
 
 Pasos exactos que **no** puede completar el agente (secretos / Console / deploy /
 hardware). Decisiones de producto cerradas abajo.
@@ -81,7 +81,7 @@ Hay que restablecer billing de Actions para que CI vuelva a ejecutar.
 
 | Tema | Estado |
 |------|--------|
-| Clima en Comenzar (`weather_android`) | **`none`** — no se paga proveedor; clima **no** va en Android (WeatherKit es solo iOS; Open-Meteo descartado, 2026-10-28). |
+| Clima histórico en detalle (`weather_android`) | **`open_meteo`** — franja Tiempo/Humedad/Viento como iOS; Open-Meteo gratis + atribución (2026-10-29; sustituye `none`). WeatherKit sigue solo en iOS. |
 | POI (`poi_provider`) | **Google Places solo si la cuota es gratis usable**; si no, mantener **`photon_geocoder`** (Photon + Geocoder en `PlaceSearchSheet`, estado actual). |
 | Billing (`billing_aligned`) | **Alineado** — productos creados en Play Console (borrador); código cliente + Edge verify + ownership Apple-parity en `main`. Ops SA/migrate/deploy/testers/activar abiertos. |
 | Play trial | **Ninguno** (2026-10-28). Gratis → Pro mensual/anual. |

@@ -124,18 +124,12 @@ fun SessionPreviewSheet(
                 )
             }
             if (confirmDelete) {
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { confirmDelete = false },
-                    confirmButton = {
-                        TextButton(onClick = { confirmDelete = false; onDelete() }) {
-                            Text("Borrar", color = MaterialTheme.colorScheme.error)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
-                    },
-                    title = { Text("Borrar entreno") },
-                    text = { Text("Se borra «${routine.title}». Esta acción no se puede deshacer.") }
+                ReperaConfirmSheet(
+                    title = "¿Eliminar entreno?",
+                    message = "Se borra «${routine.title}». Esta acción no se puede deshacer.",
+                    confirmTitle = "Eliminar",
+                    onConfirm = { confirmDelete = false; onDelete() },
+                    onCancel = { confirmDelete = false }
                 )
             }
         }

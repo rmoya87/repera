@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Revisión 5: subtítulos sin `null`/duplicados; ▶ abre Play; fin sin pantalla blanca; Play Resultado del bloque + series; AMRAP → reloj; Photon 12 s + pin; shell sin repera/gear; Progreso Entreno/Actividad/Recuperación; preview/detalle página; músculos ES; Comenzar 3D/dark + sheets; timer Arriba; formatos iOS; series SERIE/ANTERIOR; resumen tiempo pared + pin elegido; tab bar en Crear/Ajustes/ejercicio.
+**Última actualización:** 2026-10-29 — R5 leftovers: clima Open-Meteo en detalle/ruta (`weather_android: open_meteo`); P2 glass ←/★/⋯, switches UISwitch, confirm half-sheet, icono mancuerna tab Ejercicios, lista agrupada, miniaturas Reordenar, sin › en Restaurar compras ni «Actualizar» IA.
 
 Implementación nativa independiente en `android/`:
 

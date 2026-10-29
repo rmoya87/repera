@@ -8,9 +8,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.platform.testTag
 import org.json.JSONObject
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -46,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -212,12 +217,14 @@ fun RoutineBlocksEditorScreen(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // R5 P2 fila 11: nombre y fecha en filas separadas (iOS),
+                    // nombre en regular 17, no negrita con fecha como subtítulo.
                     BasicTextField(
                         value = draftTitle,
                         onValueChange = { draftTitle = it },
                         enabled = !busy,
-                        textStyle = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onSurface
                         ),
                         singleLine = true,
@@ -231,8 +238,18 @@ fun RoutineBlocksEditorScreen(
                                     else it.toString()
                                 }
                         }.getOrDefault(iso)
-                        Text(dayLabel, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium)
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                        )
+                        Text(
+                            dayLabel,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .testTag("workout_meta_date")
+                        )
                     }
                     if (oneOffEditor) {
                         val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -724,30 +741,46 @@ private fun BlockEditorCard(
                     modifier = Modifier.weight(1f).testTag("plan_block_title")
                 )
                 var blockMenu by remember { mutableStateOf(false) }
-                IconButton(
-                    onClick = { blockMenu = true },
-                    modifier = Modifier.testTag("plan_block_menu")
-                ) {
-                    Icon(Icons.Outlined.MoreHoriz, contentDescription = "Opciones del bloque")
-                }
-                DropdownMenu(expanded = blockMenu, onDismissRequest = { blockMenu = false }) {
-                    onOpenReorder?.let {
-                        DropdownMenuItem(
-                            text = { Text("Reordenar") },
-                            modifier = Modifier.testTag("plan_reorder_open"),
-                            onClick = { blockMenu = false; it() }
-                        )
+                Box {
+                    Surface(
+                        onClick = { blockMenu = true },
+                        shape = CircleShape,
+                        color = Color.Transparent,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
+                        ),
+                        modifier = Modifier
+                            .size(34.dp)
+                            .testTag("plan_block_menu")
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.MoreHoriz,
+                                contentDescription = "Opciones del bloque",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                    DropdownMenuItem(
-                        text = { Text("Añadir ejercicio") },
-                        modifier = Modifier.testTag("plan_block_add_exercise"),
-                        onClick = { blockMenu = false; showExercisePicker = true }
-                    )
-                    onRemove?.let { remove ->
+                    DropdownMenu(expanded = blockMenu, onDismissRequest = { blockMenu = false }) {
+                        onOpenReorder?.let {
+                            DropdownMenuItem(
+                                text = { Text("Reordenar") },
+                                modifier = Modifier.testTag("plan_reorder_open"),
+                                onClick = { blockMenu = false; it() }
+                            )
+                        }
                         DropdownMenuItem(
-                            text = { Text("Eliminar bloque", color = MaterialTheme.colorScheme.error) },
-                            onClick = { blockMenu = false; remove() }
+                            text = { Text("Añadir ejercicio") },
+                            modifier = Modifier.testTag("plan_block_add_exercise"),
+                            onClick = { blockMenu = false; showExercisePicker = true }
                         )
+                        onRemove?.let { remove ->
+                            DropdownMenuItem(
+                                text = { Text("Eliminar bloque", color = MaterialTheme.colorScheme.error) },
+                                onClick = { blockMenu = false; remove() }
+                            )
+                        }
                     }
                 }
             }

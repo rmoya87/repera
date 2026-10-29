@@ -1467,19 +1467,15 @@ internal fun WorkoutHistoryCard(
     // (OGConfirmSheet «¿Eliminar registro?»); nunca directo.
     var pendingDelete by remember(workout.id) { mutableStateOf(false) }
     if (pendingDelete) {
-        AlertDialog(
-            onDismissRequest = { pendingDelete = false },
-            title = { Text("¿Eliminar registro?") },
-            text = { Text("Se borrará «" + workout.title + "». No se puede deshacer.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingDelete = false
-                    onDeleteWorkout(workout.id)
-                }, enabled = !busy) { Text("Eliminar") }
+        ReperaConfirmSheet(
+            title = "¿Eliminar entreno?",
+            message = "Se borrará «" + workout.title + "». No se puede deshacer.",
+            confirmTitle = "Eliminar",
+            onConfirm = {
+                pendingDelete = false
+                onDeleteWorkout(workout.id)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = false }) { Text("Cancelar") }
-            }
+            onCancel = { pendingDelete = false }
         )
     }
     // Gesto deslizar-para-revelar (paridad RegisterSwipeRevealCard iOS, math
@@ -1581,6 +1577,26 @@ internal fun WorkoutHistoryCard(
             }
             if (workout.startedAt.isNotBlank()) {
                 Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)
+            }
+            // R5: lugar + clima cuando no hay ruta GPS (SessionMapWeatherCard iOS).
+            val placeOnly = workout.locationPin?.takeIf { it.hasChosenPlace }
+            if (placeOnly != null && workout.routePoints.size < 2) {
+                SessionMapWeatherCard(
+                    latitude = placeOnly.latitude,
+                    longitude = placeOnly.longitude,
+                    workoutEpochMs = workoutEpochMs(workout),
+                    placePin = placeOnly,
+                    modifier = Modifier.fillMaxWidth().testTag("history_map_weather")
+                ) {
+                    PlacePinMap(
+                        placeOnly.latitude,
+                        placeOnly.longitude,
+                        isInteractive = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
+                }
             }
             workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.let { sport ->
                 Text(sport.title, style = MaterialTheme.typography.labelLarge)
@@ -1699,8 +1715,12 @@ internal fun WorkoutHistoryCard(
                 // Ruta GPS: distancia/desnivel/splits y perfil de altitud
                 // (CardioRouteComponents iOS; el análisis es 1:1 en dominio).
                 if (workout.routePoints.size >= 2) {
-                    CardioRouteSection(workout.routePoints, showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
-                        waterSport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true)
+                    CardioRouteSection(
+                        workout.routePoints,
+                        showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
+                        waterSport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true,
+                        workoutEpochMs = workoutEpochMs(workout)
+                    )
                 }
                 val splitHeart by produceState<List<Pair<Long,Int>>>(emptyList(),workout.id,workout.liveKilometerSplitsSeconds) {
                     if (workout.liveKilometerSplitsSeconds.isNotEmpty())
@@ -1898,7 +1918,12 @@ internal fun RouteMapTapTarget(label: String, modifier: Modifier = Modifier,
 }
 
 @Composable
-internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint>, showComputedSplits: Boolean = true, waterSport: Boolean = false) {
+internal fun CardioRouteSection(
+    points: List<dev.repera.domain.WorkoutRoutePoint>,
+    showComputedSplits: Boolean = true,
+    waterSport: Boolean = false,
+    workoutEpochMs: Long? = null,
+) {
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
             dev.repera.domain.CardioRouteAnalysis.Sample(
@@ -1909,6 +1934,7 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
             )
         })
     }
+    val start = points.firstOrNull()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Ruta", style = MaterialTheme.typography.titleMedium)
         // Apple fafe016a: preview sin gestos + superficie tactil independiente
@@ -1918,6 +1944,15 @@ internal fun CardioRouteSection(points: List<dev.repera.domain.WorkoutRoutePoint
                 .clip(RoundedCornerShape(10.dp))) { interactive, mapModifier ->
             RouteMapView(points = points, isInteractive = interactive, waterSport = waterSport,
                 modifier = mapModifier)
+        }
+        // R5: franja Tiempo/Humedad/Viento bajo el mapa (Open-Meteo).
+        if (start != null && workoutEpochMs != null) {
+            RouteWeatherStrip(
+                latitude = start.latitude,
+                longitude = start.longitude,
+                workoutEpochMs = workoutEpochMs,
+                modifier = Modifier.testTag("route_weather_under_map")
+            )
         }
         // Solo los recorridos ya guardados muestran su escala de color (Apple c04c7dd9).
         RouteSpeedLegend(water = waterSport)

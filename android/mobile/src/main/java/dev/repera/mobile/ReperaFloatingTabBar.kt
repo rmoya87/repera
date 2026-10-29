@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material3.Icon
@@ -47,7 +46,8 @@ internal val reperaMainTabs = listOf(
     ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home),
     ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle, Icons.Filled.PlayCircle),
     ReperaTabSpec("progreso", "Progreso", Icons.Outlined.BarChart, Icons.Filled.BarChart),
-    ReperaTabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
+    // SF `dumbbell` horizontal (no FitnessCenter diagonal / «⤡»).
+    ReperaTabSpec("ejercicios", "Ejercicios", ReperaIcons.Dumbbell, ReperaIcons.Dumbbell)
 )
 
 internal val reperaTabRoutes: Set<String> = reperaMainTabs.map { it.route }.toSet()

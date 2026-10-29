@@ -78,19 +78,12 @@ private fun PlanReorderTopBar(onBack: () -> Unit, onDone: () -> Unit) {
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
+        ReperaToolbarGlassIconButton(
+            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+            contentDescription = "Volver",
             onClick = onBack,
-            modifier = Modifier
-                .size(44.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                .testTag("plan_reorder_back")
-        ) {
-            Icon(
-                Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "Volver",
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
+            modifier = Modifier.testTag("plan_reorder_back")
+        )
         Text(
             "Reordenar",
             modifier = Modifier.weight(1f),
@@ -104,6 +97,7 @@ private fun PlanReorderTopBar(onBack: () -> Unit, onDone: () -> Unit) {
                 containerColor = brandGreen.copy(alpha = 0.12f),
                 contentColor = brandGreen
             ),
+            shape = RoundedCornerShape(999.dp),
             modifier = Modifier.testTag("plan_reorder_done")
         ) {
             Text("Listo", fontWeight = FontWeight.SemiBold)
@@ -288,6 +282,8 @@ private fun ReorderBlockBox(
                 ) { entryHandle ->
                     ReorderExerciseRow(
                         name = entryDisplayName(entry, nameById),
+                        exerciseId = entry.exerciseId,
+                        sourceJson = entry.sourceJson,
                         handle = entryHandle
                     )
                 }
@@ -299,14 +295,27 @@ private fun ReorderBlockBox(
 @Composable
 private fun ReorderExerciseRow(
     name: String,
+    exerciseId: String,
+    sourceJson: String?,
     handle: Modifier
 ) {
+    val sportTag = sourceJson?.let {
+        runCatching { org.json.JSONObject(it).optString("sportTag") }.getOrNull()
+    }?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (exerciseId.isNotBlank()) {
+            ExerciseListThumb(
+                name = name,
+                sportTag = sportTag,
+                aliases = emptyMap()
+            )
+        }
         Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Icon(
             Icons.Outlined.DragHandle,
