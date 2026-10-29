@@ -103,7 +103,12 @@ struct TrainingLiveActivityWidget: Widget {
             }
             .foregroundStyle(context.state.phase == .paused ? .black : .white)
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            // La fila se centra en altura, también cuando hay indicaciones de ruta.
+            // minHeight respeta textos más grandes sin recortar el título.
+            .frame(
+                minHeight: context.state.navigation != nil && context.state.phase != .completed ? 56 : 52,
+                alignment: .center
+            )
             .background(context.state.phase == .paused ? pauseYellow :
                         context.state.phase == .completed ? green : Color.black)
 
@@ -114,13 +119,14 @@ struct TrainingLiveActivityWidget: Widget {
                     .padding(.top, 10)
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 0) {
                 lockMetric(value: timer(context.state), title: "Duración")
                 lockMetric(value: Text(context.state.primaryValue), title: context.state.primaryLabel)
                 lockMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 15)
+            .padding(.top, 16)
+            .padding(.bottom, 21)
             .foregroundStyle(.white)
             .background(.black)
 
@@ -202,18 +208,25 @@ struct TrainingLiveActivityWidget: Widget {
     }
 
     private func lockMetric(value: Text, title: String) -> some View {
-        VStack(spacing: 5) {
+        VStack(alignment: .center, spacing: 5) {
+            // El Text dinámico del cronómetro reserva espacio durante su actualización;
+            // centrar también SU contenido evita que Duración quede a la izquierda.
             value
                 .font(.system(size: 25, weight: .bold, design: .rounded))
+                .monospacedDigit()
                 .minimumScaleFactor(0.65)
                 .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
             Text(title)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.75))
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func islandMetric(value: Text, title: String) -> some View {
