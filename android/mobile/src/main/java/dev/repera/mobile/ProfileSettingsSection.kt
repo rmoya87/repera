@@ -55,12 +55,20 @@ import androidx.compose.ui.unit.dp
                 }
             }
         }
-        Text("Cuenta Google",style=MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Cuenta Google", style = MaterialTheme.typography.bodyMedium)
+            sessionStore.load()?.email?.takeIf { it.isNotBlank() }?.let { email ->
+                Text(
+                    email,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
     OutlinedTextField(value=name,onValueChange={name=it},label={Text("Tu nombre")},enabled=!busy,singleLine=true,modifier=Modifier.fillMaxWidth())
     OutlinedButton(onClick={onChange(value.copy(displayName=name.trim().takeIf {it.isNotEmpty()}))},enabled=!busy) {Text("Guardar nombre")}
     OutlinedButton(onClick={pickerRevision=sessionStore.identityRevision();pickerPending=true;picker.launch("image/*")},enabled=!busy && !pickerPending) {Text("Cambiar foto de perfil")}
-    Text("Foto guardada en tus datos. No se publica en el perfil del centro desde aquí.",style=MaterialTheme.typography.bodySmall)
     error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
     ManualMirrorSyncRow()
 }
