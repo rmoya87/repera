@@ -4,7 +4,8 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Wear W-01…W-10 (#150); mobile P0 Play
+**Última actualización:** 2026-10-29 — Wear F-5 (#153): Descartar + sync
+phone→Wear no resucita + locale nombres; W-01…W-10 (#150); mobile P0 Play
 I-133/I-41/I-40/I-70 + ampliación Ramón (#148/#149).
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
@@ -27,7 +28,7 @@ Empezar tras OCR. Sin clima en Comenzar (`weather_android: none`).
 | Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
 | Finalizar | Archiva sin duplicar | HC E2E |
 | WOD | 14 formatos + relojes; editor finished Cal/m + HSPU/repsAndTime; plan series por movimiento | Reloj landscape OK; Live Activity N/A |
-| Watch | Plan hoy + ready/Play + outline + fuerza/WOD + blockReview + resumen W-01 (duración clamp) + Tile/complicación | Health Services E2E; físico; Reordenar N/A en Wear |
+| Watch | Plan hoy + ready/Play + outline + fuerza/WOD + blockReview + resumen «¡Bien hecho!» (#150/#153) + Descartar + sync phone discard no resucita + locale ES + Tile | Health Services E2E; físico; Reordenar N/A en Wear |
 | Actividad/Salud | Lectura Inicio + escritura HC + distancia opcional en permiso | E2E HC |
 | Business / Center | Notice 12h + Actualizar + linked filter + RPC contracts fake | E2E Supabase real |
 | Compras Pro | Play Billing + verify Edge **alineado** | E2E compra real / testers |
