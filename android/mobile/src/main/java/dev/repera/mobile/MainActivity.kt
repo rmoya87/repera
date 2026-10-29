@@ -1263,6 +1263,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     onDismiss = { pendingReview = null; pendingReviewSessionId = null },
                 )
             }
+            androidx.compose.runtime.LaunchedEffect(subscriptions.isPro) {
+                // Una verificación Play tardía nunca deja abierto un
+                // upsell cuando ya se ha confirmado el acceso Pro.
+                if (subscriptions.isPro && subscriptions.paywall.isPresented) {
+                    subscriptions.dismissPaywall()
+                }
+            }
             if (subscriptions.paywall.isPresented) {
                 // Página nativa de Repera Pro; no abre un bottom sheet.
                 PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
