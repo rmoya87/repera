@@ -26,9 +26,19 @@ object WatchPlanExecution {
             require((exercise.optJSONArray("loggedSets")?.length() ?: 0)==0) {"El plan contiene trabajo ya registrado"}
             exercise.put("loggedSets",JSONArray()).put("isCompleted",false).put("completedReps",0)
         }
-        copy.put("id",id).put("startedAt",at.toString()).put("phase","counting")
+        // Apple SessionController.startOnPhone → phase ready until Play
+        // (confirmCurrentExercise → counting). Wear mirrors that gate.
+        copy.put("id",id).put("startedAt",at.toString()).put("phase","ready")
             .put("currentIndex",0).put("wodResults",JSONArray()).put("routePoints",JSONArray())
         copy.remove("finishedAt");copy.remove("draftRequestId")
         return copy
+    }
+
+    /** Apple confirmCurrentExercise: ready → counting for the current block. */
+    fun play(session: JSONObject): JSONObject? {
+        if (session.optString("phase") != "ready") return null
+        val count = session.optJSONArray("exercises")?.length() ?: return null
+        if (count == 0) return null
+        return JSONObject(session.toString()).put("phase", "counting")
     }
 }

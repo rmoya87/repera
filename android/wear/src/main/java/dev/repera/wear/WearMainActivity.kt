@@ -46,6 +46,7 @@ import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
+import dev.repera.domain.WearBlockHeader
 
 /**
  * This first native screen renders only genuine phone-delivered data.
@@ -137,6 +138,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var weightUnit by mutableStateOf("kg")
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
+    private var showOutline by mutableStateOf(false)
+    private var showSetDetails by mutableStateOf(false)
+    private var reviewingBlock by mutableStateOf(false)
+    private var elapsedSeconds by mutableStateOf(0)
+    private var elapsedJob: kotlinx.coroutines.Job? = null
+    private var sessionStartedAtElapsed: Long? = null
+    private var pausedAccumulatedMs = 0L
+    private var pauseStartedAtElapsed: Long? = null
+    private var reviewRounds by mutableStateOf(0)
+    private var reviewExtraReps by mutableStateOf(0)
+    private var reviewElapsedSeconds by mutableStateOf(0)
+    private var setReviewIndex by mutableStateOf<Int?>(null)
     private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -173,7 +186,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
             MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
-                primary = Color(0xFF30D158), onPrimary = Color.Black
+                primary = Color(0xFF30D158), onPrimary = Color.Black,
+                background = Color.Black
             )) {
                 AppScaffold {
                     ScreenScaffold { insets ->
@@ -199,7 +213,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 confirmDiscardPending = confirmDiscardPending,
                                 sendStatus = sendStatus,warmup=warmupInput,toFailure=failureInput,
                                 effortUnit = effortUnit, weightUnit = weightUnit,
-                                setKind = setKindInput, drops = dropsInput, clusters = clustersInput
+                                setKind = setKindInput, drops = dropsInput, clusters = clustersInput,
+                                showOutline = showOutline,
+                                showSetDetails = showSetDetails,
+                                reviewingBlock = reviewingBlock,
+                                elapsedSeconds = elapsedSeconds,
+                                reviewRounds = reviewRounds,
+                                reviewExtraReps = reviewExtraReps,
+                                reviewElapsedSeconds = reviewElapsedSeconds,
+                                setReviewIndex = setReviewIndex
                             ),
                             callbacks = WearHomeCallbacks(
                                 onDismissFinished = { finished ->
@@ -312,6 +334,22 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     confirmDiscardPending = false
                                     sendStatus = if (dropped) "Series pendientes descartadas"
                                         else "No se pudieron descartar los registros"
+                                },
+                                onPlayReady = { playReady() },
+                                onShowOutline = { show -> showOutline = show },
+                                onShowSetDetails = { show -> showSetDetails = show },
+                                onReviewBlock = { beginBlockReview() },
+                                onConfirmBlock = { confirmBlockReview() },
+                                onAdjustReviewRounds = { d -> reviewRounds = (reviewRounds + d).coerceAtLeast(0) },
+                                onAdjustReviewExtraReps = { d -> reviewExtraReps = (reviewExtraReps + d).coerceAtLeast(0) },
+                                onAdjustReviewElapsed = { d ->
+                                    reviewElapsedSeconds = (reviewElapsedSeconds + d).coerceAtLeast(0)
+                                },
+                                onSwipeSet = { delta ->
+                                    val session = visibleSession ?: return@WearHomeCallbacks
+                                    val planned = maxOf(1, session.plannedWorkSets)
+                                    val base = setReviewIndex ?: session.recordedSets
+                                    setReviewIndex = (base + delta).coerceIn(0, maxOf(0, planned - 1))
                                 }
                             ),
                             modifier = Modifier.fillMaxSize().padding(insets)
@@ -622,6 +660,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         restJob?.cancel();restClock.clear();restRemaining=0
         wodTickJob?.cancel();phoneWodTimerJson=null;localWodTimerJson=null;wodTickSeconds=0
         finishedSummary=null
+        showOutline=false;showSetDetails=false;reviewingBlock=false
         warmupInput=false;failureInput=false
         visibleSession = summary
         seedDraft(summary)
@@ -629,15 +668,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         watchStartedSession = true
         repCounter.reset()
         todayPlanJson = null
+        resetElapsedClock()
         ensureHealthRecording()
-        if (plan !== begun) {
-            // Apple startToday + selectBlock leaves the block in `ready` until Play. Equivalent here: paused, so no set
-            // can be confirmed before "Reanudar". Sensors pause once the async service confirms recording (pauseSensorsIntent).
-            sessionPaused = true
-            restClock.pause(SystemClock.elapsedRealtime())
-            persistRest()
-            pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
-        }
+        // begin() leaves phase=ready (Apple startOnPhone). Stay ready until Play.
+        pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
+        sessionPaused = true
+        restClock.pause(SystemClock.elapsedRealtime())
+        persistRest()
     }
 
     /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
@@ -812,7 +849,173 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         persistRest()
     }
 
-    /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
+    private fun playReady() {
+        val session = visibleSession ?: return
+        if (session.phase != "ready") {
+            // Already counting: Play = resume.
+            if (sessionPaused) togglePause()
+            return
+        }
+        if (watchStartedSession) {
+            val snapshot = sessionCache.getString("snapshot", null)
+                ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
+            val played = dev.repera.domain.WatchPlanExecution.play(snapshot) ?: return
+            val summary = runCatching { WatchSessionSummary.fromJson(played) }.getOrNull() ?: return
+            if (!sessionCache.edit().putString("snapshot", played.toString()).commit()) {
+                sendStatus = "No se pudo iniciar el bloque en el reloj"; return
+            }
+            visibleSession = summary
+        } else {
+            // Phone-driven: local UI advances to counting; phone already has counting after start.
+            visibleSession = session.copy(phase = "counting")
+        }
+        showOutline = false
+        reviewingBlock = false
+        sessionPaused = false
+        pauseSensorsIntent = null
+        healthConnection?.pause(session.sessionId, false)
+        startElapsedClock()
+        // WOD: seed local clock when starting the block offline.
+        if (visibleSession?.wodFormatLabel != null) controlLocalWodTimer("start")
+    }
+
+    private fun beginBlockReview() {
+        val session = visibleSession ?: return
+        if (session.wodFormatLabel == null) return
+        tickElapsed()
+        reviewingBlock = true
+        showOutline = false
+        showSetDetails = false
+        sessionPaused = true
+        reviewRounds = 0
+        reviewExtraReps = 0
+        reviewElapsedSeconds = elapsedSeconds
+        healthConnection?.pause(session.sessionId, true)
+        restJob?.cancel()
+    }
+
+    private fun confirmBlockReview() {
+        val session = visibleSession ?: return
+        if (!reviewingBlock) return
+        val format = WodFormat.fromWire(session.wodFormatWire.orEmpty())
+        if (watchStartedSession) {
+            val snapshot = sessionCache.getString("snapshot", null)
+                ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
+            val exercises = snapshot.optJSONArray("exercises") ?: return
+            val blockId = session.blockId
+            if (!blockId.isNullOrBlank() && format != null &&
+                format.capture != dev.repera.domain.ResultCapture.PER_MOVEMENT_SETS) {
+                val score = JSONObject().put("id", blockId).put("format", format.wireName)
+                when (format.capture) {
+                    dev.repera.domain.ResultCapture.TOTAL_REPS -> {
+                        if (format == WodFormat.AMRAP || format == WodFormat.DEATH_BY)
+                            score.put("roundsCompleted", reviewRounds)
+                        score.put("totalReps", reviewExtraReps)
+                    }
+                    dev.repera.domain.ResultCapture.ELAPSED_TIME ->
+                        score.put("elapsedSeconds", reviewElapsedSeconds)
+                    else -> {}
+                }
+                val previous = snapshot.optJSONArray("wodResults") ?: JSONArray()
+                val revised = JSONArray()
+                for (i in 0 until previous.length()) {
+                    if (previous.getJSONObject(i).optString("id") != blockId)
+                        revised.put(previous.getJSONObject(i))
+                }
+                revised.put(score)
+                snapshot.put("wodResults", revised)
+            }
+            // Mark block exercises completed and advance, mirroring recordWodScore.
+            var nextIndex = session.exerciseIndex // 1-based current → next after block
+            if (!blockId.isNullOrBlank()) {
+                for (i in 0 until exercises.length()) {
+                    if (exercises.getJSONObject(i).optString("blockId") == blockId)
+                        exercises.getJSONObject(i).put("isCompleted", true)
+                }
+                nextIndex = session.exerciseIndex - 1
+                while (nextIndex < exercises.length() &&
+                    exercises.getJSONObject(nextIndex).optString("blockId") == blockId) {
+                    nextIndex++
+                }
+            }
+            reviewingBlock = false
+            if (nextIndex >= exercises.length()) {
+                sessionCache.edit().putString("snapshot", snapshot.toString()).commit()
+                finishSessionFromWatch(session)
+                return
+            }
+            snapshot.put("currentIndex", nextIndex).put("phase", "ready")
+            sessionCache.edit().putString("snapshot", snapshot.toString()).commit()
+            val summary = runCatching { WatchSessionSummary.fromJson(snapshot) }.getOrNull() ?: return
+            visibleSession = summary
+            seedDraft(summary)
+            sessionPaused = true
+            resetElapsedClock()
+            pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
+            healthConnection?.pause(summary.sessionId, true)
+            return
+        }
+        // Phone-driven: send score then jump / finish via existing bridges.
+        reviewingBlock = false
+        if (format != null && format.capture != dev.repera.domain.ResultCapture.PER_MOVEMENT_SETS) {
+            val payload = JSONObject()
+                .put("sessionId", session.sessionId)
+                .put("blockId", session.blockId)
+                .put("format", format.wireName)
+                .put("roundsCompleted", reviewRounds)
+                .put("totalReps", reviewExtraReps)
+                .put("elapsedSeconds", reviewElapsedSeconds)
+                .toString().toByteArray(Charsets.UTF_8)
+            Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+                nodes.forEach {
+                    Wearable.getMessageClient(this).sendMessage(it.id, "/repera/wod-score", payload)
+                }
+            }
+        }
+        val blocks = session.blocks
+        val currentStart = session.exerciseIndex - 1
+        val nextBlock = blocks.firstOrNull { it.first > currentStart }?.first
+        if (nextBlock == null) finishSessionFromWatch(session)
+        else requestSelectBlock(session, nextBlock)
+    }
+
+    private fun resetElapsedClock() {
+        elapsedJob?.cancel()
+        elapsedSeconds = 0
+        sessionStartedAtElapsed = null
+        pausedAccumulatedMs = 0L
+        pauseStartedAtElapsed = null
+    }
+
+    private fun startElapsedClock() {
+        resetElapsedClock()
+        sessionStartedAtElapsed = SystemClock.elapsedRealtime()
+        elapsedJob = lifecycleScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                tickElapsed()
+            }
+        }
+    }
+
+    private fun tickElapsed() {
+        val start = sessionStartedAtElapsed ?: return
+        val now = SystemClock.elapsedRealtime()
+        val pausedExtra = if (sessionPaused) {
+            val pauseAt = pauseStartedAtElapsed ?: now.also { pauseStartedAtElapsed = it }
+            pausedAccumulatedMs + (now - pauseAt)
+        } else {
+            pauseStartedAtElapsed?.let {
+                pausedAccumulatedMs += now - it
+                pauseStartedAtElapsed = null
+            }
+            pausedAccumulatedMs
+        }
+        elapsedSeconds = ((now - start - pausedExtra) / 1000L).toInt().coerceAtLeast(0)
+            .coerceAtMost(dev.repera.domain.WearSessionDuration.MAX_SECONDS)
+    }
+
+        /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
      *  session is changed locally; a phone session is changed by the phone, which validates session and shown index. */
     private fun requestSelectBlock(session: WatchSessionSummary, toIndex: Int) {
         if (visibleSession?.sessionId != session.sessionId || visibleSession?.exerciseIndex != session.exerciseIndex) return
@@ -854,11 +1057,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         seedDraft(summary)
         repCounter.reset()
         persistDraft()
-        // Apple selectBlock: health.pause() and phase=ready; the next Play (confirm + health.resume()) starts the block.
-        // Wear has no ready phase, so the equivalent is the paused state: sensors and rest paused, "Reanudar" is Play,
-        // and sets cannot be confirmed until it is pressed (queueSet rejects while paused).
-        sessionPaused = false
-        togglePause()
+        // Apple selectBlock → phase ready until Play.
+        showOutline = false
+        showSetDetails = false
+        reviewingBlock = false
+        sessionPaused = true
+        restClock.pause(SystemClock.elapsedRealtime())
+        persistRest()
+        pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
+        healthConnection?.pause(summary.sessionId, true)
+        resetElapsedClock()
     }
 
     private fun togglePause() {
@@ -870,8 +1078,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (nowPaused) {
             restClock.pause(SystemClock.elapsedRealtime());restJob?.cancel()
             restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
+            if (pauseStartedAtElapsed == null) pauseStartedAtElapsed = SystemClock.elapsedRealtime()
+            tickElapsed()
         } else {
             restClock.resume(SystemClock.elapsedRealtime());tickRest()
+            pauseStartedAtElapsed?.let {
+                pausedAccumulatedMs += SystemClock.elapsedRealtime() - it
+                pauseStartedAtElapsed = null
+            }
+            tickElapsed()
         }
         persistRest()
         val revision=sensorRevision
@@ -1017,6 +1232,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         warmupInput=false;failureInput=false;rirInput=null
         setKindInput="straight";dropsInput=emptyList();clustersInput=emptyList()
         sessionPaused = false
+        showOutline=false;showSetDetails=false;reviewingBlock=false
+        resetElapsedClock()
         wodTickJob?.cancel();phoneWodTimerJson=null;localWodTimerJson=null;wodTickSeconds=0
         watchStartedSession = false
         sessionCache.edit().remove("watchStarted").apply()
@@ -1084,7 +1301,13 @@ data class WatchSessionSummary(
     val prescribedDeficitCm:Int?=null,
     val recordedTotalSets:Int=recordedSets,
     /** (exercise index 0-based, first exercise name) per block run; Apple blockStarts. */
-    val blocks:List<Pair<Int,String>> = emptyList()
+    val blocks:List<Pair<Int,String>> = emptyList(),
+    val phase: String = "counting",
+    val blockHeader: String = "",
+    val blockTimeCapMinutes: Int? = null,
+    val wodFormatWire: String? = null,
+    val blockId: String? = null,
+    val blockExerciseLines: List<String> = emptyList()
 ) {
     companion object {
         /** (first exercise index, Apple displayBlockHeader) per consecutive block run. */
@@ -1147,6 +1370,26 @@ data class WatchSessionSummary(
                 }
                 (prefix + " " + item.optString("name")).trim()
             }
+            fun intField(k: String) = if (exercise.has(k) && !exercise.isNull(k)) exercise.optInt(k) else null
+            val header = WearBlockHeader.display(
+                exercise.optString("blockKind") == "strength", wodFormat,
+                if (exercise.has("blockHeader") && !exercise.isNull("blockHeader"))
+                    exercise.optString("blockHeader") else null,
+                intField("blockTimeCapMinutes"), intField("blockRounds"),
+                intField("blockIntervalSeconds"), intField("blockWorkSeconds"),
+                intField("blockRestSeconds")
+            )
+            val members = (0 until exercises.length()).filter { i ->
+                val id = exercises.getJSONObject(i).optString("blockId")
+                if (blockId.isBlank()) i == index else id == blockId
+            }
+            val blockLines = members.map { i ->
+                val e = exercises.getJSONObject(i)
+                val name = e.getJSONObject("exercise").getString("name")
+                val ps = e.optJSONArray("plannedSets")
+                val reps = ps?.takeIf { it.length() > 0 }?.optJSONObject(0)?.optInt("targetReps")
+                if (reps != null && reps > 0) "$name · $reps reps" else name
+            }
             return WatchSessionSummary(
                 sessionId = session.getString("id"),
                 title = session.getString("title"),
@@ -1192,7 +1435,13 @@ data class WatchSessionSummary(
                     ExerciseInputMode.REPS_ONLY -> "repsOnly"
                     ExerciseInputMode.LOAD_DISTANCE -> "loadDistance"
                     else -> "strength"
-                }
+                },
+                phase = session.optString("phase", "counting").ifBlank { "counting" },
+                blockHeader = header,
+                blockTimeCapMinutes = intField("blockTimeCapMinutes"),
+                wodFormatWire = wodFormat?.wireName,
+                blockId = blockId.takeIf { it.isNotBlank() },
+                blockExerciseLines = blockLines
             )
         }
     }
@@ -1201,9 +1450,14 @@ data class WatchSessionSummary(
 internal data class FinishedSummary(
     val sessionId: String,
     val title: String,
-    val minutes: Int,
+    val durationLabel: String,
     val exercises: Int,
-    val sets: Int
+    val sets: Int,
+    val reps: Int,
+    val volumeKg: Int,
+    val kcal: Int? = null,
+    val avgHr: Int? = null,
+    val wodLines: List<Pair<String, String>> = emptyList()
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): FinishedSummary? {
@@ -1212,19 +1466,72 @@ internal data class FinishedSummary(
                 JSONObject(String(bytes, Charsets.UTF_8))
             }.getOrNull() ?: return null
             val id = w.optString("id").takeIf { it.isNotBlank() } ?: return null
-            val start = w.optString("startedAt")
-            val end = w.optString("finishedAt")
-            val minutes = runCatching {
-                ((java.time.Instant.parse(end).toEpochMilli() -
-                    java.time.Instant.parse(start).toEpochMilli()) / 60000).toInt()
-            }.getOrDefault(0)
+            val measured = sequenceOf(
+                "appleDurationSeconds", "activeDurationSeconds", "durationSeconds"
+            ).mapNotNull { key ->
+                if (w.has(key) && !w.isNull(key)) w.optDouble(key).takeIf { it.isFinite() } else null
+            }.firstOrNull()
+            val seconds = dev.repera.domain.WearSessionDuration.resolveSeconds(
+                w.optString("startedAt").ifBlank { null },
+                w.optString("finishedAt").ifBlank { null },
+                measured
+            )
             val exercises = w.optJSONArray("exercises")
-            val sets = if (exercises == null) 0 else (0 until exercises.length()).sumOf { i ->
-                val logged = exercises.optJSONObject(i)?.optJSONArray("loggedSets")
-                logged?.length() ?: 0
+            var sets = 0
+            var reps = 0
+            var volume = 0.0
+            if (exercises != null) {
+                for (i in 0 until exercises.length()) {
+                    val logged = exercises.optJSONObject(i)?.optJSONArray("loggedSets") ?: continue
+                    sets += logged.length()
+                    for (s in 0 until logged.length()) {
+                        val set = logged.optJSONObject(s) ?: continue
+                        val r = set.optInt("reps", set.optInt("quantity", 0))
+                        reps += r
+                        val kg = set.optDouble("weightKg", Double.NaN)
+                        if (kg.isFinite() && kg > 0) volume += kg * r
+                    }
+                }
             }
-            return FinishedSummary(id, w.optString("title").ifBlank { "Entrenamiento" },
-                minutes, exercises?.length() ?: 0, sets)
+            val kcal = sequenceOf("appleActiveEnergyKcal", "activeEnergyKcal")
+                .mapNotNull { k ->
+                    if (w.has(k) && !w.isNull(k)) w.optDouble(k).takeIf { it.isFinite() && it > 0 }
+                    else null
+                }.firstOrNull()?.let { kotlin.math.round(it).toInt() }
+            val avgHr = sequenceOf("appleAverageHeartRateBpm", "averageHeartRateBpm")
+                .mapNotNull { k ->
+                    if (w.has(k) && !w.isNull(k)) w.optDouble(k).takeIf { it.isFinite() && it > 0 }
+                    else null
+                }.firstOrNull()?.let { kotlin.math.round(it).toInt() }
+            val wodLines = mutableListOf<Pair<String, String>>()
+            val results = w.optJSONArray("wodResults")
+            if (results != null) {
+                for (i in 0 until results.length()) {
+                    val r = results.optJSONObject(i) ?: continue
+                    val fmt = WodFormat.fromWire(r.optString("format"))?.displayName ?: "WOD"
+                    val value = when {
+                        r.has("elapsedSeconds") && !r.isNull("elapsedSeconds") ->
+                            wearClockLabel(r.optInt("elapsedSeconds"))
+                        r.has("roundsCompleted") ->
+                            "${r.optInt("roundsCompleted")} r + ${r.optInt("totalReps")} reps"
+                        r.has("totalReps") -> "${r.optInt("totalReps")} reps"
+                        else -> "—"
+                    }
+                    wodLines += fmt to value
+                }
+            }
+            return FinishedSummary(
+                id,
+                w.optString("title").ifBlank { "Entrenamiento" },
+                dev.repera.domain.WearSessionDuration.format(seconds),
+                exercises?.length() ?: 0,
+                sets,
+                reps,
+                kotlin.math.round(volume).toInt(),
+                kcal,
+                avgHr,
+                wodLines
+            )
         }
     }
 }

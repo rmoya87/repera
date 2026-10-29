@@ -32,10 +32,22 @@
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="SHORT_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
+                android:value="SHORT_TEXT,LONG_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="0" />
+        </service>
+        <service
+            android:name=".ReperaTodayTileService"
+            android:exported="true"
+            android:label="Repera"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/ic_repera_complication" />
         </service>
     </application>
 </manifest>

@@ -12,9 +12,12 @@ class WatchPlanExecutionTest {
         val a=WatchPlanExecution.begin(source,"execution-a",now)
         val b=WatchPlanExecution.begin(source,"execution-b",now.plusSeconds(60))
         assertEquals(before,source.toString());assertNotEquals(a.getString("id"),b.getString("id"))
-        assertEquals(now.toString(),a.getString("startedAt"));assertEquals("counting",a.getString("phase"))
+        assertEquals(now.toString(),a.getString("startedAt"));assertEquals("ready",a.getString("phase"))
         assertEquals("routine",a.getString("routineId"))
         assertEquals(5,a.getJSONArray("exercises").getJSONObject(0).getJSONArray("plannedSets").getJSONObject(0).getInt("targetReps"))
+        val counting=WatchPlanExecution.play(a)!!
+        assertEquals("counting",counting.getString("phase"))
+        assertEquals(null,WatchPlanExecution.play(counting))
     }
     @Test fun recordedWorkCannotBeRecycledAsFreshPrescription() {
         val source=plan();source.getJSONArray("exercises").getJSONObject(0).put("loggedSets",JSONArray().put(JSONObject().put("reps",5)))

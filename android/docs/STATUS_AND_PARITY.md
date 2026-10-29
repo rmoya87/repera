@@ -4,9 +4,9 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Ampliación Ramón (mobile): Inicio lienzo
-`OG.bg` tras Actividad; «Cancelar entreno» con diálogo; «Ver instrucciones» IA;
-mapa de lugar full-bleed + chip; accesorio «Continuar» sobre tab bar. Tip post-#148.
+**Última actualización:** 2026-10-29 — Wear OS paridad W-01…W-10 (ready/outline/
+blockReview, duración sin 5865:52, Tile); mobile ampliación Ramón (Inicio `OG.bg`,
+confirm cancel, IA instrucciones, mapa full-bleed, Continuar). Tip post-wear+#148.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).
@@ -28,7 +28,7 @@ Empezar tras OCR. Sin clima en Comenzar (`weather_android: none`).
 | Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
 | Finalizar | Archiva sin duplicar | HC E2E |
 | WOD | 14 formatos + relojes; editor finished Cal/m + HSPU/repsAndTime; plan series por movimiento | Reloj landscape OK; Live Activity N/A |
-| Watch | Plan hoy + fuerza ACK + drop/RP + WOD Confirmar + **clock local offline** | Health Services E2E; físico |
+| Watch | Plan hoy + ready/Play + outline + fuerza/WOD + blockReview + resumen W-01 (duración clamp) + Tile/complicación | Health Services E2E; físico; Reordenar N/A en Wear |
 | Actividad/Salud | Lectura Inicio + escritura HC + distancia opcional en permiso | E2E HC |
 | Business / Center | Notice 12h + Actualizar + linked filter + RPC contracts fake | E2E Supabase real |
 | Compras Pro | Play Billing + verify Edge **alineado** | E2E compra real / testers |
