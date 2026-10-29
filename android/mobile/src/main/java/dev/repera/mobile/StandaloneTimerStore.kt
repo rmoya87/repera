@@ -97,7 +97,8 @@ data class StandaloneTimerCompletion(
     val id: String = UUID.randomUUID().toString(),
     val startedAtMillis: Long,
     val finishedAtMillis: Long,
-    val config: StandaloneTimerConfig
+    val config: StandaloneTimerConfig,
+    val locationPin: dev.repera.domain.WorkoutLocationPin? = null
 ) {
     val configuredSeconds: Int get() = config.configuredDurationSeconds
 
@@ -106,6 +107,19 @@ data class StandaloneTimerCompletion(
         .put("startedAtMillis", startedAtMillis)
         .put("finishedAtMillis", finishedAtMillis)
         .put("configuration", config.toJson())
+        .apply {
+            locationPin?.let { pin ->
+                put("locationPin", JSONObject()
+                    .put("latitude", pin.latitude)
+                    .put("longitude", pin.longitude)
+                    .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                    .apply {
+                        pin.name?.let { put("name", it) }
+                        pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                        pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+                    })
+            }
+        }
 
     companion object {
         fun fromJson(o: JSONObject): StandaloneTimerCompletion? {
@@ -117,7 +131,21 @@ data class StandaloneTimerCompletion(
                 id = o.optString("id").ifBlank { UUID.randomUUID().toString() },
                 startedAtMillis = started,
                 finishedAtMillis = finished,
-                config = StandaloneTimerConfig.fromJson(configObj)
+                config = StandaloneTimerConfig.fromJson(configObj),
+                locationPin = o.optJSONObject("locationPin")?.let { pinObj ->
+                    runCatching {
+                        dev.repera.domain.WorkoutLocationPin(
+                            latitude = pinObj.getDouble("latitude"),
+                            longitude = pinObj.getDouble("longitude"),
+                            recordedAtEpochMs = pinObj.optLong("recordedAtEpochMs"),
+                            name = pinObj.optString("name").takeIf { it.isNotBlank() },
+                            mapItemIdentifier = pinObj.optString("mapItemIdentifier")
+                                .takeIf { it.isNotBlank() },
+                            pointOfInterestCategory = pinObj.optString("pointOfInterestCategory")
+                                .takeIf { it.isNotBlank() }
+                        )
+                    }.getOrNull()
+                }
             )
         }
     }

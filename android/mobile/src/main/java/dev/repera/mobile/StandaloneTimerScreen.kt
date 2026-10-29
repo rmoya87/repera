@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.repera.domain.WorkoutLocationPin
 import kotlinx.coroutines.delay
 
 /** Pitidos y vibración del temporizador, paridad RestFeedback (iOS). */
@@ -99,6 +100,7 @@ private object TimerFeedback {
 internal fun StandaloneTimerScreen(
     onBack: () -> Unit,
     favoriteId: String? = null,
+    accountId: String = "",
     onPersistSession: (StandaloneTimerCompletion) -> Boolean = { false },
     onSavedDay: (Long) -> Unit = {}
 ) {
@@ -126,6 +128,9 @@ internal fun StandaloneTimerScreen(
     var completedSummary by remember {
         mutableStateOf(store.loadPendingCompletion())
     }
+    var locationPin by remember {
+        mutableStateOf<WorkoutLocationPin?>(completedSummary?.locationPin)
+    }
     var completionSaveError by remember { mutableStateOf<String?>(null) }
     var timerStartedAtMs by remember { mutableStateOf<Long?>(null) }
 
@@ -144,7 +149,11 @@ internal fun StandaloneTimerScreen(
         if (usesLastConfiguration) store.saveLastConfiguration(config)
     }
     LaunchedEffect(Unit) {
-        if (completedSummary == null) completedSummary = store.loadPendingCompletion()
+        if (completedSummary == null) {
+            val pending = store.loadPendingCompletion()
+            completedSummary = pending
+            if (pending?.locationPin != null) locationPin = pending.locationPin
+        }
         if (usesLastConfiguration && !showClock && !isRunning &&
             completedSummary == null
         ) {
@@ -161,7 +170,8 @@ internal fun StandaloneTimerScreen(
         val summary = StandaloneTimerCompletion(
             startedAtMillis = started,
             finishedAtMillis = finishedAtMs,
-            config = config
+            config = config,
+            locationPin = locationPin
         )
         completedSummary = summary
         store.savePendingCompletion(summary)
@@ -449,6 +459,17 @@ internal fun StandaloneTimerScreen(
                         )
                     )
                     Text("¿Guardar en el historial del día?")
+                    ReperaSectionTitle("Lugar")
+                    WorkoutPlacePickerRow(
+                        pin = summary.locationPin,
+                        accountId = accountId,
+                        onPinChange = { updated ->
+                            val next = summary.copy(locationPin = updated)
+                            completedSummary = next
+                            locationPin = updated
+                            store.savePendingCompletion(next)
+                        }
+                    )
                     completionSaveError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error)
                     }
@@ -572,6 +593,17 @@ internal fun StandaloneTimerScreen(
                             colors = reperaSwitchColors()
                         )
                     }
+                }
+            }
+            Column {
+                ReperaSectionTitle("Lugar")
+                ReperaCard {
+                    WorkoutPlacePickerRow(
+                        pin = locationPin,
+                        accountId = accountId,
+                        onPinChange = { locationPin = it },
+                        modifier = Modifier.padding(12.dp)
+                    )
                 }
             }
             Button(

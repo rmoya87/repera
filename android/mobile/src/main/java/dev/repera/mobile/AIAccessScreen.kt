@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.LaunchedEffect
@@ -107,6 +110,7 @@ fun AIAccessScreen(
     var expiry by remember { mutableStateOf("90d") }
     var canWrite by remember { mutableStateOf(true) }
     var expiryMenu by remember { mutableStateOf(false) }
+    var showManual by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()
         .verticalScroll(rememberScrollState())
@@ -220,51 +224,80 @@ fun AIAccessScreen(
                 })
         }
 
-        Text("Nuevo acceso IA", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = tokenName, onValueChange = { tokenName = it },
-            label = { Text("Nombre del acceso (ej. Mi entrenador IA)") },
-            singleLine = true, modifier = Modifier.fillMaxWidth())
-        ExposedDropdownMenuBox(expanded = expiryMenu,
-            onExpandedChange = { expiryMenu = it }) {
-            OutlinedTextField(
-                value = aiExpiryOptions.first { it.first == expiry }.second,
-                onValueChange = {}, readOnly = true,
-                label = { Text("Caducidad") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expiryMenu) },
-                modifier = Modifier.menuAnchor().fillMaxWidth())
-            ExposedDropdownMenu(expanded = expiryMenu,
-                onDismissRequest = { expiryMenu = false }) {
-                aiExpiryOptions.forEach { (value, label) ->
-                    DropdownMenuItem(text = { Text(label) }, onClick = {
-                        expiry = value; expiryMenu = false
-                    })
+        // Disclosure «Conexión manual» (AIAccessView iOS DisclosureGroup).
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            SettingsListRow(
+                title = "Conexión manual",
+                showChevron = false,
+                trailingIcon = if (showManual) Icons.Outlined.KeyboardArrowUp
+                    else Icons.Outlined.KeyboardArrowDown,
+                onClick = { showManual = !showManual }
+            )
+            if (showManual) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Para asistentes que requieren una clave de acceso. " +
+                            "Pégala en su configuración, nunca en una conversación.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = tokenName, onValueChange = { tokenName = it },
+                        label = { Text("Nombre del acceso (ej. Mi entrenador IA)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    ExposedDropdownMenuBox(expanded = expiryMenu,
+                        onExpandedChange = { expiryMenu = it }) {
+                        OutlinedTextField(
+                            value = aiExpiryOptions.first { it.first == expiry }.second,
+                            onValueChange = {}, readOnly = true,
+                            label = { Text("Caducidad") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expiryMenu) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth())
+                        ExposedDropdownMenu(expanded = expiryMenu,
+                            onDismissRequest = { expiryMenu = false }) {
+                            aiExpiryOptions.forEach { (value, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    expiry = value; expiryMenu = false
+                                })
+                            }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Permitir enviar y editar entrenamientos",
+                                style = MaterialTheme.typography.bodyMedium)
+                            Text(if (canWrite) "Lectura y escritura" else "Solo lectura",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = canWrite,
+                            onCheckedChange = { canWrite = it },
+                            colors = reperaSwitchColors()
+                        )
+                    }
+                    if (expiry == "unlimited") {
+                        Text("Un token ilimitado seguirá funcionando hasta que lo " +
+                            "revoques. Úsalo solo con asistentes de confianza.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(
+                        onClick = { onCreate(tokenName.trim(), expiry, canWrite)
+                            tokenName = "" },
+                        enabled = !busy && connected && tokenName.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (busy) "Creando acceso…" else "Crear token") }
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Permitir enviar y editar entrenamientos",
-                    style = MaterialTheme.typography.bodyMedium)
-                Text(if (canWrite) "Lectura y escritura" else "Solo lectura",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked = canWrite, onCheckedChange = { canWrite = it })
-        }
-        if (expiry == "unlimited") {
-            Text("Un token ilimitado seguirá funcionando hasta que lo " +
-                "revoques. Úsalo solo con asistentes de confianza.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Button(
-            onClick = { onCreate(tokenName.trim(), expiry, canWrite)
-                tokenName = "" },
-            enabled = !busy && connected && tokenName.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(if (busy) "Creando acceso…" else "Crear token") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
         Text("Mis conexiones", style = MaterialTheme.typography.titleMedium,
