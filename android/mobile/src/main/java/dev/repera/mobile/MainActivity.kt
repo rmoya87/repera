@@ -1058,7 +1058,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { deleteFinishedSet(workoutId, entryId, setId) }
                 },
                 onDeleteWorkout = { workoutId ->
-                    runWorkoutAction { deleteWorkout(workoutId) }
+                    // Tras borrar: recalcular Actividad (minutos) y refrescar Salud
+                    // para no dejar «Tiempo» huérfano (extra Ramón).
+                    runWorkoutAction(onSuccess = {
+                        profile?.uniqueId?.let { uid ->
+                            lifecycleScope.launch { refreshHealthSamplesAfterMutation(uid) }
+                        }
+                    }) { deleteWorkout(workoutId) }
                 },
                 onDeleteBodyWeight = { id -> runWorkoutAction { deleteBodyWeight(id) } },
                 onLogBodyWeight = { kg ->
@@ -1334,6 +1340,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val sessionId = payload.optString("sessionId")
                 if (sessionId.isBlank() || activeWorkout?.id != sessionId) return@runOnUiThread
                 StrengthRestService.cancel(this)
+                locationTracker.stopRouteTracking()
                 runWorkoutAction { discardActiveSession() }
             }
             return
@@ -1796,6 +1803,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val widening = dev.repera.domain.ProgressTimeRange
             .healthFetchWidening(healthFetchDaysLoaded, range) ?: return
         loadHealthToday(widening)
+    }
+
+    /** Tras borrar/mutar entrenos: relee Salud y recarga overview (minutos Actividad). */
+    private suspend fun refreshHealthSamplesAfterMutation(owner: String) {
+        val revision = centerGate.revision
+        fun current() = profile?.uniqueId == owner && centerGate.revision == revision
+        if (!current()) return
+        runCatching {
+            val reader = HealthConnectReader(this)
+            val today = withContext(Dispatchers.IO) { reader.readToday() }
+            if (!current()) return
+            val samples = withContext(Dispatchers.IO) {
+                runCatching {
+                    reader.readSamples(
+                        maxOf(healthFetchDaysLoaded, 14),
+                        HealthExclusionSnapshot.windows(LocalSnapshotStore(this@MainActivity, owner).read())
+                    )
+                }.getOrNull()
+            }
+            if (!current()) return
+            todayHealth = today
+            if (samples != null) healthSamples = samples
+            reloadFor(owner)
+        }
     }
 
     private fun loadHealthToday(fetchDays: Int = 370) {
@@ -2379,6 +2410,8 @@ data class StateOverview(
     val healthGoals:HealthGoals=HealthGoals(),
     val profileSettings:ProfileSettings=ProfileSettings(),
     val dayWorkoutMinutes:Map<java.time.LocalDate,Double> = emptyMap(),
+    /** PRs reales por sesión (no prescritos; primer registro ≠ PR). */
+    val prCountBySessionId: Map<String, Int> = emptyMap(),
     val dayWorkoutCounts:Map<java.time.LocalDate,Int> = emptyMap(),
     val dayEnergyKcal:Map<java.time.LocalDate,Double> = emptyMap(),
     val bodyWeightHistory:List<BodyWeightHistoryEntry> = emptyList(),
@@ -2766,6 +2799,8 @@ data class StateOverview(
             return StateOverview(wodLibraryHistory=WodLibraryHistory.read(json),wodTemplateFavorites=WodTemplateFavorites.read(json),
                 sessionScoresByRange=dev.repera.domain.ProgressTimeRange.entries.associate {it.wire to SessionScoreProgress.points(json,it,trainingSettings.weekStartsOnMonday)},
                 dayWorkoutMinutes=minutesByDay,dayWorkoutCounts=countsByDay,
+                prCountBySessionId=dev.repera.domain.StatsEngine.personalRecordCountsBySessionId(
+                    ProgressSnapshotBuilder.statsWorkouts(json)),
                 dayEnergyKcal=health?.energyDays.orEmpty().associate {it.date to it.kcal},
                 trainingSettings=trainingSettings,rotationPlan=RotationSettings.read(json),healthGoals=HealthGoals.read(json),profileSettings=ProfileSettings.read(json),
                 liveSportSessions = LiveSportSnapshot.sessions(json),

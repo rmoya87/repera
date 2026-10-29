@@ -48,6 +48,7 @@ import dev.repera.domain.WodFormat
 /** Editor de contenido de rutina: bloques (secciones), formatos y movimientos.
  *  Multi-bloque: buy-in / trabajo / cash-out se componen como bloques
  *  separados, igual que en iOS. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun RoutineBlocksEditorScreen(
     routine: RoutineEntry,
@@ -88,6 +89,17 @@ fun RoutineBlocksEditorScreen(
         }
     }
     var error by remember(routine.id) { mutableStateOf<String?>(null) }
+    var showReorder by remember { mutableStateOf(false) }
+
+    if (showReorder) {
+        ReperaModalBottomSheet(onDismissRequest = { showReorder = false }) {
+            PlanReorderSheet(
+                blocks = blocks,
+                nameById = nameById,
+                onDone = { showReorder = false }
+            )
+        }
+    }
 
     val scrollState = rememberScrollState()
     val geo = remember(routine.id) { EditorGeometry() }
@@ -101,6 +113,11 @@ fun RoutineBlocksEditorScreen(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
             }
             Spacer(Modifier.weight(1f))
+            TextButton(
+                onClick = { showReorder = true },
+                enabled = !busy && blocks.isNotEmpty(),
+                modifier = Modifier.testTag("plan_reorder_open")
+            ) { Text("Reordenar") }
             Button(
                 colors = reperaPrimaryButtonColors(),
                 onClick = {

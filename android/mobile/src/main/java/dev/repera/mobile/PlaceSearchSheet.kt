@@ -191,12 +191,14 @@ fun WorkoutPlacePickerRow(
     onPinChange: (WorkoutLocationPin?) -> Unit,
     modifier: Modifier = Modifier,
     /** Solo verificación: avisa cuando el estilo del preview terminó de cargar. */
-    onMapStyleLoaded: (() -> Unit)? = null
+    onMapStyleLoaded: (() -> Unit)? = null,
+    /** Historial solo lectura: mapa+chip sin abrir buscador. */
+    readOnly: Boolean = false
 ) {
     var showSearch by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
         if (pin == null) {
-            Row(
+            if (!readOnly) Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -224,7 +226,7 @@ fun WorkoutPlacePickerRow(
                     .fillMaxWidth()
                     .height(160.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { showSearch = true }
+                    .then(if (readOnly) Modifier else Modifier.clickable { showSearch = true })
                     .testTag("place_picker_map")
             ) {
                 PlacePinMap(pin.latitude, pin.longitude, isInteractive = false,

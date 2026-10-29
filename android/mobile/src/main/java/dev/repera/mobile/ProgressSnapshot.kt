@@ -175,7 +175,8 @@ object ProgressSnapshotBuilder {
                 val sets = if (logged.length() == 0 && finished) {
                     WorkoutHistorySets.confirmedWorkSets(session, entry).map { eff ->
                         StatsSet(reps = eff.reps, weightKg = eff.weightKg, quantityUnit = when (eff.unit) { "cal" -> "calories"; "m" -> "meters"; else -> null },
-                            durationSeconds = eff.durationSeconds, rir = eff.rir)
+                            durationSeconds = eff.durationSeconds, rir = eff.rir,
+                            fromPrescription = true)
                     }
                 } else recorded
                 val mobility = detail?.optString("sportTag") == "Movilidad"
@@ -234,7 +235,8 @@ object ProgressSnapshotBuilder {
                 session.optDouble("appleActiveEnergyKcal") else null
             stats.add(StatsWorkout(
                 epoch, duration, finished, kcal, exercises,
-                liveSportID = liveSportID))
+                liveSportID = liveSportID,
+                sessionId = session.optString("id").takeIf { it.isNotBlank() }))
             stimuli.add(MuscleStimulusWorkout(epoch, stimulusExercises))
         }
         return stats to stimuli

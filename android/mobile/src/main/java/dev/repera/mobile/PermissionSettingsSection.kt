@@ -134,7 +134,7 @@ import androidx.core.content.ContextCompat
     Spacer(Modifier.height(8.dp))
     PermissionSettingsRow(
         icon = Icons.Outlined.FavoriteBorder,
-        title = "Salud",
+        title = "Health Connect",
         status = healthStatus,
         actionLabel = "Conectar con Salud",
         onAction = onHealthConnect

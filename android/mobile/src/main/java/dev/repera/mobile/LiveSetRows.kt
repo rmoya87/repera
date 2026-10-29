@@ -1,9 +1,17 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.Effort
 
@@ -35,9 +43,8 @@ internal object LiveRowEdit {
 }
 
 /**
- * Apple Play rows: no per-set check, writing is saving. Rows start as the prescription (and recorded sets); nothing is
- * saved until the user edits one (untouched suggestions stay suggestions). Saves are debounced and flushed on leaving.
- * Compile-only UI: not visually validated.
+ * Filas Play: escribir guarda; tocar el badge numérico marca la serie hecha
+ * (extra Ramón / I-40). Saves debounced; flush al salir.
  */
 @Composable
 internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effortUnit:String) {
@@ -63,7 +70,33 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
   }
   rows.forEachIndexed {i,row ->
    key(row.id) {Card {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-    Text("Serie ${i+1}",style=MaterialTheme.typography.titleSmall)
+    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+     Box(
+      Modifier
+       .size(34.dp)
+       .clip(CircleShape)
+       .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
+       .clickable {
+        rows[i]=rows[i].copy(completed=!rows[i].completed);touch()
+       }
+       .testTag("set_badge_${i+1}"),
+      contentAlignment=Alignment.Center
+     ) {
+      Text(
+       "${i+1}",
+       color=if(row.completed) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+       fontWeight=FontWeight.Bold,
+       style=MaterialTheme.typography.labelLarge
+      )
+     }
+     Text(
+      if(row.completed) "Serie ${i+1} · hecha" else "Serie ${i+1}",
+      style=MaterialTheme.typography.titleSmall,
+      modifier=Modifier.clickable {
+       rows[i]=rows[i].copy(completed=!rows[i].completed);touch()
+      }
+     )
+    }
     QuickNumericField(row.reps.toString(),when(unit) {"calories"->"Calorías";"meters"->"Metros";else->if(active.durationInput&&!active.mobility) "Veces" else "Repeticiones"},true) {v ->rows[i]=LiveRowEdit.reps(rows[i],v,if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap);touch()}
     if(active.allowsDeficit) QuickNumericField((row.deficitCm?:0).toString(),"Déficit HSPU (cm)",true) {v ->rows[i]=LiveRowEdit.deficit(rows[i],v);touch()}
     else if(active.allowsWeight) QuickNumericField(row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),"Peso (kg)",true,decimal=true) {v ->rows[i]=LiveRowEdit.weight(rows[i],v);touch()}
