@@ -171,6 +171,16 @@ fun AIAccessScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // «Ver instrucciones» (AIAccessView iOS): muestra el texto del primer
+        // proveedor del catálogo (o Grok) sin lanzar OAuth.
+        TextButton(
+            onClick = {
+                instructionsFor = providers?.first?.firstOrNull()
+                    ?: AIAccessStore.AIProvider("grok", "Grok", null, null)
+            },
+            enabled = true,
+            modifier = Modifier.testTag("ai_ver_instrucciones")
+        ) { Text("Ver instrucciones") }
         // Apple 0a640da8: confirmationDialog "Desconectar asistente".
         disconnectingProvider?.let { provider ->
             val token = tokens.orEmpty().firstOrNull {

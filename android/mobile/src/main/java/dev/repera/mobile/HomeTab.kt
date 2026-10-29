@@ -153,11 +153,13 @@ internal fun HomeTab(
     val selectedWeekCount=(0L..6L).sumOf {overview?.dayWorkoutCounts?.get(weekStart.plusDays(it)) ?: 0}
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     ProvideLazyDragAutoScroll(dragListState) {
+    // Lienzo OG.bg (gris) hasta abajo: la banda blanca es solo topbar+calendario+día.
+    // Tras «Actividad de hoy» no debe quedar franja blanca (ampliación Ramón).
     LazyColumn(
         state = dragListState,
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
@@ -464,14 +466,24 @@ internal fun HomeTab(
                                 onDiscard = onDiscardSession
                             )
                         }
+                        // Mapa full-bleed sin padding cuando hay pin; chip = lugar.
+                        val activePin = overview?.activeLocationPin
                         ReperaCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text("Lugar", style = MaterialTheme.typography.titleMedium)
+                            if (activePin != null) {
                                 WorkoutPlacePickerRow(
-                                    pin = overview?.activeLocationPin,
+                                    pin = activePin,
                                     accountId = accountId,
                                     onPinChange = onActivePinChange
                                 )
+                            } else {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text("Lugar", style = MaterialTheme.typography.titleMedium)
+                                    WorkoutPlacePickerRow(
+                                        pin = null,
+                                        accountId = accountId,
+                                        onPinChange = onActivePinChange
+                                    )
+                                }
                             }
                         }
                     }
