@@ -1340,6 +1340,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val sessionId = payload.optString("sessionId")
                 if (sessionId.isBlank() || activeWorkout?.id != sessionId) return@runOnUiThread
                 StrengthRestService.cancel(this)
+                locationTracker.stopRouteTracking()
                 runWorkoutAction { discardActiveSession() }
             }
             return
