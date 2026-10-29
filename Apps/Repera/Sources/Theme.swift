@@ -744,24 +744,50 @@ struct OGConfirmSheet: View {
     }
 }
 
-/// Zona de soltado visible entre filas de Reordenar (`ScrollView`, no `List`).
+/// Zona de soltado entre cajas de bloque en Reordenar (`ScrollView`, no `List`).
+/// Fuera de arrastre queda un hueco mínimo; al apuntar se ilumina «Soltar aquí».
 struct OGReorderInsertionGap: View {
     var accepts: (String) -> Bool = { _ in true }
+    /// `betweenCards`: hueco entre cajas de bloque. `inCard`: línea fina entre ejercicios.
+    var style: Style = .betweenCards
     var onDrop: (String) -> Void
     @State private var isTargeted = false
 
+    enum Style {
+        case betweenCards
+        case inCard
+    }
+
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isTargeted ? OG.accent.opacity(0.28) : Color.clear)
-            if isTargeted {
-                Text("Soltar aquí")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(OG.accent)
+        Group {
+            switch style {
+            case .betweenCards:
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isTargeted ? OG.accent.opacity(0.28) : Color.clear)
+                    if isTargeted {
+                        Text("Soltar aquí")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: isTargeted ? 36 : 10)
+            case .inCard:
+                ZStack {
+                    if isTargeted {
+                        Capsule()
+                            .fill(OG.accent)
+                            .frame(height: 3)
+                            .padding(.horizontal, 12)
+                    } else {
+                        Color.clear.frame(height: 1)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: isTargeted ? 10 : 0)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: isTargeted ? 36 : 14)
         .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.15), value: isTargeted)
         .dropDestination(for: String.self) { tokens, _ in
@@ -771,6 +797,19 @@ struct OGReorderInsertionGap: View {
         } isTargeted: {
             isTargeted = $0
         }
+    }
+}
+
+/// Vista de arrastre de Reordenar: esquinas redondeadas (continuous) + sombra tenue.
+struct OGReorderDragPreview<Content: View>: View {
+    var cornerRadius: CGFloat = OG.radiusCard
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        content()
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.14), radius: 12, y: 5)
     }
 }
 

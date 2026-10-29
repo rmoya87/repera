@@ -718,10 +718,7 @@ struct WorkoutView: View {
                                 draft.blocks.insert(moved, at: target)
                             }
                         }
-                        playReorderBlockCard(position: position, block: block)
-                            .draggable("block:\(block.id.uuidString)")
-                            .padding(.bottom, 4)
-                        playReorderExerciseSection(block)
+                        playReorderBlockBox(position: position, block: block)
                     }
                     OGReorderInsertionGap(
                         accepts: { $0.hasPrefix("block:") }
@@ -751,7 +748,70 @@ struct WorkoutView: View {
         .onDisappear(perform: commitPlayReorder)
     }
 
-    private func playReorderBlockCard(position: Int, block: RoutineBlock) -> some View {
+    /// Una caja por bloque: cabecera + ejercicios con divider (paridad PlanView).
+    private func playReorderBlockBox(position: Int, block: RoutineBlock) -> some View {
+        let rows = playReorderRows(block)
+        return VStack(alignment: .leading, spacing: 0) {
+            playReorderBlockHeader(position: position, block: block)
+                .contentShape(Rectangle())
+                .draggable("block:\(block.id.uuidString)") {
+                    OGReorderDragPreview {
+                        playReorderBlockHeader(position: position, block: block)
+                    }
+                }
+
+            if rows.isEmpty {
+                OGReorderInsertionGap(
+                    accepts: { !$0.hasPrefix("block:") },
+                    style: .inCard
+                ) { token in
+                    _ = movePlayReorderToken(token, into: block.id)
+                }
+                .frame(minHeight: 36)
+                .overlay(alignment: .center) {
+                    Text("Soltar ejercicio")
+                        .font(.caption)
+                        .foregroundStyle(OG.label3)
+                }
+                .padding(.bottom, 8)
+            } else {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                    Divider()
+                        .overlay(OG.label3.opacity(0.22))
+                        .padding(.leading, 14)
+                    OGReorderInsertionGap(
+                        accepts: { !$0.hasPrefix("block:") },
+                        style: .inCard
+                    ) { token in
+                        _ = movePlayReorderToken(token, into: block.id, before: row.id)
+                    }
+                    playReorderRow(
+                        name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
+                    )
+                    if index == rows.count - 1 {
+                        OGReorderInsertionGap(
+                            accepts: { !$0.hasPrefix("block:") },
+                            style: .inCard
+                        ) { token in
+                            _ = movePlayReorderToken(token, into: block.id)
+                        }
+                        .frame(minHeight: 6)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous)
+                .stroke(OG.surface3.opacity(0.75), lineWidth: 0.7)
+        )
+        .dropDestination(for: String.self) { tokens, _ in
+            movePlayReorderToken(tokens.first, into: block.id)
+        }
+    }
+
+    private func playReorderBlockHeader(position: Int, block: RoutineBlock) -> some View {
         HStack(spacing: 12) {
             Text("\(position + 1)")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -769,48 +829,25 @@ struct WorkoutView: View {
             Spacer(minLength: 8)
             Image(systemName: "line.3.horizontal")
                 .foregroundStyle(OG.label3)
-                .accessibilityHidden(true)
+                .accessibilityLabel("Arrastrar bloque \(block.title)")
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-        .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
-        .contentShape(Rectangle())
     }
 
-    @ViewBuilder
-    private func playReorderExerciseSection(_ block: RoutineBlock) -> some View {
-        let rows: [(id: UUID, name: String)] = {
-            if block.kind == .strength {
-                return block.exercises.map { item in
-                    let raw = store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio"
-                    return (
-                        item.id,
-                        SportExerciseNames.localizedDisplayName(raw)
-                    )
-                }
-            }
-            return block.movements.map {
-                ($0.id, $0.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName($0.name))
-            }
-        }()
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(rows, id: \.id) { row in
-                OGReorderInsertionGap(
-                    accepts: { !$0.hasPrefix("block:") }
-                ) { token in
-                    _ = movePlayReorderToken(token, into: block.id, before: row.id)
-                }
-                playReorderRow(
-                    name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
+    private func playReorderRows(_ block: RoutineBlock) -> [(id: UUID, name: String)] {
+        if block.kind == .strength {
+            return block.exercises.map { item in
+                let raw = store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio"
+                return (
+                    item.id,
+                    SportExerciseNames.localizedDisplayName(raw)
                 )
             }
-            // Zona final del bloque: soltar al final.
-            OGReorderInsertionGap(
-                accepts: { !$0.hasPrefix("block:") }
-            ) { token in
-                _ = movePlayReorderToken(token, into: block.id)
-            }
+        }
+        return block.movements.map {
+            ($0.id, $0.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName($0.name))
         }
     }
 
@@ -929,36 +966,30 @@ struct WorkoutView: View {
             Spacer(minLength: 8)
             Image(systemName: "line.3.horizontal")
                 .foregroundStyle(OG.label3)
-                .accessibilityHidden(true)
-            if let draft = playReorderDraft {
-                let targets = draft.blocks.filter { $0.id != blockID }
-                if !targets.isEmpty {
-                    Menu {
-                        ForEach(targets) { target in
-                            Button(target.title) {
-                                movePlayReorderItem(itemID, from: blockID, into: target.id)
-                            }
-                            .disabled(kind == .wod && target.kind == .strength &&
-                                (draft.blocks.first(where: { $0.id == blockID })?.movements
-                                    .first(where: { $0.id == itemID })?.isRest == true))
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                            .frame(width: 36, height: 36)
-                            .glassEffect(.regular.interactive(), in: .circle)
-                    }
-                    .accessibilityLabel("Mover \(name) a otro bloque")
+                .accessibilityLabel("Arrastrar \(name)")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .draggable("\(blockID.uuidString):\(itemID.uuidString)") {
+            OGReorderDragPreview(cornerRadius: 12) {
+                HStack(spacing: 12) {
+                    Image(systemName: kind == .strength ? "dumbbell" : "figure.strengthtraining.functional")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 32, height: 32)
+                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 9))
+                    Text(name)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(OG.label)
+                    Spacer(minLength: 8)
+                    Image(systemName: "line.3.horizontal")
+                        .foregroundStyle(OG.label3)
                 }
+                .padding(12)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
-        .contentShape(Rectangle())
-        .draggable("\(blockID.uuidString):\(itemID.uuidString)")
     }
 
     private func movePlayBlock(_ blockID: UUID, offset: Int) {
