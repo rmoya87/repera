@@ -391,9 +391,10 @@ internal fun HomeTab(
             ) {
                 AdaptiveCardPair(
                     first = {
-                        if (overview != null)
-                            HomeWeeklyProgressCard(days, overview.healthGoals.weeklyWorkouts)
-                        else Text("Progreso semanal: sin datos locales")
+                        HomeWeeklyProgressCard(
+                            days,
+                            overview?.healthGoals?.weeklyWorkouts
+                        )
                     },
                     second = {
                         HomeActivityTodayCard(
@@ -586,18 +587,6 @@ internal fun HomeTab(
                             }
                         }
                     }
-                }
-            }
-        }
-        if (overview == null) {
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(horizontal = 16.dp)
-                ) {
-                    OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson)
                 }
             }
         }

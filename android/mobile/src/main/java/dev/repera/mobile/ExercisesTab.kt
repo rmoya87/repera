@@ -304,7 +304,6 @@ internal fun ExercisesTab(
                 ReperaFilterChip(selected = false, onClick = { libraryMode = "Deportes" }, label = { Text("Deportes") })
             }
         }
-        item { CountCard("Catálogo local", overview?.exercises, overview != null) }
         item {
             OutlinedTextField(
                 value = exerciseSearch,
@@ -511,10 +510,6 @@ ReperaCard(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.
     }
 }
         }
-        }
-        item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
-        item {
-            AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
     }
     }

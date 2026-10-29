@@ -449,10 +449,6 @@ internal fun ProgressTab(
             }
         }
         }
-        item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
-        item {
-            AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
-        }
     }
     }
 }

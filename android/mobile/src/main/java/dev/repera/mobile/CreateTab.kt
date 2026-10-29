@@ -176,7 +176,6 @@ internal fun CreateTab(
             BenchmarkWodPicker(busy = busy, enabled = overview != null,
                 onAdd = onAddWodTemplate)
         }
-        item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
     }
     }
 }
