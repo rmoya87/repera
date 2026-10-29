@@ -229,8 +229,22 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
 
 @Composable
 private fun PaywallBenefits() {
+    // No anunciar una ventaja como disponible mientras no esté configurada
+    // la clave del SDK Android. El texto se actualiza solo al distribuirla.
+    val googleMapsAvailable = dev.repera.mobile.BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()
+    val googleMapsTitle = if (googleMapsAvailable) {
+        "Tus rutas con Google Maps"
+    } else {
+        "Google Maps en tus rutas · Próximamente"
+    }
+    val googleMapsDescription = if (googleMapsAvailable) {
+        "Mapas 2D y 3D de Google para tus actividades y recorridos en Android."
+    } else {
+        "Pronto podrás visualizar tus actividades y recorridos con Google Maps en Android."
+    }
     val features = listOf(
         "Tu evolución, al detalle" to "Historial completo por ejercicio, marcas y e1RM.",
+        googleMapsTitle to googleMapsDescription,
         "Entiende cómo progresas" to "Todos los periodos, recuperación y análisis muscular avanzado.",
         "Más espacio para entrenar" to "Rutinas, favoritos y ejercicios propios sin límites.",
         "Escanea cualquier WOD" to "Pizarras ilimitadas y comparativas de resultados.",
@@ -285,7 +299,9 @@ private fun PaywallComparison() {
             PaywallComparisonItem(
                 title = "Pro",
                 action = "Evoluciona",
-                detail = "Todos tus datos, análisis y herramientas sin límites.",
+                detail = if (dev.repera.mobile.BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank())
+                    "Progreso avanzado, herramientas ilimitadas y Google Maps para tus rutas."
+                else "Progreso avanzado, herramientas ilimitadas y Google Maps próximamente.",
                 isPro = true,
                 modifier = Modifier.weight(1f)
             )
