@@ -1317,7 +1317,7 @@ struct WorkoutView: View {
             ExerciseThumb(exercise: entry.exercise, size: 48)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text(entry.exercise.name)
+                Text(SportExerciseNames.localizedDisplayName(entry.exercise.name))
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
                 Text(entry.plannedSets.compactSummary)
@@ -1676,7 +1676,7 @@ struct WorkoutView: View {
                 nextEditableRowID: liveSets.dropFirst(index + 1).first?.id,
                 firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
                 showsConfirmation: false,
-                completed: false,
+                completed: row.completed,
                 rir: row.rir,
                 showsRIR: style.usesRIR,
                 onRIRChange: { setLiveRir(at: index, rir: $0) },
@@ -1698,7 +1698,7 @@ struct WorkoutView: View {
                 onSecondCommit: { text in
                     if let value = Int(text), value > 0 { setLiveReps(at: index, reps: value) }
                 },
-                onConfirm: { }
+                onConfirm: { toggleLiveSetCompleted(at: index, current: current) }
 
             )
             .accessibilityLabel("Serie \(index + 1), \(qtyLabel)")
@@ -1824,7 +1824,7 @@ struct WorkoutView: View {
                     durationSeconds: set.durationSeconds,
                     reps: set.reps,
                     rir: set.rir,
-                    completed: false
+                    completed: true
                 ))
             } else if i < retained.count {
                 // Incluye la serie recién desmarcada: conserva sus valores
@@ -1837,7 +1837,7 @@ struct WorkoutView: View {
                     durationSeconds: old.durationSeconds,
                     reps: old.reps,
                     rir: old.rir,
-                    completed: false
+                    completed: old.completed
                 ))
             } else if i < planned.count {
                 let plannedSet = planned[i]
@@ -1980,6 +1980,21 @@ struct WorkoutView: View {
         noteLiveDraftEdited()
     }
 
+    /// Tocar el número de serie marca/desmarca hecha (háptico + descanso al completar).
+    private func toggleLiveSetCompleted(at index: Int, current: SessionExercise) {
+        guard liveSets.indices.contains(index) else { return }
+        let markingDone = !liveSets[index].completed
+        liveSets[index].completed = markingDone
+        noteLiveDraftEdited()
+        focusedSetField = nil
+        guard markingDone else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if shouldStartIndependentRest(for: current) {
+            let rest = store.state.settings.defaultRestSeconds
+            if rest > 0 { beginRest(rest) }
+        }
+    }
+
     /// Los controles compactos comparten semántica visual con Comenzar:
     /// amarillo al pausar, verde al continuar, bandera negra al finalizar.
     /// El cristal permite reconocer el reloj sobre el resto de Play.
@@ -2102,7 +2117,7 @@ struct WorkoutView: View {
                 ExerciseDetailView(exerciseId: current.exercise.id)
             } label: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(current.exercise.name)
+                    Text(SportExerciseNames.localizedDisplayName(current.exercise.name))
                         .font(.title2.bold())
                         .foregroundStyle(OG.label)
                         .multilineTextAlignment(.leading)
@@ -2129,7 +2144,7 @@ struct WorkoutView: View {
                     .clipped()
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Ilustración de \(current.exercise.name)")
+            .accessibilityLabel("Ilustración de \(SportExerciseNames.localizedDisplayName(current.exercise.name))")
             .accessibilityHint("Ver ficha del ejercicio")
 
             HStack(spacing: 8) {
@@ -3110,7 +3125,7 @@ struct WorkoutView: View {
                                         ExerciseThumb(exercise: item.exercise, size: 48)
                                         VStack(alignment: .leading, spacing: 3) {
                                             HStack(spacing: 6) {
-                                                Text(item.exercise.name)
+                                                Text(SportExerciseNames.localizedDisplayName(item.exercise.name))
                                                     .font(.system(size: 16, weight: .semibold))
                                                     .foregroundStyle(OG.label)
                                                     .lineLimit(2)

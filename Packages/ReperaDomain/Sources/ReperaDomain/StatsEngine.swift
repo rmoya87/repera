@@ -738,8 +738,9 @@ extension StatsEngine {
                 let sessionBest = work.map { $0.weightKg! * (1 + Double($0.reps) / 30.0) }.max() ?? 0
                 guard sessionBest > 0 else { continue }
                 let exerciseId = exercise.exercise.id
-                let prior = bestE1RM[exerciseId] ?? 0
-                if sessionBest > prior + 0.05 {
+                // Primera marca de un ejercicio = baseline, no PR. Solo cuenta
+                // mejora frente a un e1RM previo en el historial.
+                if let prior = bestE1RM[exerciseId], sessionBest > prior + 0.05 {
                     count += 1
                 }
                 sessionBests.append((exerciseId, sessionBest))

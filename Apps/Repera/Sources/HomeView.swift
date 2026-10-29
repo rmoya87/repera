@@ -180,16 +180,15 @@ struct HomeView: View {
         let key = dayKey(selectedDay)
         let recordedMinutes = recordedDayWorkoutMinutes
         if calendar.isDateInToday(selectedDay) {
-            // Priorizar los HKWorkouts conciliados individualmente; una
-            // suma cruda de Salud podría contener duplicados anteriores.
-            // Si aún no existen entradas conciliadas, usar la lectura de hoy.
-            let healthToday = todayHealthLive.workoutMinutes ?? health.workoutMinutesToday
-            let minutes = recordedMinutes > 0 ? recordedMinutes : (healthToday ?? 0)
+            // Solo minutos conciliados (Repera + externos no solapados).
+            // No caer en `todayHealthLive` / `workoutMinutesToday` crudos: tras
+            // borrar la última sesión esos valores quedan stale hasta el refetch
+            // y el tile Tiempo seguiría mostrando p. ej. «2 min».
             return HealthKitStore.DayMetrics(
                 activeEnergyKcal: todayHealthLive.activeEnergyKcal
                     ?? health.activeEnergyTodayKcal
                     ?? kcalByDayKey[key],
-                workoutMinutes: minutes > 0 ? minutes : nil
+                workoutMinutes: recordedMinutes > 0 ? recordedMinutes : nil
             )
         }
         return HealthKitStore.DayMetrics(
@@ -457,11 +456,16 @@ struct HomeView: View {
                 guard lastProcessedWorkoutsEpoch != epoch else { return }
                 rebuildDayBuckets()
                 rebuildWeekChrome()
+                // Invalidar minutos HK en vivo: tras borrar sesión no reutilizar
+                // el total crudo de hoy hasta un refine fresco.
+                todayHealthLive = HealthKitStore.DayMetrics()
                 await Task.yield()
                 guard !Task.isCancelled else { return }
                 rebuildStreakChrome()
                 prCountBySessionId = store.cachedPersonalRecordCountsBySession()
                 await health.refreshVerifiedWorkoutEnergy(for: store.state.workouts)
+                guard !Task.isCancelled else { return }
+                await refineTodayMetricsInBackground()
                 guard !Task.isCancelled else { return }
                 lastProcessedWorkoutsEpoch = epoch
             }
@@ -673,12 +677,14 @@ struct HomeView: View {
                     onConfirm: {
                         store.deleteWorkout(session.id)
                         workoutPendingDelete = nil
+                        todayHealthLive = HealthKitStore.DayMetrics()
                         Task {
                             await refreshProgressiveHealthIfNeeded()
                             rebuildDayBuckets()
                             rebuildWeekChrome()
                             rebuildStreakChrome()
                             prCountBySessionId = store.cachedPersonalRecordCountsBySession()
+                            await refineTodayMetricsInBackground()
                         }
                     },
                     onCancel: { workoutPendingDelete = nil }

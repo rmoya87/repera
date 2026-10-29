@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-29 (SpanishDate.appLocale en ejes/fechas UI; Reordenar ScrollView + OGReorderInsertionGap)
+Última actualización: 2026-10-29 (PR e1RM baseline; localizedDisplayName; Watch discardActiveSession; Place picker chip; Home Tiempo invalidation)
 
 ## Series de movilidad (iOS)
 
@@ -233,7 +233,7 @@ Android (`android/mobile`, Material 3 — 2026-10-28):
 | `ExerciseArt` / `ExerciseThumb` | Hero 1024px anatómico (gris+lime/charcoal); carrusel = `base_1…N` o `movementFrames` (reuso de héroes); caption = instructions[i]; holds estáticos sin carrusel; poses en aire sin sombra de suelo; listas usan `thumbs/` 192px; prefetch paralelo |
 | `ExerciseSearch` | `Document` index + `score`/`ranked` (filtro sync en LibraryView) |
 | `LibrarySearchLog` | Timing DEBUG rebuild/`rank top` del buscador |
-| `PhoneConnectivity` / Watch | Sesión + acciones `quickLog` / `logSet` |
+| `PhoneConnectivity` / Watch | Sesión + `quickLog` / `logSet`. `session: nil` → Watch `discardActiveSession()` (sin resucitar). Watch UI: **Descartar entreno**. |
 
 ## Tests
 

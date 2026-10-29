@@ -1240,7 +1240,7 @@ struct DayEditorView: View {
                     ExerciseThumb(exercise: exercise, size: 48)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(exercise.name)
+                        Text(SportExerciseNames.localizedDisplayName(exercise.name))
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.label)
                         Text(item.plannedSets.compactSummary)
@@ -1372,7 +1372,7 @@ struct DayEditorView: View {
                     } label: {
                         HStack(spacing: 12) {
                             ExerciseThumb(exercise: ex, size: 48)
-                            Text(ex.name)
+                            Text(SportExerciseNames.localizedDisplayName(ex.name))
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1743,13 +1743,13 @@ struct DayEditorView: View {
                             Button {
                                 exerciseDetailID = resolved.id
                             } label: {
-                                Text(resolved.name)
+                                Text(SportExerciseNames.localizedDisplayName(resolved.name))
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundStyle(OG.label)
                             }
                             .buttonStyle(.plain)
                         } else {
-                            Text(resolved.name)
+                            Text(SportExerciseNames.localizedDisplayName(resolved.name))
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
                         }
@@ -1859,7 +1859,7 @@ struct DayEditorView: View {
                 ExerciseThumb(exercise: resolved, size: 48)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(move.isRest ? "Descanso" : resolved.name)
+                Text(move.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName(resolved.name))
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(OG.label)
                 if showSummary {
@@ -2554,7 +2554,8 @@ struct RoutineExerciseEditor: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle(exerciseName).ogScrollingTitleListRow()
+            OGScrollablePageTitle(SportExerciseNames.localizedDisplayName(exerciseName))
+                .ogScrollingTitleListRow()
             if let exercise {
                 Section {
                     ExerciseArtView(exercise: exercise, showBadge: false, showStepCaptions: false)

@@ -622,6 +622,9 @@ final class HealthKitStore {
         metricsCacheDays = 0
         metricsCacheFetchedAt = nil
         workoutQueryAnchor = nil
+        // Limpiar totales de hoy para no pintar Tiempo/kcal stale tras borrar.
+        workoutMinutesToday = nil
+        activeEnergyTodayKcal = nil
         healthRefreshGeneration &+= 1
         healthDataRevision &+= 1
         healthNeedsRefresh = true

@@ -79,7 +79,9 @@ final class DerivedStatsCacheTests: XCTestCase {
 
         let workouts = [first, second]
         let batch = StatsEngine.personalRecordCountsBySessionId(workouts: workouts)
-        XCTAssertGreaterThan(batch[first.id] ?? 0, 0)
+        // Primera sesión del ejercicio: establece baseline, no cuenta como PR.
+        XCTAssertEqual(batch[first.id] ?? 0, 0)
+        // Segunda sesión con mejor e1RM: sí es PR.
         XCTAssertGreaterThan(batch[second.id] ?? 0, 0)
 
         let cache = DerivedStatsCache()

@@ -262,6 +262,12 @@ public enum SportExerciseNames {
         normalizedEnglishToSpanish[key(name)] ?? (normalizedSpanishToEnglish[key(name)] == nil ? nil : name)
     }
 
+    /// Nombre visible unificado para la UI (app en es-ES): «Cargada y envión», no «Clean and Jerk».
+    /// No cambia el `Exercise.name` canónico ni los IDs de catálogo.
+    public static func localizedDisplayName(_ name: String) -> String {
+        spanishAlias(for: name) ?? name
+    }
+
     /// Alias técnicos EN->ES para indexación o resolución inversa de la pizarra.
     public static func englishAlias(forSpanish name: String) -> String? {
         normalizedSpanishToEnglish[key(name)]

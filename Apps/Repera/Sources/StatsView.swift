@@ -268,7 +268,7 @@ struct StatsView: View {
                                     ExerciseProgressView(exerciseId: exercise.id)
                                 } label: {
                                     HStack {
-                                        Text(exercise.name)
+                                        Text(SportExerciseNames.localizedDisplayName(exercise.name))
                                             .foregroundStyle(OG.label)
                                         Spacer()
                                         Image(systemName: "chevron.right")
@@ -790,7 +790,7 @@ struct StatsView: View {
                                 ExerciseProgressView(exerciseId: ex.id)
                             } label: {
                                 HStack {
-                                    Text(ex.name)
+                                    Text(SportExerciseNames.localizedDisplayName(ex.name))
                                         .foregroundStyle(OG.label)
                                     Spacer()
                                     if let maxW = tops[ex.id] {
@@ -849,7 +849,7 @@ struct StatsView: View {
                             } label: {
                             HStack {
                                 VStack(alignment: .leading) {
-                                    Text(pr.exerciseName)
+                                    Text(SportExerciseNames.localizedDisplayName(pr.exerciseName))
                                         .foregroundStyle(OG.label)
                                     Text(SpanishDate.format(pr.date, date: .abbreviated, time: .omitted))
                                         .font(.system(size: 12))
@@ -906,7 +906,7 @@ private struct ProgressAllExercisesView: View {
                     ExerciseProgressView(exerciseId: ex.id)
                 } label: {
                     HStack(spacing: 10) {
-                        Text(ex.name)
+                        Text(SportExerciseNames.localizedDisplayName(ex.name))
                             .foregroundStyle(OG.label)
                         Spacer(minLength: 6)
                         if let maxW = tops[ex.id] {
@@ -937,7 +937,7 @@ private struct ProgressAllRecordsView: View {
                 } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(pr.exerciseName)
+                        Text(SportExerciseNames.localizedDisplayName(pr.exerciseName))
                             .foregroundStyle(OG.label)
                         Text(SpanishDate.format(pr.date, date: .abbreviated, time: .omitted))
                             .font(.system(size: 12))
