@@ -102,9 +102,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     // LaunchedEffect cancela el temporizador anterior ante cada nuevo movimiento.
     LaunchedEffect(followingMap, lastUserMapMoveAt) {
         if (!followingMap) {
-            delay(5_000L)
-            if (!followingMap &&
-                android.os.SystemClock.elapsedRealtime() - lastUserMapMoveAt >= 5_000L) {
+            delay(LiveMapCamera.FOLLOW_RESUME_DELAY_MS)
+            if (LiveMapCamera.shouldResumeFollowing(
+                followingMap, lastUserMapMoveAt, android.os.SystemClock.elapsedRealtime()
+            )) {
                 followingMap = true
                 recenterToken++
             }
