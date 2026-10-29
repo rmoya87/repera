@@ -12,6 +12,40 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
         CommercialConfig.monthlyProductID,
     ]
 
+    // Un único observador para toda la aplicación. Escucha compras aprobadas
+    // después del cierre del sheet (Ask to Buy), renovaciones y reembolsos.
+    // No finalizamos compras gestionadas por RevenueCat: su SDK las procesa.
+    @MainActor private static var updatesTask: Task<Void, Never>?
+    @MainActor private static var onVerifiedUpdate: (@MainActor @Sendable () async -> Bool)?
+
+    @MainActor
+    static func startTransactionUpdates(
+        onChange: @escaping @MainActor @Sendable () async -> Bool
+    ) {
+        onVerifiedUpdate = onChange
+        guard updatesTask == nil else { return }
+
+        updatesTask = Task.detached(priority: .utility) {
+            for await verification in Transaction.updates {
+                guard case .verified(let transaction) = verification else { continue }
+                guard transaction.productID == CommercialConfig.monthlyProductID
+                    || transaction.productID == CommercialConfig.annualProductID else { continue }
+                // El manager aplica derechos verificados desde currentEntitlements
+                // y solo pide finish si actualmente compra por StoreKit directo.
+                let shouldFinish = await Self.processTransactionUpdate()
+                if shouldFinish {
+                    await transaction.finish()
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private static func processTransactionUpdate() async -> Bool {
+        guard let onVerifiedUpdate else { return false }
+        return await onVerifiedUpdate()
+    }
+
     func refresh() async -> CommercialSnapshot {
         await snapshotFromCurrentEntitlements()
     }
