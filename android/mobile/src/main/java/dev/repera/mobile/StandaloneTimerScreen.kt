@@ -742,6 +742,14 @@ internal fun StandaloneClock(
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
+    // R7 P0: barra de estado negra con iconos claros (paridad iOS en claro).
+    androidx.compose.runtime.SideEffect {
+        val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
+        androidx.core.view.WindowInsetsControllerCompat(window, view).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+    }
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(24.dp)) {
             val landscape = maxWidth > maxHeight

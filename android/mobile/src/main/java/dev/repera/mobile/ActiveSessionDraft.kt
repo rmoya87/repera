@@ -140,11 +140,10 @@ internal object ActiveSessionDraft {
  }
 
  /**
-  * Apple persistActiveLiveDraft (recorded part): editable rows -> logged sets. Rows with reps > 0 become results (typing is
-  * saving, no per-set check); rows with reps 0 are dropped. A row whose id matches an existing straight work set keeps that
-  * set (completedAt, id) and gets the row values; a new row gets a fresh straight work set. Existing straight work sets that
-  * no row represents any more were deleted by the user and are dropped. Warmup sets and non-straight sets (dropset, rest-pause,
-  * clusters) are not shown as rows, so they are kept untouched in place (Android-specific safeguard: Apple rows do not hold them).
+  * Apple persistActiveLiveDraft (recorded part): editable rows → logged sets.
+  * Solo filas `completed && reps > 0` (WorkoutView.swift guard); ediciones de
+  * filas pendientes viven en plannedSets. Warmup / dropset / rest-pause /
+  * clusters no aparecen como filas y se conservan.
   * loadField: "weightKg", "deficitCm" or "none"; weight/deficit are stored only when > 0.
   */
  fun recorded(existing:JSONArray,rows:List<Row>,loadField:String,usesDuration:Boolean,usesRir:Boolean,unit:String,nowIso:String):JSONArray {
@@ -166,10 +165,11 @@ internal object ActiveSessionDraft {
    if(!isRowSet(o)) {out.put(o);continue}
    val row=byId[o.optString("id")]?:continue
    seen.add(row.id)
-   if(row.reps<=0) continue
+   // R7 P1: marcar 1 serie no debe registrar las 3.
+   if(!row.completed || row.reps<=0) continue
    apply(o,row);out.put(o)
   }
-  rows.filter {it.id !in seen&&it.reps>0}.forEach {row ->
+  rows.filter {it.id !in seen&&it.completed&&it.reps>0}.forEach {row ->
    val o=JSONObject().put("id",row.id).put("completedAt",nowIso).put("phase","work").put("kind","straight")
     .put("drops",JSONArray()).put("clusters",JSONArray())
    apply(o,row);out.put(o)

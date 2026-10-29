@@ -88,6 +88,8 @@ class PhotonPlaceSearchProvider(
             val sb = StringBuilder(BASE)
                 .append("?q=").append(URLEncoder.encode(q, "UTF-8"))
                 .append("&limit=").append(dev.repera.domain.PlaceSearchPolicy.MAX_RESULTS)
+                // R7 P2: nombres localizados («Museo del Louvre», no «Musée…»).
+                .append("&lang=").append(Locale.getDefault().language.takeIf { it.isNotBlank() } ?: "es")
             if (lat != null && lon != null) {
                 sb.append("&lat=").append(String.format(Locale.US, "%.2f", lat))
                     .append("&lon=").append(String.format(Locale.US, "%.2f", lon))

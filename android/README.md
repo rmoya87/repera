@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Edge-to-edge P0 (mapas/Inicio bajo status+nav) + R6 copy/UX (mapa bajo rutas, 3D default, timer Arriba, etc.).
+**Última actualización:** 2026-10-29 — R7 paridad (E2E Lugar/reloj/Pro, Play series, Comenzar insets, toolbar 48dp, sombras mapa). MapLibre OK sin `REPERA_GOOGLE_MAPS_API_KEY`; Google Maps si Ramón aporta la clave.
 
 Implementación nativa independiente en `android/`:
 

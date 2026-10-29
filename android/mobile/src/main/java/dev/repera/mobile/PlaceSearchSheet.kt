@@ -498,6 +498,9 @@ fun PlaceSearchSheet(
                 // Impedir que adjustPan desplace la ventana completa y saque
                 // del marco la cabecera y la acción de confirmar.
                 w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+                // R7 P0: sin scrim opaco en barras; el mapa pinta detrás.
+                w.statusBarColor = android.graphics.Color.TRANSPARENT
+                w.navigationBarColor = android.graphics.Color.TRANSPARENT
                 WindowInsetsControllerCompat(w, dialogView).apply {
                     isAppearanceLightStatusBars = true
                     isAppearanceLightNavigationBars = true
@@ -513,8 +516,12 @@ fun PlaceSearchSheet(
                     ?.hideSoftInputFromWindow(dialogView.windowToken, 0)
             }
         }
-        Surface(modifier = Modifier.fillMaxSize()
-            .statusBarsPadding().navigationBarsPadding().imePadding()) {
+        // R7 P0: mapa a sangre bajo status/nav (sin bandas/scrim). El padding
+        // de barras va solo en la card glass y en el chip inferior.
+        Surface(
+            modifier = Modifier.fillMaxSize().imePadding(),
+            color = MaterialTheme.colorScheme.surface
+        ) {
             // iOS: mapa a sangre + card glass flotante arriba + chip confirmar abajo.
             Box(Modifier.fillMaxSize()) {
                 val p = pending
@@ -562,9 +569,10 @@ fun PlaceSearchSheet(
                     shape = RoundedCornerShape(22.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                     tonalElevation = 2.dp,
-                    shadowElevation = 4.dp,
+                    shadowElevation = 1.dp,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .statusBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 12.dp)
                         .fillMaxWidth()
                 ) {
@@ -872,9 +880,10 @@ fun PlaceSearchSheet(
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                         tonalElevation = 2.dp,
-                        shadowElevation = 2.dp,
+                        shadowElevation = 1.dp,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
                             .padding(horizontal = 12.dp, vertical = 12.dp)
                             .fillMaxWidth()
                             .testTag("place_confirm_chip")

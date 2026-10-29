@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.Effort
 
@@ -98,14 +100,43 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
   if(active.cardioToggle || active.repsMetersToggle) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
    listOf((if(active.repsMetersToggle) "reps" to "Repeticiones" else "calories" to "Calorías"),"meters" to "Metros").forEach {(v,l) ->ReperaFilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
   }
+  // R7 P1: cabecera SERIE · ANTERIOR · REPS · RIR (PlayEditableSetsView iOS).
+  Row(
+   Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+   verticalAlignment = Alignment.CenterVertically,
+   horizontalArrangement = Arrangement.spacedBy(8.dp)
+  ) {
+   Text("SERIE", style = MaterialTheme.typography.labelSmall,
+    modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
+   Text("ANTERIOR", style = MaterialTheme.typography.labelSmall,
+    modifier = Modifier.weight(1f))
+   Text(
+    when (unit) { "calories" -> "CAL"; "meters" -> "M"; else -> "REPS" },
+    style = MaterialTheme.typography.labelSmall,
+    modifier = Modifier.weight(0.9f)
+   )
+   if (!active.durationInput) {
+    Text(Effort.displayName(effortUnit).uppercase(),
+     style = MaterialTheme.typography.labelSmall,
+     modifier = Modifier.weight(0.7f))
+   }
+  }
   rows.forEachIndexed {i,row ->
-   key(row.id) {Card {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+   key(row.id) {
+    Row(
+     Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(10.dp))
+      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+      .padding(horizontal = 8.dp, vertical = 8.dp),
+     verticalAlignment = Alignment.CenterVertically,
+     horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
      Box(
       Modifier
        .size(34.dp)
        .clip(CircleShape)
-       .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
+       .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surface)
        .clickable { toggleCompleted(i) }
        .testTag("set_badge_${i+1}"),
       contentAlignment=Alignment.Center
@@ -118,20 +149,66 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
       )
      }
      Text(
-      if(row.completed) "Serie ${i+1} · hecha" else "Serie ${i+1}",
-      style=MaterialTheme.typography.titleSmall,
-      modifier=Modifier.clickable { toggleCompleted(i) }
+      if (row.completed) "Hecha" else "—",
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.weight(1f)
      )
+     OutlinedTextField(
+      value = row.reps.toString(),
+      onValueChange = { v ->
+       rows[i]=LiveRowEdit.reps(rows[i],v,if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap)
+       touch()
+      },
+      singleLine = true,
+      modifier = Modifier.weight(0.9f).heightIn(min = 48.dp).testTag("set_reps_${i+1}"),
+      textStyle = MaterialTheme.typography.bodyMedium
+     )
+     if (active.durationInput) {
+      OutlinedTextField(
+       value = (row.durationSeconds ?: 0).toString(),
+       onValueChange = { v -> rows[i]=LiveRowEdit.duration(rows[i],v); touch() },
+       singleLine = true,
+       modifier = Modifier.weight(0.7f),
+       textStyle = MaterialTheme.typography.bodyMedium
+      )
+     } else {
+      Box(Modifier.weight(0.7f)) {
+       EffortMenuField(storedRir = row.rir, effortUnit = effortUnit) { next ->
+        rows[i] = rows[i].copy(rir = next); touch()
+       }
+      }
+     }
     }
-    QuickNumericField(row.reps.toString(),when(unit) {"calories"->"Calorías";"meters"->"Metros";else->if(active.durationInput&&!active.mobility) "Veces" else "Repeticiones"},true) {v ->rows[i]=LiveRowEdit.reps(rows[i],v,if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap);touch()}
-    if(active.allowsDeficit) QuickNumericField((row.deficitCm?:0).toString(),"Déficit HSPU (cm)",true) {v ->rows[i]=LiveRowEdit.deficit(rows[i],v);touch()}
-    else if(active.allowsWeight) QuickNumericField(row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),"Peso (kg)",true,decimal=true) {v ->rows[i]=LiveRowEdit.weight(rows[i],v);touch()}
-    if(active.durationInput) QuickNumericField((row.durationSeconds?:0).toString(),"Duración (segundos)",true) {v ->rows[i]=LiveRowEdit.duration(rows[i],v);touch()}
-    else EffortMenuField(storedRir = row.rir, effortUnit = effortUnit) { next ->
-     rows[i] = rows[i].copy(rir = next); touch()
+    if (active.allowsDeficit || active.allowsWeight) {
+     Row(Modifier.fillMaxWidth().padding(start = 48.dp, top = 4.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      if (active.allowsDeficit) {
+       OutlinedTextField(
+        value = (row.deficitCm ?: 0).toString(),
+        onValueChange = { v -> rows[i]=LiveRowEdit.deficit(rows[i],v); touch() },
+        label = { Text("Déficit HSPU (cm)") },
+        singleLine = true,
+        modifier = Modifier.weight(1f)
+       )
+      } else if (active.allowsWeight) {
+       OutlinedTextField(
+        value = row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),
+        onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
+        label = { Text("Peso (kg)") },
+        singleLine = true,
+        modifier = Modifier.weight(1f)
+       )
+      }
+      TextButton(onClick={rows.removeAt(i);touch()}) {Text("Quitar")}
+     }
+    } else {
+     TextButton(
+      onClick={rows.removeAt(i);touch()},
+      modifier = Modifier.padding(start = 48.dp)
+     ) {Text("Quitar serie")}
     }
-    TextButton(onClick={rows.removeAt(i);touch()}) {Text("Eliminar serie ${i+1}")}
-   }}}
+   }
   }
   TextButton(onClick={
    val last=rows.lastOrNull()
@@ -139,6 +216,6 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
     if(active.allowsDeficit) active.prescribedWeightKg?.toInt() else null,null,null,false)
    // Apple addLiveSet: hereda déficit/peso de la fila previa.
    rows.add(seed.copy(id=java.util.UUID.randomUUID().toString(),completed=false));touch()
-  },enabled=rows.size<100) {Text("Añadir serie")}
+  },enabled=rows.size<100) {Text("+ Serie")}
  }
 }

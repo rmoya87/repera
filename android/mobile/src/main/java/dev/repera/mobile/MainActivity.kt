@@ -2750,6 +2750,13 @@ data class StateOverview(
                     )
                 }
             }
+            val catalogNameById = run {
+                val arr = json.optJSONArray("exercises") ?: org.json.JSONArray()
+                (0 until arr.length()).associate { i ->
+                    val o = arr.getJSONObject(i)
+                    o.getString("id") to o.optString("name")
+                }
+            }
             val routineEntries = json.getJSONArray("routines").let { array ->
                 (0 until array.length()).map { n ->
                     val item = array.getJSONObject(n)
@@ -2785,7 +2792,10 @@ data class StateOverview(
                                             id = ex.optString("id").ifBlank { null },
                                             sourceJson = ex.toString(),
                                             exerciseId = ex.getString("exerciseId"),
-                                            name = "",
+                                            // R7 P1: nombre del ejercicio (no «· — 3×8»).
+                                            name = ex.optString("name").ifBlank {
+                                                catalogNameById[ex.getString("exerciseId")].orEmpty()
+                                            },
                                             quantity = first?.optInt("targetReps")
                                                 ?.takeIf { it > 0 } ?: 8,
                                             sets = planned?.length() ?: 1,

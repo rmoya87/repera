@@ -340,12 +340,18 @@ fun ReperaMobileScreen(
             val controller = WindowInsetsControllerCompat(window, window.decorView)
             // Barras siempre transparentes: Inicio pinta surface (blanco/oscuro),
             // Comenzar pinta el mapa; sin franjas de color distinto al lienzo.
-            val mapEdge = currentRoute == "en-vivo"
+            // R7 P0: reloj LED / Comenzar → iconos claros; resto según tema.
+            val darkChrome = currentRoute == "en-vivo" ||
+                currentRoute == "reloj" ||
+                currentRoute.startsWith("reloj")
             controller.isAppearanceLightStatusBars = when {
-                mapEdge -> false // iconos claros sobre mapa
+                darkChrome -> false
                 else -> !darkTheme
             }
-            controller.isAppearanceLightNavigationBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = when {
+                darkChrome -> false
+                else -> !darkTheme
+            }
         }
         val navigateTab: (String) -> Unit = { route ->
             navController.navigate(route) {

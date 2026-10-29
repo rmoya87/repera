@@ -207,8 +207,12 @@ internal class RemoteExerciseCatalog(private val context: Context) {
                     (0 until eq.length()).joinToString(", ") { eq.getString(it) })
             }
             val sport = remote.optString("sport_tag").ifBlank { remote.optString("category") }
-            if (sport == "Fuerza" || sport.isBlank()) exercise.remove("sportTag")
-            else exercise.put("sportTag", sport)
+            when {
+                // «Fuerza» genérico no es disciplina de subtítulo (iOS).
+                sport == "Fuerza" -> exercise.remove("sportTag")
+                sport.isNotBlank() -> exercise.put("sportTag", sport)
+                // R7 P2: remoto sin sport_tag no borra Movilidad/etc. del seed.
+            }
             if (current == null) {
                 catalog.put(exercise)
                 changed = true

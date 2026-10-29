@@ -1486,9 +1486,9 @@ internal fun WorkoutHistoryCard(
     var pendingDelete by remember(workout.id) { mutableStateOf(false) }
     if (pendingDelete) {
         ReperaConfirmSheet(
-            title = "¿Borrar entreno?",
-            message = "Se borrará «" + workout.title + "». No se puede deshacer.",
-            confirmTitle = "Borrar entreno",
+            title = "¿Eliminar entreno?",
+            message = "Se eliminará «" + workout.title + "» de este día.",
+            confirmTitle = "Eliminar",
             onConfirm = {
                 pendingDelete = false
                 onDeleteWorkout(workout.id)

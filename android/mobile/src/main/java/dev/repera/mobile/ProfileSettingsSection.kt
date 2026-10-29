@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -209,6 +210,7 @@ import androidx.compose.ui.unit.dp
                     Modifier.size(52.dp).clip(CircleShape)
                 )
             } else {
+                // R7 P2: placeholder nube (paridad iOS cloud-slash), no persona.
                 Surface(
                     modifier = Modifier.size(52.dp),
                     shape = CircleShape,
@@ -216,7 +218,7 @@ import androidx.compose.ui.unit.dp
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Outlined.Person,
+                            Icons.Outlined.CloudOff,
                             contentDescription = "Añadir foto de perfil",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(28.dp)
