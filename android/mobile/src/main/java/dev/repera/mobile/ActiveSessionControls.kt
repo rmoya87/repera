@@ -29,7 +29,10 @@ internal fun ActiveSessionControls(
     onNotes: (String) -> Unit,
     onFavorite: () -> Unit = {},
     onEdit: () -> Unit = {},
+    onReorder: () -> Unit = onEdit,
     onDiscard: () -> Unit = {},
+    /** Cuando la toolbar de Play lleva chevrons (paridad WorkoutView). */
+    showExerciseNav: Boolean = true,
     onConfigureBlockTimer: () -> Unit = {},
     accountId: String = "",
     /** I-40 Sustituir / Eliminar ejercicio en Play. */
@@ -58,12 +61,14 @@ internal fun ActiveSessionControls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(
-                enabled = !busy && active.index > 0,
-                onClick = { onSelect(active.index - 1) },
-                modifier = Modifier.testTag("active_previous")
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Anterior")
+            if (showExerciseNav) {
+                IconButton(
+                    enabled = !busy && active.index > 0,
+                    onClick = { onSelect(active.index - 1) },
+                    modifier = Modifier.testTag("active_previous")
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Anterior")
+                }
             }
             IconButton(
                 enabled = !busy && active.navigationEntries.isNotEmpty(),
@@ -71,12 +76,14 @@ internal fun ActiveSessionControls(
             ) {
                 Icon(Icons.Outlined.List, contentDescription = "Ejercicios")
             }
-            IconButton(
-                enabled = !busy && active.index < active.total - 1,
-                onClick = { onSelect(active.index + 1) },
-                modifier = Modifier.testTag("active_navigate_next")
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Siguiente")
+            if (showExerciseNav) {
+                IconButton(
+                    enabled = !busy && active.index < active.total - 1,
+                    onClick = { onSelect(active.index + 1) },
+                    modifier = Modifier.testTag("active_navigate_next")
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Siguiente")
+                }
             }
             IconButton(enabled = !busy, onClick = onConfigureBlockTimer,
                 modifier = Modifier.testTag("active_block_timer")) {
@@ -107,7 +114,8 @@ internal fun ActiveSessionControls(
                     DropdownMenuItem(
                         text = { Text("Reordenar") },
                         leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                        onClick = { menuOpen = false; onEdit() }
+                        onClick = { menuOpen = false; onReorder() },
+                        modifier = Modifier.testTag("active_reorder")
                     )
                     if (active.wod == null) {
                         DropdownMenuItem(
