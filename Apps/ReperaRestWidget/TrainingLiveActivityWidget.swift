@@ -46,7 +46,8 @@ struct TrainingLiveActivityWidget: Widget {
                     .padding(.top, 2)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.navigation == nil, !context.state.subtitle.isEmpty {
+                    if context.state.phase != .completed,
+                       context.state.navigation == nil, !context.state.subtitle.isEmpty {
                         Text(context.state.subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -123,7 +124,7 @@ struct TrainingLiveActivityWidget: Widget {
             .foregroundStyle(.white)
             .background(.black)
 
-            if !context.state.subtitle.isEmpty {
+            if context.state.phase != .completed, !context.state.subtitle.isEmpty {
                 Text(context.state.subtitle)
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.8))
