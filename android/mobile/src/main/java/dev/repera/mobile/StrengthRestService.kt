@@ -170,6 +170,24 @@ internal class StrengthRestService : Service() {
             sound: Boolean = true,
             haptic: Boolean = true
         ) {
+            // Soft haptic al iniciar descanso (paridad RestFeedback iOS).
+            if (haptic) {
+                runCatching {
+                    val vibrator = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                        context.getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+                    } else {
+                        @Suppress("DEPRECATION")
+                        context.getSystemService(android.os.Vibrator::class.java)
+                    }
+                    if (vibrator != null && android.os.Build.VERSION.SDK_INT >= 29) {
+                        vibrator.vibrate(
+                            android.os.VibrationEffect.createPredefined(
+                                android.os.VibrationEffect.EFFECT_TICK
+                            )
+                        )
+                    }
+                }
+            }
             val intent = Intent(context, StrengthRestService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_SECONDS, seconds)

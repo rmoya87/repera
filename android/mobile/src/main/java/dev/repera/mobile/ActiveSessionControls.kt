@@ -31,12 +31,18 @@ internal fun ActiveSessionControls(
     onEdit: () -> Unit = {},
     onDiscard: () -> Unit = {},
     onConfigureBlockTimer: () -> Unit = {},
-    accountId: String = ""
+    accountId: String = "",
+    /** I-40 Sustituir / Eliminar ejercicio en Play. */
+    catalog: List<ExerciseEntry> = emptyList(),
+    onSubstituteExercise: (ExerciseEntry) -> Unit = {},
+    onRemoveExercise: () -> Unit = {}
 ) {
     var choosing by remember { mutableStateOf(false) }
     var editingNotes by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var confirmCancel by remember { mutableStateOf(false) }
+    var showSubstitute by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
     val noteScope = remember(accountId, active.id) { org.json.JSONArray(listOf(accountId, active.id)).toString() }
     val noteSaver = remember(noteScope) {
         androidx.compose.runtime.saveable.Saver<String, String>(
@@ -103,6 +109,19 @@ internal fun ActiveSessionControls(
                         leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                         onClick = { menuOpen = false; onEdit() }
                     )
+                    if (active.wod == null) {
+                        DropdownMenuItem(
+                            text = { Text("Sustituir ejercicio") },
+                            onClick = { menuOpen = false; showSubstitute = true },
+                            modifier = Modifier.testTag("active_substitute")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Eliminar ejercicio") },
+                            enabled = active.total > 1,
+                            onClick = { menuOpen = false; confirmRemove = true },
+                            modifier = Modifier.testTag("active_remove_exercise")
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Cancelar entreno") },
                         leadingIcon = {
@@ -114,6 +133,29 @@ internal fun ActiveSessionControls(
                 }
             }
         }
+    }
+    if (showSubstitute) {
+        SubstituteExerciseSheet(
+            active = active,
+            catalog = catalog,
+            onPick = { entry -> showSubstitute = false; onSubstituteExercise(entry) },
+            onDismiss = { showSubstitute = false }
+        )
+    }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("¿Eliminar ejercicio?") },
+            text = { Text("Se quita «${active.exerciseName}» de la sesión en curso.") },
+            confirmButton = {
+                TextButton(onClick = { confirmRemove = false; onRemoveExercise() }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text("Cancelar") }
+            }
+        )
     }
     if (confirmCancel) {
         AlertDialog(

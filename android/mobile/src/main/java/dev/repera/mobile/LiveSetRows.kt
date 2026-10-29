@@ -1,5 +1,9 @@
 package dev.repera.mobile
 
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,9 +51,28 @@ internal object LiveRowEdit {
  * Filas Play: escribir guarda; tocar el badge numérico marca la serie hecha
  * (extra Ramón / I-40). Saves debounced; flush al salir.
  */
+/** Háptico success al marcar serie hecha (paridad RestFeedback iOS). */
+internal fun playSetCompleteHaptic(context: android.content.Context) {
+ runCatching {
+  val vibrator = if (Build.VERSION.SDK_INT >= 31) {
+   context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+  } else {
+   @Suppress("DEPRECATION")
+   context.getSystemService(Vibrator::class.java)
+  } ?: return
+  if (Build.VERSION.SDK_INT >= 29) {
+   vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+  } else {
+   @Suppress("DEPRECATION")
+   vibrator.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+  }
+ }
+}
+
 @Composable
 internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effortUnit:String) {
  val key=active.id+"|"+active.index
+ val context = LocalContext.current
  val rows=remember(key) {mutableStateListOf<LiveRowSummary>().apply {addAll(initial)}}
  var unit by remember(key) {mutableStateOf(active.quantityUnit)}
  var edited by remember(key) {mutableStateOf(false)}
@@ -60,6 +84,12 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
  }
  val persist=LocalPersistLiveRows.current
  fun touch() {edited=true}
+ fun toggleCompleted(i: Int) {
+  val wasDone = rows[i].completed
+  rows[i] = rows[i].copy(completed = !wasDone)
+  if (!wasDone) playSetCompleteHaptic(context)
+  touch()
+ }
  // Hand the newest rows over at once; the activity keeps them in memory and saves them (debounced or before any other action).
  LaunchedEffect(key,rows.toList(),unit,edited) {
   if(edited) persist(active.id,active.index,LiveRowEdit.toDraftRows(rows.toList()),unit)
@@ -76,9 +106,7 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
        .size(34.dp)
        .clip(CircleShape)
        .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
-       .clickable {
-        rows[i]=rows[i].copy(completed=!rows[i].completed);touch()
-       }
+       .clickable { toggleCompleted(i) }
        .testTag("set_badge_${i+1}"),
       contentAlignment=Alignment.Center
      ) {
@@ -92,9 +120,7 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
      Text(
       if(row.completed) "Serie ${i+1} · hecha" else "Serie ${i+1}",
       style=MaterialTheme.typography.titleSmall,
-      modifier=Modifier.clickable {
-       rows[i]=rows[i].copy(completed=!rows[i].completed);touch()
-      }
+      modifier=Modifier.clickable { toggleCompleted(i) }
      )
     }
     QuickNumericField(row.reps.toString(),when(unit) {"calories"->"Calorías";"meters"->"Metros";else->if(active.durationInput&&!active.mobility) "Veces" else "Repeticiones"},true) {v ->rows[i]=LiveRowEdit.reps(rows[i],v,if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap);touch()}

@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -126,10 +127,18 @@ private fun IndicatorRow(indicator: ReviewIndicator) {
     }
 }
 
-/** Hoja post-entreno (SessionReviewSheet iOS): título + Listo + tarjeta expandida. */
+/**
+ * Hoja post-entreno (SessionReviewSheet iOS): título + nota + acciones
+ * Guardar / Descartar / Crear favorito (I-45).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SessionReviewSheet(review: SessionReview, onDismiss: () -> Unit) {
+internal fun SessionReviewSheet(
+    review: SessionReview,
+    onDismiss: () -> Unit,
+    onDiscard: (() -> Unit)? = null,
+    onCreateFavorite: (() -> Unit)? = null
+) {
     ReperaModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -144,6 +153,33 @@ internal fun SessionReviewSheet(review: SessionReview, onDismiss: () -> Unit) {
                 }
             }
             SessionReviewCard(review, startsExpanded = true)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("session_review_save")
+                ) {
+                    Text("Guardar", fontWeight = FontWeight.SemiBold)
+                }
+                if (onDiscard != null) {
+                    TextButton(
+                        onClick = { onDiscard(); onDismiss() },
+                        modifier = Modifier.testTag("session_review_discard")
+                    ) {
+                        Text("Descartar", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                if (onCreateFavorite != null) {
+                    TextButton(
+                        onClick = { onCreateFavorite(); onDismiss() },
+                        modifier = Modifier.testTag("session_review_favorite")
+                    ) {
+                        Text("Crear favorito", color = brandGreen, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
         }
     }
 }

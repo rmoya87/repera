@@ -196,6 +196,8 @@ fun ReperaMobileScreen(
     onSelectActiveExercise:(Int)->Unit = {},
     onUpdateActiveNotes:(String)->Unit = {},
     onSaveActiveFavorite:()->Unit = {},
+    onSubstituteActiveExercise: (ExerciseEntry) -> Unit = {},
+    onRemoveActiveExercise: () -> Unit = {},
     activeEditorDraft:()->RoutineEntry? = {null},
     onUpdateActivePlan:(String,String,List<RoutineBlockDraft>,()->Unit)->Unit = {_,_,_,_->},
     onFinish: () -> Unit,
@@ -303,6 +305,11 @@ fun ReperaMobileScreen(
             }
         }
         var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
+        // I-42: Minimizar reloj → barra flotante sobre la sesión (no destruye el timer).
+        var clockMinimized by rememberSaveable(accountId) { mutableStateOf(false) }
+        LaunchedEffect(activeWorkout?.id, activeWorkout?.wod) {
+            if (activeWorkout?.wod == null) clockMinimized = false
+        }
         // iOS restoresAddSheetAfterPage: reabrir DayPlus al volver de Favoritos/Tempo.
         var restoreDayPlus by rememberSaveable(accountId) { mutableStateOf(false) }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
@@ -505,7 +512,18 @@ fun ReperaMobileScreen(
                         onSelectActiveExercise = onSelectActiveExercise,
                         onUpdateActiveNotes = onUpdateActiveNotes,
                         onSaveActiveFavorite = onSaveActiveFavorite,
+                        onSubstituteActiveExercise = onSubstituteActiveExercise,
+                        onRemoveActiveExercise = onRemoveActiveExercise,
                         onEditActivePlan = {navController.navigate("entreno-activo-editar")},
+                        clockMinimized = clockMinimized,
+                        onExpandClock = {
+                            clockMinimized = false
+                            navController.navigate("reloj")
+                        },
+                        onOpenClock = {
+                            clockMinimized = false
+                            navController.navigate("reloj")
+                        },
                         onFinish = onFinish,
                         onDiscardSession = onDiscardSession,
                         accountId = accountId,
@@ -525,9 +543,6 @@ fun ReperaMobileScreen(
                         onRemoveScheduledRoutine = onRemoveScheduledRoutine,
                         restoreDayPlus = restoreDayPlus,
                         onRestoreDayPlusConsumed = { restoreDayPlus = false },
-                        onOpenClock = {
-                            if (activeWorkout?.wod != null) navController.navigate("reloj")
-                        },
                         onDayPlusCreate = { dayIso, dayName ->
                             navController.navigate(
                                 "rutina-nueva?fecha=" + dayIso + "&nombre=" +
@@ -805,14 +820,36 @@ fun ReperaMobileScreen(
                     if(workout==null) {
                         LaunchedEffect(Unit) { navigateTab("inicio") }
                     } else {
-                        ActiveWorkoutScreen(workout,busy,wodTimer,onWodTimerAction,onWodTimerTick,
-                            onWodScore,onWodMovement,onCompleteWodBlock,onReviseWodMovement,onDeleteWodMovement,
-                            onLogSet,onLogDropSet,onLogRestPauseSet,onReviseSet,onDeleteSet,onNext,onFinish,
-                            onDiscardSession,{navController.navigate("reloj")},{navController.popBackStack()},
-                            overview?.activeLocationPin,accountId,onActivePinChange,
-                            overview?.trainingSettings?.effortUnit ?: "rir",
-                            overview?.trainingSettings?.weightUnit ?: "kg",
-                            onSelectActiveExercise,onUpdateActiveNotes,onSaveActiveFavorite,{navController.navigate("entreno-activo-editar")})
+                        ActiveWorkoutScreen(
+                            workout, busy, wodTimer, onWodTimerAction, onWodTimerTick,
+                            onWodScore, onWodMovement, onCompleteWodBlock, onReviseWodMovement,
+                            onDeleteWodMovement,
+                            onLogSet, onLogDropSet, onLogRestPauseSet, onReviseSet, onDeleteSet,
+                            onNext, onFinish,
+                            onDiscardSession,
+                            onOpenClock = {
+                                clockMinimized = false
+                                navController.navigate("reloj")
+                            },
+                            onBack = { navController.popBackStack() },
+                            pin = overview?.activeLocationPin,
+                            accountId = accountId,
+                            onPinChange = onActivePinChange,
+                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                            weightUnit = overview?.trainingSettings?.weightUnit ?: "kg",
+                            onSelectExercise = onSelectActiveExercise,
+                            onUpdateNotes = onUpdateActiveNotes,
+                            onSaveFavorite = onSaveActiveFavorite,
+                            onEditPlan = { navController.navigate("entreno-activo-editar") },
+                            catalog = overview?.exerciseEntries.orEmpty(),
+                            onSubstituteExercise = onSubstituteActiveExercise,
+                            onRemoveExercise = onRemoveActiveExercise,
+                            clockMinimized = clockMinimized,
+                            onExpandClock = {
+                                clockMinimized = false
+                                navController.navigate("reloj")
+                            }
+                        )
                     }
                 }
                 composable("en-vivo") {
@@ -875,7 +912,10 @@ fun ReperaMobileScreen(
                             timer = wodTimer,
                             onTimerAction = onWodTimerAction,
                             onTimerTick = onWodTimerTick,
-                            onBack = { navController.popBackStack() }
+                            onBack = {
+                                clockMinimized = true
+                                navController.popBackStack()
+                            }
                         )
                     } else {
                         LaunchedEffect(Unit) { navController.popBackStack() }

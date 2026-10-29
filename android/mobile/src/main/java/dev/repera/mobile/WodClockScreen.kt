@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -171,7 +172,7 @@ internal fun WodClockScreen(
             ) {
                 Text(
                     if (timer?.running == true) "Pausar"
-                    else if (elapsedClock > 0) "Reanudar" else "Iniciar",
+                    else if (elapsedClock > 0) "Continuar" else "Iniciar",
                     fontSize = 18.sp, fontWeight = FontWeight.Bold
                 )
             }
@@ -204,7 +205,11 @@ internal fun WodClockScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onBack) { Text("Volver", color = Color.White) }
+                // I-42: Minimizar (no «Volver») → barra flotante en la sesión.
+                TextButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("wod_clock_minimize")
+                ) { Text("Minimizar", color = Color.White) }
                 if (showTitle) {
                     Text(
                         active.title,

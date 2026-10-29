@@ -213,10 +213,27 @@ fun RoutineBlocksEditorScreen(
             },
             enabled = !busy
         ) { Text("Añadir descanso") }
-        // Equivalente de «Elegir WOD» y «Añadir rutina» de DayEditorView (Apple).
+        // Equivalente de «Elegir WOD», «Añadir favorito» y «Añadir rutina» (DayEditorView).
         var showWods by remember { mutableStateOf(false) }
         var showRoutines by remember { mutableStateOf(false) }
+        var showFavorites by remember { mutableStateOf(false) }
         TextButton(modifier = Modifier.testTag("plan_pick_wod"), onClick = { showWods = true }, enabled = !busy) { Text("Elegir WOD") }
+        val favorites = importableRoutines.filter { it.id != routine.id && it.isFavorite && it.blocks.isNotEmpty() }
+        TextButton(
+            modifier = Modifier.testTag("plan_add_favorite"),
+            onClick = { showFavorites = true },
+            enabled = !busy
+        ) { Text("Añadir favorito") }
+        if (showFavorites) {
+            AddFavoriteSheet(
+                favorites = favorites,
+                onPick = { src ->
+                    src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
+                    showFavorites = false
+                },
+                onDismiss = { showFavorites = false }
+            )
+        }
         val importable = importableRoutines.filter { it.id != routine.id && it.blocks.isNotEmpty() }
         if (importable.isNotEmpty())
             TextButton(modifier = Modifier.testTag("plan_add_routine"), onClick = { showRoutines = true }, enabled = !busy) { Text("Añadir rutina") }
