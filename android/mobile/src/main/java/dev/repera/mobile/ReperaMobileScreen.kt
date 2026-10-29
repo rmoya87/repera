@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -440,7 +443,17 @@ fun ReperaMobileScreen(
                 )
             }
         ) { padding ->
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(padding)) {
+            // Comenzar: mapa a sangre bajo la tab bar flotante (LiveActivityView iOS).
+            val mapUnderTabs = currentRoute == "en-vivo" && showTabBar
+            val hostPadding = if (mapUnderTabs) {
+                Modifier.padding(
+                    start = padding.calculateStartPadding(LayoutDirection.Ltr),
+                    top = padding.calculateTopPadding(),
+                    end = padding.calculateEndPadding(LayoutDirection.Ltr),
+                    bottom = 0.dp
+                )
+            } else Modifier.padding(padding)
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().then(hostPadding)) {
             NavHost(
                 navController = navController,
                 startDestination = "inicio",

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp

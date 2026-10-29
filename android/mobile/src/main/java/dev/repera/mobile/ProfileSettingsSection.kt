@@ -142,11 +142,16 @@ import androidx.compose.ui.unit.dp
     onRequestSignOut: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    var name by remember(value.displayName) { mutableStateOf(value.displayName.orEmpty()) }
+    val sessionStore = remember(context) { SessionStore(context) }
+    val googleName = remember(sessionStore) {
+        sessionStore.load()?.displayName?.trim()?.takeIf { it.isNotEmpty() }
+    }
+    var name by remember(value.displayName, googleName) {
+        mutableStateOf(value.displayName?.takeIf { it.isNotBlank() } ?: googleName.orEmpty())
+    }
     var error by remember { mutableStateOf<String?>(null) }
     val latestValue by rememberUpdatedState(value)
     val latestOnChange by rememberUpdatedState(onChange)
-    val sessionStore = remember(context) { SessionStore(context) }
     var pickerRevision by remember { mutableStateOf<String?>(null) }
     var pickerPending by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->

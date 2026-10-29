@@ -1997,13 +1997,36 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
+    /** Copia el nombre de Google a settings.profileDisplayName si aún no hay (SettingsView iOS). */
+    private fun seedDisplayNameFromGoogle(accountId: String) {
+        val googleName = profile?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        runCatching {
+            val store = LocalSnapshotStore(this, accountId)
+            val bytes = store.read() ?: return
+            val state = org.json.JSONObject(String(bytes, Charsets.UTF_8))
+            val settings = state.optJSONObject("settings") ?: org.json.JSONObject().also {
+                state.put("settings", it)
+            }
+            if (settings.optString("profileDisplayName").isBlank()) {
+                settings.put("profileDisplayName", googleName)
+                check(store.replaceIfUnchanged(bytes, state.toString().toByteArray(Charsets.UTF_8)))
+            }
+        }
+    }
+
     /**
      * Tras Google/Supabase verificado (login o restoreStoredSession): sembrar JSON local si falta,
      * descargar catálogo editorial, hidratar UI y luego espejos Supabase (BusinessWorkoutSyncStore).
+     * Errores de seed/catálogo se muestran (no se tragan en silencio).
      */
     private suspend fun prepareAccountDataAfterAuth(accountId: String, current: () -> Boolean) {
+        var seedError: String? = null
+        var catalogError: String? = null
         withContext(Dispatchers.IO) {
-            ensureLocalSeedIfMissing(accountId, current)
+            runCatching { ensureLocalSeedIfMissing(accountId, current) }
+                .onFailure { seedError = it.localizedMessage ?: "No se pudo preparar el catálogo local" }
+            if (!current()) return@withContext
+            if (seedError == null) seedDisplayNameFromGoogle(accountId)
             if (!current()) return@withContext
             val (token, rotated) = refreshedSessionBlocking(accountId) { current() }
             if (rotated != null) {
@@ -2014,11 +2037,23 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             if (!current()) return@withContext
             val feed = RemoteExerciseCatalog(this@MainActivity)
             runCatching { feed.refresh(token) }
-            feed.applyToAccount(accountId)
+                .onFailure { catalogError = it.localizedMessage ?: "No se pudo actualizar el catálogo" }
+            runCatching { feed.applyToAccount(accountId) }
+                .onFailure {
+                    if (catalogError == null) {
+                        catalogError = it.localizedMessage ?: "No se pudo aplicar el catálogo"
+                    }
+                }
         }
         if (!current()) return
         reloadFor(accountId)
         if (!current()) return
+        when {
+            seedError != null -> status = "Catálogo: $seedError"
+            catalogError != null && (snapshot?.exercises ?: 0) == 0 ->
+                status = "Catálogo: $catalogError"
+            else -> if (status?.startsWith("Catálogo:") == true) status = null
+        }
         syncPublicProfileFromSettings()
         syncSupabaseMirrors()
     }

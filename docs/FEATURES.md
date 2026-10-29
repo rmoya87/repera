@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-29 (Reordenar bloque ↓; Sin formato en Reordenar; Editar precarga lugar)
+Última actualización: 2026-10-29 (Android Revisión 3 parity + Reordenar bloque ↓ / Sin formato / Editar precarga lugar)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -63,6 +63,7 @@
 ### Edición desde Inicio con deslizamiento (27/10/2026)
 - Las tarjetas de entrenamientos **personales** del calendario permiten deslizar **de izquierda a derecha** para revelar el lápiz blanco en círculo azul. Un entreno planificado abre `DayEditorView` con `.oneOff(isNew: false)` y conserva el UUID/fecha de su programación; una sesión propia completada abre el mismo editor de resultados que la ficha Historial, conservando su identidad, resultados y asociación HealthKit. Al guardar no se crea un segundo registro. El swipe contrario mantiene Eliminar en rojo.
 - **Android (29/10/2026):** mismas acciones en cards compactas de Inicio (`HomeSwipeRevealCard`): swipe izquierda Eliminar (planificado / completado), derecha Editar → `rutina/{id}` o expandir historial. DayPlus orden/copy iOS; Favoritos con fecha copia al día; Crear entreno favorito; editor con movimiento libre / Entre rondas / Empezar tras OCR. **Crear entreno / `RoutineBlocksEditor` (29/10/2026):** paridad `PlanView` — meta con fecha `EEEE d MMMM`, bloques con título encima de card, menú ⋯ (reordenar fullscreen, añadir ejercicio, eliminar), fila Formato, botones verdes de inserción (+ Ejercicio / Descanso / Movimiento libre), card de acciones (Añadir bloque / Elegir WOD / Añadir favorito), selector de ejercicio fullscreen; volver desde `rutina-nueva` reabre DayPlus.
+- **Android Revisión 3 (29/10/2026):** `CatalogBootstrap` ya no exige 288 entradas (seed 289 + remoto Supabase; error visible si falla); nombre de cuenta como texto (Google → `profileDisplayName`); Ajustes en filas como `SettingsView`; Progreso sin párrafo técnico; Comenzar mapa bajo tab bar; Lugar con mapa browse siempre; DayPlus iconos filled; Historial título/cards; buscador Ejercicios en cápsula; `gradlew` en `android/`.
 - La edición se ofrece exclusivamente a rutinas locales del usuario y a sus sesiones ya registradas en `ReperaStore`; los planes y reservas publicados por entrenador personal o gimnasio se representan mediante `businessDayCard` desde `BusinessDataStore`, son de **solo lectura**, no reciben `onEdit` ni acceso al editor local. Las actividades externas de Apple Salud tampoco reciben el gesto de edición. El host de swipe conserva el gesto horizontal fuera del carrusel de chips y permite apertura a izquierda solo si existe acción autorizada.
 
 ### Favoritos de entrenamientos planificados (27/10/2026)

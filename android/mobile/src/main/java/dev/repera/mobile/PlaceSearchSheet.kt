@@ -615,24 +615,19 @@ fun PlaceSearchSheet(
                     // en el lugar más reciente. Así, con la búsqueda
                     // presentada, el mapa sigue visible y tocarlo la cierra
                     // (dismissSearch iOS).
+                    // iOS browseMap: siempre hay mapa a sangre (nunca solo texto).
+                    // Sin pin/recientes → centro por defecto (Madrid) hasta GPS/búsqueda.
                     val center = pending?.let { it.latitude to it.longitude }
                         ?: initialPin?.let { it.latitude to it.longitude }
                         ?: recents.firstOrNull()?.let { it.latitude to it.longitude }
-                    if (center != null) {
-                        PlacePinMap(center.first, center.second, isInteractive = true,
-                            modifier = Modifier.fillMaxSize(),
-                            onCameraIdle = onMapCameraIdle,
-                            onMapClick = {
-                                searchFocused = false
-                                focusManager.clearFocus(force = true)
-                            })
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Busca un lugar para situar el pin",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                        ?: (40.4168 to -3.7038)
+                    PlacePinMap(center.first, center.second, isInteractive = true,
+                        modifier = Modifier.fillMaxSize(),
+                        onCameraIdle = onMapCameraIdle,
+                        onMapClick = {
+                            searchFocused = false
+                            focusManager.clearFocus(force = true)
+                        })
                 }
             }
         }

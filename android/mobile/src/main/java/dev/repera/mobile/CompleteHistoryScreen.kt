@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,8 +57,9 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   return
  }
  LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement= Arrangement.spacedBy(12.dp)) {
-  item { ReperaPageHeader(title = "Historial de entrenamientos") }
-  if (overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
+  item { ReperaPageHeader(title = "Historial") }
+  // iOS HistoryView: fila Deportes siempre visible.
+  item {
    ReperaCard(
     onClick = onOpenSports,
     modifier = Modifier.fillMaxWidth().testTag("history_sports_link")
@@ -86,20 +88,49 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    item(key="day-$day") {ReperaSectionTitle(day.format(reperaDayFormatter))}
    entries.forEach {row ->item(key=row.id) {
     row.local?.let { workout ->
+     val mins = workout.activeDurationSeconds?.div(60.0)?.toInt()
+     val prs = overview?.prCountBySessionId?.get(workout.id) ?: 0
      ReperaCard(
       onClick = { selectedWorkoutId = workout.id },
       modifier = Modifier.fillMaxWidth().testTag("history_workout_row_${workout.id}")
      ) {
       Row(
        Modifier.padding(16.dp).fillMaxWidth(),
-       horizontalArrangement = Arrangement.SpaceBetween,
+       horizontalArrangement = Arrangement.spacedBy(12.dp),
        verticalAlignment = Alignment.CenterVertically
       ) {
+       Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.size(40.dp)
+       ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+         Icon(
+          Icons.Outlined.FitnessCenter,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(22.dp)
+         )
+        }
+       }
        Column(modifier = Modifier.weight(1f)) {
-        Text(workout.title, style = MaterialTheme.typography.titleMedium)
-        if (workout.startedAt.isNotBlank()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+         Text(workout.title, style = MaterialTheme.typography.titleMedium)
+         if (workout.startedAt.isNotBlank()) {
+          Text(
+           workout.startedAt,
+           style = MaterialTheme.typography.bodySmall,
+           color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+         }
+        }
+        val meta = buildList {
+         if (mins != null && mins > 0) add("$mins min")
+         if (prs > 0) add("$prs PR")
+        }.joinToString(" · ")
+        if (meta.isNotEmpty()) {
          Text(
-          workout.startedAt,
+          meta,
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant
          )
