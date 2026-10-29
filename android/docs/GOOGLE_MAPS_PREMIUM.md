@@ -12,7 +12,7 @@
 ## Permisos y pantallas de precios
 
 - En ambas apps `FeatureAccessPolicy.canUse3DNavigation` comprueba el acceso Pro efectivo; no basta con una preferencia guardada de otra sesión.
-- Al tocar el selector 3D desde Gratis se muestra Repera Pro sin activar la perspectiva. Al perder Pro en mitad de una ruta se vuelve a 2D.
+- Al tocar el selector 3D se **revalida el acceso** con Play y backend antes de decidir: Pro o centro patrocinador activan 3D sin abrir pricing; Gratis confirmado puede ver la oferta; verificación indisponible muestra aviso para comprobar/restaurar compras, sin conceder acceso no verificado. Al perder Pro se vuelve a 2D. El paywall bloquea llamadas redundantes desde cualquier componente si existe Pro efectivo.
 - La inclinación manual por gesto también queda bloqueada sin Pro.
 - Las dos pantallas de pricing incluyen la navegación 3D como ventaja. Android la comunica independientemente del beneficio adicional Google Maps.
 - Google Maps es un beneficio **solo Android**. La navegación 3D es un beneficio Pro en **ambas** plataformas y puede usar MapLibre si la clave Google todavía no está disponible.
