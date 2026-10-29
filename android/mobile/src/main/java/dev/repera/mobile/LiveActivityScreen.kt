@@ -6,13 +6,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
@@ -334,33 +337,63 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     .verticalScroll(rememberScrollState()) else Modifier).padding(12.dp),
                     verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     if (state.phase == LiveActivityState.Phase.IDLE) {
+                        // I-100 panel 3 acciones (Liquid Glass → Surface M3; MapKit 3D N/A).
                         Text(state.sport.metricDescription,style=MaterialTheme.typography.bodySmall)
-                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick={showSportPicker=true},modifier=Modifier.testTag("live_sport_picker")) {
-                                Text("Elegir actividad: ${state.sport.title}")
+                        Row(
+                            Modifier.fillMaxWidth().testTag("live_idle_panel"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = { showSportPicker = true },
+                                modifier = Modifier.testTag("live_sport_picker").weight(1f)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(state.sport.materialIcon, contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                    Text(state.sport.title, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+                                }
                             }
-                            Button(onClick={
-                                if(hasActiveWorkout) onOpenWorkout()
-                                else if(startCountdown > 0) cancelStartCountdown()
-                                else if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
-                                    permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
-                                else beginStartCountdown()
-                            },modifier=Modifier.testTag("live_start")) {
-                                Text(when {
-                                    hasActiveWorkout -> "Continuar entrenamiento"
-                                    startCountdown > 0 -> "Cancelar ($startCountdown)"
-                                    else -> "Iniciar"
-                                })
+                            Button(
+                                onClick = {
+                                    if (hasActiveWorkout) onOpenWorkout()
+                                    else if (startCountdown > 0) cancelStartCountdown()
+                                    else if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+                                        != PackageManager.PERMISSION_GRANTED)
+                                        permissions.launch(arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION))
+                                    else beginStartCountdown()
+                                },
+                                modifier = Modifier.size(64.dp).testTag("live_start"),
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = brandGreen, contentColor = Color.Black)
+                            ) {
+                                Text(
+                                    when {
+                                        hasActiveWorkout -> "▶"
+                                        startCountdown > 0 -> "$startCountdown"
+                                        else -> "▶"
+                                    },
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            TextButton(
+                                onClick = { showRoutes = true; showingMetrics = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Cargar ruta", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                         FlowRow {
-                            TextButton(onClick={showRoutes=true;showingMetrics=true}) {Text("Rutas")}
                             TextButton(onClick={
                                 runtime.toggleSpokenGuidance()
                                 if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
                                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }) { Text(if (runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada") }
+                            }) {Text(if (runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada")}
+                            TextButton(onClick={showingMetrics=true}) {Text("Ver métricas")}
                             TextButton(onClick=onOpenTools) {Text("Crear")}
                             onOpenCenter?.let { TextButton(onClick=it) {Text("Center")} }
                         }

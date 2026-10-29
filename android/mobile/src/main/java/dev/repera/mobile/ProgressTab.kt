@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -190,7 +191,12 @@ internal fun ProgressTab(
                                 )
                             }
                         },
-                        label = { Text(range.title) }
+                        label = {
+                            Text(
+                                if (allowed || range == ProgressTimeRange.WEEK) range.title
+                                else "${range.title} · Pro"
+                            )
+                        }
                     )
                 }
             }
@@ -280,6 +286,22 @@ internal fun ProgressTab(
                         else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true,range=dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},monday=prepared.weekStartsOnMonday)},
                     cardio={ProgressCardioCard(prepared,!pro)},calories={ProgressCaloriesCard(prepared,!pro)},
                     weight={if(!pro) WeightPreviewCard(today) else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)})
+                // I-124 placeholder: sin motor de zonas HR en domain todavía.
+                ReperaCard(
+                    modifier = Modifier.fillMaxWidth().testTag("heart_zones_card")
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("Zonas cardiacas", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Sin datos de zonas todavía. Cuando Health Connect aporte FC por zona, aparecerán aquí (Z1–Z5).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 }
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
@@ -381,7 +403,36 @@ internal fun ProgressTab(
         }
         // Apple 2ac224f5: el historial solo aparece bajo el progreso de entreno,
         // no en Recuperación ni Actividad.
-        if (topic=="Entreno") item {TextButton(onClick=onOpenHistory,enabled=overview!=null) {Text("Ver historial completo")} }
+        // I-120: fila «🕘 Historial ›» (no TextButton genérico).
+        if (topic == "Entreno") item {
+            ReperaCard(
+                onClick = { if (overview != null) onOpenHistory() },
+                modifier = Modifier.fillMaxWidth().testTag("progress_history_link")
+            ) {
+                Row(
+                    Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Outlined.Schedule,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("Historial", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
         if (recent.isNotEmpty()) {
             item { ReperaSectionTitle("Resultados recientes") }
             items(recent, key = { "progress:" + it.id }) { workout ->

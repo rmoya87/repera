@@ -14,8 +14,10 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,6 +25,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -97,6 +104,7 @@ internal fun HomeTab(
     onEditActivePlan:()->Unit = {},
     clockMinimized: Boolean = false,
     onExpandClock: () -> Unit = {},
+    onOpenActiveSession: () -> Unit = {},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -469,6 +477,47 @@ internal fun HomeTab(
                                 onTimerAction = onWodTimerAction,
                                 onTimerTick = onWodTimerTick
                             )
+                        }
+                        // I-44 card espejo «Sesión en curso» (shot 58) → abre Play.
+                        ReperaCard(
+                            onClick = onOpenActiveSession,
+                            modifier = Modifier.fillMaxWidth().testTag("home_active_session_mirror")
+                        ) {
+                            Row(
+                                Modifier.padding(16.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "Sesión en curso",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        activeWorkout.title.ifBlank { "Entreno" },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "Ahora: ${activeWorkout.exerciseName} · ${activeWorkout.index + 1}/${activeWorkout.total}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Box(
+                                    Modifier
+                                        .size(48.dp)
+                                        .background(Color(0xFFFF9F0A), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.PlayArrow,
+                                        contentDescription = "Continuar",
+                                        tint = Color.Black
+                                    )
+                                }
+                            }
                         }
                         ActiveSessionControls(
                             active = activeWorkout,

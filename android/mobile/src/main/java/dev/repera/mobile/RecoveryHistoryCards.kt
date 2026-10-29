@@ -44,7 +44,7 @@ internal fun RecoveryHistoryCards(recovery:RecoveryState,range:ProgressTimeRange
  ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
   Text("Sueño · ${range.title}",style=MaterialTheme.typography.titleMedium)
   if(nights.isEmpty()) {
-   EmptyHealthChart("Sin noches registradas en el periodo. Activa el análisis de descanso en Ajustes para leer sueño.",0.0,10.0,sleepHeight)
+   EmptyHealthChart("Sin registros de sueño en Health Connect todavía.",0.0,10.0,sleepHeight)
   }
   else {
    Text(if(sleep.outsideRange) "Fuera del periodo seleccionado: últimas noches disponibles" else if(nights.size==1) "Una noche registrada" else "Media del periodo",style=MaterialTheme.typography.bodySmall)

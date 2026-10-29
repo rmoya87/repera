@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
@@ -57,6 +56,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -132,7 +133,8 @@ private fun OnboardingSignInStep(
         Spacer(Modifier.height(24.dp))
         Text(
             "Bienvenido a Repera",
-            style = MaterialTheme.typography.headlineLarge,
+            // I-01: largeTitle 34sp (displayLarge), no headlineLarge 28sp.
+            style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
@@ -398,11 +400,13 @@ private fun PermissionRow(
                 )
             }
             if (isDone) {
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = "Hecho",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                Text(
+                    "Hecho",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.semantics {
+                        contentDescription = "$title: hecho"
+                    }
                 )
             } else {
                 TextButton(onClick = onAllow) {

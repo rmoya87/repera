@@ -14,15 +14,17 @@ import androidx.compose.ui.unit.dp
     var weekly by remember(value) {mutableStateOf(value.weeklyWorkouts?.toString().orEmpty())}
     var weight by remember(value) {mutableStateOf(value.weightKg?.toString().orEmpty())}
     var error by remember {mutableStateOf<String?>(null)}
-    ReperaSectionTitle("Objetivos")
     Text("Vacío = sin objetivo. No se inventa progreso.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        listOf(Triple("Pasos",steps,{s:String->steps=s}),Triple("Calorías activas (kcal)",energy,{s:String->energy=s}),
-            Triple("Tiempo de entreno (min)",minutes,{s:String->minutes=s}),Triple("Entrenamientos por semana",weekly,{s:String->weekly=s}),
-            Triple("Peso objetivo (kg)",weight,{s:String->weight=s})).forEach {(label,text,change) ->
-            OutlinedTextField(value=text,onValueChange=change,label={Text(label)},enabled=!busy,
-                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),singleLine=true,modifier=Modifier.fillMaxWidth())
-        }
+        // I-11: tres secciones como iOS (diarios / semanal / corporal).
+        ReperaSectionTitle("Objetivos diarios")
+        GoalField("Pasos", steps, busy) { steps = it }
+        GoalField("Calorías activas (kcal)", energy, busy) { energy = it }
+        GoalField("Tiempo de entreno (min)", minutes, busy) { minutes = it }
+        ReperaSectionTitle("Objetivo semanal")
+        GoalField("Entrenamientos por semana", weekly, busy) { weekly = it }
+        ReperaSectionTitle("Objetivo corporal")
+        GoalField("Peso objetivo (kg)", weight, busy) { weight = it }
         error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         OutlinedButton(enabled=!busy,onClick={
             try {
@@ -33,4 +35,17 @@ import androidx.compose.ui.unit.dp
             } catch(_:Exception) {error="Revisa los rangos: pasos100–100000, kcal10–10000, minutos1–1440, entrenamientos1–21, peso20–350kg."}
         }, modifier=Modifier.fillMaxWidth()) {Text("Guardar objetivos")}
     }
+}
+
+@Composable
+private fun GoalField(label: String, text: String, busy: Boolean, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = text,
+        onValueChange = onChange,
+        label = { Text(label) },
+        enabled = !busy,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
