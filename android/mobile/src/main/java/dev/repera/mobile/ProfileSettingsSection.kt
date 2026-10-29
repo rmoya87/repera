@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     showChevron: Boolean = true,
+    titleBold: Boolean = false,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -62,6 +63,8 @@ import androidx.compose.ui.unit.dp
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (titleBold) androidx.compose.ui.text.font.FontWeight.SemiBold
+                else androidx.compose.ui.text.font.FontWeight.Normal,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface
                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             )
@@ -269,7 +272,8 @@ import androidx.compose.ui.unit.dp
                 ) {
                     Text(
                         "Cerrar sesión",
-                        color = MaterialTheme.colorScheme.error.copy(
+                        // iOS OG.destructive / systemRed #FF453A (no rosa M3 en oscuro).
+                        color = Color(0xFFFF453A).copy(
                             alpha = if (busy) 0.38f else 1f
                         )
                     )

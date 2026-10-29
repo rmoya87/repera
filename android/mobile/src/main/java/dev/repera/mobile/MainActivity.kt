@@ -513,8 +513,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if (HealthConnectReader.hasReadablePermission(granted)) {
             loadHealthToday()
         } else {
+            // No volcar denegación a `status` global (aparecía en rojo en Crear).
             todayHealth = null
-            status = "No hay permisos de lectura de Salud concedidos"
         }
     }
 
