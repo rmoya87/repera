@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-29 (navegación 3D exclusiva de Repera Pro en iOS/Android)
+Última actualización: 2026-10-29 (verificación de Pro en acceso 3D y pricing compacto)
 
 ## 1. Arquitectura
 
@@ -52,6 +52,9 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea crear por encima del límite. La navegación vuelve a **2D plano** inmediatamente; se desactiva la inclinación por gestos en Gratis y el botón 3D ofrece abrir Repera Pro. Se conserva la preferencia anterior para poder recuperarla si se restablece Pro. La misma política `FeatureAccessPolicy.canUse3DNavigation` rige en Swift y Kotlin, incluyendo accesos patrocinados y Pro válido sin conexión. Los favoritos reales (plantillas marcadas y actividades de Comenzar) comparten una cuota de tres elementos en Gratis, independiente de la cuota de rutinas sin estrella. Las copias fechadas de un favorito no se cuentan dos veces; el estado personal se sincroniza mediante iCloud.
 
 ### Presentación y contenido de Repera Pro (29/10/2026)
+
+- La página usa una **única comparativa Gratis/Pro** con mapa 2D frente a navegación 3D, periodos de progreso, evolución por ejercicio, cupos reales de biblioteca/favoritos/ejercicios y escáner/análisis. Ya no duplica una lista larga de ventajas encima de la comparativa. Los planes ocupan filas compactas y Restaurar, Gestionar, Privacidad y Términos comparten una línea en móviles normales (con fallback adaptable). Se mantienen la mascota, el precio localizado, el CTA fijo y las condiciones visibles bajo el contenido.
+- En el botón 3D de «Comenzar», **antes de mostrar precio** se vuelve a consultar el entitlement firmado (StoreKit/RevenueCat en iOS; Play/Edge verificado en Android). Si reaparece Pro o acceso patrocinado, abre 3D sin paywall. Si no se puede verificar, informa de la incidencia y orienta a comprobar/restaurar compras, sin conceder Pro por un booleano local; únicamente un estado Gratis confirmado puede abrir el paywall. `presentPaywall` en Android también rechaza llamadas si el usuario ya tiene Pro; ambas plataformas cierran la oferta visible al verificarse Pro posteriormente.
 
 - Al solicitar Pro desde Ajustes o desde una funcionalidad limitada, iOS presenta una **página completa** sobre la navegación de raíz mediante overlay, con transición horizontal y botón «Volver», en lugar de `.sheet`. Android sustituye `ReperaModalBottomSheet` por una pantalla completa dentro del host principal, con flecha y BackHandler. En onboarding se mantiene el flujo integrado y el botón «Seguir con Gratis».
 - Diseño sobrio: fondo `OG.bg` / `MaterialTheme`, mascota original (`ReperaMascotPose.hero`), beneficios breves de las capacidades realmente sujetas a `FeatureAccessPolicy`, comparativa Gratis/Pro compacta, selección mensual/anual y CTA fijo al pie. En iOS solo hay un desplazamiento ambiental sutil de la mascota y su halo, desactivado con «Reducir movimiento».

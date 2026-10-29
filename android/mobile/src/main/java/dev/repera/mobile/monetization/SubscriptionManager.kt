@@ -111,7 +111,15 @@ class SubscriptionManager(
     fun consumeBoardScanIfNeeded(attemptID: String): Boolean =
         freeUsage.consumeBoardScan(attemptID, isPro)
 
+    /** Comprobar Play y el backend verificador antes de anunciar un upgrade. */
+    suspend fun refreshEntitlementsForFeatureAction() {
+        if (didStart) refresh() else start()
+    }
+
     fun presentPaywall(context: PaywallContext, feature: ReperaFeature? = null) {
+        // Igual que en iOS: no vender a un Pro verificado ni a un deportista
+        // con acceso incluido por su entrenador/centro.
+        if (policy.isPro || (feature != null && policy.canAccess(feature))) return
         if (feature != null && !policy.canAccess(feature)) {
             MonetizationAnalytics.track(
                 MonetizationAnalytics.Event.PREMIUM_FEATURE_TAPPED, feature = feature, context = context

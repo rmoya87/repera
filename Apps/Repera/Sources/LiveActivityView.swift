@@ -2009,6 +2009,8 @@ struct LiveActivityView: View {
     /// Una suscripción caducada nunca restaura la perspectiva 3D.
     private var navigation3DAllowed: Bool { subscriptions.policy.canUse3DNavigation }
     private var effectiveNavigation3D: Bool { navigationMapEnabled && navigation3DAllowed }
+    @State private var checkingNavigation3DAccess = false
+    @State private var navigation3DVerificationFailed = false
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -2071,6 +2073,11 @@ struct LiveActivityView: View {
                 Button("Aceptar", role: .cancel) { routeError = nil }
             } message: {
                 Text(routeError ?? "")
+            }
+            .alert("No se pudo comprobar Pro", isPresented: $navigation3DVerificationFailed) {
+                Button("Aceptar", role: .cancel) {}
+            } message: {
+                Text("No se ha podido verificar tu suscripción ahora. Comprueba tu acceso en Ajustes o restaura tus compras.")
             }
             .sheet(isPresented: $showDiscard) {
                 OGConfirmSheet(
@@ -2531,12 +2538,37 @@ struct LiveActivityView: View {
     /// no ha entregado una posición. Nunca limitarse a cambiar el relieve:
     /// es la inclinación de la cámara lo que hace visible la perspectiva.
     private func toggleNavigationMapMode() {
-        guard navigation3DAllowed else {
-            subscriptions.presentPaywall(.generic)
+        guard !checkingNavigation3DAccess else { return }
+
+        // Si ya navega en 3D, 2D siempre es accesible sin comprobar compras.
+        if effectiveNavigation3D || navigation3DAllowed {
+            applyNavigationMapModeChange()
             return
         }
+
+        // El snapshot puede estar desactualizado (TestFlight / restauración
+        // tardía). Verificar derechos firmados antes de mostrar una venta.
+        checkingNavigation3DAccess = true
+        Task { @MainActor in
+            defer { checkingNavigation3DAccess = false }
+            await subscriptions.refreshEntitlementsForFeatureAction()
+            if navigation3DAllowed {
+                // Si ya estaba guardado 3D de una sesión anterior, no
+                // invertir la preferencia al recuperar una compra tardía.
+                applyNavigationMapModeChange(activate3D: true)
+            } else if subscriptions.snapshot.status == .unknown
+                        || subscriptions.snapshot.lastRefreshFailedOffline
+                        || !subscriptions.snapshot.isConfigured {
+                navigation3DVerificationFailed = true
+            } else {
+                subscriptions.presentPaywall(.generic)
+            }
+        }
+    }
+
+    private func applyNavigationMapModeChange(activate3D: Bool? = nil) {
         cancelPendingMapRecenter()
-        navigationMapEnabled.toggle()
+        navigationMapEnabled = activate3D ?? !navigationMapEnabled
         hasAppliedStored3DCamera = true
         mapIsCentered = true
         if let user = recorder.currentCoordinate {
@@ -2544,8 +2576,6 @@ struct LiveActivityView: View {
         } else if let camera = lastVisibleMapCamera {
             applyNavigationPitch(to: camera)
         } else {
-            // El modo queda guardado y se aplicará al primer encuadre de
-            // MapKit o en cuanto llegue la ubicación sin iniciar la sesión.
             hasAppliedStored3DCamera = false
         }
     }

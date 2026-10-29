@@ -27,30 +27,33 @@ struct PaywallView: View {
     private var annual: CommercialPackageInfo? { packages.first(where: \.isAnnual) }
     private var monthly: CommercialPackageInfo? { packages.first(where: { !$0.isAnnual }) }
 
-    private let highlights: [(symbol: String, title: String, detail: String)] = [
-        ("chart.line.uptrend.xyaxis", "Tu evolución, al detalle", "Historial completo por ejercicio, marcas y e1RM."),
-        ("map", "Navegación de rutas en 3D", "Sigue tus recorridos con perspectiva 3D y orientación en marcha, solo con Repera Pro."),
-        ("chart.bar.xaxis", "Entiende cómo progresas", "Todos los periodos, recuperación y análisis muscular avanzado."),
-        ("square.stack", "Más espacio para entrenar", "Rutinas, favoritos y ejercicios propios sin límites."),
-        ("camera.viewfinder", "Escanea cualquier WOD", "Escáner de pizarras ilimitado y comparativas de resultados."),
-        ("arrow.up.right", "Progresa con criterio", "Sugerencias de carga basadas en tus entrenamientos.")
-    ]
+    /// Comparativa real: una única sección, sin ventajas duplicadas.
+    private var comparisonRows: [(label: String, free: String, pro: String)] {
+        [
+            ("Mapa", "2D", "2D + 3D"),
+            ("Progreso", "Esta semana", "Todos los periodos"),
+            ("Por ejercicio", "Última + récord", "Historial completo"),
+            ("Rutinas / favoritos", "\(FreePlanLimits.maxLibraryRoutines) / \(FreePlanLimits.maxFavoriteItems)", "Sin límites"),
+            ("Ejercicios propios", "\(FreePlanLimits.maxCustomExercises)", "Sin límites"),
+            ("Escáner WOD", "\(FreePlanLimits.maxBoardScansPerMonth)/mes", "Ilimitado"),
+            ("Análisis y WOD", "Básico", "Avanzado")
+        ]
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 30) {
+                VStack(alignment: .leading, spacing: 14) {
                     navigationHeader
                     hero
-                    benefitSection
                     comparison
                     plansSection
                     secondaryActions
                     legalFooter
                 }
                 .padding(.horizontal, OG.pad)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
+                .padding(.top, 6)
+                .padding(.bottom, 12)
                 .frame(maxWidth: OG.contentColumnMaxWidth)
                 .frame(maxWidth: .infinity)
             }
@@ -110,126 +113,82 @@ struct PaywallView: View {
 
     private var hero: some View {
         HStack(alignment: .center, spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Entrena sin límites.")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Todo tu progreso.")
+                    .font(.system(size: 27, weight: .bold, design: .rounded))
                     .tracking(-1)
                     .foregroundStyle(OG.label)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Descubre todo lo que hay detrás de cada entrenamiento.")
-                    .font(.subheadline)
+                Text("Desbloquea el siguiente nivel de Repera.")
+                    .font(.footnote)
                     .foregroundStyle(OG.label2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            ReperaMascot(pose: .hero, maxHeight: 152)
-                .frame(width: 142, height: 160)
+            ReperaMascot(pose: .hero, maxHeight: 96)
+                .frame(width: 100, height: 106)
                 .offset(y: mascotRaised ? -5 : 4)
                 .accessibilityHidden(true)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 2)
         .background(alignment: .trailing) {
             Circle()
                 .fill(OG.accent.opacity(0.11))
-                .frame(width: 174, height: 174)
-                .blur(radius: 44)
+                .frame(width: 114, height: 114)
+                .blur(radius: 32)
                 .offset(x: 5, y: mascotRaised ? -8 : 5)
                 .accessibilityHidden(true)
         }
         .accessibilityElement(children: .combine)
     }
 
-    private var benefitSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            sectionHeading("ESTO CAMBIA CON PRO")
-            if context != .generic && context != .settings && context != .onboarding {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "sparkle")
-                        .foregroundStyle(OG.accent)
-                    Text(context.headline)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(OG.label)
-                }
-            }
-            ForEach(highlights.indices, id: \.self) { index in
-                let item = highlights[index]
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: item.symbol)
-                        .font(.system(size: 20, weight: .regular))
-                        .foregroundStyle(OG.accent)
-                        .frame(width: 28)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(OG.label)
-                        Text(item.detail)
-                            .font(.footnote)
-                            .foregroundStyle(OG.label2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                }
-                if index < highlights.count - 1 {
-                    Divider()
-                        .padding(.leading, 42)
-                }
-            }
-        }
-    }
-
     private var comparison: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeading("GRATIS FRENTE A PRO")
-            HStack(alignment: .top, spacing: 12) {
-                comparisonColumn(
-                    name: "Gratis",
-                    title: "Empieza",
-                    detail: "Mapa 2D, progreso semanal y herramientas esenciales.",
-                    pro: false
-                )
-                comparisonColumn(
-                    name: "Pro",
-                    title: "Evoluciona",
-                    detail: "Navegación 3D, análisis avanzado y herramientas sin límites.",
-                    pro: true
-                )
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeading("GRATIS VS PRO")
+            HStack(spacing: 8) {
+                Text("FUNCIÓN")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(OG.label2)
+                Text("GRATIS")
+                    .frame(width: 99, alignment: .center)
+                    .foregroundStyle(OG.label2)
+                Text("PRO")
+                    .frame(width: 102, alignment: .center)
+                    .foregroundStyle(OG.accent)
             }
-            Text("En Gratis: 3 rutinas, 3 favoritos, 5 ejercicios propios y 4 escaneos al mes.")
-                .font(.caption)
-                .foregroundStyle(OG.label2)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
+            .font(.system(size: 10, weight: .semibold))
+            .padding(.bottom, 3)
 
-    private func comparisonColumn(name: String, title: String, detail: String, pro: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(name.uppercased())
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .tracking(1)
-                .foregroundStyle(pro ? OG.accent : OG.label2)
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(OG.label)
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(OG.label2)
+            ForEach(comparisonRows.indices, id: \.self) { index in
+                let item = comparisonRows[index]
+                HStack(alignment: .center, spacing: 8) {
+                    Text(item.label)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(OG.label)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(item.free)
+                        .foregroundStyle(OG.label2)
+                        .frame(width: 99, alignment: .center)
+                    Text(item.pro)
+                        .foregroundStyle(OG.label)
+                        .frame(width: 102, alignment: .center)
+                }
+                .font(.system(size: 11))
+                .minimumScaleFactor(0.82)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, minHeight: 115, alignment: .topLeading)
-        .padding(14)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
-        .overlay {
-            RoundedRectangle(cornerRadius: OG.radiusCard)
-                .strokeBorder(pro ? OG.accent.opacity(0.7) : OG.surface3, lineWidth: 1)
+                .padding(.vertical, 3)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(item.label): Gratis, \(item.free); Pro, \(item.pro)")
+                Divider()
+                    .overlay(OG.surface3.opacity(0.45))
+            }
         }
     }
 
     private var plansSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 7) {
             sectionHeading("ELIGE TU PLAN")
             if packages.isEmpty {
                 VStack(alignment: .leading, spacing: 7) {
@@ -289,7 +248,8 @@ struct PaywallView: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.trailing)
             }
-            .padding(OG.pad)
+            .padding(.horizontal, OG.pad)
+            .padding(.vertical, 10)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
             .overlay {
                 RoundedRectangle(cornerRadius: OG.radiusCard)
@@ -323,15 +283,15 @@ struct PaywallView: View {
                     .font(.system(size: 14, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, 13)
             .foregroundStyle(OG.onAccent)
             .background(OG.accent, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
         .disabled(selectedProductID == nil || subscriptions.purchaseInFlight || packages.isEmpty)
         .padding(.horizontal, OG.pad)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 5)
         .frame(maxWidth: OG.contentColumnMaxWidth)
         .frame(maxWidth: .infinity)
         .background(OG.bg)
@@ -342,41 +302,56 @@ struct PaywallView: View {
     }
 
     private var secondaryActions: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 6) {
             if mode == .onboarding {
                 Button("Seguir con Gratis") { onContinueFree?() }
-                    .font(.subheadline.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(OG.label)
             }
-            Button("Restaurar compras") {
-                Task {
-                    let ok = await subscriptions.restorePurchases()
-                    if ok {
-                        if mode == .onboarding { onPurchaseSuccess?() }
-                    } else {
-                        showError = true
-                    }
-                }
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(OG.accent)
-            .disabled(subscriptions.purchaseInFlight)
 
-            if mode == .sheet {
-                Button("Gestionar suscripción") {
-                    openURL(CommercialConfig.manageSubscriptionsURL)
+            // Una línea en anchura normal. Accesibilidad y pantallas muy
+            // estrechas conservan todos los enlaces mediante fallback 2×2.
+            ViewThatFits(in: .horizontal) {
+                actionLinksRow
+                LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 6) {
+                    actionLinks
                 }
                 .font(.footnote)
                 .foregroundStyle(OG.label2)
             }
-            HStack(spacing: 20) {
-                Button("Privacidad") { openURL(CommercialConfig.privacyPolicyURL) }
-                Button("Términos") { openURL(CommercialConfig.termsOfUseURL) }
-            }
-            .font(.caption)
-            .foregroundStyle(OG.label2)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var actionLinksRow: some View {
+        HStack(spacing: 8) {
+            actionLinks
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(OG.label2)
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var actionLinks: some View {
+        Button("Restaurar") {
+            Task {
+                let restored = await subscriptions.restorePurchases()
+                if restored {
+                    if mode == .onboarding { onPurchaseSuccess?() }
+                } else {
+                    showError = true
+                }
+            }
+        }
+        .disabled(subscriptions.purchaseInFlight)
+        .accessibilityLabel("Restaurar compras")
+        Button("Gestionar") { openURL(CommercialConfig.manageSubscriptionsURL) }
+            .accessibilityLabel("Gestionar suscripción")
+        Button("Privacidad") { openURL(CommercialConfig.privacyPolicyURL) }
+        Button("Términos") { openURL(CommercialConfig.termsOfUseURL) }
     }
 
     private var legalFooter: some View {
