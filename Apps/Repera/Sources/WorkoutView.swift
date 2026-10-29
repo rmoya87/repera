@@ -785,10 +785,10 @@ struct WorkoutView: View {
     private func playReorderExerciseSection(_ block: RoutineBlock) -> some View {
         let rows: [(id: UUID, name: String)] = {
             if block.kind == .strength {
-                return block.exercises.map {
+                return block.exercises.map { item in
                     (
-                        $0.id,
-                        store.state.exercises.first(where: { ex in ex.id == $0.exerciseId })?.name ?? "Ejercicio"
+                        item.id,
+                        store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio"
                     )
                 }
             }
