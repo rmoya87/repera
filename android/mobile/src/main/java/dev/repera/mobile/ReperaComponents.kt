@@ -20,7 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
@@ -36,6 +38,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -83,14 +86,19 @@ fun reperaPrimaryButtonColors() = ButtonDefaults.buttonColors(
     contentColor = MaterialTheme.colorScheme.onPrimary
 )
 
+/** Colores tipo UISwitch iOS: pista verde #30D158 / gris, knob blanco. */
 @Composable
 fun reperaSwitchColors() = SwitchDefaults.colors(
-    checkedTrackColor = MaterialTheme.colorScheme.primary,
-    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-    checkedBorderColor = MaterialTheme.colorScheme.primary,
-    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-    uncheckedBorderColor = MaterialTheme.colorScheme.outline
+    checkedTrackColor = brandGreen,
+    checkedThumbColor = Color.White,
+    checkedBorderColor = Color.Transparent,
+    uncheckedTrackColor = Color(0xFFE9E9EB),
+    uncheckedThumbColor = Color.White,
+    uncheckedBorderColor = Color(0xFFE9E9EB),
+    disabledCheckedTrackColor = brandGreen.copy(alpha = 0.4f),
+    disabledCheckedThumbColor = Color.White,
+    disabledUncheckedTrackColor = Color(0xFFE9E9EB).copy(alpha = 0.5f),
+    disabledUncheckedThumbColor = Color.White
 )
 
 @Composable
@@ -253,7 +261,7 @@ fun ReperaPageHeader(
     }
 }
 
-/** Toolbar del editor de entreno (paridad DayEditorChromeModifier): ← circular + ✓ verde. */
+/** Toolbar del editor de entreno (paridad DayEditorChromeModifier): ← glass + ✓ verde. */
 @Composable
 fun DayEditorTopBar(
     onBack: () -> Unit,
@@ -269,20 +277,13 @@ fun DayEditorTopBar(
             .padding(bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
+        ReperaToolbarGlassIconButton(
+            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+            contentDescription = "Volver",
             onClick = onBack,
             enabled = !busy,
-            modifier = Modifier
-                .size(44.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                .testTag("editor_back")
-        ) {
-            Icon(
-                Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "Volver",
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
+            modifier = Modifier.testTag("editor_back")
+        )
         Spacer(Modifier.weight(1f))
         IconButton(
             onClick = onConfirm,
@@ -290,8 +291,8 @@ fun DayEditorTopBar(
             modifier = Modifier
                 .size(44.dp)
                 .background(
-                    if (confirmEnabled && !busy) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                    if (confirmEnabled && !busy) brandGreen
+                    else brandGreen.copy(alpha = 0.4f),
                     CircleShape
                 )
                 .testTag("editor_confirm")
@@ -299,7 +300,7 @@ fun DayEditorTopBar(
             Icon(
                 Icons.Outlined.Check,
                 contentDescription = confirmContentDescription,
-                tint = MaterialTheme.colorScheme.onPrimary
+                tint = Color.Black
             )
         }
     }
@@ -474,7 +475,10 @@ internal fun ExerciseListThumb(
     }
 }
 
-/** Fila de biblioteca — paridad `LibraryExerciseRowLabel` + chevron iOS. */
+/**
+ * Fila de biblioteca dentro de una tarjeta agrupada (iOS List/OGCard).
+ * No envuelve en card propia — el contenedor aporta borde/divisores.
+ */
 @Composable
 internal fun LibraryExerciseListRow(
     title: String,
@@ -486,41 +490,122 @@ internal fun LibraryExerciseListRow(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
 ) {
-    ReperaCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        selected = selected
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer
+    else Color.Transparent
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ExerciseListThumb(name, sportTag, aliases)
-            Column(modifier = Modifier.weight(1f)) {
+        ExerciseListThumb(name, sportTag, aliases)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle.isNotBlank()) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (subtitle.isNotBlank()) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            }
+        }
+        Icon(
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * Half-sheet de confirmación destructiva (paridad OGConfirmSheet iOS):
+ * icono grande, título, mensaje, botón rojo a todo el ancho + Cancelar.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReperaConfirmSheet(
+    title: String,
+    message: String,
+    confirmTitle: String,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Outlined.Delete,
+    confirmDestructive: Boolean = true,
+) {
+    ReperaModalBottomSheet(
+        onDismissRequest = onCancel,
+        modifier = modifier.testTag("repera_confirm_sheet")
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = if (confirmDestructive) Color(0xFFFF453A)
+                    else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(44.dp)
+                )
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("confirm_sheet_confirm"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (confirmDestructive) Color(0xFFFF453A)
+                        else brandGreen,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(confirmTitle, fontWeight = FontWeight.Bold)
+                }
+                TextButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("confirm_sheet_cancel")
+                ) {
+                    Text("Cancelar", fontWeight = FontWeight.SemiBold)
                 }
             }
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

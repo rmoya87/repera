@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -517,20 +518,25 @@ internal fun StandaloneTimerScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
-            }
+            ReperaToolbarGlassIconButton(
+                icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Volver",
+                onClick = onBack,
+                modifier = Modifier.testTag("timer_back")
+            )
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = {
-                saveTitle = editingFavoriteId?.let { id ->
-                    favorites.firstOrNull { it.id == id }?.title
-                } ?: config.defaultFavoriteTitle
-                showSaveDialog = true
-            }) {
-                Icon(Icons.Outlined.Star, contentDescription =
-                    if (editingFavoriteId == null) "Guardar en favoritos"
-                    else "Actualizar favorito")
-            }
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.Star,
+                contentDescription = if (editingFavoriteId == null) "Guardar en favoritos"
+                else "Actualizar favorito",
+                onClick = {
+                    saveTitle = editingFavoriteId?.let { id ->
+                        favorites.firstOrNull { it.id == id }?.title
+                    } ?: config.defaultFavoriteTitle
+                    showSaveDialog = true
+                },
+                modifier = Modifier.testTag("timer_favorite")
+            )
         }
         ReperaPageHeader(
             title = "Temporizador",

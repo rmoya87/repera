@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Search
@@ -1395,21 +1396,27 @@ internal fun SettingsTab(
 ) {
     var confirmSignOut by remember {mutableStateOf(false)}
     var confirmDeleteAccount by remember {mutableStateOf(false)}
-    if(confirmSignOut) androidx.compose.material3.AlertDialog(
-        onDismissRequest={confirmSignOut=false},title={Text("¿Cerrar sesión?")},
-        text={Text("Volverás al acceso con Google. Tus datos locales se conservan.")},
-        confirmButton={androidx.compose.material3.TextButton(enabled=!busy,onClick={confirmSignOut=false;onSignOut()}) {Text("Cerrar sesión")}},
-        dismissButton={androidx.compose.material3.TextButton(onClick={confirmSignOut=false}) {Text("Cancelar")}})
-    if(confirmDeleteAccount) androidx.compose.material3.AlertDialog(
-        onDismissRequest={if(!deletingAccount) confirmDeleteAccount=false},
-        title={Text("¿Eliminar mi cuenta definitivamente?")},
-        text={Text("Se eliminarán definitivamente tu cuenta y tus datos personales almacenados en Repera. Las empresas vinculadas conservarán como histórico de solo lectura los registros que ya tenían autorizados, sin acceso a tu cuenta ni posibilidad de generar actividad nueva. Esta acción no se puede deshacer. Health Connect y las suscripciones de Google Play se gestionan por separado.")},
-        confirmButton={androidx.compose.material3.TextButton(
-            enabled=!busy && !deletingAccount,
-            onClick={confirmDeleteAccount=false;onDeleteAccount()}) {Text("Eliminar mi cuenta")}},
-        dismissButton={androidx.compose.material3.TextButton(
-            enabled=!deletingAccount,
-            onClick={confirmDeleteAccount=false}) {Text("Cancelar")}})
+    if (confirmSignOut) {
+        ReperaConfirmSheet(
+            title = "¿Cerrar sesión?",
+            message = "Volverás al acceso con Google. Tus datos locales se conservan.",
+            confirmTitle = "Cerrar sesión",
+            onConfirm = { confirmSignOut = false; onSignOut() },
+            onCancel = { confirmSignOut = false },
+            icon = Icons.Outlined.Logout,
+            confirmDestructive = true
+        )
+    }
+    if (confirmDeleteAccount) {
+        ReperaConfirmSheet(
+            title = "¿Eliminar mi cuenta definitivamente?",
+            message = "Se eliminarán definitivamente tu cuenta y tus datos personales almacenados en Repera. Las empresas vinculadas conservarán como histórico de solo lectura los registros que ya tenían autorizados, sin acceso a tu cuenta ni posibilidad de generar actividad nueva. Esta acción no se puede deshacer. Health Connect y las suscripciones de Google Play se gestionan por separado.",
+            confirmTitle = "Eliminar mi cuenta",
+            onConfirm = { confirmDeleteAccount = false; onDeleteAccount() },
+            onCancel = { if (!deletingAccount) confirmDeleteAccount = false },
+            confirmDestructive = true
+        )
+    }
     if(accountDeleteError!=null) androidx.compose.material3.AlertDialog(
         onDismissRequest=onDismissAccountDeleteError,
         title={Text("No se ha podido eliminar la cuenta")},
@@ -1421,20 +1428,13 @@ internal fun SettingsTab(
     Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (onBack != null) {
-            IconButton(
+            ReperaToolbarGlassIconButton(
+                icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Volver",
                 onClick = onBack,
                 enabled = !busy,
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                    .testTag("settings_back")
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
+                modifier = Modifier.testTag("settings_back")
+            )
         }
         ReperaPageHeader(title = "Ajustes")
         val settingsSubs = LocalSubscriptions.current
@@ -1540,6 +1540,7 @@ internal fun SettingsTab(
                     SettingsListRow(
                         title = "Restaurar compras",
                         enabled = !busy && !restoreBusy,
+                        showChevron = false,
                         onClick = {
                             accessFeedbackTitle = "Restaurar compras"
                             restoreBusy = true

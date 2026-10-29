@@ -463,8 +463,9 @@ fun AIAccessScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        TextButton(onClick = onRefresh, enabled = connected && !busy) {
-            Text("Actualizar")
+        // R5 P2.8: iOS no muestra botón «Actualizar» suelto; refresco al abrir.
+        LaunchedEffect(connected) {
+            if (connected) onRefresh()
         }
     }
 

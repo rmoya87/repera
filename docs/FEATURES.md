@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-29 (Android R5: Play/nav/Photon/Progreso/preview/músculos ES/Comenzar/timer; resumen tiempo pared + pin elegido; tab bar en push)
+Última actualización: 2026-10-29 (Android R5 clima Open-Meteo + P2 glass/switches/confirm/tab dumbbell)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 
@@ -383,7 +383,7 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 
 - En la ficha de **Entreno** y la ficha de Apple Salud, los recorridos GPS (carrera, caminar, senderismo, bici y otras actividades exterior con ruta) permiten alternar mediante selector segmentado nativo **Cardio / Altitud** dentro de la misma tarjeta; curvas suavizadas (`catmullRom`) y clip del plot. En **Altitud**, los tiles son **máx / mín / media** de altitud (m); en **Cardio**, FC y velocidades.
 - La altitud procede de Core Location (solo muestras con precisión vertical válida), tanto de Apple Salud como de rutas nuevas grabadas por Repera; las rutas antiguas sin altitud muestran ausencia de datos, no desnivel inventado.
-- El clima forma **parte de la misma card del mapa** (franja inferior). **No se guarda en el entreno**: WeatherKit consulta temperatura, humedad y **velocidad histórica del viento (km/h)** al abrir el detalle (~1 km + atribución); fecha = `startedAt`/`finishedAt`. Si la consulta falla se indica «—»; no se muestra AQI.
+- El clima forma **parte de la misma card del mapa** (franja inferior). **No se guarda en el entreno**: en iOS WeatherKit consulta temperatura, humedad y **velocidad histórica del viento (km/h)** al abrir el detalle (~1 km + atribución); fecha = `startedAt`/`finishedAt`. Si la consulta falla se indica «—»; no se muestra AQI. En Android la franja equivalente usa Open-Meteo (`weather_android: open_meteo`) con la misma tríada de métricas y atribución «Open-Meteo».
 - **Parciales:** columnas KM, Tiempo, **Ritmo** (valores `/km`) o `km/h` en bici, y **Frec. cardiaca** (valores en LPM). Sin pie explicativo bajo la tabla.
 - En actividades sin GPS válido o con menos de 1 km no se inventan parciales. Natación y cardio de interior no muestran parciales estimados a partir del tiempo total.
 - Son métricas **locales**: las rutas, altitudes, FC y datos meteorológicos/AQI no se añaden al espejo de Supabase.

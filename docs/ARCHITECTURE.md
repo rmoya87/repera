@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-29 (Android R5: Play/nav/Photon/Progreso segmentado/preview página/músculos ES/Comenzar 3D+sheets/timer Arriba)
+Última actualización: 2026-10-29 (Android R5 clima Open-Meteo + P2 glass/switches/confirm/tab dumbbell)
 
 ## Series de movilidad (iOS)
 
@@ -324,7 +324,7 @@ El campo histórico `supersetGroup` permanece en el formato Codable para abrir c
 
 ### Cardio con GPS (solo iPhone)
 
-`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa, `catmullRom` + clip), selector Cardio/Altitud con tiles contextuales, parciales y `SessionMapWeatherCard`. WeatherKit **no se persiste**: se pide al abrir el detalle (`startedAt`/`finishedAt`, no `.distantPast`); requiere capacidad en App ID + entitlement; si falla → «—». El clima histórico muestra viento (km/h) en lugar de AQI, que no está disponible.
+`CardioRouteAnalysis` (ReperaDomain) recibe coordenadas/fechas y FC, filtra saltos GPS, calcula distancia con haversine e interpola los instantes de cruce de cada kilómetro. Devuelve perfil altimétrico y parciales únicamente para tramos válidos; no hace peticiones a red. `HealthKitStore.RoutePoint.altitudeMeters` y `WorkoutRoutePoint.altitudeMeters` son opcionales, preservan rutas antiguas y pueden provenir de GPS de Apple Salud o Core Location. `CardioRouteComponents` usa Swift Charts (selección x nativa, `catmullRom` + clip), selector Cardio/Altitud con tiles contextuales, parciales y `SessionMapWeatherCard`. WeatherKit **no se persiste**: se pide al abrir el detalle (`startedAt`/`finishedAt`, no `.distantPast`); requiere capacidad en App ID + entitlement; si falla → «—». El clima histórico muestra viento (km/h) en lugar de AQI, que no está disponible. En Android la misma franja Tiempo/Humedad/Viento usa Open-Meteo (`HistoricalWeatherLogic` + `RouteWeatherStrip`; `weather_android: open_meteo`), con atribución y sin persistir.
 
 `BusinessWorkoutSyncStore.privateMirrorPayload` elimina `routePoints`, `locationPin` y datos de HealthKit antes de transmitir a Supabase. La posición inicial del recorrido se redondea a 2 decimales (~1 km) antes de consultar WeatherKit; nunca se envía el recorrido completo ni se comunica nada a Supabase.
 

@@ -356,31 +356,53 @@ internal fun ExercisesTab(
                 subtitle = "Prueba otro filtro o busca por nombre"
             )
         }
-        // iOS: la búsqueda siempre es plana (relevancia); sin búsqueda, los
-        // modos Músculo/Material agrupan en secciones ordenadas con collator es.
+        // iOS: una tarjeta agrupada con divisores (no cards sueltas por fila).
+        // Búsqueda plana; sin búsqueda, Músculo/Material agrupan por sección.
         if (exerciseSections != null) {
             exerciseSections.forEach { (groupKey, groupEntries) ->
                 item(key = "hdr-" + exerciseSort + "-" + groupKey) {
                     Text(groupKey, style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(top = 4.dp))
                 }
-                items(groupEntries, key = { it.id }) { entry ->
-                    ExerciseLibraryRow(
-                        entry = entry,
-                        aliases = englishAliases,
-                        selected = selectedExerciseId == entry.id,
-                        onClick = { openExercise(entry.id) }
-                    )
+                item(key = "grp-" + exerciseSort + "-" + groupKey) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            groupEntries.forEachIndexed { index, entry ->
+                                if (index > 0) {
+                                    androidx.compose.material3.HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                                    )
+                                }
+                                ExerciseLibraryRow(
+                                    entry = entry,
+                                    aliases = englishAliases,
+                                    selected = selectedExerciseId == entry.id,
+                                    onClick = { openExercise(entry.id) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         } else {
-            items(entries, key = { it.id }) { entry ->
-                ExerciseLibraryRow(
-                    entry = entry,
-                    aliases = englishAliases,
-                    selected = selectedExerciseId == entry.id,
-                    onClick = { openExercise(entry.id) }
-                )
+            item(key = "library-grouped") {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        entries.forEachIndexed { index, entry ->
+                            if (index > 0) {
+                                androidx.compose.material3.HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                                )
+                            }
+                            ExerciseLibraryRow(
+                                entry = entry,
+                                aliases = englishAliases,
+                                selected = selectedExerciseId == entry.id,
+                                onClick = { openExercise(entry.id) }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
