@@ -730,10 +730,17 @@ internal fun DragReorderItem(
     val moveActions = if (onMoveTo == null) emptyList() else moveActionTargets(index, count).map { (label, target) ->
         androidx.compose.ui.semantics.CustomAccessibilityAction(label) { onMoveTo(target); true }
     }
-    Column(Modifier
+    // Arrastre: zIndex + sombra tenue con esquinas redondeadas (sin pico / clip).
+    val lifting = dragging || dy != 0f
+    Column(modifier
         .semantics { customActions = moveActions }
-        .zIndex(if (dy != 0f) 1f else 0f)
-        .graphicsLayer { translationY = dy }
+        .zIndex(if (lifting) 2f else 0f)
+        .graphicsLayer {
+            translationY = dy
+            shadowElevation = if (lifting) 18f else 0f
+            shape = RoundedCornerShape(14.dp)
+            clip = false
+        }
         .onSizeChanged { heights[index] = it.height; sizePx = it }
         .onGloballyPositioned { c ->
             val p = c.positionInRoot().y
