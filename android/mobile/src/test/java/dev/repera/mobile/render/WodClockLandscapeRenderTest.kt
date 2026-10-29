@@ -23,7 +23,7 @@ import java.io.FileOutputStream
 class WodClockLandscapeRenderTest {
  @get:Rule val rule=createComposeRule()
  @Test fun intervalClockFitsCompactLandscape() {
-  val active=ActiveWorkout("fixture","EMOM de prueba",0,1,"WOD",0,null,null,
+  val active=ActiveWorkout("fixture","EMOM de prueba",0,1,exerciseName="WOD",completedSets=0,prescribedQuantity=null,prescribedWeightKg=null,
    allowsWeight=false,sets=emptyList(),wod=WodExecution("emom","PER_MOVEMENT_SETS",false,"Intervalos de prueba",emptyList(),intervalSeconds=60,rounds=12))
   rule.setContent {MaterialTheme {Box(Modifier.fillMaxSize().testTag("clock-root")) {
    WodClockScreen(active,false,WodTimerState(65000,false),{}, {}, {},requestNotificationPermission=false)

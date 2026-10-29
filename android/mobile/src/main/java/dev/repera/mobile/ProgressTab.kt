@@ -108,7 +108,8 @@ internal fun ProgressTab(
     // The inline archive is recent; aggregate snapshots use the complete local archive.
     val recent = overview?.history.orEmpty()
     val subscriptions = LocalSubscriptions.current
-    var topic by rememberSaveable {mutableStateOf("Entreno")}
+    // R4 #41: sin pestañas (paridad iOS StatsView). Constante para no tocar ramas legacy.
+    val topic = "Entreno"
     val pro=subscriptions?.isPro ?: true
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
@@ -122,10 +123,6 @@ internal fun ProgressTab(
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
-    // Apple StatsView: las tres pestañas comparten scroll; al cambiar se vuelve al encabezado sin animación
-    // (un offset heredado de Entreno dejaba la vista vacía). No se dispara en la composición inicial/restaurada.
-    var shownTopic by remember {mutableStateOf(topic)}
-    LaunchedEffect(topic) {if(topic!=shownTopic) {shownTopic=topic;dragListState.scrollToItem(0)}}
     ProvideLazyDragAutoScroll(dragListState) {
     if (showRangePicker) {
         ProgressRangePickerSheet(
@@ -159,17 +156,9 @@ internal fun ProgressTab(
                 }
             )
         }
-        item {
-            ReperaTopicSegmentedPicker(
-                options = listOf("Entreno", "Actividad", "Recuperación"),
-                selected = topic,
-                onSelected = { topic = it }
-            )
-        }
-        if (topic == "Entreno" && snapshot != null) {
+        if (snapshot != null) {
             item { ProgressMetricsTilesGrid(snapshot, pro) }
         }
-        if(topic=="Entreno") {
         // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
         if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
             ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
@@ -180,9 +169,6 @@ internal fun ProgressTab(
         }
         // iOS StatsView: tiles Entrenos/Tiempo/Racha + Actividad + Equilibrio;
         // sin tarjeta «N sesiones» ni párrafo técnico.
-        }
-
-        if(topic=="Actividad") item { TextButton(onClick=onOpenBodyWeights,enabled=overview!=null) {Text("Peso corporal · registrar e historial")} }
         if (snapshot != null) {
             if(topic=="Entreno") {
             item { ReperaSectionTitle("Resumen · " + snapshot.range.subtitleLabel) }

@@ -80,8 +80,8 @@ internal fun CenterTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { Text("Center", style = MaterialTheme.typography.headlineMedium) }
-        item { TextButton(onClick={showDirectory=true}) {Text("Buscar centro o entrenador")} }
+        item { Text("Buscar", style = MaterialTheme.typography.displayLarge) }
+        item { TextButton(onClick={showDirectory=true}) {Text("Busca tu entrenador o centro")} }
         item { Text("Mis centros y entrenadores",
             style = MaterialTheme.typography.titleMedium) }
         if (!connected) {

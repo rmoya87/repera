@@ -36,7 +36,8 @@ internal val reperaShapes = Shapes(
     small = RoundedCornerShape(10.dp),
     medium = RoundedCornerShape(14.dp),
     large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(28.dp)
+    // iOS OG.radiusSheet ≈ 44 (R4 tokens).
+    extraLarge = RoundedCornerShape(44.dp)
 )
 
 /**
@@ -54,9 +55,9 @@ internal val reperaTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.3).sp
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.4).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,

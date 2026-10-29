@@ -33,11 +33,8 @@ internal data class BlockFormatOption(
 )
 
 internal object BlockFormatCatalog {
+    /** Orden iOS PlanView (Sin formato aparte): AMRAP… luego Fuerza/Skill, AFAP… */
     val options: List<BlockFormatOption> = listOf(
-        BlockFormatOption(
-            "strength", "Fuerza / Skill",
-            "Bloque de fuerza/técnica: 5×5, 3×8 @RPE, skill."
-        ),
         BlockFormatOption(
             "amrap", "AMRAP",
             "Máximas rondas/reps en un tiempo fijo (AMRAP 12', AMRAP 10 min)."
@@ -61,6 +58,10 @@ internal object BlockFormatCatalog {
         BlockFormatOption(
             "deathBy", "Muerte por",
             "Cada minuto sumas 1 rep (u otra progresión) hasta fallar."
+        ),
+        BlockFormatOption(
+            "strength", "Fuerza / Skill",
+            "Bloque de fuerza/técnica: 5×5, 3×8 @RPE, skill."
         ),
         BlockFormatOption(
             "afap", "AFAP",
@@ -119,8 +120,8 @@ internal fun BlockFormatPickerSheet(
             ) {
                 item {
                     FormatRow(
-                        title = "Sin formato · libre",
-                        description = "Bloque sin plantilla de reloj; fuerza libre.",
+                        title = "Sin formato",
+                        description = null,
                         selected = current.isBlank(),
                         leading = {
                             Icon(
@@ -148,7 +149,7 @@ internal fun BlockFormatPickerSheet(
 @Composable
 private fun FormatRow(
     title: String,
-    description: String,
+    description: String?,
     selected: Boolean,
     leading: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
@@ -170,11 +171,13 @@ private fun FormatRow(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
                 color = if (selected) brandGreen else MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (!description.isNullOrBlank()) {
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         Icon(
             Icons.AutoMirrored.Outlined.KeyboardArrowRight,

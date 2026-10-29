@@ -343,7 +343,8 @@ fun RoutineBlocksEditorScreen(
                 nameById = nameById,
                 exercises = exercises,
                 loadGuideProvider = loadGuideProvider,
-                onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
+                // iOS permite Eliminar bloque aunque quede uno (R4 #20 / P2 #17).
+                onRemove = { blocks.removeAt(index) },
                 onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
                 onInsertRestBlock = {
                     val rest = EditorBlockOps.restMovement()
@@ -781,21 +782,21 @@ private fun BlockEditorCard(
             // Campos alineados con iOS fieldsForFormat (PlanView).
             when (block.format) {
                 "amrap", "afap", "chipper", "buyInCashOut", "maxEffort" ->
-                    NumberRow(block, "Tiempo (min)" to "timeCap")
+                    NumberRow(block, "TIEMPO (min)" to "timeCap")
                 "forTime" ->
-                    NumberRow(block, "Rondas" to "rounds", "Tiempo (min)" to "timeCap",
+                    NumberRow(block, "Rondas" to "rounds", "TIEMPO (min)" to "timeCap",
                         "Entre rondas (s)" to "roundRest")
                 "roundsForQuality", "partner" ->
-                    NumberRow(block, "Rondas" to "rounds", "Tiempo (min)" to "timeCap")
+                    NumberRow(block, "Rondas" to "rounds", "TIEMPO (min)" to "timeCap")
                 "emom", "circuit" ->
-                    NumberRow(block, "Tiempo (min)" to "timeCap", "Intervalo (s)" to "interval")
+                    NumberRow(block, "TIEMPO (min)" to "timeCap", "Intervalo (s)" to "interval")
                 "deathBy" ->
                     NumberRow(block, "Rondas" to "rounds", "Intervalo (s)" to "interval")
                 "tabata" ->
                     NumberRow(block, "Trabajo (s)" to "work", "Descanso (s)" to "rest",
                         "Rondas" to "rounds")
                 "ladder" -> {
-                    NumberRow(block, "Tiempo (min)" to "timeCap")
+                    NumberRow(block, "TIEMPO (min)" to "timeCap")
                     OutlinedTextField(
                         value = block.ladder,
                         onValueChange = { block.ladder = it },

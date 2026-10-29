@@ -54,7 +54,7 @@ class RestPauseClusterRenderTest {
  }
  @Test fun singleClusterCanSaveWithoutUnrelatedBaseReps() {
   var saved:List<Pair<Int,Int>>?=null
-  val active=ActiveWorkout("fixture","Prueba",0,1,"Back squat",0,null,null,allowsWeight=true,sets=emptyList())
+  val active=ActiveWorkout("fixture","Prueba",0,1,exerciseName="Back squat",completedSets=0,prescribedQuantity=null,prescribedWeightKg=null,allowsWeight=true,sets=emptyList())
   rule.setContent {MaterialTheme {Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
    ActiveWorkoutCard(active,false,onLogSet={_,_,_,_,_,_,_,_->},onReviseSet={_,_,_,_,_,_->},onDeleteSet={},onNext={},onFinish={},
     onLogRestPauseSet={c,_,_,_->saved=c})

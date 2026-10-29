@@ -34,9 +34,10 @@ class BoardClassicReviewRenderTest {
    var drafts by remember {mutableStateOf(prepareBoardReview("Back squat",catalog,emptyMap()).classic)}
    Column(Modifier.verticalScroll(rememberScrollState())) {
     BoardClassicReviewEditor(drafts,false) {i,d ->drafts=drafts.mapIndexed {j,old ->if(i==j) d else old}}
-    BoardScanReviewConfirm("Revisada",emptyList(),true,drafts,catalog,false,"request-1") {title,blocks,request ->
-     assertEquals("Revisada",title);assertEquals("request-1",request);sent=blocks
-    }
+    BoardScanReviewConfirm("Revisada",emptyList(),true,drafts,catalog,false,"request-1",
+     onConfirm={title,blocks,request ->
+      assertEquals("Revisada",title);assertEquals("request-1",request);sent=blocks
+     })
    }
   }}}
   composeRule.onNodeWithText("3",useUnmergedTree=true).assertExists()
@@ -63,7 +64,8 @@ class BoardClassicReviewRenderTest {
    var drafts by remember {mutableStateOf(BoardClassicReview.drafts("Unknown",catalog))}
    Column {
     BoardClassicReviewEditor(drafts,false) {i,d ->drafts=drafts.mapIndexed {j,old ->if(i==j) d else old}}
-    BoardScanReviewConfirm("Review",emptyList(),true,drafts,catalog,false,"request") {_,_,_ ->calls++}
+    BoardScanReviewConfirm("Review",emptyList(),true,drafts,catalog,false,"request",
+     onConfirm={_,_,_ ->calls++})
    }
   }}}
   composeRule.onNodeWithText("Crear rutina").assertIsNotEnabled()

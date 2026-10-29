@@ -1318,9 +1318,11 @@ private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasC
         Box(Modifier.padding(top = 2.dp).size(4.dp).clip(androidx.compose.foundation.shape.CircleShape)
             .background(
                 when {
-                    !hasCompleted -> Color.Transparent
-                    isSelected -> Color.Black
-                    else -> brandGreen
+                    hasCompleted && isSelected -> Color.Black
+                    hasCompleted -> brandGreen
+                    // Punto bajo hoy aunque no haya entreno (paridad iOS weekSelector, R4 #2).
+                    isToday && !isSelected -> brandGreen.copy(alpha = 0.55f)
+                    else -> Color.Transparent
                 }
             ))
     }

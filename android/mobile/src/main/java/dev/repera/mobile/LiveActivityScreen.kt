@@ -88,7 +88,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
     }
     var navigationMode by remember {
-        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", false))
+        // iOS arranca en 3D; default true si no hay preferencia (R4 #36).
+        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", true))
     }
     fun setNavigationMode(enabled: Boolean) {
         navigationMode = enabled
@@ -137,7 +138,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     var routesVersion by remember { mutableStateOf(0) }
     var showRoutes by remember { mutableStateOf(false) }
     var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
-    var routeListMode by remember { mutableStateOf("Últimas 5") }
+    var routeListMode by remember { mutableStateOf("Últimas rutas") }
     LaunchedEffect(routesStore) {
         if (routesStore != null) {
             try {
@@ -367,7 +368,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 LiveMapCircleFab(Icons.Outlined.BarChart, "Ver métricas") { showingMetrics = true }
                 LiveMapCircleFab(
                     if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
-                    if (runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada"
+                    if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz"
                 ) {
                     runtime.toggleSpokenGuidance()
                     if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
@@ -505,7 +506,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                             TextButton(onClick = { confirmDiscard = true }) { Text("Descartar") }
                             TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
                                 Text(
-                                    if (runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada"
+                                    if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz"
                                 )
                             }
                         }
@@ -531,7 +532,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             }) {
-                Text(if (runtime.spokenGuidanceEnabled) "Guía hablada activada" else "Guía hablada desactivada")
+                Text(if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz")
             }
             if (state.sport.usesGPS) {
                 TextButton(onClick = { showRoutes = !showRoutes }) { Text("Biblioteca de rutas") }
@@ -550,13 +551,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     TextButton(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
                         colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) { Text("Importar GPX") }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("Últimas 5", "Favoritas", "Todas").forEach { mode ->
+                        listOf("Últimas rutas", "Favoritos", "Todas").forEach { mode ->
                             ReperaFilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })
                         }
                     }
                     val visibleRoutes = when (routeListMode) {
-                        "Últimas 5" -> routes.take(5)
-                        "Favoritas" -> routes.filter { it.isFavorite }
+                        "Últimas rutas" -> routes.take(5)
+                        "Favoritos" -> routes.filter { it.isFavorite }
                         else -> routes
                     }
                     visibleRoutes.forEach { route ->
@@ -665,7 +666,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     // Apple 213ce753/c9a8246a: el silencio de alertas habladas vive
                     // en el HUD de kilometraje compartido, tambien en metricas.
                     TextButton(onClick={runtime.toggleSpokenGuidance()}) {
-                        Text(if (runtime.spokenGuidanceEnabled) "Voz activada" else "Voz desactivada")
+                        Text(if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz")
                     }
                 }
             }
