@@ -105,7 +105,10 @@ internal fun RouteMapView(
     onCameraGesture:(()->Unit)? = null
 ) {
     val hasPremiumAccess = dev.repera.mobile.monetization.LocalSubscriptions.current?.isPro == true
-    if (AndroidMapProviderChoice.useGoogle(hasPremiumAccess, BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank())) {
+    if (AndroidMapProviderChoice.useGoogle(hasPremiumAccess, BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()) &&
+        com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(androidx.compose.ui.platform.LocalContext.current) ==
+        com.google.android.gms.common.ConnectionResult.SUCCESS) {
         GoogleRouteMapView(
             points = points, modifier = modifier, isInteractive = isInteractive,
             plannedRoute = plannedRoute, plannedPoints = plannedPoints,

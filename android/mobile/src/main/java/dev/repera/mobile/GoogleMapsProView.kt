@@ -29,6 +29,7 @@ import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import dev.repera.domain.AdaptiveRoutePace
@@ -100,6 +101,11 @@ internal fun GoogleRouteMapView(
         view.getMapAsync { ready ->
             ready.mapType = GoogleMap.MAP_TYPE_NORMAL
             ready.isBuildingsEnabled = true
+            if (controlsOverlay) {
+                // Logo y avisos legales visibles sobre los controles inferiores.
+                val bottom = (view.resources.displayMetrics.density * 140).toInt()
+                ready.setPadding(0, 0, 0, bottom)
+            }
             ready.uiSettings.apply {
                 isCompassEnabled = isInteractive
                 isRotateGesturesEnabled = isInteractive
@@ -124,19 +130,38 @@ internal fun GoogleRouteMapView(
             map = ready
         }
     }
-    LaunchedEffect(map, points, plannedRoute, plannedPoints, waterSport, paceMode, userPosition, userHeadingDegrees) {
+    var positionMarker by remember(view) { mutableStateOf<Marker?>(null) }
+    // La ruta se recalcula al recibir puntos, no con cada cambio del rumbo.
+    LaunchedEffect(map, points, plannedRoute, plannedPoints, waterSport, paceMode) {
         val ready = map ?: return@LaunchedEffect
         ready.clear()
+        positionMarker = null
         if (plannedPoints.size >= 2) drawGoogleRoute(ready, plannedPoints, true, waterSport, paceMode, emptyList())
         drawGoogleRoute(ready, points, plannedRoute, waterSport, paceMode, plannedPoints)
-        userPosition?.let { p ->
-            ready.addMarker(MarkerOptions().position(LatLng(p.latitude, p.longitude))
-                .anchor(0.5f, 0.5f).flat(true)
-                .icon(BitmapDescriptorFactory.fromBitmap(directionBitmap()))
-                .rotation((userHeadingDegrees ?: 0.0).toFloat())
-                .zIndex(100f))
+        if (!controlsOverlay && cameraCenter == null) {
+            view.post { if (map === ready) fitGoogleRoute(ready, points) }
         }
-        if (!controlsOverlay && cameraCenter == null) fitGoogleRoute(ready, points)
+    }
+    LaunchedEffect(map, points, plannedRoute, plannedPoints, userPosition, userHeadingDegrees) {
+        val ready = map ?: return@LaunchedEffect
+        val p = userPosition
+        if (p == null) {
+            positionMarker?.remove()
+            positionMarker = null
+        } else {
+            val coordinate = LatLng(p.latitude, p.longitude)
+            val existing = positionMarker
+            if (existing == null) {
+                positionMarker = ready.addMarker(MarkerOptions().position(coordinate)
+                    .anchor(0.5f, 0.5f).flat(true)
+                    .icon(BitmapDescriptorFactory.fromBitmap(directionBitmap()))
+                    .rotation((userHeadingDegrees ?: 0.0).toFloat())
+                    .zIndex(100f))
+            } else {
+                existing.position = coordinate
+                existing.rotation = (userHeadingDegrees ?: 0.0).toFloat()
+            }
+        }
     }
     LaunchedEffect(map, cameraCenter, cameraTrace, navigationMode, userHeadingDegrees, recenterToken) {
         val ready = map ?: return@LaunchedEffect
@@ -231,10 +256,14 @@ internal fun GooglePlacePinMap(
     val idle by rememberUpdatedState(onCameraIdle)
     val loaded by rememberUpdatedState(onStyleLoaded)
     AndroidView(factory = { view }, modifier = modifier.testTag("place_pin_map"))
-    LaunchedEffect(view, latitude, longitude) {
+    var pinMap by remember(view) { mutableStateOf<GoogleMap?>(null) }
+    var pinMarker by remember(view) { mutableStateOf<Marker?>(null) }
+    LaunchedEffect(view) {
         view.getMapAsync { map ->
             map.mapType = GoogleMap.MAP_TYPE_NORMAL
             map.isBuildingsEnabled = true
+            // Evitar que la ficha de confirmación tape el logo de Google.
+            map.setPadding(0, 0, 0, (view.resources.displayMetrics.density * 72).toInt())
             map.uiSettings.apply {
                 isCompassEnabled = isInteractive
                 isScrollGesturesEnabled = isInteractive
@@ -243,9 +272,6 @@ internal fun GooglePlacePinMap(
                 isTiltGesturesEnabled = isInteractive
                 isMapToolbarEnabled = false
             }
-            map.clear()
-            map.addMarker(MarkerOptions().position(LatLng(latitude, longitude))
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)))
             map.setOnMapClickListener { click?.invoke() }
             map.setOnCameraIdleListener {
                 val cp = map.cameraPosition
@@ -253,6 +279,23 @@ internal fun GooglePlacePinMap(
             }
             map.setOnMapLoadedCallback { loaded?.invoke() }
             map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(latitude, longitude), 15.5f))
+            pinMap = map
+        }
+    }
+    LaunchedEffect(pinMap, latitude, longitude) {
+        val map = pinMap ?: return@LaunchedEffect
+        val target = LatLng(latitude, longitude)
+        val marker = pinMarker
+        if (marker == null) {
+            pinMarker = map.addMarker(MarkerOptions().position(target)
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)))
+        } else marker.position = target
+        // Al navegar por gestos, el centro del mapa ya coincide con el pin;
+        // no forzar zoom ni recentrado en cada OnCameraIdle.
+        val center = map.cameraPosition.target
+        if (kotlin.math.abs(center.latitude - latitude) > 0.00005 ||
+            kotlin.math.abs(center.longitude - longitude) > 0.00005) {
+            map.animateCamera(CameraUpdateFactory.newLatLng(target))
         }
     }
 }
