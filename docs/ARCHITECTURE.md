@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-29 (Android R5 clima Open-Meteo + P2 glass/switches/confirm/tab dumbbell)
+Última actualización: 2026-10-29 (Android R6 P0–P2 parity + mapas b2ccadcc5)
 
 ## Series de movilidad (iOS)
 
@@ -203,6 +203,7 @@ Android (`android/mobile`, Material 3 — 2026-10-29):
 - Auth Android (`MainActivity.restoreStoredSession`, 29/10/2026 R4): el setter de `verifiedSupabase` incrementa `AccountRevisionGate` en null→userId; la revisión para `prepareAccountDataAfterAuth` se captura **después** de esa asignación (como en `signInWithGoogle`). Si se captura antes, seed/catálogo/espejos no corren y la UI queda sin estado local.
 - R4 restante Android (29/10/2026): `PlaceSearchSheet` mapa a sangre + card glass (cápsula Search, MyLocation, Últimos lugares, sesgo Photon/haversine); `LiveActivityScreen` métricas tiles Duración/Velocidad|Ritmo/Distancia + padding 88 dp sobre tab; `ConnectedHealthScreen` vía Ajustes → Salud; `StandaloneTimer` sección Lugar/`locationPin`; `AIAccessScreen` disclosure «Conexión manual».
 - R5 Android (29/10/2026): subtítulos de biblioteca sin literal `null`/duplicados (`optJsonString` + `libraryExerciseSubtitle`); ▶ de Inicio abre Play (`onStartRoutine` + nav); fin de sesión sin pantalla blanca; Play con «Resultado del bloque» + `LiveSetRows`; AMRAP «Pantalla completa» → reloj (`openBlockClockOrConfig`); Photon timeout 12 s / cooldown 30 s + pin en idle de cámara; `reperaRouteHidesAppShell` oculta repera/gear en subpáginas; Progreso restaura Entreno/Actividad/Recuperación (sin Resumen/Cardio); preview y detalle de historial como rutas página; músculos ES vía `MuscleTaxonomy`; Comenzar mapa 3D/dark + sheets actividad/rutas; timer segmentado Arriba; formatos sin Circuit/Ladder extra; series Crear con SERIE/ANTERIOR.
+- R6 Android (29/10/2026): «Sin formato» (`format` vacío) permitido en `validatedDraftBlocks` / `buildBlock` (kind strength sin `wodFormat`); Volver+tab bar en Peso/Historial/Buscar/IA (`reperaRouteKeepsTabBar` + back propio); editor terminado no escribe score 0/0 (`FinishedScoreField`); `assembleSession` copia `locationPin` de la rutina (clima fuerza); Comenzar mapa bajo Mis rutas + 3D default; timer Día+ Arriba; «Terminar bloque»; «Sin formato · libre»; ACTIVIDAD/EQUILIBRIO; Recientes; ENTRENO/Hoy; Abdominales. Mapas free/Premium (`b2ccadcc5`) intactos.
 
 ## Datos y sync
 

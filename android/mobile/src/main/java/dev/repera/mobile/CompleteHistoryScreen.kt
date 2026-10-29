@@ -1,5 +1,8 @@
 package dev.repera.mobile
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -28,7 +31,8 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
  onUpdate:(String,WorkoutRepository.FinishedWorkoutEdit)->Unit,heartSeries:suspend(String)->List<Pair<Long,Int>>,
  externalProvider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail? = {null},
  onOpenExercise:(String,String,String)->Unit,
- onOpenSports: () -> Unit = {}) {
+ onOpenSports: () -> Unit = {},
+ onBack: (() -> Unit)? = null) {
  val rows=remember(overview) {CompleteHistoryOrder.rows(overview?.completeHistory.orEmpty(),overview?.externalHealthHistory.orEmpty())}
  var selectedWorkoutId by remember(accountId) { mutableStateOf<String?>(null) }
  var external by remember(accountId) {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
@@ -56,8 +60,23 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   )
   return
  }
+ if (onBack != null) BackHandler(onBack = onBack)
  LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement= Arrangement.spacedBy(12.dp)) {
-  item { ReperaPageHeader(title = "Historial") }
+  item {
+   if (onBack != null) {
+    IconButton(
+     onClick = onBack,
+     enabled = !busy,
+     modifier = Modifier
+      .size(44.dp)
+      .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+      .testTag("complete_history_back")
+    ) {
+     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+    }
+   }
+   ReperaPageHeader(title = "Historial")
+  }
   // iOS HistoryView: fila Deportes siempre visible.
   item {
    ReperaCard(
@@ -84,8 +103,11 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
       subtitle = "Las sesiones de Repera y Health Connect aparecerán aquí"
     )
   }
+  val today = LocalDate.now()
   rows.groupBy {Instant.ofEpochMilli(it.millis).atZone(ZoneId.systemDefault()).toLocalDate()}.forEach {(day,entries) ->
-   item(key="day-$day") {ReperaSectionTitle(day.format(reperaDayFormatter))}
+   item(key="day-$day") {
+    ReperaSectionTitle(if (day == today) "Hoy" else day.format(reperaDayFormatter))
+   }
    entries.forEach {row ->item(key=row.id) {
     row.local?.let { workout ->
      val mins = workout.displayDurationMinutes().takeIf { it > 0 }?.let { kotlin.math.round(it).toInt() }

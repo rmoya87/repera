@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — R5 leftovers: clima Open-Meteo en detalle/ruta (`weather_android: open_meteo`); P2 glass ←/★/⋯, switches UISwitch, confirm half-sheet, icono mancuerna tab Ejercicios, lista agrupada, miniaturas Reordenar, sin › en Restaurar compras ni «Actualizar» IA.
+**Última actualización:** 2026-10-29 — R6 copy/UX: mapa bajo rutas, 3D default, timer Arriba, Sin formato · libre, ACTIVIDAD/EQUILIBRIO, Recientes, ENTRENO/Hoy, Abdominales, Borrar entreno, avatar placeholder (R5 clima Open-Meteo + P2 glass intactos).
 
 Implementación nativa independiente en `android/`:
 

@@ -125,9 +125,9 @@ fun SessionPreviewSheet(
             }
             if (confirmDelete) {
                 ReperaConfirmSheet(
-                    title = "¿Eliminar entreno?",
+                    title = "¿Borrar entreno?",
                     message = "Se borra «${routine.title}». Esta acción no se puede deshacer.",
-                    confirmTitle = "Eliminar",
+                    confirmTitle = "Borrar entreno",
                     onConfirm = { confirmDelete = false; onDelete() },
                     onCancel = { confirmDelete = false }
                 )
@@ -214,10 +214,11 @@ private fun dayLabel(routine: RoutineEntry): String {
 }
 
 private fun blockFormatLabel(block: RoutineBlockInfo): String = when (block.format) {
+    "" -> "Sin formato · libre"
     "strength" -> "Fuerza"
     "amrap" -> "AMRAP ${block.timeCapMinutes}'"
     "emom" -> "EMOM ${block.timeCapMinutes}' · cada ${block.emomIntervalSeconds}s"
-    "fortime" -> "For Time · cap ${block.timeCapMinutes}'"
+    "fortime", "forTime" -> "For Time · cap ${block.timeCapMinutes}'"
     "tabata" -> "Tabata ${block.workSeconds}/${block.restSeconds}s × ${block.rounds}"
-    else -> block.format
+    else -> BlockFormatCatalog.title(block.format)
 }

@@ -923,7 +923,7 @@ private fun BlockEditorCard(
                     exercises = exercises,
                     excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
                     onPick = {
-                        block.entries.add(EntryUi(it.id, it.name, 10, 3, null))
+                        block.entries.add(EntryUi(it.id, it.name, 8, 3, null))
                         showExercisePicker = false
                     },
                     onDismiss = { showExercisePicker = false }
@@ -1244,7 +1244,7 @@ private fun EntryEditorRow(
                 TextButton(enabled = entry.plannedSets.size < 20, onClick = {
                     val last = entry.plannedSets.lastOrNull()
                     entry.plannedSets.add(PlannedSetDraft(
-                        targetReps = last?.targetReps ?: (entry.quantity.toIntOrNull() ?: 10),
+                        targetReps = last?.targetReps ?: (entry.quantity.toIntOrNull() ?: 8),
                         targetWeightKg = last?.targetWeightKg))
                     syncWodPlannedSets(entry)
                 }) { Text("Añadir serie") }

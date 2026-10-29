@@ -22,7 +22,7 @@ object MuscleTaxonomy {
         "biceps" to "Bíceps",
         "triceps" to "Tríceps",
         "forearm" to "Antebrazos",
-        "abs" to "Abdomen",
+        "abs" to "Abdominales",
         "obliques" to "Oblicuos",
         "lower-back" to "Lumbar",
         "gluteal" to "Glúteos",

@@ -305,15 +305,21 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         blockId: String? = null, blockSourceJson: String? = null,
         restBetweenRoundsSeconds: Int? = null
     ): JSONObject {
+        // iOS: bloque nuevo = kind.strength + wodFormat nil («Sin formato»);
+        // «Fuerza / Skill» pone wodFormat=.strength. Blank y strength usan exercises[].
+        val strengthLike = format.isBlank() || format == "strength"
         val block = (blockSourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject())
             .put("id", blockId ?: UUID.randomUUID().toString())
-            .put("title", blockTitle?.takeIf { it.isNotBlank() } ?: when (format) {
-                "strength" -> "Fuerza"
+            .put("title", blockTitle?.takeIf { it.isNotBlank() } ?: when {
+                format.isBlank() -> "Bloque"
+                format == "strength" -> "Fuerza"
                 else -> dev.repera.domain.WodFormat.fromWire(format)?.displayName
                     ?: "Circuito"
             })
-            .put("kind", if (format == "strength") "strength" else "wod")
-        if (format == "strength") {
+            .put("kind", if (strengthLike) "strength" else "wod")
+        if (strengthLike) {
+            if (format == "strength") block.put("wodFormat", "strength")
+            else block.remove("wodFormat")
             val exercises = JSONArray()
             for (entry in entries) {
                 val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
@@ -623,7 +629,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         val array = JSONArray()
         for (draft in blocks) {
-            require(draft.format in setOf("strength", "amrap", "forTime", "emom",
+            // "" = «Sin formato · libre» (iOS wodFormat=nil sobre bloque strength).
+            require(draft.format.isBlank() || draft.format in setOf(
+                "strength", "amrap", "forTime", "emom",
                 "tabata", "circuit", "chipper", "afap", "ladder", "deathBy", "partner",
                 "roundsForQuality", "maxEffort", "buyInCashOut")) {
                 "Tipo de bloque no permitido"
@@ -1116,7 +1124,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             }
         }
         require(planned.length() > 0) { "La rutina no contiene ejercicios ejecutables" }
-        return JSONObject()
+        val session = JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("title", routine.getString("title"))
             .put("routineId", routine.getString("id"))
@@ -1127,6 +1135,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("wodResults", JSONArray())
             .put("routineBlocks", JSONArray(blocks.toString()))
             .put("routePoints", JSONArray())
+        // R6 P1-3: el lugar de la rutina pasa al entreno (fuerza/WOD) para
+        // mapa + clima Open-Meteo en el resumen; no inventar pin GPS.
+        routine.optJSONObject("locationPin")?.let { session.put("locationPin", JSONObject(it.toString())) }
+        return session
     }
 
     /** Direct ficha log: one atomic archive write, never steals the active session. */

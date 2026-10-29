@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -117,8 +118,8 @@ internal fun StandaloneTimerScreen(
     var config by remember {
         mutableStateOf(
             openedFavorite?.config
-                ?: store.loadLastConfiguration()
-                ?: StandaloneTimerConfig()
+                ?: (store.loadLastConfiguration()?.copy(mode = StandaloneTimerMode.UP)
+                    ?: StandaloneTimerConfig())
         )
     }
     var favorites by remember { mutableStateOf(store.favorites()) }
@@ -158,7 +159,10 @@ internal fun StandaloneTimerScreen(
         if (usesLastConfiguration && !showClock && !isRunning &&
             completedSummary == null
         ) {
-            store.loadLastConfiguration()?.let { config = it }
+            // Día+ / sin favorito: reutilizar duración, pero modo por defecto Arriba.
+            store.loadLastConfiguration()?.let {
+                config = it.copy(mode = StandaloneTimerMode.UP)
+            }
         }
     }
 
@@ -559,8 +563,6 @@ internal fun StandaloneTimerScreen(
             }
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    Text("Configuración", style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(bottom = 10.dp))
                     when (config.mode) {
                         StandaloneTimerMode.UP, StandaloneTimerMode.DOWN ->
                             TimeRow("Duración", config.durationMinutes, config.durationSeconds,
@@ -667,7 +669,7 @@ private fun IntRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(title, modifier = Modifier.weight(1f))
-        OutlinedTextField(
+        TextField(
             value = value.toString(),
             onValueChange = { input ->
                 input.filter(Char::isDigit).toIntOrNull()?.let {
@@ -696,7 +698,7 @@ private fun TimeRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(title, modifier = Modifier.weight(1f))
-        OutlinedTextField(
+        TextField(
             value = minutes.toString(),
             onValueChange = { input ->
                 input.filter(Char::isDigit).toIntOrNull()?.let {
@@ -708,7 +710,7 @@ private fun TimeRow(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.width(100.dp)
         )
-        OutlinedTextField(
+        TextField(
             value = seconds.toString(),
             onValueChange = { input ->
                 input.filter(Char::isDigit).toIntOrNull()?.let {

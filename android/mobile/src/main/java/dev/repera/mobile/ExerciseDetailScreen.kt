@@ -162,13 +162,7 @@ internal fun ExerciseDetailScreen(
                 }
             }
         }
-        if (!isMobility) {
-            item { ReperaSectionTitle("Carga sugerida") }
-            item { SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg) }
-        }
-        item {
-            MuscleEquipmentCard(entry)
-        }
+        // Orden iOS: descripción → Cómo hacerlo → Músculos → Carga → …
         entry.detailDescription?.let { description ->
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
@@ -188,6 +182,13 @@ internal fun ExerciseDetailScreen(
                     }
                 }
             }
+        }
+        item {
+            MuscleEquipmentCard(entry)
+        }
+        if (!isMobility) {
+            item { ReperaSectionTitle("Carga sugerida") }
+            item { SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg) }
         }
         if (entry.detailDescription == null && entry.instructions.isEmpty()) {
             item {

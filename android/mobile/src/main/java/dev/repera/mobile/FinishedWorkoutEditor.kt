@@ -106,30 +106,39 @@ internal fun FinishedWorkoutEditorSection(
                     onEdited = { contentDirty = true }) { contentDirty = true; contentVersion++ }
             }
         }
-        val scoreBase = scoreSession
-        if (blocks != null && scoreBase != null) {
+        if (blocks != null && scoreSession != null) {
             for (bi in 0 until blocks.length()) {
                 val b = blocks.getJSONObject(bi)
                 val cap = dev.repera.domain.WodFormat.fromWire(b.optString("wodFormat"))?.capture?.name
                 if (cap != "TOTAL_REPS" && cap != "ELAPSED_TIME") continue
                 val fmt = dev.repera.domain.WodFormat.fromWire(b.optString("wodFormat"))
+                // iOS: Rondas completas → Reps adicionales (AMRAP/Death by).
                 val fields = if (cap == "TOTAL_REPS") buildList {
-                    add(CompletedWorkoutEditing.ScoreField.REPS to "Repeticiones")
                     if (fmt == dev.repera.domain.WodFormat.AMRAP || fmt == dev.repera.domain.WodFormat.DEATH_BY)
                         add(CompletedWorkoutEditing.ScoreField.ROUNDS to "Rondas")
+                    add(CompletedWorkoutEditing.ScoreField.REPS to
+                        if (fmt == dev.repera.domain.WodFormat.AMRAP || fmt == dev.repera.domain.WodFormat.DEATH_BY)
+                            "Reps adicionales" else "Repeticiones")
                 } else listOf(CompletedWorkoutEditing.ScoreField.MINUTES to "Minutos", CompletedWorkoutEditing.ScoreField.SECONDS to "Segundos")
                 Text("Resultado · ${b.optString("title")}", style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for ((field, label) in fields) {
-                        val current = CompletedWorkoutEditing.scoreValue(b, scoreBase, field)
-                        OutlinedTextField(value = current.toString(), label = { Text(label) }, singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                            onValueChange = { raw ->
-                                val v = raw.filter { it.isDigit() }.take(5).toIntOrNull() ?: 0
-                                scoreSession = CompletedWorkoutEditing.changingScore(scoreBase, b, field, v)
-                                scoreEdits.add(WorkoutRepository.ScoreEdit(b.optString("id"), field, v))
-                            },
-                            modifier = Modifier.weight(1f).testTag("edit_score_${b.optString("id")}_${field.name}"))
+                        key(workout.id, b.optString("id"), field.name) {
+                            FinishedScoreField(
+                                block = b,
+                                field = field,
+                                label = label,
+                                initial = CompletedWorkoutEditing.scoreValue(
+                                    b, scoreSession!!, field),
+                                onCommit = { v ->
+                                    val base = scoreSession ?: return@FinishedScoreField
+                                    scoreSession = CompletedWorkoutEditing.changingScore(
+                                        base, b, field, v)
+                                    scoreEdits.add(
+                                        WorkoutRepository.ScoreEdit(b.optString("id"), field, v))
+                                }
+                            )
+                        }
                     }
                 }
                 if (cap == "ELAPSED_TIME") Text("Tiempo real empleado (no el time cap).", style = MaterialTheme.typography.bodySmall)
@@ -161,6 +170,40 @@ internal fun FinishedWorkoutEditorSection(
 }
 
 private val shownFormat = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
+
+/**
+ * Campo de marca WOD con estado local: no escribe 0 al vaciar el texto
+ * (IME/recomposición) ni al abrir el editor sin tocar (P0-3 R6).
+ */
+@Composable
+private fun RowScope.FinishedScoreField(
+    block: org.json.JSONObject,
+    field: CompletedWorkoutEditing.ScoreField,
+    label: String,
+    initial: Int,
+    onCommit: (Int) -> Unit
+) {
+    var text by remember(initial) { mutableStateOf(initial.toString()) }
+    var committed by remember(initial) { mutableIntStateOf(initial) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            val filtered = raw.filter { it.isDigit() }.take(5)
+            text = filtered
+            if (filtered.isEmpty()) return@OutlinedTextField
+            val v = filtered.toIntOrNull() ?: return@OutlinedTextField
+            if (v == committed) return@OutlinedTextField
+            committed = v
+            onCommit(v)
+        },
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        modifier = Modifier.weight(1f)
+            .testTag("edit_score_${block.optString("id")}_${field.name}")
+    )
+}
 
 @Composable
 private fun DateTimeRow(label: String, iso: String?, tag: String, onChange: (String) -> Unit) {

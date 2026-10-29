@@ -1,9 +1,14 @@
 package dev.repera.mobile
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -15,17 +20,52 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun BodyWeightHistoryScreen(entries:List<BodyWeightHistoryEntry>,busy:Boolean,
-    onAdd:(Double)->Unit,onDelete:(String)->Unit,accountId:String="") {
+    onAdd:(Double)->Unit,onDelete:(String)->Unit,accountId:String="",
+    onBack:(()->Unit)? = null) {
+    if (onBack != null) BackHandler(onBack = onBack)
     var kgText by rememberSaveable(accountId) {mutableStateOf("")}
     var pendingDelete by remember {mutableStateOf<BodyWeightHistoryEntry?>(null)}
     val parsed=dev.repera.domain.ReperaNumberFormat.parse(kgText)?.takeIf {it.isFinite() && it in 20.0..400.0}
     LazyColumn(Modifier.fillMaxSize().testTag("weight_history_list"),contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item {ReperaPageHeader(title = "Peso corporal")}
         item {
-            Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                OutlinedTextField(kgText,{kgText=it},label={Text("Peso en kilogramos")},singleLine=true,
-                    keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.weight(1f).testTag("weight_history_input"))
-                TextButton(enabled=!busy && parsed!=null,onClick={parsed?.let(onAdd);kgText=""}) {Text("Añadir")}
+            if (onBack != null) {
+                IconButton(
+                    onClick = onBack,
+                    enabled = !busy,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        .testTag("weight_history_back")
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
+                }
+            }
+            ReperaPageHeader(title = "Peso corporal")
+        }
+        item {
+            ReperaSectionTitle("Registrar")
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        kgText, { kgText = it },
+                        placeholder = { Text("Peso en kilogramos") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f).testTag("weight_history_input"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.surface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surface
+                        )
+                    )
+                    TextButton(
+                        enabled = !busy && parsed != null,
+                        onClick = { parsed?.let(onAdd); kgText = "" }
+                    ) { Text("Añadir") }
+                }
             }
             Text("Un peso por día. Si ya hay uno hoy, se actualiza.",style=MaterialTheme.typography.bodySmall)
         }

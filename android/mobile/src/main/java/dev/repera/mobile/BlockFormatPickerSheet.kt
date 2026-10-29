@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.RemoveCircleOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -70,7 +71,7 @@ internal object BlockFormatCatalog {
     )
 
     fun title(wire: String): String {
-        if (wire.isBlank()) return "Sin formato"
+        if (wire.isBlank()) return "Sin formato · libre"
         return options.firstOrNull { it.wire == wire }?.title
             ?: WodFormat.fromWire(wire)?.displayName
             ?: wire
@@ -96,7 +97,7 @@ internal fun BlockFormatPickerSheet(
             ) {
                 item {
                     FormatRow(
-                        title = "Sin formato",
+                        title = "Sin formato · libre",
                         description = null,
                         selected = current.isBlank(),
                         leading = {
@@ -142,7 +143,7 @@ private fun FormatRow(
         leading?.invoke()
         Column(Modifier.weight(1f)) {
             Text(
-                title + if (selected) " ✓" else "",
+                title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
                 color = if (selected) brandGreen else MaterialTheme.colorScheme.onSurface
@@ -155,10 +156,18 @@ private fun FormatRow(
                 )
             }
         }
-        Icon(
-            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (selected) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = "Seleccionado",
+                tint = brandGreen
+            )
+        } else {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

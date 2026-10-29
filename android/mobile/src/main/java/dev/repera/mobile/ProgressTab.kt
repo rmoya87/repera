@@ -241,7 +241,7 @@ internal fun ProgressTab(
             if(topic=="Entreno") {
             if (snapshot.heatmapTime.isNotEmpty()) {
                 // ActivityHeatmapView iOS: UNA tarjeta con picker segmentado.
-                item { ReperaSectionTitle("Actividad") }
+                item { ReperaSectionTitle("ACTIVIDAD") }
                 item { ActivityHeatmapCard(snapshot.heatmapTime,
                     snapshot.heatmapVolume,
                     dev.repera.domain.ProgressTimeRange.entries.first { it.wire == selectedRange }) }
@@ -249,7 +249,7 @@ internal fun ProgressTab(
             // Apple order (StatsView training): tiles, activity, muscle balance, mobility, then
             // exercises/records or the Free preview + teaser. The card has its own empty text,
             // so it is not hidden when there are no muscle statuses (Apple does not hide it).
-            item { ReperaSectionTitle("Equilibrio muscular") }
+            item { ReperaSectionTitle("EQUILIBRIO MUSCULAR") }
             item {
                 // Current Apple StatsView explicitly exposes map and bars to Free.
                 MuscleBalanceCard(
