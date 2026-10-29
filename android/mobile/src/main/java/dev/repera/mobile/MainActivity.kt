@@ -1326,6 +1326,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             return
         }
+        if (event.path == "/repera/session-discard") {
+            val payload = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
+                ?: return
+            runOnUiThread {
+                if (busy) return@runOnUiThread
+                val sessionId = payload.optString("sessionId")
+                if (sessionId.isBlank() || activeWorkout?.id != sessionId) return@runOnUiThread
+                StrengthRestService.cancel(this)
+                runWorkoutAction { discardActiveSession() }
+            }
+            return
+        }
         if (event.path == "/repera/wod-score") {
             val payload = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
                 ?: return

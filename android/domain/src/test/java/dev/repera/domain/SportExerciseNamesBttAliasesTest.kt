@@ -21,4 +21,16 @@ class SportExerciseNamesBttAliasesTest {
         assertEquals(true, aliases.contains("burpee a diana"))
         assertEquals(true, SportExerciseNames.searchAliases("Toes to bar").contains("t2bs"))
     }
+
+    @Test fun wearLocalePrefersSpanishCrossFitNames() {
+        assertEquals(
+            "Cargada y envión",
+            SportExerciseNames.localizedSpanishName("Clean and Jerk", "CrossFit")
+        )
+        assertEquals(
+            "Cargada y envión",
+            SportExerciseNames.localizedSpanishName("Cargada y envión", "CrossFit")
+        )
+        assertEquals("Press banca", SportExerciseNames.localizedSpanishName("Press banca", null))
+    }
 }

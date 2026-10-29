@@ -82,6 +82,7 @@ internal class WearHomeCallbacks(
     val onPlayReady: () -> Unit = {},
     val onSelectBlock: (WatchSessionSummary, Int) -> Unit = { _, _ -> },
     val onFinishSession: (WatchSessionSummary) -> Unit = {},
+    val onDiscardSession: (WatchSessionSummary) -> Unit = {},
     val onSkipRest: () -> Unit = {},
     val onSyncRequest: () -> Unit = {},
     val onRepsMinus: () -> Unit = {},
@@ -326,6 +327,22 @@ private fun TransformingLazyColumnScope.outlineItems(
         WearPrimaryButton("✓ Finalizar entrenamiento") {
             callbacks.onShowOutline(false)
             callbacks.onFinishSession(session)
+        }
+    }
+    // Ramón F-5: el Watch ofrece descartar (además de finalizar).
+    item {
+        TextButton(
+            onClick = {
+                callbacks.onShowOutline(false)
+                callbacks.onDiscardSession(session)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                "Descartar entrenamiento",
+                color = WearOg.red,
+                style = MaterialTheme.typography.labelSmall
+            )
         }
     }
 }

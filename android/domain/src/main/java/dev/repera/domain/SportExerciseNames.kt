@@ -246,6 +246,16 @@ object SportExerciseNames {
         return canonicalName(name)
     }
 
+    /**
+     * Nombre para UI en es-ES (Wear / pantallas localizadas): CrossFit y
+     * Halterofilia muestran el alias español («Cargada y envión»), no el
+     * canónico EN («Clean and Jerk»). Ramón 2026-10-29.
+     */
+    fun localizedSpanishName(name: String, sport: String?): String {
+        if (sport != "CrossFit" && sport != "Halterofilia") return name
+        return spanishAlias(name) ?: spanishAlias(canonicalName(name)) ?: name
+    }
+
     /** Puente de nombres antiguos en entrenos locales/cloud y en buscadores. */
     fun canonicalName(name: String): String =
         legacySpanishToEnglish[name] ?: normalizedSpanishToEnglish[key(name)] ?: name
