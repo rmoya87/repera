@@ -2062,6 +2062,13 @@ public struct WorkoutLocationPin: Codable, Sendable, Hashable {
         self.mapItemIdentifier = mapItemIdentifier
         self.pointOfInterestCategory = pointOfInterestCategory
     }
+
+    /// Lugar elegido (nombre o MapItem). Un pin GPS anónimo no cuenta.
+    public var hasChosenPlace: Bool {
+        let named = name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let mapped = mapItemIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        return named || mapped
+    }
 }
 
 /// Punto de ruta GPS grabado por Repera (outdoor).
