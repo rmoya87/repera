@@ -312,7 +312,10 @@ struct HomeView: View {
             // Tras «Actividad de hoy» el gris debe continuar hasta el borde
             // inferior (sin franja blanca). El bloque calendario/entreno pinta
             // su propio OG.surface; el topbar transparente deja ver ese blanco.
-            .background(OG.bg.ignoresSafeArea())
+            // El lienzo gris NO invade la safe area superior reservada al
+            // topbar: el blanco lo aporta el fondo exterior del contenido.
+            // Solo se extiende hasta los bordes laterales e inferior.
+            .background(OG.bg.ignoresSafeArea(edges: [.horizontal, .bottom]))
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
@@ -375,13 +378,11 @@ struct HomeView: View {
                     .accessibilityLabel("Ajustes y cuenta iCloud")
                 }
             }
-            // Fondo independiente del topbar: el blanco continúa visualmente
-            // desde la zona segura superior hasta calendario + entreno.
-            // El componente de navegación y sus controles no se modifican.
-            // Do not reveal the system's black background between a topbar
-            // refresh and re-layout of the calendar cards. The content below
-            // still paints its own grouped OG.bg surface.
-            .background(OG.bg.ignoresSafeArea())
+            // El blanco detrás del topbar TRANSPARENTE viene de este lienzo
+            // exterior, no de la barra. El ScrollView tiene su fondo gris
+            // propio para que al final de Actividad no aparezca ninguna franja.
+            // No cambiar la cabecera ni unificar estos dos fondos.
+            .background(OG.surface.ignoresSafeArea())
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
                 refreshAvatarIfNeeded()

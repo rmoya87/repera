@@ -756,6 +756,16 @@ struct OGReorderEntry: Identifiable, Sendable {
     let id: UUID
     let name: String
     let type: String
+
+    /// Una colección sin ejercicios necesita un elemento identificable para
+    /// que el sistema nativo de SwiftUI pueda ofrecer un destino real.
+    /// Derivamos un UUID estable del bloque, separado del UUID de su cabecera.
+    /// Esta entrada es solo visual: nunca se guarda en la rutina ni la sesión.
+    static func emptyDropTarget(for blockID: UUID) -> Self {
+        var bytes = blockID.uuid
+        bytes.0 ^= 0x80
+        return Self(id: UUID(uuid: bytes), name: "Soltar ejercicio", type: "emptyDropTarget")
+    }
 }
 
 /// Zona de soltado entre cajas de bloque en Reordenar (`ScrollView`, no `List`).

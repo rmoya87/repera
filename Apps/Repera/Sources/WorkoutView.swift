@@ -776,16 +776,17 @@ struct WorkoutView: View {
             }
             .reorderable(collectionID: "blocks")
 
-            if rows.isEmpty {
-                Text("Soltar ejercicio")
-                    .font(.caption)
-                    .foregroundStyle(OG.label3)
-                    .frame(maxWidth: .infinity, minHeight: 36)
-                    .padding(.bottom, 8)
-            }
-            // Mantener la colección registrada incluso cuando no contiene filas:
-            // el bloque vacío sigue siendo un destino válido de reordenación.
-            ForEach(rows) { row in
+            // La sesión activa comparte el mismo destino identificable para
+            // bloques vacíos: el hueco es ancho y recibe drops reales.
+            ForEach(rows.isEmpty ? [OGReorderEntry.emptyDropTarget(for: block.id)] : rows) { row in
+                if row.type == "emptyDropTarget" {
+                    Text("Soltar ejercicio")
+                        .font(.caption)
+                        .foregroundStyle(OG.label3)
+                        .frame(maxWidth: .infinity, minHeight: 104)
+                        .contentShape(Rectangle())
+                        .padding(.bottom, 8)
+                } else {
                     VStack(spacing: 0) {
                         Divider()
                             .overlay(OG.label3.opacity(0.22))
@@ -794,6 +795,7 @@ struct WorkoutView: View {
                             name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
                         )
                     }
+                }
             }
             .reorderable(collectionID: block.id.uuidString)
         }

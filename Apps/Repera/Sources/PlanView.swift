@@ -556,16 +556,18 @@ struct DayEditorView: View {
             }
             .reorderable(collectionID: "blocks")
 
-            if rows.isEmpty {
-                Text("Soltar ejercicio")
-                    .font(.caption)
-                    .foregroundStyle(OG.label3)
-                    .frame(maxWidth: .infinity, minHeight: 36)
-                    .padding(.bottom, 8)
-            }
-            // Mantener la colección registrada incluso cuando no contiene filas:
-            // el bloque vacío sigue siendo un destino válido de reordenación.
-            ForEach(rows) { row in
+            // Sin ejercicios, un ForEach vacío no registra destinos de drop
+            // aunque el bloque dibuje el texto. Un placeholder estable convierte
+            // toda la zona ancha en un destino de .reorderable nativo.
+            ForEach(rows.isEmpty ? [OGReorderEntry.emptyDropTarget(for: block.id)] : rows) { row in
+                if row.type == "emptyDropTarget" {
+                    Text("Soltar ejercicio")
+                        .font(.caption)
+                        .foregroundStyle(OG.label3)
+                        .frame(maxWidth: .infinity, minHeight: 104)
+                        .contentShape(Rectangle())
+                        .padding(.bottom, 8)
+                } else {
                     VStack(spacing: 0) {
                         Divider()
                             .overlay(OG.label3.opacity(0.22))
@@ -574,6 +576,7 @@ struct DayEditorView: View {
                             row.name, blockID: block.id, itemID: row.id, type: row.type
                         )
                     }
+                }
             }
             .reorderable(collectionID: block.id.uuidString)
         }
