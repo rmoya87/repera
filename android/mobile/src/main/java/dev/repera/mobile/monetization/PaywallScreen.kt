@@ -5,7 +5,6 @@ import dev.repera.mobile.ReperaCard
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,12 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,16 +48,13 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.repera.domain.monetization.PaywallContext
 import dev.repera.mobile.brandGreen
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 enum class PaywallMode { SHEET, ONBOARDING }
 
-/**
- * Paywall Repera Pro. Port 1:1 de PaywallView.swift (modos sheet/onboarding).
- */
+/** Página de pricing nativa, sin hoja inferior. Paridad visual con PaywallView.swift. */
 @Composable
 fun PaywallScreen(
     subscriptions: SubscriptionManager,
@@ -74,11 +67,13 @@ fun PaywallScreen(
     var selectedProductID by rememberSaveable { mutableStateOf<String?>(null) }
     var showError by remember { mutableStateOf(false) }
 
-    val context = if (mode == PaywallMode.ONBOARDING) PaywallContext.ONBOARDING
-    else subscriptions.paywall.context
     val packages = subscriptions.offerings.packages
     val annual = packages.firstOrNull { it.isAnnual }
     val monthly = packages.firstOrNull { !it.isAnnual }
+
+    androidx.activity.compose.BackHandler(enabled = mode == PaywallMode.SHEET) {
+        subscriptions.dismissPaywall()
+    }
 
     LaunchedEffect(Unit) {
         subscriptions.start()
@@ -100,38 +95,30 @@ fun PaywallScreen(
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+        ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
-                PaywallHeader(mode, context)
-                PaywallBenefits(context)
-                PaywallPlans(
-                    subscriptions = subscriptions,
-                    annual = annual,
-                    monthly = monthly,
-                    selectedProductID = selectedProductID,
-                    onSelect = { selectedProductID = it }
-                )
-                PaywallPrimaryCTA(
-                    subscriptions = subscriptions,
-                    packages = packages,
-                    selectedProductID = selectedProductID,
-                    onResult = { ok ->
-                        if (ok) {
-                            if (mode == PaywallMode.SHEET) subscriptions.dismissPaywall()
-                            onPurchaseSuccess?.invoke()
-                        } else if (subscriptions.lastErrorMessage != null) {
-                            showError = true
-                        }
-                    },
-                    scope = scope
-                )
+                PaywallHeader(mode = mode, onBack = { subscriptions.dismissPaywall() })
+                PaywallBenefits()
+                PaywallComparison()
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PaywallSectionHeading("ELIGE TU PLAN")
+                    PaywallPlans(
+                        subscriptions = subscriptions,
+                        annual = annual,
+                        monthly = monthly,
+                        selectedProductID = selectedProductID,
+                        onSelect = { selectedProductID = it }
+                    )
+                }
                 PaywallSecondaryActions(
                     subscriptions = subscriptions,
                     mode = mode,
@@ -143,12 +130,23 @@ fun PaywallScreen(
                 )
                 PaywallLegalFooter(packages, selectedProductID)
             }
-            if (mode == PaywallMode.SHEET) {
-                IconButton(
-                    onClick = { subscriptions.dismissPaywall() },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-                ) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
+
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                    PaywallPrimaryCTA(
+                        subscriptions = subscriptions,
+                        packages = packages,
+                        selectedProductID = selectedProductID,
+                        onResult = { ok ->
+                            if (ok) {
+                                if (mode == PaywallMode.SHEET) subscriptions.dismissPaywall()
+                                onPurchaseSuccess?.invoke()
+                            } else if (subscriptions.lastErrorMessage != null) {
+                                showError = true
+                            }
+                        },
+                        scope = scope
+                    )
                 }
             }
         }
@@ -156,60 +154,190 @@ fun PaywallScreen(
 }
 
 @Composable
-private fun PaywallHeader(mode: PaywallMode, context: PaywallContext) {
+private fun PaywallSectionHeading(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
+private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
     Column(
-        modifier = Modifier.padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Paridad iOS: mascota hero en onboarding, icono de marca en sheet.
-        if (mode == PaywallMode.ONBOARDING) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                dev.repera.mobile.ReperaMascot(dev.repera.mobile.ReperaMascotPose.HERO, maxHeight = 160.dp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (mode == PaywallMode.SHEET) {
+                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Outlined.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
-        } else {
-            Icon(
-                Icons.Outlined.FitnessCenter,
-                contentDescription = null,
-                tint = brandGreen,
-                modifier = Modifier.size(36.dp)
+            Text(
+                "Repera Pro",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Entrena sin límites.",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Descubre todo lo que hay detrás de cada entrenamiento.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier.size(138.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(112.dp)
+                        .background(brandGreen.copy(alpha = 0.10f), CircleShape)
+                )
+                dev.repera.mobile.ReperaMascot(
+                    dev.repera.mobile.ReperaMascotPose.HERO,
+                    maxHeight = 136.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaywallBenefits() {
+    val features = listOf(
+        "Tu evolución, al detalle" to "Historial completo por ejercicio, marcas y e1RM.",
+        "Entiende cómo progresas" to "Todos los periodos, recuperación y análisis muscular avanzado.",
+        "Más espacio para entrenar" to "Rutinas, favoritos y ejercicios propios sin límites.",
+        "Escanea cualquier WOD" to "Pizarras ilimitadas y comparativas de resultados.",
+        "Progresa con criterio" to "Sugerencias de carga basadas en tus entrenamientos."
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        PaywallSectionHeading("ESTO CAMBIA CON PRO")
+        features.forEachIndexed { index, feature ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = brandGreen,
+                    modifier = Modifier.size(21.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        feature.first,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        feature.second,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (index != features.lastIndex) {
+                androidx.compose.material3.HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    thickness = 0.6.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaywallComparison() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PaywallSectionHeading("GRATIS FRENTE A PRO")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PaywallComparisonItem(
+                title = "Gratis",
+                action = "Empieza",
+                detail = "Progreso de la semana y herramientas esenciales.",
+                isPro = false,
+                modifier = Modifier.weight(1f)
+            )
+            PaywallComparisonItem(
+                title = "Pro",
+                action = "Evoluciona",
+                detail = "Todos tus datos, análisis y herramientas sin límites.",
+                isPro = true,
+                modifier = Modifier.weight(1f)
             )
         }
         Text(
-            context.headline,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            context.subtitle,
-            style = MaterialTheme.typography.bodyLarge,
+            "En Gratis: 3 rutinas, 3 favoritos, 5 ejercicios propios y 4 escaneos al mes.",
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
-private fun PaywallBenefits(context: PaywallContext) {
-    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+private fun PaywallComparisonItem(
+    title: String,
+    action: String,
+    detail: String,
+    isPro: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Surface(
+        modifier = modifier
+            .height(133.dp)
+            .border(
+                width = 1.dp,
+                color = if (isPro) brandGreen else MaterialTheme.colorScheme.outlineVariant,
+                shape = shape
+            ),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface
+    ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            context.prioritizedBenefits.forEach { benefit ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(
-                        Icons.Outlined.CheckCircle,
-                        contentDescription = null,
-                        tint = brandGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        benefit,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            Text(
+                title.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isPro) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                action,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

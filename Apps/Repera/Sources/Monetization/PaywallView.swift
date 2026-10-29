@@ -1,9 +1,10 @@
 import ReperaDomain
 import SwiftUI
 
+/// Página de Repera Pro. Se integra en la navegación de la app sin sheet.
 struct PaywallView: View {
     enum Mode {
-        case sheet
+        case sheet // Compatibilidad con los flujos existentes; ahora es una página.
         case onboarding
     }
 
@@ -13,9 +14,11 @@ struct PaywallView: View {
 
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(\.openURL) private var openURL
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedProductID: String?
     @State private var showError = false
+    @State private var mascotRaised = false
 
     private var context: PaywallContext {
         mode == .onboarding ? .onboarding : subscriptions.paywall.context
@@ -24,47 +27,50 @@ struct PaywallView: View {
     private var annual: CommercialPackageInfo? { packages.first(where: \.isAnnual) }
     private var monthly: CommercialPackageInfo? { packages.first(where: { !$0.isAnnual }) }
 
+    private let highlights: [(symbol: String, title: String, detail: String)] = [
+        ("chart.line.uptrend.xyaxis", "Tu evolución, al detalle", "Historial completo por ejercicio, marcas y e1RM."),
+        ("chart.bar.xaxis", "Entiende cómo progresas", "Todos los periodos, recuperación y análisis muscular avanzado."),
+        ("square.stack", "Más espacio para entrenar", "Rutinas, favoritos y ejercicios propios sin límites."),
+        ("camera.viewfinder", "Escanea cualquier WOD", "Escáner de pizarras ilimitado y comparativas de resultados."),
+        ("arrow.up.right", "Progresa con criterio", "Sugerencias de carga basadas en tus entrenamientos.")
+    ]
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    benefits
-                    plans
-                    primaryCTA
+                VStack(alignment: .leading, spacing: 30) {
+                    navigationHeader
+                    hero
+                    benefitSection
+                    comparison
+                    plansSection
                     secondaryActions
                     legalFooter
                 }
                 .padding(.horizontal, OG.pad)
-                .padding(.bottom, 28)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .frame(maxWidth: OG.contentColumnMaxWidth)
+                .frame(maxWidth: .infinity)
             }
-            .background(OG.bg)
-            .toolbar {
-                if mode == .sheet {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        // La toolbar nativa aporta su propio contenedor glass.
-                        // Evita dibujar un segundo círculo alrededor de la X.
-                        CloseToolbarButton(action: {
-                            subscriptions.dismissPaywall()
-                        }, large: false)
-                    }
-                }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                purchaseFooter
             }
+            .background(OG.bg.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
             .task {
-                // Inline onboarding prices must NOT arm the global sheet:
-                // doing so made the paywall appear again after finishing onboarding.
-                // Siempre refresca ofertas desde Apple/RevenueCat (precios localizados).
+                // El onboarding no debe disparar de nuevo el paywall global.
                 await subscriptions.start()
                 await subscriptions.loadOfferings()
-                if selectedProductID == nil
-                    || !packages.contains(where: { $0.productID == selectedProductID }) {
-                    selectedProductID = annual?.productID ?? monthly?.productID
-                }
+                reconcileSelectedProduct()
             }
             .onChange(of: packages.map(\.productID)) { _, _ in
-                if selectedProductID == nil
-                    || !packages.contains(where: { $0.productID == selectedProductID }) {
-                    selectedProductID = annual?.productID ?? monthly?.productID
+                reconcileSelectedProduct()
+            }
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                    mascotRaised = true
                 }
             }
             .alert("No se pudo completar", isPresented: $showError) {
@@ -75,63 +81,169 @@ struct PaywallView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if mode == .onboarding {
-                HStack {
-                    Spacer(minLength: 0)
-                    ReperaMascot(pose: .hero, maxHeight: 160)
-                    Spacer(minLength: 0)
+    private var navigationHeader: some View {
+        HStack(spacing: 12) {
+            if mode == .sheet {
+                Button {
+                    subscriptions.dismissPaywall()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
-            } else {
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 36, weight: .semibold))
-                    .foregroundStyle(OG.accent)
-                    .accessibilityHidden(true)
-            }
-            Text(context.headline)
-                .font(.system(size: 28, weight: .bold))
+                .buttonStyle(.plain)
                 .foregroundStyle(OG.label)
-            Text(context.subtitle)
-                .font(.body)
+                .accessibilityLabel("Volver")
+            }
+            Text("Repera Pro")
+                .font(.headline)
+                .foregroundStyle(OG.label)
+            Spacer()
+            Text(mode == .onboarding ? "TU SIGUIENTE PASO" : "DESBLOQUEA MÁS")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .tracking(1.1)
                 .foregroundStyle(OG.label2)
         }
-        .padding(.top, 8)
     }
 
-    private var benefits: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(context.prioritizedBenefits, id: \.self) { benefit in
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
+    private var hero: some View {
+        HStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Entrena sin límites.")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .tracking(-1)
+                    .foregroundStyle(OG.label)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Descubre todo lo que hay detrás de cada entrenamiento.")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            ReperaMascot(pose: .hero, maxHeight: 152)
+                .frame(width: 142, height: 160)
+                .offset(y: mascotRaised ? -5 : 4)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, 10)
+        .background(alignment: .trailing) {
+            Circle()
+                .fill(OG.accent.opacity(0.11))
+                .frame(width: 174, height: 174)
+                .blur(radius: 44)
+                .offset(x: 5, y: mascotRaised ? -8 : 5)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var benefitSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            sectionHeading("ESTO CAMBIA CON PRO")
+            if context != .generic && context != .settings && context != .onboarding {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "sparkle")
                         .foregroundStyle(OG.accent)
-                    Text(benefit)
+                    Text(context.headline)
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(OG.label)
-                        .font(.subheadline)
+                }
+            }
+            ForEach(highlights.indices, id: \.self) { index in
+                let item = highlights[index]
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: item.symbol)
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 28)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Text(item.detail)
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                if index < highlights.count - 1 {
+                    Divider()
+                        .padding(.leading, 42)
                 }
             }
         }
-        .padding(OG.pad)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
     }
 
-    @ViewBuilder
-    private var plans: some View {
-        if packages.isEmpty {
-            OGCard {
-                VStack(alignment: .leading, spacing: 8) {
+    private var comparison: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeading("GRATIS FRENTE A PRO")
+            HStack(alignment: .top, spacing: 12) {
+                comparisonColumn(
+                    name: "Gratis",
+                    title: "Empieza",
+                    detail: "Progreso de la semana y herramientas esenciales.",
+                    pro: false
+                )
+                comparisonColumn(
+                    name: "Pro",
+                    title: "Evoluciona",
+                    detail: "Todos tus datos, análisis y herramientas sin límites.",
+                    pro: true
+                )
+            }
+            Text("En Gratis: 3 rutinas, 3 favoritos, 5 ejercicios propios y 4 escaneos al mes.")
+                .font(.caption)
+                .foregroundStyle(OG.label2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func comparisonColumn(name: String, title: String, detail: String, pro: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(name.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .tracking(1)
+                .foregroundStyle(pro ? OG.accent : OG.label2)
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(OG.label)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(OG.label2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 115, alignment: .topLeading)
+        .padding(14)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+        .overlay {
+            RoundedRectangle(cornerRadius: OG.radiusCard)
+                .strokeBorder(pro ? OG.accent.opacity(0.7) : OG.surface3, lineWidth: 1)
+        }
+    }
+
+    private var plansSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("ELIGE TU PLAN")
+            if packages.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
                     Text("Compras no disponibles")
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(OG.label)
                     Text(subscriptions.offerings.unavailableReason
-                         ?? "No se han podido cargar las suscripciones. Comprueba la conexión e inténtalo de nuevo.")
+                         ?? "No se han podido cargar las suscripciones. Comprueba la conexión.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                 }
-            }
-        } else {
-            VStack(spacing: 10) {
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(OG.pad)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+            } else {
                 if let annual {
                     planRow(annual, badge: savingsBadge(annual: annual, monthly: monthly))
                 }
@@ -147,111 +259,105 @@ struct PaywallView: View {
         return Button {
             selectedProductID = package.productID
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selected ? OG.accent : OG.label3)
+            HStack(spacing: 12) {
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                     .font(.title3)
+                    .foregroundStyle(selected ? OG.accent : OG.label3)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                    HStack(spacing: 8) {
                         Text(package.isAnnual ? "Anual" : "Mensual")
-                            .font(.headline)
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(OG.label)
                         if let badge {
                             Text(badge)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.onAccent)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(OG.accent, in: Capsule())
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(OG.accent)
                         }
                     }
-                    Text(package.localizedPrice + (package.isAnnual ? " / año" : " / mes"))
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
                     if let intro = package.introductoryOfferSummary {
                         Text(intro)
                             .font(.caption)
-                            .foregroundStyle(OG.accent)
+                            .foregroundStyle(OG.label2)
                     }
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: 6)
+                Text(package.localizedPrice + (package.isAnnual ? " / año" : " / mes"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.trailing)
             }
             .padding(OG.pad)
-            .background(
-                RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous)
-                    .fill(OG.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous)
-                            .strokeBorder(selected ? OG.accent : Color.clear, lineWidth: 1.5)
-                    )
-            )
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+            .overlay {
+                RoundedRectangle(cornerRadius: OG.radiusCard)
+                    .strokeBorder(selected ? OG.accent : OG.surface3, lineWidth: selected ? 1.5 : 1)
+            }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(package.isAnnual ? "Anual" : "Mensual"), \(package.localizedPrice)")
+        .accessibilityLabel("\(package.isAnnual ? "Anual" : "Mensual"), \(package.localizedPrice), \(selected ? "seleccionado" : "no seleccionado")")
     }
 
-    private var primaryCTA: some View {
-        let title: String = {
-            if let id = selectedProductID,
-               let pkg = packages.first(where: { $0.productID == id }),
-               pkg.hasFreeTrial {
-                return "Probar Repera Pro"
-            }
-            return "Continuar con Repera Pro"
-        }()
-        return Button {
+    private var purchaseFooter: some View {
+        Button {
             Task {
                 guard let id = selectedProductID else { return }
                 let ok = await subscriptions.purchase(productID: id)
                 if ok {
-                    if mode == .sheet {
-                        subscriptions.dismissPaywall()
-                    }
+                    if mode == .sheet { subscriptions.dismissPaywall() }
                     onPurchaseSuccess?()
                 } else if subscriptions.lastErrorMessage != nil {
                     showError = true
                 }
             }
         } label: {
-            HStack {
+            HStack(spacing: 8) {
                 if subscriptions.purchaseInFlight {
                     ProgressView().tint(OG.onAccent)
                 }
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                Text(selectedPackage?.hasFreeTrial == true ? "Probar Repera Pro" : "Continuar con Pro")
+                    .font(.system(size: 16, weight: .semibold))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 14, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .padding(.vertical, 16)
             .foregroundStyle(OG.onAccent)
-            .background(OG.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(OG.accent, in: RoundedRectangle(cornerRadius: 14))
         }
+        .buttonStyle(.plain)
         .disabled(selectedProductID == nil || subscriptions.purchaseInFlight || packages.isEmpty)
-        .accessibilityLabel(title)
+        .padding(.horizontal, OG.pad)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .frame(maxWidth: OG.contentColumnMaxWidth)
+        .frame(maxWidth: .infinity)
+        .background(OG.bg)
+    }
+
+    private var selectedPackage: CommercialPackageInfo? {
+        packages.first(where: { $0.productID == selectedProductID })
     }
 
     private var secondaryActions: some View {
         VStack(spacing: 12) {
             if mode == .onboarding {
-                Button("Seguir con el plan Gratis") {
-                    onContinueFree?()
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(OG.label)
+                Button("Seguir con Gratis") { onContinueFree?() }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
             }
-
             Button("Restaurar compras") {
                 Task {
                     let ok = await subscriptions.restorePurchases()
                     if ok {
-                        if mode == .onboarding {
-                            onPurchaseSuccess?()
-                        }
+                        if mode == .onboarding { onPurchaseSuccess?() }
                     } else {
                         showError = true
                     }
                 }
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.subheadline.weight(.medium))
             .foregroundStyle(OG.accent)
             .disabled(subscriptions.purchaseInFlight)
 
@@ -259,16 +365,15 @@ struct PaywallView: View {
                 Button("Gestionar suscripción") {
                     openURL(CommercialConfig.manageSubscriptionsURL)
                 }
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(OG.label2)
             }
-
-            HStack(spacing: 16) {
+            HStack(spacing: 20) {
                 Button("Privacidad") { openURL(CommercialConfig.privacyPolicyURL) }
                 Button("Términos") { openURL(CommercialConfig.termsOfUseURL) }
             }
             .font(.caption)
-            .foregroundStyle(OG.label3)
+            .foregroundStyle(OG.label2)
         }
         .frame(maxWidth: .infinity)
     }
@@ -281,19 +386,32 @@ struct PaywallView: View {
     }
 
     private var legalText: String {
-        var parts: [String] = [
+        var parts = [
             "El pago se cargará en tu cuenta de Apple al confirmar la compra.",
-            "La suscripción se renueva automáticamente salvo que la canceles al menos 24 horas antes del final del periodo.",
+            "La suscripción se renueva automáticamente salvo cancelación al menos 24 horas antes del final del periodo."
         ]
-        if let id = selectedProductID,
-           let pkg = packages.first(where: { $0.productID == id }) {
-            parts.append("Precio de renovación: \(pkg.localizedPrice)\(pkg.isAnnual ? " al año" : " al mes").")
+        if let pkg = selectedPackage {
+            parts.append("Renovación: \(pkg.localizedPrice) \(pkg.isAnnual ? "al año" : "al mes").")
             if pkg.hasFreeTrial, let intro = pkg.introductoryOfferSummary {
-                parts.append("\(intro). Tras la prueba se aplica el precio de renovación indicado.")
+                parts.append("\(intro). Tras la prueba se aplicará el precio de renovación indicado.")
             }
         }
-        parts.append("Puedes gestionar o cancelar en Ajustes → Apple ID → Suscripciones.")
+        parts.append("Puedes cancelar desde Ajustes → Apple ID → Suscripciones.")
         return parts.joined(separator: " ")
+    }
+
+    private func sectionHeading(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(1)
+            .foregroundStyle(OG.label2)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func reconcileSelectedProduct() {
+        if selectedProductID == nil || !packages.contains(where: { $0.productID == selectedProductID }) {
+            selectedProductID = annual?.productID ?? monthly?.productID
+        }
     }
 
     private func savingsBadge(annual: CommercialPackageInfo, monthly: CommercialPackageInfo?) -> String? {
@@ -303,11 +421,7 @@ struct PaywallView: View {
               monthlyPrice > 0 else { return nil }
         let yearOfMonthly = monthlyPrice * 12
         guard yearOfMonthly > annualPrice else { return nil }
-        let saved = yearOfMonthly - annualPrice
-        let pct = (saved / yearOfMonthly) * 100
-        let ns = NSDecimalNumber(decimal: pct)
-        let value = Int(ns.doubleValue.rounded())
-        guard value > 0 else { return nil }
-        return "Ahorra \(value)%"
+        let value = Int(NSDecimalNumber(decimal: (yearOfMonthly - annualPrice) / yearOfMonthly * 100).doubleValue.rounded())
+        return value > 0 ? "Ahorra \(value)%" : nil
     }
 }
