@@ -48,7 +48,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.repera.domain.monetization.PaywallContext
 import dev.repera.mobile.brandGreen
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
