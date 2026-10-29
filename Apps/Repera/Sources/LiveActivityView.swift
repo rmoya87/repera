@@ -1965,6 +1965,7 @@ private struct LiveSportPicker: View {
 
 struct LiveActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(SubscriptionManager.self) private var subscriptions
 
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
@@ -2003,6 +2004,11 @@ struct LiveActivityView: View {
     /// Preferencia persistente del mapa de Comenzar: primera apertura plana (2D).
     /// Un cambio en vertical u horizontal queda guardado para futuras sesiones.
     @AppStorage("repera.live.map.navigation3D.enabled") private var navigationMapEnabled = false
+
+    /// Permiso comercial, independiente del último modo guardado.
+    /// Una suscripción caducada nunca restaura la perspectiva 3D.
+    private var navigation3DAllowed: Bool { subscriptions.policy.canUse3DNavigation }
+    private var effectiveNavigation3D: Bool { navigationMapEnabled && navigation3DAllowed }
 
     var onSaved: (Date) -> Void
     var onOpenWorkout: () -> Void
@@ -2098,6 +2104,21 @@ struct LiveActivityView: View {
         }
         .onAppear {
             if scenePhase == .active { recorder.refreshWhenActive() }
+        }
+        .onChange(of: navigation3DAllowed) { _, allowed in
+            // Al perder Pro, volver a 2D también durante una sesión activa;
+            // conservar la preferencia para cuando se recupere el acceso.
+            if !allowed && navigationMapEnabled {
+                cancelPendingMapRecenter()
+                mapIsCentered = true
+                if let user = recorder.currentCoordinate {
+                    center3DMap(on: user)
+                } else if let camera = lastVisibleMapCamera {
+                    applyNavigationPitch(to: camera)
+                } else {
+                    position = .userLocation(fallback: .automatic)
+                }
+            }
         }
     }
 
@@ -2199,7 +2220,8 @@ struct LiveActivityView: View {
     /// Tab bar principal permanece nativa y aparece superpuesta al mapa.
     private var mapView: some View {
         ZStack {
-            Map(position: $position) {
+            Map(position: $position,
+                interactionModes: navigation3DAllowed ? .all : [.pan, .zoom, .rotate]) {
                 if let route = recorder.chosenRoute, route.points.count > 1 {
                     MapPolyline(coordinates: route.points.map {
                         CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
@@ -2232,7 +2254,7 @@ struct LiveActivityView: View {
                     }
                 }
             }
-            .mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))
+            .mapStyle(.standard(elevation: effectiveNavigation3D ? .realistic : .flat))
             .onMapCameraChange(frequency: .continuous) { context in
                 // Capturar cámara también antes del primer GPS, sin obligar
                 // a seleccionar una coordenada fija como fallback.
@@ -2247,7 +2269,7 @@ struct LiveActivityView: View {
                 // Si 3D se restauró desde Ajustes/último uso, la posición
                 // inicial .userLocation de MapKit se crea plana. Forzar su
                 // inclinación una sola vez al obtener la primera cámara.
-                if navigationMapEnabled && !hasAppliedStored3DCamera && pendingMapRecenter == nil {
+                if effectiveNavigation3D && !hasAppliedStored3DCamera && pendingMapRecenter == nil {
                     hasAppliedStored3DCamera = true
                     if let user = recorder.currentCoordinate {
                         center3DMap(on: user)
@@ -2471,8 +2493,9 @@ struct LiveActivityView: View {
                     ) { finishAndShowSave() }
                 }
                 mapCircleButton(
-                    navigationMapEnabled ? "map" : "view.3d",
-                    label: navigationMapEnabled ? "Cambiar a vista 2D" : "Cambiar a vista 3D"
+                    effectiveNavigation3D ? "map" : "view.3d",
+                    label: effectiveNavigation3D ? "Cambiar a vista 2D"
+                        : (navigation3DAllowed ? "Cambiar a vista 3D" : "Desbloquear navegación 3D con Repera Pro")
                 ) {
                     toggleNavigationMapMode()
                 }
@@ -2508,6 +2531,10 @@ struct LiveActivityView: View {
     /// no ha entregado una posición. Nunca limitarse a cambiar el relieve:
     /// es la inclinación de la cámara lo que hace visible la perspectiva.
     private func toggleNavigationMapMode() {
+        guard navigation3DAllowed else {
+            subscriptions.presentPaywall(.generic)
+            return
+        }
         cancelPendingMapRecenter()
         navigationMapEnabled.toggle()
         hasAppliedStored3DCamera = true
@@ -2552,9 +2579,9 @@ struct LiveActivityView: View {
     private func applyNavigationPitch(to camera: MapCamera) {
         position = .camera(MapCamera(
             centerCoordinate: camera.centerCoordinate,
-            distance: navigationMapEnabled ? min(camera.distance, 500) : max(camera.distance, 450),
+            distance: effectiveNavigation3D ? min(camera.distance, 500) : max(camera.distance, 450),
             heading: mapHeadingDegrees ?? camera.heading,
-            pitch: navigationMapEnabled ? 67 : 0
+            pitch: effectiveNavigation3D ? 67 : 0
         ))
     }
 
@@ -2562,7 +2589,7 @@ struct LiveActivityView: View {
     /// cuando todavía no existe rumbo GPS o brújula fiable.
     private func center3DMap(on user: CLLocationCoordinate2D) {
         let heading = mapHeadingDegrees ?? lastVisibleMapCamera?.heading ?? 0
-        if !navigationMapEnabled {
+        if !effectiveNavigation3D {
             position = .camera(MapCamera(
                 centerCoordinate: user,
                 distance: recorder.sport.isCycling ? 650 : 450,
@@ -2605,7 +2632,7 @@ struct LiveActivityView: View {
             centerCoordinate: region.center,
             distance: max(900, span * 2.6),
             heading: 0,
-            pitch: 55
+            pitch: effectiveNavigation3D ? 55 : 0
         ))
     }
 

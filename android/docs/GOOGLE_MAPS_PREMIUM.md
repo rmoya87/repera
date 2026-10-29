@@ -1,13 +1,21 @@
-# Google Maps para Android Premium (iOS no cambia)
+# Google Maps para Android Premium + navegación 3D exclusiva Pro en iOS y Android
 
 ## Alcance
 
-- Gratis: MapLibre + OpenFreeMap, manteniendo el buscador Photon/Geocoder.
+- Gratis: MapLibre + OpenFreeMap, manteniendo el buscador Photon/Geocoder. Navegación 2D sin inclinación por gestos, GPX y grabación GPS sin bloqueo.
 - Premium verificado (incluye acceso patrocinado por centro): Google Maps SDK Android como motor de visualización para Comenzar, vista previa de rutas y selección de pines del entrenamiento.
 - Sin clave configurada: fallback seguro a MapLibre aunque el usuario sea Premium. No instanciar Google Map sin credenciales.
 - Los GPS grabados, GPX, indicaciones y temporizadores siguen siendo lógica propia de Repera. Maps SDK dibuja las capas de ruta, posición, edificios y cámara 2D/3D.
 - No se contratan Google Routes, Navigation ni Google Places con esta implementación. Buscar lugares sigue siendo Photon y el Geocoder Android; Google Places requeriría integrar otro SDK y cuotas de facturación distintas.
-- iOS, watchOS y WearOS sin modificaciones.
+- iOS mantiene MapKit como proveedor para ambos planes, pero su modo de navegación con cámara inclinada 3D ahora está restringido a Repera Pro. El mapa 2D, GPS, GPX y métricas siguen siendo gratuitos. watchOS y WearOS sin modificaciones.
+
+## Permisos y pantallas de precios
+
+- En ambas apps `FeatureAccessPolicy.canUse3DNavigation` comprueba el acceso Pro efectivo; no basta con una preferencia guardada de otra sesión.
+- Al tocar el selector 3D desde Gratis se muestra Repera Pro sin activar la perspectiva. Al perder Pro en mitad de una ruta se vuelve a 2D.
+- La inclinación manual por gesto también queda bloqueada sin Pro.
+- Las dos pantallas de pricing incluyen la navegación 3D como ventaja. Android la comunica independientemente del beneficio adicional Google Maps.
+- Google Maps es un beneficio **solo Android**. La navegación 3D es un beneficio Pro en **ambas** plataformas y puede usar MapLibre si la clave Google todavía no está disponible.
 
 ## Activar Maps SDK en Google Cloud
 

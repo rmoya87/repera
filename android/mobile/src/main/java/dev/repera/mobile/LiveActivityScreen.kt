@@ -83,6 +83,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     onInitialSportConsumed: () -> Unit = {}) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
+    val subscriptions = dev.repera.mobile.monetization.LocalSubscriptions.current
+    // La comprobación es reactiva y se basa en el entitlement efectivo, no en SharedPreferences.
+    val canNavigate3D = subscriptions?.policy?.canUse3DNavigation == true
     // Paridad iOS AppStorage("repera.live.map.navigation3D.enabled").
     val mapPrefs = remember {
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
@@ -97,6 +100,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     var followingMap by remember { mutableStateOf(true) }
     var recenterToken by remember { mutableStateOf(0) }
+    val effectiveNavigationMode = canNavigate3D && navigationMode
+    LaunchedEffect(canNavigate3D) {
+        // Si Pro caduca o se revoca mientras navega, volver inmediatamente al 2D.
+        // La preferencia 3D puede recuperarse tras restaurar la suscripción.
+        if (!canNavigate3D && navigationMode) {
+            followingMap = true
+            recenterToken++
+        }
+    }
     var lastUserMapMoveAt by remember { mutableLongStateOf(0L) }
     // No volver a centrar durante el gesto ni durante sus 5 segundos de reposo.
     // LaunchedEffect cancela el temporizador anterior ante cada nuevo movimiento.
@@ -451,7 +463,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 isInteractive = true, modifier = Modifier.fillMaxSize(), plannedRoute = state.points.size < 2, waterSport = state.sport.isWaterSport,
                 paceMode = AdaptiveRoutePace.modeForSport(state.sport.name),
                 controlsOverlay = true,plannedPoints=if(state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
-                onMapRendered = onMapRendered,navigationMode=navigationMode,
+                onMapRendered = onMapRendered,navigationMode=effectiveNavigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
                 cameraTrace=state.points,
                 userPosition=state.points.lastOrNull() ?: freshPosition,
@@ -472,9 +484,21 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 horizontalAlignment = Alignment.End
             ) {
                 LiveMapCircleFab(
-                    icon = if (navigationMode) Icons.Outlined.Map else Icons.Outlined.Layers,
-                    label = if (navigationMode) "Cambiar a vista 2D" else "Cambiar a vista 3D"
-                ) { setNavigationMode(!navigationMode); followingMap = true; recenterToken++ }
+                    icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.Layers,
+                    label = when {
+                        effectiveNavigationMode -> "Cambiar a vista 2D"
+                        canNavigate3D -> "Cambiar a vista 3D"
+                        else -> "Desbloquear navegación 3D con Repera Pro"
+                    }
+                ) {
+                    if (!canNavigate3D) {
+                        subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.GENERIC)
+                    } else {
+                        setNavigationMode(!navigationMode)
+                        followingMap = true
+                        recenterToken++
+                    }
+                }
                 if (!followingMap && (state.points.isNotEmpty() || freshPosition != null)) {
                     LiveMapCircleFab(Icons.Outlined.MyLocation, "Centrar en mi posición") {
                         followingMap = true; recenterToken++

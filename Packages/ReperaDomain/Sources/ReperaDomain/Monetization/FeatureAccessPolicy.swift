@@ -29,6 +29,9 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
 
     public var isPro: Bool { snapshot.grantsProAccess || businessSponsoredAccess }
 
+    /// La navegación 3D es exclusiva de Pro; la grabación GPS y el mapa 2D siguen gratis.
+    public var canUse3DNavigation: Bool { isPro }
+
     public var effectiveStatus: SubscriptionStatus {
         snapshot.effectiveStatus()
     }

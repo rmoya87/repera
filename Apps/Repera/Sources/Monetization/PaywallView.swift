@@ -29,6 +29,7 @@ struct PaywallView: View {
 
     private let highlights: [(symbol: String, title: String, detail: String)] = [
         ("chart.line.uptrend.xyaxis", "Tu evolución, al detalle", "Historial completo por ejercicio, marcas y e1RM."),
+        ("map", "Navegación de rutas en 3D", "Sigue tus recorridos con perspectiva 3D y orientación en marcha, solo con Repera Pro."),
         ("chart.bar.xaxis", "Entiende cómo progresas", "Todos los periodos, recuperación y análisis muscular avanzado."),
         ("square.stack", "Más espacio para entrenar", "Rutinas, favoritos y ejercicios propios sin límites."),
         ("camera.viewfinder", "Escanea cualquier WOD", "Escáner de pizarras ilimitado y comparativas de resultados."),
@@ -186,13 +187,13 @@ struct PaywallView: View {
                 comparisonColumn(
                     name: "Gratis",
                     title: "Empieza",
-                    detail: "Progreso de la semana y herramientas esenciales.",
+                    detail: "Mapa 2D, progreso semanal y herramientas esenciales.",
                     pro: false
                 )
                 comparisonColumn(
                     name: "Pro",
                     title: "Evoluciona",
-                    detail: "Todos tus datos, análisis y herramientas sin límites.",
+                    detail: "Navegación 3D, análisis avanzado y herramientas sin límites.",
                     pro: true
                 )
             }

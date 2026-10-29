@@ -9,6 +9,19 @@ import org.junit.Test
 class FeatureAccessPolicyTest {
 
     @Test
+    fun `la navegacion 3D requiere Pro efectivo`() {
+        assertFalse(FeatureAccessPolicy().canUse3DNavigation)
+        for (status in listOf(SubscriptionStatus.EXPIRED, SubscriptionStatus.REVOKED, SubscriptionStatus.UNKNOWN)) {
+            assertFalse(FeatureAccessPolicy(snapshot = CommercialSnapshot(status = status)).canUse3DNavigation)
+        }
+        for (status in listOf(SubscriptionStatus.TRIAL, SubscriptionStatus.PRO_MONTHLY,
+            SubscriptionStatus.PRO_ANNUAL, SubscriptionStatus.GRACE_PERIOD)) {
+            assertTrue(FeatureAccessPolicy(snapshot = CommercialSnapshot(status = status)).canUse3DNavigation)
+        }
+        assertTrue(FeatureAccessPolicy(businessSponsoredAccess = true).canUse3DNavigation)
+    }
+
+    @Test
     fun `gratis puede registrar sin límites de sesión`() {
         val policy = FeatureAccessPolicy(libraryRoutineCount = 10, customExerciseCount = 50)
         assertFalse(policy.canAccess(ReperaFeature.EXERCISE_EVOLUTION))

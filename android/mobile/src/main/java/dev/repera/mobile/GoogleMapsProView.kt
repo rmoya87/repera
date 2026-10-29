@@ -130,6 +130,11 @@ internal fun GoogleRouteMapView(
             map = ready
         }
     }
+    // 2D no permite inclinar con los dedos: la perspectiva solo se activa
+    // desde el modo 3D de Repera Pro, incluso con Google como proveedor.
+    LaunchedEffect(map, navigationMode, isInteractive) {
+        map?.uiSettings?.setTiltGesturesEnabled(isInteractive && navigationMode)
+    }
     var positionMarker by remember(view) { mutableStateOf<Marker?>(null) }
     // La ruta se recalcula al recibir puntos, no con cada cambio del rumbo.
     LaunchedEffect(map, points, plannedRoute, plannedPoints, waterSport, paceMode) {

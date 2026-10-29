@@ -236,6 +236,7 @@ private fun PaywallBenefits() {
     val features = listOf(
         "Tu evolución, al detalle" to "Historial completo por ejercicio, marcas y e1RM.",
         googleMapsTitle to googleMapsDescription,
+        "Navegación 3D exclusiva" to "Sigue tus rutas con perspectiva 3D y orientación durante el recorrido, solo con Pro.",
         "Entiende cómo progresas" to "Todos los periodos, recuperación y análisis muscular avanzado.",
         "Más espacio para entrenar" to "Rutinas, favoritos y ejercicios propios sin límites.",
         "Escanea cualquier WOD" to "Pizarras ilimitadas y comparativas de resultados.",
@@ -283,14 +284,14 @@ private fun PaywallComparison() {
             PaywallComparisonItem(
                 title = "Gratis",
                 action = "Empieza",
-                detail = "Progreso de la semana y herramientas esenciales.",
+                detail = "Mapa 2D, progreso semanal y herramientas esenciales.",
                 isPro = false,
                 modifier = Modifier.weight(1f)
             )
             PaywallComparisonItem(
                 title = "Pro",
                 action = "Evoluciona",
-                detail = "Progreso avanzado, herramientas ilimitadas y Google Maps para tus rutas.",
+                detail = "Google Maps, navegación 3D y progreso avanzado sin límites.",
                 isPro = true,
                 modifier = Modifier.weight(1f)
             )

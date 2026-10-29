@@ -18,6 +18,9 @@ data class FeatureAccessPolicy(
 ) {
     val isPro: Boolean get() = snapshot.grantsProAccess || businessSponsoredAccess
 
+    /** Navegación con perspectiva 3D solo para el acceso Pro verificado. */
+    val canUse3DNavigation: Boolean get() = isPro
+
     val effectiveStatus: SubscriptionStatus get() = snapshot.effectiveStatus()
 
     fun decision(feature: ReperaFeature, now: Long = System.currentTimeMillis()): FeatureAccessDecision {

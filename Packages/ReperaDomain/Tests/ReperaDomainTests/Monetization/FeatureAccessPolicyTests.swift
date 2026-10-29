@@ -5,6 +5,18 @@ import Testing
 @Suite("FeatureAccessPolicy")
 struct FeatureAccessPolicyTests {
 
+    @Test("La navegación 3D solo se desbloquea con acceso Pro efectivo")
+    func mapNavigation3DAccess() {
+        #expect(!FeatureAccessPolicy().canUse3DNavigation)
+        #expect(!FeatureAccessPolicy(snapshot: CommercialSnapshot(status: .expired)).canUse3DNavigation)
+        #expect(!FeatureAccessPolicy(snapshot: CommercialSnapshot(status: .revoked)).canUse3DNavigation)
+        #expect(!FeatureAccessPolicy(snapshot: CommercialSnapshot(status: .unknown)).canUse3DNavigation)
+        for status in [SubscriptionStatus.trial, .proMonthly, .proAnnual, .gracePeriod] {
+            #expect(FeatureAccessPolicy(snapshot: CommercialSnapshot(status: status)).canUse3DNavigation)
+        }
+        #expect(FeatureAccessPolicy(businessSponsoredAccess: true).canUse3DNavigation)
+    }
+
     @Test("Gratis puede registrar sin límites de sesión")
     func freeAlwaysAllowsCoreTraining() {
         let policy = FeatureAccessPolicy(libraryRoutineCount: 10, customExerciseCount: 50)

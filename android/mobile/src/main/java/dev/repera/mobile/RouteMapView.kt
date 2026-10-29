@@ -105,6 +105,10 @@ internal fun RouteMapView(
     onCameraGesture:(()->Unit)? = null
 ) {
     val hasPremiumAccess = dev.repera.mobile.monetization.LocalSubscriptions.current?.isPro == true
+    // Capa de defensa: nunca aceptar un argumento de navegación 3D sin Pro.
+    val navigation3DAllowed =
+        dev.repera.mobile.monetization.LocalSubscriptions.current?.policy?.canUse3DNavigation == true
+    val effectiveNavigationMode = navigationMode && navigation3DAllowed
     if (AndroidMapProviderChoice.useGoogle(hasPremiumAccess, BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()) &&
         com.google.android.gms.common.GoogleApiAvailability.getInstance()
             .isGooglePlayServicesAvailable(androidx.compose.ui.platform.LocalContext.current) ==
@@ -113,7 +117,7 @@ internal fun RouteMapView(
             points = points, modifier = modifier, isInteractive = isInteractive,
             plannedRoute = plannedRoute, plannedPoints = plannedPoints,
             controlsOverlay = controlsOverlay, waterSport = waterSport, paceMode = paceMode,
-            navigationMode = navigationMode, cameraCenter = cameraCenter, cameraTrace = cameraTrace,
+            navigationMode = effectiveNavigationMode, cameraCenter = cameraCenter, cameraTrace = cameraTrace,
             userPosition = userPosition, userHeadingDegrees = userHeadingDegrees,
             recenterToken = recenterToken, onCameraGesture = onCameraGesture,
             onStyleLoaded = onStyleLoaded, onMapRendered = onMapRendered)
@@ -152,13 +156,15 @@ internal fun RouteMapView(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(navigationMode,loadedMap) {
-        loadedMap?.getStyle { style -> ReperaMapAppearance.setBuildings3D(style,navigationMode) }
+    androidx.compose.runtime.LaunchedEffect(effectiveNavigationMode,loadedMap) {
+        loadedMap?.getStyle { style -> ReperaMapAppearance.setBuildings3D(style,effectiveNavigationMode) }
+        // La inclinación por gesto también es 3D: deshabilitarla en Gratis y en modo 2D.
+        loadedMap?.uiSettings?.setTiltGesturesEnabled(isInteractive && effectiveNavigationMode)
     }
     androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap,userHeadingDegrees,cameraTrace) {
         val map=loadedMap ?: return@LaunchedEffect
         val center=cameraCenter ?: return@LaunchedEffect
-        val camera=LiveMapCamera.target(center,cameraTrace,navigationMode,userHeadingDegrees)
+        val camera=LiveMapCamera.target(center,cameraTrace,effectiveNavigationMode,userHeadingDegrees)
         map.animateCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder()
             .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
             .bearing(camera.bearing).tilt(camera.pitch).build()), 550)
@@ -252,6 +258,7 @@ internal fun RouteMapView(
                             setAttributionMargins((100*d).toInt(),(250*d).toInt(),0,0)
                         }
                         setAllGesturesEnabled(isInteractive)
+                        isTiltGesturesEnabled = isInteractive && effectiveNavigationMode
                         isCompassEnabled = isInteractive
                     }
                     // R5 P1-12: estilo oscuro en modo noche (liberty es claro).
@@ -259,7 +266,7 @@ internal fun RouteMapView(
                         android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                         android.content.res.Configuration.UI_MODE_NIGHT_YES
                     map.setStyle(ReperaMapAppearance.styleUrl(dark)) { style ->
-                        ReperaMapAppearance.apply(style,dark,navigationMode)
+                        ReperaMapAppearance.apply(style,dark,effectiveNavigationMode)
                         applyPlannedOverlay(style,currentPlan)
                         applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan,mode=paceMode)
                         updateUserDirection(style, userPosition, userHeadingDegrees)
