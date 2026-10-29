@@ -154,7 +154,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `SubscriptionManager` | Estado comercial observable, ofertas, compra/restore, paywall; `businessSponsoredAccess` si hay vínculo activo a centro/entrenador |
 | `RevenueCatEntitlementProvider` | CustomerInfo → `CommercialSnapshot` |
 | `FreeUsageStore` | Cuota escáner (`free_usage.json`, fuera del JSON deportivo) |
-| `PaywallView` / `ProTeaserCard` | UI comercial Liquid Glass |
+| `PaywallView` / `ProTeaserCard` | Página comercial minimalista y banners Pro; iOS la muestra como overlay raíz (no sheet), Android como pantalla Compose completa |
 | Detalle | [MONETIZATION.md](MONETIZATION.md) |
 
 ## Swipe bidireccional de Inicio (27/10/2026)
