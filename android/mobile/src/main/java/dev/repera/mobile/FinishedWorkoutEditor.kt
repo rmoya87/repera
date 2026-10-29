@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -33,7 +35,11 @@ import java.time.format.DateTimeFormatter
 
 /** Editor de un entreno terminado (WorkoutDetailView.isEditing iOS): título,
  *  inicio/fin, lugar (sólo sin ruta) y notas. Trabaja sobre un BORRADOR local:
- *  nada se escribe hasta «Guardar»; «Cancelar» descarta (historial intacto). */
+ *  nada se escribe hasta «Guardar»; «Cancelar» descarta (historial intacto).
+ *
+ *  @param forceEditing abre ya en modo edición (página full iOS DayEditorView).
+ *  @param onOpenFullEditor si no es null, «Editar entreno» navega en vez de inline.
+ *  @param onDismiss tras Guardar/Cancelar en modo página (pop). */
 @Composable
 internal fun FinishedWorkoutEditorSection(
     workout: WorkoutHistoryEntry,
@@ -41,9 +47,12 @@ internal fun FinishedWorkoutEditorSection(
     busy: Boolean,
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
     effortUnit: String = "rir",
+    forceEditing: Boolean = false,
+    onOpenFullEditor: (() -> Unit)? = null,
+    onDismiss: (() -> Unit)? = null,
     onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit
 ) {
-    var editing by remember(accountId, workout.id) { mutableStateOf(false) }
+    var editing by remember(accountId, workout.id, forceEditing) { mutableStateOf(forceEditing) }
     val hasRoute = workout.routePoints.size >= 2
     if (!editing) {
         // R5 P1-10: no mostrar pin GPS anónimo sin lugar elegido (iOS hasChosenPlace).
@@ -62,8 +71,13 @@ internal fun FinishedWorkoutEditorSection(
             ReperaSectionTitle("Notas")
             Text(it, style = MaterialTheme.typography.bodyMedium)
         }
-        TextButton(onClick = { editing = true }, enabled = !busy,
-            modifier = Modifier.testTag("edit_finished_workout")) { Text("Editar entreno") }
+        TextButton(
+            onClick = {
+                if (onOpenFullEditor != null) onOpenFullEditor() else editing = true
+            },
+            enabled = !busy,
+            modifier = Modifier.testTag("edit_finished_workout")
+        ) { Text("Editar entreno") }
         return
     }
     // Borrador: se reinicia cada vez que se entra en edición.
@@ -116,7 +130,14 @@ internal fun FinishedWorkoutEditorSection(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Editar", style = MaterialTheme.typography.titleMedium)
+        if (!forceEditing) {
+            Text("Editar", style = MaterialTheme.typography.titleMedium)
+        }
+        Text(
+            "Edita los datos registrados sin modificar la rutina programada.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         OutlinedTextField(value = title, onValueChange = { title = it },
             label = { Text("Nombre del entreno") }, singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag("edit_title"))
@@ -204,11 +225,59 @@ internal fun FinishedWorkoutEditorSection(
                     blocksJson = if (contentDirty) blocks?.toString() else null,
                     saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList(),
                     recordNewSetsAsPerformed = recordNewSetsAsPerformed))
-                editing = false
+                if (onDismiss != null) onDismiss() else editing = false
             }) { Text("Guardar") }
             TextButton(modifier = Modifier.testTag("edit_cancel"),
-                onClick = { editing = false }) { Text("Cancelar") }
+                onClick = {
+                    if (onDismiss != null) onDismiss() else editing = false
+                }) { Text("Cancelar") }
         }
+    }
+}
+
+/**
+ * Página completa «Editar entreno» (iOS DayEditorView vía showCompletedEditor).
+ * No edita el plan programado; solo el registro terminado.
+ */
+@Composable
+internal fun FinishedWorkoutEditorScreen(
+    workout: WorkoutHistoryEntry,
+    accountId: String,
+    busy: Boolean,
+    exerciseCatalog: List<ExerciseEntry>,
+    effortUnit: String,
+    onBack: () -> Unit,
+    onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit,
+) {
+    androidx.activity.compose.BackHandler(onBack = onBack)
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+            .testTag("finished_workout_editor_page"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.Close,
+                contentDescription = "Cerrar",
+                onClick = onBack,
+                modifier = Modifier.testTag("finished_workout_editor_back")
+            )
+            Spacer(Modifier.weight(1f))
+        }
+        ReperaPageHeader(title = "Editar entreno")
+        FinishedWorkoutEditorSection(
+            workout = workout,
+            accountId = accountId,
+            busy = busy,
+            exerciseCatalog = exerciseCatalog,
+            effortUnit = effortUnit,
+            forceEditing = true,
+            onDismiss = onBack,
+            onSave = onSave
+        )
     }
 }
 

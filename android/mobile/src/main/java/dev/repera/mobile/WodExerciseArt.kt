@@ -36,12 +36,23 @@ internal fun packagedWodExercises(seed: org.json.JSONArray): List<ExerciseEntry>
 
 /** Read-only resolution: a missing catalog movement never creates a private exercise. */
 @Composable
-internal fun WodExerciseThumbnail(exercise:ExerciseEntry,aliases:Map<String,String>) {
+internal fun WodExerciseThumbnail(
+    exercise: ExerciseEntry,
+    aliases: Map<String, String>,
+    size: androidx.compose.ui.unit.Dp = 40.dp,
+) {
     val context=LocalContext.current
     val stem=remember(exercise.name,exercise.sportTag) {
         ExerciseArtImages.carouselStems(context,exercise.name,exercise.sportTag=="Movilidad",aliases,
             exercise.instructions.count {it.isNotBlank()}).firstOrNull()
     }
     val bitmap by produceState<ImageBitmap?>(null,stem) {value=stem?.let {ExerciseArtImages.load(context,it)}}
-    bitmap?.let {Image(it,exercise.displayName,Modifier.size(40.dp),contentScale=ContentScale.Crop)}
+    bitmap?.let {
+        Image(
+            it,
+            exercise.displayName,
+            Modifier.size(size),
+            contentScale = ContentScale.Crop
+        )
+    }
 }

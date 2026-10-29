@@ -39,6 +39,25 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
  val selectedWorkout = selectedWorkoutId?.let { id ->
   overview?.completeHistory.orEmpty().firstOrNull { it.id == id }
  }
+ var editingWorkoutId by remember(accountId) { mutableStateOf<String?>(null) }
+ val editingWorkout = editingWorkoutId?.let { id ->
+  overview?.completeHistory.orEmpty().firstOrNull { it.id == id }
+ }
+ if (editingWorkout != null) {
+  BackHandler { editingWorkoutId = null }
+  FinishedWorkoutEditorScreen(
+   workout = editingWorkout,
+   accountId = accountId,
+   busy = busy,
+   exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+   effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+   onBack = { editingWorkoutId = null },
+   onSave = { edit ->
+    onUpdate(editingWorkout.id, edit)
+   }
+  )
+  return
+ }
  if (selectedWorkout != null) {
   BackHandler { selectedWorkoutId = null }
   WorkoutHistoryDetailScreen(
@@ -57,6 +76,7 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    onUpdate = onUpdate,
    onOpenExercise = onOpenExercise,
    heartSeries = heartSeries,
+   onEditFinished = { editingWorkoutId = selectedWorkout.id },
   )
   return
  }
@@ -191,6 +211,7 @@ internal fun WorkoutHistoryDetailScreen(
  onUpdate: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit,
  onOpenExercise: (String, String, String) -> Unit,
  heartSeries: suspend (String) -> List<Pair<Long, Int>>,
+ onEditFinished: (() -> Unit)? = null,
 ) {
  LazyColumn(
   Modifier.fillMaxSize().testTag("workout_history_detail"),
@@ -219,6 +240,7 @@ internal fun WorkoutHistoryDetailScreen(
     heartSeries,
     effortUnit = effortUnit,
     startsExpanded = true,
+    onOpenFinishedEditor = onEditFinished,
    )
   }
  }

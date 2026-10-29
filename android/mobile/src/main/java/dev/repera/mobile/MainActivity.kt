@@ -1199,7 +1199,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onUpdateHealthGoals = { goals -> runWorkoutAction { updateHealthGoals(goals) } },
                 onUpdateRotation = { plan -> runWorkoutAction { updateRotation(plan) } },
                 onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
-                onLiveActivitySaved = {
+                onLiveActivitySaved = { sessionId ->
+                    // iOS saveRecordedActivity: HealthKit merge + persist; Android HC + mirror.
+                    sessionId?.takeIf { it.isNotBlank() }?.let { refineFinishedSessionWithHealth(it) }
+                    if (verifiedSupabase != null) syncWorkoutMirror()
                     profile?.uniqueId?.let { id -> lifecycleScope.launch { reloadFor(id) } }
                 },
                 onRemoveSportFavorite = { favId ->
@@ -2141,8 +2144,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val accountRevision=centerGate.revision
         fun currentAccount()=profile?.uniqueId==accountId && centerGate.revision==accountRevision
         val now = System.currentTimeMillis()
-        if (catalogRefreshRunning || now - lastCatalogCheckAt < 60_000L) return
+        if (catalogRefreshRunning) return
         if (profile?.uniqueId != accountId) return
+        // iOS RemoteExerciseCatalogStore: throttle 60s still restoreCached/apply.
+        if (now - lastCatalogCheckAt < 60_000L) {
+            lifecycleScope.launch {
+                val applied = withContext(Dispatchers.IO) {
+                    if (!currentAccount()) return@withContext false
+                    RemoteExerciseCatalog(this@MainActivity).applyToAccount(accountId)
+                }
+                if (applied && currentAccount()) reloadFor(accountId)
+            }
+            return
+        }
         lastCatalogCheckAt = now
         catalogRefreshRunning = true
         lifecycleScope.launch {
@@ -2158,11 +2172,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val changed = withContext(Dispatchers.IO) {
                     check(currentAccount()) {"La cuenta cambió durante la lectura del catálogo"}
                     val feed = RemoteExerciseCatalog(this@MainActivity)
-                    val updated = feed.refresh(token)
-                    if (updated && currentAccount()) {
-                        // Incoming events are already durable in the feed cache.
-                        feed.applyToAccount(accountId)
-                    } else false
+                    feed.refresh(token)
+                    // iOS: applyAndRelink even when head == revision (no new events).
+                    if (currentAccount()) feed.applyToAccount(accountId) else false
                 }
                 if (changed && currentAccount()) {
                     reloadFor(accountId)

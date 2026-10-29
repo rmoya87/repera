@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
 /** Primer wiring ejecutable: no estima kcal/pulso ni escribe Salud.
  * Rutas, voz y revisión visual se completan por separado, no se ocultan. */
 @Composable
-internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
+internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) -> Unit,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
     hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {},
     onMapRendered: (() -> Unit)? = null,
@@ -1108,6 +1108,20 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         plannedRoute=!previewRecorded,
                         plannedPoints=if (previewRecorded) chosenRoutePoints else emptyList(),onMapRendered=onMapRendered)
                 }
+                // iOS SessionMapWeatherCard: franja Tiempo/Humedad/Viento bajo el mapa
+                // en REVIEW (Open-Meteo = campos WeatherKit).
+                if (state.phase == LiveActivityState.Phase.REVIEW) {
+                    val weatherPoint = previewPoints.firstOrNull() ?: state.points.firstOrNull()
+                    val weatherEpoch = state.startedMillis
+                    if (weatherPoint != null && weatherEpoch != null) {
+                        RouteWeatherStrip(
+                            latitude = weatherPoint.latitude,
+                            longitude = weatherPoint.longitude,
+                            workoutEpochMs = weatherEpoch,
+                            modifier = Modifier.testTag("live_review_weather_under_map")
+                        )
+                    }
+                }
                 // Apple (live main) e9feae2b: resumen de parciales en el HUD solo con GPS
                 // y fase recording/paused (en REVIEW se muestra en el bloque de guardado).
                 if (state.phase == LiveActivityState.Phase.RECORDING || state.phase == LiveActivityState.Phase.PAUSED) {
@@ -1131,6 +1145,18 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
             }
             if(state.phase!=LiveActivityState.Phase.REVIEW) Button(onClick={runtime.finish();LiveActivityService.stop(context)},modifier=Modifier.testTag("live_finish")) {Text("Finalizar")}
             else {
+                // iOS review: fecha completa + hora de inicio (no rango).
+                state.startedMillis?.let { started ->
+                    val zoned = java.time.Instant.ofEpochMilli(started)
+                        .atZone(java.time.ZoneId.systemDefault())
+                    Text(
+                        zoned.format(java.time.format.DateTimeFormatter.ofPattern(
+                            "EEEE d MMMM · H:mm", java.util.Locale("es", "ES"))),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("live_review_started_subtitle")
+                    )
+                }
                 // Apple 1b5d4eea (LiveActivityView reviewTiles): metricas de la
                 // revision en fichas icono+etiqueta+valor, sin contenedor exterior.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1162,9 +1188,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     try {
                         val now=System.currentTimeMillis()
                         val savedDay=state.startedMillis ?: now
-                        WorkoutRepository(context,accountId).saveLiveActivity(state.snapshot(now)!!,
+                        val sessionId = WorkoutRepository(context,accountId).saveLiveActivity(state.snapshot(now)!!,
                             state.finishedMillis ?: now,state.durationSeconds(now),title,notes)
-                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSavedDay(savedDay);onSaved() }
+                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSavedDay(savedDay);onSaved(sessionId) }
                         else error="La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
                     } catch (_: Exception) {error="No se pudo guardar. La actividad sigue disponible para reintentar."}
                 },modifier=Modifier.testTag("live_save")) {Text("Guardar actividad")}
@@ -1189,9 +1215,9 @@ private fun LiveMapCircleFab(icon: ImageVector, label: String, onClick: () -> Un
         Surface(
             onClick = onClick,
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            // R7: sombra suave sobre mapa.
-            shadowElevation = 1.dp,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            // Liquid Glass → Material translucency + sombra suave sobre mapa.
+            shadowElevation = 2.dp,
             border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)),
             modifier = Modifier.size(44.dp)
         ) {

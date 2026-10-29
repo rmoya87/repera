@@ -242,7 +242,7 @@ fun ReperaMobileScreen(
     onUpdateHealthGoals:(HealthGoals)->Unit = {},
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
-    onLiveActivitySaved: () -> Unit = {},
+    onLiveActivitySaved: (sessionId: String?) -> Unit = {},
     onRemoveSportFavorite: (String) -> Unit = {},
     onSaveTimerSession: (StandaloneTimerCompletion) -> Boolean = { false },
     initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
@@ -905,7 +905,7 @@ fun ReperaMobileScreen(
                 composable("en-vivo") {
                     LiveActivityScreen(accountId = accountId,
                         hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navController.navigate("entreno-activo") },
-                        onSaved = { onLiveActivitySaved(); navigateTab("inicio") },
+                        onSaved = { sessionId -> onLiveActivitySaved(sessionId); navigateTab("inicio") },
                         onSavedDay={ homeFocusDay=java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() },
                         onOpenTools = { navController.navigate("crear") },
                         onOpenCenter = if (centerVisible) ({ showCenter = true }) else null,
@@ -950,6 +950,9 @@ fun ReperaMobileScreen(
                         onLogBodyWeight = onLogBodyWeight,
                         onOpenBodyWeights = { navController.navigate("peso-corporal") },
                         onOpenHistory = {navController.navigate("historial")},
+                        onOpenWorkoutDetail = { id ->
+                            navController.navigate("historial-detalle/" + Uri.encode(id))
+                        },
                         healthAccess = healthAccess,
                         onHealthConnect = onHealthConnect
                     )
@@ -966,7 +969,8 @@ fun ReperaMobileScreen(
                             onBack = {
                                 clockMinimized = true
                                 navController.popBackStack()
-                            }
+                            },
+                            exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                         )
                     } else {
                         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -984,7 +988,7 @@ fun ReperaMobileScreen(
                         exerciseSeries=exerciseSeries,onSetTestedOneRM=onSetTestedOneRM,
                         heartSeriesProvider = heartSeriesProvider,
                         onUpdateFinishedWorkout = onUpdateFinishedWorkout,
-                        accountId = accountId, onArchiveChanged = onLiveActivitySaved,
+                        accountId = accountId, onArchiveChanged = { onLiveActivitySaved(null) },
                         busy = busy,
                         syncing = syncing,
                         status = status,
@@ -1099,7 +1103,8 @@ fun ReperaMobileScreen(
                             },
                             onToggleFavorite = { fav ->
                                 onSetRoutineFavorite(routine.id, fav)
-                            }
+                            },
+                            exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                         )
                     }
                 }
@@ -1133,7 +1138,35 @@ fun ReperaMobileScreen(
                                         "&instancia=" + instanceId
                                 )
                             },
-                            heartSeries = heartSeriesProvider
+                            heartSeries = heartSeriesProvider,
+                            onEditFinished = {
+                                navController.navigate(
+                                    "historial-editar/" + Uri.encode(workout.id)
+                                )
+                            }
+                        )
+                    }
+                }
+                composable(
+                    "historial-editar/{workoutId}",
+                    arguments = listOf(navArgument("workoutId") { type = NavType.StringType })
+                ) { entry ->
+                    val workoutId = Uri.decode(entry.arguments?.getString("workoutId").orEmpty())
+                    val workout = overview?.completeHistory.orEmpty()
+                        .firstOrNull { it.id == workoutId }
+                    if (workout == null) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        FinishedWorkoutEditorScreen(
+                            workout = workout,
+                            accountId = accountId,
+                            busy = busy,
+                            exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                            onBack = { navController.popBackStack() },
+                            onSave = { edit ->
+                                onUpdateFinishedWorkout(workout.id, edit)
+                            }
                         )
                     }
                 }

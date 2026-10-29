@@ -1474,6 +1474,8 @@ internal fun WorkoutHistoryCard(
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
     effortUnit: String = "rir",
     startsExpanded: Boolean = false,
+    /** iOS: menú Editar → push DayEditorView; si no null, no edita inline. */
+    onOpenFinishedEditor: (() -> Unit)? = null,
 ) {
     var expanded by remember(workout.id) { mutableStateOf(startsExpanded) }
     var selectedMovement by remember(workout.id) { mutableStateOf<Int?>(null) }
@@ -1753,6 +1755,7 @@ internal fun WorkoutHistoryCard(
                     busy = busy,
                     exerciseCatalog = exerciseCatalog,
                     effortUnit = effortUnit,
+                    onOpenFullEditor = onOpenFinishedEditor,
                     onSave = { onUpdateFinishedWorkout(workout.id, it) })
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(

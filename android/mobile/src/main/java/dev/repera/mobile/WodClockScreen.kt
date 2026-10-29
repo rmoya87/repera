@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -63,7 +65,8 @@ internal fun WodClockScreen(
     // En tests instrumentados de captura no hay interacción con diálogos del
     // sistema: se desactiva la petición de permiso para poder componer la
     // pantalla aislada. En la app permanece activada (valor por defecto).
-    requestNotificationPermission: Boolean = true
+    requestNotificationPermission: Boolean = true,
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
 ) {
     val wod = active.wod ?: return
     val context = LocalContext.current
@@ -139,6 +142,10 @@ internal fun WodClockScreen(
     val blockTitle = active.wod?.title?.takeIf { it.isNotBlank() && !it.equals(active.title, true) }
         ?: "Bloque 1"
     val firstMove = active.wod?.movements?.firstOrNull { !it.isRest }
+    val aliases = remember(context) { ExerciseSearchAssets.load(context) }
+    val moveExercise = remember(firstMove?.name, exerciseCatalog) {
+        firstMove?.let { resolveWodExercise(it.name, exerciseCatalog, aliases) }
+    }
     // Pantalla completa en negro con dígitos LED, como BlockTimerScreen (iOS).
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(24.dp)) {
@@ -148,6 +155,38 @@ internal fun WodClockScreen(
             maxWidth.value / LedClock.widthFactor(roundNumber != null),
             maxHeight.value * if (landscape) 0.36f else 0.235f
         ).dp
+        @Composable
+        fun ExerciseArtBlock() {
+            // iOS DigitalClockDisplay: thumb 100pt (112 landscape) + nombre.
+            moveExercise?.let { exercise ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    WodExerciseThumbnail(
+                        exercise,
+                        aliases,
+                        // Landscape compacto: thumb menor para no desplazar controles.
+                        size = if (landscape) 72.dp else 100.dp
+                    )
+                    firstMove?.name?.takeIf { it.isNotBlank() }?.let { moveName ->
+                        Text(
+                            moveName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.85f),
+                            maxLines = 3
+                        )
+                    }
+                }
+            } ?: firstMove?.name?.takeIf { it.isNotBlank() }?.let { moveName ->
+                Text(
+                    moveName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.75f),
+                    maxLines = 1
+                )
+            }
+        }
         @Composable
         fun ClockBlock() {
             Column(
@@ -268,14 +307,13 @@ internal fun WodClockScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    ClockBlock()
-                    firstMove?.name?.takeIf { it.isNotBlank() }?.let { moveName ->
-                        Text(
-                            moveName,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.75f),
-                            maxLines = 1
-                        )
+                    // iOS landscape: reloj + arte en fila; controles debajo sin empujar.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        ClockBlock()
+                        ExerciseArtBlock()
                     }
                     Row(
                         modifier = Modifier.widthIn(max = 500.dp)
@@ -292,26 +330,15 @@ internal fun WodClockScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                TopBar(showTitle = false)
+                TopBar(showTitle = true)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        blockTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
-                    )
-                    firstMove?.name?.takeIf { it.isNotBlank() }?.let { moveName ->
-                        Text(
-                            moveName,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.75f),
-                            maxLines = 1
-                        )
-                    }
                     ClockBlock()
+                    Spacer(Modifier.height(28.dp))
+                    ExerciseArtBlock()
                 }
                 Column(
                     modifier = Modifier.fillMaxWidth(),

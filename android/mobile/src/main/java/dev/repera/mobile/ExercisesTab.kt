@@ -164,6 +164,7 @@ internal fun ExercisesTab(
         if (accountId.isBlank()) null else runCatching { LiveRoutesStore(context, accountId) }.getOrNull()
     }
     var evolutionRouteID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
+    var editingLiveSession by rememberSaveable(accountId) { mutableStateOf(false) }
     val savedRoutes = remember(routeStore, routeVersion) { routeStore?.routes.orEmpty() }
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     // LazyListScope is not @Composable: calculate the filtered list here,
@@ -212,7 +213,20 @@ internal fun ExercisesTab(
         val selected = selectedSportID?.let { dev.repera.domain.LiveSport.byId(it) }
         Column(modifier.fillMaxSize()) {
             val detail = overview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
-            if (detail != null) {
+            if (detail != null && editingLiveSession) {
+                FinishedWorkoutEditorScreen(
+                    workout = detail,
+                    accountId = accountId,
+                    busy = busy,
+                    exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+                    effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                    onBack = { editingLiveSession = false },
+                    onSave = { edit ->
+                        onUpdateFinishedWorkout(detail.id, edit)
+                        editingLiveSession = false
+                    }
+                )
+            } else if (detail != null) {
                 val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
                 ProvideLazyDragAutoScroll(dragListState) {
                 LazyColumn(state = dragListState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -247,7 +261,8 @@ internal fun ExercisesTab(
                     item {
                         FinishedWorkoutEditorSection(
                             detail, accountId, busy, overview?.exerciseEntries.orEmpty(),
-                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir"
+                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                            onOpenFullEditor = { editingLiveSession = true },
                         ) { edit ->
                             onUpdateFinishedWorkout(detail.id, edit)
                         }

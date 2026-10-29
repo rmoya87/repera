@@ -65,6 +65,7 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
         route.startsWith("ejercicio") -> true
         route.startsWith("preview/") -> true
         route.startsWith("historial-detalle") -> true
+        route.startsWith("historial-editar") -> true
         route.startsWith("formato-bloque") -> true
         route in setOf(
             "entreno-libre",

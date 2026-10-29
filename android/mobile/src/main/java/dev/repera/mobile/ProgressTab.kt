@@ -97,6 +97,7 @@ internal fun ProgressTab(
     onLogBodyWeight: (Double) -> Unit = {},
     onOpenBodyWeights:()->Unit = {},
     onOpenHistory:()->Unit = {},
+    onOpenWorkoutDetail: (String) -> Unit = {},
     healthAccess: HealthAccessState = HealthAccessState.UNKNOWN,
     onHealthConnect: () -> Unit = {},
     onOpenExercise:(String)->Unit = {},
@@ -313,9 +314,22 @@ internal fun ProgressTab(
         if (recent.isNotEmpty()) {
             item { ReperaSectionTitle("Resultados recientes") }
             items(recent, key = { "progress:" + it.id }) { workout ->
-                WorkoutHistoryCard(workout, busy,
-                        onReviseFinishedSet, onDeleteFinishedSet,
-                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir")
+                // iOS: resultados recientes abren detalle full; no card expandida inline.
+                ReperaCard(
+                    onClick = { onOpenWorkoutDetail(workout.id) },
+                    modifier = Modifier.fillMaxWidth().testTag("progress_recent_${workout.id}")
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(workout.title, style = MaterialTheme.typography.titleMedium)
+                        if (workout.startedAt.isNotBlank()) {
+                            Text(
+                                workout.startedAt,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         } else {
             item {
