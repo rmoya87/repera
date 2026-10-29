@@ -1340,9 +1340,10 @@ internal fun SettingsTab(
             Column(Modifier.padding(vertical = 8.dp)) {
                 ProfileSettingsSection(
                     overview?.profileSettings ?: ProfileSettings(),
-                    busy || overview == null,
-                    onUpdateProfile,
-                    onRequestSignOut = { confirmSignOut = true }
+                    busy = busy,
+                    onChange = onUpdateProfile,
+                    onRequestSignOut = { confirmSignOut = true },
+                    profileEditable = !busy && overview != null
                 )
             }
         }

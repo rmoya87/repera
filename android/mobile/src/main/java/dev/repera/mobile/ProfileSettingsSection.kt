@@ -139,7 +139,9 @@ import androidx.compose.ui.unit.dp
     value: ProfileSettings,
     busy: Boolean,
     onChange: (ProfileSettings) -> Unit,
-    onRequestSignOut: (() -> Unit)? = null
+    onRequestSignOut: (() -> Unit)? = null,
+    /** Editar nombre/foto exige estado local; cerrar sesión solo mira [busy]. */
+    profileEditable: Boolean = !busy,
 ) {
     val context = LocalContext.current
     val sessionStore = remember(context) { SessionStore(context) }
@@ -190,7 +192,7 @@ import androidx.compose.ui.unit.dp
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(
-            modifier = Modifier.clickable(enabled = !busy && !pickerPending) {
+            modifier = Modifier.clickable(enabled = profileEditable && !pickerPending) {
                 pickerRevision = sessionStore.identityRevision()
                 pickerPending = true
                 picker.launch("image/*")
@@ -228,7 +230,7 @@ import androidx.compose.ui.unit.dp
             BasicTextField(
                 value = name,
                 onValueChange = { name = it },
-                enabled = !busy,
+                enabled = profileEditable,
                 singleLine = true,
                 textStyle = MaterialTheme.typography.titleMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface
@@ -265,7 +267,12 @@ import androidx.compose.ui.unit.dp
                     enabled = !busy,
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text("Cerrar sesión", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        "Cerrar sesión",
+                        color = MaterialTheme.colorScheme.error.copy(
+                            alpha = if (busy) 0.38f else 1f
+                        )
+                    )
                 }
             }
         }

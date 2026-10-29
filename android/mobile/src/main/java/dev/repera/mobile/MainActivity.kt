@@ -1599,11 +1599,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val storedRevision=sessionStore.identityRevision()
         val stored = sessionStore.load() ?: return
         if (busy) return
-        val screenRevision=centerGate.revision
-        fun current()=sessionStore.identityRevision()==storedRevision && centerGate.revision==screenRevision
+        // Capturar revisión de identity ANTES del IO; la de centerGate DESPUÉS de
+        // verifiedSupabase=session (su setter hace update(userId) null→userId y
+        // sube revision). Si se captura antes, current() queda false y
+        // prepareAccountDataAfterAuth es no-op (catálogo/plan/historial vacíos).
+        fun identityCurrent()=sessionStore.identityRevision()==storedRevision
         busy = true
         restoringSession = true
         lifecycleScope.launch {
+            var restoreRevision=centerGate.revision
+            fun current()=identityCurrent() && centerGate.revision==restoreRevision
             try {
                 val session = withContext(Dispatchers.IO) {
                     if (stored.expiresWithin(SESSION_REFRESH_MARGIN_SECONDS)) {
@@ -1618,7 +1623,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         )
                     }
                 }
-                if(!current()) return@launch
+                if(!identityCurrent()) return@launch
                 check(sessionStore.saveIfCurrent(storedRevision,stored.uniqueId,stored.userId,
                     SessionStore.StoredSession(
                         uniqueId = stored.uniqueId,
@@ -1631,6 +1636,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     )
                 )) {"La sesión cambió durante la restauración"}
                 verifiedSupabase = session
+                restoreRevision=centerGate.revision
                 refreshCenter()
                 profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
