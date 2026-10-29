@@ -125,7 +125,7 @@ fun AIAccessScreen(
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
         var disconnectingProvider by remember {
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
-        Text("Conexiones", style = MaterialTheme.typography.titleMedium)
+        Text("Conecta tu IA", style = MaterialTheme.typography.titleMedium)
         Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Revisión 3: `CatalogBootstrap` sin conteo fijo (289 seed + Supabase); Ajustes/PlanView/Reordenar/picker 1:1 iOS; Progreso sin párrafo técnico; mapa Lugar/Comenzar; DayPlus iconos; gradlew.
+**Última actualización:** 2026-10-29 — Revisión 4: P0 `restoreStoredSession` captura `centerGate.revision` tras `verifiedSupabase` (catálogo/plan/historial); Cerrar sesión sin overview; acento `#30D158` claro+oscuro; tab glass; Progreso sin pestañas; Centro «Buscar»; timer default Abajo; chip Día libre adaptativo.
 
 Implementación nativa independiente en `android/`:
 

@@ -4,7 +4,7 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Revisión 3 Android: P0 catálogo (sin check 288; seed dinámico + remoto + error UI + nombre Google); Settings/PlanView/Reordenar fullscreen/picker fullscreen/Lugar mapa/Progreso tiles sin párrafo técnico/DayPlus/Historial cards; Comenzar mapa bajo tabs; `gradlew` restaurado.
+**Última actualización:** 2026-10-29 — Revisión 4 Android: P0 restore gate (`centerGate.revision` post-`verifiedSupabase`) + Cerrar sesión/`busy`; acento `#30D158`/onPrimary negro; tab cápsula glass; Progreso scroll único iOS; Centro «Buscar»; Formato orden iOS; timer default Abajo; chip Día libre `surfaceVariant`; status Salud no en editor.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

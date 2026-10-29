@@ -63,7 +63,6 @@ import java.util.Locale
 private val registerCardShape = RoundedCornerShape(12.dp)
 private val chipShape = RoundedCornerShape(8.dp)
 private val iconCircle = Color(0xFFD4F5DE)
-private val chipBg = Color(0xFFF2F5F3)
 
 /** «VIERNES · 7:11» (día de la semana en español, mayúsculas; paridad iOS HomeDayCards). */
 internal fun homeDayTimeCaption(day: LocalDate, timeLabel: String?): String {
@@ -94,10 +93,11 @@ internal fun homeMinutesLabel(seconds: Double?): String? {
 
 @Composable
 internal fun HomeRegisterChip(text: String, icon: ImageVector) {
+    // surfaceVariant (#F2F5F3 claro / #2C2C2E oscuro): evita chip blanco en dark (R4 #57).
     Row(
         modifier = Modifier
             .clip(chipShape)
-            .background(chipBg)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)

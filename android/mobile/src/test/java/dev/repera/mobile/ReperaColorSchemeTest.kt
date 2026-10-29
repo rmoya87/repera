@@ -10,11 +10,11 @@ class ReperaColorSchemeTest {
     private val materialPurple = Color(0xFF6750A4)
 
     @Test
-    fun lightPrimaryIsReadableBrandGreen() {
+    fun lightPrimaryIsBrandGreenLikeIos() {
         val scheme = reperaColorScheme(dark = false)
-        assertEquals(brandGreenReadable, scheme.primary)
-        assertEquals(Color.White, scheme.onPrimary)
-        assertEquals(brandGreenReadable, scheme.surfaceTint)
+        assertEquals(brandGreen, scheme.primary)
+        assertEquals(Color.Black, scheme.onPrimary)
+        assertEquals(brandGreen, scheme.surfaceTint)
         assertNotEquals(materialPurple, scheme.primary)
         assertNotEquals(materialPurple, scheme.secondary)
         assertNotEquals(materialPurple, scheme.tertiary)

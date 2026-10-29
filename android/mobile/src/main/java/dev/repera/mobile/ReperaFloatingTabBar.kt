@@ -86,17 +86,19 @@ internal fun ReperaFloatingTabBar(
     modifier: Modifier = Modifier
 ) {
     val pillShape = RoundedCornerShape(999.dp)
+    // Cápsula glass translúcida (paridad iOS Liquid Glass tab bar, R4 #4).
+    val glass = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("floating_tab_bar"),
         shape = pillShape,
-        color = MaterialTheme.colorScheme.surface,
+        color = glass,
         shadowElevation = 4.dp,
         tonalElevation = 0.dp,
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
         )
     ) {
         Row(
@@ -126,8 +128,9 @@ private fun ReperaFloatingTabItem(
     modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
-    val iconTint = if (selected) scheme.primary else scheme.onSurfaceVariant
-    val labelColor = if (selected) scheme.primary else scheme.onSurfaceVariant
+    // Selección en pastilla gris (iOS), no verde claro.
+    val iconTint = if (selected) scheme.onSurface else scheme.onSurfaceVariant
+    val labelColor = if (selected) scheme.onSurface else scheme.onSurfaceVariant
     Column(
         modifier = modifier
             .clickable(onClick = onClick)
@@ -142,7 +145,7 @@ private fun ReperaFloatingTabItem(
                 .then(
                     if (selected) {
                         Modifier.background(
-                            scheme.primaryContainer.copy(alpha = 0.72f),
+                            scheme.surfaceVariant.copy(alpha = 0.92f),
                             RoundedCornerShape(999.dp)
                         )
                     } else {

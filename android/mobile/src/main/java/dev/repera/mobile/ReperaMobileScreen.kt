@@ -86,6 +86,18 @@ import android.graphics.Color as AndroidColor
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.compose.rememberNavController
 
+/** Evita que avisos globales (Salud, red…) se cuelen como error de Guardar en el editor (R4 #14). */
+private fun editorSaveStatus(status: String?): String? {
+    if (status.isNullOrBlank()) return null
+    val lower = status.lowercase()
+    if (lower.startsWith("no hay permisos") ||
+        lower.startsWith("health connect") ||
+        lower.startsWith("sin conexión con la cuenta") ||
+        lower.contains("salud concedidos")
+    ) return null
+    return status
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReperaMobileScreen(
@@ -577,7 +589,7 @@ fun ReperaMobileScreen(
                         sessionMode = true,
                         pageTitle = "Crear entreno",
                         showPlaceSection = true,
-                        saveStatus=status,
+                        saveStatus=editorSaveStatus(status),
                         onFavoriteChosen = { favorite = it },
                         onTitleSuggested = { sessionTitle = it },
                         onReplace = { drafts ->
@@ -714,7 +726,7 @@ fun ReperaMobileScreen(
                         accountId = accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
-                        saveStatus = status,
+                        saveStatus = editorSaveStatus(status),
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
@@ -764,7 +776,7 @@ fun ReperaMobileScreen(
                     androidx.compose.runtime.key(accountId, scanDayIso) {
                     BoardScanScreen(
                         busy = busy,
-                        saveStatus=status,
+                        saveStatus=editorSaveStatus(status),
                         overview = overview,
                         onConfirm = { title, blocks,requestId ->
                             onCreateRoutineFromScan(title, blocks, requestId, scanDayIso) {
@@ -787,7 +799,7 @@ fun ReperaMobileScreen(
                     androidx.compose.runtime.key(accountId) {
                     BoardScanScreen(
                         busy = busy,
-                        saveStatus=status,
+                        saveStatus=editorSaveStatus(status),
                         overview = overview,
                         onConfirm = { title, blocks,requestId ->
                             onCreateRoutineFromScan(title, blocks, requestId, null) {
@@ -814,7 +826,7 @@ fun ReperaMobileScreen(
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         onReplace={blocks ->onUpdateActivePlan(editorSessionId,draft.id,blocks) {navController.popBackStack()}},
                         onBack={navController.popBackStack()},loadGuideProvider=loadGuideProvider,
-                        saveStatus=status,importableRoutines=overview?.routineEntries.orEmpty())
+                        saveStatus=editorSaveStatus(status),importableRoutines=overview?.routineEntries.orEmpty())
                 }
                 composable("entreno-activo") {
                     val workout=activeWorkout
@@ -1090,7 +1102,7 @@ fun ReperaMobileScreen(
                         RoutineBlocksEditorScreen(accountId=accountId,
                             effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                             routine = routine,
-                            saveStatus=status,
+                            saveStatus=editorSaveStatus(status),
                             exercises = overview?.exerciseEntries.orEmpty(),
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
@@ -1146,7 +1158,7 @@ fun ReperaMobileScreen(
                         accountId = accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
-                        saveStatus = status,
+                        saveStatus = editorSaveStatus(status),
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
@@ -1237,7 +1249,7 @@ fun ReperaMobileScreen(
                     RoutineBlocksEditorScreen(accountId=accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = panelRoutine,
-                        saveStatus=status,
+                        saveStatus=editorSaveStatus(status),
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,

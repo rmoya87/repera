@@ -196,11 +196,12 @@ fun ReperaCard(
 fun ReperaSectionTitle(
     title: String,
     modifier: Modifier = Modifier,
-    uppercase: Boolean = true
+    /** iOS OGCardSectionTitle: sentence case 17 gris (R4 #6 / #13). */
+    uppercase: Boolean = false
 ) {
     Text(
         text = if (uppercase) title.uppercase() else title,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+        style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
             .fillMaxWidth()
