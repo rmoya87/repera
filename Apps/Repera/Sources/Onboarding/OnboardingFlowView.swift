@@ -28,8 +28,14 @@ struct OnboardingFlowView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(OG.bg.ignoresSafeArea())
         .task {
-            let appleOK = await appleAuth.ensureValidSession()
             let business = BusinessAuthStore.shared
+            // Tras «Cerrar sesión» no restaurar ni avanzar: mostrar login.
+            guard !business.didExplicitlySignOut else {
+                AuthSessionTrace.event("onboardingFlow skip restore: explicitSignOut")
+                onboarding.reconcile(isSignedIn: false)
+                return
+            }
+            let appleOK = await appleAuth.ensureValidSession()
             if appleOK && !business.isConnected {
                 await business.restoreSession()
                 if !business.isConnected {
@@ -112,6 +118,7 @@ private struct OnboardingSignInStep: View {
         }
         .onAppear {
             let business = BusinessAuthStore.shared
+            guard !business.didExplicitlySignOut else { return }
             let businessOK = business.isConnected
                 || business.hasCachedSupabaseSession
                 || business.hasPriorSupabaseBinding

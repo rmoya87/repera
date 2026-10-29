@@ -969,7 +969,12 @@ struct HealthRecoveryProgressView: View {
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 3)) {
                         AxisGridLine()
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                        AxisValueLabel(
+                            format: Date.FormatStyle()
+                                .day()
+                                .month(.abbreviated)
+                                .locale(SpanishDate.appLocale)
+                        )
                     }
                 }
                 .frame(height: physiologyChartHeight)
@@ -1276,7 +1281,7 @@ struct HealthRecoveryProgressView: View {
                         .foregroundStyle(OG.label2)
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                         .annotation(position: .top) {
-                            Text("\(Int(selected.score.rounded()))/10 · \(selected.date.formatted(.dateTime.day().month(.abbreviated)))")
+                            Text("\(Int(selected.score.rounded()))/10 · \(selected.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(OG.label)
                                 .padding(5)
@@ -1292,7 +1297,12 @@ struct HealthRecoveryProgressView: View {
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                         AxisGridLine()
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                        AxisValueLabel(
+                            format: Date.FormatStyle()
+                                .day()
+                                .month(.abbreviated)
+                                .locale(SpanishDate.appLocale)
+                        )
                     }
                 }
                 .chartPlotStyle { $0.clipped() }
@@ -1397,9 +1407,9 @@ struct HealthRecoveryProgressView: View {
 
                 if nights.count > 1 {
                     HStack {
-                        Text(xStart.formatted(.dateTime.day().month(.abbreviated)))
+                        Text(xStart.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))
                         Spacer()
-                        Text(xEnd.formatted(.dateTime.day().month(.abbreviated)))
+                        Text(xEnd.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))
                     }
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(OG.label3)
@@ -1504,7 +1514,7 @@ struct HealthRecoveryProgressView: View {
                 ForEach(days, id: \.self) { day in
                     let period = recovery.menstrualDays.contains { calendar.isDate($0, inSameDayAs: day) }
                     let today = calendar.isDateInToday(day)
-                    Text(day.formatted(.dateTime.day()))
+                    Text(day.formatted(Date.FormatStyle().day().locale(SpanishDate.appLocale)))
                         .font(.system(size: 12, weight: today ? .bold : .medium, design: .rounded))
                         .foregroundStyle(period ? OG.orange : OG.label)
                         .frame(maxWidth: .infinity, minHeight: 30)
@@ -1512,7 +1522,7 @@ struct HealthRecoveryProgressView: View {
                             period ? OG.orange.opacity(0.17) : (today ? OG.accent.opacity(0.10) : OG.surface2),
                             in: RoundedRectangle(cornerRadius: 9, style: .continuous)
                         )
-                        .accessibilityLabel(day.formatted(date: .abbreviated, time: .omitted)
+                        .accessibilityLabel(SpanishDate.format(day, date: .abbreviated, time: .omitted)
                             + (period ? ", menstruación registrada" : ""))
                 }
             }

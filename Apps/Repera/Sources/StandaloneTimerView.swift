@@ -567,9 +567,10 @@ struct StandaloneTimerView: View {
                         .ogCardListRow(top: 0, bottom: 2)
                     } header: {
                         Text(
-                            summary.finishedAt.formatted(
-                                Date.FormatStyle(date: .complete, time: .shortened)
-                                    .locale(Locale(identifier: "es_ES"))
+                            SpanishDate.format(
+                                summary.finishedAt,
+                                date: .complete,
+                                time: .shortened
                             )
                         )
                         .font(.system(size: 15))

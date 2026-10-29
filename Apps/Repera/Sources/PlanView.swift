@@ -479,46 +479,35 @@ struct DayEditorView: View {
         }
     }
 
-    /// Ordenación únicamente mediante menús de acciones accesibles.
-    /// Reordenación nativa con asas de arrastre: bloques y ejercicios.
+    /// Jerarquía Bloque→ejercicios con zonas de inserción reales (ScrollView).
     private var reorderSheet: some View {
-        List {
-            Section {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                OGCardSectionTitle(title: "Orden de bloques")
+
                 ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { position, block in
-                    HStack(spacing: 12) {
-                        Text("\(position + 1)")
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundStyle(OG.accent)
-                            .frame(width: 34, height: 34)
-                            .background(OG.accent.opacity(0.12), in: Circle())
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(block.title)
-                                .font(.system(size: 16, weight: .semibold))
-                            Text(block.wodFormat?.displayName ?? (block.kind == .strength ? "Fuerza" : "Libre"))
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        }
-                        Spacer(minLength: 8)
-                    }
-                    .padding(.vertical, 5)
-                    .contentShape(Rectangle())
-                    .draggable("block:\(block.id.uuidString)")
-                    .dropDestination(for: String.self) { tokens, _ in
-                        guard let token = tokens.first, token.hasPrefix("block:") else { return false }
+                    OGReorderInsertionGap(
+                        accepts: { $0.hasPrefix("block:") }
+                    ) { token in
                         withAnimation(.smooth) { reorderBlockToken(token, before: block.id) }
-                        return true
                     }
+                    reorderBlockCard(position: position, block: block)
+                        .draggable("block:\(block.id.uuidString)")
                 }
-            } header: {
-                Label("Orden de bloques", systemImage: "square.stack.3d.up")
+                OGReorderInsertionGap(
+                    accepts: { $0.hasPrefix("block:") }
+                ) { token in
+                    withAnimation(.smooth) { reorderBlockToken(token, before: nil) }
+                }
+
+                ForEach(routine.blocks) { block in
+                    reorderExercisesSection(for: block)
+                }
             }
-            ForEach(routine.blocks) { block in
-                reorderExercisesSection(for: block)
-            }
+            .padding(.horizontal, OG.pad)
+            .padding(.vertical, 12)
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(OG.bg)
+        .background(OG.bg.ignoresSafeArea())
         .navigationTitle("Reordenar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -530,48 +519,70 @@ struct DayEditorView: View {
         }
     }
 
+    private func reorderBlockCard(position: Int, block: RoutineBlock) -> some View {
+        HStack(spacing: 12) {
+            Text("\(position + 1)")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(OG.accent)
+                .frame(width: 34, height: 34)
+                .background(OG.accent.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(block.title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                Text(block.wodFormat?.displayName ?? (block.kind == .strength ? "Fuerza" : "Libre"))
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(OG.label3)
+                .accessibilityHidden(true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .contentShape(Rectangle())
+    }
+
     @ViewBuilder
     private func reorderExercisesSection(for block: RoutineBlock) -> some View {
-        Section {
+        let rows: [(id: UUID, name: String, type: String)] = {
             if block.kind == .strength {
-                ForEach(block.exercises) { exercise in
-                    reorderExerciseRow(
-                        store.state.exercises.first(where: { $0.id == exercise.exerciseId })?.name ?? "Ejercicio",
-                        blockID: block.id, itemID: exercise.id, type: "exercise"
-                    )
-                }
-            } else {
-                ForEach(block.movements) { move in
-                    reorderExerciseRow(
-                        move.isRest ? "Descanso" : move.name,
-                        blockID: block.id, itemID: move.id, type: "movement"
+                return block.exercises.map {
+                    (
+                        $0.id,
+                        store.state.exercises.first(where: { ex in ex.id == $0.exerciseId })?.name ?? "Ejercicio",
+                        "exercise"
                     )
                 }
             }
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.down.to.line")
-                Text("Mover aquí")
+            return block.movements.map {
+                ($0.id, $0.isRest ? "Descanso" : $0.name, "movement")
             }
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(OG.label3)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
-            .dropDestination(for: String.self) { tokens, _ in
-                guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
+        }()
+        VStack(alignment: .leading, spacing: 0) {
+            OGCardSectionTitle(title: block.title)
+
+            ForEach(rows, id: \.id) { row in
+                OGReorderInsertionGap(
+                    accepts: { !$0.hasPrefix("block:") }
+                ) { token in
+                    withAnimation(.smooth) {
+                        applyReorder(token, into: block.id, before: row.id)
+                    }
+                }
+                reorderExerciseRow(
+                    row.name, blockID: block.id, itemID: row.id, type: row.type
+                )
+            }
+            OGReorderInsertionGap(
+                accepts: { !$0.hasPrefix("block:") }
+            ) { token in
                 withAnimation(.smooth) {
                     applyReorder(token, into: block.id, before: nil)
                 }
-                return true
             }
-        } header: {
-            Text(block.title)
-                .dropDestination(for: String.self) { tokens, _ in
-                    guard let token = tokens.first else { return false }
-                    withAnimation(.smooth) {
-                        applyReorder(token, into: block.id, before: nil)
-                    }
-                    return true
-                }
         }
     }
 
@@ -619,16 +630,11 @@ struct DayEditorView: View {
             }
             .accessibilityLabel("Opciones de \(name)")
         }
-        .padding(.vertical, 4)
-        .listRowBackground(OG.surface)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(Rectangle())
         .draggable("\(type):\(blockID.uuidString):\(itemID.uuidString)")
-        .dropDestination(for: String.self) { tokens, _ in
-            guard let token = tokens.first else { return false }
-            withAnimation(.smooth) {
-                applyReorder(token, into: blockID, before: itemID)
-            }
-            return true
-        }
     }
 
     private func exerciseOptions(blockID: UUID, itemID: UUID, isWOD: Bool, isRest: Bool = false) -> some View {

@@ -3046,8 +3046,11 @@ struct LiveActivityView: View {
             if let session = recorder.makeSession(title: title, notes: notes) {
                 // Fecha y métricas directamente sobre el fondo, sin contenedor exterior.
                 VStack(alignment: .leading, spacing: 10) {
-                    Text((session.startedAt ?? Date())
-                        .formatted(date: .complete, time: .shortened))
+                    Text(SpanishDate.format(
+                        session.startedAt ?? Date(),
+                        date: .complete,
+                        time: .shortened
+                    ))
                         .font(.subheadline)
                         .foregroundStyle(OG.label2)
                     HStack(spacing: 10) {
@@ -3929,8 +3932,11 @@ private struct LiveRouteLibraryDetailView: View {
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text((session.startedAt ?? .now)
-                                            .formatted(date: .abbreviated, time: .shortened))
+                                        Text(SpanishDate.format(
+                                            session.startedAt ?? .now,
+                                            date: .abbreviated,
+                                            time: .shortened
+                                        ))
                                             .foregroundStyle(OG.label)
                                         Text("\(ReperaNumberFormat.decimal(max(0, session.recordedDistanceMeters ?? 0) / 1000)) km")
                                             .font(.caption).foregroundStyle(OG.label2)

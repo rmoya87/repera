@@ -855,19 +855,21 @@ enum ProgressChartAxis {
     }
 
     static func labelFormat(range: ProgressTimeRange, granularity: ProgressSeriesGranularity) -> Date.FormatStyle {
+        let format: Date.FormatStyle
         switch granularity {
         case .month:
-            return .dateTime.month(.abbreviated).year(.twoDigits)
+            format = .dateTime.month(.abbreviated).year(.twoDigits)
         case .week:
-            return .dateTime.day().month(.abbreviated)
+            format = .dateTime.day().month(.abbreviated)
         case .day:
             switch range {
             case .today, .week:
-                return .dateTime.weekday(.abbreviated)
+                format = .dateTime.weekday(.abbreviated)
             default:
-                return .dateTime.day().month(.abbreviated)
+                format = .dateTime.day().month(.abbreviated)
             }
         }
+        return format.locale(SpanishDate.appLocale)
     }
 
     static func tickDates(

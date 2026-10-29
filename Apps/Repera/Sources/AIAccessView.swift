@@ -38,7 +38,7 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
     var hasConnected: Bool { isActive && lastUsedAt != nil }
     var lastUseLabel: String? {
         guard let raw = lastUsedAt, let date = Self.parseTimestamp(raw) else { return nil }
-        return "Último uso: \(date.formatted(date: .abbreviated, time: .shortened))"
+        return "Último uso: \(SpanishDate.format(date, date: .abbreviated, time: .shortened))"
     }
 
     var isActive: Bool {
@@ -50,7 +50,7 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
     var expiryLabel: String {
         guard let expiresAt else { return "Sin caducidad" }
         if let date = Self.parseTimestamp(expiresAt) {
-            return "Caduca el \(date.formatted(date: .abbreviated, time: .omitted))"
+            return "Caduca el \(SpanishDate.format(date, date: .abbreviated, time: .omitted))"
         }
         return "Caducidad: \(expiresAt.prefix(10))"
     }
@@ -275,17 +275,31 @@ struct AIAccessView: View {
         .ogScrollingTitleNav()
         .sheet(isPresented: $showInstructions) {
             NavigationStack {
-                Form {
-                    ForEach(providers) { provider in
-                        Section(provider.name) {
-                            Text(AIProviderLaunch.instructions(for: provider))
-                                .font(.footnote).textSelection(.enabled)
-                            Button("Copiar instrucciones de \(provider.name)") {
-                                UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        ForEach(providers) { provider in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(provider.name)
+                                    .font(.headline)
+                                    .foregroundStyle(OG.label)
+                                Text(AIProviderLaunch.instructions(for: provider))
+                                    .font(.footnote)
+                                    .foregroundStyle(OG.label)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Button("Copiar instrucciones de \(provider.name)") {
+                                    UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
+                                }
+                                .buttonStyle(.bordered)
                             }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                         }
                     }
+                    .padding(OG.pad)
                 }
+                .background(OG.bg.ignoresSafeArea())
                 .navigationTitle("Instrucciones")
                 .navigationBarTitleDisplayMode(.inline)
                 .ogTransparentNav()

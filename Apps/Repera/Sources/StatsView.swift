@@ -851,7 +851,7 @@ struct StatsView: View {
                                 VStack(alignment: .leading) {
                                     Text(pr.exerciseName)
                                         .foregroundStyle(OG.label)
-                                    Text(pr.date.formatted(date: .abbreviated, time: .omitted))
+                                    Text(SpanishDate.format(pr.date, date: .abbreviated, time: .omitted))
                                         .font(.system(size: 12))
                                         .foregroundStyle(OG.label2)
                                 }
@@ -939,7 +939,7 @@ private struct ProgressAllRecordsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(pr.exerciseName)
                             .foregroundStyle(OG.label)
-                        Text(pr.date.formatted(date: .abbreviated, time: .omitted))
+                        Text(SpanishDate.format(pr.date, date: .abbreviated, time: .omitted))
                             .font(.system(size: 12))
                             .foregroundStyle(OG.label2)
                     }
@@ -1076,7 +1076,12 @@ private struct ProgressSessionScoreChartCard: View {
                         .chartXAxis {
                             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                                 AxisGridLine()
-                                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                                AxisValueLabel(
+                                    format: Date.FormatStyle()
+                                        .day()
+                                        .month(.abbreviated)
+                                        .locale(SpanishDate.appLocale)
+                                )
                             }
                         }
                         .frame(height: 205)

@@ -310,11 +310,10 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // Durante una recarga o navegación, el ScrollView aún no ha
-            // compuesto sus tarjetas. Su fondo no puede ser negro mientras
-            // la topbar y el calendario usan OG.surface.
-            // La sección Progreso/Actividad pinta OG.bg hasta abajo.
-            .background(OG.surface.ignoresSafeArea())
+            // Tras «Actividad de hoy» el gris debe continuar hasta el borde
+            // inferior (sin franja blanca). El bloque calendario/entreno pinta
+            // su propio OG.surface; el topbar transparente deja ver ese blanco.
+            .background(OG.bg.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
