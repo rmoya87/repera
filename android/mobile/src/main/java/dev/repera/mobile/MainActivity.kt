@@ -1124,6 +1124,22 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onSaveActiveFavorite = { runWorkoutAction { saveActiveSessionAsFavorite {count ->
                     subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed
                 } } },
+                onSubstituteActiveExercise = { entry ->
+                    StrengthRestService.cancel(this)
+                    runWorkoutAction {
+                        val idx = active()?.index ?: return@runWorkoutAction
+                        substituteActiveExerciseAt(
+                            idx, entry.id, entry.name, entry.muscleGroup
+                        )
+                    }
+                },
+                onRemoveActiveExercise = {
+                    StrengthRestService.cancel(this)
+                    runWorkoutAction {
+                        val idx = active()?.index ?: return@runWorkoutAction
+                        removeActiveExerciseAt(idx)
+                    }
+                },
                 activeEditorDraft = {runCatching {profile?.uniqueId?.let { WorkoutRepository(this@MainActivity,it).activeRoutineForEditing() }}.getOrNull()},
                 onUpdateActivePlan = {sessionId,id,blocks,done ->runWorkoutAction(onSuccess=done) {
                     updateActiveSessionPlan(id,blocks,expectedSessionId=sessionId,
@@ -1224,9 +1240,28 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDismissAccountDeleteError = { accountDeleteError = null }
             )
             // Hoja post-entreno (SessionReviewSheet iOS): se presenta una vez
-            // al terminar una sesión con valoración verificable.
+            // al terminar una sesión con valoración verificable (I-45).
             pendingReview?.let { review ->
-                SessionReviewSheet(review) { pendingReview = null }
+                val reviewSessionId = pendingReviewSessionId
+                SessionReviewSheet(
+                    review = review,
+                    onDismiss = { pendingReview = null; pendingReviewSessionId = null },
+                    onDiscard = reviewSessionId?.let { id ->
+                        {
+                            runWorkoutAction { deleteWorkout(id) }
+                        }
+                    },
+                    onCreateFavorite = reviewSessionId?.let { id ->
+                        {
+                            runWorkoutAction {
+                                toggleWorkoutFavorite(id) { count ->
+                                    subscriptions.policy.copy(favoriteCount = count)
+                                        .canCreateFavorite(true).allowed
+                                }
+                            }
+                        }
+                    }
+                )
             }
             if (subscriptions.paywall.isPresented) {
                 @OptIn(ExperimentalMaterial3Api::class)

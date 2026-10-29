@@ -33,7 +33,12 @@ internal fun ActiveWorkoutScreen(
     onSelectExercise:(Int)->Unit = {},
     onUpdateNotes:(String)->Unit = {},
     onSaveFavorite:()->Unit = {},
-    onEditPlan:()->Unit = {}
+    onEditPlan:()->Unit = {},
+    catalog: List<ExerciseEntry> = emptyList(),
+    onSubstituteExercise: (ExerciseEntry) -> Unit = {},
+    onRemoveExercise: () -> Unit = {},
+    clockMinimized: Boolean = false,
+    onExpandClock: () -> Unit = {}
 ) {
     var showBlockTimer by remember(workout.id, workout.index) { mutableStateOf(false) }
     var blockWorkOverride by remember(workout.id, workout.index) {
@@ -72,6 +77,18 @@ internal fun ActiveWorkoutScreen(
                 subtitle = if (workout.title.isNotBlank()) "Sesión en curso" else null
             )
         }
+        if (clockMinimized && workout.wod != null && timer != null) {
+            item {
+                MinimizedWodClockBar(
+                    active = workout,
+                    timer = timer,
+                    busy = busy,
+                    onExpand = onExpandClock,
+                    onTimerAction = onTimerAction,
+                    onTimerTick = onTimerTick
+                )
+            }
+        }
         item {
             ActiveSessionControls(
                 active = workout,
@@ -82,7 +99,10 @@ internal fun ActiveWorkoutScreen(
                 onEdit = onEditPlan,
                 onDiscard = onDiscard,
                 onConfigureBlockTimer = { showBlockTimer = true },
-                accountId = accountId
+                accountId = accountId,
+                catalog = catalog,
+                onSubstituteExercise = onSubstituteExercise,
+                onRemoveExercise = onRemoveExercise
             )
         }
         item {

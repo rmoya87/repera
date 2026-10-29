@@ -92,7 +92,11 @@ internal fun HomeTab(
     onSelectActiveExercise:(Int)->Unit = {},
     onUpdateActiveNotes:(String)->Unit = {},
     onSaveActiveFavorite:()->Unit = {},
+    onSubstituteActiveExercise: (ExerciseEntry) -> Unit = {},
+    onRemoveActiveExercise: () -> Unit = {},
     onEditActivePlan:()->Unit = {},
+    clockMinimized: Boolean = false,
+    onExpandClock: () -> Unit = {},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
@@ -456,6 +460,16 @@ internal fun HomeTab(
                                 }
                             )
                         }
+                        if (clockMinimized && activeWorkout.wod != null && wodTimer != null) {
+                            MinimizedWodClockBar(
+                                active = activeWorkout,
+                                timer = wodTimer,
+                                busy = busy,
+                                onExpand = onExpandClock,
+                                onTimerAction = onWodTimerAction,
+                                onTimerTick = onWodTimerTick
+                            )
+                        }
                         ActiveSessionControls(
                             active = activeWorkout,
                             busy = busy,
@@ -465,7 +479,10 @@ internal fun HomeTab(
                             onEdit = onEditActivePlan,
                             onDiscard = onDiscardSession,
                             onConfigureBlockTimer = { showBlockTimer = true },
-                            accountId = accountId
+                            accountId = accountId,
+                            catalog = overview?.exerciseEntries.orEmpty(),
+                            onSubstituteExercise = onSubstituteActiveExercise,
+                            onRemoveExercise = onRemoveActiveExercise
                         )
                         if (activeWorkout.wod != null) {
                             WodScoreCard(

@@ -1482,6 +1482,42 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         session.put("currentIndex",index).put("phase","ready")
         save(state); return summarize(session)
     }
+
+    /**
+     * I-40 Eliminar ejercicio en Play: quita la entrada actual (no WOD-only si
+     * deja el bloque vacío se conserva el resto). Mantiene índice válido.
+     */
+    @Synchronized fun removeActiveExerciseAt(index: Int): ActiveWorkout {
+        val state = requireState(); val session = requireActive(state)
+        val exercises = session.getJSONArray("exercises")
+        require(exercises.length() > 1) { "No se puede eliminar el único ejercicio" }
+        require(index in 0 until exercises.length())
+        exercises.remove(index)
+        val next = index.coerceAtMost(exercises.length() - 1)
+        session.put("currentIndex", next).put("phase", "ready")
+        save(state); return summarize(session)
+    }
+
+    /**
+     * I-40 Sustituir ejercicio en Play: cambia el catálogo de la entrada
+     * (limpia series registradas de esa entrada).
+     */
+    @Synchronized fun substituteActiveExerciseAt(
+        index: Int, exerciseId: String, exerciseName: String, muscleGroup: String = ""
+    ): ActiveWorkout {
+        val state = requireState(); val session = requireActive(state)
+        val exercises = session.getJSONArray("exercises")
+        require(index in 0 until exercises.length())
+        val entry = exercises.getJSONObject(index)
+        val detail = entry.optJSONObject("exercise") ?: JSONObject()
+        detail.put("id", exerciseId).put("name", exerciseName)
+        if (muscleGroup.isNotBlank()) detail.put("muscleGroup", muscleGroup)
+        entry.put("exercise", detail)
+        entry.put("exerciseId", exerciseId)
+        entry.put("loggedSets", JSONArray())
+        session.put("currentIndex", index).put("phase", "ready")
+        save(state); return summarize(session)
+    }
     /** Apple ReperaStore.updateActiveExerciseDraft: persists edited planned sets (and optionally recorded sets by id) of the
      *  active session in one save. Returns false when nothing changed. Not called from any Play UI yet. */
     @Synchronized fun updateActiveExerciseDraft(id: String, plannedSets: JSONArray, quantityUnit: String?, performedSets: JSONArray? = null): Boolean {
@@ -3179,6 +3215,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 }
             )
         } else null
+        val currentExercise = current.getJSONObject("exercise")
         return ActiveWorkout(
             id = session.getString("id"),
             draftRequestId=session.optString("draftRequestId").takeIf {it.isNotBlank()},
@@ -3186,7 +3223,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             title = session.getString("title"),
             index = index,
             total = exercises.length(),
-            exerciseName = current.getJSONObject("exercise").exerciseDisplayName(),
+            exerciseId = current.optString("exerciseId").ifBlank {
+                currentExercise.optString("id")
+            },
+            exerciseName = currentExercise.exerciseDisplayName(),
+            muscleGroup = currentExercise.optString("muscleGroup"),
+            targetMuscle = currentExercise.optString("targetMuscle"),
+            equipment = currentExercise.optString("equipment"),
             completedSets = logged.length(),
             prescribedQuantity = next?.optInt("targetReps"),
             prescribedDurationSeconds = next?.takeIf { it.has("targetDurationSeconds") }
@@ -3267,7 +3310,11 @@ data class ActiveWorkout(
     val title: String,
     val index: Int,
     val total: Int,
+    val exerciseId: String = "",
     val exerciseName: String,
+    val muscleGroup: String = "",
+    val targetMuscle: String = "",
+    val equipment: String = "",
     val completedSets: Int,
     val prescribedQuantity: Int?,
     val prescribedWeightKg: Double?,
