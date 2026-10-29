@@ -52,13 +52,14 @@ class EditorSwipeAndTestFlightProContracts(unittest.TestCase):
         form = EDITOR.split("private var editorForm: some View {", 1)[1].split(
             "private var reorderSheet: some View {", 1
         )[0]
-        self.assertNotIn(".draggable(", form)
-        self.assertNotIn(".dropDestination(", form)
+        self.assertNotIn(".onDrag", form)
+        self.assertNotIn(".onDrop(", form)
         reorder = EDITOR.split("private var reorderSheet: some View {", 1)[1].split(
             "private func reorderBlockHeader(", 1
         )[0]
-        self.assertIn(".draggable(", reorder)
-        self.assertIn(".dropDestination(", reorder)
+        self.assertIn(".onDrag", reorder)
+        self.assertIn(".onDrop(", reorder)
+        self.assertIn("OGReorderDropDelegate(", reorder)
         # No volver al reorderContainer beta que rompe en tiempo de ejecución.
         self.assertNotIn(".reorderable(", EDITOR)
         self.assertNotIn(".reorderContainer(", EDITOR)

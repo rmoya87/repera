@@ -1,6 +1,7 @@
 import ReperaDomain
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// Tokens adaptativos: día (claro) y noche (oscuro) según el sistema.
 /// Comunes a Diario, Center, progreso, modales y navegación.
@@ -757,13 +758,49 @@ struct OGReorderEntry: Identifiable, Sendable {
     let type: String
 }
 
-/// Zona de soltado entre cajas de bloque en Reordenar (`ScrollView`, no `List`).
-/// Fuera de arrastre queda un hueco mínimo; al apuntar se ilumina «Soltar aquí».
+/// El gesto de arrastre empieza en una fila, y conserva este token en la
+/// pantalla de Reordenar. En iOS un drop entre dos vistas del mismo ScrollView
+/// puede no entregar el Transferable de .dropDestination; DropDelegate usa
+/// el identificador interno y confirma el cambio solo si es válido.
+struct OGReorderDropDelegate: DropDelegate {
+    @Binding var draggedToken: String?
+    var accepts: (String) -> Bool
+    var performMove: (String, CGPoint) -> Bool
+    var onTargetChange: ((Bool) -> Void)? = nil
+
+    func validateDrop(info: DropInfo) -> Bool {
+        guard let draggedToken, accepts(draggedToken) else { return false }
+        return info.hasItemsConforming(to: [UTType.plainText.identifier])
+    }
+
+    func dropEntered(info: DropInfo) {
+        onTargetChange?(validateDrop(info: info))
+    }
+
+    func dropExited(info: DropInfo) {
+        onTargetChange?(false)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: validateDrop(info: info) ? .move : .cancel)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { onTargetChange?(false) }
+        guard validateDrop(info: info), let draggedToken else { return false }
+        let changed = performMove(draggedToken, info.location)
+        if changed { self.draggedToken = nil }
+        return changed
+    }
+}
+
+/// Espacio entre tarjetas de bloque. Conserva exactamente su aspecto anterior
+/// pero recibe el movimiento mediante el mismo DropDelegate que las filas.
 struct OGReorderInsertionGap: View {
+    @Binding var draggedToken: String?
     var accepts: (String) -> Bool = { _ in true }
-    /// `betweenCards`: hueco entre cajas de bloque. `inCard`: línea fina entre ejercicios.
     var style: Style = .betweenCards
-    var onDrop: (String) -> Void
+    var onDrop: (String) -> Bool
     @State private var isTargeted = false
 
     enum Style {
@@ -803,13 +840,15 @@ struct OGReorderInsertionGap: View {
         }
         .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.15), value: isTargeted)
-        .dropDestination(for: String.self) { tokens, _ in
-            guard let token = tokens.first, accepts(token) else { return false }
-            onDrop(token)
-            return true
-        } isTargeted: {
-            isTargeted = $0
-        }
+        .onDrop(
+            of: [UTType.plainText.identifier],
+            delegate: OGReorderDropDelegate(
+                draggedToken: $draggedToken,
+                accepts: accepts,
+                performMove: { token, _ in onDrop(token) },
+                onTargetChange: { isTargeted = $0 }
+            )
+        )
     }
 }
 

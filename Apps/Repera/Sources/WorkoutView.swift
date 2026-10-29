@@ -1,6 +1,7 @@
 import ReperaDomain
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 private struct PlayReplacementTarget: Identifiable, Hashable {
     let id = UUID()
@@ -42,6 +43,7 @@ struct WorkoutView: View {
     @State private var showPlayWODCatalog = false
     @State private var showPlayRoutinePicker = false
     @State private var showsPlayReorder = false
+    @State private var playReorderDraggedToken: String?
     @State private var playReorderError: String?
     @State private var playReorderDraft: Routine?
     @State private var confirmCancelWorkout = false
@@ -708,13 +710,23 @@ struct WorkoutView: View {
             if let draft = playReorderDraft {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { position, block in
-                        OGReorderInsertionGap(accepts: { $0.hasPrefix("block:") }) { token in
-                            withAnimation(.smooth) { _ = movePlayBlockToken(token, before: block.id) }
+                        OGReorderInsertionGap(
+                            draggedToken: $playReorderDraggedToken,
+                            accepts: { $0.hasPrefix("block:") }
+                        ) { token in
+                            var moved = false
+                            withAnimation(.smooth) { moved = movePlayBlockToken(token, before: block.id) }
+                            return moved
                         }
                         playReorderBlockBox(position: position, block: block)
                     }
-                    OGReorderInsertionGap(accepts: { $0.hasPrefix("block:") }) { token in
-                        withAnimation(.smooth) { _ = movePlayBlockToken(token, before: nil) }
+                    OGReorderInsertionGap(
+                        draggedToken: $playReorderDraggedToken,
+                        accepts: { $0.hasPrefix("block:") }
+                    ) { token in
+                        var moved = false
+                        withAnimation(.smooth) { moved = movePlayBlockToken(token, before: nil) }
+                        return moved
                     }
                 }
                 .padding(.horizontal, OG.pad)
@@ -731,7 +743,10 @@ struct WorkoutView: View {
                     .tint(OG.accent)
             }
         }
-        .onDisappear(perform: commitPlayReorder)
+        .onDisappear {
+            playReorderDraggedToken = nil
+            commitPlayReorder()
+        }
     }
 
     /// Reordena únicamente el borrador; nunca reinicia Salud ni el cronómetro.
@@ -742,15 +757,18 @@ struct WorkoutView: View {
               let draft = playReorderDraft,
               draft.blocks.contains(where: { $0.id == sourceID })
         else { return false }
+        var changed = false
         editPlayReorderDraft { draft in
             guard let source = draft.blocks.firstIndex(where: { $0.id == sourceID }) else { return }
+            let originalOrder = draft.blocks.map(\.id)
             let moved = draft.blocks.remove(at: source)
             let target = targetID.flatMap { id in
                 draft.blocks.firstIndex(where: { $0.id == id })
             } ?? draft.blocks.count
             draft.blocks.insert(moved, at: target)
+            changed = draft.blocks.map(\.id) != originalOrder
         }
-        return true
+        return changed
     }
 
     /// Misma tarjeta y mismas filas del modo crear/editar.
@@ -759,17 +777,29 @@ struct WorkoutView: View {
         return VStack(alignment: .leading, spacing: 0) {
             playReorderBlockHeader(position: position, block: block)
                 .contentShape(Rectangle())
-                .draggable("block:\(block.id.uuidString)") {
+                .onDrag {
+                    let token = "block:\(block.id.uuidString)"
+                    playReorderDraggedToken = token
+                    return NSItemProvider(object: token as NSString)
+                } preview: {
                     OGReorderDragPreview {
                         playReorderBlockHeader(position: position, block: block)
                     }
                 }
-                .dropDestination(for: String.self) { tokens, _ in
-                    guard let token = tokens.first, token.hasPrefix("block:") else { return false }
-                    var moved = false
-                    withAnimation(.smooth) { moved = movePlayBlockToken(token, before: block.id) }
-                    return moved
-                }
+                .onDrop(
+                    of: [UTType.plainText.identifier],
+                    delegate: OGReorderDropDelegate(
+                        draggedToken: $playReorderDraggedToken,
+                        accepts: { $0.hasPrefix("block:") },
+                        performMove: { token, location in
+                            let before = location.y > 34
+                                ? playReorderDraft?.blocks.dropFirst(position + 1).first?.id : block.id
+                            var moved = false
+                            withAnimation(.smooth) { moved = movePlayBlockToken(token, before: before) }
+                            return moved
+                        }
+                    )
+                )
 
             if rows.isEmpty {
                 Text("Soltar ejercicio")
@@ -777,14 +807,26 @@ struct WorkoutView: View {
                     .foregroundStyle(OG.label3)
                     .frame(maxWidth: .infinity, minHeight: 104)
                     .contentShape(Rectangle())
-                    .dropDestination(for: String.self) { tokens, _ in
-                        guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
-                        var moved = false
-                        withAnimation(.smooth) {
-                            moved = movePlayReorderToken(token, into: block.id)
-                        }
-                        return moved
-                    }
+                    .onDrop(
+                        of: [UTType.plainText.identifier],
+                        delegate: OGReorderDropDelegate(
+                            draggedToken: $playReorderDraggedToken,
+                            accepts: { _ in true },
+                            performMove: { token, _ in
+                                if token.hasPrefix("block:") {
+                                    let next = playReorderDraft?.blocks.dropFirst(position + 1).first?.id
+                                    var movedBlock = false
+                                    withAnimation(.smooth) {
+                                        movedBlock = movePlayBlockToken(token, before: next)
+                                    }
+                                    return movedBlock
+                                }
+                                var moved = false
+                                withAnimation(.smooth) { moved = movePlayReorderToken(token, into: block.id) }
+                                return moved
+                            }
+                        )
+                    )
                     .padding(.bottom, 8)
             } else {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -794,15 +836,29 @@ struct WorkoutView: View {
                     playReorderRow(
                         name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
                     )
-                    .dropDestination(for: String.self) { tokens, location in
-                        guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
-                        let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
-                        var moved = false
-                        withAnimation(.smooth) {
-                            moved = movePlayReorderToken(token, into: block.id, before: before)
-                        }
-                        return moved
-                    }
+                    .onDrop(
+                        of: [UTType.plainText.identifier],
+                        delegate: OGReorderDropDelegate(
+                            draggedToken: $playReorderDraggedToken,
+                            accepts: { _ in true },
+                            performMove: { token, location in
+                                if token.hasPrefix("block:") {
+                                    let next = playReorderDraft?.blocks.dropFirst(position + 1).first?.id
+                                    var movedBlock = false
+                                    withAnimation(.smooth) {
+                                        movedBlock = movePlayBlockToken(token, before: next)
+                                    }
+                                    return movedBlock
+                                }
+                                let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
+                                var moved = false
+                                withAnimation(.smooth) {
+                                    moved = movePlayReorderToken(token, into: block.id, before: before)
+                                }
+                                return moved
+                            }
+                        )
+                    )
                 }
             }
         }
@@ -878,13 +934,13 @@ struct WorkoutView: View {
             guard let move = source.movements.first(where: { $0.id == sourceItem }),
                   !(move.isRest && target.kind == .strength) else { return false }
         }
-        movePlayReorderItem(sourceItem, from: from, into: blockID, before: itemID)
-        return true
+        return movePlayReorderItem(sourceItem, from: from, into: blockID, before: itemID)
     }
 
     private func movePlayReorderItem(
         _ itemID: UUID, from sourceID: UUID, into targetID: UUID, before nextID: UUID? = nil
-    ) {
+    ) -> Bool {
+        var moved = false
         editPlayReorderDraft { draft in
             guard let from = draft.blocks.firstIndex(where: { $0.id == sourceID }),
                   let to = draft.blocks.firstIndex(where: { $0.id == targetID })
@@ -956,7 +1012,9 @@ struct WorkoutView: View {
                     draft.blocks[to].exercises.insert(item, at: destination)
                 }
             }
+            moved = true
         }
+        return moved
     }
 
     @ViewBuilder
@@ -1006,7 +1064,10 @@ struct WorkoutView: View {
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .draggable(dragToken) {
+        .onDrag {
+            playReorderDraggedToken = dragToken
+            return NSItemProvider(object: dragToken as NSString)
+        } preview: {
             OGReorderDragPreview(cornerRadius: 12) {
                 HStack(spacing: 12) {
                     playReorderThumb(blockID: blockID, itemID: itemID)

@@ -117,6 +117,7 @@ struct DayEditorView: View {
     @State private var isConfirmingSave = false
     @FocusState private var focusedFormatField: OGSetFieldID?
     @State private var showsReorder = false
+    @State private var reorderDraggedToken: String?
     @State private var replacingExercise: WorkoutReplacementTarget?
     @State private var exerciseDetailID: UUID?
     @State private var pendingReplacement: PendingWorkoutReplacement?
@@ -497,12 +498,18 @@ struct DayEditorView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { position, block in
-                    OGReorderInsertionGap(accepts: { $0.hasPrefix("block:") }) { token in
+                    OGReorderInsertionGap(
+                        draggedToken: $reorderDraggedToken,
+                        accepts: { $0.hasPrefix("block:") }
+                    ) { token in
                         withAnimation(.smooth) { reorderBlockToken(token, before: block.id) }
                     }
                     reorderBlockBox(position: position, block: block)
                 }
-                OGReorderInsertionGap(accepts: { $0.hasPrefix("block:") }) { token in
+                OGReorderInsertionGap(
+                    draggedToken: $reorderDraggedToken,
+                    accepts: { $0.hasPrefix("block:") }
+                ) { token in
                     withAnimation(.smooth) { reorderBlockToken(token, before: nil) }
                 }
             }
@@ -512,6 +519,7 @@ struct DayEditorView: View {
         .background(OG.bg.ignoresSafeArea())
         .navigationTitle("Reordenar")
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { reorderDraggedToken = nil }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Listo") { showsReorder = false }
@@ -529,17 +537,29 @@ struct DayEditorView: View {
         return VStack(alignment: .leading, spacing: 0) {
             reorderBlockHeader(position: position, block: block)
                 .contentShape(Rectangle())
-                .draggable("block:\(block.id.uuidString)") {
+                .onDrag {
+                    let token = "block:\(block.id.uuidString)"
+                    reorderDraggedToken = token
+                    return NSItemProvider(object: token as NSString)
+                } preview: {
                     OGReorderDragPreview {
                         reorderBlockHeader(position: position, block: block)
                     }
                 }
-                .dropDestination(for: String.self) { tokens, _ in
-                    guard let token = tokens.first, token.hasPrefix("block:"),
-                          token != "block:\(block.id.uuidString)" else { return false }
-                    withAnimation(.smooth) { reorderBlockToken(token, before: block.id) }
-                    return true
-                }
+                .onDrop(
+                    of: [UTType.plainText.identifier],
+                    delegate: OGReorderDropDelegate(
+                        draggedToken: $reorderDraggedToken,
+                        accepts: { $0.hasPrefix("block:") },
+                        performMove: { token, location in
+                            let before = location.y > 34
+                                ? routine.blocks.dropFirst(position + 1).first?.id : block.id
+                            var changed = false
+                            withAnimation(.smooth) { changed = reorderBlockToken(token, before: before) }
+                            return changed
+                        }
+                    )
+                )
 
             if rows.isEmpty {
                 Text("Soltar ejercicio")
@@ -547,11 +567,28 @@ struct DayEditorView: View {
                     .foregroundStyle(OG.label3)
                     .frame(maxWidth: .infinity, minHeight: 104)
                     .contentShape(Rectangle())
-                    .dropDestination(for: String.self) { tokens, _ in
-                        guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
-                        withAnimation(.smooth) { applyReorder(token, into: block.id, before: nil) }
-                        return true
-                    }
+                    .onDrop(
+                        of: [UTType.plainText.identifier],
+                        delegate: OGReorderDropDelegate(
+                            draggedToken: $reorderDraggedToken,
+                            accepts: { _ in true },
+                            performMove: { token, _ in
+                                if token.hasPrefix("block:") {
+                                    let next = routine.blocks.dropFirst(position + 1).first?.id
+                                    var movedBlock = false
+                                    withAnimation(.smooth) {
+                                        movedBlock = reorderBlockToken(token, before: next)
+                                    }
+                                    return movedBlock
+                                }
+                                var changed = false
+                                withAnimation(.smooth) {
+                                    changed = applyReorder(token, into: block.id, before: nil)
+                                }
+                                return changed
+                            }
+                        )
+                    )
                     .padding(.bottom, 8)
             } else {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
@@ -561,13 +598,30 @@ struct DayEditorView: View {
                     reorderExerciseRow(
                         row.name, blockID: block.id, itemID: row.id, type: row.type
                     )
-                    .dropDestination(for: String.self) { tokens, location in
-                        guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
-                        // Al soltar en la mitad inferior se coloca DESPUÉS.
-                        let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
-                        withAnimation(.smooth) { applyReorder(token, into: block.id, before: before) }
-                        return true
-                    }
+                    .onDrop(
+                        of: [UTType.plainText.identifier],
+                        delegate: OGReorderDropDelegate(
+                            draggedToken: $reorderDraggedToken,
+                            accepts: { _ in true },
+                            performMove: { token, location in
+                                if token.hasPrefix("block:") {
+                                    let next = routine.blocks.dropFirst(position + 1).first?.id
+                                    var movedBlock = false
+                                    withAnimation(.smooth) {
+                                        movedBlock = reorderBlockToken(token, before: next)
+                                    }
+                                    return movedBlock
+                                }
+                                // Mitad superior: antes. Mitad inferior: después.
+                                let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
+                                var changed = false
+                                withAnimation(.smooth) {
+                                    changed = applyReorder(token, into: block.id, before: before)
+                                }
+                                return changed
+                            }
+                        )
+                    )
                 }
             }
         }
@@ -670,7 +724,10 @@ struct DayEditorView: View {
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .draggable(dragToken) {
+        .onDrag {
+            reorderDraggedToken = dragToken
+            return NSItemProvider(object: dragToken as NSString)
+        } preview: {
             OGReorderDragPreview(cornerRadius: 12) {
                 HStack(spacing: 12) {
                     reorderExerciseThumb(blockID: blockID, itemID: itemID, type: type)
@@ -757,19 +814,20 @@ struct DayEditorView: View {
         }
     }
 
-    private func reorderBlockToken(_ token: String, before destinationID: UUID?) {
+    private func reorderBlockToken(_ token: String, before destinationID: UUID?) -> Bool {
         let parts = token.split(separator: ":")
         guard parts.count == 2,
               parts[0] == "block",
               let sourceID = UUID(uuidString: String(parts[1])),
               let source = routine.blocks.firstIndex(where: { $0.id == sourceID })
-        else { return }
-        if destinationID == sourceID { return }
+        else { return false }
+        if destinationID == sourceID { return false }
         let moved = routine.blocks.remove(at: source)
         let destination = destinationID.flatMap { id in
             routine.blocks.firstIndex(where: { $0.id == id })
         } ?? routine.blocks.count
         routine.blocks.insert(moved, at: destination)
+        return destination != source
     }
 
     private func moveExercise(type: String, blockID: UUID, itemID: UUID, offset: Int) {
@@ -802,24 +860,23 @@ struct DayEditorView: View {
         }
     }
 
-    private func applyReorder(_ token: String, into destinationID: UUID, before itemID: UUID?) {
+    private func applyReorder(_ token: String, into destinationID: UUID, before itemID: UUID?) -> Bool {
         let parts = token.split(separator: ":").map(String.init)
-        guard let targetIndex = routine.blocks.firstIndex(where: { $0.id == destinationID }) else { return }
+        guard let targetIndex = routine.blocks.firstIndex(where: { $0.id == destinationID }) else { return false }
         if parts.count == 2, parts[0] == "block" {
-            reorderBlockToken(token, before: destinationID)
-            return
+            return reorderBlockToken(token, before: destinationID)
         }
         guard parts.count == 3,
               let sourceBlockID = UUID(uuidString: parts[1]),
               let exerciseID = UUID(uuidString: parts[2]),
               let sourceIndex = routine.blocks.firstIndex(where: { $0.id == sourceBlockID })
-        else { return }
+        else { return false }
         // Soltar una fila en su propio hueco anterior no cambia el orden.
-        if sourceBlockID == destinationID && itemID == exerciseID { return }
+        if sourceBlockID == destinationID && itemID == exerciseID { return false }
         let source = routine.blocks[sourceIndex]
         let targetKind = routine.blocks[targetIndex].kind
         if parts[0] == "exercise" {
-            guard let item = source.exercises.first(where: { $0.id == exerciseID }) else { return }
+            guard let item = source.exercises.first(where: { $0.id == exerciseID }) else { return false }
             let targetMovement: WODMovement?
             if targetKind == .wod {
                 let name = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
@@ -847,22 +904,22 @@ struct DayEditorView: View {
                 routine.blocks[targetIndex].movements.insert(targetMovement, at: position)
             }
         } else if parts[0] == "movement" {
-            guard let move = source.movements.first(where: { $0.id == exerciseID }) else { return }
+            guard let move = source.movements.first(where: { $0.id == exerciseID }) else { return false }
             var targetExercise: RoutineExercise?
             if targetKind == .strength {
-                guard !move.isRest else { return }
+                guard !move.isRest else { return false }
                 var catalogID = move.exerciseId.flatMap { id in
                     store.state.exercises.contains(where: { $0.id == id }) ? id : nil
                 } ?? store.state.exercises.first(where: {
                     $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
                 })?.id
                 if catalogID == nil {
-                    guard store.addCustomExercise(name: move.name, muscleGroup: "Otros", equipment: nil) else { return }
+                    guard store.addCustomExercise(name: move.name, muscleGroup: "Otros", equipment: nil) else { return false }
                     catalogID = store.state.exercises.last(where: {
                         $0.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame
                     })?.id
                 }
-                guard let resolvedID = catalogID else { return }
+                guard let resolvedID = catalogID else { return false }
                 targetExercise = RoutineExercise(
                     id: move.id,
                     exerciseId: resolvedID,
@@ -882,7 +939,10 @@ struct DayEditorView: View {
                 } ?? routine.blocks[targetIndex].exercises.count
                 routine.blocks[targetIndex].exercises.insert(targetExercise, at: position)
             }
+        } else {
+            return false
         }
+        return true
     }
 
     /// Nombre por defecto al añadir bloque: «Bloque 1», «Bloque 2», …
