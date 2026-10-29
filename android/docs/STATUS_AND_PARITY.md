@@ -21,8 +21,9 @@ Empezar tras OCR. Sin clima en Comenzar (`weather_android: none`).
 | kg/lb | `WeightUnit` dominio + UI Play convierte presentación; storage siempre kg | QA dispositivo |
 | Temporizador libre | Última config, Guardar/Descartar, `timerDetails` en historial, foco día Inicio | QA dispositivo; menú Create sheet iOS fino |
 | Historial de ejercicio/rutinas | Listas reales y búsqueda bilingüe | Filtros avanzados / fichas |
-| Ejecutar fuerza existente | Sesiones reales fuerza + WOD | — |
-| Registro de series | Fuerza/cardio + RIR/RPE + drop/RP (Play + Wear) + kg/lb | UX fina vs iOS; QA Wear físico |
+| Ejecutar fuerza existente | Sesiones reales fuerza + WOD; menú Sustituir/Eliminar ejercicio (`ExerciseSubstitutes`); Añadir favorito en editor | Menú RIR dedicado; selector Todos/Favoritos 1:1 |
+| Reloj de bloque | LED fullscreen + **Minimizar** → barra flotante Ronda/tiempo; Continuar | Chrome chevron ⌄ exacto |
+| Registro de series | Fuerza/cardio + RIR/RPE + drop/RP (Play + Wear) + kg/lb; háptico al completar serie + soft al descanso | Frecuencia 523,25 Hz N/A audio fino |
 | Reanudar sesión | JSON `activeSession` | Sesión en teléfono |
 | Finalizar | Archiva sin duplicar | HC E2E |
 | WOD | 14 formatos + relojes; editor finished Cal/m + HSPU/repsAndTime; plan series por movimiento | Reloj landscape OK; Live Activity N/A |
