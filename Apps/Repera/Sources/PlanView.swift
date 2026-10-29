@@ -235,13 +235,24 @@ struct DayEditorView: View {
                     DatePicker("Fin", selection: completedDateBinding(isEnd: true),
                                displayedComponents: [.date, .hourAndMinute])
                         .tint(OG.accent)
-                    if completedDetails?.routePoints.isEmpty == true {
-                        WorkoutPlacePickerRow(pin: Binding(
-                            get: { completedDetails?.locationPin },
-                            set: { completedDetails?.locationPin = $0 }
-                        ))
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
+                    if completedWorkoutDraft?.routePoints.isEmpty == true {
+                        let hasPlace = completedWorkoutDraft?.locationPin != nil
+                        WorkoutPlacePickerRow(
+                            pin: Binding(
+                                get: { completedWorkoutDraft?.locationPin },
+                                set: { newValue in
+                                    ensureCompletedWorkoutDraft()
+                                    completedDetails?.locationPin = newValue
+                                }
+                            ),
+                            showsExistingAnonymousPin: true
+                        )
+                        .listRowInsets(
+                            hasPlace
+                            ? EdgeInsets()
+                            : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+                        )
+                        .listRowBackground(hasPlace ? Color.clear : OG.surface)
                     }
                     TextField("Notas del entreno", text: Binding(
                         get: { completedDetails?.notes ?? "" },
@@ -551,9 +562,10 @@ struct DayEditorView: View {
                     delegate: OGReorderDropDelegate(
                         draggedToken: $reorderDraggedToken,
                         accepts: { $0.hasPrefix("block:") },
-                        performMove: { token, location in
-                            let before = location.y > 34
-                                ? routine.blocks.dropFirst(position + 1).first?.id : block.id
+                        performMove: { token, _ in
+                            let before = blockDropBeforeID(
+                                token: token, targetPosition: position, targetID: block.id
+                            )
                             var changed = false
                             withAnimation(.smooth) { changed = reorderBlockToken(token, before: before) }
                             return changed
@@ -574,10 +586,12 @@ struct DayEditorView: View {
                             accepts: { _ in true },
                             performMove: { token, _ in
                                 if token.hasPrefix("block:") {
-                                    let next = routine.blocks.dropFirst(position + 1).first?.id
+                                    let before = blockDropBeforeID(
+                                        token: token, targetPosition: position, targetID: block.id
+                                    )
                                     var movedBlock = false
                                     withAnimation(.smooth) {
-                                        movedBlock = reorderBlockToken(token, before: next)
+                                        movedBlock = reorderBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
@@ -605,10 +619,12 @@ struct DayEditorView: View {
                             accepts: { _ in true },
                             performMove: { token, location in
                                 if token.hasPrefix("block:") {
-                                    let next = routine.blocks.dropFirst(position + 1).first?.id
+                                    let before = blockDropBeforeID(
+                                        token: token, targetPosition: position, targetID: block.id
+                                    )
                                     var movedBlock = false
                                     withAnimation(.smooth) {
-                                        movedBlock = reorderBlockToken(token, before: next)
+                                        movedBlock = reorderBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
@@ -644,7 +660,7 @@ struct DayEditorView: View {
                 Text(block.title)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(block.wodFormat?.displayName ?? (block.kind == .strength ? "Fuerza" : "Libre"))
+                Text(block.wodFormat?.displayName ?? "Sin formato")
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
@@ -814,6 +830,25 @@ struct DayEditorView: View {
         }
     }
 
+    /// Destino al soltar un bloque sobre otra caja: hacia abajo → después del
+    /// objetivo; hacia arriba → antes. Evita el no-op de «before: target» cuando
+    /// el bloque 1 ya está delante del 2.
+    private func blockDropBeforeID(token: String, targetPosition: Int, targetID: UUID) -> UUID? {
+        let parts = token.split(separator: ":")
+        guard parts.count == 2,
+              parts[0] == "block",
+              let sourceID = UUID(uuidString: String(parts[1])),
+              let sourceIndex = routine.blocks.firstIndex(where: { $0.id == sourceID })
+        else { return targetID }
+        if sourceIndex < targetPosition {
+            return routine.blocks.dropFirst(targetPosition + 1).first?.id
+        }
+        if sourceIndex > targetPosition {
+            return targetID
+        }
+        return sourceID
+    }
+
     private func reorderBlockToken(_ token: String, before destinationID: UUID?) -> Bool {
         let parts = token.split(separator: ":")
         guard parts.count == 2,
@@ -822,12 +857,13 @@ struct DayEditorView: View {
               let source = routine.blocks.firstIndex(where: { $0.id == sourceID })
         else { return false }
         if destinationID == sourceID { return false }
+        let originalOrder = routine.blocks.map(\.id)
         let moved = routine.blocks.remove(at: source)
         let destination = destinationID.flatMap { id in
             routine.blocks.firstIndex(where: { $0.id == id })
         } ?? routine.blocks.count
         routine.blocks.insert(moved, at: destination)
-        return destination != source
+        return routine.blocks.map(\.id) != originalOrder
     }
 
     private func moveExercise(type: String, blockID: UUID, itemID: UUID, offset: Int) {

@@ -848,9 +848,17 @@ struct WorkoutDetailView: View {
                     // Ruta de Salud: no se pinta pin manual encima.
                     if healthExtras?.showRouteMap != true {
                         Section {
-                            WorkoutPlacePickerRow(pin: locationPinBinding)
-                                .listRowInsets(EdgeInsets())
-                                .listRowBackground(Color.clear)
+                            let hasPlace = draft?.locationPin != nil
+                            WorkoutPlacePickerRow(
+                                pin: locationPinBinding,
+                                showsExistingAnonymousPin: true
+                            )
+                            .listRowInsets(
+                                hasPlace
+                                ? EdgeInsets()
+                                : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+                            )
+                            .listRowBackground(hasPlace ? Color.clear : OG.surface)
                         } header: {
                             Text("Lugar")
                         }

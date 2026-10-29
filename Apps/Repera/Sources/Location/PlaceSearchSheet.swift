@@ -653,6 +653,9 @@ final class PlaceSearchCompleterModel: NSObject, ObservableObject, MKLocalSearch
 
 struct WorkoutPlacePickerRow: View {
     @Binding var pin: WorkoutLocationPin?
+    /// En Crear/Play un pin GPS anónimo no cuenta como lugar. En Editar un
+    /// entreno ya guardado, sí precarga el mapa que muestra el detalle.
+    var showsExistingAnonymousPin: Bool = false
     @State private var showSearch = false
     /// Evita reconstruir la tarjeta/mapa subyacente durante la animación
     /// de cierre: la selección se aplica únicamente en onDismiss.
@@ -663,10 +666,12 @@ struct WorkoutPlacePickerRow: View {
     }
 
     /// Solo un lugar elegido (nombre o MapItem) abre el mapa; un pin GPS
-    /// anónimo (captura automática) no sustituye «Añadir lugar».
+    /// anónimo (captura automática) no sustituye «Añadir lugar», salvo al
+    /// reeditar un entreno que ya muestra ese pin en el detalle.
     private var selectedPlace: WorkoutLocationPin? {
-        guard let pin, pin.hasChosenPlace else { return nil }
-        return pin
+        guard let pin else { return nil }
+        if pin.hasChosenPlace || showsExistingAnonymousPin { return pin }
+        return nil
     }
 
     var body: some View {

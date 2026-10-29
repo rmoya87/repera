@@ -749,6 +749,22 @@ struct WorkoutView: View {
         }
     }
 
+    /// Destino al soltar un bloque sobre otra caja (misma regla que DayEditor).
+    private func playBlockDropBeforeID(token: String, targetPosition: Int, targetID: UUID) -> UUID? {
+        guard token.hasPrefix("block:"),
+              let sourceID = UUID(uuidString: String(token.dropFirst(6))),
+              let draft = playReorderDraft,
+              let sourceIndex = draft.blocks.firstIndex(where: { $0.id == sourceID })
+        else { return targetID }
+        if sourceIndex < targetPosition {
+            return draft.blocks.dropFirst(targetPosition + 1).first?.id
+        }
+        if sourceIndex > targetPosition {
+            return targetID
+        }
+        return sourceID
+    }
+
     /// Reordena únicamente el borrador; nunca reinicia Salud ni el cronómetro.
     private func movePlayBlockToken(_ token: String, before targetID: UUID?) -> Bool {
         guard token.hasPrefix("block:"),
@@ -791,9 +807,10 @@ struct WorkoutView: View {
                     delegate: OGReorderDropDelegate(
                         draggedToken: $playReorderDraggedToken,
                         accepts: { $0.hasPrefix("block:") },
-                        performMove: { token, location in
-                            let before = location.y > 34
-                                ? playReorderDraft?.blocks.dropFirst(position + 1).first?.id : block.id
+                        performMove: { token, _ in
+                            let before = playBlockDropBeforeID(
+                                token: token, targetPosition: position, targetID: block.id
+                            )
                             var moved = false
                             withAnimation(.smooth) { moved = movePlayBlockToken(token, before: before) }
                             return moved
@@ -814,10 +831,12 @@ struct WorkoutView: View {
                             accepts: { _ in true },
                             performMove: { token, _ in
                                 if token.hasPrefix("block:") {
-                                    let next = playReorderDraft?.blocks.dropFirst(position + 1).first?.id
+                                    let before = playBlockDropBeforeID(
+                                        token: token, targetPosition: position, targetID: block.id
+                                    )
                                     var movedBlock = false
                                     withAnimation(.smooth) {
-                                        movedBlock = movePlayBlockToken(token, before: next)
+                                        movedBlock = movePlayBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
@@ -843,10 +862,12 @@ struct WorkoutView: View {
                             accepts: { _ in true },
                             performMove: { token, location in
                                 if token.hasPrefix("block:") {
-                                    let next = playReorderDraft?.blocks.dropFirst(position + 1).first?.id
+                                    let before = playBlockDropBeforeID(
+                                        token: token, targetPosition: position, targetID: block.id
+                                    )
                                     var movedBlock = false
                                     withAnimation(.smooth) {
-                                        movedBlock = movePlayBlockToken(token, before: next)
+                                        movedBlock = movePlayBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
@@ -881,7 +902,7 @@ struct WorkoutView: View {
                 Text(block.title)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
-                Text(block.wodFormat?.displayName ?? (block.kind == .strength ? "Fuerza" : "Libre"))
+                Text(block.wodFormat?.displayName ?? "Sin formato")
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
