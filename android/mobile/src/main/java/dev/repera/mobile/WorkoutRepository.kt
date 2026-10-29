@@ -114,7 +114,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         title: String,
         startedAtMillis: Long,
         finishedAtMillis: Long,
-        details: dev.repera.domain.TimerCompletionDetails
+        details: dev.repera.domain.TimerCompletionDetails,
+        locationPin: dev.repera.domain.WorkoutLocationPin? = null
     ): String {
         require(id.isNotBlank())
         require(finishedAtMillis >= startedAtMillis)
@@ -125,7 +126,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         val started = Instant.ofEpochMilli(startedAtMillis).toString()
         val finished = Instant.ofEpochMilli(maxOf(finishedAtMillis, startedAtMillis + 1000)).toString()
-        archive.put(JSONObject()
+        val session = JSONObject()
             .put("id", id)
             .put("title", title.trim().ifBlank { "Temporizador · ${details.modeTitle}" })
             .put("phase", "finished")
@@ -133,7 +134,19 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("finishedAt", finished)
             .put("exercises", JSONArray())
             .put("wodResults", JSONArray())
-            .put("timerDetails", details.toJson()))
+            .put("timerDetails", details.toJson())
+        locationPin?.let { pin ->
+            session.put("locationPin", JSONObject()
+                .put("latitude", pin.latitude)
+                .put("longitude", pin.longitude)
+                .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                .apply {
+                    pin.name?.let { put("name", it) }
+                    pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                    pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+                })
+        }
+        archive.put(session)
         save(state)
         return id
     }

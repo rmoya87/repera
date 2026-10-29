@@ -513,8 +513,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if (HealthConnectReader.hasReadablePermission(granted)) {
             loadHealthToday()
         } else {
+            // No volcar denegación a `status` global (aparecía en rojo en Crear).
             todayHealth = null
-            status = "No hay permisos de lectura de Salud concedidos"
         }
     }
 
@@ -1198,7 +1198,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             title = "Temporizador · ${completion.config.mode.title}",
                             startedAtMillis = completion.startedAtMillis,
                             finishedAtMillis = completion.finishedAtMillis,
-                            details = details
+                            details = details,
+                            locationPin = completion.locationPin
                         )
                         true
                     }.getOrDefault(false)

@@ -782,21 +782,21 @@ private fun BlockEditorCard(
             // Campos alineados con iOS fieldsForFormat (PlanView).
             when (block.format) {
                 "amrap", "afap", "chipper", "buyInCashOut", "maxEffort" ->
-                    NumberRow(block, "TIEMPO (min)" to "timeCap")
+                    NumberRow(block, "TIEMPO" to "timeCap")
                 "forTime" ->
-                    NumberRow(block, "Rondas" to "rounds", "TIEMPO (min)" to "timeCap",
+                    NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap",
                         "Entre rondas (s)" to "roundRest")
                 "roundsForQuality", "partner" ->
-                    NumberRow(block, "Rondas" to "rounds", "TIEMPO (min)" to "timeCap")
+                    NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap")
                 "emom", "circuit" ->
-                    NumberRow(block, "TIEMPO (min)" to "timeCap", "Intervalo (s)" to "interval")
+                    NumberRow(block, "TIEMPO" to "timeCap", "Intervalo (s)" to "interval")
                 "deathBy" ->
                     NumberRow(block, "Rondas" to "rounds", "Intervalo (s)" to "interval")
                 "tabata" ->
                     NumberRow(block, "Trabajo (s)" to "work", "Descanso (s)" to "rest",
                         "Rondas" to "rounds")
                 "ladder" -> {
-                    NumberRow(block, "TIEMPO (min)" to "timeCap")
+                    NumberRow(block, "TIEMPO" to "timeCap")
                     OutlinedTextField(
                         value = block.ladder,
                         onValueChange = { block.ladder = it },
@@ -1052,9 +1052,15 @@ private fun NumberRow(block: BlockDraftUi, vararg fields: Pair<String, String>) 
                 "roundRest" -> block.roundRest to { v: String -> block.roundRest = v }
                 else -> block.rest to { v: String -> block.rest = v }
             }
+            // iOS OGFormatNumberField: título TIEMPO + unidad «min» al lado del valor.
+            val unit = when (key) {
+                "timeCap" -> "min"
+                else -> null
+            }
             OutlinedTextField(
                 value = value, onValueChange = setter,
                 label = { Text(label) }, singleLine = true,
+                suffix = unit?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f)
             )

@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-29 (Android R4: restore revision gate post-session; accent #30D158 light; glass tab)
+Última actualización: 2026-10-29 (Android R4 restante: PlaceSearch glass/GPS, métricas Comenzar, Salud conectada, timer Lugar, IA manual)
 
 ## Series de movilidad (iOS)
 
@@ -201,6 +201,7 @@ Android (`android/mobile`, Material 3 — 2026-10-29):
 - Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). `HomeProfileButton` sin avatar: círculo `surfaceVariant` + borde (≈ botón glass del engranaje iOS).
 - Editor de rutina Android (`RoutineBlocksEditor`, 29/10/2026): alineado a `PlanView.swift` — `BlockFormatCatalog` con «Sin formato» (`format` vacío), `ExercisePickerSheet` y `PlanReorderFullscreen` a pantalla completa, acciones de inserción tipo `WorkoutWODInsertActions`, `restoreDayPlus` al salir de `rutina-nueva`.
 - Auth Android (`MainActivity.restoreStoredSession`, 29/10/2026 R4): el setter de `verifiedSupabase` incrementa `AccountRevisionGate` en null→userId; la revisión para `prepareAccountDataAfterAuth` se captura **después** de esa asignación (como en `signInWithGoogle`). Si se captura antes, seed/catálogo/espejos no corren y la UI queda sin estado local.
+- R4 restante Android (29/10/2026): `PlaceSearchSheet` mapa a sangre + card glass (cápsula Search, MyLocation, Últimos lugares, sesgo Photon/haversine); `LiveActivityScreen` métricas tiles Duración/Velocidad|Ritmo/Distancia + padding 88 dp sobre tab; `ConnectedHealthScreen` vía Ajustes → Salud; `StandaloneTimer` sección Lugar/`locationPin`; `AIAccessScreen` disclosure «Conexión manual».
 
 ## Datos y sync
 

@@ -392,6 +392,7 @@ fun ReperaMobileScreen(
                         onOpenBodyWeights={navController.navigate("peso-corporal")},
                         onOpenHistory={navController.navigate("historial")},
                         onOpenHealthGoals={navController.navigate("ajustes-objetivos")},
+                        onOpenHealth={navController.navigate("ajustes-salud")},
                         onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
                             feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
                         proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
@@ -756,6 +757,7 @@ fun ReperaMobileScreen(
                     StandaloneTimerScreen(
                         onBack = { navController.popBackStack() },
                         favoriteId = backStackEntry.arguments?.getString("fav"),
+                        accountId = accountId,
                         onPersistSession = onSaveTimerSession,
                         onSavedDay = { millis ->
                             restoreDayPlus = false
@@ -988,6 +990,16 @@ fun ReperaMobileScreen(
                 composable("ajustes") {
                     BackHandler { navController.popBackStack() }
                     settingsContent { navController.popBackStack() }
+                }
+                composable("ajustes-salud") {
+                    BackHandler { navController.popBackStack() }
+                    ConnectedHealthScreen(
+                        healthAccess = healthAccess,
+                        todayKcal = todayHealth?.activeKcal,
+                        busy = busy,
+                        onBack = { navController.popBackStack() },
+                        onManagePermissions = onHealthConnect
+                    )
                 }
                 composable("ajustes-objetivos") {
                     BackHandler { navController.popBackStack() }
@@ -1294,6 +1306,7 @@ internal fun SettingsTab(
     onOpenBodyWeights:()->Unit = {},
     onOpenHistory:()->Unit = {},
     onOpenHealthGoals:()->Unit = {},
+    onOpenHealth:()->Unit = {},
     proStatus:String? = null,
     onUpdateProfile:(ProfileSettings)->Unit = {},
     onBack: (() -> Unit)? = null
@@ -1414,6 +1427,8 @@ internal fun SettingsTab(
                     SettingsCardDivider()
                     SettingsListRow(
                         title = "Descubrir Pro",
+                        titleBold = true,
+                        showChevron = false,
                         enabled = !busy,
                         onClick = onOpenPro
                     )
@@ -1483,7 +1498,7 @@ internal fun SettingsTab(
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             SettingsHealthRows(
                 busy = busy,
-                onHealthConnect = onHealthConnect,
+                onOpenHealth = onOpenHealth,
                 onOpenHealthGoals = onOpenHealthGoals,
                 onOpenBodyWeights = onOpenBodyWeights,
                 overviewReady = overview != null
@@ -1598,7 +1613,7 @@ private fun SettingsDropdownPickerRow(
 @Composable
 private fun SettingsHealthRows(
     busy: Boolean,
-    onHealthConnect: () -> Unit,
+    onOpenHealth: () -> Unit,
     onOpenHealthGoals: () -> Unit,
     onOpenBodyWeights: () -> Unit,
     overviewReady: Boolean
@@ -1658,10 +1673,11 @@ private fun SettingsHealthRows(
         )
         SettingsCardDivider()
         SettingsListRow(
-            title = if (healthAuthorized) "Health Connect" else "Conectar con Salud",
+            title = "Salud",
+            trailing = if (healthAuthorized) "Conectada" else null,
             leadingIcon = Icons.Outlined.FavoriteBorder,
             enabled = !busy,
-            onClick = onHealthConnect
+            onClick = onOpenHealth
         )
         SettingsCardDivider()
         SettingsListRow(
