@@ -161,7 +161,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         // Read-only recovery: no locally confirmed set is written to the phone.
         sessionCache.getString("snapshot", null)?.let { cached ->
             val restored = runCatching { WatchSessionSummary.fromJson(JSONObject(cached)) }.getOrNull()
-            if (restored != null) {
+            val discarded = sessionCache.getStringSet("discardedSessionIds", emptySet()) ?: emptySet()
+            if (restored != null && restored.sessionId !in discarded) {
                 visibleSession = restored
                 seedDraft(restored)
                 restoreDraft(restored)
@@ -234,6 +235,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onTogglePause = { togglePause() },
                                 onSelectBlock = { session, index -> requestSelectBlock(session, index) },
                                 onFinishSession = { session -> finishSessionFromWatch(session) },
+                                onDiscardSession = { session -> discardSessionFromWatch(session) },
                                 onSkipRest = { skipRest() },
                                 onSyncRequest = { requestTodayPlanSync() },
                                 onRepsMinus = { adjustQuantity(-1) },
@@ -677,11 +679,41 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         persistRest()
     }
 
-    /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
+    /** Descartar sin guardar (Ramón F-5): cierra en Wear y pide lo mismo al teléfono. */
+    private fun discardSessionFromWatch(session: WatchSessionSummary) {
+        if (visibleSession?.sessionId != session.sessionId) return
+        rememberDiscarded(session.sessionId)
+        runCatching { pendingFinish.clear() }
+        finishedSummary = null
+        showOutline = false
+        showSetDetails = false
+        reviewingBlock = false
+        val payload = JSONObject().put("sessionId", session.sessionId)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            nodes.forEach {
+                Wearable.getMessageClient(this).sendMessage(it.id, "/repera/session-discard", payload)
+            }
+        }
+        clearSession(erasePending = true)
+        sendStatus = "Entrenamiento descartado"
+    }
+
+    private fun rememberDiscarded(sessionId: String) {
+        val prev = sessionCache.getStringSet("discardedSessionIds", emptySet())?.toMutableSet()
+            ?: mutableSetOf()
+        prev.add(sessionId)
+        // Cap set size to avoid unbounded prefs growth.
+        val trimmed = prev.toList().takeLast(32).toSet()
+        sessionCache.edit().putStringSet("discardedSessionIds", trimmed).apply()
+    }
+
+        /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
     private fun finishSessionFromWatch(session: WatchSessionSummary) {
         if(visibleSession?.sessionId!=session.sessionId) {
             sendStatus="La sesión cambió; revisa el entrenamiento antes de terminar";return
         }
+        rememberDiscarded(session.sessionId)
         runCatching {pendingFinish.queue(session.sessionId)}.onFailure {
             sendStatus="No se pudo guardar la petición de terminar: ${it.localizedMessage}";return
         }
@@ -1164,20 +1196,35 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val incomingId=bytes?.takeIf {it.isNotEmpty()}?.let {
             runCatching {JSONObject(String(it,Charsets.UTF_8)).getString("id")}.getOrNull()
         }
+        val localId = visibleSession?.sessionId
         if(dev.repera.domain.WatchSessionReconciliation.preserveLocal(
-            watchStartedSession,visibleSession?.sessionId,incomingId,completed?.sessionId)) {
-            sendStatus=if(incomingId==null) "Sesión del reloj conservada; pendiente de confirmar en el teléfono"
-                else "Otra sesión está activa en el teléfono; se conserva la del reloj"
-            syncProblem=incomingId!=null
+            watchStartedSession,localId,incomingId,completed?.sessionId)) {
+            sendStatus="Otra sesión está activa en el teléfono; se conserva la del reloj"
+            syncProblem=true
+            return
+        }
+        // Teléfono terminó/descartó: tumba el id local para que un relaunch no resucite.
+        if (dev.repera.domain.WatchSessionReconciliation.phoneDiscarded(
+                localId, incomingId, completed?.sessionId)) {
+            localId?.let { rememberDiscarded(it) }
+            runCatching { pendingFinish.clear() }
+            finishedSummary = null
+            clearSession(erasePending = true)
+            sendStatus = "Sesión cerrada desde el teléfono"
             return
         }
         completed?.let {runCatching {pendingFinish.acknowledge(it.sessionId)}}
-        finishedSummary = FinishedSummary.fromBytes(finished)
-            ?.takeIf { it.sessionId != sessionCache.getString("finishedDismissed", null) }
+        // ¡Bien hecho! solo si el finished es la sesión que corríamos (F-5 / w-01).
+        val showFinished = completed?.takeIf {
+            it.sessionId != sessionCache.getString("finishedDismissed", null) &&
+                (localId == null || localId == it.sessionId)
+        }
+        finishedSummary = showFinished
         if (bytes == null || bytes.isEmpty()) {
-            // A finished workout is NOT account logout. Never discard unacknowledged
-            // sets because the phone has completed the active session.
-            clearSession(erasePending = false)
+            localId?.let { rememberDiscarded(it) }
+            // Terminado con resumen: conserva cola si coincide; si no, limpia.
+            val erase = showFinished == null
+            clearSession(erasePending = erase)
             return
         }
         val raw = String(bytes, Charsets.UTF_8)
@@ -1276,6 +1323,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 }
+
+private fun localizedExerciseName(exercise: JSONObject): String {
+    val base = exercise.optString("name").ifBlank { return "Ejercicio" }
+    val tag = exercise.optString("sportTag").takeIf { it.isNotBlank() }
+    return dev.repera.domain.SportExerciseNames.localizedSpanishName(base, tag)
+}
+
 
 data class WatchSessionSummary(
     val sessionId: String,
@@ -1385,7 +1439,7 @@ data class WatchSessionSummary(
             }
             val blockLines = members.map { i ->
                 val e = exercises.getJSONObject(i)
-                val name = e.getJSONObject("exercise").getString("name")
+                val name = localizedExerciseName(e.getJSONObject("exercise"))
                 val ps = e.optJSONArray("plannedSets")
                 val reps = ps?.takeIf { it.length() > 0 }?.optJSONObject(0)?.optInt("targetReps")
                 if (reps != null && reps > 0) "$name · $reps reps" else name
@@ -1399,7 +1453,7 @@ data class WatchSessionSummary(
                     ExerciseInputMode.HSPU_DEFICIT,ExerciseInputMode.LOAD_DISTANCE) &&
                     (exercise.optString("blockKind") != "wod" || wodUsesSeries),
                 allowsWeight = mode.showsWeight,
-                exerciseName = exercise.getJSONObject("exercise").getString("name"),
+                exerciseName = localizedExerciseName(exercise.getJSONObject("exercise")),
                 exerciseIndex = index + 1,
                 exerciseCount = exercises.length(),
                 recordedSets = done,
