@@ -121,10 +121,6 @@ internal fun ProgressTab(
     LaunchedEffect(selectedRange) { onProgressRangeChange(selectedRange) }
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
-    val weekStart = dev.repera.domain.StatsEngine.startOfWeek(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
-    val dayFmt = java.time.format.DateTimeFormatter
-        .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
-        .withLocale(java.util.Locale("es", "ES"))
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     // Apple StatsView: las tres pestañas comparten scroll; al cambiar se vuelve al encabezado sin animación
     // (un offset heredado de Entreno dejaba la vista vacía). No se dispara en la composición inicial/restaurada.
@@ -182,24 +178,10 @@ internal fun ProgressTab(
                 }
             }
         }
-        item { ReperaSectionTitle("Esta semana") }
-        item {
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("${overview?.workoutsThisWeek ?: 0} sesiones esta semana",
-                        style = MaterialTheme.typography.headlineSmall)
-                    Text("Del ${weekStart.format(dayFmt)} al ${today.format(dayFmt)}")
-                    WeekTrainingBars(overview?.weeklyDayTotals.orEmpty(),overview?.trainingSettings?.weekStartsOnMonday ?: true)
-                    Text("El total semanal usa todo el historial local. " +
-                        "Los detalles de abajo muestran las últimas 20 sesiones.",
-                        style = MaterialTheme.typography.bodySmall)
-                }
-            }
+        // iOS StatsView: tiles Entrenos/Tiempo/Racha + Actividad + Equilibrio;
+        // sin tarjeta «N sesiones» ni párrafo técnico.
         }
-        }
+
         if(topic=="Actividad") item { TextButton(onClick=onOpenBodyWeights,enabled=overview!=null) {Text("Peso corporal · registrar e historial")} }
         if (snapshot != null) {
             if(topic=="Entreno") {

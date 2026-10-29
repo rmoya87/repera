@@ -389,8 +389,8 @@ internal fun HomeActivityTodayCard(
     minutes: Double?,
     minutesGoal: Int?,
     healthPlaceholder: String,
-    onHealthConnect: () -> Unit,
-    healthAccess: HealthAccessState
+    @Suppress("UNUSED_PARAMETER") onHealthConnect: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") healthAccess: HealthAccessState
 ) {
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -437,17 +437,7 @@ internal fun HomeActivityTodayCard(
                     modifier = Modifier.weight(1f)
                 )
             }
-            if (healthAccess != HealthAccessState.GRANTED) {
-                androidx.compose.material3.TextButton(onClick = onHealthConnect) {
-                    Text(
-                        when (healthAccess) {
-                            HealthAccessState.NOT_GRANTED -> "Conectar Salud"
-                            HealthAccessState.UNAVAILABLE -> "Salud no disponible en este dispositivo"
-                            else -> "Conectar o actualizar Salud"
-                        }
-                    )
-                }
-            }
+            // iOS HomeView: sin enlace «Conectar Salud» dentro de Actividad de hoy.
         }
     }
 }

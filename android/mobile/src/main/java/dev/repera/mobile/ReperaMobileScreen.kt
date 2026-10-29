@@ -12,16 +12,41 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -354,6 +379,7 @@ fun ReperaMobileScreen(
                         onOpenCenter={navController.navigate("center")},
                         onOpenBodyWeights={navController.navigate("peso-corporal")},
                         onOpenHistory={navController.navigate("historial")},
+                        onOpenHealthGoals={navController.navigate("ajustes-objetivos")},
                         onOpenPro={subs?.presentPaywall(dev.repera.domain.monetization.PaywallContext.SETTINGS,
                             feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)},
                         proStatus=if(subs?.businessSponsoredAccess==true) "Acceso por centro o entrenador" else subs?.status?.displayName,
@@ -417,7 +443,17 @@ fun ReperaMobileScreen(
                 )
             }
         ) { padding ->
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(padding)) {
+            // Comenzar: mapa a sangre bajo la tab bar flotante (LiveActivityView iOS).
+            val mapUnderTabs = currentRoute == "en-vivo" && showTabBar
+            val hostPadding = if (mapUnderTabs) {
+                Modifier.padding(
+                    start = padding.calculateStartPadding(LayoutDirection.Ltr),
+                    top = padding.calculateTopPadding(),
+                    end = padding.calculateEndPadding(LayoutDirection.Ltr),
+                    bottom = 0.dp
+                )
+            } else Modifier.padding(padding)
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().then(hostPadding)) {
             NavHost(
                 navController = navController,
                 startDestination = "inicio",
@@ -941,6 +977,43 @@ fun ReperaMobileScreen(
                     BackHandler { navController.popBackStack() }
                     settingsContent { navController.popBackStack() }
                 }
+                composable("ajustes-objetivos") {
+                    BackHandler { navController.popBackStack() }
+                    val goalsScroll = rememberScrollState()
+                    ProvideScrollDragAutoScroll(goalsScroll) {
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .verticalScroll(goalsScroll)
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                enabled = !busy,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.ArrowBack,
+                                    contentDescription = "Volver",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            ReperaPageHeader(title = "Objetivos")
+                            ReperaCard(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp)) {
+                                    HealthGoalsSection(
+                                        overview?.healthGoals ?: HealthGoals(),
+                                        busy || overview == null,
+                                        onUpdateHealthGoals
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 composable("historial") {
                     CompleteHistoryScreen(
                         overview, busy, accountId,
@@ -1060,7 +1133,7 @@ fun ReperaMobileScreen(
                             blocks = listOf(
                                 RoutineBlockInfo(
                                     title = "Bloque 1",
-                                    format = "strength",
+                                    format = "",
                                     id = java.util.UUID.randomUUID().toString()
                                 )
                             ))
@@ -1098,7 +1171,10 @@ fun ReperaMobileScreen(
                                 oneOffMetaSnap[2] as dev.repera.domain.WorkoutLocationPin?
                             ) { navController.popBackStack() }
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = {
+                            restoreDayPlus = true
+                            navController.popBackStack()
+                        }
                     )
                 }
                 composable(
@@ -1205,6 +1281,7 @@ internal fun SettingsTab(
     onOpenPro:()->Unit = {},
     onOpenBodyWeights:()->Unit = {},
     onOpenHistory:()->Unit = {},
+    onOpenHealthGoals:()->Unit = {},
     proStatus:String? = null,
     onUpdateProfile:(ProfileSettings)->Unit = {},
     onBack: (() -> Unit)? = null
@@ -1257,9 +1334,10 @@ internal fun SettingsTab(
         val settingsScope = rememberCoroutineScope()
         var restoreBusy by remember { mutableStateOf(false) }
         var restoreMessage by remember { mutableStateOf<String?>(null) }
+        var accessFeedbackTitle by remember { mutableStateOf("Acceso Pro") }
         ReperaSectionTitle("Cuenta", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(vertical = 8.dp)) {
                 ProfileSettingsSection(
                     overview?.profileSettings ?: ProfileSettings(),
                     busy || overview == null,
@@ -1270,106 +1348,339 @@ internal fun SettingsTab(
         }
         ReperaSectionTitle("Centro y entrenador", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick=onOpenCenter,enabled=!busy, modifier = Modifier.fillMaxWidth()) {
-                    Text("Buscar ›")
-                }
-            }
+            SettingsListRow(
+                title = "Buscar",
+                leadingIcon = Icons.Outlined.Search,
+                enabled = !busy,
+                onClick = onOpenCenter
+            )
         }
         ReperaSectionTitle("Acceso", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                proStatus?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column {
+                when {
+                    settingsSubs?.businessSponsoredAccess == true -> {
+                        SettingsListRow(
+                            title = "Acceso completo",
+                            subtitle = "Incluido con tu centro o entrenador",
+                            showChevron = false,
+                            onClick = null
+                        )
+                    }
+                    settingsSubs?.snapshot?.grantsProAccess == true -> {
+                        SettingsListRow(
+                            title = "Repera Pro activo",
+                            subtitle = buildString {
+                                proStatus?.let { append(it) }
+                                settingsSubs.snapshot.expirationDate?.let { exp ->
+                                    if (isNotEmpty()) append('\n')
+                                    append("Renueva o finaliza: ")
+                                    append(
+                                        java.text.SimpleDateFormat(
+                                            "d MMM yyyy",
+                                            java.util.Locale("es", "ES")
+                                        ).format(java.util.Date(exp))
+                                    )
+                                }
+                            }.takeIf { it.isNotBlank() },
+                            showChevron = false,
+                            onClick = null
+                        )
+                    }
+                    else -> {
+                        SettingsListRow(
+                            title = "Repera Pro",
+                            subtitle = "O vincula un centro para acceso completo",
+                            trailingIcon = Icons.Outlined.Lock,
+                            showChevron = false,
+                            onClick = null
+                        )
+                    }
                 }
-                OutlinedButton(onClick=onOpenPro,enabled=!busy, modifier = Modifier.fillMaxWidth()) {
-                    Text("Descubrir Pro")
-                }
-                OutlinedButton(
-                    onClick = {
-                        restoreBusy = true
-                        restoreMessage = null
-                        settingsScope.launch {
-                            val ok = settingsSubs?.restorePurchases() == true
-                            restoreBusy = false
-                            restoreMessage = if (ok) "Acceso Pro actualizado"
-                            else "No hay compras para restaurar"
+                if (settingsSubs?.businessSponsoredAccess != true) {
+                    SettingsCardDivider()
+                    SettingsListRow(
+                        title = "Descubrir Pro",
+                        enabled = !busy,
+                        onClick = onOpenPro
+                    )
+                    SettingsCardDivider()
+                    SettingsListRow(
+                        title = if (restoreBusy) "Comprobando acceso…" else "Comprobar acceso Pro",
+                        leadingIcon = Icons.Outlined.VerifiedUser,
+                        enabled = !busy && !restoreBusy,
+                        onClick = {
+                            accessFeedbackTitle = "Comprobar acceso Pro"
+                            restoreBusy = true
+                            restoreMessage = null
+                            settingsScope.launch {
+                                val ok = settingsSubs?.restorePurchases() == true
+                                restoreBusy = false
+                                restoreMessage = when {
+                                    ok -> "Acceso Pro actualizado"
+                                    settingsSubs?.snapshot?.grantsProAccess == true ->
+                                        "Acceso verificado en este dispositivo."
+                                    else -> settingsSubs?.lastErrorMessage
+                                        ?: "No se ha encontrado un acceso Pro activo."
+                                }
+                            }
                         }
-                    },
-                    enabled = !busy && !restoreBusy,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text(if (restoreBusy) "Comprobando…" else "Comprobar acceso Pro") }
-                OutlinedButton(
-                    onClick = {
-                        restoreBusy = true
-                        restoreMessage = null
-                        settingsScope.launch {
-                            val ok = settingsSubs?.restorePurchases() == true
-                            restoreBusy = false
-                            restoreMessage = if (ok) "Compras restauradas"
-                            else "No hay compras para restaurar"
+                    )
+                    SettingsCardDivider()
+                    SettingsListRow(
+                        title = "Restaurar compras",
+                        enabled = !busy && !restoreBusy,
+                        onClick = {
+                            accessFeedbackTitle = "Restaurar compras"
+                            restoreBusy = true
+                            restoreMessage = null
+                            settingsScope.launch {
+                                val ok = settingsSubs?.restorePurchases() == true
+                                restoreBusy = false
+                                restoreMessage = if (ok) {
+                                    "Suscripción restaurada."
+                                } else {
+                                    settingsSubs?.lastErrorMessage
+                                        ?: "No se encontró ninguna suscripción."
+                                }
+                            }
                         }
-                    },
-                    enabled = !busy && !restoreBusy,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Restaurar compras") }
-                restoreMessage?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
                 }
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenAIAccess)
-                    .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Conecta tu IA ›", modifier = Modifier.weight(1f))
-                    Icon(Icons.Outlined.KeyboardArrowRight, contentDescription = null)
-                }
+                SettingsCardDivider()
+                SettingsListRow(
+                    title = "Conecta tu IA",
+                    leadingIcon = Icons.Outlined.Psychology,
+                    enabled = !busy,
+                    onClick = onOpenAIAccess
+                )
             }
+        }
+        if (restoreMessage != null) {
+            AlertDialog(
+                onDismissRequest = { restoreMessage = null },
+                title = { Text(accessFeedbackTitle) },
+                text = { Text(restoreMessage.orEmpty()) },
+                confirmButton = {
+                    TextButton(onClick = { restoreMessage = null }) { Text("OK") }
+                }
+            )
         }
         ReperaSectionTitle("Salud", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PermissionSettingsSection(onHealthConnect,onPrivateSleepChanged,onPrivateCycleChanged)
-                HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
-            }
+            SettingsHealthRows(
+                busy = busy,
+                onHealthConnect = onHealthConnect,
+                onOpenHealthGoals = onOpenHealthGoals,
+                onOpenBodyWeights = onOpenBodyWeights,
+                overviewReady = overview != null
+            )
         }
         ReperaSectionTitle("Entrenamiento", uppercase = false)
+        val training = overview?.trainingSettings ?: TrainingSettings()
+        val trainingBusy = busy || overview == null
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Historial ›")}
-                OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Peso ›")}
-                TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
-                if(overview?.trainingSettings?.scheduleMode=="rotation")
-                    RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
+            Column {
+                SettingsListRow(
+                    title = "Historial",
+                    enabled = !trainingBusy,
+                    onClick = onOpenHistory
+                )
+                SettingsCardDivider()
+                SettingsDropdownPickerRow(
+                    label = "Unidad",
+                    value = training.weightUnit,
+                    options = listOf("kg" to "kg", "lb" to "lb"),
+                    enabled = !trainingBusy,
+                    onSelect = { onUpdateTrainingSettings(training.copy(weightUnit = it)) }
+                )
+                SettingsCardDivider()
+                SettingsDropdownPickerRow(
+                    label = "Semana empieza",
+                    value = if (training.weekStartsOnMonday) "Lunes" else "Domingo",
+                    options = listOf("Lunes" to "monday", "Domingo" to "sunday"),
+                    enabled = !trainingBusy,
+                    onSelect = {
+                        onUpdateTrainingSettings(
+                            training.copy(weekStartsOnMonday = it == "monday")
+                        )
+                    }
+                )
+                SettingsCardDivider()
+                SettingsDropdownPickerRow(
+                    label = "Esfuerzo (registro)",
+                    value = training.effortUnit.uppercase(),
+                    options = listOf("RIR" to "rir", "RPE" to "rpe"),
+                    enabled = !trainingBusy,
+                    onSelect = { onUpdateTrainingSettings(training.copy(effortUnit = it)) }
+                )
             }
         }
         ReperaSectionTitle("Datos", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
-                OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Exportar JSON")}
-                // Misma sección Datos de iOS: traspaso del JSON de Apple y CSV.
-                OutlinedButton(onClick = onImportJson, enabled = !busy && !deletingAccount,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("Importar JSON (traspaso desde Apple)")
-                }
-                OutlinedButton(onClick = onImportCsv, enabled = !busy && !deletingAccount,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("Importar CSV Strong/Hevy")
-                }
-                OutlinedButton(
-                    onClick = { confirmDeleteAccount = true },
+            Column {
+                SettingsTextActionRow(
+                    text = "Exportar JSON",
+                    enabled = !busy && overview != null,
+                    onClick = onExportJson
+                )
+                SettingsCardDivider()
+                SettingsTextActionRow(
+                    text = "Importar JSON",
                     enabled = !busy && !deletingAccount,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.fillMaxWidth().testTag("delete_account")
-                ) {
-                    Text(if (deletingAccount) "Eliminando cuenta…" else "Eliminar mi cuenta")
-                }
+                    onClick = onImportJson
+                )
+                SettingsCardDivider()
+                SettingsTextActionRow(
+                    text = "Importar CSV Strong/Hevy",
+                    enabled = !busy && !deletingAccount,
+                    onClick = onImportCsv
+                )
+                SettingsCardDivider()
+                SettingsTextActionRow(
+                    text = if (deletingAccount) "Eliminando cuenta…" else "Eliminar mi cuenta",
+                    enabled = !busy && !deletingAccount,
+                    destructive = true,
+                    onClick = { confirmDeleteAccount = true },
+                    modifier = Modifier.testTag("delete_account")
+                )
             }
         }
     }
+    }
+}
+
+@Composable
+private fun SettingsDropdownPickerRow(
+    label: String,
+    value: String,
+    options: List<Pair<String, String>>,
+    enabled: Boolean,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        SettingsListRow(
+            title = label,
+            trailing = value,
+            trailingColor = MaterialTheme.colorScheme.primary,
+            showChevron = false,
+            enabled = enabled,
+            onClick = if (enabled) {{ expanded = true }} else null
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (display, wire) ->
+                DropdownMenuItem(
+                    text = { Text(display) },
+                    onClick = {
+                        expanded = false
+                        onSelect(wire)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHealthRows(
+    busy: Boolean,
+    onHealthConnect: () -> Unit,
+    onOpenHealthGoals: () -> Unit,
+    onOpenBodyWeights: () -> Unit,
+    overviewReady: Boolean
+) {
+    val context = LocalContext.current
+    var revision by remember { mutableIntStateOf(0) }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) revision++
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    var healthAuthorized by remember { mutableStateOf(false) }
+    LaunchedEffect(revision) {
+        healthAuthorized = runCatching {
+            val reader = HealthConnectReader(context)
+            reader.available() && reader.hasPermissions()
+        }.getOrDefault(false)
+    }
+    @Suppress("UNUSED_VARIABLE") val observed = revision
+    val locationGranted =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+    val notificationsGranted = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { revision++ }
+    val notificationsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { revision++ }
+    fun openAppSettings() {
+        context.startActivity(
+            Intent(
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}")
+            )
+        )
+    }
+    Column {
+        SettingsListRow(
+            title = "Notificaciones",
+            trailing = if (notificationsGranted) "Permitidas" else "No permitidas",
+            leadingIcon = Icons.Outlined.Notifications,
+            showChevron = false,
+            enabled = !busy,
+            onClick = {
+                if (Build.VERSION.SDK_INT >= 33 && !notificationsGranted) {
+                    notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    openAppSettings()
+                }
+            }
+        )
+        SettingsCardDivider()
+        SettingsListRow(
+            title = if (healthAuthorized) "Health Connect" else "Conectar con Salud",
+            leadingIcon = Icons.Outlined.FavoriteBorder,
+            enabled = !busy,
+            onClick = onHealthConnect
+        )
+        SettingsCardDivider()
+        SettingsListRow(
+            title = "Ubicación",
+            trailing = if (locationGranted) "Permitida" else "No permitida",
+            leadingIcon = Icons.Outlined.LocationOn,
+            showChevron = false,
+            enabled = !busy,
+            onClick = {
+                if (!locationGranted) {
+                    locationLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                } else {
+                    openAppSettings()
+                }
+            }
+        )
+        SettingsCardDivider()
+        SettingsListRow(
+            title = "Objetivos",
+            enabled = !busy && overviewReady,
+            onClick = onOpenHealthGoals
+        )
+        SettingsCardDivider()
+        SettingsListRow(
+            title = "Peso",
+            enabled = !busy && overviewReady,
+            onClick = onOpenBodyWeights
+        )
     }
 }

@@ -24,7 +24,7 @@ class HyroxCatalogInstrumentedTest {
         // por lo que la migración es un no-op en cuentas nuevas.
         assertFalse(MobilityCatalogMigration.ensure(context, account))
         val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
-        assertEquals(288, catalog.length())
+        assertEquals(289, catalog.length())
         val rows = (0 until catalog.length()).map { catalog.getJSONObject(it) }
         // Nombre actual en iOS @e1621b8: "Run" (antes "Carrera"; renombrado en
         // el seed cuando main lo cambió — el test debe seguir el nombre vigente).
@@ -60,7 +60,7 @@ class HyroxCatalogInstrumentedTest {
         MobilityCatalogMigration.ensure(context, account)
         assertTrue(CatalogRefreshMigration.ensure(context, account))
         val catalog = JSONObject(String(local.read()!!)).getJSONArray("exercises")
-        assertEquals(288, catalog.length())
+        assertEquals(289, catalog.length())
         val same = (0 until catalog.length()).map { catalog.getJSONObject(it) }
             .filter { it.optString("name") == "Burpee Broad Jump" }
         assertEquals(1, same.size)

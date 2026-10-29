@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,14 +36,17 @@ import androidx.compose.ui.unit.dp
 internal data class ReperaTabSpec(
     val route: String,
     val label: String,
-    val icon: ImageVector
-)
+    val icon: ImageVector,
+    val selectedIcon: ImageVector = icon
+) {
+    fun iconFor(selected: Boolean): ImageVector = if (selected) selectedIcon else icon
+}
 
 /** Cuatro pestañas principales (paridad iOS Liquid Glass tab bar). */
 internal val reperaMainTabs = listOf(
     ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home),
-    ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle),
-    ReperaTabSpec("progreso", "Progreso", Icons.Outlined.Speed),
+    ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle, Icons.Filled.PlayCircle),
+    ReperaTabSpec("progreso", "Progreso", Icons.Outlined.BarChart, Icons.Filled.BarChart),
     ReperaTabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
 )
 
@@ -146,7 +151,7 @@ private fun ReperaFloatingTabItem(
                 )
         ) {
             Icon(
-                imageVector = tab.icon,
+                imageVector = tab.iconFor(selected),
                 contentDescription = tab.label,
                 modifier = Modifier.size(24.dp),
                 tint = iconTint

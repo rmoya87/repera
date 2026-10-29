@@ -199,6 +199,7 @@ Android (`android/mobile`, Material 3 — 2026-10-29):
 - Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
 - Sigue distinto de iOS a propósito: Material 3 (cristal simulado con Surface, no Liquid Glass nativo), MapLibre vs MapKit, sin glass toolbar 44 del sistema.
 - Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). `HomeProfileButton` sin avatar: círculo `surfaceVariant` + borde (≈ botón glass del engranaje iOS).
+- Editor de rutina Android (`RoutineBlocksEditor`, 29/10/2026): alineado a `PlanView.swift` — `BlockFormatCatalog` con «Sin formato» (`format` vacío), `ExercisePickerSheet` y `PlanReorderFullscreen` a pantalla completa, acciones de inserción tipo `WorkoutWODInsertActions`, `restoreDayPlus` al salir de `rutina-nueva`.
 
 ## Datos y sync
 

@@ -11,11 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,8 +36,7 @@ private val brandOrange = Color(0xFFFF9F0A)
 private val brandYellow = Color(0xFFFFD60A)
 
 /**
- * Menú «＋» de un día concreto del diario (port de DayPlusSheet iOS): alta de
- * entreno suelto con fecha, favoritos, temporizador y escaneo de pizarra.
+ * Menú «＋» de un día concreto del diario (port de DayPlusSheet / StartHubSheet iOS).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +50,7 @@ internal fun DayPlusSheet(
     onScanBoard: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // iOS StartHubSheet.favoritesSubtitle: vacío → texto genérico; si no → «N entrenos».
     val favoritesSubtitle = if (favoriteRoutines + favoriteTimers == 0) {
         "Entrenos y temporizadores habituales"
     } else {
@@ -72,44 +73,46 @@ internal fun DayPlusSheet(
                     )
                 }
             )
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    DayPlusRow(
-                        Icons.Outlined.Add,
-                        "Crear entreno",
-                        "Bloques de fuerza y WODs",
-                        MaterialTheme.colorScheme.primary,
-                        "day_plus_create",
-                        onCreateWorkout
-                    )
-                    DayPlusDivider()
-                    DayPlusRow(
-                        Icons.Outlined.Timer,
-                        "Temporizador",
-                        "Arriba, abajo o intervalos · reloj digital",
-                        brandOrange,
-                        "day_plus_timer",
-                        onOpenTimer
-                    )
-                    DayPlusDivider()
-                    DayPlusRow(
-                        Icons.Outlined.DocumentScanner,
-                        "Escanear entreno",
-                        "Cámara o galería",
-                        MaterialTheme.colorScheme.tertiary,
-                        "day_plus_scan",
-                        onScanBoard
-                    )
-                    DayPlusDivider()
-                    DayPlusRow(
-                        Icons.Outlined.StarBorder,
-                        "Favoritos",
-                        favoritesSubtitle,
-                        brandYellow,
-                        "day_plus_favorites",
-                        onOpenFavorites
-                    )
-                }
+            Column {
+                DayPlusRow(
+                    icon = Icons.Filled.Add,
+                    title = "Crear entreno",
+                    subtitle = "Bloques de fuerza y WODs",
+                    iconTint = Color.White,
+                    iconBackground = MaterialTheme.colorScheme.primary,
+                    tag = "day_plus_create",
+                    onClick = onCreateWorkout
+                )
+                DayPlusDivider()
+                DayPlusRow(
+                    icon = Icons.Outlined.Timer,
+                    title = "Temporizador",
+                    subtitle = "Arriba, abajo o intervalos · reloj digital",
+                    iconTint = brandOrange,
+                    iconBackground = null,
+                    tag = "day_plus_timer",
+                    onClick = onOpenTimer
+                )
+                DayPlusDivider()
+                DayPlusRow(
+                    icon = Icons.Outlined.DocumentScanner,
+                    title = "Escanear entreno",
+                    subtitle = "Cámara o galería",
+                    iconTint = MaterialTheme.colorScheme.tertiary,
+                    iconBackground = null,
+                    tag = "day_plus_scan",
+                    onClick = onScanBoard
+                )
+                DayPlusDivider()
+                DayPlusRow(
+                    icon = Icons.Filled.Star,
+                    title = "Favoritos",
+                    subtitle = favoritesSubtitle,
+                    iconTint = brandYellow,
+                    iconBackground = null,
+                    tag = "day_plus_favorites",
+                    onClick = onOpenFavorites
+                )
             }
             LocalSubscriptions.current?.policy?.boardScanUsageCaption?.let { caption ->
                 Text(
@@ -130,6 +133,7 @@ private fun DayPlusRow(
     title: String,
     subtitle: String,
     iconTint: Color,
+    iconBackground: Color?,
     tag: String,
     onClick: () -> Unit
 ) {
@@ -141,12 +145,28 @@ private fun DayPlusRow(
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(28.dp)
-        )
+        if (iconBackground != null) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(iconBackground, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(28.dp)
+            )
+        }
         Spacer(Modifier.width(14.dp))
         Column {
             Text(title, style = MaterialTheme.typography.bodyLarge)
@@ -162,7 +182,7 @@ private fun DayPlusRow(
 @Composable
 private fun DayPlusDivider() {
     HorizontalDivider(
-        modifier = Modifier.padding(start = 52.dp),
+        modifier = Modifier.padding(start = 56.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
     )
 }

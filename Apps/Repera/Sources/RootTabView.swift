@@ -36,7 +36,11 @@ struct RootTabView: View {
                     )
                 }
 
-                SwiftUI.Tab("Comenzar", systemImage: "livephoto.play", value: AppTab.start) {
+                SwiftUI.Tab(
+                    "Comenzar",
+                    systemImage: tab == .start ? "play.circle.fill" : "play.circle",
+                    value: AppTab.start
+                ) {
                     LiveActivityView(
                         onSaved: { date in
                             homeFocusDay = date
@@ -49,7 +53,11 @@ struct RootTabView: View {
                     )
                 }
 
-                SwiftUI.Tab("Progreso", systemImage: "gauge", value: AppTab.stats) {
+                SwiftUI.Tab(
+                    "Progreso",
+                    systemImage: tab == .stats ? "chart.bar.fill" : "chart.bar",
+                    value: AppTab.stats
+                ) {
                     StatsView()
                 }
 
