@@ -970,13 +970,17 @@ private fun WorkoutInlineAddButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedButton(
+    // Fondo negro y contenido verde tanto en modo día como noche.
+    Button(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp),
-        border = BorderStroke(1.dp, brandGreen.copy(alpha = 0.35f)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = brandGreen)
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Black,
+            contentColor = brandGreen
+        ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1004,8 +1008,10 @@ private fun PlanEditorActionRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = brandGreen)
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f))
         Icon(
             Icons.AutoMirrored.Outlined.KeyboardArrowRight,
             contentDescription = null,

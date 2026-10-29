@@ -341,17 +341,20 @@ struct DayEditorView: View {
                     routine.blocks.append(.strength(title: nextDefaultBlockTitle()))
                 } label: {
                     Label("Añadir bloque", systemImage: "square.stack.3d.up")
+                        .foregroundStyle(OG.label)
                 }
                 Button {
                     showWODCatalog = true
                 } label: {
                     Label("Elegir WOD", systemImage: "list.bullet.rectangle.portrait")
+                        .foregroundStyle(OG.label)
                 }
                 if !importableRoutines.isEmpty || !store.state.favoriteTimers.isEmpty {
                     Button {
                         showRoutinePicker = true
                     } label: {
                         Label("Añadir favorito", systemImage: "star")
+                        .foregroundStyle(OG.label)
                     }
                 }
             }
@@ -3307,10 +3310,10 @@ struct WorkoutWODInsertActions: View {
 
     var body: some View {
         VStack(spacing: 9) {
-            WorkoutInlineAddButton("Ejercicio", systemImage: "plus.circle.fill", action: onExercise)
+            WorkoutInlineAddButton("Ejercicio", systemImage: "plus.circle.fill", filled: true, action: onExercise)
             HStack(spacing: 9) {
-                WorkoutInlineAddButton("Descanso", systemImage: "pause.circle", action: onRest)
-                WorkoutInlineAddButton("Movimiento libre", systemImage: "plus.circle.fill", action: onFreeMovement)
+                WorkoutInlineAddButton("Descanso", systemImage: "pause.circle", filled: true, action: onRest)
+                WorkoutInlineAddButton("Movimiento libre", systemImage: "plus.circle.fill", filled: true, action: onFreeMovement)
             }
         }
         .padding(.vertical, 8)
@@ -3321,11 +3324,13 @@ struct WorkoutWODInsertActions: View {
 struct WorkoutInlineAddButton: View {
     let title: String
     let systemImage: String
+    let filled: Bool
     let action: () -> Void
 
-    init(_ title: String, systemImage: String, action: @escaping () -> Void) {
+    init(_ title: String, systemImage: String, filled: Bool = false, action: @escaping () -> Void) {
         self.title = title
         self.systemImage = systemImage
+        self.filled = filled
         self.action = action
     }
 
@@ -3346,10 +3351,15 @@ struct WorkoutInlineAddButton: View {
             .foregroundStyle(OG.accent)
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(OG.accent.opacity(0.35), lineWidth: 1)
-            )
+            .background {
+                if filled {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.black)
+                } else {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(OG.accent.opacity(0.35), lineWidth: 1)
+                }
+            }
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)

@@ -1420,14 +1420,17 @@ struct WorkoutView: View {
                         draft.blocks.append(.strength(title: "Bloque \(draft.blocks.count + 1)"))
                     }
                 }
+                .foregroundStyle(OG.label)
                 Button("Elegir WOD", systemImage: "list.bullet.rectangle.portrait") {
                     showPlayWODCatalog = true
                 }
+                .foregroundStyle(OG.label)
                 if store.favoriteRoutines.contains(where: { !$0.blocks.isEmpty })
                     || !store.state.favoriteTimers.isEmpty {
                     Button("Añadir favorito", systemImage: "star") {
                         showPlayRoutinePicker = true
                     }
+                    .foregroundStyle(OG.label)
                 }
             }
 

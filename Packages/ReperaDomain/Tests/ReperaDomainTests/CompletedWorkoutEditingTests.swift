@@ -2,6 +2,53 @@ import XCTest
 @testable import ReperaDomain
 
 final class CompletedWorkoutEditingTests: XCTestCase {
+    /// Al editar una caminata registrada no se vuelve a crear la actividad ni
+    /// se mezclan las kcal medidas con las cantidades de los movimientos WOD.
+    func testAddingWodToRecordedWalkPreservesGPSHealthAndDuration() {
+        let burpees = Exercise(name: "Burpees", muscleGroup: "Otros")
+        let start = Date(timeIntervalSince1970: 1_780_000_000)
+        let healthUUID = UUID()
+        let routeUUID = UUID()
+        let path = [
+            WorkoutRoutePoint(id: 0, latitude: 40.4168, longitude: -3.7038, recordedAt: start),
+            WorkoutRoutePoint(id: 1, latitude: 40.4180, longitude: -3.7020,
+                              recordedAt: start.addingTimeInterval(120))
+        ]
+        let activity = WorkoutSession(
+            title: "Caminata", exercises: [], phase: .finished,
+            startedAt: start, finishedAt: start.addingTimeInterval(1800),
+            appleActiveEnergyKcal: 185, appleAverageHeartRateBpm: 116,
+            appleDurationSeconds: 1780, healthKitWorkoutUUID: healthUUID,
+            routePoints: path, liveSportID: "walking", liveRouteID: routeUUID,
+            recordedDistanceMeters: 2200, activeDurationSeconds: 1650,
+            liveKilometerSplitsSeconds: [710, 740]
+        )
+        var edited = CompletedWorkoutEditing.routine(from: activity)
+        edited.blocks.append(RoutineBlock(
+            title: "WOD añadido", kind: .wod,
+            movements: [WODMovement(exerciseId: burpees.id, name: burpees.name, reps: 12)],
+            wodFormat: .emom, rounds: 3, emomIntervalSeconds: 60
+        ))
+        let saved = CompletedWorkoutEditing.applying(edited, to: activity, catalog: [burpees])
+        XCTAssertEqual(saved.id, activity.id)
+        XCTAssertEqual(saved.liveSportID, activity.liveSportID)
+        XCTAssertEqual(saved.liveRouteID, routeUUID)
+        XCTAssertEqual(saved.routePoints, path)
+        XCTAssertEqual(saved.recordedDistanceMeters, 2200)
+        XCTAssertEqual(saved.activeDurationSeconds, 1650)
+        XCTAssertEqual(saved.liveKilometerSplitsSeconds, [710, 740])
+        XCTAssertEqual(saved.startedAt, start)
+        XCTAssertEqual(saved.finishedAt, activity.finishedAt)
+        XCTAssertEqual(saved.healthKitWorkoutUUID, healthUUID)
+        XCTAssertEqual(saved.appleActiveEnergyKcal, 185)
+        XCTAssertEqual(saved.appleAverageHeartRateBpm, 116)
+        XCTAssertEqual(saved.appleDurationSeconds, 1780)
+        XCTAssertEqual(saved.routineBlocks?.count, 1)
+        XCTAssertEqual(saved.exercises.count, 1)
+        // Escribir cantidades en una actividad pasada no fabrica series ejecutadas.
+        XCTAssertTrue(saved.exercises[0].loggedSets.isEmpty)
+    }
+
     func testReorderAndEditCompletedValuesKeepHistoryIdentity() {
         let squat = Exercise(name: "Sentadilla con barra", muscleGroup: "Piernas")
         let press = Exercise(name: "Press banca", muscleGroup: "Pecho")

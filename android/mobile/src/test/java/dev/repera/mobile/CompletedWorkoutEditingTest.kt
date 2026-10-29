@@ -8,6 +8,44 @@ import dev.repera.mobile.CompletedWorkoutEditing.ScoreField as SF
 
 /** Casos de CompletedWorkoutEditingTests.swift sobre fixtures JSON (sin dispositivo). */
 class CompletedWorkoutEditingTest {
+    /** Una caminata editada con movimientos WOD conserva métricas de cardio y Salud. */
+    @Test fun recordedWalkWithAddedWodPreservesCardioAndMeasuredCalories() {
+        val route = JSONArray()
+            .put(JSONObject().put("id", 0).put("latitude", 40.4168).put("longitude", -3.7038))
+            .put(JSONObject().put("id", 1).put("latitude", 40.4180).put("longitude", -3.7020))
+        val source = JSONObject().put("id", "walk-1").put("title", "Caminata")
+            .put("phase", "finished").put("liveSportID", "walking")
+            .put("startedAt", "2026-10-29T07:00:00Z").put("finishedAt", "2026-10-29T07:30:00Z")
+            .put("healthKitWorkoutUUID", "verified-health-uuid")
+            .put("appleActiveEnergyKcal", 185.0).put("appleAverageHeartRateBpm", 116.0)
+            .put("appleDurationSeconds", 1780.0)
+            .put("activeDurationSeconds", 1650.0).put("recordedDistanceMeters", 2200.0)
+            .put("liveKilometerSplitsSeconds", JSONArray().put(710).put(740))
+            .put("liveRouteID", "route-1").put("routePoints", route)
+            .put("exercises", JSONArray()).put("wodResults", JSONArray())
+        val blocks = CompletedWorkoutEditing.blocksFrom(source, null)
+        assertEquals(0, blocks.length())
+        blocks.put(JSONObject().put("id", "new-block").put("title", "WOD añadido")
+            .put("kind", "wod").put("wodFormat", "emom").put("rounds", 3)
+            .put("emomIntervalSeconds", 60)
+            .put("movements", JSONArray().put(JSONObject().put("id", "new-movement")
+                .put("exerciseId", "bu").put("name", "Burpees").put("reps", 12))))
+        val result = CompletedWorkoutEditing.applying(
+            "Caminata", blocks, source, JSONArray().put(ex("bu", "Burpees")))
+        for (field in listOf("id", "liveSportID", "liveRouteID", "startedAt", "finishedAt",
+            "healthKitWorkoutUUID", "appleActiveEnergyKcal", "appleAverageHeartRateBpm",
+            "appleDurationSeconds", "activeDurationSeconds", "recordedDistanceMeters")) {
+            assertEquals(field, source.get(field), result.get(field))
+        }
+        assertEquals(source.getJSONArray("routePoints").toString(),
+            result.getJSONArray("routePoints").toString())
+        assertEquals(source.getJSONArray("liveKilometerSplitsSeconds").toString(),
+            result.getJSONArray("liveKilometerSplitsSeconds").toString())
+        assertEquals(1, result.getJSONArray("routineBlocks").length())
+        val entry = result.getJSONArray("exercises").getJSONObject(0)
+        assertEquals(0, entry.getJSONArray("loggedSets").length())
+    }
+
     private fun ex(id: String, name: String) = JSONObject().put("id", id).put("name", name)
         .put("muscleGroup", "X").put("isCustom", true)
 
