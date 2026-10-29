@@ -741,6 +741,36 @@ struct OGConfirmSheet: View {
     }
 }
 
+/// Zona de soltado visible entre filas de Reordenar (`ScrollView`, no `List`).
+struct OGReorderInsertionGap: View {
+    var accepts: (String) -> Bool = { _ in true }
+    var onDrop: (String) -> Void
+    @State private var isTargeted = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isTargeted ? OG.accent.opacity(0.28) : Color.clear)
+            if isTargeted {
+                Text("Soltar aquí")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(OG.accent)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: isTargeted ? 36 : 14)
+        .contentShape(Rectangle())
+        .animation(.easeOut(duration: 0.15), value: isTargeted)
+        .dropDestination(for: String.self) { tokens, _ in
+            guard let token = tokens.first, accepts(token) else { return false }
+            onDrop(token)
+            return true
+        } isTargeted: {
+            isTargeted = $0
+        }
+    }
+}
+
 /// Botón de icono en top bar.
 /// En la barra del sistema no aplicar glass (iOS ya pone el círculo); en cabeceras
 /// custom del contenido usar `appliesGlass: true`. SF Symbols sin `.circle` embebido.
@@ -1516,9 +1546,23 @@ extension View {
 }
 
 enum SpanishDate {
+    /// Locale de presentación de la app (fechas, ejes, FormatStyle).
+    static let appLocale = Locale(identifier: "es_ES")
+
+    /// `date.formatted` con locale de app (evita inglés forzado del locale del dispositivo).
+    static func format(
+        _ value: Date,
+        date dateStyle: Date.FormatStyle.DateStyle,
+        time timeStyle: Date.FormatStyle.TimeStyle
+    ) -> String {
+        value.formatted(
+            Date.FormatStyle(date: dateStyle, time: timeStyle).locale(appLocale)
+        )
+    }
+
     static func long(_ date: Date = Date()) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
+        f.locale = appLocale
         f.dateFormat = "EEEE d MMMM"
         let raw = f.string(from: date)
             .replacingOccurrences(of: " de ", with: " ")
@@ -1529,7 +1573,7 @@ enum SpanishDate {
     /// Cabecera de semana en calendario: «Octubre», «Octubre – noviembre», o con año si no es el actual.
     static func monthHeadline(from start: Date, to end: Date, calendar: Calendar = .current) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
+        f.locale = appLocale
         f.dateFormat = "LLLL"
 
         let startMonth = calendar.component(.month, from: start)
@@ -1557,7 +1601,7 @@ enum SpanishDate {
 
     static func short(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
+        f.locale = appLocale
         f.dateStyle = .medium
         f.timeStyle = .none
         return f.string(from: date)
@@ -1576,7 +1620,7 @@ enum SpanishDate {
 
     static func time(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
+        f.locale = appLocale
         f.dateStyle = .none
         f.timeStyle = .short
         return f.string(from: date)

@@ -798,8 +798,7 @@ struct WatchSessionView: View {
                 }
                 statsLine(
                     icon: "clock", label: "Tiempo",
-                    value: timeLabel(Int(session.appleDurationSeconds ??
-                        session.finishedAt?.timeIntervalSince(session.startedAt ?? Date()) ?? 0))
+                    value: timeLabel(summaryDurationSeconds(session))
                 )
                 if let energy = session.appleActiveEnergyKcal {
                     statsLine(icon: "flame.fill", label: "Calorías",
@@ -839,7 +838,25 @@ struct WatchSessionView: View {
 
     private func timeLabel(_ seconds: Int) -> String {
         let n = max(0, seconds)
+        if n >= 3600 {
+            return String(format: "%d:%02d:%02d", n / 3600, (n / 60) % 60, n % 60)
+        }
         return String(format: "%02d:%02d", n / 60, n % 60)
+    }
+
+    /// Prefiere duración HK razonable; evita mm:ss hinchados (p. ej. «5865:52»)
+    /// cuando `startedAt` quedó antiguo respecto al cierre real.
+    private func summaryDurationSeconds(_ session: WorkoutSession) -> Int {
+        let wall: Int = {
+            guard let start = session.startedAt, let end = session.finishedAt else { return 0 }
+            return max(0, Int(end.timeIntervalSince(start)))
+        }()
+        let apple = session.appleDurationSeconds.map { max(0, Int($0.rounded())) } ?? 0
+        let limit = 12 * 3600
+        let plausible = [apple, wall].filter { $0 > 0 && $0 <= limit }
+        if let best = plausible.min() { return best }
+        if apple > 0 { return apple }
+        return wall
     }
 }
 

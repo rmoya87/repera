@@ -2,7 +2,7 @@
 
 ## Formatos numéricos compartidos (26/10/2026)
 
-`ReperaDomain.ReperaNumberFormat` centraliza la representación humana de cifras con punto para agrupar millares desde 1.000, coma decimal y entre cero y dos posiciones decimales. Tanto los targets iOS como los watchOS reutilizan esta utilidad; las vistas raíz propagan el locale español para gráficos y formatos nativos. `ReperaNumberFormat.parse` acepta cadenas españolas y puntos decimales antiguos en campos editables, sin cambiar los tipos de dominio ni las codificaciones ISO/JSON/Supabase/HealthKit. Las pruebas de regresión cubren millares, redondeo, negativos, entradas mixtas y separación de presentación y almacenamiento.
+`ReperaDomain.ReperaNumberFormat` centraliza la representación humana de cifras con punto para agrupar millares desde 1.000, coma decimal y entre cero y dos posiciones decimales. Tanto los targets iOS como los watchOS reutilizan esta utilidad; las vistas raíz propagan el locale español para gráficos y formatos nativos. `SpanishDate.appLocale` (`es_ES`) y `SpanishDate.format` aplican el mismo locale a `Date.FormatStyle` / ejes de Charts (Progreso, Recuperación, récords) para no heredar inglés del dispositivo. `ReperaNumberFormat.parse` acepta cadenas españolas y puntos decimales antiguos en campos editables, sin cambiar los tipos de dominio ni las codificaciones ISO/JSON/Supabase/HealthKit. Las pruebas de regresión cubren millares, redondeo, negativos, entradas mixtas y separación de presentación y almacenamiento.
 
 ## Token renovable, rutas GPS y récords deportivos (26/10/2026)
 
@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-28 (Android Inicio HomeTab paridad visual iOS; ReperaTheme; GPX)
+Última actualización: 2026-10-29 (SpanishDate.appLocale en ejes/fechas UI; Reordenar ScrollView + OGReorderInsertionGap)
 
 ## Series de movilidad (iOS)
 

@@ -322,7 +322,7 @@ private struct PlaceSearchContent: View {
                     Divider().padding(.leading, 16)
                 }
             }
-            .frame(maxHeight: 280)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -350,6 +350,7 @@ private struct PlaceSearchContent: View {
             MapCompass()
             MapScaleView()
         }
+        .ignoresSafeArea(edges: .bottom)
         .onAppear {
             cameraPosition = .region(
                 MKCoordinateRegion(
@@ -358,7 +359,8 @@ private struct PlaceSearchContent: View {
                 )
             )
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // Chip sobre el mapa (full bleed); no encoger el Map con safeAreaInset.
+        .overlay(alignment: .bottom) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.name ?? "Lugar")
@@ -373,8 +375,11 @@ private struct PlaceSearchContent: View {
                 Spacer(minLength: 0)
                 PlaceCategoryIcon(categoryRaw: item.pointOfInterestCategory?.rawValue)
             }
-            .padding(16)
-            .background(.bar)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
     }
 

@@ -416,7 +416,11 @@ struct ExerciseEvolutionPanel: View {
                     AxisMarks(values: .automatic) { _ in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                             .foregroundStyle(OG.surface3)
-                        AxisValueLabel(format: .dateTime.month(.abbreviated))
+                        AxisValueLabel(
+                            format: Date.FormatStyle()
+                                .month(.abbreviated)
+                                .locale(SpanishDate.appLocale)
+                        )
                     }
                 }
                 .chartYAxis {

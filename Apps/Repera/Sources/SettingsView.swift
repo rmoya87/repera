@@ -504,8 +504,10 @@ struct SettingsView: View {
                 onConfirm: {
                     confirmSignOut = false
                     Task { @MainActor in
-                        await businessAuth.signOut()
+                        // Apple primero: evita que OnboardingFlow restaure SIWA
+                        // mientras Supabase aún está cerrando sesión.
                         appleAuth.signOut()
+                        await businessAuth.signOut()
                         businessData.clear()
                         onboarding.resetToSignIn()
                     }
