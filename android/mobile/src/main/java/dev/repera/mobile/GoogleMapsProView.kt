@@ -35,10 +35,10 @@ import com.google.android.gms.maps.model.PolylineOptions
 import dev.repera.domain.AdaptiveRoutePace
 import dev.repera.domain.WorkoutRoutePoint
 
-/** Solo el estado comercial verificado habilita el proveedor premium. */
+/** Google Maps se habilita con la clave restringida presente, en Gratis y Pro.
+ * La navegacion 3D sigue reservada a Pro (FeatureAccessPolicy.canUse3DNavigation). */
 internal object AndroidMapProviderChoice {
-    fun useGoogle(hasVerifiedPremiumAccess: Boolean, hasMapsKey: Boolean): Boolean =
-        hasVerifiedPremiumAccess && hasMapsKey
+    fun useGoogle(hasMapsKey: Boolean): Boolean = hasMapsKey
 }
 
 @Composable

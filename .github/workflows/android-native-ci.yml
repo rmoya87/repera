@@ -414,6 +414,7 @@ jobs:
       - name: Build release AAB (telefono)
         run: gradle -p android :mobile:bundleRelease -PREPERA_VERSION_CODE="$REPERA_VERSION_CODE" -PREPERA_VERSION_NAME="$REPERA_VERSION_NAME" --no-daemon --stacktrace
         env:
+          REPERA_GOOGLE_MAPS_API_KEY: ${{ secrets.REPERA_GOOGLE_MAPS_API_KEY }}
           REPERA_UPLOAD_KEYSTORE_FILE: ${{ runner.temp }}/repera-upload.keystore
           REPERA_UPLOAD_STORE_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
           REPERA_UPLOAD_KEY_ALIAS: repera-upload

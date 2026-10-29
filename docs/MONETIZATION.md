@@ -37,7 +37,7 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | Historial general de sesiones | ✓ | ✓ |
 | Mapa y navegación GPS 2D, GPX, registro de rutas | ✓ | ✓ |
 | Navegación con perspectiva 3D e inclinación del mapa | — | ✓ (MapKit iOS; MapLibre o Google Maps Android) |
-| Mapas Google de actividades en Android | — (OpenFreeMap) | ✓ (SDK Google cuando esté configurado; fallback MapLibre) |
+| Mapas Google de actividades en Android | ✓ (SDK Google cuando esté configurado; fallback MapLibre/OpenFreeMap) | ✓ |
 | Favoritos de entrenamiento o actividades deportivas | **3**; el **4.º** abre la suscripción | ilimitados |
 | Otras rutinas reutilizables sin estrella | **3**, cuota independiente de favoritos | ilimitadas |
 | Ejercicios `isCustom` | máx. **5** | ilimitados |

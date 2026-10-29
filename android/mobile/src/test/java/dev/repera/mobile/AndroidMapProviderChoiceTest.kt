@@ -5,14 +5,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AndroidMapProviderChoiceTest {
-    @Test fun freeUsesOpenMapEvenWithKey() {
-        assertFalse(AndroidMapProviderChoice.useGoogle(false, false))
-        assertFalse(AndroidMapProviderChoice.useGoogle(false, true))
+    @Test fun anyPlanWithoutKeyFallsBackToOpenMap() {
+        assertFalse(AndroidMapProviderChoice.useGoogle(false))
     }
-    @Test fun proWithoutKeyFallsBackToOpenMap() {
-        assertFalse(AndroidMapProviderChoice.useGoogle(true, false))
-    }
-    @Test fun proWithKeyUsesGoogleMaps() {
-        assertTrue(AndroidMapProviderChoice.useGoogle(true, true))
+    @Test fun freeAndProWithKeyUseGoogleMaps() {
+        assertTrue(AndroidMapProviderChoice.useGoogle(true))
     }
 }

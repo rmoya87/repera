@@ -112,8 +112,7 @@ internal fun PlacePinMap(
     /** Solo verificación: cámara en reposo tras cada gesto (zoom, lat, lon). */
     onCameraIdle: ((Double, Double, Double) -> Unit)? = null
 ) {
-    val hasPremiumAccess = dev.repera.mobile.monetization.LocalSubscriptions.current?.isPro == true
-    if (AndroidMapProviderChoice.useGoogle(hasPremiumAccess, BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()) &&
+    if (AndroidMapProviderChoice.useGoogle(BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()) &&
         com.google.android.gms.common.GoogleApiAvailability.getInstance()
             .isGooglePlayServicesAvailable(androidx.compose.ui.platform.LocalContext.current) ==
         com.google.android.gms.common.ConnectionResult.SUCCESS) {

@@ -104,12 +104,11 @@ internal fun RouteMapView(
     recenterToken:Int = 0,
     onCameraGesture:(()->Unit)? = null
 ) {
-    val hasPremiumAccess = dev.repera.mobile.monetization.LocalSubscriptions.current?.isPro == true
     // Capa de defensa: nunca aceptar un argumento de navegación 3D sin Pro.
     val navigation3DAllowed =
         dev.repera.mobile.monetization.LocalSubscriptions.current?.policy?.canUse3DNavigation == true
     val effectiveNavigationMode = navigationMode && navigation3DAllowed
-    if (AndroidMapProviderChoice.useGoogle(hasPremiumAccess, BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()) &&
+    if (AndroidMapProviderChoice.useGoogle(BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank()) &&
         com.google.android.gms.common.GoogleApiAvailability.getInstance()
             .isGooglePlayServicesAvailable(androidx.compose.ui.platform.LocalContext.current) ==
         com.google.android.gms.common.ConnectionResult.SUCCESS) {

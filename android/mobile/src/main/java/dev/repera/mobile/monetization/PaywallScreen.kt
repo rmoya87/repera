@@ -231,7 +231,7 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
 private fun PaywallComparison() {
     val limits = dev.repera.domain.monetization.FreePlanLimits
     val rows = listOf(
-        Triple("Mapa", "2D", "Google Maps + 3D"),
+        Triple("Mapa", "Google Maps 2D", "Google Maps + 3D"),
         Triple("Progreso", "Esta semana", "Todos los periodos"),
         Triple("Por ejercicio", "Última + récord", "Historial completo"),
         Triple("Rutinas / favoritos",
