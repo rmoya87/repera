@@ -2354,6 +2354,9 @@ struct LiveActivityView: View {
         .onDisappear {
             stopMapHeadingIfNeeded()
             cancelPendingMapRecenter()
+            // Si salimos a Métricas, no guardar un seguimiento suspendido
+            // sin temporizador que impida recentrar al volver a Mapa.
+            mapIsCentered = true
         }
         .onChange(of: locationTracker.previewHeadingDegrees) { _, _ in
             if mapIsCentered, let user = recorder.currentCoordinate {
