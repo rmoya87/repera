@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,13 +22,30 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(Int)->Unit,onNotes:(String)->Unit,onFavorite:()->Unit = {},onEdit:()->Unit = {},accountId:String="") {
-    var choosing by remember {mutableStateOf(false)}
-    var editingNotes by remember {mutableStateOf(false)}
-    var menuOpen by remember {mutableStateOf(false)}
-    val noteScope=remember(accountId,active.id) {org.json.JSONArray(listOf(accountId,active.id)).toString()}
-    val noteSaver=remember(noteScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(noteScope,it)},restore={restoreScopedEditorValue(noteScope,it)})}
-    var notes by rememberSaveable(accountId,active.id,active.notes,stateSaver=noteSaver) {mutableStateOf(active.notes.orEmpty())}
+internal fun ActiveSessionControls(
+    active: ActiveWorkout,
+    busy: Boolean,
+    onSelect: (Int) -> Unit,
+    onNotes: (String) -> Unit,
+    onFavorite: () -> Unit = {},
+    onEdit: () -> Unit = {},
+    onDiscard: () -> Unit = {},
+    onConfigureBlockTimer: () -> Unit = {},
+    accountId: String = ""
+) {
+    var choosing by remember { mutableStateOf(false) }
+    var editingNotes by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmCancel by remember { mutableStateOf(false) }
+    val noteScope = remember(accountId, active.id) { org.json.JSONArray(listOf(accountId, active.id)).toString() }
+    val noteSaver = remember(noteScope) {
+        androidx.compose.runtime.saveable.Saver<String, String>(
+            save = { saveScopedEditorValue(noteScope, it) },
+            restore = { restoreScopedEditorValue(noteScope, it) })
+    }
+    var notes by rememberSaveable(accountId, active.id, active.notes, stateSaver = noteSaver) {
+        mutableStateOf(active.notes.orEmpty())
+    }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
@@ -54,6 +72,10 @@ internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(I
             ) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Siguiente")
             }
+            IconButton(enabled = !busy, onClick = onConfigureBlockTimer,
+                modifier = Modifier.testTag("active_block_timer")) {
+                Icon(Icons.Outlined.Timer, contentDescription = "Temporizador del bloque")
+            }
             IconButton(enabled = !busy, onClick = { editingNotes = true }) {
                 Icon(Icons.Outlined.Notes, contentDescription = if (active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")
             }
@@ -76,9 +98,37 @@ internal fun ActiveSessionControls(active:ActiveWorkout,busy:Boolean,onSelect:(I
                         leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                         onClick = { menuOpen = false; onEdit() }
                     )
+                    DropdownMenuItem(
+                        text = { Text("Reordenar") },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                        onClick = { menuOpen = false; onEdit() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Cancelar entreno") },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error)
+                        },
+                        onClick = { menuOpen = false; confirmCancel = true }
+                    )
                 }
             }
         }
+    }
+    if (confirmCancel) {
+        AlertDialog(
+            onDismissRequest = { confirmCancel = false },
+            title = { Text("¿Cancelar entreno?") },
+            text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") },
+            confirmButton = {
+                TextButton(onClick = { confirmCancel = false; onDiscard() }) {
+                    Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCancel = false }) { Text("Seguir entrenando") }
+            }
+        )
     }
     if(choosing) AlertDialog(onDismissRequest={choosing=false},title={Text("Ejercicios y bloques")},
         text={Column(Modifier.verticalScroll(rememberScrollState())) {

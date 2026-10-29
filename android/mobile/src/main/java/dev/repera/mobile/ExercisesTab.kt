@@ -105,7 +105,8 @@ internal fun ExercisesTab(
     onToggleWodFavorite:(String)->Unit = {},
     onPlayWod:(String,String)->Unit = {_,_->},
     requestedLibraryMode:String? = null,
-    onLibraryModeRequestConsumed:()->Unit = {}
+    onLibraryModeRequestConsumed:()->Unit = {},
+    onCreateExercise: () -> Unit = {}
 ) {
     var selectedExerciseId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
     var quickLogId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
@@ -282,7 +283,20 @@ internal fun ExercisesTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { ReperaPageHeader(title = "Ejercicios") }
+        item {
+            ReperaPageHeader(
+                title = "Ejercicios",
+                trailing = {
+                    IconButton(
+                        onClick = onCreateExercise,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("new_exercise_button")
+                    ) {
+                        Icon(Icons.Outlined.AddCircleOutline, contentDescription = "Nuevo ejercicio")
+                    }
+                }
+            )
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReperaFilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })

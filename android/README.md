@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Ampliación Ramón Android: Inicio gris post-Actividad, Cancelar entreno+confirm, Ver instrucciones IA, mapa lugar chip/full-bleed, accesorio Continuar.
+**Última actualización:** 2026-10-29 — P0 Play: Nuevo ejercicio (I-133), Configurar temporizador (I-41), menú Cancelar/Reordenar, notificación tempo libre (I-70).
 
 Implementación nativa independiente en `android/`:
 

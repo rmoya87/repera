@@ -1086,6 +1086,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onSetExerciseFavorite = { id, favorite ->
                     runWorkoutAction { setExerciseFavorite(id, favorite) }
                 },
+                onCreateCustomExercise = { name, group, equip, target, secondary, desc, steps, onDone ->
+                    val allowed = subscriptions.policy.canCreateCustomExercise(true).allowed
+                    if (!allowed) {
+                        subscriptions.presentPaywall(
+                            dev.repera.domain.monetization.PaywallContext.CUSTOM_EXERCISES_LIMIT,
+                            feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_CUSTOM_EXERCISES
+                        )
+                    } else {
+                        runWorkoutAction(onSuccess = onDone) {
+                            val id = java.util.UUID.randomUUID().toString()
+                            check(
+                                addCustomExercise(
+                                    id, name, group, equip, target, secondary, desc, steps
+                                )
+                            ) { "No se pudo crear el ejercicio" }
+                        }
+                    }
+                },
+                onOpenPaywallForCustomExercise = {
+                    subscriptions.presentPaywall(
+                        dev.repera.domain.monetization.PaywallContext.CUSTOM_EXERCISES_LIMIT,
+                        feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_CUSTOM_EXERCISES
+                    )
+                },
                 onSelectActiveExercise = { index ->
                     StrengthRestService.cancel(this)
                     runWorkoutAction { selectActiveExercise(index) }

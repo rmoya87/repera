@@ -182,6 +182,13 @@ fun ReperaMobileScreen(
     onSetRoutineProgression: (String, String) -> Unit,
     onSetRoutineFavorite: (String, Boolean) -> Unit,
     onSetExerciseFavorite: (String, Boolean) -> Unit,
+    onCreateCustomExercise: (
+        name: String, muscleGroup: String, equipment: String?,
+        targetMuscle: String?, secondary: List<String>,
+        description: String?, instructions: String?,
+        onDone: () -> Unit
+    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    onOpenPaywallForCustomExercise: () -> Unit = {},
     onNext: () -> Unit,
     onSelectActiveExercise:(Int)->Unit = {},
     onUpdateActiveNotes:(String)->Unit = {},
@@ -873,6 +880,7 @@ fun ReperaMobileScreen(
                 composable("ejercicios") {
                     // Apple 11ea29a6: entrar en Ejercicios refresca el catalogo.
                     LaunchedEffect(Unit) { onExerciseCatalogRefreshRequest() }
+                    val exerciseSubs = LocalSubscriptions.current
                     ExercisesTab(
                         requestedLibraryMode=libraryModeRequest,onLibraryModeRequestConsumed={libraryModeRequest=null},
                         onPlayWod={id,request ->onPlayWod(id,request) {navigateTab("inicio")}},
@@ -891,6 +899,11 @@ fun ReperaMobileScreen(
                         onQuickLogOpened = onExerciseCatalogRefreshRequest,
                         onSaveQuickSets=onSaveQuickSets,
                         onSetExerciseFavorite = onSetExerciseFavorite,
+                        onCreateExercise = {
+                            val allowed = exerciseSubs?.policy?.canCreateCustomExercise(true)?.allowed == true
+                            if (allowed) navController.navigate("ejercicio-nuevo")
+                            else onOpenPaywallForCustomExercise()
+                        },
                         onOpenExercise = { exerciseId ->
                             navController.navigate("ejercicio/$exerciseId")
                         },
@@ -900,6 +913,17 @@ fun ReperaMobileScreen(
                         onExportJson = onExportJson,
                         onSignOut = onSignOut,
                         onNavigateHome = { navigateTab("inicio") }
+                    )
+                }
+                composable("ejercicio-nuevo") {
+                    NewExerciseScreen(
+                        busy = busy,
+                        onBack = { navController.popBackStack() },
+                        onCreate = { name, group, equip, target, secondary, desc, steps ->
+                            onCreateCustomExercise(name, group, equip, target, secondary, desc, steps) {
+                                navController.popBackStack()
+                            }
+                        }
                     )
                 }
                 composable("ajustes") {
