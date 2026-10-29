@@ -13,10 +13,25 @@ class LiveMapCameraTest {
         val east=p.copy(id=1,longitude=-2.9999,recordedAtEpochMs=5000)
         assertEquals(90.0,LiveMapCamera.measuredHeading(listOf(p,east))!!,0.2)
     }
-    @Test fun flatMapUsesExactMeasuredPositionNorthUp() {
-        val t=LiveMapCamera.target(p,listOf(p),false)
-        assertEquals(p.latitude,t.latitude,0.0);assertEquals(p.longitude,t.longitude,0.0)
-        assertEquals(0.0,t.pitch,0.0);assertEquals(0.0,t.bearing,0.0)
+    @Test fun flatMapFollowsMeasuredWalkingDirectionWithoutOffset() {
+        val east=p.copy(id=1,longitude=-2.9999,recordedAtEpochMs=5000)
+        val t=LiveMapCamera.target(east,listOf(p,east),false)
+        assertEquals(east.latitude,t.latitude,0.0)
+        assertEquals(east.longitude,t.longitude,0.0)
+        assertEquals(0.0,t.pitch,0.0)
+        assertEquals(90.0,t.bearing,0.2)
+    }
+    @Test fun noMeasuredHeadingKeepsLastReliableCourseAndNeverInventsOne() {
+        val t=LiveMapCamera.target(p,listOf(p),false,135.0)
+        assertEquals(135.0,t.bearing,0.0)
+        assertEquals(135.0,LiveMapCamera.target(p,listOf(p),true,135.0).bearing,0.0)
+        assertEquals(0.0,LiveMapCamera.target(p,listOf(p),false).bearing,0.0)
+        assertEquals(0.0,LiveMapCamera.target(p,listOf(p),true,Double.NaN).bearing,0.0)
+    }
+    @Test fun measuredCourseTakesPrecedenceOverPreviouslyRememberedHeading() {
+        val east=p.copy(id=1,longitude=-2.9999,recordedAtEpochMs=5000)
+        val t=LiveMapCamera.target(east,listOf(p,east),true,180.0)
+        assertEquals(90.0,t.bearing,0.2)
     }
     @Test fun navigationLooks35MetersAheadUsingMeasuredHeadingAndNoIdleOffset() {
         val east=p.copy(id=1,longitude=-2.999,recordedAtEpochMs=1000)
