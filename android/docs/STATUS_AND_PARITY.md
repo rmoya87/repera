@@ -4,9 +4,8 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Wear OS paridad W-01…W-10 (ready/outline/
-blockReview, duración sin 5865:52, Tile); mobile ampliación Ramón (Inicio `OG.bg`,
-confirm cancel, IA instrucciones, mapa full-bleed, Continuar). Tip post-wear+#148.
+**Última actualización:** 2026-10-29 — Wear W-01…W-10 (#150); mobile P0 Play
+I-133/I-41/I-40/I-70 + ampliación Ramón (#148/#149).
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

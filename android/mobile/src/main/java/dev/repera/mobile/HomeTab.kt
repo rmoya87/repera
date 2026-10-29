@@ -430,9 +430,35 @@ internal fun HomeTab(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        var showBlockTimer by remember(activeWorkout.id, activeWorkout.index) {
+                            mutableStateOf(false)
+                        }
+                        if (showBlockTimer) {
+                            val rounds = (activeWorkout.wod?.rounds
+                                ?: activeWorkout.prescribedQuantity ?: 3).coerceAtLeast(1)
+                            BlockTimerConfigSheet(
+                                rounds = rounds,
+                                initialWorkSeconds = activeWorkout.wod?.workSeconds ?: 60,
+                                initialRestSeconds = activeWorkout.wod?.restSeconds
+                                    ?: activeWorkout.wod?.restBetweenRoundsSeconds ?: 0,
+                                onDismiss = { showBlockTimer = false },
+                                onStart = { _, _ ->
+                                    showBlockTimer = false
+                                    onWodTimerAction("start")
+                                    onOpenClock()
+                                }
+                            )
+                        }
                         ActiveSessionControls(
-                            activeWorkout, busy, onSelectActiveExercise, onUpdateActiveNotes,
-                            onSaveActiveFavorite, onEditActivePlan, accountId
+                            active = activeWorkout,
+                            busy = busy,
+                            onSelect = onSelectActiveExercise,
+                            onNotes = onUpdateActiveNotes,
+                            onFavorite = onSaveActiveFavorite,
+                            onEdit = onEditActivePlan,
+                            onDiscard = onDiscardSession,
+                            onConfigureBlockTimer = { showBlockTimer = true },
+                            accountId = accountId
                         )
                         if (activeWorkout.wod != null) {
                             WodScoreCard(

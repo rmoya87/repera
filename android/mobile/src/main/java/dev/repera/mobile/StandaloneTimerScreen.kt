@@ -170,6 +170,7 @@ internal fun StandaloneTimerScreen(
         preCountdownEndMs = 0L
         phaseEndMs = 0L
         phaseStartMs = 0L
+        StandaloneTimerService.stop(context)
     }
 
     fun dismissCompletedTimer() {
@@ -362,6 +363,7 @@ internal fun StandaloneTimerScreen(
             preCountdownEndMs = 0L
             phaseEndMs = 0L
             phaseStartMs = 0L
+            StandaloneTimerService.stop(context)
         } else {
             isRunning = true
             pausedDisplaySeconds = null
@@ -374,11 +376,29 @@ internal fun StandaloneTimerScreen(
                 StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
                     phaseEndMs = nowMs + displaySeconds.coerceAtLeast(1) * 1000L
             }
+            val remainingOrElapsed = when (config.mode) {
+                StandaloneTimerMode.UP ->
+                    (config.durationTotalSeconds - displaySeconds).coerceAtLeast(1)
+                StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
+                    displaySeconds.coerceAtLeast(1)
+            }
+            StandaloneTimerService.sync(
+                context, true, config.mode, remainingOrElapsed, config.shortLabel
+            )
+        }
+    }
+
+    LaunchedEffect(showClock, isRunning, completedSummary) {
+        if (!showClock || completedSummary != null || !isRunning) {
+            if (completedSummary != null || !showClock) StandaloneTimerService.stop(context)
         }
     }
 
     LaunchedEffect(showClock) {
-        if (!showClock) return@LaunchedEffect
+        if (!showClock) {
+            StandaloneTimerService.stop(context)
+            return@LaunchedEffect
+        }
         while (true) {
             delay(250)
             tick(System.currentTimeMillis())

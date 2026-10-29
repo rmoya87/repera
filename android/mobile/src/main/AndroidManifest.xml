@@ -74,6 +74,14 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Cronómetro de entrenamiento: mantiene visible el reloj del WOD y los avisos de descanso con la pantalla apagada o la app en segundo plano" />
         </service>
+        <service
+            android:name=".StandaloneTimerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Temporizador libre: mantiene la cuenta atrás o intervalos visibles en notificación con la app en segundo plano" />
+        </service>
         <activity-alias
             android:name=".HealthPermissionUsage"
             android:targetActivity=".HealthPrivacyActivity"

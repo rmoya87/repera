@@ -2519,21 +2519,28 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun addCustomExercise(
         id: String, name: String, muscleGroup: String,
         equipment: String? = null, targetMuscle: String? = null,
-        secondaryMuscles: List<String> = emptyList()
+        secondaryMuscles: List<String> = emptyList(),
+        description: String? = null,
+        instructions: String? = null
     ): Boolean {
         val state = requireState()
         val catalog = state.getJSONArray("exercises")
         for (i in 0 until catalog.length()) {
             if (catalog.getJSONObject(i).optString("id") == id) return false
         }
-        catalog.put(JSONObject()
+        val obj = JSONObject()
             .put("id", id)
             .put("name", name)
             .put("muscleGroup", muscleGroup)
             .put("equipment", equipment ?: JSONObject.NULL)
             .put("targetMuscle", targetMuscle ?: "")
             .put("secondaryMuscles", JSONArray(secondaryMuscles))
-            .put("isCustom", true))
+            .put("isCustom", true)
+        description?.takeIf { it.isNotBlank() }?.let { obj.put("description", it) }
+        instructions?.takeIf { it.isNotBlank() }?.let {
+            obj.put("instructions", JSONArray(it.lines().map { line -> line.trim() }.filter { line -> line.isNotEmpty() }))
+        }
+        catalog.put(obj)
         save(state)
         return true
     }

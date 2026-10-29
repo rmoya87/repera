@@ -6,6 +6,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -31,6 +35,29 @@ internal fun ActiveWorkoutScreen(
     onSaveFavorite:()->Unit = {},
     onEditPlan:()->Unit = {}
 ) {
+    var showBlockTimer by remember(workout.id, workout.index) { mutableStateOf(false) }
+    var blockWorkOverride by remember(workout.id, workout.index) {
+        mutableStateOf(workout.wod?.workSeconds ?: 60)
+    }
+    var blockRestOverride by remember(workout.id, workout.index) {
+        mutableStateOf(workout.wod?.restSeconds ?: workout.wod?.restBetweenRoundsSeconds ?: 0)
+    }
+    if (showBlockTimer) {
+        val rounds = (workout.wod?.rounds ?: workout.prescribedQuantity ?: 3).coerceAtLeast(1)
+        BlockTimerConfigSheet(
+            rounds = rounds,
+            initialWorkSeconds = blockWorkOverride,
+            initialRestSeconds = blockRestOverride,
+            onDismiss = { showBlockTimer = false },
+            onStart = { work, rest ->
+                blockWorkOverride = work
+                blockRestOverride = rest
+                showBlockTimer = false
+                onTimerAction("start")
+                onOpenClock()
+            }
+        )
+    }
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
         contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {
@@ -45,13 +72,25 @@ internal fun ActiveWorkoutScreen(
                 subtitle = if (workout.title.isNotBlank()) "Sesión en curso" else null
             )
         }
-        item {ActiveSessionControls(workout,busy,onSelectExercise,onUpdateNotes,onSaveFavorite,onEditPlan,accountId)}
+        item {
+            ActiveSessionControls(
+                active = workout,
+                busy = busy,
+                onSelect = onSelectExercise,
+                onNotes = onUpdateNotes,
+                onFavorite = onSaveFavorite,
+                onEdit = onEditPlan,
+                onDiscard = onDiscard,
+                onConfigureBlockTimer = { showBlockTimer = true },
+                accountId = accountId
+            )
+        }
         item {
             if(workout.wod!=null) WodScoreCard(active=workout,busy=busy,timer=timer,
                 onTimerAction=onTimerAction,onTimerTick=onTimerTick,onSave=onWodScore,
                 onMovement=onWodMovement,onCompleteBlock=onCompleteWodBlock,
                 onReviseMovement=onReviseWodMovement,onDeleteMovement=onDeleteWodMovement,
-                onFinish=onFinish,onDiscard=onDiscard,onOpenClock=onOpenClock)
+                onFinish=onFinish,onDiscard=onDiscard,onOpenClock={ showBlockTimer = true })
             else ActiveWorkoutCard(effortUnit=effortUnit,weightUnit=weightUnit,active=workout,busy=busy,onLogSet=onLogSet,
                 onLogDropSet=onLogDropSet,onLogRestPauseSet=onLogRestPauseSet,
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
