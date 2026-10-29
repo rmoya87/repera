@@ -31,7 +31,6 @@ struct TrainingLiveActivityWidget: Widget {
                                     .foregroundStyle(pauseYellow)
                                     .accessibilityLabel("En pausa")
                             }
-                            reperaMark(isOnYellow: false)
                         }
                         if let cue = context.state.navigation,
                            context.state.phase != .completed {
@@ -89,18 +88,6 @@ struct TrainingLiveActivityWidget: Widget {
         }
     }
 
-    /// Símbolo oficial desde el mismo asset del iPhone, incluido en el bundle del widget.
-    /// El tint cambia para respetar contraste en la franja de pausa amarilla.
-    private func reperaMark(isOnYellow: Bool) -> some View {
-        Image("ReperaNativeBarbell")
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .foregroundStyle(isOnYellow ? .black : green)
-            .frame(width: 28, height: 25)
-            .accessibilityLabel("Repera")
-    }
-
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<TrainingActivityAttributes>) -> some View {
         VStack(spacing: 0) {
@@ -112,7 +99,6 @@ struct TrainingLiveActivityWidget: Widget {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                reperaMark(isOnYellow: context.state.phase == .paused)
             }
             .foregroundStyle(context.state.phase == .paused ? .black : .white)
             .padding(.horizontal, 16)
