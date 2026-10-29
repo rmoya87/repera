@@ -32,6 +32,19 @@ class LiveRouteGuidanceTest {
         assertNull(guide.update(route[2])!!.speech)
         assertNull(guide.update(route[3])!!.speech)
     }
+    @Test fun signStaysVisibleUntilTheTurnIsPassed() {
+        val guide=LiveRouteGuidance(route,LiveSport.RUNNING)
+        // 5 m DESPUES del vertice del giro: el letrero no desaparece al llegar.
+        val justPastTurn=p(40.0012,-2.99994)
+        val cue=guide.update(justPastTurn)!!
+        assertTrue(cue.display.contains("derecha"))
+    }
+    @Test fun previewWithoutAnnounceConsumesNoSpokenWarning() {
+        val guide=LiveRouteGuidance(route,LiveSport.WALKING)
+        assertNull(guide.update(route[2], announce = false)!!.speech)
+        assertNotNull(guide.update(route[2])!!.speech)
+        assertNull(guide.update(route[2])!!.speech)
+    }
     @Test fun offRouteProducesVisualWarningNotFalseTurnAndFinishedRouteContinues() {
         val guide=LiveRouteGuidance(route,LiveSport.RUNNING)
         val far=guide.update(p(41.0,-3.0))!!

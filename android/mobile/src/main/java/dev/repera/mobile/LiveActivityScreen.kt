@@ -472,6 +472,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         // Una captura puntual no se convierte en ubicación viva por quedarse
         // en memoria: caduca aunque el usuario no haya salido de esta pantalla.
         val freshPosition = previewPosition?.takeIf { System.currentTimeMillis()-it.recordedAtEpochMs < 15_000 }
+        // Paridad Apple: el banner verde tambien informa en preparacion con la
+        // ultima posicion capturada (sin arrancar el GPS de grabacion).
+        LaunchedEffect(freshPosition?.recordedAtEpochMs, state.selectedRouteID, state.phase) {
+            if (state.phase == LiveActivityState.Phase.IDLE) freshPosition?.let { runtime.previewGuidance(it) }
+        }
         BoxWithConstraints(Modifier.fillMaxSize().testTag("live_activity_screen")) {
             val mapLandscape=liveMapLandscape(maxWidth.value,maxHeight.value)
             val overlayWidth=liveMapOverlayWidth(maxWidth.value)
@@ -559,7 +564,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
-            if (state.selectedRouteID != null && state.phase != LiveActivityState.Phase.IDLE) {
+            if (state.selectedRouteID != null && state.phase != LiveActivityState.Phase.REVIEW) {
                 val cue = runtime.upcomingCue
                 val instruction = cue?.instruction ?: runtime.upcomingTurn ?: "Sigue el recorrido"
                 val direction = when {

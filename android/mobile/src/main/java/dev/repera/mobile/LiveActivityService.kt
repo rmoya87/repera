@@ -98,6 +98,11 @@ internal class LiveActivityService : Service() {
                         else LiveSportHistory.formatDuration(3600 / speed) + " min/km")
                 }
             }
+            r.upcomingCue?.let { cue ->
+                if (cue.offRoute) add("Fuera de ruta · revisa el mapa")
+                else if (cue.instruction != null && cue.distanceMeters != null)
+                    add(cue.instruction + " · " + cue.distanceMeters + " m")
+            }
             r.latestKilometerReport?.let { add(it) }
             if(paused) add("En pausa")
         }.joinToString(" · ")

@@ -111,6 +111,16 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         state.choose(sport);voicePrefs.edit().putString("lastSport",sport.id).apply();publish()
     }
     fun selectRoute(id: String?) { state.selectRoute(id);prepareRoute();publish() }
+    /** Letrero de navegacion antes de Iniciar con la ultima posicion capturada
+     * (paridad banner idle Apple): no consume avisos hablados ni arranca GPS. */
+    fun previewGuidance(point: dev.repera.domain.WorkoutRoutePoint) {
+        if (state.phase != LiveActivityState.Phase.IDLE) return
+        guidance?.update(point, announce = false)?.let { cue ->
+            upcomingTurn = cue.display
+            upcomingCue = cue
+            publish()
+        }
+    }
     fun start() {
         if (recoveryBlocked || state.phase != LiveActivityState.Phase.IDLE) return
         latestKilometerReport=null
