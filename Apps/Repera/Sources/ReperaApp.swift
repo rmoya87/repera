@@ -110,14 +110,19 @@ struct ReperaApp: App {
     /// all environment, overlay, lifecycle and synchronization modifiers at once.
     private var appPresentationContent: some View {
         appArrivalContent
-                .sheet(isPresented: Binding(
-                    get: { subscriptions.paywall.isPresented && onboarding.isComplete },
-                    set: { if !$0 { subscriptions.dismissPaywall() } }
-                )) {
-                    PaywallView()
-                        .environment(subscriptions)
-                        .ogSheetChrome(detents: [.large])
+                .allowsHitTesting(!(subscriptions.paywall.isPresented && onboarding.isComplete))
+                .accessibilityHidden(subscriptions.paywall.isPresented && onboarding.isComplete)
+                .overlay {
+                    if subscriptions.paywall.isPresented && onboarding.isComplete {
+                        // Página sobre la raíz, sin UISheetPresentationController.
+                        // Funciona desde cualquiera de las pestañas y se cierra con Volver.
+                        PaywallView()
+                            .environment(subscriptions)
+                            .transition(.move(edge: .trailing))
+                            .zIndex(1)
+                    }
                 }
+                .animation(.easeInOut(duration: 0.28), value: subscriptions.paywall.isPresented)
     }
 
     /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check
