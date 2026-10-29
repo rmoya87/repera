@@ -108,8 +108,8 @@ internal fun ProgressTab(
     // The inline archive is recent; aggregate snapshots use the complete local archive.
     val recent = overview?.history.orEmpty()
     val subscriptions = LocalSubscriptions.current
-    // R4 #41: sin pestañas (paridad iOS StatsView). Constante para no tocar ramas legacy.
-    val topic = "Entreno"
+    // R5 P1-8: restaurar segmentado Entreno/Actividad/Recuperación (regresión #170).
+    var topic by rememberSaveable { mutableStateOf("Entreno") }
     val pro=subscriptions?.isPro ?: true
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
@@ -123,6 +123,13 @@ internal fun ProgressTab(
     val snapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var shownTopic by remember { mutableStateOf(topic) }
+    LaunchedEffect(topic) {
+        if (topic != shownTopic) {
+            shownTopic = topic
+            dragListState.scrollToItem(0)
+        }
+    }
     ProvideLazyDragAutoScroll(dragListState) {
     if (showRangePicker) {
         ProgressRangePickerSheet(
@@ -156,9 +163,17 @@ internal fun ProgressTab(
                 }
             )
         }
-        if (snapshot != null) {
+        item {
+            ReperaTopicSegmentedPicker(
+                options = listOf("Entreno", "Actividad", "Recuperación"),
+                selected = topic,
+                onSelected = { topic = it }
+            )
+        }
+        if (topic == "Entreno" && snapshot != null) {
             item { ProgressMetricsTilesGrid(snapshot, pro) }
         }
+        if (topic == "Entreno") {
         // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
         if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
             ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
@@ -167,38 +182,9 @@ internal fun ProgressTab(
                 }
             }
         }
-        // iOS StatsView: tiles Entrenos/Tiempo/Racha + Actividad + Equilibrio;
-        // sin tarjeta «N sesiones» ni párrafo técnico.
+        }
+        // iOS StatsView: tiles + heatmap Actividad + Equilibrio; sin Resumen/Constancia/Cardio en Entreno.
         if (snapshot != null) {
-            if(topic=="Entreno") {
-            item { ReperaSectionTitle("Resumen · " + snapshot.range.subtitleLabel) }
-            item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val s = snapshot.summary
-                        Text("${formatVolume(s.volumeKg)} movidos")
-                        if (s.totalKcal > 0)
-                            Text("Energía activa: ${s.totalKcal.toInt()} kcal")
-                        s.averageCardioMinutes?.let {
-                            Text("Cardio medio: ${it.toInt()} min")
-                        }
-                    }
-                }
-            }
-            item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Constancia", style = MaterialTheme.typography.titleMedium)
-                        Text("${snapshot.monthSessions} sesiones este mes",
-                            style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-            }
             if(topic=="Recuperación") {
                 val recovery=overview?.recovery ?: RecoveryState(null,null,null,null)
                 item {RecoveryHistoryCards(recovery,ProgressTimeRange.entries.first {it.wire==selectedRange},overview?.trainingSettings?.weekStartsOnMonday ?: true,pro,outerHorizontalPaddingDp=32f)}
@@ -260,24 +246,6 @@ internal fun ProgressTab(
                     snapshot.heatmapVolume,
                     dev.repera.domain.ProgressTimeRange.entries.first { it.wire == selectedRange }) }
             }
-            if (snapshot.cardioSeries.isNotEmpty()) {
-                item { ReperaSectionTitle("Cardio") }
-                item {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                "${snapshot.cardioSeries.sumOf { it.value }.toInt()} min en el rango",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            DayPointLineChart(snapshot.cardioSeries)
-                        }
-                    }
-                }
-            }
-
             // Apple order (StatsView training): tiles, activity, muscle balance, mobility, then
             // exercises/records or the Free preview + teaser. The card has its own empty text,
             // so it is not hidden when there are no muscle statuses (Apple does not hide it).
@@ -310,30 +278,6 @@ internal fun ProgressTab(
             }
         }
         if(topic=="Entreno") {
-        if (overview?.weeklyMuscleGroups?.isNotEmpty() == true) {
-            item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Series por grupo · esta semana",
-                            style = MaterialTheme.typography.titleMedium)
-                        val groups = overview.weeklyMuscleGroups.take(8)
-                        val ceiling = groups.maxOf { it.sets }.coerceAtLeast(1).toFloat()
-                        groups.forEach { group ->
-                            Text("${group.group} · ${group.sets} series",
-                                style = MaterialTheme.typography.bodySmall)
-                            LinearProgressIndicator(
-                                progress = { group.sets.toFloat() / ceiling },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = brandGreen
-                            )
-                        }
-                        Text("Distribución por grupo del catálogo; no mide fatiga ni recuperación.",
-                            style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
         // Apple 2ac224f5: el historial solo aparece bajo el progreso de entreno,
         // no en Recuperación ni Actividad.
         // I-120: fila «🕘 Historial ›» (no TextButton genérico).

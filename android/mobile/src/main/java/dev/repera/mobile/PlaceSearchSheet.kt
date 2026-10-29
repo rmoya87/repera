@@ -428,6 +428,20 @@ fun PlaceSearchSheet(
     // (mutuamente excluyente con el panel de búsqueda).
     val showsConfirmMap = pending != null && !isTyping && !searchFocused
 
+    // R5 P1-6: al mover el mapa en browse se actualiza el pin pendiente.
+    val handleCameraIdle: (Double, Double, Double) -> Unit = { zoom, lat, lon ->
+        onMapCameraIdle?.invoke(zoom, lat, lon)
+        if (!showsConfirmMap) {
+            pending = PlaceSearchResult(
+                name = "Lugar en el mapa",
+                latitude = lat,
+                longitude = lon,
+                providerId = "map:%.5f,%.5f".format(java.util.Locale.US, lat, lon),
+                featureName = "Lugar en el mapa"
+            )
+        }
+    }
+
     // Política de dominio: mínimo de caracteres + pausa, NO por tecla.
     // Sesgo ±~0,25° (~25 km) alrededor del GPS (paridad setRegion iOS).
     LaunchedEffect(query, userLatLon) {
@@ -501,7 +515,7 @@ fun PlaceSearchSheet(
                     // la cierra (dismissSearch iOS).
                     PlacePinMap(p.latitude, p.longitude, isInteractive = true,
                         modifier = Modifier.fillMaxSize(),
-                        onCameraIdle = onMapCameraIdle,
+                        onCameraIdle = handleCameraIdle,
                         onMapClick = {
                             searchFocused = false
                             focusManager.clearFocus(force = true)
@@ -524,7 +538,7 @@ fun PlaceSearchSheet(
                     androidx.compose.runtime.key(center.first, center.second) {
                         PlacePinMap(center.first, center.second, isInteractive = true,
                             modifier = Modifier.fillMaxSize(),
-                            onCameraIdle = onMapCameraIdle,
+                            onCameraIdle = handleCameraIdle,
                             onMapClick = {
                                 searchFocused = false
                                 focusManager.clearFocus(force = true)

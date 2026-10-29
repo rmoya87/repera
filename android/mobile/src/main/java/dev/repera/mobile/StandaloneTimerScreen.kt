@@ -542,16 +542,14 @@ internal fun StandaloneTimerScreen(
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ReperaSectionTitle("Tipo de temporizador")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StandaloneTimerMode.entries.forEach { mode ->
-                        ReperaFilterChip(
-                            selected = config.mode == mode,
-                            onClick = { config = config.copy(mode = mode) },
-                            label = { Text(mode.title) }
-                        )
+                ReperaTopicSegmentedPicker(
+                    options = StandaloneTimerMode.entries.map { it.title },
+                    selected = config.mode.title,
+                    onSelected = { title ->
+                        StandaloneTimerMode.entries.firstOrNull { it.title == title }
+                            ?.let { config = config.copy(mode = it) }
                     }
-                }
+                )
             }
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(14.dp)) {

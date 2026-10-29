@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Revisión 4: P0 `restoreStoredSession` captura `centerGate.revision` tras `verifiedSupabase` (catálogo/plan/historial); Cerrar sesión sin overview; acento `#30D158` claro+oscuro; tab glass; Progreso sin pestañas; Centro «Buscar»; timer default Abajo; chip Día libre adaptativo.
+**Última actualización:** 2026-10-29 — Revisión 5: subtítulos sin `null`/duplicados; ▶ abre Play; fin sin pantalla blanca; Play Resultado del bloque + series; AMRAP → reloj; Photon 12 s + pin; shell sin repera/gear; Progreso Entreno/Actividad/Recuperación; preview/detalle página; músculos ES; Comenzar 3D/dark + sheets; timer Arriba; formatos iOS; series SERIE/ANTERIOR; resumen tiempo pared + pin elegido; tab bar en Crear/Ajustes/ejercicio.
 
 Implementación nativa independiente en `android/`:
 

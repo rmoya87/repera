@@ -300,7 +300,7 @@ internal fun HomeCompletedWorkoutCard(
             val secs = workout.timerDetails.configuredSeconds
             add(Icons.Outlined.Timer to homeDurationText(secs))
         } else {
-            homeMinutesLabel(workout.activeDurationSeconds)?.let {
+            homeMinutesLabel(workout.displayDurationMinutes().takeIf { it > 0 }?.times(60.0))?.let {
                 add(Icons.Outlined.Schedule to it)
             }
         }

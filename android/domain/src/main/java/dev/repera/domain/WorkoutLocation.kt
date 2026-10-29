@@ -14,7 +14,11 @@ data class WorkoutLocationPin(
     val mapItemIdentifier: String? = null,
     /** Categoría de punto de interés del proveedor de mapas. */
     val pointOfInterestCategory: String? = null
-)
+) {
+    /** Lugar elegido (nombre o MapItem). Un pin GPS anónimo no cuenta (iOS hasChosenPlace). */
+    val hasChosenPlace: Boolean
+        get() = !name.isNullOrBlank() || !mapItemIdentifier.isNullOrBlank()
+}
 
 /** Punto de ruta GPS grabado por Repera (outdoor). Port de WorkoutRoutePoint. */
 data class WorkoutRoutePoint(

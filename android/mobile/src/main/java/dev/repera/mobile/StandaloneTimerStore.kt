@@ -13,14 +13,14 @@ enum class StandaloneTimerMode(val wire: String, val title: String) {
 
     companion object {
         fun fromWire(wire: String): StandaloneTimerMode =
-            // Default iOS: duración/cuenta atrás, no Intervalos (R4 #12).
-            entries.firstOrNull { it.wire == wire } ?: DOWN
+            // R5: iOS sim muestra Arriba por defecto (no Intervalos).
+            entries.firstOrNull { it.wire == wire } ?: UP
     }
 }
 
 /** Configuración del temporizador libre, paridad StandaloneTimerConfig (iOS). */
 data class StandaloneTimerConfig(
-    val mode: StandaloneTimerMode = StandaloneTimerMode.DOWN,
+    val mode: StandaloneTimerMode = StandaloneTimerMode.UP,
     val durationMinutes: Int = 40,
     val durationSeconds: Int = 0,
     val rounds: Int = 5,

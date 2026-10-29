@@ -127,6 +127,10 @@ internal fun HomeTab(
     onNavigateCreate: () -> Unit,
     /** Editar contenido de una rutina planificada (ruta `rutina/{id}`). */
     onEditRoutineContent: (String) -> Unit = {},
+    /** R5 P1-9: detalle de rutina a pantalla completa. */
+    onOpenRoutinePreview: (String) -> Unit = {},
+    /** R5 P1-10: resumen terminado a pantalla completa. */
+    onOpenFinishedWorkout: (String) -> Unit = {},
     onSetRoutineFavorite: (String, Boolean) -> Unit = { _, _ -> },
     // «＋» del día seleccionado (DayPlusSheet iOS desde HomeView, c5aae1cc).
     onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
@@ -244,29 +248,17 @@ internal fun HomeTab(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     dayWorkouts.forEach { workout ->
-                        var expanded by rememberSaveable(workout.id) { mutableStateOf(false) }
                         HomeSwipeRevealCard(
                             key = workout.id,
                             busy = busy,
                             onDelete = { onDeleteWorkout(workout.id) },
                             onEdit = if (workout.timerDetails == null)
-                                ({ expanded = true }) else null
+                                ({ onOpenFinishedWorkout(workout.id) }) else null
                         ) {
                             HomeCompletedWorkoutCard(
                                 workout, day,
                                 prCount = overview?.prCountBySessionId?.get(workout.id) ?: 0
-                            ) { expanded = !expanded }
-                        }
-                        if (expanded) {
-                            WorkoutHistoryCard(
-                                workout, busy,
-                                onReviseFinishedSet, onDeleteFinishedSet,
-                                onDeleteWorkout, onOpenExerciseFromSession,
-                                accountId, overview?.exerciseEntries.orEmpty(),
-                                onUpdateFinishedWorkout,
-                                heartSeriesProvider,
-                                effortUnit = overview?.trainingSettings?.effortUnit ?: "rir"
-                            )
+                            ) { onOpenFinishedWorkout(workout.id) }
                         }
                     }
                     dayExternal.forEach { entry ->
@@ -286,39 +278,14 @@ internal fun HomeTab(
                         )
                     }
                     visibleRoutines.forEach { routine ->
-                        var preview by rememberSaveable(routine.id) { mutableStateOf(false) }
                         HomeSwipeRevealCard(
                             key = routine.id,
                             busy = busy,
                             onDelete = { onRemoveScheduledRoutine(routine.id) },
-                            onEdit = {
-                                preview = false
-                                onEditRoutineContent(routine.id)
-                            }
+                            onEdit = { onEditRoutineContent(routine.id) }
                         ) {
-                            HomePlannedRoutineCard(routine, day) { preview = true }
-                        }
-                        if (preview) {
-                            @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-                            ReperaModalBottomSheet(onDismissRequest = { preview = false }) {
-                                SessionPreviewSheet(
-                                    routine = routine,
-                                    busy = busy,
-                                    onStart = { onStartRoutine(routine.id) },
-                                    onEdit = {
-                                        preview = false
-                                        onEditRoutineContent(routine.id)
-                                    },
-                                    onDelete = {
-                                        preview = false
-                                        onRemoveScheduledRoutine(routine.id)
-                                    },
-                                    onClose = { preview = false },
-                                    onOpenExercise = onOpenExercise,
-                                    onToggleFavorite = { fav ->
-                                        onSetRoutineFavorite(routine.id, fav)
-                                    }
-                                )
+                            HomePlannedRoutineCard(routine, day) {
+                                onOpenRoutinePreview(routine.id)
                             }
                         }
                     }
@@ -568,8 +535,8 @@ internal fun HomeTab(
                                 onDiscard = onDiscardSession
                             )
                         }
-                        // Mapa full-bleed sin padding cuando hay pin; chip = lugar.
-                        val activePin = overview?.activeLocationPin
+                        // R5 P1-10: solo lugar elegido (no pin GPS anónimo).
+                        val activePin = overview?.activeLocationPin?.takeIf { it.hasChosenPlace }
                         ReperaCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             if (activePin != null) {
                                 WorkoutPlacePickerRow(

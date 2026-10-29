@@ -105,6 +105,22 @@ internal fun ActiveWorkoutScreen(
             }
         )
     }
+    /** iOS requestBlockClockStart: formatos con time cap / intervalo van al reloj; solo bloque libre abre el sheet. */
+    fun openBlockClockOrConfig() {
+        val wod = workout.wod
+        val freeFormat = wod == null ||
+            wod.format.isBlank() ||
+            wod.format.equals("strength", ignoreCase = true)
+        val hasPrescribed = (wod?.timeCapMinutes ?: 0) > 0 ||
+            (wod?.intervalSeconds ?: 0) > 0 ||
+            (wod?.workSeconds ?: 0) > 0
+        if (!freeFormat || hasPrescribed) {
+            onTimerAction("start")
+            onOpenClock()
+        } else {
+            showBlockTimer = true
+        }
+    }
     if (showPlayReorder) {
         val blocks = playReorderBlocks
         if (blocks != null) {
@@ -176,7 +192,7 @@ internal fun ActiveWorkoutScreen(
                 onEdit = onEditPlan,
                 onReorder = { beginPlayReorder() },
                 onDiscard = onDiscard,
-                onConfigureBlockTimer = { showBlockTimer = true },
+                onConfigureBlockTimer = { openBlockClockOrConfig() },
                 accountId = accountId,
                 catalog = catalog,
                 onSubstituteExercise = onSubstituteExercise,
@@ -189,17 +205,20 @@ internal fun ActiveWorkoutScreen(
                 onTimerAction=onTimerAction,onTimerTick=onTimerTick,onSave=onWodScore,
                 onMovement=onWodMovement,onCompleteBlock=onCompleteWodBlock,
                 onReviseMovement=onReviseWodMovement,onDeleteMovement=onDeleteWodMovement,
-                onFinish=onFinish,onDiscard=onDiscard,onOpenClock={ showBlockTimer = true })
+                onFinish=onFinish,onDiscard=onDiscard,onOpenClock=onOpenClock,
+                effortUnit=effortUnit)
             else ActiveWorkoutCard(effortUnit=effortUnit,weightUnit=weightUnit,active=workout,busy=busy,onLogSet=onLogSet,
                 onLogDropSet=onLogDropSet,onLogRestPauseSet=onLogRestPauseSet,
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
                 onFinish=onFinish,onDiscard=onDiscard)
         }
-        if (pin == null) item { ReperaSectionTitle("Lugar") }
+        // R5 P1-10: pin GPS anónimo no cuenta como lugar (iOS hasChosenPlace).
+        val chosenPin = pin?.takeIf { it.hasChosenPlace }
+        if (chosenPin == null) item { ReperaSectionTitle("Lugar") }
         item {
-            if (pin != null) {
+            if (chosenPin != null) {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    WorkoutPlacePickerRow(pin = pin, accountId = accountId, onPinChange = onPinChange)
+                    WorkoutPlacePickerRow(pin = chosenPin, accountId = accountId, onPinChange = onPinChange)
                 }
             } else {
                 WorkoutPlacePickerRow(pin = null, accountId = accountId, onPinChange = onPinChange)

@@ -4,7 +4,7 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — R4 restante: PlaceSearch glass+GPS/Últimos/haversine; Comenzar métricas tiles + spacing tabs; Salud conectada; timer Lugar; IA «Conexión manual». Base #169: P0 restore/`busy`; `#30D158`; tab glass; Progreso; Centro «Buscar»; Formato; timer Abajo; Día libre.
+**Última actualización:** 2026-10-29 — R5 parity P1: Play/nav/Photon/Progreso segmentado/preview página/músculos ES/Comenzar sheets/timer/formatos/series SERIE·ANTERIOR. Base tip post-#170.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

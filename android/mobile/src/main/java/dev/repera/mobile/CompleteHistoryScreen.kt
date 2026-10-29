@@ -88,7 +88,7 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    item(key="day-$day") {ReperaSectionTitle(day.format(reperaDayFormatter))}
    entries.forEach {row ->item(key=row.id) {
     row.local?.let { workout ->
-     val mins = workout.activeDurationSeconds?.div(60.0)?.toInt()
+     val mins = workout.displayDurationMinutes().takeIf { it > 0 }?.let { kotlin.math.round(it).toInt() }
      val prs = overview?.prCountBySessionId?.get(workout.id) ?: 0
      ReperaCard(
       onClick = { selectedWorkoutId = workout.id },
@@ -158,7 +158,7 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
 
 /** Detalle a pantalla completa (paridad HistoryView → WorkoutDetailView). */
 @Composable
-private fun WorkoutHistoryDetailScreen(
+internal fun WorkoutHistoryDetailScreen(
  workout: WorkoutHistoryEntry,
  busy: Boolean,
  accountId: String,

@@ -427,12 +427,16 @@ fun ReperaTopicSegmentedPicker(
     }
 }
 
+/** Subtítulo de biblioteca (paridad LibraryView.librarySubtitle iOS).
+ *  Filtra el literal JSON «null» de optString y deduplica etiquetas
+ *  (p. ej. muscleGroup Cardio + discipline Cardio). */
 internal fun libraryExerciseSubtitle(entry: ExerciseEntry): String {
-    val parts = buildList {
-        if (entry.muscleGroup.isNotBlank()) add(entry.muscleGroup)
-        addAll(entry.disciplineTags.filter { it.isNotEmpty() })
-        if (entry.equipment.isNotBlank()) add(entry.equipment)
-    }
+    fun clean(raw: String?): String? =
+        raw?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+    val parts = LinkedHashSet<String>()
+    clean(entry.muscleGroup)?.let { parts += it }
+    entry.disciplineTags.mapNotNull { clean(it) }.forEach { parts += it }
+    clean(entry.equipment)?.let { parts += it }
     return parts.joinToString(" · ")
 }
 
