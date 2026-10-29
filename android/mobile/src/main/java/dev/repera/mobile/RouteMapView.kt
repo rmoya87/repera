@@ -131,7 +131,7 @@ internal fun RouteMapView(
                     style.removeLayer("route-pt-layer-$i");style.removeSource("route-pt-$i")
                 }
                 applyPlannedOverlay(style,plannedPoints)
-                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay || (cameraCenter==null && plannedRoute),water=waterSport,plannedPoints=plannedPoints,mode=paceMode)
+                applyRoute(map, style, points, plannedRoute,fitCamera=!controlsOverlay,water=waterSport,plannedPoints=plannedPoints,mode=paceMode)
             }
         }
     }
