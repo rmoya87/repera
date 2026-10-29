@@ -40,6 +40,8 @@
         android:theme="@style/Theme.Repera"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false">
+        <meta-data android:name="com.google.android.geo.API_KEY"
+            android:value="${reperaGoogleMapsApiKey}" />
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"

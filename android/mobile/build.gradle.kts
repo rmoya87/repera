@@ -20,6 +20,11 @@ android {
         val publicKey = providers.gradleProperty("REPERA_SUPABASE_PUBLISHABLE_KEY").orElse("sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA").get()
         buildConfigField("String", "SUPABASE_URL", "\"https://uvzgujlrqohreoucirms.supabase.co\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$publicKey\"")
+        // Android Premium: clave restringida a paquete + firmas; nunca secretos de servidor.
+        val mapsKey = providers.gradleProperty("REPERA_GOOGLE_MAPS_API_KEY")
+            .orElse(providers.environmentVariable("REPERA_GOOGLE_MAPS_API_KEY")).orElse("").get()
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
+        manifestPlaceholders["reperaGoogleMapsApiKey"] = mapsKey
     }
     // Firma release por clave de subida (upload key); Play vuelve a firmar con
     // la app signing key. Las credenciales llegan por variables de entorno y
@@ -77,6 +82,7 @@ dependencies {
     // openfreemap.org/tos permiten producción con atribución). Decisión y
     // alternativas: android/docs/ROUTE_MAP_OPTIONS.md.
     implementation("org.maplibre.gl:android-sdk:13.7.1")
+    implementation("com.google.android.gms:play-services-maps:19.2.0")
     // Google Play Billing: solo detección de compras; la concesión Pro exige
     // verificación backend (ver android/docs/MONETIZATION_PLAY_BILLING.md).
     implementation("com.android.billingclient:billing-ktx:8.0.0")

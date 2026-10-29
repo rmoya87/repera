@@ -104,6 +104,18 @@ internal fun RouteMapView(
     recenterToken:Int = 0,
     onCameraGesture:(()->Unit)? = null
 ) {
+    val hasPremiumAccess = dev.repera.mobile.monetization.LocalSubscriptions.current?.isPro == true
+    if (AndroidMapProviderChoice.useGoogle(hasPremiumAccess, BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank())) {
+        GoogleRouteMapView(
+            points = points, modifier = modifier, isInteractive = isInteractive,
+            plannedRoute = plannedRoute, plannedPoints = plannedPoints,
+            controlsOverlay = controlsOverlay, waterSport = waterSport, paceMode = paceMode,
+            navigationMode = navigationMode, cameraCenter = cameraCenter, cameraTrace = cameraTrace,
+            userPosition = userPosition, userHeadingDegrees = userHeadingDegrees,
+            recenterToken = recenterToken, onCameraGesture = onCameraGesture,
+            onStyleLoaded = onStyleLoaded, onMapRendered = onMapRendered)
+        return
+    }
     var failed by remember { mutableStateOf(false) }
     val currentGesture by androidx.compose.runtime.rememberUpdatedState(onCameraGesture)
     val currentRendered by androidx.compose.runtime.rememberUpdatedState(onMapRendered)
