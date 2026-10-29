@@ -970,7 +970,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         }
         return
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
+    // Sin GPS / rutas / review: formulario bajo status bar (mapa usa fillMaxSize a sangre).
+    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("live_activity_screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         ReperaPageHeader(title = "Comenzar")
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
