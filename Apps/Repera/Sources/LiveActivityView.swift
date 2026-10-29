@@ -2247,7 +2247,7 @@ struct LiveActivityView: View {
                 // Si 3D se restauró desde Ajustes/último uso, la posición
                 // inicial .userLocation de MapKit se crea plana. Forzar su
                 // inclinación una sola vez al obtener la primera cámara.
-                if navigationMapEnabled && !hasAppliedStored3DCamera {
+                if navigationMapEnabled && !hasAppliedStored3DCamera && pendingMapRecenter == nil {
                     hasAppliedStored3DCamera = true
                     if let user = recorder.currentCoordinate {
                         center3DMap(on: user)
@@ -2255,15 +2255,9 @@ struct LiveActivityView: View {
                         applyNavigationPitch(to: context.camera)
                     }
                 }
-                // El centro de una cámara 3D adelantada no coincide
-                // exactamente con el pin; mientras hay gesto NO reactivar
-                // seguimiento por proximidad al punto GPS.
-                guard pendingMapRecenter == nil,
-                      let user = recorder.currentCoordinate else { return }
-                let center = context.camera.centerCoordinate
-                let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
-                    .distance(from: CLLocation(latitude: center.latitude, longitude: center.longitude))
-                mapIsCentered = meters < 65
+                // La bandera de seguimiento depende SOLO del gesto manual,
+                // no de la distancia al GPS: un fix nuevo o la cámara adelantada
+                // en 3D no deben interrumpir automáticamente el seguimiento.
             }
             .ignoresSafeArea()
 
