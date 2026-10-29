@@ -107,9 +107,12 @@ struct BoardScanIntoRoutineView: View {
     @State private var scanTask: Task<Void, Never>?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let review {
+        Group {
+            if let review {
+                // El editor de la pizarra sí necesita navegación y espacio.
+                // El menú inicial NO usa NavigationStack: su altura debe ser
+                // intrínseca para que entre como sheet nativa desde abajo.
+                NavigationStack {
                     BoardImportReviewView(
                         lines: review.lines,
                         ocrText: review.ocrText,
@@ -123,21 +126,21 @@ struct BoardScanIntoRoutineView: View {
                         },
                         onDone: { _ in }
                     )
-                } else {
-                    scanSourceMenu
                 }
-            }
-            // Cámara y galería siguen siendo presentaciones a pantalla completa.
-            .fullScreenCover(isPresented: $showCamera, onDismiss: processCapturedImage) {
-                CameraPicker(image: $captured).ignoresSafeArea()
-            }
-            .fullScreenCover(isPresented: $showLibrary, onDismiss: processCapturedImage) {
-                LibraryPicker(image: $captured).ignoresSafeArea()
+            } else {
+                scanSourceMenu
             }
         }
+        .fullScreenCover(isPresented: $showCamera, onDismiss: processCapturedImage) {
+            CameraPicker(image: $captured).ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showLibrary, onDismiss: processCapturedImage) {
+            LibraryPicker(image: $captured).ignoresSafeArea()
+        }
         .tint(OG.accent)
-        // Igual que el menú de Inicio: contenido intrínseco en la selección
-        // de foto, pantalla grande únicamente al revisar los bloques OCR.
+        // Esta vista se presenta desde una .sheet del editor: el sistema
+        // realiza entrada desde abajo y salida hacia abajo al pulsar X o
+        // deslizar. Al pasar a la revisión ampliamos la misma hoja.
         .ogFittedSheet(expanded: review != nil, freezeHeight: showCamera || showLibrary)
     }
 
