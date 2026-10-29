@@ -520,6 +520,7 @@ fun ReperaMobileScreen(
                             clockMinimized = false
                             navController.navigate("reloj")
                         },
+                        onOpenActiveSession = { navController.navigate("entreno-activo") },
                         onOpenClock = {
                             clockMinimized = false
                             navController.navigate("reloj")
@@ -974,10 +975,22 @@ fun ReperaMobileScreen(
                     settingsContent()
                 }
                 composable("historial") {
-                    CompleteHistoryScreen(overview,busy,accountId,onReviseFinishedSet,onDeleteFinishedSet,onDeleteWorkout,
-                        onUpdateFinishedWorkout,heartSeriesProvider,externalHealthDetail) {exerciseId,sessionId,instanceId ->
-                        navController.navigate("ejercicio/"+Uri.encode(exerciseId)+"?sesion="+Uri.encode(sessionId)+"&instancia="+Uri.encode(instanceId))
-                    }
+                    CompleteHistoryScreen(
+                        overview, busy, accountId,
+                        onReviseFinishedSet, onDeleteFinishedSet, onDeleteWorkout,
+                        onUpdateFinishedWorkout, heartSeriesProvider, externalHealthDetail,
+                        onOpenExercise = { exerciseId, sessionId, instanceId ->
+                            navController.navigate(
+                                "ejercicio/" + Uri.encode(exerciseId) +
+                                    "?sesion=" + Uri.encode(sessionId) +
+                                    "&instancia=" + Uri.encode(instanceId)
+                            )
+                        },
+                        onOpenSports = {
+                            libraryModeRequest = "Deportes"
+                            navController.navigate("ejercicios")
+                        }
+                    )
                 }
                 composable("peso-corporal") {
                     BodyWeightHistoryScreen(overview?.bodyWeightHistory.orEmpty(),busy,onLogBodyWeight,onDeleteBodyWeight,accountId)

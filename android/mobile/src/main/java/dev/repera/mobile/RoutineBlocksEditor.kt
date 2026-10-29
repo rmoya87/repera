@@ -537,8 +537,21 @@ private fun BlockEditorCard(
                     TextButton(onClick = it) { Text("Quitar") }
                 }
             }
-            // FlowRow: con chunked(4) el último chip de la fila quedaba estrangulado
-            // ("EMOM / Every X'" se envolvía letra a letra, visto en captura de CI).
+            // I-62: fila «Formato ›» abre hoja con descripciones (chips compactos debajo).
+            var showFormats by remember { mutableStateOf(false) }
+            TextButton(
+                onClick = { showFormats = true },
+                modifier = Modifier.testTag("plan_block_format")
+            ) {
+                Text("Formato › ${BlockFormatCatalog.title(block.format)}")
+            }
+            if (showFormats) {
+                BlockFormatPickerSheet(
+                    current = block.format,
+                    onPick = { block.format = it; showFormats = false },
+                    onDismiss = { showFormats = false }
+                )
+            }
             @androidx.compose.runtime.Composable
             fun chips() {
                 blockFormats.forEach { wire ->
@@ -1062,12 +1075,27 @@ private fun AddExerciseRow(
     onAdd: (ExerciseEntry) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+    var showPicker by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedTextField(
-            value = query, onValueChange = { query = it },
-            label = { Text("Añadir ejercicio") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it },
+                label = { Text("Añadir ejercicio") }, singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                onClick = { showPicker = true },
+                modifier = Modifier.testTag("plan_pick_exercise")
+            ) { Text("Elegir") }
+        }
+        if (showPicker) {
+            ExercisePickerSheet(
+                exercises = exercises,
+                excluded = excluded,
+                onPick = { onAdd(it); showPicker = false; query = "" },
+                onDismiss = { showPicker = false }
+            )
+        }
         if (query.isNotBlank()) {
             val matches = exercises.filter {
                 it.id !in excluded && it.name.contains(query, ignoreCase = true)

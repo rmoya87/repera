@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.customActions
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -24,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.EditNote
@@ -127,6 +129,10 @@ internal fun ExerciseDetailScreen(
             }
             ReperaPageHeader(title = entry.displayName)
         }
+        // I-31 hero arte full-bleed con indicador 1/N (pager horizontal).
+        item {
+            ExerciseArtHero(frames = frames, name = entry.name)
+        }
         if (thisSessionAppearance != null) {
             item(key = "this-session-" + highlightSessionId) {
                 ThisSessionCard(thisAppearance = thisSessionAppearance,
@@ -159,18 +165,6 @@ internal fun ExerciseDetailScreen(
         if (!isMobility) {
             item { ReperaSectionTitle("Carga sugerida") }
             item { SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg) }
-        }
-        if (frames.size <= 1) {
-            item { ArtImage(frames.firstOrNull(), entry.name, Modifier.fillMaxWidth().aspectRatio(4f / 3f)) }
-        } else {
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(frames, key = { it }) { stem ->
-                        ArtImage(stem, entry.name,
-                            Modifier.height(220.dp).aspectRatio(4f / 3f))
-                    }
-                }
-            }
         }
         item {
             MuscleEquipmentCard(entry)
@@ -221,6 +215,52 @@ private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifi
             modifier = modifier.clip(RoundedCornerShape(12.dp)),
             contentScale = ContentScale.Crop
         )
+    }
+}
+
+/** I-31 hero full-width con swipe e indicador «1/N». */
+@Composable
+private fun ExerciseArtHero(frames: List<String>, name: String) {
+    if (frames.isEmpty()) {
+        ArtImage(null, name, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
+        return
+    }
+    if (frames.size == 1) {
+        ArtImage(frames.first(), name, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
+        return
+    }
+    var page by rememberSaveable(frames) { mutableStateOf(0) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .pointerInput(frames, page) {
+                    detectHorizontalDragGestures { _, dragAmount ->
+                        if (dragAmount < -40 && page < frames.lastIndex) page++
+                        else if (dragAmount > 40 && page > 0) page--
+                    }
+                }
+                .testTag("exercise_art_hero")
+        ) {
+            ArtImage(
+                frames[page.coerceIn(0, frames.lastIndex)],
+                name,
+                Modifier.fillMaxSize()
+            )
+            Text(
+                "${page + 1}/${frames.size}",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .testTag("exercise_art_page")
+            )
+        }
     }
 }
 

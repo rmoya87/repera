@@ -9,7 +9,10 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -18,6 +21,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -379,18 +384,22 @@ internal fun ActiveWorkoutCard(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            if (!active.durationInput && !warmup && !toFailure) OutlinedTextField(
-                value = rirText,
-                onValueChange = { rirText = it },
-                label = {
-                    Text(
-                        if (effortUnit == "rpe") "RPE opcional (0–10)"
-                        else "${dev.repera.domain.Effort.displayName(effortUnit)} opcional (repeticiones en reserva)"
-                    )
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!active.durationInput && !warmup && !toFailure) {
+                EffortMenuField(
+                    storedRir = rirText.trim().takeIf { it.isNotBlank() }
+                        ?.let { runCatching { dev.repera.domain.ReperaNumberFormat.parse(it) }.getOrNull() }
+                        ?.let { dev.repera.domain.Effort.toRIR(it, effortUnit) },
+                    effortUnit = effortUnit
+                ) { next ->
+                    rirText = next?.let {
+                        if (effortUnit == "rpe")
+                            dev.repera.domain.ReperaNumberFormat.decimal(
+                                dev.repera.domain.Effort.fromRIR(it, "rpe")
+                            )
+                        else it.toInt().toString()
+                    }.orEmpty()
+                }
+            }
             if (!active.durationInput) Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
@@ -1393,6 +1402,25 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
 }
 
 @Composable
+private fun HistoryMetricTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(12.dp)
+            )
+            .padding(10.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 internal fun WorkoutHistoryCard(
     workout: WorkoutHistoryEntry,
     busy: Boolean = false,
@@ -1488,9 +1516,47 @@ internal fun WorkoutHistoryCard(
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(workout.title, style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f))
+                // I-25 toolbar: ☆ favorito (vía editar) + ··· Eliminar.
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        enabled = !busy,
+                        modifier = Modifier.testTag("history_more")
+                    ) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = "Más opciones")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Editar") },
+                            onClick = { menuOpen = false; expanded = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Eliminar") },
+                            onClick = { menuOpen = false; pendingDelete = true }
+                        )
+                    }
+                }
                 IconButton(onClick = { pendingDelete = true }, enabled = !busy) {
                     Icon(Icons.Outlined.Delete, contentDescription = "Eliminar registro")
                 }
+            }
+            // I-25 tiles Tiempo / Kcal / Volumen.
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val mins = workout.activeDurationSeconds?.let { (it / 60.0).toInt() }
+                HistoryMetricTile("Tiempo", mins?.let { "$it′" } ?: "—", Modifier.weight(1f))
+                HistoryMetricTile("Kcal", "—", Modifier.weight(1f))
+                val vol = workout.movements.sumOf { m ->
+                    m.editableSets.size.takeIf { it > 0 } ?: m.registered.size
+                }
+                HistoryMetricTile(
+                    "Vol.",
+                    if (vol > 0) "$vol series" else "—",
+                    Modifier.weight(1f)
+                )
             }
             if (workout.startedAt.isNotBlank()) {
                 Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)
