@@ -498,7 +498,8 @@ fun PlaceSearchSheet(
                 // Impedir que adjustPan desplace la ventana completa y saque
                 // del marco la cabecera y la acción de confirmar.
                 w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-                // R7 P0: sin scrim opaco en barras; el mapa pinta detrás.
+                // R8 P0: edge-to-edge real — sin bandas 156/72 px por decorFits.
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
                 w.statusBarColor = android.graphics.Color.TRANSPARENT
                 w.navigationBarColor = android.graphics.Color.TRANSPARENT
                 WindowInsetsControllerCompat(w, dialogView).apply {
@@ -516,11 +517,11 @@ fun PlaceSearchSheet(
                     ?.hideSoftInputFromWindow(dialogView.windowToken, 0)
             }
         }
-        // R7 P0: mapa a sangre bajo status/nav (sin bandas/scrim). El padding
-        // de barras va solo en la card glass y en el chip inferior.
+        // R8 P0: fondo transparente — el mapa pinta a sangre; la surface
+        // opaca creaba el scrim gris/negro en status/nav (compare8/11).
         Surface(
             modifier = Modifier.fillMaxSize().imePadding(),
-            color = MaterialTheme.colorScheme.surface
+            color = androidx.compose.ui.graphics.Color.Transparent
         ) {
             // iOS: mapa a sangre + card glass flotante arriba + chip confirmar abajo.
             Box(Modifier.fillMaxSize()) {
@@ -849,19 +850,18 @@ fun PlaceSearchSheet(
                                         items(recents, key = {
                                             it.mapItemIdentifier ?: "${it.latitude},${it.longitude}"
                                         }) { pin ->
-                                            PlaceResultRow(
-                                                pin.name?.takeIf { n -> n.isNotBlank() }
-                                                    ?: "Lugar",
-                                                null
-                                            ) {
+                                            val displayName = localizeRecentPlaceName(
+                                                pin.name?.takeIf { n -> n.isNotBlank() } ?: "Lugar"
+                                            )
+                                            PlaceResultRow(displayName, null) {
                                                 query = ""
                                                 resolveError = null
                                                 pending = PlaceSearchResult(
-                                                    name = pin.name ?: "Lugar",
+                                                    name = displayName,
                                                     latitude = pin.latitude,
                                                     longitude = pin.longitude,
                                                     providerId = pin.mapItemIdentifier ?: "",
-                                                    featureName = pin.name
+                                                    featureName = displayName
                                                 )
                                                 searchFocused = false
                                                 focusManager.clearFocus(force = true) // dismissSearch iOS
@@ -933,6 +933,14 @@ private fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double):
         cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
         sin(dLon / 2) * sin(dLon / 2)
     return 2 * r * atan2(sqrt(a), sqrt(1 - a))
+}
+
+/** R8 P2-3: restos de Photon sin lang= (p. ej. «Musée du Louvre»). */
+internal fun localizeRecentPlaceName(name: String): String = when {
+    name.equals("Musée du Louvre", ignoreCase = true) -> "Museo del Louvre"
+    name.startsWith("Musée ", ignoreCase = true) ->
+        "Museo " + name.removePrefix("Musée ").removePrefix("musée ")
+    else -> name
 }
 
 @Composable

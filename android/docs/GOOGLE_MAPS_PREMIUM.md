@@ -1,3 +1,5 @@
+**Última actualización:** 2026-10-29 — clave solo en `~/.gradle/gradle.properties` (`REPERA_GOOGLE_MAPS_API_KEY`); soft shadows + light/dark al instante.
+
 # Google Maps para Android (Gratis y Pro) + navegación 3D exclusiva Pro en iOS y Android
 
 ## Alcance
@@ -21,7 +23,7 @@
 
 1. Crear/seleccionar proyecto Google Cloud con cuenta de facturación y habilitar Maps SDK for Android.
 2. Generar clave de API Android **restringida por paquete** com.app.repera y **SHA-1** de la firma de Android de debug y la de Play App Signing de producción. Restringir la clave por API a Maps SDK for Android.
-3. Pasar la clave sin guardar en git a Gradle mediante la propiedad o variable de entorno REPERA_GOOGLE_MAPS_API_KEY. Ejemplo desde android/: ./gradlew :mobile:assembleDebug -PREPERA_GOOGLE_MAPS_API_KEY=TU_CLAVE
+3. Pasar la clave **sin guardar en git**. Preferido (Ramón): `~/.gradle/gradle.properties` con `REPERA_GOOGLE_MAPS_API_KEY=…` (Gradle user prop; `build.gradle.kts` ya lo lee). Alternativa: env o `-PREPERA_GOOGLE_MAPS_API_KEY=…` en la línea de comandos. Nunca commitear la clave.
 4. Configurar un secreto equivalente en CI, pasando la variable a Gradle para compilar la versión distribuida.
 5. Probar en dispositivo Android real Google Play Services, con usuario Gratis y Premium reconocido por Play/backend. Verificar fase IDLE, RECORDING, REVIEW, GPX y zoom/pan/rotación (seguimiento a los cinco segundos), mapa 2D/3D y pines.
 6. Configurar presupuestos y alertas de Google Cloud; una alerta presupuestaria no es un límite de gasto. Usar claves restringidas para reducir abusos.

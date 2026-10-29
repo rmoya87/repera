@@ -315,8 +315,7 @@ internal fun ActivityHeatmapCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("Intensidad por cuartiles del periodo",
-                style = MaterialTheme.typography.bodySmall)
+            // R8 P2-25: sin «Intensidad por cuartiles…» (iOS no lo tiene).
         }
     }
 }

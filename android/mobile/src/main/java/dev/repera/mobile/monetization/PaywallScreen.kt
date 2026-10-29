@@ -208,6 +208,13 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // R8 P2-6: eyebrow iOS «DESBLOQUEA MÁS».
+                Text(
+                    "DESBLOQUEA MÁS",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(
                     "Todo tu progreso.",
                     style = MaterialTheme.typography.headlineMedium,

@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — R7 paridad (E2E Lugar/reloj/Pro, Play series, Comenzar insets, toolbar 48dp, sombras mapa). MapLibre OK sin `REPERA_GOOGLE_MAPS_API_KEY`; Google Maps si Ramón aporta la clave.
+**Última actualización:** 2026-10-29 — R8 paridad (Play tabla compacta, Lugar/reloj edge-to-edge, Comenzar status+tema mapa, Elegir actividad, footer Play, pizarra compacta). Clave Maps: `~/.gradle/gradle.properties` → `REPERA_GOOGLE_MAPS_API_KEY` (nunca en repo); sin clave → MapLibre.
 
 Implementación nativa independiente en `android/`:
 

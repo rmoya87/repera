@@ -276,6 +276,27 @@ internal fun RouteMapView(
             }
         }
     )
+    // R8 P1-14 / M2: al cambiar claro↔oscuro, recargar estilo (antes solo
+    // al crear el MapView; el mapa se quedaba oscuro tras el cambio).
+    val darkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+    var lastAppliedDark by remember { mutableStateOf<Boolean?>(null) }
+    androidx.compose.runtime.LaunchedEffect(darkTheme, loadedMap, effectiveNavigationMode) {
+        val map = loadedMap ?: return@LaunchedEffect
+        if (lastAppliedDark == darkTheme) return@LaunchedEffect
+        // Primer paint lo hace el factory; solo recargar tras un cambio real.
+        if (lastAppliedDark == null) {
+            lastAppliedDark = darkTheme
+            return@LaunchedEffect
+        }
+        lastAppliedDark = darkTheme
+        map.setStyle(ReperaMapAppearance.styleUrl(darkTheme)) { style ->
+            ReperaMapAppearance.apply(style, darkTheme, effectiveNavigationMode)
+            applyPlannedOverlay(style, currentPlan)
+            applyRoute(map, style, currentPoints, currentPlanned,
+                water = waterSport, plannedPoints = currentPlan, mode = paceMode)
+            updateUserDirection(style, userPosition, userHeadingDegrees)
+        }
+    }
 }
 
 /** Chosen GPX remains visible beneath the measured trace after recording begins. */

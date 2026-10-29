@@ -340,16 +340,17 @@ fun ReperaMobileScreen(
             val controller = WindowInsetsControllerCompat(window, window.decorView)
             // Barras siempre transparentes: Inicio pinta surface (blanco/oscuro),
             // Comenzar pinta el mapa; sin franjas de color distinto al lienzo.
-            // R7 P0: reloj LED / Comenzar → iconos claros; resto según tema.
-            val darkChrome = currentRoute == "en-vivo" ||
-                currentRoute == "reloj" ||
+            // R8 P0-4: en-vivo (mapa claro) → iconos oscuros en tema claro
+            // (antes darkChrome dejaba iconos blancos ilegibles). Reloj LED
+            // sigue con iconos claros sobre negro.
+            val ledClockChrome = currentRoute == "reloj" ||
                 currentRoute.startsWith("reloj")
             controller.isAppearanceLightStatusBars = when {
-                darkChrome -> false
+                ledClockChrome -> false
                 else -> !darkTheme
             }
             controller.isAppearanceLightNavigationBars = when {
-                darkChrome -> false
+                ledClockChrome -> false
                 else -> !darkTheme
             }
         }
@@ -895,7 +896,9 @@ fun ReperaMobileScreen(
                             onExpandClock = {
                                 clockMinimized = false
                                 navController.navigate("reloj")
-                            }
+                            },
+                            importableRoutines = overview?.routineEntries.orEmpty(),
+                            overview = overview
                         )
                     }
                 }

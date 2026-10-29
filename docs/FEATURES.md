@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-29 (Android R7 paridad E2E/Play/Pro/Comenzar)
+Última actualización: 2026-10-29 (Android R8 paridad Play/Lugar/Comenzar/pizarra + Maps key user gradle)
 
 ## Completar una clase de CrossFit grabada desde «Comenzar» (29/10/2026)
 

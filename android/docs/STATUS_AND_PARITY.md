@@ -4,7 +4,7 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — R7: Lugar mapa a sangre; reloj status
+**Última actualización:** 2026-10-29 — R8: Play series compactas; Lugar/reloj/pizarra edge-to-edge; Comenzar status icons + map theme refresh + sport picker; Google Maps vía `~/.gradle/gradle.properties` (`REPERA_GOOGLE_MAPS_API_KEY`, never git).
 negra; Pro insets; Comenzar sin solape tab; sombras mapa suaves; toolbar 48/44/24;
 series Play solo `completed`; Sin formato con nombre; tab Temporizador;
 `configChanges=uiMode`; Movilidad/Photon `lang`; Pro copy Mapa 2D.

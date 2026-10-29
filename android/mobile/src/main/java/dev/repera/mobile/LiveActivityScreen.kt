@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.MyLocation
@@ -104,8 +106,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
     }
     var navigationMode by remember {
-        // Primera instalación: 3D activo (producto); conservar preferencia guardada.
-        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", true))
+        // R8: default 2D como iOS AppStorage navigation3D.enabled = false.
+        mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", false))
     }
     fun setNavigationMode(enabled: Boolean) {
         navigationMode = enabled
@@ -322,49 +324,103 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         while(true) { delay(1000);runtime.publish() }
     }
     if (showSportPicker) {
+        // R8 P1-6: sheet alto tipo iOS LiveSportPicker — ✕, tarjetas, búsqueda abajo.
         @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
         ReperaModalBottomSheet(onDismissRequest = { showSportPicker = false }) {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.92f)
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 8.dp, bottom = 12.dp)
             ) {
-                Text("Elegir actividad", style = MaterialTheme.typography.titleLarge)
-                OutlinedTextField(
-                    sportQuery, { sportQuery = it },
-                    label = { Text("Buscar actividad") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                LiveSport.groups.forEach { group ->
-                    val filtered = LiveSport.selectableCases.filter {
-                        it.group == group && foldForSearch(it.title).contains(foldForSearch(sportQuery))
-                    }
-                    if (filtered.isNotEmpty()) {
-                        Text(
-                            group,
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
-                    }
-                    filtered.forEach { sport ->
-                        TextButton(
-                            onClick = { runtime.choose(sport); showSportPicker = false },
-                            modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")
-                        ) {
-                            Icon(sport.materialIcon, contentDescription = null, modifier = Modifier.size(22.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-                                Text((if (state.sport == sport) "✓ " else "") + sport.title)
-                                Text(
-                                    sport.metricDescription,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Elegir actividad",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.Close,
+                        contentDescription = "Cerrar",
+                        onClick = { showSportPicker = false },
+                        modifier = Modifier.testTag("sport_picker_close")
+                    )
+                }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    LiveSport.groups.forEach { group ->
+                        val filtered = LiveSport.selectableCases.filter {
+                            it.group == group && foldForSearch(it.title).contains(foldForSearch(sportQuery))
+                        }
+                        if (filtered.isNotEmpty()) {
+                            Text(
+                                group,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                            )
+                        }
+                        filtered.forEach { sport ->
+                            Surface(
+                                onClick = { runtime.choose(sport); showSportPicker = false },
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("choose_sport_${sport.id}")
+                            ) {
+                                Row(
+                                    Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        sport.materialIcon,
+                                        contentDescription = null,
+                                        tint = brandGreen,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            sport.title,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            sport.metricDescription,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2
+                                        )
+                                    }
+                                    if (state.sport == sport) {
+                                        Text("✓", color = brandGreen, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
+                            Spacer(Modifier.height(6.dp))
                         }
                     }
                 }
+                OutlinedTextField(
+                    sportQuery, { sportQuery = it },
+                    placeholder = { Text("Buscar actividad") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .testTag("sport_picker_search")
+                )
             }
         }
     }
@@ -379,7 +435,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                     .verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Mis rutas", style = MaterialTheme.typography.titleLarge)
+                // R8 P2: un solo título (RouteLibraryHeader ya dice «Mis rutas»).
                 RouteLibraryHeader { showRoutes = false }
                 if (routes.isEmpty()) {
                     ReperaEmptyState(
