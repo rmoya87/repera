@@ -312,7 +312,7 @@ struct HomeView: View {
             // Tras «Actividad de hoy» el gris debe continuar hasta el borde
             // inferior (sin franja blanca). El bloque calendario/entreno pinta
             // su propio OG.surface; el topbar transparente deja ver ese blanco.
-            .background(OG.bg.ignoresSafeArea())
+            .background(OG.surface.ignoresSafeArea())
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
@@ -327,7 +327,7 @@ struct HomeView: View {
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("repera.professionalPlansChanged"))) { _ in
                 rebuildWeekChrome()
             }
-            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay)) {
+            .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), drawsBackground: false) {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()

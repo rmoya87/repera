@@ -239,6 +239,8 @@ struct DayEditorView: View {
                             get: { completedDetails?.locationPin },
                             set: { completedDetails?.locationPin = $0 }
                         ))
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                     }
                     TextField("Notas del entreno", text: Binding(
                         get: { completedDetails?.notes ?? "" },
@@ -3035,30 +3037,21 @@ struct RoutineImportPickerSheet: View {
     var onCancel: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             OGPageHeader(title: "Añadir favorito") {
                 CloseToolbarButton(action: onCancel, large: true)
             }
-            Text("Añade los bloques de un entrenamiento favorito o un temporizador guardado.")
-                .font(.footnote)
-                .foregroundStyle(OG.label2)
-                .padding(.horizontal, 4)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    if !routines.isEmpty {
-                        Text("Entrenamientos")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(OG.label2)
-                        ForEach(routines) { source in
-                            Button { onPick(source) } label: {
-                                favoriteRow(
-                                    title: source.title,
-                                    subtitle: importSubtitle(source),
-                                    systemImage: "dumbbell"
-                                )
-                            }
-                            .buttonStyle(.plain)
+                    ForEach(routines) { source in
+                        Button { onPick(source) } label: {
+                            favoriteRow(
+                                title: source.title,
+                                subtitle: importSubtitle(source),
+                                systemImage: "dumbbell"
+                            )
                         }
+                        .buttonStyle(.plain)
                     }
                     if !timers.isEmpty {
                         Text("Temporizadores")
@@ -3079,12 +3072,15 @@ struct RoutineImportPickerSheet: View {
                         }
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
             }
             .frame(maxHeight: 520)
         }
         .padding(.horizontal, OG.pad)
-        .padding(.bottom, 10)
+        .padding(.top, 14)
+        .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .ogFittedSheet()
     }

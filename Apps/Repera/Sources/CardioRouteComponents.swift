@@ -542,32 +542,41 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            // WeatherKit: solo marca oficial + legalPageURL (sin copy custom
-            // «Fuentes y atribución legal»). MapKit aporta su propia atribución.
-            // Light UI → combinedMarkLightURL (marca oscura); dark UI → DarkURL
-            // (marca clara). Invertir deja el logo blanco invisible sobre fondo blanco.
-            if hasWeather, let attributionURL,
-               let mark = colorScheme == .dark
-                   ? attributionMarkDarkURL : attributionMarkLightURL {
+            // WeatherKit exige la marca oficial y un enlace a las fuentes legales.
+            // Usar el logotipo de la apariencia correspondiente: negro en claro,
+            // blanco en oscuro. Si falla la imagen, el enlace sigue accesible.
+            if hasWeather, let attributionURL {
                 Link(destination: attributionURL) {
-                    AsyncImage(url: mark) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFit()
-                        } else {
-                            HStack(spacing: 3) {
-                                Image(systemName: "apple.logo")
-                                Text("Weather")
+                    HStack(spacing: 8) {
+                        if let mark = colorScheme == .dark
+                            ? attributionMarkDarkURL : attributionMarkLightURL {
+                            AsyncImage(url: mark) { phase in
+                                if let image = phase.image {
+                                    image.resizable().scaledToFit()
+                                } else {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "apple.logo")
+                                        Text("Weather")
+                                    }
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(OG.label2)
+                                }
                             }
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(OG.label2)
+                            .frame(width: 94, height: 18)
+                        } else {
+                            Text("Apple Weather")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(OG.label2)
                         }
+                        Text("Fuentes")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label2)
                     }
-                    .frame(width: 94, height: 18)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Apple Weather")
-                .padding(.top, 10)
+                .accessibilityLabel("Apple Weather: fuentes y atribución legal")
+                .padding(.top, 8)
             }
             if !hasWeather {
                 if let failureHint {
@@ -587,7 +596,7 @@ struct RouteWeatherStrip: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
-        .padding(.bottom, 17)
+        .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface)
         .task(id: taskKey) {

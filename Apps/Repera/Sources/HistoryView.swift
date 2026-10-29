@@ -840,6 +840,8 @@ struct WorkoutDetailView: View {
                     if healthExtras?.showRouteMap != true {
                         Section {
                             WorkoutPlacePickerRow(pin: locationPinBinding)
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(Color.clear)
                         } header: {
                             Text("Lugar")
                         }

@@ -232,6 +232,7 @@ struct OGPrimaryButton: View {
 struct OGFixedTopBar<Trailing: View>: View {
     var title: String
     var subtitle: String? = nil
+    var drawsBackground: Bool = true
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
@@ -266,9 +267,11 @@ struct OGFixedTopBar<Trailing: View>: View {
         .padding(.top, OG.topBarTopInset)
         .padding(.bottom, OG.topBarBottomInset)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Cabecera blanca (status + título): el topbar es transparente y, sin
-        // este fondo, el lienzo gris del ScrollView se cuela detrás.
-        .background(OG.surface.ignoresSafeArea(edges: .top))
+        .background {
+            if drawsBackground {
+                OG.surface.ignoresSafeArea(edges: .top)
+            }
+        }
     }
 }
 
@@ -501,6 +504,7 @@ extension View {
     func ogFixedTopBar(
         _ title: String,
         subtitle: String? = nil,
+        drawsBackground: Bool = true,
         @ViewBuilder trailing: @escaping () -> some View
     ) -> some View {
         self
@@ -509,6 +513,7 @@ extension View {
                 OGFixedTopBar(
                     title: title,
                     subtitle: subtitle,
+                    drawsBackground: drawsBackground,
                     trailing: trailing
                 )
             }

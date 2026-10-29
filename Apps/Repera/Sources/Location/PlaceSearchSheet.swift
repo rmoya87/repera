@@ -720,6 +720,7 @@ struct WorkoutPlacePickerRow: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
