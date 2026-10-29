@@ -749,6 +749,15 @@ struct OGConfirmSheet: View {
     }
 }
 
+/// Identificador compartido para reordenar cabeceras y ejercicios con
+/// `reorderContainer` de SwiftUI, conservando dos niveles de arrastre.
+/// El ID sigue siendo el del modelo: mover no recrea series ni resultados.
+struct OGReorderEntry: Identifiable, Sendable {
+    let id: UUID
+    let name: String
+    let type: String
+}
+
 /// Zona de soltado entre cajas de bloque en Reordenar (`ScrollView`, no `List`).
 /// Fuera de arrastre queda un hueco mínimo; al apuntar se ilumina «Soltar aquí».
 struct OGReorderInsertionGap: View {
