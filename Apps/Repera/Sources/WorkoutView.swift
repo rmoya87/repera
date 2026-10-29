@@ -701,19 +701,20 @@ struct WorkoutView: View {
         prefill()
     }
 
+    /// Drag & drop estable de SwiftUI, sin reorderContainer beta.
+    /// Se conserva el borrador y solo se confirma al abandonar la página.
     private var playReorderSheet: some View {
         ScrollView {
             if let draft = playReorderDraft {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { position, block in
-                        Color.clear.frame(height: 10)
+                        OGReorderInsertionGap(accepts: { $0.hasPrefix("block:") }) { token in
+                            withAnimation(.smooth) { _ = movePlayBlockToken(token, before: block.id) }
+                        }
                         playReorderBlockBox(position: position, block: block)
                     }
-                    Color.clear.frame(height: 10)
-                }
-                .reorderContainer(for: OGReorderEntry.self, in: String.self) { difference in
-                    withAnimation(.smooth) {
-                        applyNativePlayReorder(difference)
+                    OGReorderInsertionGap(accepts: { $0.hasPrefix("block:") }) { token in
+                        withAnimation(.smooth) { _ = movePlayBlockToken(token, before: nil) }
                     }
                 }
                 .padding(.horizontal, OG.pad)
@@ -733,71 +734,77 @@ struct WorkoutView: View {
         .onDisappear(perform: commitPlayReorder)
     }
 
-    private func applyNativePlayReorder(_ difference: ReorderDifference<UUID, String>) {
-        guard let draft = playReorderDraft else { return }
-        let before: UUID?
-        switch difference.destination.position {
-        case .before(let anchor): before = anchor
-        case .end: before = nil
+    /// Reordena únicamente el borrador; nunca reinicia Salud ni el cronómetro.
+    private func movePlayBlockToken(_ token: String, before targetID: UUID?) -> Bool {
+        guard token.hasPrefix("block:"),
+              let sourceID = UUID(uuidString: String(token.dropFirst(6))),
+              sourceID != targetID,
+              let draft = playReorderDraft,
+              draft.blocks.contains(where: { $0.id == sourceID })
+        else { return false }
+        editPlayReorderDraft { draft in
+            guard let source = draft.blocks.firstIndex(where: { $0.id == sourceID }) else { return }
+            let moved = draft.blocks.remove(at: source)
+            let target = targetID.flatMap { id in
+                draft.blocks.firstIndex(where: { $0.id == id })
+            } ?? draft.blocks.count
+            draft.blocks.insert(moved, at: target)
         }
-        if difference.destination.collectionID == "blocks" {
-            let sourceIDs = Set(difference.sources)
-            let moved = draft.blocks.filter { sourceIDs.contains($0.id) }
-            guard !moved.isEmpty else { return }
-            editPlayReorderDraft { draft in
-                draft.blocks.removeAll { sourceIDs.contains($0.id) }
-                let destination = before.flatMap { anchor in
-                    draft.blocks.firstIndex(where: { $0.id == anchor })
-                } ?? draft.blocks.count
-                draft.blocks.insert(contentsOf: moved, at: destination)
-            }
-            return
-        }
-        guard let targetID = UUID(uuidString: difference.destination.collectionID),
-              draft.blocks.contains(where: { $0.id == targetID }) else { return }
-        for id in difference.sources {
-            guard let current = playReorderDraft,
-                  let source = current.blocks.first(where: {
-                      $0.exercises.contains(where: { $0.id == id })
-                          || $0.movements.contains(where: { $0.id == id })
-                  }) else { continue }
-            _ = movePlayReorderToken("\(source.id.uuidString):\(id.uuidString)",
-                                     into: targetID, before: before)
-        }
+        return true
     }
 
-    /// Una caja por bloque: cabecera + ejercicios con divider (mismo UI).
+    /// Misma tarjeta y mismas filas del modo crear/editar.
     private func playReorderBlockBox(position: Int, block: RoutineBlock) -> some View {
         let rows = playReorderRows(block)
         return VStack(alignment: .leading, spacing: 0) {
-            ForEach([OGReorderEntry(id: block.id, name: block.title, type: "block")]) { _ in
-                playReorderBlockHeader(position: position, block: block)
-                    .contentShape(Rectangle())
-            }
-            .reorderable(collectionID: "blocks")
+            playReorderBlockHeader(position: position, block: block)
+                .contentShape(Rectangle())
+                .draggable("block:\(block.id.uuidString)") {
+                    OGReorderDragPreview {
+                        playReorderBlockHeader(position: position, block: block)
+                    }
+                }
+                .dropDestination(for: String.self) { tokens, _ in
+                    guard let token = tokens.first, token.hasPrefix("block:") else { return false }
+                    var moved = false
+                    withAnimation(.smooth) { moved = movePlayBlockToken(token, before: block.id) }
+                    return moved
+                }
 
-            // La sesión activa comparte el mismo destino identificable para
-            // bloques vacíos: el hueco es ancho y recibe drops reales.
-            ForEach(rows.isEmpty ? [OGReorderEntry.emptyDropTarget(for: block.id)] : rows) { row in
-                if row.type == "emptyDropTarget" {
-                    Text("Soltar ejercicio")
-                        .font(.caption)
-                        .foregroundStyle(OG.label3)
-                        .frame(maxWidth: .infinity, minHeight: 104)
-                        .contentShape(Rectangle())
-                        .padding(.bottom, 8)
-                } else {
-                    VStack(spacing: 0) {
-                        Divider()
-                            .overlay(OG.label3.opacity(0.22))
-                            .padding(.leading, 14)
-                        playReorderRow(
-                            name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
-                        )
+            if rows.isEmpty {
+                Text("Soltar ejercicio")
+                    .font(.caption)
+                    .foregroundStyle(OG.label3)
+                    .frame(maxWidth: .infinity, minHeight: 104)
+                    .contentShape(Rectangle())
+                    .dropDestination(for: String.self) { tokens, _ in
+                        guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
+                        var moved = false
+                        withAnimation(.smooth) {
+                            moved = movePlayReorderToken(token, into: block.id)
+                        }
+                        return moved
+                    }
+                    .padding(.bottom, 8)
+            } else {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                    Divider()
+                        .overlay(OG.label3.opacity(0.22))
+                        .padding(.leading, 14)
+                    playReorderRow(
+                        name: row.name, blockID: block.id, itemID: row.id, kind: block.kind
+                    )
+                    .dropDestination(for: String.self) { tokens, location in
+                        guard let token = tokens.first, !token.hasPrefix("block:") else { return false }
+                        let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
+                        var moved = false
+                        withAnimation(.smooth) {
+                            moved = movePlayReorderToken(token, into: block.id, before: before)
+                        }
+                        return moved
                     }
                 }
             }
-            .reorderable(collectionID: block.id.uuidString)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
@@ -955,7 +962,8 @@ struct WorkoutView: View {
     private func playReorderRow(
         name: String, blockID: UUID, itemID: UUID, kind: RoutineBlockKind
     ) -> some View {
-        HStack(spacing: 12) {
+        let dragToken = "\(blockID.uuidString):\(itemID.uuidString)"
+        return HStack(spacing: 12) {
             Image(systemName: kind == .strength ? "dumbbell" : "figure.strengthtraining.functional")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(OG.accent)
@@ -973,6 +981,22 @@ struct WorkoutView: View {
         .padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .draggable(dragToken) {
+            OGReorderDragPreview(cornerRadius: 12) {
+                HStack(spacing: 12) {
+                    Image(systemName: kind == .strength ? "dumbbell" : "figure.strengthtraining.functional")
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 32, height: 32)
+                    Text(name)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(OG.label)
+                    Spacer(minLength: 8)
+                    Image(systemName: "line.3.horizontal")
+                        .foregroundStyle(OG.label3)
+                }
+                .padding(12)
+            }
+        }
     }
 
     private func movePlayBlock(_ blockID: UUID, offset: Int) {

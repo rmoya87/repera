@@ -47,13 +47,23 @@ class EditorSwipeAndTestFlightProContracts(unittest.TestCase):
         self.assertIn("OGSetSwipeDeleteRow(", inline)
         self.assertIn("openedSetID: $openedSetID", inline)
 
-    def test_drag_and_drop_is_removed_from_workout_editor(self):
-        self.assertNotIn(".draggable(", EDITOR)
-        self.assertNotIn(".dropDestination(", EDITOR)
+    def test_drag_and_drop_is_confined_to_reorder_page(self):
+        # Serie swipe y tarjetas del editor no deben tener drag-and-drop.
+        form = EDITOR.split("private var editorForm: some View {", 1)[1].split(
+            "private var reorderSheet: some View {", 1
+        )[0]
+        self.assertNotIn(".draggable(", form)
+        self.assertNotIn(".dropDestination(", form)
+        reorder = EDITOR.split("private var reorderSheet: some View {", 1)[1].split(
+            "private func reorderBlockHeader(", 1
+        )[0]
+        self.assertIn(".draggable(", reorder)
+        self.assertIn(".dropDestination(", reorder)
+        # No volver al reorderContainer beta que rompe en tiempo de ejecución.
         self.assertNotIn(".reorderable(", EDITOR)
         self.assertNotIn(".reorderContainer(", EDITOR)
-        self.assertIn("moveBlock(block.id, offset:", EDITOR)
-        self.assertIn("moveExercise(type:", EDITOR)
+        self.assertIn("moveBlock(_ id: UUID, offset: Int)", EDITOR)
+        self.assertIn("moveExercise(type: String, blockID: UUID", EDITOR)
 
     def test_replacement_resets_item_identity_and_warns_about_results(self):
         self.assertIn('¿Sustituir ejercicio y reiniciar sus series?', EDITOR)

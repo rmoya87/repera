@@ -36,30 +36,39 @@ class HomeBackgroundAndEmptyReorderContracts(unittest.TestCase):
             before_toolbar,
         )
 
-    def test_empty_block_is_a_native_drop_target_in_both_screens(self):
-        target = "ForEach(rows.isEmpty ? [OGReorderEntry.emptyDropTarget(for: block.id)] : rows)"
+    def test_empty_blocks_accept_drag_without_fake_model_items(self):
         for swift in (PLAN, PLAY):
             with self.subTest(screen="Plan" if swift is PLAN else "Play"):
-                self.assertIn(target, swift)
-                self.assertIn('if row.type == "emptyDropTarget"', swift)
+                self.assertIn("if rows.isEmpty {", swift)
+                self.assertIn('Text("Soltar ejercicio")', swift)
                 self.assertIn(".frame(maxWidth: .infinity, minHeight: 104)", swift)
                 self.assertIn(".contentShape(Rectangle())", swift)
-                self.assertIn(".reorderable(collectionID: block.id.uuidString)", swift)
-                self.assertIn(".reorderContainer(for: OGReorderEntry.self, in: String.self)", swift)
+                self.assertIn(".dropDestination(for: String.self)", swift)
+                self.assertIn("!token.hasPrefix(\"block:\")", swift)
 
-    def test_placeholder_has_stable_distinct_identity_and_is_not_persisted(self):
-        source = THEME.split("struct OGReorderEntry: Identifiable, Sendable", 1)[1].split(
-            "struct OGReorderInsertionGap:", 1
-        )[0]
-        self.assertIn("static func emptyDropTarget(for blockID: UUID) -> Self", source)
-        self.assertIn("var bytes = blockID.uuid", source)
-        self.assertIn("bytes.0 ^= 0x80", source)
-        self.assertIn('type: "emptyDropTarget"', source)
-        # The reorder callback only accepts actual exercises and movements.
+    def test_reorder_does_not_use_swiftui_beta_uuid_containers(self):
         for swift in (PLAN, PLAY):
-            self.assertIn("$0.exercises.contains(where: { $0.id == id })", swift)
-            self.assertIn("$0.movements.contains(where: { $0.id == id })", swift)
+            self.assertNotIn(".reorderContainer(", swift)
+            self.assertNotIn(".reorderable(", swift)
+            self.assertIn(".draggable(", swift)
+            self.assertIn(".dropDestination(for: String.self)", swift)
+            self.assertIn(".draggable(dragToken)", swift)
+        self.assertNotIn("emptyDropTarget", THEME)
 
+    def test_reorder_keeps_workout_data_update_paths(self):
+        self.assertIn("applyReorder(token, into: block.id, before:", PLAN)
+        self.assertIn("reorderBlockToken(token, before:", PLAN)
+        self.assertIn("movePlayReorderToken(token, into: block.id", PLAY)
+        self.assertIn("movePlayBlockToken(token, before:", PLAY)
+        self.assertIn(".onDisappear(perform: commitPlayReorder)", PLAY)
+        self.assertIn("draft.blocks.insert(moved, at: target)", PLAY)
+
+    def test_drop_position_and_full_card_header_are_used(self):
+        for swift in (PLAN, PLAY):
+            self.assertIn("location.y > 28", swift)
+            self.assertIn("rows.dropFirst(index + 1).first?.id", swift)
+            self.assertIn("OGReorderDragPreview", swift)
+            self.assertIn("OGReorderInsertionGap", swift)
 
 if __name__ == "__main__":
     unittest.main()
