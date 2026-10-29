@@ -18,7 +18,7 @@ class WodPendingEndPrefillTest {
   var visible by mutableStateOf(true)
   val actions=mutableListOf<String>()
   var timer by mutableStateOf(WodTimerState(65000,false,"userFinished",65))
-  val active=ActiveWorkout("s","For Time",0,1,"WOD",0,null,null,
+  val active=ActiveWorkout("s","For Time",0,1,exerciseName="WOD",completedSets=0,prescribedQuantity=null,prescribedWeightKg=null,
    allowsWeight=false,sets=emptyList(),wod=WodExecution("forTime","ELAPSED_TIME",false,"WOD",emptyList()))
   rule.setContent {MaterialTheme {
    if(visible) WodScoreCard(active,false,timer,

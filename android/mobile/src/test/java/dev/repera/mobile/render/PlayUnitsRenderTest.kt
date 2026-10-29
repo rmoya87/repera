@@ -30,7 +30,7 @@ class PlayUnitsRenderTest {
   var savedUnit:String?=null
   var savedRows:List<ActiveSessionDraft.Row> = emptyList()
   val rows=listOf(LiveRowSummary("row",20,16.0,null,null,null,false))
-  val active=ActiveWorkout("fixture","Prueba",0,1,"Walking lunge",0,20,16.0,allowsWeight=true,sets=emptyList(),
+  val active=ActiveWorkout("fixture","Prueba",0,1,exerciseName="Walking lunge",completedSets=0,prescribedQuantity=20,prescribedWeightKg=16.0,allowsWeight=true,sets=emptyList(),
    repsMetersToggle=true,liveRows=rows,quantityCap=100000)
   rule.setContent {MaterialTheme {Surface(Modifier.testTag("units-root")) {
    CompositionLocalProvider(LocalPersistLiveRows provides {_,_,r,u ->savedRows=r;savedUnit=u}) {
@@ -50,7 +50,7 @@ class PlayUnitsRenderTest {
   var recordedUnit:String?=null
   var correctedUnit:String?=null
   var correctedId:String?=null
-  val active=ActiveWorkout("classic","Prueba",0,1,"Walking lunge",1,20,16.0,allowsWeight=true,
+  val active=ActiveWorkout("classic","Prueba",0,1,exerciseName="Walking lunge",completedSets=1,prescribedQuantity=20,prescribedWeightKg=16.0,allowsWeight=true,
    sets=listOf(WorkoutSetSummary("saved",12,16.0,unit="reps")),repsMetersToggle=true)
   rule.setContent {MaterialTheme {Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
    ActiveWorkoutCard(active,false,onLogSet={q,w,_,_,u,_,_,_->assertEquals(20,q);assertEquals(16.0,w!!,0.0);recordedUnit=u},
