@@ -41,4 +41,13 @@ class LiveMapCameraTest {
         val idle=LiveMapCamera.target(p,emptyList(),true)
         assertEquals(p.latitude,idle.latitude,0.0);assertEquals(p.longitude,idle.longitude,0.0)
     }
+    @Test fun returnsToUserAfterFiveSecondsSinceLastGestureOnly() {
+        assertFalse(LiveMapCamera.shouldResumeFollowing(false,1000L,5999L))
+        assertTrue(LiveMapCamera.shouldResumeFollowing(false,1000L,6000L))
+        // Un nuevo arrastre reinicia el plazo: no recentrar a los 5 s del primero.
+        assertFalse(LiveMapCamera.shouldResumeFollowing(false,5000L,6000L))
+        assertTrue(LiveMapCamera.shouldResumeFollowing(false,5000L,10000L))
+        assertFalse(LiveMapCamera.shouldResumeFollowing(true,1000L,10000L))
+        assertFalse(LiveMapCamera.shouldResumeFollowing(false,0L,10000L))
+    }
 }
