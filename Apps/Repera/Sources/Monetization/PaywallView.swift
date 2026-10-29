@@ -29,7 +29,7 @@ struct PaywallView: View {
 
     private let highlights: [(symbol: String, title: String, detail: String)] = [
         ("chart.line.uptrend.xyaxis", "Tu evolución, al detalle", "Historial completo por ejercicio, marcas y e1RM."),
-        ("chart.bar.xaxis", "Entiende cómo progresas", "Todos los periodos, métricas y análisis muscular avanzado."),
+        ("chart.bar.xaxis", "Entiende cómo progresas", "Todos los periodos, recuperación y análisis muscular avanzado."),
         ("square.stack", "Más espacio para entrenar", "Rutinas, favoritos y ejercicios propios sin límites."),
         ("camera.viewfinder", "Escanea cualquier WOD", "Escáner de pizarras ilimitado y comparativas de resultados."),
         ("arrow.up.right", "Progresa con criterio", "Sugerencias de carga basadas en tus entrenamientos.")
