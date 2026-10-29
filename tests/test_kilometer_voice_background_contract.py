@@ -247,6 +247,8 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("Text(value ??", stat)
         self.assertNotIn('Link("Apple Weather"', stat)
         self.assertIn("AsyncImage(url: mark)", cardio)
+        self.assertIn("Fuentes y atribución legal", cardio)
+        self.assertIn("guard let attribution = try? await WeatherService.shared.attribution else", cardio)
         self.assertIn("attribution.legalPageURL", cardio)
         self.assertIn("attribution.combinedMarkLightURL", cardio)
         self.assertIn("attribution.combinedMarkDarkURL", cardio)
@@ -265,10 +267,12 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
 
     def test_native_background_modes_are_present_in_source_and_xcodegen(self):
         info = plistlib.loads((ROOT / "Apps/Repera/Resources/Info.plist").read_bytes())
-        self.assertTrue({"location", "audio"}.issubset(set(info["UIBackgroundModes"])))
+        self.assertIn("location", info["UIBackgroundModes"])
+        self.assertNotIn("audio", info["UIBackgroundModes"])
         project = (ROOT / "project.yml").read_text(encoding="utf-8")
         self.assertIn("UIBackgroundModes:", project)
-        self.assertIn("          - location\n          - audio", project)
+        self.assertIn("          - location", project)
+        self.assertNotIn("          - audio", project)
         self.assertIn("CLBackgroundActivitySession()", (
             ROOT / "Apps/Repera/Sources/Location/WorkoutLocationTracker.swift"
         ).read_text(encoding="utf-8"))

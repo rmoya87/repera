@@ -46,7 +46,7 @@ final class OnboardingStore {
         defaults.set(next.rawValue, forKey: stepKey)
     }
 
-    /// Completes permissions before any new user sees subscription prices.
+    /// Legacy migration step: new permission requests happen when a feature needs them.
     /// Returning users migrating from the old flow are not asked twice.
     func finishPermissions() {
         advance(to: priceAlreadySeen ? .done : .choosePlan)
@@ -71,7 +71,7 @@ final class OnboardingStore {
     func reconcile(isSignedIn: Bool) {
         guard isSignedIn else { return }
         if step == .appleSignIn {
-            advance(to: priceAlreadySeen ? .done : .permissions)
+            advance(to: priceAlreadySeen ? .done : .choosePlan)
         } else if priceAlreadySeen, step != .done {
             // Reauth / update: ya vio precios; no repetir wizard a medias.
             advance(to: .done)

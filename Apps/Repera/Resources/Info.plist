@@ -6,7 +6,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array><string>com.app.repera.catalog.refresh</string></array>
 	<key>UIBackgroundModes</key>
-	<array><string>fetch</string><string>location</string><string>audio</string></array>
+	<array><string>fetch</string><string>location</string></array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

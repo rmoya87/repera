@@ -251,7 +251,7 @@ private struct OnboardingSignInStep: View {
         // No se borra ni se reemplaza ningún entrenamiento local.
         onboarding.reconcile(isSignedIn: true)
         if onboarding.step == .appleSignIn {
-            onboarding.advance(to: .permissions)
+            onboarding.finishPermissions()
         }
     }
 
@@ -279,7 +279,7 @@ private struct OnboardingSignInStep: View {
             // Ya vio onboarding / precios → entrar; si no, permisos (se saltan si ya están OK).
             onboarding.reconcile(isSignedIn: BusinessAuthStore.shared.isConnected)
             if onboarding.step == .appleSignIn {
-                onboarding.advance(to: .permissions)
+                onboarding.finishPermissions()
             }
         } catch let error as AppleAuthError where error == .cancelled {
             return
@@ -315,207 +315,15 @@ private struct OnboardingPlanStep: View {
 }
 
 // MARK: - Permissions
-
+// Permissions are requested in context, not as an onboarding gate.
+// Legacy installs at .permissions advance without showing a pre-permission page.
 struct OnboardingPermissionsStep: View {
-    @Environment(HealthKitStore.self) private var health
     @Environment(OnboardingStore.self) private var onboarding
-    @Environment(WorkoutLocationTracker.self) private var location
-    @State private var recovery = HealthRecoveryStore.shared
-    @Environment(\.openURL) private var openURL
-
-    @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
-    @State private var healthBusy = false
-    @State private var requesting = false
-    /// false hasta comprobar si ya están todos concedidos (evitar flash de la pantalla).
-    @State private var showPermissionsUI = false
 
     var body: some View {
-        Group {
-            if showPermissionsUI {
-                permissionsContent
-            } else {
-                Color.clear
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(OG.bg.ignoresSafeArea())
-            }
-        }
-        .task {
-            await refreshNotificationsStatus()
-            location.refreshStatus()
-            health.refreshAuthorizationStatus()
-            if allPermissionsGranted {
-                onboarding.finishPermissions()
-                return
-            }
-            showPermissionsUI = true
-        }
-    }
-
-    private var allPermissionsGranted: Bool {
-        notificationsGranted && healthPermissionsComplete && location.isAuthorized
-    }
-
-    private var healthPermissionsComplete: Bool {
-        health.isAuthorized
-    }
-
-    private var permissionsContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Spacer(minLength: 0)
-                ReperaMascot(pose: .permissions, maxHeight: 140)
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 4)
-
-            Text("Permisos")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(OG.label)
-            Text("Puedes activar notificaciones, Apple Salud y ubicación si los necesitas. Al autorizar Apple Salud, eliges qué datos compartir, incluidos sueño y ciclo.")
-                .font(.body)
-                .foregroundStyle(OG.label2)
-
-            permissionRow(
-                title: "Notificaciones",
-                subtitle: "Aviso cuando termina el descanso",
-                symbol: "bell",
-                statusText: notificationsLabel,
-                isDone: notificationsGranted
-            ) {
-                await requestNotifications()
-            }
-
-            permissionRow(
-                title: "Salud",
-                subtitle: "Entrenos, sueño, ciclo y constantes",
-                symbol: "heart",
-                statusText: healthPermissionsComplete ? "Conectado" : "Pendiente",
-                isDone: healthPermissionsComplete
-            ) {
-                healthBusy = true
-                defer { healthBusy = false }
-                await health.requestAccess(includeAllOptional: true)
-            }
-
-            permissionRow(
-                title: "Ubicación",
-                subtitle: "Pin del gym y ruta en entrenos outdoor",
-                symbol: "location",
-                statusText: locationLabel,
-                isDone: location.isAuthorized
-            ) {
-                _ = await location.ensureWhenInUseAuthorized()
-                location.refreshStatus()
-            }
-
-            Spacer(minLength: 8)
-
-            Button {
-                onboarding.finishPermissions()
-            } label: {
-                Text("Continuar")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .foregroundStyle(OG.onAccent)
-                    .background(OG.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-
-            Button("Abrir Ajustes del sistema") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    openURL(url)
-                }
-            }
-            .font(.subheadline)
-            .foregroundStyle(OG.label2)
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, OG.pad)
-        .padding(.bottom, 28)
-    }
-
-    private var notificationsGranted: Bool {
-        switch notificationsStatus {
-        case .authorized, .provisional, .ephemeral: return true
-        default: return false
-        }
-    }
-
-    private var notificationsLabel: String {
-        if notificationsGranted { return "Permitidas" }
-        switch notificationsStatus {
-        case .denied: return "Denegadas"
-        default: return "Pendiente"
-        }
-    }
-
-    private var locationLabel: String {
-        location.refreshStatus()
-        if location.isAuthorized { return "Permitida" }
-        switch location.authorizationStatus {
-        case .denied, .restricted: return "Denegada"
-        default: return "Pendiente"
-        }
-    }
-
-    private func permissionRow(
-        title: String,
-        subtitle: String,
-        symbol: String,
-        statusText: String,
-        isDone: Bool,
-        action: @escaping () async -> Void
-    ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(isDone ? OG.accent : OG.label2)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(OG.label)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(OG.label2)
-                Text(statusText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(isDone ? OG.accent : OG.label3)
-            }
-            Spacer(minLength: 0)
-            if isDone {
-                Text("Hecho")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(OG.accent)
-                    .accessibilityLabel("\(title): hecho")
-            } else {
-                Button("Permitir") {
-                    Task {
-                        requesting = true
-                        defer { requesting = false }
-                        await action()
-                        await refreshNotificationsStatus()
-                        location.refreshStatus()
-                        health.refreshAuthorizationStatus()
-                    }
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(OG.accent)
-                .disabled(requesting || healthBusy)
-            }
-        }
-        .padding(OG.pad)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-    }
-
-    private func requestNotifications() async {
-        let center = UNUserNotificationCenter.current()
-        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
-        await refreshNotificationsStatus()
-    }
-
-    private func refreshNotificationsStatus() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        notificationsStatus = settings.authorizationStatus
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(OG.bg.ignoresSafeArea())
+            .task { onboarding.finishPermissions() }
     }
 }

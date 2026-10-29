@@ -542,25 +542,35 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            // El texto «Apple Weather» deja de ocupar una tercera línea.
-            // WeatherKit exige la marca y el enlace legal: conservamos su
-            // logotipo oficial discretamente sin incrementar alto del pie.
-            .overlay(alignment: .bottomTrailing) {
-                if hasWeather, let attributionURL,
-                   let mark = colorScheme == .dark
-                       ? attributionMarkLightURL : attributionMarkDarkURL {
-                    Link(destination: attributionURL) {
-                        AsyncImage(url: mark) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            Color.clear
+            // Apple Weather attribution is always visible alongside weather values.
+            // Never overlay a tiny mark onto statistics or hide the legal link.
+            if hasWeather, let attributionURL,
+               let mark = colorScheme == .dark
+                   ? attributionMarkLightURL : attributionMarkDarkURL {
+                Link(destination: attributionURL) {
+                    HStack(spacing: 8) {
+                        AsyncImage(url: mark) { phase in
+                            if let image = phase.image {
+                                image.resizable().scaledToFit()
+                            } else {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "apple.logo")
+                                    Text("Weather")
+                                }
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(OG.label2)
+                            }
                         }
-                        .frame(width: 66, height: 11)
+                        .frame(width: 94, height: 18)
+                        Text("Fuentes y atribución legal")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(OG.label2)
                     }
-                    .accessibilityLabel("Fuente meteorológica y atribución legal de Apple Weather")
-                    .padding(.trailing, 4)
-                    .offset(y: 7)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .contentShape(Rectangle())
                 }
+                .accessibilityLabel("Apple Weather. Consultar fuentes y atribución legal")
+                .padding(.top, 10)
             }
             if !hasWeather {
                 if let failureHint {
@@ -637,6 +647,15 @@ struct RouteWeatherStrip: View {
         isLoading = true
         defer { isLoading = false }
 
+        // Never show WeatherKit readings without the source mark and legal URL.
+        guard let attribution = try? await WeatherService.shared.attribution else {
+            failureHint = "No se pudo verificar la fuente meteorológica."
+            return
+        }
+        attributionURL = attribution.legalPageURL
+        attributionMarkLightURL = attribution.combinedMarkLightURL
+        attributionMarkDarkURL = attribution.combinedMarkDarkURL
+
         // WeatherKit histórico desde 2021-08-01.
         let weatherEpoch = Date(timeIntervalSince1970: 1_627_776_000)
         let queryDate: Date = {
@@ -684,17 +703,7 @@ struct RouteWeatherStrip: View {
         windKmh = hour.wind.speed.converted(to: .kilometersPerHour).value
         symbol = hour.symbolName
 
-        // Atribución aparte: si falla, igual mostramos temperatura/humedad.
-        do {
-            let attribution = try await WeatherService.shared.attribution
-            attributionURL = attribution.legalPageURL
-            attributionMarkLightURL = attribution.combinedMarkLightURL
-            attributionMarkDarkURL = attribution.combinedMarkDarkURL
-        } catch {
-            #if DEBUG
-            print("WeatherKit attribution error: \(error)")
-            #endif
-        }
+
     }
 
     /// Mensaje accionable: el vacío casi siempre es portal/provisioning, no «dato perdido».

@@ -26,12 +26,14 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertIn("statusForAuthorizationRequest(toShare: share, read: read)", request)
         self.assertIn("enableUnifiedHealthAnalysis()", request)
 
-    def test_onboarding_uses_same_health_permission_action(self):
-        source = self.read("Onboarding/OnboardingFlowView.swift")
-        self.assertIn('subtitle: "Entrenos, sueño, ciclo y constantes"', source)
-        self.assertIn("await health.requestAccess(includeAllOptional: true)", source)
-        self.assertIn("private var healthPermissionsComplete: Bool", source)
-        self.assertNotIn("health.isAuthorized && !recovery.needsSleepDecision", source)
+    def test_onboarding_does_not_gate_healthkit_authorization(self):
+        onboard = self.read("Onboarding/OnboardingFlowView.swift")
+        health = self.read("HealthRecovery.swift")
+        self.assertNotIn('Button("Permitir")', onboard)
+        self.assertNotIn("await health.requestAccess(", onboard)
+        self.assertNotIn("ensureWhenInUseAuthorized()", onboard)
+        self.assertIn(".task { onboarding.finishPermissions() }", onboard)
+        self.assertIn("await health.requestAccess(includeAllOptional: true)", health)
 
     def test_progress_does_not_show_independent_sleep_alert(self):
         source = self.read("StatsView.swift")

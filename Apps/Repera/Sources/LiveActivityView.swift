@@ -1120,8 +1120,8 @@ final class LiveActivityRecorder: NSObject {
     }
 
     /// Core Location sigue entregando cruces de km con iPhone bloqueado.
-    /// La categoría playback y UIBackgroundModes(audio + location) permiten
-    /// locutar sin depender del ciclo de vida de la vista SwiftUI.
+    /// GPS runs under the location mode. Short speech cues activate an audio
+    /// session only while needed; no persistent background audio is declared.
     @discardableResult
     private func speakNavigation(_ message: String) -> Bool {
         guard spokenGuidanceEnabled, !message.isEmpty else { return false }
