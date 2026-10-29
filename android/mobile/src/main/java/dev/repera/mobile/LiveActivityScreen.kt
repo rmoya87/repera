@@ -86,6 +86,18 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     val subscriptions = dev.repera.mobile.monetization.LocalSubscriptions.current
     // La comprobación es reactiva y se basa en el entitlement efectivo, no en SharedPreferences.
     val canNavigate3D = subscriptions?.policy?.canUse3DNavigation == true
+    var checking3DAccess by remember { mutableStateOf(false) }
+    var show3DAccessVerificationError by remember { mutableStateOf(false) }
+    if (show3DAccessVerificationError) {
+        AlertDialog(
+            onDismissRequest = { show3DAccessVerificationError = false },
+            title = { Text("No se pudo comprobar Pro") },
+            text = { Text("No se ha podido verificar tu suscripción. Comprueba el acceso en Ajustes o restaura tus compras.") },
+            confirmButton = {
+                TextButton(onClick = { show3DAccessVerificationError = false }) { Text("Aceptar") }
+            }
+        )
+    }
     // Paridad iOS AppStorage("repera.live.map.navigation3D.enabled").
     val mapPrefs = remember {
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
@@ -495,12 +507,40 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                         else -> "Desbloquear navegación 3D con Repera Pro"
                     }
                 ) {
-                    if (!canNavigate3D) {
-                        subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.GENERIC)
-                    } else {
+                    if (checking3DAccess) {
+                        // Evita dobles clics y dos verificaciones simultáneas.
+                    } else if (canNavigate3D) {
                         setNavigationMode(!navigationMode)
                         followingMap = true
                         recenterToken++
+                    } else {
+                        checking3DAccess = true
+                        scope.launch {
+                            try {
+                                subscriptions?.refreshEntitlementsForFeatureAction()
+                                when {
+                                    subscriptions?.policy?.canUse3DNavigation == true -> {
+                                        setNavigationMode(true)
+                                        followingMap = true
+                                        recenterToken++
+                                    }
+                                    subscriptions == null ||
+                                    subscriptions.snapshot.status ==
+                                        dev.repera.domain.monetization.SubscriptionStatus.UNKNOWN ||
+                                    subscriptions.snapshot.lastRefreshFailedOffline ||
+                                    !subscriptions.verificationBackendConfigured -> {
+                                        show3DAccessVerificationError = true
+                                    }
+                                    else -> subscriptions.presentPaywall(
+                                        dev.repera.domain.monetization.PaywallContext.GENERIC
+                                    )
+                                }
+                            } catch (_: Exception) {
+                                show3DAccessVerificationError = true
+                            } finally {
+                                checking3DAccess = false
+                            }
+                        }
                     }
                 }
                 if (!followingMap && (state.points.isNotEmpty() || freshPosition != null)) {
