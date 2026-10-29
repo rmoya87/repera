@@ -6,6 +6,8 @@ import os
 protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
+    /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
+    func phoneConnectivityDidReceiveDiscard(sessionId: UUID?)
     func phoneConnectivityDidRequestToday()
     /// An explicit request replies with today's CURRENT prescription.
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession?
@@ -19,6 +21,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
+    func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
     func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {}
@@ -227,6 +230,13 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     private func decode(_ payload: [String: Any]) {
+        if payload["discarded"] as? Bool == true
+            || ((payload["session"] as? Data)?.isEmpty == true
+                && payload["discardedSessionId"] != nil) {
+            let id = (payload["discardedSessionId"] as? String).flatMap(UUID.init(uuidString:))
+            delegate?.phoneConnectivityDidReceiveDiscard(sessionId: id)
+            return
+        }
         guard let data = payload["session"] as? Data, !data.isEmpty,
               let session = try? JSONDecoder().decode(WorkoutSession.self, from: data)
         else { return }

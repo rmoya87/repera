@@ -655,9 +655,18 @@ struct WorkoutPlacePickerRow: View {
     @Binding var pin: WorkoutLocationPin?
     @State private var showSearch = false
 
+    /// Solo un lugar elegido (nombre o MapItem) abre el mapa; un pin GPS
+    /// anónimo (captura automática) no sustituye «Añadir lugar».
+    private var selectedPlace: WorkoutLocationPin? {
+        guard let pin else { return nil }
+        let named = pin.name?.nilIfBlank != nil
+        let mapped = pin.mapItemIdentifier?.nilIfBlank != nil
+        return (named || mapped) ? pin : nil
+    }
+
     var body: some View {
         Group {
-            if let pin {
+            if let pin = selectedPlace {
                 Button {
                     showSearch = true
                 } label: {
@@ -709,13 +718,15 @@ struct WorkoutPlacePickerRow: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(OG.label3)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
         .sheet(isPresented: $showSearch) {
-            PlaceSearchSheet(initialPin: pin) { selected in
+            PlaceSearchSheet(initialPin: selectedPlace ?? pin) { selected in
                 pin = selected
             }
             .presentationDetents([.large])

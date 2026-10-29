@@ -3216,6 +3216,18 @@ extension ReperaStore: PhoneConnectivityDelegate {
         }
     }
 
+    nonisolated func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {
+        Task { @MainActor in
+            if let sessionId,
+               let active = self.state.activeSession,
+               active.id != sessionId {
+                return
+            }
+            guard self.state.activeSession != nil else { return }
+            self.endActiveSession(save: false)
+        }
+    }
+
     nonisolated func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {
         Task { @MainActor in
             self.handleWatchQuickLogRequest(exerciseId: exerciseId)

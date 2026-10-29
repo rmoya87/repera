@@ -139,7 +139,7 @@ struct OGRoutineBlockCard: View {
         HStack(spacing: 12) {
             ExerciseThumb(exercise: exercise, size: 44)
             VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.name)
+                Text(SportExerciseNames.localizedDisplayName(exercise.name))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(OG.label)
                     .lineLimit(2)

@@ -934,10 +934,15 @@ final class WatchSessionHub: NSObject {
     }
 
     /// Cancela la sesión en curso sin guardar (iPhone terminó/descartó, o el atleta elige Descartar).
-    func discardActiveSession() {
+    func discardActiveSession(fromPhone: Bool = false) {
+        let discardedID = active?.id ?? lastFinished?.id
         stopMotion()
         stopClock()
-        if startedOnThisWatch, health.isRecording {
+        // Si el iPhone manda nil mientras guardamos HealthKit tras finalizar,
+        // no tirar el HKWorkout en curso.
+        let shouldDiscardHealth = startedOnThisWatch && health.isRecording
+            && !(fromPhone && awaitingHealthSave)
+        if shouldDiscardHealth {
             health.discard()
         }
         controller = nil
@@ -951,12 +956,17 @@ final class WatchSessionHub: NSObject {
         workingWeightKg = nil
         selectedSetIndex = nil
         lastClockTick = nil
-        awaitingHealthSave = false
+        if !(fromPhone && awaitingHealthSave) {
+            awaitingHealthSave = false
+            lastFinished = nil
+        }
         startedOnThisWatch = false
         summaryDismissed = true
-        lastFinished = nil
         resetSetDraft()
-        checkpoint()
+        save()
+        if !fromPhone {
+            connectivity.sendDiscarded(sessionID: discardedID)
+        }
     }
 
     private func completeSession() {
@@ -1115,7 +1125,9 @@ final class WatchSessionHub: NSObject {
 
     private func checkpoint() {
         save()
-        if let current = active { connectivity.sendCurrent(current) }
+        if let current = active {
+            connectivity.sendCurrent(current)
+        }
     }
 
     private func save() {
@@ -1173,8 +1185,8 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
         Task { @MainActor in
             // Nil = iPhone terminó o descartó: cerrar sesión local y no resucitar al reopen.
             guard let session else {
-                if self.controller != nil || self.lastFinished != nil {
-                    self.discardActiveSession()
+                if self.controller != nil || (self.lastFinished != nil && !self.awaitingHealthSave) {
+                    self.discardActiveSession(fromPhone: true)
                 }
                 return
             }
