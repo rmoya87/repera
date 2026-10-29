@@ -77,12 +77,26 @@ final class SubscriptionManager {
         return StoreKitEntitlementProvider()
     }
 
+    /// El App debe instalarlo al principio de su arranque; también se llama
+    /// desde start() para entornos de prueba y caminos de inicio secundarios.
+    func startTransactionUpdatesObservation() {
+        StoreKitEntitlementProvider.startTransactionUpdates { [weak self] in
+            guard let self else { return false }
+            // No finalizar una transacción que pertenecía a RevenueCat aunque
+            // el fallback de verificación active después StoreKit directo.
+            let isDirectStoreKitPurchase = self.provider is StoreKitEntitlementProvider
+            await self.refresh(reason: "verified-storekit-transaction")
+            return isDirectStoreKitPurchase
+        }
+    }
+
     func start() async {
         guard !didStart else {
             await refresh(reason: "restart")
             return
         }
         didStart = true
+        startTransactionUpdatesObservation()
         await freeUsage.load()
         // Solo entitlement en launch. Offerings se cargan al abrir el paywall.
         await refresh(reason: "launch")

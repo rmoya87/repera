@@ -137,6 +137,9 @@ struct ReperaApp: App {
     private var appLaunchContent: some View {
         appPresentationContent
                 .task {
+                    // Escuchar Transaction.updates desde el primer frame, antes
+                    // de hidratar, iniciar sesión o mostrar cualquier paywall.
+                    subscriptions.startTransactionUpdatesObservation()
                     if uiTestTabShell {
                         // UI tests must not wait for ornamental startup frames.
                         launchMascotStage = 2
