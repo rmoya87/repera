@@ -675,6 +675,7 @@ internal fun DragReorderItem(
     onDrop: (centerRootY: Float, target: Int) -> Unit,
     onBounds: (top: Float, bottom: Float) -> Unit = { _, _ -> },
     onMoveTo: ((target: Int) -> Unit)? = null,
+    modifier: Modifier = Modifier,
     content: @Composable (Modifier) -> Unit
 ) {
     var dy by remember { mutableStateOf(0f) }
