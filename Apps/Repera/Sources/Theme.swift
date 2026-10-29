@@ -1708,12 +1708,16 @@ struct OGSetEntryRow: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Text("\(index)")
-                .font(.system(size: 13, weight: .bold).monospacedDigit())
-                .foregroundStyle(OG.label)
-                .frame(width: 30, height: 36)
-                .background(OG.surface2, in: Circle())
-                .accessibilityLabel("Serie \(index)")
+            Button(action: onConfirm) {
+                Text("\(index)")
+                    .font(.system(size: 13, weight: .bold).monospacedDigit())
+                    .foregroundStyle(completed ? OG.onAccent : OG.label)
+                    .frame(width: 30, height: 36)
+                    .background(completed ? OG.accent : OG.surface2, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+            .accessibilityLabel(completed ? "Serie \(index) hecha. Toca para desmarcar" : "Serie \(index). Toca para marcar hecha")
 
             Text(previous ?? "—")
                 .font(.system(size: 10, weight: .medium).monospacedDigit())

@@ -721,7 +721,33 @@ struct WorkoutDetailView: View {
                     if let pin = session.locationPin {
                         Section {
                             WorkoutLocationPinMap(pin: pin, isInteractive: false)
-                                .frame(height: 180)
+                                .frame(height: 220)
+                                .frame(maxWidth: .infinity)
+                                .overlay(alignment: .bottom) {
+                                    HStack(alignment: .center, spacing: 12) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text({
+                                                let raw = pin.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                                return raw.isEmpty ? "Lugar en el mapa" : raw
+                                            }())
+                                                .font(.system(size: 17, weight: .semibold))
+                                                .foregroundStyle(OG.label)
+                                                .lineLimit(2)
+                                            if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
+                                                Text(category)
+                                                    .font(.system(size: 13))
+                                                    .foregroundStyle(OG.label2)
+                                            }
+                                        }
+                                        Spacer(minLength: 0)
+                                        PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 12)
+                                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .padding(.horizontal, 12)
+                                    .padding(.bottom, 12)
+                                }
                                 .ogCardListRow()
                         } header: {
                             Text("Lugar").textCase(nil)
@@ -1282,7 +1308,7 @@ struct WorkoutDetailView: View {
                     HStack(spacing: 12) {
                         ExerciseThumb(exercise: display, size: 40)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(display.name)
+                            Text(SportExerciseNames.localizedDisplayName(display.name))
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .lineLimit(2)
@@ -1394,7 +1420,7 @@ struct WorkoutDetailView: View {
             } label: {
                 HStack(spacing: 12) {
                     ExerciseThumb(exercise: catalogExercise, size: 48)
-                    Text(catalogExercise.name)
+                    Text(SportExerciseNames.localizedDisplayName(catalogExercise.name))
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(OG.label)
                         .lineLimit(2)

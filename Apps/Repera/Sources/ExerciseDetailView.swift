@@ -337,13 +337,13 @@ struct ExerciseDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         if !showsInlineHeader {
-                            OGScrollablePageTitle(exercise.name)
+                            OGScrollablePageTitle(SportExerciseNames.localizedDisplayName(exercise.name))
                                 .padding(.horizontal, OG.pad)
                                 .padding(.top, 8)
                         }
                         if showsInlineHeader {
                             HStack(alignment: .center, spacing: 10) {
-                                Text(exercise.name)
+                                Text(SportExerciseNames.localizedDisplayName(exercise.name))
                                     .font(.title2.weight(.bold))
                                     .foregroundStyle(OG.label)
                                     .lineLimit(2)

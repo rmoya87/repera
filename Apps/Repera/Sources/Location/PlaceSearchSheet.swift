@@ -252,6 +252,7 @@ private struct PlaceSearchContent: View {
                     Divider().padding(.leading, 16)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -655,33 +656,47 @@ struct WorkoutPlacePickerRow: View {
     @State private var showSearch = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                showSearch = true
-            } label: {
-                HStack(spacing: 12) {
-                    if let pin {
-                        if PlaceCategoryStyle.style(forRaw: pin.pointOfInterestCategory) != nil {
-                            PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
-                        } else {
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                                .frame(width: 32, height: 32)
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(pin.name?.nilIfBlank ?? "Lugar en el mapa")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(OG.label)
-                                .lineLimit(2)
-                            if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
-                                Text(category)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(OG.label2)
+        Group {
+            if let pin {
+                Button {
+                    showSearch = true
+                } label: {
+                    // Mismo lenguaje que PlaceSearchSheet: mapa a bleed de card + chip overlay.
+                    WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                        .frame(height: 220)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                        .overlay(alignment: .bottom) {
+                            HStack(alignment: .center, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(pin.name?.nilIfBlank ?? "Lugar en el mapa")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(OG.label)
+                                        .lineLimit(2)
+                                    if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
+                                        Text(category)
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(OG.label2)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                                PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
                             }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 12)
                         }
-                        Spacer(minLength: 0)
-                    } else {
+                        .contentShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Editar lugar: \(pin.name?.nilIfBlank ?? "mapa")")
+            } else {
+                Button {
+                    showSearch = true
+                } label: {
+                    HStack(spacing: 12) {
                         Image(systemName: "mappin.and.ellipse")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.accent)
@@ -694,22 +709,9 @@ struct WorkoutPlacePickerRow: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(OG.label3)
                     }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if let pin {
-                Button {
-                    showSearch = true
-                } label: {
-                    WorkoutLocationPinMap(pin: pin, isInteractive: false)
-                        .frame(height: 160)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Editar lugar en el mapa")
             }
         }
         .sheet(isPresented: $showSearch) {

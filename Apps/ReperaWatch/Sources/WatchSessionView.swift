@@ -176,7 +176,7 @@ struct WatchSessionView: View {
         HStack(alignment: .center, spacing: 8) {
             WatchExerciseThumb(exercise: exercise.exercise, size: 42)
             VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.exercise.name)
+                Text(SportExerciseNames.localizedDisplayName(exercise.exercise.name))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -232,6 +232,10 @@ struct WatchSessionView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
                     .foregroundStyle(.black)
+                Button("Descartar entreno", role: .destructive) {
+                    hub.discardActiveSession()
+                }
+                .font(.caption)
             }
             .padding(.horizontal, 5)
         }
@@ -282,6 +286,10 @@ struct WatchSessionView: View {
                     )
                     .disabled(!hub.canConfirmCurrentEntry)
                 }
+                Button("Descartar entreno", role: .destructive) {
+                    hub.discardActiveSession()
+                }
+                .font(.caption2)
             }
             .padding(.horizontal, 5)
         }
@@ -396,7 +404,11 @@ struct WatchSessionView: View {
                         WatchExerciseThumb(exercise: exercise, size: 53)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(hub.current?.exercise.name ?? "Ejercicio")
+                        Text(
+                            hub.current.map {
+                                SportExerciseNames.localizedDisplayName($0.exercise.name)
+                            } ?? "Ejercicio"
+                        )
                             .font(.caption.weight(.semibold))
                             .fixedSize(horizontal: false, vertical: true)
                         Text(hub.setDraft.phase == .warmup ? "Calentamiento"

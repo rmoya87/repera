@@ -933,6 +933,32 @@ final class WatchSessionHub: NSObject {
         checkpoint()
     }
 
+    /// Cancela la sesión en curso sin guardar (iPhone terminó/descartó, o el atleta elige Descartar).
+    func discardActiveSession() {
+        stopMotion()
+        stopClock()
+        if startedOnThisWatch, health.isRecording {
+            health.discard()
+        }
+        controller = nil
+        isPaused = false
+        reviewingBlock = false
+        reviewElapsedSeconds = nil
+        restRemaining = 0
+        blockElapsed = 0
+        sessionElapsed = 0
+        workingReps = 0
+        workingWeightKg = nil
+        selectedSetIndex = nil
+        lastClockTick = nil
+        awaitingHealthSave = false
+        startedOnThisWatch = false
+        summaryDismissed = true
+        lastFinished = nil
+        resetSetDraft()
+        checkpoint()
+    }
+
     private func completeSession() {
         guard let finished = controller?.session, lastFinished?.id != finished.id else { return }
         stopMotion()
@@ -1145,7 +1171,13 @@ final class WatchSessionHub: NSObject {
 extension WatchSessionHub: WatchConnectivityClientDelegate {
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
-            guard let session else { return } // Nil from phone cannot erase offline edits.
+            // Nil = iPhone terminó o descartó: cerrar sesión local y no resucitar al reopen.
+            guard let session else {
+                if self.controller != nil || self.lastFinished != nil {
+                    self.discardActiveSession()
+                }
+                return
+            }
             guard self.controller == nil, self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
             self.controller = SessionController(session: session)

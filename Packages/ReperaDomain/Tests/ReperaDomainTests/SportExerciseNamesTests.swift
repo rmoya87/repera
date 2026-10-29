@@ -37,7 +37,23 @@ final class SportExerciseNamesTests: XCTestCase {
             XCTAssertEqual(SportExerciseNames.canonicalName(spanish), english)
             XCTAssertTrue(ExerciseEquivalence.sameName(spanish, english))
             XCTAssertEqual(SportExerciseNames.spanishAlias(for: english), spanish)
+            XCTAssertEqual(SportExerciseNames.localizedDisplayName(english), spanish)
         }
+    }
+
+    func testLocalizedDisplayNamePrefersSpanishAlias() {
+        XCTAssertEqual(
+            SportExerciseNames.localizedDisplayName("Clean and Jerk"),
+            "Cargada y envión"
+        )
+        XCTAssertEqual(
+            SportExerciseNames.localizedDisplayName("Cargada y envión"),
+            "Cargada y envión"
+        )
+        XCTAssertEqual(
+            SportExerciseNames.localizedDisplayName("Press banca"),
+            "Press banca"
+        )
     }
 
     func testAcronymsAndExtraBilingualAliasesFindCorrectMovements() {
@@ -66,10 +82,11 @@ final class SportExerciseNamesTests: XCTestCase {
             ("SDHP", "Sumo high pull"),
         ]
         for (alias, exercise) in samples {
+            let expected = SportExerciseNames.localizedDisplayName(exercise)
             XCTAssertTrue(
                 ExerciseSearch.rankedDocuments(indexed, query: alias)
-                    .contains { $0.displayName == exercise },
-                "\(alias) debería encontrar \(exercise)"
+                    .contains { $0.displayName == expected },
+                "\(alias) debería encontrar \(expected)"
             )
         }
         XCTAssertEqual(

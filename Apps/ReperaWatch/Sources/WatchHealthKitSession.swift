@@ -199,6 +199,26 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workout.resume()
     }
 
+    /// Descarta la sesión HealthKit sin guardar (cancelación desde iPhone o Watch).
+    func discard() {
+        finishing = false
+        finishHandler = nil
+        if let liveBuilder = builder {
+            liveBuilder.discardWorkout()
+        }
+        workout?.end()
+        workout = nil
+        builder = nil
+        workoutID = nil
+        lastRecordedBlockID = nil
+        pendingBlock = nil
+        pendingStateTransition = nil
+        isRecording = false
+        pulseBpm = nil
+        kcal = nil
+        averageBpm = nil
+    }
+
     func finish(_ callback: @escaping (Result) -> Void) {
         guard !finishing else { return }
         finishing = true

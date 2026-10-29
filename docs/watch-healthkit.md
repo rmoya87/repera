@@ -1,5 +1,7 @@
 # Repera Watch — ejecución offline y HealthKit
 
+Última actualización: 2026-10-29 (discard iPhone↔Watch + Descartar en UI)
+
 ## Fuente de verdad
 
 - **HealthKit (en Apple Watch):** `HKWorkoutSession` + `HKLiveWorkoutBuilder` registran FC, energía activa y duración verificada. Las calorías no se calculan usando repeticiones, MET ni el cronómetro de Repera.
@@ -18,7 +20,8 @@
 6. `HKMetadataKeyExternalUUID` enlaza el sample de Salud con la ejecución de Repera. Esto permite recuperarlo cuando `finishWorkout` devuelve un `HKWorkout` nil porque el reloj está bloqueado.
 7. El mirroring nativo de `HKWorkoutSession` avisa al iPhone del estado de la sesión; `WCSession.transferUserInfo` transfiere los resultados en segundo plano. La cola persiste hasta acuse del iPhone; la sesión repetida se reconcilia por UUID sin duplicar resultados. Un enriquecimiento tardío de Salud actualiza solo los campos de Salud.
    Para la **planificación de hoy**, el iPhone usa `updateApplicationContext` (último plan, incluso desconectado) y `sendMessage` (plan inmediato cuando el Watch está disponible). Si `WCSession` no está activada todavía, guarda en memoria el último snapshot protegido por `NSLock` y lo publica al completar la activación. El Watch solicita `requestToday` en el arranque, al recuperar conectividad, al volver al primer plano y desde «Sincronizar con iPhone». El iPhone responde con el snapshot disponible y vuelve a publicar los datos actuales.
-8. En primer plano, el iPhone busca por external UUID muestras aún pendientes de sincronizar desde Apple Salud y actualiza su sesión. La sincronización autenticada con Supabase continúa siendo independiente de las mediciones de Salud.
+8. **Terminar / descartar en iPhone:** al limpiar `activeSession` el iPhone publica `session: Data()` vacío. El Watch ya **no ignora** ese nil: `WatchSessionHub.discardActiveSession()` cierra UI, descarta `HKWorkoutSession` si grababa en el reloj, limpia el snapshot offline (`current: nil`) y **no resucita** al reabrir la app. El Watch también ofrece **Descartar entreno** en listo/en curso. El resumen «¡Bien hecho!» solo aparece si el Watch completó la sesión; un cierre desde el iPhone vuelve al plan del día.
+9. En primer plano, el iPhone busca por external UUID muestras aún pendientes de sincronizar desde Apple Salud y actualiza su sesión. La sincronización autenticada con Supabase continúa siendo independiente de las mediciones de Salud.
 
 ## Permisos y privacidad
 
