@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-28 (Play ownership Apple-parity; límites/favoritos/CTA)
+Última actualización: 2026-10-29 (página Repera Pro minimalista iOS/Android)
 
 ## 1. Arquitectura
 
@@ -47,6 +47,13 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | %→kg / 1RM básico / discos | ✓ | ✓ |
 
 Al perder Pro: **no se borran** rutinas, ejercicios ni entrenos; solo se bloquea crear por encima del límite. Los favoritos reales (plantillas marcadas y actividades de Comenzar) comparten una cuota de tres elementos en Gratis, independiente de la cuota de rutinas sin estrella. Las copias fechadas de un favorito no se cuentan dos veces; el estado personal se sincroniza mediante iCloud.
+
+### Presentación y contenido de Repera Pro (29/10/2026)
+
+- Al solicitar Pro desde Ajustes o desde una funcionalidad limitada, iOS presenta una **página completa** sobre la navegación de raíz mediante overlay, con transición horizontal y botón «Volver», en lugar de `.sheet`. Android sustituye `ReperaModalBottomSheet` por una pantalla completa dentro del host principal, con flecha y BackHandler. En onboarding se mantiene el flujo integrado y el botón «Seguir con Gratis».
+- Diseño sobrio: fondo `OG.bg` / `MaterialTheme`, mascota original (`ReperaMascotPose.hero`), cinco beneficios breves de las capacidades realmente sujetas a `FeatureAccessPolicy`, comparativa Gratis/Pro compacta, selección mensual/anual y CTA fijo al pie. En iOS solo hay un desplazamiento ambiental sutil de la mascota y su halo, desactivado con «Reducir movimiento».
+- El precio y las ofertas siguen viniendo exclusivamente de StoreKit/RevenueCat o Play Billing; no se prometen pruebas gratuitas si no son elegibles. Sin productos se muestra indisponibilidad y se deshabilita la compra. Se conservan restauración, gestión, privacidad, términos y explicación de renovación.
+- El plan Gratis **sí** incluye entrenamientos, reloj, historial general, métricas básicas y parte del equilibrio muscular; Pro amplía los periodos, detalle por ejercicio, análisis muscular avanzado, comparativas WOD, recomendaciones de progresión y cuotas. Ningún número de testimonios ni métrica promocional se inventa.
 
 ## 3. Identificadores comerciales
 
