@@ -1,3 +1,11 @@
+## Validación de acceso Pro a 3D y pricing compacto (2026-10-29)
+
+- [ ] TestFlight iOS y Android Play: usuario Pro mensual, anual, prueba y acceso patrocinado pueden pulsar 3D sin abrir página de precios. Comprobar que cambia de verdad a cámara inclinada.
+- [ ] Tras restaurar sesión: snapshot inicialmente Gratis que pasa a Pro al verificar compra. Un solo toque 3D debe refrescar y activar 3D, sin flash del pricing.
+- [ ] Con verificación sin red o en estado desconocido, no conceder 3D ni presentar un falso upsell; mostrar el aviso para comprobar acceso/restaurar. Gratis confirmado sí ve el paywall.
+- [ ] Si Pro queda verificado con el pricing abierto, la página se cierra; comprobar modo onboarding no afectado.
+- [ ] iOS/Android: una sola tabla Gratis/Pro con límites reales, mascota existente, precios desde App Store/Play y cuatro enlaces compactos en una línea en pantalla estándar; con texto accesible/tamaño grande los enlaces siguen alcanzables y legibles. Revisar iPhone pequeño, Android estrecho, horizontal y tablet.
+
 ## Verificación del seguimiento direccional del mapa (2026-10-29)
 
 - [ ] En iOS y Android, en Caminata/Carrera con GPS fiable, mantener 2D: el norte no queda fijo arriba; el mapa gira para que la flecha apunte en la dirección de desplazamiento. La cámara sigue el pin sin desplazarlo en 2D.
