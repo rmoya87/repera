@@ -240,10 +240,23 @@ object SportExerciseNames {
         englishToSpanish.mapKeys { (k, _) -> key(k) }
     }
 
-    /** No modificar el catálogo general de musculación ni gimnasia. */
-    fun displayName(name: String, sport: String?): String {
+    /**
+     * Nombre unificado por locale de la app (extra Ramón):
+     * es → «Cargada y envión»; en → «Clean and Jerk». Misma cadena en
+     * detalle, Reordenar, Inicio y Wear.
+     */
+    fun displayName(
+        name: String,
+        sport: String?,
+        locale: java.util.Locale = java.util.Locale.getDefault()
+    ): String {
         if (sport != "CrossFit" && sport != "Halterofilia") return name
-        return canonicalName(name)
+        val preferSpanish = locale.language.startsWith("es", ignoreCase = true)
+        return if (preferSpanish) {
+            spanishAlias(name) ?: name
+        } else {
+            canonicalName(name)
+        }
     }
 
     /**

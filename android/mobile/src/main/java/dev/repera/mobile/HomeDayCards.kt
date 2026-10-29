@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -292,6 +293,7 @@ internal fun HomeEmptyDayCard(day: LocalDate) {
 internal fun HomeCompletedWorkoutCard(
     workout: WorkoutHistoryEntry,
     day: LocalDate,
+    prCount: Int = 0,
     onClick: () -> Unit
 ) {
     val chips = buildList {
@@ -305,6 +307,9 @@ internal fun HomeCompletedWorkoutCard(
         }
         workout.recordedDistanceMeters?.takeIf { it > 0 }?.let {
             add(Icons.Outlined.Route to "${dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)} km")
+        }
+        if (prCount > 0) {
+            add(Icons.Outlined.EmojiEvents to "$prCount PR")
         }
         workout.review?.let {
             add(Icons.Outlined.Star to it.scoreLabel)

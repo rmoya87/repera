@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — P0 Play: Nuevo ejercicio (I-133), Configurar temporizador (I-41), menú Cancelar/Reordenar, notificación tempo libre (I-70).
+**Última actualización:** 2026-10-29 — Extra Ramón: PR calc, tap serie, Actividad tras delete, locale nombres, mapa chip todos modos, Wear Descartar; Settings Acceso + Reordenar sheet.
 
 Implementación nativa independiente en `android/`:
 

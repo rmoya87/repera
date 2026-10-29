@@ -47,12 +47,14 @@ internal fun FinishedWorkoutEditorSection(
     val hasRoute = workout.routePoints.size >= 2
     if (!editing) {
         if (!hasRoute && workout.locationPin != null) {
-            ReperaSectionTitle("Lugar")
-            Text(workout.locationPin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa")
-            RouteMapTapTarget(label="Ampliar ubicación",
-                modifier=Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp))) { interactive,mapModifier ->
-                PlacePinMap(workout.locationPin.latitude,workout.locationPin.longitude,
-                    isInteractive=interactive,modifier=mapModifier)
+            // Mismo criterio mapa que selector: full-bleed + chip (extra Ramón / §2ter).
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                WorkoutPlacePickerRow(
+                    pin = workout.locationPin,
+                    accountId = accountId,
+                    onPinChange = {},
+                    readOnly = true
+                )
             }
         }
         workout.notes?.let {

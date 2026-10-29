@@ -708,7 +708,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sessionCache.edit().putStringSet("discardedSessionIds", trimmed).apply()
     }
 
-        /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
+    /** Terminar la sesión desde el reloj (mismo resultado que finish en iOS). */
     private fun finishSessionFromWatch(session: WatchSessionSummary) {
         if(visibleSession?.sessionId!=session.sessionId) {
             sendStatus="La sesión cambió; revisa el entrenamiento antes de terminar";return

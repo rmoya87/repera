@@ -11,10 +11,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -30,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
@@ -52,7 +60,8 @@ fun SessionPreviewSheet(
     onClose: () -> Unit,
     /** Apple 3cb329f3/3666d1ac: destino unico administrado por el padre;
      *  cada fila abre SOLO el ejercicio pulsado. */
-    onOpenExercise: (String) -> Unit = {}
+    onOpenExercise: (String) -> Unit = {},
+    onToggleFavorite: (Boolean) -> Unit = {}
 ) {
     val day = dayLabel(routine)
     Column(
@@ -74,6 +83,17 @@ fun SessionPreviewSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            // Toolbar iOS: ☆ ··· ▶
+            IconButton(
+                enabled = !busy,
+                onClick = { onToggleFavorite(!routine.isFavorite) }
+            ) {
+                Icon(
+                    if (routine.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                    contentDescription = if (routine.isFavorite) "Quitar de favoritos" else "Favorito",
+                    tint = if (routine.isFavorite) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             var menuOpen by remember { mutableStateOf(false) }
             var confirmDelete by remember { mutableStateOf(false) }
             Box {
@@ -88,6 +108,20 @@ fun SessionPreviewSheet(
                         text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuOpen = false; confirmDelete = true })
                 }
+            }
+            IconButton(
+                enabled = !busy && routine.supported,
+                onClick = { onStart(); onClose() },
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(brandGreen)
+            ) {
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = "Empezar entrenamiento",
+                    tint = Color.Black
+                )
             }
             if (confirmDelete) {
                 androidx.compose.material3.AlertDialog(

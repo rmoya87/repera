@@ -114,6 +114,7 @@ internal fun HomeTab(
     onNavigateCreate: () -> Unit,
     /** Editar contenido de una rutina planificada (ruta `rutina/{id}`). */
     onEditRoutineContent: (String) -> Unit = {},
+    onSetRoutineFavorite: (String, Boolean) -> Unit = { _, _ -> },
     // «＋» del día seleccionado (DayPlusSheet iOS desde HomeView, c5aae1cc).
     onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
     onDayPlusFavorites: (String) -> Unit = {},
@@ -237,7 +238,10 @@ internal fun HomeTab(
                             onEdit = if (workout.timerDetails == null)
                                 ({ expanded = true }) else null
                         ) {
-                            HomeCompletedWorkoutCard(workout, day) { expanded = !expanded }
+                            HomeCompletedWorkoutCard(
+                                workout, day,
+                                prCount = overview?.prCountBySessionId?.get(workout.id) ?: 0
+                            ) { expanded = !expanded }
                         }
                         if (expanded) {
                             WorkoutHistoryCard(
@@ -296,7 +300,10 @@ internal fun HomeTab(
                                         onRemoveScheduledRoutine(routine.id)
                                     },
                                     onClose = { preview = false },
-                                    onOpenExercise = onOpenExercise
+                                    onOpenExercise = onOpenExercise,
+                                    onToggleFavorite = { fav ->
+                                        onSetRoutineFavorite(routine.id, fav)
+                                    }
                                 )
                             }
                         }

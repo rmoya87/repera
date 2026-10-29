@@ -47,7 +47,9 @@ data class StatsSet(
     val isWarmup: Boolean = false,
     val rir: Double? = null,
     val durationSeconds: Int? = null,
-    val drops: List<Pair<Int, Double?>> = emptyList()
+    val drops: List<Pair<Int, Double?>> = emptyList(),
+    /** true = fallback prescrito (sesión terminada sin loggedSets). No cuenta como PR. */
+    val fromPrescription: Boolean = false
 ) {
     /** Volumen en kg (LoggedSet.volumeKg, Models.swift:728). */
     val volumeKg: Double
@@ -80,7 +82,8 @@ data class StatsWorkout(
     /** Deporte registrado desde "Comenzar" (LiveSport.id); null en sesiones
      *  clásicas. Cambia el criterio cardio y el día asignado lo decide el
      *  adaptador (día de INICIO para sesiones en vivo, como StatsEngine.swift). */
-    val liveSportID: String? = null
+    val liveSportID: String? = null,
+    val sessionId: String? = null
 ) {
     val totalVolumeKg: Double get() = exercises.sumOf { e -> e.sets.sumOf { it.volumeKg } }
 }
@@ -169,6 +172,7 @@ object StatsEngine {
             for (exercise in workout.exercises) {
                 if (exercise.isMobility) continue
                 for (set in exercise.sets) {
+                    if (set.fromPrescription || set.isWarmup) continue
                     val weight = set.weightKg ?: continue
                     if (weight <= 0 || set.reps <= 0) continue
                     val candidate = PersonalRecord(
@@ -183,6 +187,44 @@ object StatsEngine {
             }
         }
         return best.values.sortedByDescending { it.estimatedOneRM }
+    }
+
+    /**
+     * PRs por sesión (paridad StatsEngine.personalRecordCountsBySessionId iOS +
+     * arreglo Ramón): solo series **registradas** (no prescritas WOD); el primer
+     * registro de un ejercicio no cuenta como PR (hace falta batir un e1RM previo).
+     */
+    fun personalRecordCountsBySessionId(workouts: List<StatsWorkout>): Map<String, Int> {
+        val dated = workouts.mapNotNull { w ->
+            val id = w.sessionId ?: return@mapNotNull null
+            if (!w.finished) return@mapNotNull null
+            id to w
+        }.sortedWith(compareBy({ it.second.epochMillis }, { it.first }))
+        val bestE1RM = mutableMapOf<String, Double>()
+        val result = mutableMapOf<String, Int>()
+        for ((id, session) in dated) {
+            var count = 0
+            val sessionBests = mutableListOf<Pair<String, Double>>()
+            for (exercise in session.exercises) {
+                if (exercise.isMobility) continue
+                val work = exercise.sets.filter {
+                    !it.fromPrescription && !it.isWarmup &&
+                        (it.weightKg ?: 0.0) > 0 && it.reps > 0
+                }
+                if (work.isEmpty()) continue
+                val sessionBest = work.maxOf { epleyOneRM(it.weightKg!!, it.reps) }
+                if (sessionBest <= 0) continue
+                val prior = bestE1RM[exercise.exerciseId] ?: 0.0
+                // Primer registro ≠ PR: exige batir una marca previa real.
+                if (prior > 0.0 && sessionBest > prior + 0.05) count += 1
+                sessionBests.add(exercise.exerciseId to sessionBest)
+            }
+            result[id] = count
+            for ((exerciseId, best) in sessionBests) {
+                bestE1RM[exerciseId] = maxOf(bestE1RM[exerciseId] ?: 0.0, best)
+            }
+        }
+        return result
     }
 
     // ---- Series semanales -------------------------------------------------

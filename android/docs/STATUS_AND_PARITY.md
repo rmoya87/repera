@@ -4,9 +4,7 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Wear F-5 (#153): Descartar + sync
-phone→Wear no resucita + locale nombres; W-01…W-10 (#150); mobile P0 Play
-I-133/I-41/I-40/I-70 + ampliación Ramón (#148/#149).
+**Última actualización:** 2026-10-29 — Extra Ramón mobile (§2bis PR/serie/Actividad/locale/mapa) + Settings/Reordenar; Wear F-5 (#153) Descartar/sync/locale.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

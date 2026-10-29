@@ -44,7 +44,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
@@ -517,6 +520,7 @@ fun ReperaMobileScreen(
                         onEditRoutineContent = { id ->
                             navController.navigate("rutina/" + Uri.encode(id))
                         },
+                        onSetRoutineFavorite = onSetRoutineFavorite,
                         onDeleteRoutine = onDeleteRoutine,
                         onRemoveScheduledRoutine = onRemoveScheduledRoutine,
                         restoreDayPlus = restoreDayPlus,
@@ -1192,26 +1196,81 @@ internal fun SettingsTab(
     Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ReperaPageHeader(title = "Ajustes")
-        ReperaSectionTitle("Perfil")
+        val settingsSubs = LocalSubscriptions.current
+        val settingsScope = rememberCoroutineScope()
+        var restoreBusy by remember { mutableStateOf(false) }
+        var restoreMessage by remember { mutableStateOf<String?>(null) }
+        ReperaSectionTitle("Cuenta")
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ProfileSettingsSection(overview?.profileSettings ?: ProfileSettings(),busy || overview==null,onUpdateProfile)
+                TextButton(
+                    onClick = { confirmSignOut = true },
+                    enabled = !busy && !deletingAccount,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cerrar sesión", color = MaterialTheme.colorScheme.error)
+                }
             }
         }
-        ReperaSectionTitle("Entrenamiento")
+        ReperaSectionTitle("Centro y entrenador")
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
-                if(overview?.trainingSettings?.scheduleMode=="rotation")
-                    RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
+                OutlinedButton(onClick=onOpenCenter,enabled=!busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("Buscar ›")
+                }
             }
         }
-        ReperaSectionTitle("Cuenta y Pro")
+        ReperaSectionTitle("Acceso")
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick=onOpenCenter,enabled=!busy, modifier = Modifier.fillMaxWidth()) {Text("Mis centros y entrenadores")}
-                proStatus?.let {Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)}
-                OutlinedButton(onClick=onOpenPro,enabled=!busy, modifier = Modifier.fillMaxWidth()) {Text("Repera Pro")}
+                proStatus?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                OutlinedButton(onClick=onOpenPro,enabled=!busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("Descubrir Pro")
+                }
+                OutlinedButton(
+                    onClick = {
+                        restoreBusy = true
+                        restoreMessage = null
+                        settingsScope.launch {
+                            val ok = settingsSubs?.restorePurchases() == true
+                            restoreBusy = false
+                            restoreMessage = if (ok) "Acceso Pro actualizado"
+                            else "No hay compras para restaurar"
+                        }
+                    },
+                    enabled = !busy && !restoreBusy,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (restoreBusy) "Comprobando…" else "Comprobar acceso Pro") }
+                OutlinedButton(
+                    onClick = {
+                        restoreBusy = true
+                        restoreMessage = null
+                        settingsScope.launch {
+                            val ok = settingsSubs?.restorePurchases() == true
+                            restoreBusy = false
+                            restoreMessage = if (ok) "Compras restauradas"
+                            else "No hay compras para restaurar"
+                        }
+                    },
+                    enabled = !busy && !restoreBusy,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Restaurar compras") }
+                restoreMessage?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAIAccess)
+                    .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Conecta tu IA ›", modifier = Modifier.weight(1f))
+                    Icon(Icons.Outlined.KeyboardArrowRight, contentDescription = null)
+                }
             }
         }
         ReperaSectionTitle("Salud")
@@ -1221,11 +1280,14 @@ internal fun SettingsTab(
                 HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
             }
         }
-        ReperaSectionTitle("Historial")
+        ReperaSectionTitle("Entrenamiento")
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Historial de entrenamientos")}
-                OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Peso corporal")}
+                OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Historial ›")}
+                OutlinedButton(onClick=onOpenBodyWeights,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Peso ›")}
+                TrainingSettingsSection(overview?.trainingSettings ?: TrainingSettings(),busy || overview==null,onUpdateTrainingSettings)
+                if(overview?.trainingSettings?.scheduleMode=="rotation")
+                    RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
             }
         }
         ReperaSectionTitle("Datos")
@@ -1233,17 +1295,6 @@ internal fun SettingsTab(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }
                 OutlinedButton(onClick=onExportJson,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Exportar JSON")}
-                OutlinedButton(onClick={confirmSignOut=true},enabled=!busy && !deletingAccount, modifier = Modifier.fillMaxWidth()) {Text("Cerrar sesión")}
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenAIAccess)
-                    .padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Conecta tu IA", style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f))
-                    Icon(imageVector = Icons.Outlined.KeyboardArrowRight,
-                        contentDescription = null)
-                }
                 // Misma sección Datos de iOS: traspaso del JSON de Apple y CSV.
                 OutlinedButton(onClick = onImportJson, enabled = !busy && !deletingAccount,
                     modifier = Modifier.fillMaxWidth()) {
