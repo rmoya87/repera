@@ -1,5 +1,8 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -12,19 +15,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.PauseCircle
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -43,12 +56,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WorkoutLocationPin
 import java.time.LocalDate
 import java.time.LocalTime
+import java.util.Locale
 
 /** Editor de contenido de rutina: bloques (secciones), formatos y movimientos.
  *  Multi-bloque: buy-in / trabajo / cash-out se componen como bloques
@@ -115,8 +132,11 @@ fun RoutineBlocksEditorScreen(
     var showReorder by remember { mutableStateOf(false) }
 
     if (showReorder) {
-        ReperaModalBottomSheet(onDismissRequest = { showReorder = false }) {
-            PlanReorderSheet(
+        Dialog(
+            onDismissRequest = { showReorder = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            PlanReorderFullscreen(
                 blocks = blocks,
                 nameById = nameById,
                 exercises = exercises,
@@ -190,23 +210,39 @@ fun RoutineBlocksEditorScreen(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedTextField(
+                    BasicTextField(
                         value = draftTitle,
                         onValueChange = { draftTitle = it },
                         enabled = !busy,
-                        label = { Text(if (sessionMode) "Nombre del entreno" else "Nombre del entreno") },
+                        textStyle = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("workout_meta_title")
                     )
                     scheduledDayIso?.let { iso ->
-                        val dayLabel = runCatching { LocalDate.parse(iso).format(reperaDayFormatter) }
-                            .getOrDefault(iso)
+                        val dayLabel = runCatching {
+                            LocalDate.parse(iso).format(reperaPlanDayFormatter)
+                                .replaceFirstChar {
+                                    if (it.isLowerCase()) it.titlecase(Locale("es", "ES"))
+                                    else it.toString()
+                                }
+                        }.getOrDefault(iso)
                         Text(dayLabel, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium)
                     }
                     if (oneOffEditor) {
                         val ctx = androidx.compose.ui.platform.LocalContext.current
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Hora programada",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
                             androidx.compose.material3.Switch(
                                 checked = scheduledClock != null,
                                 onCheckedChange = { on ->
@@ -215,43 +251,56 @@ fun RoutineBlocksEditorScreen(
                                 colors = reperaSwitchColors(),
                                 modifier = Modifier.testTag("workout_scheduled_time_switch")
                             )
-                            Text("  Hora programada", style = MaterialTheme.typography.bodyLarge)
-                            if (scheduledClock != null) {
-                                val t = runCatching { LocalTime.parse(scheduledClock) }
-                                    .getOrDefault(LocalTime.of(18, 0))
-                                TextButton(
-                                    modifier = Modifier.testTag("workout_scheduled_time"),
-                                    onClick = {
-                                        android.app.TimePickerDialog(
-                                            ctx,
-                                            { _, h, mi -> scheduledClock = "%02d:%02d".format(h, mi) },
-                                            t.hour,
-                                            t.minute,
-                                            true
-                                        ).show()
-                                    }
-                                ) { Text(scheduledClock!!) }
-                            }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (scheduledClock != null) {
+                            TextButton(
+                                modifier = Modifier.testTag("workout_scheduled_time"),
+                                onClick = {
+                                    val t = runCatching { LocalTime.parse(scheduledClock) }
+                                        .getOrDefault(LocalTime.of(18, 0))
+                                    android.app.TimePickerDialog(
+                                        ctx,
+                                        { _, h, mi -> scheduledClock = "%02d:%02d".format(h, mi) },
+                                        t.hour,
+                                        t.minute,
+                                        true
+                                    ).show()
+                                }
+                            ) { Text(scheduledClock!!) }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Favorito",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
                             androidx.compose.material3.Switch(
                                 checked = oneOffFavorite,
                                 onCheckedChange = { oneOffFavorite = it },
                                 colors = reperaSwitchColors(),
                                 modifier = Modifier.testTag("workout_favorite_switch")
                             )
-                            Text("  Favorito", style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                     if (sessionMode) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Favorito",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
                             androidx.compose.material3.Switch(
                                 checked = asFavorite,
                                 onCheckedChange = { asFavorite = it },
                                 colors = reperaSwitchColors(),
                                 modifier = Modifier.testTag("session_favorite_switch")
                             )
-                            Text("  Favorito", style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
@@ -285,79 +334,84 @@ fun RoutineBlocksEditorScreen(
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         saveStatus?.let {Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("routine_save_status"))}
 
-        val blockHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         blocks.forEachIndexed { index, block ->
-            DragReorderItem(index, blockHeights, blocks.size,
-                onDrop = { _, t -> if (t != index) { val moved = blocks.removeAt(index); blocks.add(t, moved) } },
-                onMoveTo = { t -> if (t != index && t in blocks.indices) { val moved = blocks.removeAt(index); blocks.add(t, moved) } },
-                onBounds = { top, bottom -> geo.blocks[index] = top to bottom }) { handle ->
-                BlockEditorCard(
-                    block = block,
-                    nameById = nameById,
-                    exercises = exercises,
-                    loadGuideProvider = loadGuideProvider,
-                    onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
-                    onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
-                    onBlockUp = if (index > 0) ({ val m = blocks.removeAt(index); blocks.add(index - 1, m) }) else null,
-                    onBlockDown = if (index < blocks.size - 1) ({ val m = blocks.removeAt(index); blocks.add(index + 1, m) }) else null,
-                    effortUnit = effortUnit,
-                    handle = handle,
-                    moveTargets = blocks.mapIndexedNotNull { ti, tb ->
-                        if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
-                    onMoveEntry = { entryIndex, targetIndex ->
-                        error = PlanEntryMoves.move(blocks, index, entryIndex, targetIndex, nameById, exercises)
-                    },
-                    onEntryBounds = { ei, top, bottom -> geo.items.getOrPut(index) { mutableMapOf() }[ei.toString()] = top to bottom },
-                    onEntryDrop = { ei, centerY, sameTarget ->
-                        // Soltar fuera de todo bloque = inválido: no cambia nada. Otro bloque = misma conversión que "Mover".
-                        val tb = EditorBlockOps.dropBlockIndex(centerY, geo.blockBounds(blocks.size))
-                        if (tb != null) {
-                            if (tb == index) {
-                                if (sameTarget != ei) { val moved = block.entries.removeAt(ei); block.entries.add(sameTarget, moved) }
-                            } else {
-                                val n = blocks[tb].entries.size
-                                val before = EditorBlockOps.dropBeforeId(centerY,
-                                    (geo.items[tb] ?: emptyMap<String, Pair<Float, Float>>()).filterKeys { (it.toIntOrNull() ?: Int.MAX_VALUE) < n }.toList())
-                                error = PlanEntryMoves.move(blocks, index, ei, tb, nameById, exercises, before?.toIntOrNull())
-                            }
+            val sectionTitle = block.title.ifBlank { "Bloque ${index + 1}" }
+            ReperaSectionTitle(sectionTitle)
+            BlockEditorCard(
+                block = block,
+                nameById = nameById,
+                exercises = exercises,
+                loadGuideProvider = loadGuideProvider,
+                onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
+                onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
+                onInsertRestBlock = {
+                    val rest = EditorBlockOps.restMovement()
+                    val ui = BlockDraftUi(
+                        RoutineBlockInfo(title = "Descanso", format = "forTime", rounds = 1)
+                    )
+                    ui.entries.add(
+                        EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString())
+                    )
+                    blocks.add(ui)
+                },
+                effortUnit = effortUnit,
+                moveTargets = blocks.mapIndexedNotNull { ti, tb ->
+                    if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
+                onMoveEntry = { entryIndex, targetIndex ->
+                    error = PlanEntryMoves.move(blocks, index, entryIndex, targetIndex, nameById, exercises)
+                },
+                onEntryBounds = { ei, top, bottom -> geo.items.getOrPut(index) { mutableMapOf() }[ei.toString()] = top to bottom },
+                onEntryDrop = { ei, centerY, sameTarget ->
+                    val tb = EditorBlockOps.dropBlockIndex(centerY, geo.blockBounds(blocks.size))
+                    if (tb != null) {
+                        if (tb == index) {
+                            if (sameTarget != ei) { val moved = block.entries.removeAt(ei); block.entries.add(sameTarget, moved) }
+                        } else {
+                            val n = blocks[tb].entries.size
+                            val before = EditorBlockOps.dropBeforeId(centerY,
+                                (geo.items[tb] ?: emptyMap<String, Pair<Float, Float>>()).filterKeys { (it.toIntOrNull() ?: Int.MAX_VALUE) < n }.toList())
+                            error = PlanEntryMoves.move(blocks, index, ei, tb, nameById, exercises, before?.toIntOrNull())
                         }
                     }
-                )
-            }
+                }
+            )
         }
-        TextButton(onClick = {
-            // Semilla con título numerado (paridad «Bloque N» iOS).
-            val n = blocks.size + 1
-            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "strength")))
-        }, enabled = !busy) {
-            Text("Añadir bloque")
-        }
-        // Tras un bloque de fuerza: insertar WOD «Descanso» (insertRest iOS).
-        TextButton(
-            modifier = Modifier.testTag("plan_insert_rest_block"),
-            onClick = {
-                val rest = EditorBlockOps.restMovement()
-                val ui = BlockDraftUi(
-                    RoutineBlockInfo(title = "Descanso", format = "forTime", rounds = 1)
-                )
-                ui.entries.add(
-                    EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString())
-                )
-                blocks.add(ui)
-            },
-            enabled = !busy
-        ) { Text("Añadir descanso") }
-        // Equivalente de «Elegir WOD», «Añadir favorito» y «Añadir rutina» (DayEditorView).
         var showWods by remember { mutableStateOf(false) }
         var showRoutines by remember { mutableStateOf(false) }
         var showFavorites by remember { mutableStateOf(false) }
-        TextButton(modifier = Modifier.testTag("plan_pick_wod"), onClick = { showWods = true }, enabled = !busy) { Text("Elegir WOD") }
         val favorites = importableRoutines.filter { it.id != routine.id && it.isFavorite && it.blocks.isNotEmpty() }
-        TextButton(
-            modifier = Modifier.testTag("plan_add_favorite"),
-            onClick = { showFavorites = true },
-            enabled = !busy
-        ) { Text("Añadir favorito") }
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.ViewAgenda,
+                    label = "Añadir bloque",
+                    modifier = Modifier.testTag("plan_add_block_row"),
+                    onClick = {
+                        val n = blocks.size + 1
+                        blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
+                    },
+                    enabled = !busy
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.List,
+                    label = "Elegir WOD",
+                    modifier = Modifier.testTag("plan_pick_wod"),
+                    onClick = { showWods = true },
+                    enabled = !busy
+                )
+                if (favorites.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    PlanEditorActionRow(
+                        icon = Icons.Outlined.Star,
+                        label = "Añadir favorito",
+                        modifier = Modifier.testTag("plan_add_favorite"),
+                        onClick = { showFavorites = true },
+                        enabled = !busy
+                    )
+                }
+            }
+        }
         if (showFavorites) {
             AddFavoriteSheet(
                 favorites = favorites,
@@ -369,9 +423,7 @@ fun RoutineBlocksEditorScreen(
             )
         }
         val importable = importableRoutines.filter { it.id != routine.id && it.blocks.isNotEmpty() }
-        if (importable.isNotEmpty())
-            TextButton(modifier = Modifier.testTag("plan_add_routine"), onClick = { showRoutines = true }, enabled = !busy) { Text("Añadir rutina") }
-        if (showRoutines) androidx.compose.material3.AlertDialog(
+        if (importable.isNotEmpty() && showRoutines) androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRoutines = false },
             confirmButton = { TextButton(onClick = { showRoutines = false }) { Text("Cancelar") } },
             title = { Text("Añadir rutina") },
@@ -495,7 +547,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val blockId: String? = info?.id
     val sourceJson: String? = info?.sourceJson
     var title by mutableStateOf(info?.title ?: "")
-    var format by mutableStateOf(info?.format ?: "strength")
+    var format by mutableStateOf(info?.format ?: "")
     var timeCap by mutableStateOf((info?.timeCapMinutes ?: 12).toString())
     var rounds by mutableStateOf((info?.rounds ?: 1).toString())
     var interval by mutableStateOf((info?.emomIntervalSeconds ?: 60).toString())
@@ -544,7 +596,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 weightKg = if (entry.weight.isBlank()) null
                     else dev.repera.domain.ReperaNumberFormat.parse(entry.weight) ?: return null
             )
-            if (format == "strength" && (entry.setsExpanded || entry.untouchedUniform))
+            if ((format.isBlank() || format == "strength") && (entry.setsExpanded || entry.untouchedUniform))
                 base.copy(plannedSets = entry.plannedSets.toList())
             else base
         }
@@ -641,61 +693,82 @@ private fun BlockEditorCard(
     exercises: List<ExerciseEntry>,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: (() -> Unit)?,
-    handle: Modifier = Modifier,
     moveTargets: List<Pair<Int, String>> = emptyList(),
     onMoveEntry: (Int, Int) -> Unit = { _, _ -> },
     onEntryBounds: (Int, Float, Float) -> Unit = { _, _, _ -> },
     onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> },
-    onBlockUp: (() -> Unit)? = null,
-    onBlockDown: (() -> Unit)? = null,
     onOpenReorder: (() -> Unit)? = null,
+    onInsertRestBlock: () -> Unit = {},
     effortUnit: String = "rir"
 ) {
     val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
+    val isStrengthLike = block.format.isBlank() || block.format == "strength"
+    var showExercisePicker by remember { mutableStateOf(false) }
+    var showFreeMove by remember { mutableStateOf(false) }
+    var showFormats by remember { mutableStateOf(false) }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("plan_block_drag").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(
+                BasicTextField(
                     value = block.title,
                     onValueChange = { block.title = it },
-                    label = { Text("Título del bloque") },
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
                     singleLine = true,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).testTag("plan_block_title")
                 )
                 var blockMenu by remember { mutableStateOf(false) }
-                if (onOpenReorder != null || onRemove != null) {
-                    IconButton(
-                        onClick = { blockMenu = true },
-                        modifier = Modifier.testTag("plan_block_menu")
-                    ) {
-                        Icon(Icons.Outlined.MoreVert, contentDescription = "Opciones del bloque")
+                IconButton(
+                    onClick = { blockMenu = true },
+                    modifier = Modifier.testTag("plan_block_menu")
+                ) {
+                    Icon(Icons.Outlined.MoreHoriz, contentDescription = "Opciones del bloque")
+                }
+                DropdownMenu(expanded = blockMenu, onDismissRequest = { blockMenu = false }) {
+                    onOpenReorder?.let {
+                        DropdownMenuItem(
+                            text = { Text("Reordenar") },
+                            modifier = Modifier.testTag("plan_reorder_open"),
+                            onClick = { blockMenu = false; it() }
+                        )
                     }
-                    DropdownMenu(expanded = blockMenu, onDismissRequest = { blockMenu = false }) {
-                        onOpenReorder?.let {
-                            DropdownMenuItem(
-                                text = { Text("Reordenar") },
-                                modifier = Modifier.testTag("plan_reorder_open"),
-                                onClick = { blockMenu = false; it() }
-                            )
-                        }
-                        onRemove?.let { remove ->
-                            DropdownMenuItem(
-                                text = { Text("Eliminar bloque") },
-                                onClick = { blockMenu = false; remove() }
-                            )
-                        }
+                    DropdownMenuItem(
+                        text = { Text("Añadir ejercicio") },
+                        modifier = Modifier.testTag("plan_block_add_exercise"),
+                        onClick = { blockMenu = false; showExercisePicker = true }
+                    )
+                    onRemove?.let { remove ->
+                        DropdownMenuItem(
+                            text = { Text("Eliminar bloque", color = MaterialTheme.colorScheme.error) },
+                            onClick = { blockMenu = false; remove() }
+                        )
                     }
                 }
             }
-            // I-62: fila «Formato ›» abre hoja con descripciones (paridad PlanView.formatSettings).
-            var showFormats by remember { mutableStateOf(false) }
-            TextButton(
-                onClick = { showFormats = true },
-                modifier = Modifier.testTag("plan_block_format")
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { showFormats = true }
+                    .padding(vertical = 6.dp)
+                    .testTag("plan_block_format"),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Formato › ${BlockFormatCatalog.title(block.format)}")
+                Text("Formato", style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    BlockFormatCatalog.title(block.format),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             if (showFormats) {
                 BlockFormatPickerSheet(
@@ -752,7 +825,7 @@ private fun BlockEditorCard(
                         entry = entry,
                         resolvedName = entry.name.ifBlank {
                             nameById[entry.exerciseId] ?: "Ejercicio" },
-                        isStrength = block.format == "strength",
+                        isStrength = isStrengthLike,
                         mobility=exercises.firstOrNull {it.id==entry.exerciseId}?.sportTag=="Movilidad",
                         mobilityHold=exercises.firstOrNull {it.id==entry.exerciseId}?.mobilityHold==true,
                         // Apple 63824a81 + f7109bd7: el selector de unidad se
@@ -776,12 +849,13 @@ private fun BlockEditorCard(
                 }
               }
             }
-            // iOS WorkoutWODInsertActions: Descanso + Movimiento libre en bloques WOD.
-            // Desde fuerza, el descanso se inserta como bloque hermano (ver «Añadir descanso»).
-            var showFreeMove by remember { mutableStateOf(false) }
-            if (block.format != "strength") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(modifier = Modifier.testTag("plan_add_rest"), onClick = {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            WorkoutWODInsertActions(
+                onExercise = { showExercisePicker = true },
+                onRest = {
+                    if (isStrengthLike) {
+                        onInsertRestBlock()
+                    } else {
                         val rest = EditorBlockOps.restMovement()
                         block.entries.add(
                             EntryUi(
@@ -789,13 +863,10 @@ private fun BlockEditorCard(
                                 rest.getString("id"), rest.toString()
                             )
                         )
-                    }) { Text("Descanso") }
-                    TextButton(
-                        modifier = Modifier.testTag("plan_add_free_move"),
-                        onClick = { showFreeMove = true }
-                    ) { Text("Movimiento libre") }
-                }
-            }
+                    }
+                },
+                onFreeMovement = { showFreeMove = true }
+            )
             if (showFreeMove) {
                 FreeMovementDialog(
                     onDismiss = { showFreeMove = false },
@@ -811,11 +882,99 @@ private fun BlockEditorCard(
                     }
                 )
             }
-            AddExerciseRow(exercises = exercises,
-                excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet()) { chosen ->
-                block.entries.add(EntryUi(chosen.id, chosen.name, 10, 3, null))
+            if (showExercisePicker) {
+                ExercisePickerSheet(
+                    exercises = exercises,
+                    excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
+                    onPick = {
+                        block.entries.add(EntryUi(it.id, it.name, 10, 3, null))
+                        showExercisePicker = false
+                    },
+                    onDismiss = { showExercisePicker = false }
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun WorkoutWODInsertActions(
+    onExercise: () -> Unit,
+    onRest: () -> Unit,
+    onFreeMovement: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        WorkoutInlineAddButton(
+            label = "Ejercicio",
+            icon = Icons.Outlined.AddCircle,
+            onClick = onExercise,
+            modifier = Modifier.testTag("plan_add_exercise")
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            WorkoutInlineAddButton(
+                label = "Descanso",
+                icon = Icons.Outlined.PauseCircle,
+                onClick = onRest,
+                modifier = Modifier.weight(1f).testTag("plan_add_rest")
+            )
+            WorkoutInlineAddButton(
+                label = "Movimiento libre",
+                icon = Icons.Outlined.Add,
+                onClick = onFreeMovement,
+                modifier = Modifier.weight(1f).testTag("plan_add_free_move")
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkoutInlineAddButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+        border = BorderStroke(1.dp, brandGreen.copy(alpha = 0.35f)),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = brandGreen)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(label, fontWeight = FontWeight.SemiBold, maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun PlanEditorActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = brandGreen)
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Icon(
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -1206,52 +1365,6 @@ private fun EntryEditorRow(
         }
     }
 }
-
-@Composable
-private fun AddExerciseRow(
-    exercises: List<ExerciseEntry>,
-    excluded: Set<String>,
-    onAdd: (ExerciseEntry) -> Unit
-) {
-    var query by remember { mutableStateOf("") }
-    var showPicker by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = query, onValueChange = { query = it },
-                label = { Text("Añadir ejercicio") }, singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(
-                onClick = { showPicker = true },
-                modifier = Modifier.testTag("plan_pick_exercise")
-            ) { Text("Elegir") }
-        }
-        if (showPicker) {
-            ExercisePickerSheet(
-                exercises = exercises,
-                excluded = excluded,
-                onPick = { onAdd(it); showPicker = false; query = "" },
-                onDismiss = { showPicker = false }
-            )
-        }
-        if (query.isNotBlank()) {
-            val matches = exercises.filter {
-                it.id !in excluded && it.name.contains(query, ignoreCase = true)
-            }.take(6)
-            matches.forEach { match ->
-                TextButton(onClick = { onAdd(match); query = "" }) {
-                    Text("+ " + match.name)
-                }
-            }
-            if (matches.isEmpty()) {
-                Text("Sin coincidencias", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        Spacer(Modifier.height(2.dp))
-    }
-}
-
 
 /** Escribe series WOD del plan en sourceJson (explicitPlannedSets + reps/repScheme). */
 private fun syncWodPlannedSets(entry: EntryUi) {
