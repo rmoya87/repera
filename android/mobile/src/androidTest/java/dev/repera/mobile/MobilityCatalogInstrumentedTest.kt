@@ -22,11 +22,11 @@ class MobilityCatalogInstrumentedTest {
         // + 2 Hyrox + 8 halterofilia nuevas) con los mismos UUID v3 que la
         // migración genera para instalaciones antiguas, así ambas generaciones
         // comparten identidad.
-        assertEquals(288, before.getJSONArray("exercises").length())
+        assertEquals(289, before.getJSONArray("exercises").length())
         assertFalse(MobilityCatalogMigration.ensure(context, account))
         val migrated = JSONObject(String(store.read()!!))
         val exercises = migrated.getJSONArray("exercises")
-        assertEquals(288, exercises.length())
+        assertEquals(289, exercises.length())
         val mobility = (0 until exercises.length()).map { exercises.getJSONObject(it) }
             .filter { it.optString("sportTag") == "Movilidad" }
         assertEquals(82, mobility.size)
@@ -55,7 +55,7 @@ class MobilityCatalogInstrumentedTest {
         val aliases = ExerciseSearchAssets.load(context)
         assertEquals("Flexión cervical suave",
             aliases[dev.repera.domain.ExerciseAliasSearch.normalize("Neck flexion stretch")])
-        assertEquals(288, StateOverview.fromBytes(store.read())!!.exercises)
+        assertEquals(289, StateOverview.fromBytes(store.read())!!.exercises)
     }
 
     @Test fun importedIosHyroxStationWithoutCatalogIdDedupesByCanonicalName() {

@@ -61,7 +61,7 @@ class ExerciseDetailInstrumentedTest {
             // Huecos compartidos con iOS: ninguno resuelve en el nameMap actual de
             // ExerciseArt.swift (Jerk Dip and Drive es alta reciente sin arte aún).
             listOf("Jerk Dip and Drive", "Remo pliométrico en anillas pies elevados"), missing)
-        assertEquals(370, total)  // 288 del seed unificado + 82 de mobility_seed (cobertura de arte)
+        assertEquals(371, total)  // 289 del seed unificado + 82 de mobility_seed (cobertura de arte)
         for (critical in listOf("Snatch", "Hang Snatch", "Clean and Jerk", "Squat Jerk",
                 "Snatch High Pull", "Clean High Pull", "Clean Deadlift",
                 "Block Power Snatch", "Block Power Clean", "Snatch-Grip Push Press")) {

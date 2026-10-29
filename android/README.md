@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Paridad Comenzar/historial/review: `SessionReviewSheet` solo Listo; historial completo empuja detalle; idle Comenzar sin «Crear entrenamiento»/Center; compile fix `DragReorderItem.modifier` en main (#164).
+**Última actualización:** 2026-10-29 — Revisión 3: `CatalogBootstrap` sin conteo fijo (289 seed + Supabase); Ajustes/PlanView/Reordenar/picker 1:1 iOS; Progreso sin párrafo técnico; mapa Lugar/Comenzar; DayPlus iconos; gradlew.
 
 Implementación nativa independiente en `android/`:
 

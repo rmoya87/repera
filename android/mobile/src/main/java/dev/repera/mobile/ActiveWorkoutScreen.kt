@@ -108,18 +108,25 @@ internal fun ActiveWorkoutScreen(
     if (showPlayReorder) {
         val blocks = playReorderBlocks
         if (blocks != null) {
-            ReperaModalBottomSheet(
+            androidx.compose.ui.window.Dialog(
                 onDismissRequest = {
                     commitPlayReorder()
                     showPlayReorder = false
                     playReorderBlocks = null
-                }
+                },
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false
+                )
             ) {
-                PlanReorderSheet(
+                PlanReorderFullscreen(
                     blocks = blocks,
                     nameById = nameById,
                     exercises = catalog,
-                    onDone = { showPlayReorder = false },
+                    onDone = {
+                        commitPlayReorder()
+                        showPlayReorder = false
+                        playReorderBlocks = null
+                    },
                     onMoveMessage = { msg -> if (msg != null) playReorderError = msg }
                 )
             }

@@ -1277,6 +1277,10 @@ internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
         .withLocale(java.util.Locale("es", "ES"))
 
+/** Fecha en editor Crear entreno (paridad PlanView): «Jueves 29 octubre». */
+internal val reperaPlanDayFormatter: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale("es", "ES"))
+
 @Composable
 private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasCompleted: Boolean, modifier: Modifier, onSelect: (LocalDate) -> Unit) {
     // Paridad HomeView.calendarDayColumn: fondo verde sólido seleccionado,

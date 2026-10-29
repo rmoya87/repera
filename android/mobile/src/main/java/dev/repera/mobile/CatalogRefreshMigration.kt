@@ -16,7 +16,6 @@ import java.time.Instant
  * segunda ejecución no modifica nada y devuelve false.
  */
 internal object CatalogRefreshMigration {
-    private const val EXPECTED_CATALOG = 289
     private val CATALOG_FIELDS = listOf(
         "name", "muscleGroup", "catalogId", "detailDescription", "equipment",
         "instructions", "primaryRegions", "secondaryMuscles", "secondaryRegions",
@@ -30,7 +29,7 @@ internal object CatalogRefreshMigration {
         val state = JSONObject(String(bytes, Charsets.UTF_8))
         val seed = context.assets.open("catalog_seed.json")
             .bufferedReader(Charsets.UTF_8).use { org.json.JSONArray(it.readText()) }
-        check(seed.length() == EXPECTED_CATALOG) { "Catálogo semilla incompleto" }
+        check(seed.length() > 0) { "Catálogo semilla vacío" }
         val changed = mergeSeedIntoState(seed, state)
         if (!changed) return false
         check(store.replaceIfUnchanged(bytes,state.toString().toByteArray(Charsets.UTF_8))) {

@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
@@ -327,10 +328,15 @@ internal fun ExercisesTab(
                 onValueChange = { exerciseSearch = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
                 placeholder = { Text("Nombre, músculo o equipo") },
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, contentDescription = null)
-                }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                )
             )
         }
         val entries = filteredExerciseEntries
