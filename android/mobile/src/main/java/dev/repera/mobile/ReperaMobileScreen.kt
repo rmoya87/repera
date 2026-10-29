@@ -806,6 +806,8 @@ fun ReperaMobileScreen(
                             onUpdateNotes = onUpdateActiveNotes,
                             onSaveFavorite = onSaveActiveFavorite,
                             onEditPlan = { navController.navigate("entreno-activo-editar") },
+                            activeEditorDraft = activeEditorDraft,
+                            onApplyActivePlan = onUpdateActivePlan,
                             catalog = overview?.exerciseEntries.orEmpty(),
                             onSubstituteExercise = onSubstituteActiveExercise,
                             onRemoveExercise = onRemoveActiveExercise,

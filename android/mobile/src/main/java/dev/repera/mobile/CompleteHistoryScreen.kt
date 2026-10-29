@@ -1,4 +1,5 @@
 package dev.repera.mobile
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,7 @@ internal object CompleteHistoryOrder {
  fun rows(local:List<WorkoutHistoryEntry>,external:List<ExternalHealthHistoryEntry>):List<Row> =
   (local.filter {it.finishedAtIso!=null}.map {Row(local=it)}+external.map {Row(external=it)}).sortedByDescending {it.millis}
 }
+
 @Composable
 internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountId:String,
  onRevise:(String,String,String,Int,Double?,Int?)->Unit,onDeleteSet:(String,String,String)->Unit,onDelete:(String)->Unit,
@@ -27,11 +29,34 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
  onOpenExercise:(String,String,String)->Unit,
  onOpenSports: () -> Unit = {}) {
  val rows=remember(overview) {CompleteHistoryOrder.rows(overview?.completeHistory.orEmpty(),overview?.externalHealthHistory.orEmpty())}
- // Al cambiar de cuenta la hoja se cierra: nada de la cuenta anterior persiste.
+ var selectedWorkoutId by remember(accountId) { mutableStateOf<String?>(null) }
  var external by remember(accountId) {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
- LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+ val selectedWorkout = selectedWorkoutId?.let { id ->
+  overview?.completeHistory.orEmpty().firstOrNull { it.id == id }
+ }
+ if (selectedWorkout != null) {
+  BackHandler { selectedWorkoutId = null }
+  WorkoutHistoryDetailScreen(
+   workout = selectedWorkout,
+   busy = busy,
+   accountId = accountId,
+   exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+   effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+   onBack = { selectedWorkoutId = null },
+   onRevise = onRevise,
+   onDeleteSet = onDeleteSet,
+   onDelete = {
+    onDelete(it)
+    selectedWorkoutId = null
+   },
+   onUpdate = onUpdate,
+   onOpenExercise = onOpenExercise,
+   heartSeries = heartSeries,
+  )
+  return
+ }
+ LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement= Arrangement.spacedBy(12.dp)) {
   item { ReperaPageHeader(title = "Historial de entrenamientos") }
-  // I-13: fila Deportes → I-24
   if (overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
    ReperaCard(
     onClick = onOpenSports,
@@ -60,8 +85,34 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   rows.groupBy {Instant.ofEpochMilli(it.millis).atZone(ZoneId.systemDefault()).toLocalDate()}.forEach {(day,entries) ->
    item(key="day-$day") {ReperaSectionTitle(day.format(reperaDayFormatter))}
    entries.forEach {row ->item(key=row.id) {
-    row.local?.let {WorkoutHistoryCard(it,busy,onRevise,onDeleteSet,onDelete,onOpenExercise,accountId,overview?.exerciseEntries.orEmpty(),onUpdate,heartSeries,
-        effortUnit=overview?.trainingSettings?.effortUnit ?: "rir")}
+    row.local?.let { workout ->
+     ReperaCard(
+      onClick = { selectedWorkoutId = workout.id },
+      modifier = Modifier.fillMaxWidth().testTag("history_workout_row_${workout.id}")
+     ) {
+      Row(
+       Modifier.padding(16.dp).fillMaxWidth(),
+       horizontalArrangement = Arrangement.SpaceBetween,
+       verticalAlignment = Alignment.CenterVertically
+      ) {
+       Column(modifier = Modifier.weight(1f)) {
+        Text(workout.title, style = MaterialTheme.typography.titleMedium)
+        if (workout.startedAt.isNotBlank()) {
+         Text(
+          workout.startedAt,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+         )
+        }
+       }
+       Icon(
+        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant
+       )
+      }
+     }
+    }
     row.external?.let {entry ->ReperaCard(onClick={external=entry},modifier=Modifier.fillMaxWidth()) {
      Row(Modifier.padding(16.dp),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
       ExternalHealthActivityIcon(entry.exerciseTypeKey)
@@ -72,4 +123,49 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   }
  }
  external?.let {entry ->ExternalHealthDetailSheet(entry,externalProvider,ownerKey=accountId) {external=null}}
+}
+
+/** Detalle a pantalla completa (paridad HistoryView → WorkoutDetailView). */
+@Composable
+private fun WorkoutHistoryDetailScreen(
+ workout: WorkoutHistoryEntry,
+ busy: Boolean,
+ accountId: String,
+ exerciseCatalog: List<ExerciseEntry>,
+ effortUnit: String,
+ onBack: () -> Unit,
+ onRevise: (String, String, String, Int, Double?, Int?) -> Unit,
+ onDeleteSet: (String, String, String) -> Unit,
+ onDelete: (String) -> Unit,
+ onUpdate: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit,
+ onOpenExercise: (String, String, String) -> Unit,
+ heartSeries: suspend (String) -> List<Pair<Long, Int>>,
+) {
+ LazyColumn(
+  Modifier.fillMaxSize().testTag("workout_history_detail"),
+  contentPadding = PaddingValues(16.dp),
+  verticalArrangement = Arrangement.spacedBy(12.dp)
+ ) {
+  item {
+   TextButton(onClick = onBack, modifier = Modifier.testTag("workout_history_detail_back")) {
+    Text("Volver")
+   }
+  }
+  item {
+   WorkoutHistoryCard(
+    workout,
+    busy,
+    onRevise,
+    onDeleteSet,
+    onDelete,
+    onOpenExercise,
+    accountId,
+    exerciseCatalog,
+    onUpdate,
+    heartSeries,
+    effortUnit = effortUnit,
+    startsExpanded = true,
+   )
+  }
+ }
 }

@@ -266,12 +266,20 @@ fun RoutineBlocksEditorScreen(
         if (showPlaceSection && !sessionMode) {
             ReperaSectionTitle("Lugar")
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                WorkoutPlacePickerRow(
-                    pin = draftPin,
-                    accountId = accountId,
-                    onPinChange = { draftPin = it },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
+                if (draftPin != null) {
+                    WorkoutPlacePickerRow(
+                        pin = draftPin,
+                        accountId = accountId,
+                        onPinChange = { draftPin = it }
+                    )
+                } else {
+                    WorkoutPlacePickerRow(
+                        pin = null,
+                        accountId = accountId,
+                        onPinChange = { draftPin = it },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

@@ -104,7 +104,8 @@ class OnboardingStore private constructor(private val prefs: OnboardingPrefs) {
     fun reconcile(isSignedIn: Boolean) {
         if (!isSignedIn) return
         if (step == OnboardingStep.SignIn) {
-            advance(to = if (priceAlreadySeen) OnboardingStep.Done else OnboardingStep.Permissions)
+            // Paridad OnboardingStore.swift: tras SignIn → ChoosePlan (no Permissions).
+            advance(to = if (priceAlreadySeen) OnboardingStep.Done else OnboardingStep.ChoosePlan)
         } else if (priceAlreadySeen && step != OnboardingStep.Done) {
             // Reauth / update: ya vio precios; no repetir wizard a medias.
             advance(to = OnboardingStep.Done)

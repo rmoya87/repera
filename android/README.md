@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Paridad visual P0/P1 (tab pill, DayEditor chrome, Progreso/Ejercicios/Ajustes/DayPlus) + seed catálogo/espejo tras login Google; compile fix `DragReorderItem.modifier` en main (#164).
+**Última actualización:** 2026-10-29 — Paridad Comenzar/historial/review: `SessionReviewSheet` solo Listo; historial completo empuja detalle; idle Comenzar sin «Crear entrenamiento»/Center; compile fix `DragReorderItem.modifier` en main (#164).
 
 Implementación nativa independiente en `android/`:
 
