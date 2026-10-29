@@ -92,10 +92,12 @@ internal object BlockFormatCatalog {
         )
     )
 
-    fun title(wire: String): String =
-        options.firstOrNull { it.wire == wire }?.title
+    fun title(wire: String): String {
+        if (wire.isBlank()) return "Sin formato"
+        return options.firstOrNull { it.wire == wire }?.title
             ?: WodFormat.fromWire(wire)?.displayName
             ?: wire
+    }
 }
 
 @Composable
@@ -119,7 +121,7 @@ internal fun BlockFormatPickerSheet(
                     FormatRow(
                         title = "Sin formato · libre",
                         description = "Bloque sin plantilla de reloj; fuerza libre.",
-                        selected = current == "strength" || current.isBlank(),
+                        selected = current.isBlank(),
                         leading = {
                             Icon(
                                 Icons.Outlined.RemoveCircleOutline,
@@ -127,10 +129,10 @@ internal fun BlockFormatPickerSheet(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
-                        onClick = { onPick("strength") }
+                        onClick = { onPick("") }
                     )
                 }
-                items(BlockFormatCatalog.options.filter { it.wire != "strength" }, key = { it.wire }) { opt ->
+                items(BlockFormatCatalog.options, key = { it.wire }) { opt ->
                     FormatRow(
                         title = opt.title,
                         description = opt.description,

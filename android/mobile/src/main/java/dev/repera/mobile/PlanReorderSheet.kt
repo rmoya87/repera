@@ -6,23 +6,26 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -42,12 +45,80 @@ import androidx.compose.ui.unit.dp
  * Arrastre: esquinas redondeadas + sombra tenue (paridad iOS OGReorderDragPreview).
  */
 @Composable
-internal fun PlanReorderSheet(
+internal fun PlanReorderFullscreen(
     blocks: SnapshotStateList<BlockDraftUi>,
     nameById: Map<String, String>,
     exercises: List<ExerciseEntry>,
     onDone: () -> Unit,
     onMoveMessage: (String?) -> Unit = {}
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+    ) {
+        PlanReorderTopBar(onBack = onDone, onDone = onDone)
+        PlanReorderSheet(
+            blocks = blocks,
+            nameById = nameById,
+            exercises = exercises,
+            onDone = onDone,
+            onMoveMessage = onMoveMessage,
+            showToolbar = false
+        )
+    }
+}
+
+@Composable
+private fun PlanReorderTopBar(onBack: () -> Unit, onDone: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .size(44.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                .testTag("plan_reorder_back")
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Volver",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Text(
+            "Reordenar",
+            modifier = Modifier.weight(1f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Button(
+            onClick = onDone,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = brandGreen.copy(alpha = 0.12f),
+                contentColor = brandGreen
+            ),
+            modifier = Modifier.testTag("plan_reorder_done")
+        ) {
+            Text("Listo", fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+internal fun PlanReorderSheet(
+    blocks: SnapshotStateList<BlockDraftUi>,
+    nameById: Map<String, String>,
+    exercises: List<ExerciseEntry>,
+    onDone: () -> Unit,
+    onMoveMessage: (String?) -> Unit = {},
+    showToolbar: Boolean = true
 ) {
     val scroll = rememberScrollState()
     val blockHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
@@ -61,17 +132,8 @@ internal fun PlanReorderSheet(
                 .padding(bottom = 24.dp)
                 .testTag("plan_reorder_sheet")
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Reordenar",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onDone) { Text("Listo") }
-                IconButton(onClick = onDone) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
-                }
+            if (showToolbar) {
+                PlanReorderTopBar(onBack = onDone, onDone = onDone)
             }
 
             blocks.forEachIndexed { blockIndex, block ->
@@ -276,13 +338,14 @@ internal fun ReorderInsertionGap(visible: Boolean, label: String = "Soltar aquí
     }
 }
 
-private fun blockFormatSubtitle(block: BlockDraftUi): String = when (block.format) {
-    "strength" -> "Fuerza"
-    "amrap" -> "AMRAP"
-    "emom" -> "EMOM"
-    "fortime", "forTime" -> "For Time"
-    "tabata" -> "Tabata"
-    else -> block.format.ifBlank { "Libre" }
+private fun blockFormatSubtitle(block: BlockDraftUi): String = when {
+    block.format.isBlank() -> "Sin formato"
+    block.format == "strength" -> "Fuerza"
+    block.format == "amrap" -> "AMRAP"
+    block.format == "emom" -> "EMOM"
+    block.format.equals("fortime", true) || block.format == "forTime" -> "For Time"
+    block.format == "tabata" -> "Tabata"
+    else -> BlockFormatCatalog.title(block.format)
 }
 
 private fun entryDisplayName(entry: EntryUi, nameById: Map<String, String>): String {
