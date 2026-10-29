@@ -4,7 +4,7 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — Batch5 §8 PARTIAL: I-01/11/13/25/31/43/44/62/100/120/121/124/125 + menú RIR; I-10 headers ya OK; MapKit 3D/Liquid Glass/zonas HR motor N/A documentados.
+**Última actualización:** 2026-10-29 — FINAL_REVIEW Android vs iPhone: compile `DragReorderItem.modifier` (#164); tab bar píldora; sin CTAs catálogo/JSON en Inicio/Progreso/Ejercicios; DayEditor chrome (←/✓, Formato ›, Lugar, menú ··· Reordenar); Progreso/Ejercicios chrome; Ajustes push + email; DayPlus ✕ + escaneos al final; post-login `prepareAccountDataAfterAuth` (seed + catálogo Supabase + espejo). Pendiente fino: Comenzar FABs/mapa centrado; pulido Liquid Glass. MapKit 3D/zonas HR N/A.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

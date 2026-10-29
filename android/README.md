@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — FINAL_REVIEW lote 2: Reordenar jerárquico + huecos, mapa 220 dp chip abajo, Wear «Descartar entreno».
+**Última actualización:** 2026-10-29 — Paridad visual P0/P1 (tab pill, DayEditor chrome, Progreso/Ejercicios/Ajustes/DayPlus) + seed catálogo/espejo tras login Google; compile fix `DragReorderItem.modifier` en main (#164).
 
 Implementación nativa independiente en `android/`:
 
