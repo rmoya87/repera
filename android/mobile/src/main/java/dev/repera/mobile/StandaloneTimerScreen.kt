@@ -490,30 +490,59 @@ internal fun StandaloneTimerScreen(
     }
 
     if (showClock && completedSummary == null) {
-        StandaloneClock(
-            title = "Temporizador",
-            subtitle = when {
-                preCountdown > 0 || preCountdownEndMs > 0L -> "Cuenta atrás"
-                config.mode == StandaloneTimerMode.UP -> "Arriba"
-                config.mode == StandaloneTimerMode.DOWN -> "Abajo"
-                else -> if (phaseIsWork) "Trabajar" else "Descansar"
-            },
-            roundNumber = if (config.mode == StandaloneTimerMode.INTERVALS &&
-                preCountdown == 0 && preCountdownEndMs == 0L) roundNumber else null,
-            totalRounds = if (config.mode == StandaloneTimerMode.INTERVALS)
-                config.rounds else null,
-            displaySeconds = if (preCountdown > 0 && preCountdownEndMs > 0L)
-                preCountdown else displaySeconds,
-            running = isRunning || preCountdownEndMs > 0L,
-            onPrimary = { toggleRun() },
-            onClose = {
+        // R8 P0-3: Dialog a sangre — tapa tab bar (regresión R7) y status
+        // blanca sobre negro; iOS no muestra tabs en el LED.
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {
                 isRunning = false
                 preCountdownEndMs = 0L
                 phaseEndMs = 0L
                 phaseStartMs = 0L
                 showClock = false
+            },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            )
+        ) {
+            val clockView = androidx.compose.ui.platform.LocalView.current
+            androidx.compose.runtime.SideEffect {
+                (clockView.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
+                    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+                    w.statusBarColor = android.graphics.Color.TRANSPARENT
+                    w.navigationBarColor = android.graphics.Color.TRANSPARENT
+                    androidx.core.view.WindowInsetsControllerCompat(w, clockView).apply {
+                        isAppearanceLightStatusBars = false
+                        isAppearanceLightNavigationBars = false
+                    }
+                }
             }
-        )
+            StandaloneClock(
+                title = "Temporizador",
+                subtitle = when {
+                    preCountdown > 0 || preCountdownEndMs > 0L -> "Cuenta atrás"
+                    config.mode == StandaloneTimerMode.UP -> "Arriba"
+                    config.mode == StandaloneTimerMode.DOWN -> "Abajo"
+                    else -> if (phaseIsWork) "Trabajar" else "Descansar"
+                },
+                roundNumber = if (config.mode == StandaloneTimerMode.INTERVALS &&
+                    preCountdown == 0 && preCountdownEndMs == 0L) roundNumber else null,
+                totalRounds = if (config.mode == StandaloneTimerMode.INTERVALS)
+                    config.rounds else null,
+                displaySeconds = if (preCountdown > 0 && preCountdownEndMs > 0L)
+                    preCountdown else displaySeconds,
+                running = isRunning || preCountdownEndMs > 0L,
+                onPrimary = { toggleRun() },
+                onClose = {
+                    isRunning = false
+                    preCountdownEndMs = 0L
+                    phaseEndMs = 0L
+                    phaseStartMs = 0L
+                    showClock = false
+                }
+            )
+        }
         return
     }
 

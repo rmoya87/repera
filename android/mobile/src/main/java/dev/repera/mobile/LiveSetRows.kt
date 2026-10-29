@@ -9,15 +9,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.Effort
@@ -57,7 +61,7 @@ internal object LiveRowEdit {
 internal fun playSetCompleteHaptic(context: android.content.Context) {
  runCatching {
   val vibrator = if (Build.VERSION.SDK_INT >= 31) {
-   context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+    context.getSystemService(VibratorManager::class.java)?.defaultVibrator
   } else {
    @Suppress("DEPRECATION")
    context.getSystemService(Vibrator::class.java)
@@ -69,6 +73,39 @@ internal fun playSetCompleteHaptic(context: android.content.Context) {
    vibrator.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
   }
  }
+}
+
+@Composable
+private fun CompactSetField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    testTag: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Number
+) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = modifier
+            .heightIn(min = 36.dp)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable
@@ -96,11 +133,11 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
  LaunchedEffect(key,rows.toList(),unit,edited) {
   if(edited) persist(active.id,active.index,LiveRowEdit.toDraftRows(rows.toList()),unit)
  }
- Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+ Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
   if(active.cardioToggle || active.repsMetersToggle) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
    listOf((if(active.repsMetersToggle) "reps" to "Repeticiones" else "calories" to "Calorías"),"meters" to "Metros").forEach {(v,l) ->ReperaFilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
   }
-  // R7 P1: cabecera SERIE · ANTERIOR · REPS · RIR (PlayEditableSetsView iOS).
+  // R8 P0: cabecera SERIE · ANTERIOR · REPS · RIR compacta (iOS PlayEditableSetsView).
   Row(
    Modifier.fillMaxWidth().padding(horizontal = 4.dp),
    verticalAlignment = Alignment.CenterVertically,
@@ -113,12 +150,14 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
    Text(
     when (unit) { "calories" -> "CAL"; "meters" -> "M"; else -> "REPS" },
     style = MaterialTheme.typography.labelSmall,
-    modifier = Modifier.weight(0.9f)
+    modifier = Modifier.weight(0.9f),
+    textAlign = TextAlign.Center
    )
    if (!active.durationInput) {
     Text(Effort.displayName(effortUnit).uppercase(),
      style = MaterialTheme.typography.labelSmall,
-     modifier = Modifier.weight(0.7f))
+     modifier = Modifier.weight(0.7f),
+     textAlign = TextAlign.Center)
    }
   }
   rows.forEachIndexed {i,row ->
@@ -126,9 +165,8 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
     Row(
      Modifier
       .fillMaxWidth()
-      .clip(RoundedCornerShape(10.dp))
-      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-      .padding(horizontal = 8.dp, vertical = 8.dp),
+      .heightIn(min = 48.dp)
+      .padding(horizontal = 4.dp, vertical = 2.dp),
      verticalAlignment = Alignment.CenterVertically,
      horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -136,7 +174,7 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
       Modifier
        .size(34.dp)
        .clip(CircleShape)
-       .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surface)
+       .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
        .clickable { toggleCompleted(i) }
        .testTag("set_badge_${i+1}"),
       contentAlignment=Alignment.Center
@@ -154,59 +192,49 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.weight(1f)
      )
-     OutlinedTextField(
+     CompactSetField(
       value = row.reps.toString(),
       onValueChange = { v ->
-       rows[i]=LiveRowEdit.reps(rows[i],v,if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap)
+       rows[i]=LiveRowEdit.reps(rows[i],v.filter(Char::isDigit),if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap)
        touch()
       },
-      singleLine = true,
-      modifier = Modifier.weight(0.9f).heightIn(min = 48.dp).testTag("set_reps_${i+1}"),
-      textStyle = MaterialTheme.typography.bodyMedium
+      modifier = Modifier.weight(0.9f),
+      testTag = "set_reps_${i+1}"
      )
      if (active.durationInput) {
-      OutlinedTextField(
+      CompactSetField(
        value = (row.durationSeconds ?: 0).toString(),
-       onValueChange = { v -> rows[i]=LiveRowEdit.duration(rows[i],v); touch() },
-       singleLine = true,
-       modifier = Modifier.weight(0.7f),
-       textStyle = MaterialTheme.typography.bodyMedium
+       onValueChange = { v -> rows[i]=LiveRowEdit.duration(rows[i],v.filter(Char::isDigit)); touch() },
+       modifier = Modifier.weight(0.7f)
       )
      } else {
       Box(Modifier.weight(0.7f)) {
-       EffortMenuField(storedRir = row.rir, effortUnit = effortUnit) { next ->
+       EffortMenuField(storedRir = row.rir, effortUnit = effortUnit, compact = true) { next ->
         rows[i] = rows[i].copy(rir = next); touch()
        }
       }
      }
     }
+    // Peso / déficit en la misma densidad iOS (sin «Quitar serie» por fila).
     if (active.allowsDeficit || active.allowsWeight) {
-     Row(Modifier.fillMaxWidth().padding(start = 48.dp, top = 4.dp),
-      horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+     Row(Modifier.fillMaxWidth().padding(start = 48.dp, end = 4.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      verticalAlignment = Alignment.CenterVertically) {
       if (active.allowsDeficit) {
-       OutlinedTextField(
-        value = (row.deficitCm ?: 0).toString(),
-        onValueChange = { v -> rows[i]=LiveRowEdit.deficit(rows[i],v); touch() },
-        label = { Text("Déficit HSPU (cm)") },
-        singleLine = true,
+       CompactSetField(
+        value = (row.deficitCm ?: 0).takeIf { it > 0 }?.toString().orEmpty(),
+        onValueChange = { v -> rows[i]=LiveRowEdit.deficit(rows[i],v.filter(Char::isDigit)); touch() },
         modifier = Modifier.weight(1f)
        )
       } else if (active.allowsWeight) {
-       OutlinedTextField(
+       CompactSetField(
         value = row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),
         onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
-        label = { Text("Peso (kg)") },
-        singleLine = true,
-        modifier = Modifier.weight(1f)
+        modifier = Modifier.weight(1f),
+        keyboardType = KeyboardType.Decimal
        )
       }
-      TextButton(onClick={rows.removeAt(i);touch()}) {Text("Quitar")}
      }
-    } else {
-     TextButton(
-      onClick={rows.removeAt(i);touch()},
-      modifier = Modifier.padding(start = 48.dp)
-     ) {Text("Quitar serie")}
     }
    }
   }

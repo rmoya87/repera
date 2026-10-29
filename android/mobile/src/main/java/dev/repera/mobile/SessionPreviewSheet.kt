@@ -105,7 +105,8 @@ fun SessionPreviewSheet(
                         text = { Text("Editar") },
                         onClick = { menuOpen = false; onEdit() })
                     DropdownMenuItem(
-                        text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
+                        // R8 P2-5: rutina planificada = «Borrar entreno» (iOS).
+                        text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuOpen = false; confirmDelete = true })
                 }
             }
@@ -210,7 +211,7 @@ private fun dayLabel(routine: RoutineEntry): String {
 }
 
 private fun blockFormatLabel(block: RoutineBlockInfo): String = when (block.format) {
-    "" -> "Sin formato · libre"
+    "" -> "Sin formato"
     "strength" -> "Fuerza"
     "amrap" -> "AMRAP ${block.timeCapMinutes}'"
     "emom" -> "EMOM ${block.timeCapMinutes}' · cada ${block.emomIntervalSeconds}s"

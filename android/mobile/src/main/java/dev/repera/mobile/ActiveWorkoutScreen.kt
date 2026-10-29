@@ -7,8 +7,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -20,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,7 +56,10 @@ internal fun ActiveWorkoutScreen(
     onSubstituteExercise: (ExerciseEntry) -> Unit = {},
     onRemoveExercise: () -> Unit = {},
     clockMinimized: Boolean = false,
-    onExpandClock: () -> Unit = {}
+    onExpandClock: () -> Unit = {},
+    /** R8 M1: acciones de plan al final del scroll (paridad iOS WorkoutView). */
+    importableRoutines: List<RoutineEntry> = emptyList(),
+    overview: StateOverview? = null
 ) {
     var showBlockTimer by remember(workout.id, workout.index) { mutableStateOf(false) }
     var blockWorkOverride by remember(workout.id, workout.index) {
@@ -212,6 +220,19 @@ internal fun ActiveWorkoutScreen(
                 onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
                 onFinish=onFinish,onDiscard=onDiscard)
         }
+        // R8 M1 / P1-7: botones negros + Añadir bloque / WOD / favorito / pizarra
+        // (compare8/48-play-fin), antes de Lugar.
+        item {
+            PlaySessionPlanFooter(
+                busy = busy,
+                workout = workout,
+                activeEditorDraft = activeEditorDraft,
+                onApplyActivePlan = onApplyActivePlan,
+                importableRoutines = importableRoutines,
+                overview = overview,
+                catalog = catalog
+            )
+        }
         // R5 P1-10: pin GPS anónimo no cuenta como lugar (iOS hasChosenPlace).
         val chosenPin = pin?.takeIf { it.hasChosenPlace }
         if (chosenPin == null) item { ReperaSectionTitle("Lugar") }
@@ -224,6 +245,196 @@ internal fun ActiveWorkoutScreen(
                 WorkoutPlacePickerRow(pin = null, accountId = accountId, onPinChange = onPinChange)
             }
         }
+    }
+}
+
+/** Acciones de plan en Play (iOS WorkoutView al final del scroll). */
+@Composable
+private fun PlaySessionPlanFooter(
+    busy: Boolean,
+    workout: ActiveWorkout,
+    activeEditorDraft: () -> RoutineEntry?,
+    onApplyActivePlan: (String, String, List<RoutineBlockDraft>, () -> Unit) -> Unit,
+    importableRoutines: List<RoutineEntry>,
+    overview: StateOverview?,
+    catalog: List<ExerciseEntry>
+) {
+    var showWods by remember { mutableStateOf(false) }
+    var showFavorites by remember { mutableStateOf(false) }
+    var showBoardScanner by remember { mutableStateOf(false) }
+    var showExercisePicker by remember { mutableStateOf(false) }
+    var showFreeMove by remember { mutableStateOf(false) }
+    val favorites = importableRoutines.filter { it.isFavorite && it.blocks.isNotEmpty() }
+
+    fun mutateBlocks(transform: (SnapshotStateList<BlockDraftUi>) -> Unit) {
+        val entry = activeEditorDraft() ?: return
+        val blocks = mutableStateListOf<BlockDraftUi>().apply {
+            entry.blocks.forEach { add(BlockDraftUi(it)) }
+        }
+        transform(blocks)
+        val drafts = mutableListOf<RoutineBlockDraft>()
+        for (block in blocks) {
+            drafts.add(block.toDraft() ?: return)
+        }
+        onApplyActivePlan(workout.id, entry.id, drafts) { }
+    }
+
+    fun ensureTarget(blocks: SnapshotStateList<BlockDraftUi>): BlockDraftUi {
+        if (blocks.isEmpty()) {
+            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque 1", format = "")))
+        }
+        return blocks.last()
+    }
+
+    if (showBoardScanner) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showBoardScanner = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                BoardScanScreen(
+                    busy = busy,
+                    overview = overview,
+                    onConfirm = { _, _, _ -> },
+                    onBack = { showBoardScanner = false },
+                    onImportBlocks = { imported ->
+                        mutateBlocks { list ->
+                            imported.forEach { list.add(scannedRoutineBlockDraft(it)) }
+                        }
+                        showBoardScanner = false
+                    },
+                    catalogOverride = catalog
+                )
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        WorkoutWODInsertActions(
+            onExercise = { showExercisePicker = true },
+            onRest = {
+                mutateBlocks { blocks ->
+                    val rest = EditorBlockOps.restMovement()
+                    ensureTarget(blocks).entries.add(
+                        EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString())
+                    )
+                }
+            },
+            onFreeMovement = { showFreeMove = true }
+        )
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.ViewAgenda,
+                    label = "Añadir bloque",
+                    modifier = Modifier.testTag("play_add_block_row"),
+                    onClick = {
+                        mutateBlocks { blocks ->
+                            val n = blocks.size + 1
+                            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
+                        }
+                    },
+                    enabled = !busy
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.List,
+                    label = "Elegir WOD",
+                    modifier = Modifier.testTag("play_pick_wod"),
+                    onClick = { showWods = true },
+                    enabled = !busy
+                )
+                if (favorites.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    PlanEditorActionRow(
+                        icon = Icons.Outlined.Star,
+                        label = "Añadir favorito",
+                        modifier = Modifier.testTag("play_add_favorite"),
+                        onClick = { showFavorites = true },
+                        enabled = !busy
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.AddCircle,
+                    label = "Escanear pizarra",
+                    modifier = Modifier.testTag("play_scan_board"),
+                    onClick = { showBoardScanner = true },
+                    enabled = !busy
+                )
+            }
+        }
+    }
+
+    if (showFavorites) {
+        AddFavoriteSheet(
+            favorites = favorites,
+            onPick = { src ->
+                mutateBlocks { blocks ->
+                    src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
+                }
+                showFavorites = false
+            },
+            onDismiss = { showFavorites = false }
+        )
+    }
+    if (showWods) {
+        var query by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showWods = false },
+            confirmButton = { TextButton(onClick = { showWods = false }) { Text("Cancelar") } },
+            title = { Text("Elegir WOD") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = query, onValueChange = { query = it }, singleLine = true,
+                        label = { Text("Buscar") }, modifier = Modifier.fillMaxWidth()
+                    )
+                    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                        items(dev.repera.domain.CatalogWods.search(query).size) { i ->
+                            val t = dev.repera.domain.CatalogWods.search(query)[i]
+                            TextButton(onClick = {
+                                mutateBlocks { blocks ->
+                                    blocks.add(BlockDraftUi(EditorBlockOps.templateToBlockInfo(t, catalog)))
+                                }
+                                showWods = false
+                            }) { Text(t.name + " · " + t.formatLabel) }
+                        }
+                    }
+                }
+            }
+        )
+    }
+    if (showFreeMove) {
+        FreeMovementDialog(
+            onDismiss = { showFreeMove = false },
+            onCreate = { name, reps, male, female ->
+                val move = EditorBlockOps.freeMovement(name, reps, male, female)
+                mutateBlocks { blocks ->
+                    ensureTarget(blocks).entries.add(
+                        EntryUi("", name, reps, 1, male, null, move.getString("id"), move.toString())
+                    )
+                }
+                showFreeMove = false
+            }
+        )
+    }
+    if (showExercisePicker) {
+        ExercisePickerSheet(
+            exercises = catalog,
+            excluded = emptySet(),
+            onPick = { ex ->
+                mutateBlocks { blocks ->
+                    ensureTarget(blocks).entries.add(EntryUi(ex.id, ex.name, 8, 3, null))
+                }
+                showExercisePicker = false
+            },
+            onDismiss = { showExercisePicker = false }
+        )
     }
 }
 
@@ -262,45 +473,47 @@ private fun ActiveWorkoutToolbar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        // R8 P1-13 / C3: chevrons en círculo glass (iOS), no IconButton plano.
         if (index > 0) {
-            IconButton(
-                enabled = !busy,
+            ReperaToolbarGlassIconButton(
+                icon = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                contentDescription = "Ejercicio anterior",
                 onClick = onPrevious,
+                enabled = !busy,
                 modifier = Modifier.testTag("active_previous")
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                    contentDescription = "Ejercicio anterior",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            )
         }
         if (hasMoreExercises) {
-            IconButton(
-                enabled = !busy,
+            ReperaToolbarGlassIconButton(
+                icon = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = "Ejercicio siguiente",
                 onClick = onNext,
-                modifier = Modifier.testTag("active_navigate_next")
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = "Ejercicio siguiente",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        } else {
-            IconButton(
-                onClick = onFinish,
                 enabled = !busy,
+                modifier = Modifier.testTag("active_navigate_next")
+            )
+        } else {
+            Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    .testTag("active_toolbar_finish")
+                    .size(48.dp)
+                    .testTag("active_toolbar_finish"),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Outlined.Check,
-                    contentDescription = "Terminar entreno",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
+                androidx.compose.material3.Surface(
+                    onClick = onFinish,
+                    enabled = !busy,
+                    shape = CircleShape,
+                    color = brandGreen,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "Terminar entreno",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
         }
     }

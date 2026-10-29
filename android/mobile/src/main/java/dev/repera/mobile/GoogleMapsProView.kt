@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color as NativeColor
 import android.graphics.Paint
 import android.graphics.Path
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -29,11 +30,17 @@ import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapColorScheme
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import dev.repera.domain.AdaptiveRoutePace
 import dev.repera.domain.WorkoutRoutePoint
+
+/** Aplica esquema claro/oscuro de Google Maps al instante (R8 / Ramón). */
+internal fun GoogleMap.applyReperaColorScheme(dark: Boolean) {
+    mapColorScheme = if (dark) MapColorScheme.DARK else MapColorScheme.LIGHT
+}
 
 /** Google Maps se habilita con la clave restringida presente, en Gratis y Pro.
  * La navegacion 3D sigue reservada a Pro (FeatureAccessPolicy.canUse3DNavigation). */
@@ -97,9 +104,11 @@ internal fun GoogleRouteMapView(
     val renderedCallback by rememberUpdatedState(onMapRendered)
     val loadedCallback by rememberUpdatedState(onStyleLoaded)
     AndroidView(factory = { view }, modifier = modifier.testTag("route_map"))
+    val darkTheme = isSystemInDarkTheme()
     LaunchedEffect(view) {
         view.getMapAsync { ready ->
             ready.mapType = GoogleMap.MAP_TYPE_NORMAL
+            ready.applyReperaColorScheme(darkTheme)
             ready.isBuildingsEnabled = true
             if (controlsOverlay) {
                 // Logo y avisos legales visibles sobre los controles inferiores.
@@ -130,6 +139,10 @@ internal fun GoogleRouteMapView(
             ready.setOnMapLoadedCallback { loadedCallback?.invoke(); renderedCallback?.invoke() }
             map = ready
         }
+    }
+    // R8: tema claro/oscuro al instante (sin recrear MapView).
+    LaunchedEffect(map, darkTheme) {
+        map?.applyReperaColorScheme(darkTheme)
     }
     // 2D no permite inclinar con los dedos: la perspectiva solo se activa
     // desde el modo 3D de Repera Pro, incluso con Google como proveedor.
@@ -264,9 +277,11 @@ internal fun GooglePlacePinMap(
     AndroidView(factory = { view }, modifier = modifier.testTag("place_pin_map"))
     var pinMap by remember(view) { mutableStateOf<GoogleMap?>(null) }
     var pinMarker by remember(view) { mutableStateOf<Marker?>(null) }
+    val darkTheme = isSystemInDarkTheme()
     LaunchedEffect(view) {
         view.getMapAsync { map ->
             map.mapType = GoogleMap.MAP_TYPE_NORMAL
+            map.applyReperaColorScheme(darkTheme)
             map.isBuildingsEnabled = true
             // Evitar que la ficha de confirmación tape el logo de Google.
             map.setPadding(0, 0, 0, (view.resources.displayMetrics.density * 72).toInt())
@@ -287,6 +302,9 @@ internal fun GooglePlacePinMap(
             map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(latitude, longitude), 15.5f))
             pinMap = map
         }
+    }
+    LaunchedEffect(pinMap, darkTheme) {
+        pinMap?.applyReperaColorScheme(darkTheme)
     }
     LaunchedEffect(pinMap, latitude, longitude) {
         val map = pinMap ?: return@LaunchedEffect

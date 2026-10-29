@@ -580,7 +580,8 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
         else {if(text.isEmpty()) o.remove(key) else o.put(key,text)}
         sourceJson=o.toString()
     }
-    var setsExpanded by mutableStateOf(false)
+    // R8 P1-2: tabla SERIE/ANTERIOR/REPS/RIR visible como iOS (no oculta).
+    var setsExpanded by mutableStateOf(true)
     val invalidSetInputs=androidx.compose.runtime.mutableStateMapOf<Int,Boolean>()
     val rawSetInputs=androidx.compose.runtime.mutableStateMapOf<Int,Pair<PlannedSetDraft,Triple<String,String,String>>>()
     /** Valores iniciales de los campos uniformes: si no se tocan, las series
@@ -593,7 +594,7 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
 
 /** Bloques de OCR al editor actual. Se conserva el JSON de cada movimiento (pesos M/H,
  * escala, notas, repScheme, REST) y NO se crea una nueva sesión. */
-private fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): BlockDraftUi {
+internal fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): BlockDraftUi {
     val draft = BlockDraftUi()
     draft.title = block.title
     draft.format = block.wodFormat?.raw ?: if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) "" else "amrap"
@@ -1000,7 +1001,7 @@ private fun BlockEditorCard(
 }
 
 @Composable
-private fun WorkoutWODInsertActions(
+internal fun WorkoutWODInsertActions(
     onExercise: () -> Unit,
     onRest: () -> Unit,
     onFreeMovement: () -> Unit
@@ -1012,25 +1013,24 @@ private fun WorkoutWODInsertActions(
             onClick = onExercise,
             modifier = Modifier.testTag("plan_add_exercise")
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            WorkoutInlineAddButton(
-                label = "Descanso",
-                icon = Icons.Outlined.PauseCircle,
-                onClick = onRest,
-                modifier = Modifier.weight(1f).testTag("plan_add_rest")
-            )
-            WorkoutInlineAddButton(
-                label = "Movimiento libre",
-                icon = Icons.Outlined.Add,
-                onClick = onFreeMovement,
-                modifier = Modifier.weight(1f).testTag("plan_add_free_move")
-            )
-        }
+        // R8 P2: stack vertical evita «Movimiento libre» en 2 líneas en fila estrecha.
+        WorkoutInlineAddButton(
+            label = "Descanso",
+            icon = Icons.Outlined.PauseCircle,
+            onClick = onRest,
+            modifier = Modifier.testTag("plan_add_rest")
+        )
+        WorkoutInlineAddButton(
+            label = "Movimiento libre",
+            icon = Icons.Outlined.AddCircle,
+            onClick = onFreeMovement,
+            modifier = Modifier.testTag("plan_add_free_move")
+        )
     }
 }
 
 @Composable
-private fun WorkoutInlineAddButton(
+internal fun WorkoutInlineAddButton(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
@@ -1053,13 +1053,13 @@ private fun WorkoutInlineAddButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(label, fontWeight = FontWeight.SemiBold, maxLines = 2)
+            Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }
 }
 
 @Composable
-private fun PlanEditorActionRow(
+internal fun PlanEditorActionRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
@@ -1087,7 +1087,7 @@ private fun PlanEditorActionRow(
 }
 
 @Composable
-private fun FreeMovementDialog(
+internal fun FreeMovementDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String, reps: Int, maleKg: Double?, femaleKg: Double?) -> Unit
 ) {

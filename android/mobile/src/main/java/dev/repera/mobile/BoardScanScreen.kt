@@ -7,14 +7,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -27,8 +30,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import dev.repera.domain.BoardClassicReview
@@ -149,27 +152,48 @@ internal fun BoardScanScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { ReperaPageHeader(title = "Escanear pizarra", subtitle = "Cámara o galería") }
+        // R8 P1-10 / F4: sheet compacto (iOS BoardScanSourceSheet), sin página
+        // explicativa «Fuentes» + Volver.
+        item {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Escanear pizarra", style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold)
+                    Text("Cámara o galería", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.Outlined.Close,
+                    contentDescription = "Cerrar",
+                    onClick = onBack
+                )
+            }
+        }
         saveStatus?.let {message ->item {Text(message,color=MaterialTheme.colorScheme.error)}}
         if (blocks == null) {
             item {
-                Text("Fotografía la pizarra del box y Repera la convierte en una rutina.")
-            }
-            item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Fuentes", style = MaterialTheme.typography.titleMedium)
-                        Button(
-                            onClick = { markMediaRequest();takePicture.launch(photoUri) },
-                            enabled = !busy && !reading && !mediaPending,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = reperaPrimaryButtonColors()
-                        ) { Text("Tomar foto") }
-                        OutlinedButton(
-                            onClick = { markMediaRequest();pickImage.launch("image/*") },
+                    Column {
+                        PlanEditorActionRow(
+                            icon = Icons.Outlined.PhotoCamera,
+                            label = "Tomar foto",
+                            onClick = { markMediaRequest(); takePicture.launch(photoUri) },
                             enabled = !busy && !reading && !mediaPending,
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Elegir de la galería") }
+                        )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        PlanEditorActionRow(
+                            icon = Icons.Outlined.PhotoLibrary,
+                            label = "Elegir de la galería",
+                            onClick = { markMediaRequest(); pickImage.launch("image/*") },
+                            enabled = !busy && !reading && !mediaPending,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -188,10 +212,6 @@ internal fun BoardScanScreen(
                 item {
                     ReperaEmptyState(title = "No se pudo leer", subtitle = msg)
                 }
-            }
-            item {
-                OutlinedButton(onClick = onBack, enabled = !reading,
-                    modifier = Modifier.fillMaxWidth()) { Text("Volver") }
             }
         } else {
             item {
