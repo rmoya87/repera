@@ -12,9 +12,7 @@ import java.util.concurrent.TimeUnit
  * Port de BusinessAuthStore.syncPublicProfile (Apple fc3ef7e1): nombre y avatar PUBLICOS en Supabase
  * (Storage "profile-avatars/{uid}/avatar.jpg" + profiles.display_name / avatar_url). No envia entrenos, Salud ni compras.
  *
- * NO CABLEADO: ninguna pantalla ni worker lo llama. Android conserva hoy el perfil solo local (ProfileSettings:
- * "seleccionar una foto no la sube en publico"); publicarlo es un efecto externo que requiere un punto de consentimiento
- * explicito antes de conectarlo. Probado solo con HTTP simulado en JVM, nunca contra Supabase real.
+ * Cableado desde MainActivity tras hidratar cuenta (login) y al guardar nombre/foto en Ajustes.
  */
 class PublicProfileSync(
     private val baseUrl: String = BuildConfig.SUPABASE_URL,

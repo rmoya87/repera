@@ -65,11 +65,10 @@ private val chipShape = RoundedCornerShape(8.dp)
 private val iconCircle = Color(0xFFD4F5DE)
 private val chipBg = Color(0xFFF2F5F3)
 
-/** «ENTRENO · 7:11» hoy; «MIÉRCOLES · 7:11» en otro día. */
+/** «VIERNES · 7:11» (día de la semana en español, mayúsculas; paridad iOS HomeDayCards). */
 internal fun homeDayTimeCaption(day: LocalDate, timeLabel: String?): String {
     val locale = Locale("es", "ES")
-    val dayLabel = if (day == LocalDate.now()) "ENTRENO"
-    else day.dayOfWeek.getDisplayName(TextStyle.FULL, locale).uppercase(locale)
+    val dayLabel = day.dayOfWeek.getDisplayName(TextStyle.FULL, locale).uppercase(locale)
     return if (timeLabel.isNullOrBlank()) dayLabel else "$dayLabel · $timeLabel"
 }
 

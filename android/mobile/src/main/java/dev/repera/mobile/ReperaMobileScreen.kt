@@ -16,14 +16,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.Apartment
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,12 +25,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -51,7 +46,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -59,19 +54,12 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.SideEffect
+import android.app.Activity
+import android.graphics.Color as AndroidColor
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.compose.rememberNavController
-
-private data class TabSpec(val route: String, val label: String, val icon: ImageVector)
-
-private val tabs = listOf(
-    TabSpec("inicio", "Inicio", Icons.Outlined.Home),
-    // Diario ELIMINADO (Apple lo elimino, no lo oculto): sin pestana, sin ruta,
-    // sin pantalla. Rollback via Git. Divergencia abierta: la biblioteca Rutinas
-    // conserva acceso temporal por rutas (DIARIO_REMOVAL_TRACE).
-    TabSpec("en-vivo", "Comenzar", Icons.Outlined.AddCircleOutline),
-    TabSpec("progreso", "Progreso", Icons.Outlined.TrendingUp),
-    TabSpec("ejercicios", "Ejercicios", Icons.Outlined.FitnessCenter)
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,7 +99,16 @@ fun ReperaMobileScreen(
     /** Escáner → Empezar: crea one-off/plantilla e inicia sesión. */
     onStartRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>, String, String?, () -> Unit) -> Unit =
         onCreateRoutineFromScan,
-    onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
+    onSaveOneOffRoutine: (
+        String,
+        List<RoutineBlockDraft>,
+        String,
+        String,
+        Int?,
+        Boolean,
+        dev.repera.domain.WorkoutLocationPin?,
+        () -> Unit
+    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
@@ -291,6 +288,20 @@ fun ReperaMobileScreen(
         var pendingLiveSportId by rememberSaveable { mutableStateOf<String?>(null) }
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
+        val darkTheme = isSystemInDarkTheme()
+        val activityContext = LocalContext.current
+        SideEffect {
+            val activity = activityContext as? Activity ?: return@SideEffect
+            val window = activity.window
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            val homeLightHeader = currentRoute == "inicio" && !darkTheme
+            controller.isAppearanceLightStatusBars = if (homeLightHeader) true else !darkTheme
+            window.statusBarColor = if (homeLightHeader) {
+                AndroidColor.WHITE
+            } else {
+                AndroidColor.TRANSPARENT
+            }
+        }
         val navigateTab: (String) -> Unit = { route ->
             navController.navigate(route) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -330,10 +341,11 @@ fun ReperaMobileScreen(
         var showSettingsPanel by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf(false)}
         // Expanded Inicio edits a routine in the same trailing column instead of navigating away.
         var routinePanelId by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf<String?>(null)}
-        val settingsContent: @Composable ()->Unit = {
+        val settingsContent: @Composable (onBack: (() -> Unit)?)->Unit = { onBack ->
                     val subs=dev.repera.mobile.monetization.LocalSubscriptions.current
                     SettingsTab(
                         busy = busy,
+                        onBack = onBack,
                         onOpenAIAccess = {
                             navController.navigate("acceso-ia")
                         },
@@ -360,12 +372,13 @@ fun ReperaMobileScreen(
         val openSettings:()->Unit = {
             if(expanded && currentRoute=="inicio") {routinePanelId=null;showSettingsPanel=true} else navigateTab("ajustes")
         }
-        val visibleTabs = tabs
         // Paridad iOS: las 4 tabs usan large title in-content (`ogFixedTopBar` /
         // título en scroll), no un TopAppBar global «repera» encima de todas.
         // Ajustes se abre desde el avatar de Inicio o la ruta `ajustes`.
-        val tabRoutes = tabs.map { it.route }.toSet()
-        val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes
+        val tabRoutes = reperaTabRoutes
+        val hideAppShell = reperaRouteHidesAppShell(currentRoute)
+        val showTabBar = currentRoute in tabRoutes && !hideAppShell
+        val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
@@ -386,75 +399,22 @@ fun ReperaMobileScreen(
                 }
             },
             bottomBar = {
-                Column {
-                    // Accesorio «Continuar» (§1.6 / ContinueAccessory iOS) sobre la tab bar.
-                    val session = activeWorkout
-                    if (session != null && currentRoute in tabRoutes) {
-                        val title = session.exerciseName.takeIf { it.isNotBlank() }
-                            ?: session.title.takeIf { it.isNotBlank() }
-                            ?: "Entreno"
-                        val progress = if (session.total > 0)
-                            "${session.index + 1}/${session.total}" else ""
-                        Surface(
-                            tonalElevation = 2.dp,
-                            color = MaterialTheme.colorScheme.surface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navController.navigate("entreno-activo") }
-                                .testTag("continuar_accessory")
-                        ) {
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "Continuar",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
-                                    )
-                                }
-                                if (progress.isNotEmpty()) {
-                                    Text(
-                                        progress,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ) {
-                        visibleTabs.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentRoute == tab.route,
-                                onClick = { navigateTab(tab.route) },
-                                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                icon = { Icon(imageVector = tab.icon, contentDescription = null) },
-                                label = { Text(tab.label) }
-                            )
-                        }
-                    }
-                }
+                val session = activeWorkout
+                val continueTitle = if (session != null && showTabBar) {
+                    session.exerciseName.takeIf { it.isNotBlank() }
+                        ?: session.title.takeIf { it.isNotBlank() }
+                        ?: "Entreno"
+                } else null
+                val continueProgress = if (session != null && session.total > 0)
+                    "${session.index + 1}/${session.total}" else ""
+                ReperaTabBarChrome(
+                    showTabBar = showTabBar,
+                    selectedRoute = currentRoute,
+                    onTabSelected = navigateTab,
+                    continueTitle = continueTitle,
+                    continueProgress = continueProgress,
+                    onContinue = { navController.navigate("entreno-activo") }
+                )
             }
         ) { padding ->
             androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(padding)) {
@@ -570,6 +530,7 @@ fun ReperaMobileScreen(
                             blocks = emptyList())
                     }
                     var favorite by remember { mutableStateOf(false) }
+                    var sessionTitle by remember(accountId, requestId) { mutableStateOf("Mi entreno") }
                     RoutineBlocksEditorScreen(accountId=accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
@@ -578,10 +539,13 @@ fun ReperaMobileScreen(
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
                         sessionMode = true,
+                        pageTitle = "Crear entreno",
+                        showPlaceSection = true,
                         saveStatus=status,
                         onFavoriteChosen = { favorite = it },
+                        onTitleSuggested = { sessionTitle = it },
                         onReplace = { drafts ->
-                            onStartSessionFromDrafts(draft.title, drafts, favorite,requestId) {navController.popBackStack()}
+                            onStartSessionFromDrafts(sessionTitle, drafts, favorite,requestId) {navController.popBackStack()}
                         },
                         onBack = { navController.popBackStack() }
                     )
@@ -972,7 +936,8 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("ajustes") {
-                    settingsContent()
+                    BackHandler { navController.popBackStack() }
+                    settingsContent { navController.popBackStack() }
                 }
                 composable("historial") {
                     CompleteHistoryScreen(
@@ -1099,17 +1064,37 @@ fun ReperaMobileScreen(
                             ))
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
-                    RoutineBlocksEditorScreen(accountId=accountId,
+                    val oneOffMetaSnap = remember(fecha, nombre) {
+                        arrayOf<Any?>(null, false, null)
+                    }
+                    RoutineBlocksEditorScreen(
+                        accountId = accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
-                        saveStatus=status,
+                        saveStatus = status,
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
+                        oneOffEditor = true,
+                        scheduledDayIso = fecha,
+                        pageTitle = "Crear entreno",
                         onTitleSuggested = { t -> oneOffTitle = t },
+                        onOneOffMeta = { time, fav, pin ->
+                            oneOffMetaSnap[0] = time
+                            oneOffMetaSnap[1] = fav
+                            oneOffMetaSnap[2] = pin
+                        },
                         onReplace = { drafts ->
-                            onSaveOneOffRoutine(oneOffTitle ?: nombre, drafts, fecha,draft.id) {navController.popBackStack()}
+                            onSaveOneOffRoutine(
+                                oneOffTitle ?: nombre,
+                                drafts,
+                                fecha,
+                                draft.id,
+                                oneOffMetaSnap[0] as Int?,
+                                oneOffMetaSnap[1] as Boolean,
+                                oneOffMetaSnap[2] as dev.repera.domain.WorkoutLocationPin?
+                            ) { navController.popBackStack() }
                         },
                         onBack = { navController.popBackStack() }
                     )
@@ -1165,7 +1150,7 @@ fun ReperaMobileScreen(
                     }
                 }
             }
-            if(expanded && currentRoute=="inicio" && showSettingsPanel) TrailingColumnPanel(onDismiss={showSettingsPanel=false}) {settingsContent()}
+            if(expanded && currentRoute=="inicio" && showSettingsPanel) TrailingColumnPanel(onDismiss={showSettingsPanel=false}) {settingsContent(null)}
             val panelRoutine=routinePanelId?.let {id -> overview?.routineEntries?.firstOrNull {it.id==id}}
             if(expanded && currentRoute=="inicio" && routinePanelId!=null) {
                 if(panelRoutine==null) LaunchedEffect(routinePanelId,overview) {routinePanelId=null}
@@ -1219,7 +1204,8 @@ internal fun SettingsTab(
     onOpenBodyWeights:()->Unit = {},
     onOpenHistory:()->Unit = {},
     proStatus:String? = null,
-    onUpdateProfile:(ProfileSettings)->Unit = {}
+    onUpdateProfile:(ProfileSettings)->Unit = {},
+    onBack: (() -> Unit)? = null
 ) {
     var confirmSignOut by remember {mutableStateOf(false)}
     var confirmDeleteAccount by remember {mutableStateOf(false)}
@@ -1248,25 +1234,39 @@ internal fun SettingsTab(
     ProvideScrollDragAutoScroll(settingsScroll) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (onBack != null) {
+            IconButton(
+                onClick = onBack,
+                enabled = !busy,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    .testTag("settings_back")
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
         ReperaPageHeader(title = "Ajustes")
         val settingsSubs = LocalSubscriptions.current
         val settingsScope = rememberCoroutineScope()
         var restoreBusy by remember { mutableStateOf(false) }
         var restoreMessage by remember { mutableStateOf<String?>(null) }
-        ReperaSectionTitle("Cuenta")
+        ReperaSectionTitle("Cuenta", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProfileSettingsSection(overview?.profileSettings ?: ProfileSettings(),busy || overview==null,onUpdateProfile)
-                TextButton(
-                    onClick = { confirmSignOut = true },
-                    enabled = !busy && !deletingAccount,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Cerrar sesión", color = MaterialTheme.colorScheme.error)
-                }
+                ProfileSettingsSection(
+                    overview?.profileSettings ?: ProfileSettings(),
+                    busy || overview == null,
+                    onUpdateProfile,
+                    onRequestSignOut = { confirmSignOut = true }
+                )
             }
         }
-        ReperaSectionTitle("Centro y entrenador")
+        ReperaSectionTitle("Centro y entrenador", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick=onOpenCenter,enabled=!busy, modifier = Modifier.fillMaxWidth()) {
@@ -1274,7 +1274,7 @@ internal fun SettingsTab(
                 }
             }
         }
-        ReperaSectionTitle("Acceso")
+        ReperaSectionTitle("Acceso", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 proStatus?.let {
@@ -1326,14 +1326,14 @@ internal fun SettingsTab(
                 }
             }
         }
-        ReperaSectionTitle("Salud")
+        ReperaSectionTitle("Salud", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PermissionSettingsSection(onHealthConnect,onPrivateSleepChanged,onPrivateCycleChanged)
                 HealthGoalsSection(overview?.healthGoals ?: HealthGoals(),busy || overview==null,onUpdateHealthGoals)
             }
         }
-        ReperaSectionTitle("Entrenamiento")
+        ReperaSectionTitle("Entrenamiento", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick=onOpenHistory,enabled=!busy && overview!=null, modifier = Modifier.fillMaxWidth()) {Text("Historial ›")}
@@ -1343,7 +1343,7 @@ internal fun SettingsTab(
                     RotationSettingsSection(overview.rotationPlan,overview.routineEntries,busy,onUpdateRotation)
             }
         }
-        ReperaSectionTitle("Datos")
+        ReperaSectionTitle("Datos", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 overview?.let { Text("Entrenamientos: ${it.workouts} · Ejercicios: ${it.exercises} · Rutinas: ${it.routines}") }

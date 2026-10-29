@@ -18,9 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +46,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.WodFormat
+import dev.repera.domain.WorkoutLocationPin
+import java.time.LocalDate
+import java.time.LocalTime
 
 /** Editor de contenido de rutina: bloques (secciones), formatos y movimientos.
  *  Multi-bloque: buy-in / trabajo / cash-out se componen como bloques
@@ -67,6 +72,13 @@ fun RoutineBlocksEditorScreen(
     onFavoriteChosen: (Boolean) -> Unit = {},
     saveStatus:String? = null,
     editableTitle:Boolean = false,
+    /** DayPlus / one-off: título «Crear entreno», meta (nombre, fecha, hora, favorito) y lugar. */
+    oneOffEditor: Boolean = false,
+    scheduledDayIso: String? = null,
+    pageTitle: String? = null,
+    showPlaceSection: Boolean = true,
+    onOneOffMeta: (timeMinutes: Int?, isFavorite: Boolean, locationPin: WorkoutLocationPin?) -> Unit =
+        { _, _, _ -> },
     accountId:String = "",
     /** Preferencia de visualización RIR/RPE; el almacenamiento sigue en RIR. */
     effortUnit:String = "rir"
@@ -80,6 +92,17 @@ fun RoutineBlocksEditorScreen(
         restore={restoreScopedEditorValue(scopeKey,it)?.let(::restoreRoutineEditorBlocksOrNull)})}
     var draftTitle by rememberSaveable(accountId,routine.id,stateSaver=textSaver) {mutableStateOf(routine.title)}
     var asFavorite by rememberSaveable(accountId,routine.id,stateSaver=favoriteSaver) { mutableStateOf(false) }
+    var oneOffFavorite by rememberSaveable(accountId,routine.id,stateSaver=favoriteSaver) {
+        mutableStateOf(routine.isFavorite)
+    }
+    var scheduledClock by rememberSaveable(accountId, routine.id, stateSaver = nullableTextSaver) {
+        mutableStateOf(
+            routine.timeMinutes?.let { m ->
+                "%02d:%02d".format(m / 60, m % 60)
+            }
+        )
+    }
+    var draftPin by remember(accountId, routine.id) { mutableStateOf(routine.locationPin) }
     var suggestedTitle by rememberSaveable(accountId,routine.id,stateSaver=nullableTextSaver) { mutableStateOf<String?>(null) }
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
     val blocks = rememberSaveable(accountId,routine.id,saver=blocksSaver) {
@@ -108,48 +131,148 @@ fun RoutineBlocksEditorScreen(
     ProvideScrollDragAutoScroll(scrollState) {
     Column(modifier = Modifier.verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Apple 040227d5 (corte): Volver NEUTRO a la izquierda; la
-            // confirmación (Guardar/Empezar) mantiene el verde de acento.
-            IconButton(onClick = onBack, enabled = !busy) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
-            }
-            Spacer(Modifier.weight(1f))
-            TextButton(
-                onClick = { showReorder = true },
-                enabled = !busy && blocks.isNotEmpty(),
-                modifier = Modifier.testTag("plan_reorder_open")
-            ) { Text("Reordenar") }
-            Button(
-                colors = reperaPrimaryButtonColors(),
-                onClick = {
-                val drafts = mutableListOf<RoutineBlockDraft>()
-                error = null
-                for (block in blocks) {
-                    val parsed = block.toDraft() ?: run {
-                        error = "Revisa los campos numéricos de «" +
-                            block.title.ifBlank { "bloque" } + "»"
-                        return@Button
-                    }
-                    drafts.add(parsed)
+        val confirmLabel = if (sessionMode) "Empezar" else "Guardar"
+        val canConfirm = !busy && (!editableTitle || draftTitle.trim().isNotBlank())
+        fun persistAndSave() {
+            val drafts = mutableListOf<RoutineBlockDraft>()
+            error = null
+            for (block in blocks) {
+                val parsed = block.toDraft() ?: run {
+                    error = "Revisa los campos numéricos de «" +
+                        block.title.ifBlank { "bloque" } + "»"
+                    return
                 }
-                if(editableTitle) {
-                    if(draftTitle.trim().isBlank()) {error="Escribe un título válido";return@Button}
-                    onTitleSuggested(draftTitle.trim())
-                } else suggestedTitle?.let(onTitleSuggested)
-                if (sessionMode) onFavoriteChosen(asFavorite)
-                onReplace(drafts)
-            }, enabled = !busy) { Text(if (sessionMode) "Empezar" else "Guardar") }
+                drafts.add(parsed)
+            }
+            val parsedClock = scheduledClock?.trim()?.takeIf { it.isNotEmpty() }
+                ?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+            if (oneOffEditor && scheduledClock?.isNotBlank() == true && parsedClock == null) {
+                error = "Hora no válida"
+                return
+            }
+            val timeMinutes = parsedClock?.let { it.hour * 60 + it.minute }
+            if (editableTitle && !oneOffEditor) {
+                if (draftTitle.trim().isBlank()) {
+                    error = "Escribe un título válido"
+                    return
+                }
+                onTitleSuggested(draftTitle.trim())
+            } else if (oneOffEditor) {
+                if (draftTitle.trim().isBlank()) {
+                    error = "Escribe un título válido"
+                    return
+                }
+                onTitleSuggested(draftTitle.trim())
+                onOneOffMeta(timeMinutes, oneOffFavorite, draftPin)
+            } else if (sessionMode) {
+                onTitleSuggested(draftTitle.trim().ifBlank { "Mi entreno" })
+            } else suggestedTitle?.let(onTitleSuggested)
+            if (sessionMode) onFavoriteChosen(asFavorite)
+            onReplace(drafts)
         }
-        ReperaPageHeader(title = if (editableTitle) draftTitle.ifBlank { "Nueva rutina" } else routine.title,
-            subtitle = "Contenido del plan")
-        if(editableTitle) OutlinedTextField(value=draftTitle,onValueChange={draftTitle=it},enabled=!busy,
-            label={Text("Nombre de la rutina")},modifier=Modifier.testTag("new_template_title"))
-        if (sessionMode) Row(verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.Switch(checked = asFavorite, onCheckedChange = { asFavorite = it },
-                colors = reperaSwitchColors(),
-                modifier = Modifier.testTag("session_favorite_switch"))
-            Text("  Favorito")
+        DayEditorTopBar(
+            onBack = onBack,
+            onConfirm = { persistAndSave() },
+            confirmEnabled = canConfirm,
+            confirmContentDescription = confirmLabel,
+            busy = busy
+        )
+        val headerTitle = pageTitle ?: when {
+            oneOffEditor -> "Crear entreno"
+            sessionMode -> "Crear entreno"
+            editableTitle -> draftTitle.ifBlank { "Nueva rutina" }
+            else -> routine.title
+        }
+        ReperaPageHeader(title = headerTitle)
+        if (oneOffEditor || sessionMode) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = draftTitle,
+                        onValueChange = { draftTitle = it },
+                        enabled = !busy,
+                        label = { Text(if (sessionMode) "Nombre del entreno" else "Nombre del entreno") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("workout_meta_title")
+                    )
+                    scheduledDayIso?.let { iso ->
+                        val dayLabel = runCatching { LocalDate.parse(iso).format(reperaDayFormatter) }
+                            .getOrDefault(iso)
+                        Text(dayLabel, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (oneOffEditor) {
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Switch(
+                                checked = scheduledClock != null,
+                                onCheckedChange = { on ->
+                                    scheduledClock = if (on) scheduledClock ?: "18:00" else null
+                                },
+                                colors = reperaSwitchColors(),
+                                modifier = Modifier.testTag("workout_scheduled_time_switch")
+                            )
+                            Text("  Hora programada", style = MaterialTheme.typography.bodyLarge)
+                            if (scheduledClock != null) {
+                                val t = runCatching { LocalTime.parse(scheduledClock) }
+                                    .getOrDefault(LocalTime.of(18, 0))
+                                TextButton(
+                                    modifier = Modifier.testTag("workout_scheduled_time"),
+                                    onClick = {
+                                        android.app.TimePickerDialog(
+                                            ctx,
+                                            { _, h, mi -> scheduledClock = "%02d:%02d".format(h, mi) },
+                                            t.hour,
+                                            t.minute,
+                                            true
+                                        ).show()
+                                    }
+                                ) { Text(scheduledClock!!) }
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Switch(
+                                checked = oneOffFavorite,
+                                onCheckedChange = { oneOffFavorite = it },
+                                colors = reperaSwitchColors(),
+                                modifier = Modifier.testTag("workout_favorite_switch")
+                            )
+                            Text("  Favorito", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    if (sessionMode) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Switch(
+                                checked = asFavorite,
+                                onCheckedChange = { asFavorite = it },
+                                colors = reperaSwitchColors(),
+                                modifier = Modifier.testTag("session_favorite_switch")
+                            )
+                            Text("  Favorito", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        } else if (editableTitle) {
+            OutlinedTextField(
+                value = draftTitle, onValueChange = { draftTitle = it }, enabled = !busy,
+                label = { Text("Nombre de la rutina") },
+                modifier = Modifier.testTag("new_template_title")
+            )
+        }
+        if (showPlaceSection && !sessionMode) {
+            ReperaSectionTitle("Lugar")
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                WorkoutPlacePickerRow(
+                    pin = draftPin,
+                    accountId = accountId,
+                    onPinChange = { draftPin = it },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         saveStatus?.let {Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("routine_save_status"))}
@@ -166,6 +289,7 @@ fun RoutineBlocksEditorScreen(
                     exercises = exercises,
                     loadGuideProvider = loadGuideProvider,
                     onRemove = if (blocks.size > 1) ({ blocks.removeAt(index) }) else null,
+                    onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
                     onBlockUp = if (index > 0) ({ val m = blocks.removeAt(index); blocks.add(index - 1, m) }) else null,
                     onBlockDown = if (index < blocks.size - 1) ({ val m = blocks.removeAt(index); blocks.add(index + 1, m) }) else null,
                     effortUnit = effortUnit,
@@ -516,6 +640,7 @@ private fun BlockEditorCard(
     onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> },
     onBlockUp: (() -> Unit)? = null,
     onBlockDown: (() -> Unit)? = null,
+    onOpenReorder: (() -> Unit)? = null,
     effortUnit: String = "rir"
 ) {
     val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
@@ -531,15 +656,32 @@ private fun BlockEditorCard(
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(enabled = onBlockUp != null, modifier = Modifier.testTag("plan_block_up"), onClick = { onBlockUp?.invoke() }) {
-                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
-                IconButton(enabled = onBlockDown != null, modifier = Modifier.testTag("plan_block_down"), onClick = { onBlockDown?.invoke() }) {
-                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
-                onRemove?.let {
-                    TextButton(onClick = it) { Text("Quitar") }
+                var blockMenu by remember { mutableStateOf(false) }
+                if (onOpenReorder != null || onRemove != null) {
+                    IconButton(
+                        onClick = { blockMenu = true },
+                        modifier = Modifier.testTag("plan_block_menu")
+                    ) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = "Opciones del bloque")
+                    }
+                    DropdownMenu(expanded = blockMenu, onDismissRequest = { blockMenu = false }) {
+                        onOpenReorder?.let {
+                            DropdownMenuItem(
+                                text = { Text("Reordenar") },
+                                modifier = Modifier.testTag("plan_reorder_open"),
+                                onClick = { blockMenu = false; it() }
+                            )
+                        }
+                        onRemove?.let { remove ->
+                            DropdownMenuItem(
+                                text = { Text("Eliminar bloque") },
+                                onClick = { blockMenu = false; remove() }
+                            )
+                        }
+                    }
                 }
             }
-            // I-62: fila «Formato ›» abre hoja con descripciones (chips compactos debajo).
+            // I-62: fila «Formato ›» abre hoja con descripciones (paridad PlanView.formatSettings).
             var showFormats by remember { mutableStateOf(false) }
             TextButton(
                 onClick = { showFormats = true },
@@ -554,19 +696,6 @@ private fun BlockEditorCard(
                     onDismiss = { showFormats = false }
                 )
             }
-            @androidx.compose.runtime.Composable
-            fun chips() {
-                blockFormats.forEach { wire ->
-                    ReperaFilterChip(
-                        selected = block.format == wire,
-                        onClick = { block.format = wire },
-                        label = { Text(formatLabel(wire), maxLines = 1, softWrap = false) }
-                    )
-                }
-            }
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()) { chips() }
             // Campos alineados con iOS fieldsForFormat (PlanView).
             when (block.format) {
                 "amrap", "afap", "chipper", "buyInCashOut", "maxEffort" ->

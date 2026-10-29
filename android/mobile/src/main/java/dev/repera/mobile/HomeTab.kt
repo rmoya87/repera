@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
@@ -182,6 +183,7 @@ internal fun HomeTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
+                    .statusBarsPadding()
                     .padding(top = 12.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -391,9 +393,10 @@ internal fun HomeTab(
             ) {
                 AdaptiveCardPair(
                     first = {
-                        if (overview != null)
-                            HomeWeeklyProgressCard(days, overview.healthGoals.weeklyWorkouts)
-                        else Text("Progreso semanal: sin datos locales")
+                        HomeWeeklyProgressCard(
+                            days,
+                            overview?.healthGoals?.weeklyWorkouts
+                        )
                     },
                     second = {
                         HomeActivityTodayCard(
@@ -586,18 +589,6 @@ internal fun HomeTab(
                             }
                         }
                     }
-                }
-            }
-        }
-        if (overview == null) {
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(horizontal = 16.dp)
-                ) {
-                    OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson)
                 }
             }
         }

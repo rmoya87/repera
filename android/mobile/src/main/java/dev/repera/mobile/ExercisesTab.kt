@@ -7,7 +7,9 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
@@ -136,8 +138,24 @@ internal fun ExercisesTab(
     var exerciseSort by rememberSaveable { mutableStateOf("Alfabético") }
     var showingExerciseFilters by rememberSaveable {mutableStateOf(false)}
     if(showingExerciseFilters) ExerciseFilterSheet(
-        listOf("Favoritos")+ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()),
-        exerciseFilter,exerciseSort,{exerciseFilter=it},{exerciseSort=it},{showingExerciseFilters=false})
+        listOf("WODs", "Deportes") + listOf("Favoritos") +
+            ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()),
+        exerciseFilter,exerciseSort,
+        onFilter = { value ->
+            when (value) {
+                "WODs" -> {
+                    libraryMode = "WODs"
+                    showingExerciseFilters = false
+                }
+                "Deportes" -> {
+                    libraryMode = "Deportes"
+                    showingExerciseFilters = false
+                }
+                else -> exerciseFilter = value
+            }
+        },
+        onSort = { exerciseSort = it },
+        onClose = { showingExerciseFilters = false })
     val context = LocalContext.current
     var routeVersion by remember { mutableStateOf(0) }
     var routeError by remember { mutableStateOf<String?>(null) }
@@ -287,38 +305,33 @@ internal fun ExercisesTab(
             ReperaPageHeader(
                 title = "Ejercicios",
                 trailing = {
-                    IconButton(
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.Tune,
+                        contentDescription = "Filtrar y ordenar",
+                        onClick = { showingExerciseFilters = true },
+                        modifier = Modifier.testTag("library_filter_button")
+                    )
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.Add,
+                        contentDescription = "Nuevo ejercicio",
                         onClick = onCreateExercise,
                         enabled = !busy,
                         modifier = Modifier.testTag("new_exercise_button")
-                    ) {
-                        Icon(Icons.Outlined.AddCircleOutline, contentDescription = "Nuevo ejercicio")
-                    }
+                    )
                 }
             )
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReperaFilterChip(selected = true, onClick = {}, label = { Text("Ejercicios") })
-                ReperaFilterChip(selected=false,onClick={libraryMode="WODs"},label={Text("WODs")})
-                ReperaFilterChip(selected = false, onClick = { libraryMode = "Deportes" }, label = { Text("Deportes") })
-            }
-        }
-        item { CountCard("Catálogo local", overview?.exercises, overview != null) }
         item {
             OutlinedTextField(
                 value = exerciseSearch,
                 onValueChange = { exerciseSearch = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Buscar ejercicio") }
+                placeholder = { Text("Nombre, músculo o equipo") },
+                leadingIcon = {
+                    Icon(Icons.Outlined.Search, contentDescription = null)
+                }
             )
-        }
-        item {
-            OutlinedButton(onClick={showingExerciseFilters=true},modifier=Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.SortByAlpha,null,Modifier.size(18.dp))
-                Text("Ordenar y filtrar · $exerciseSort · $exerciseFilter",Modifier.padding(start=8.dp))
-            }
         }
         val entries = filteredExerciseEntries
         item {
@@ -344,177 +357,23 @@ internal fun ExercisesTab(
                         modifier = Modifier.padding(top = 4.dp))
                 }
                 items(groupEntries, key = { it.id }) { entry ->
-        ReperaCard(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
-            .semantics { selected = selectedExerciseId == entry.id }
-            .clickable { openExercise(entry.id) },
-            selected = selectedExerciseId == entry.id) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(entry.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f))
-                    IconButton(onClick = {
-                        onSetExerciseFavorite(entry.id, !entry.isFavorite)
-                    }, enabled = !busy) {
-                        Icon(
-                            if (entry.isFavorite) Icons.Outlined.Star
-                            else Icons.Outlined.StarBorder,
-                            contentDescription = if (entry.isFavorite)
-                                "Quitar de favoritos" else "Marcar favorito",
-                            tint = if (entry.isFavorite) brandGreen
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                val progress = overview?.exerciseProgress?.get(entry.id)
-                var showHistory by remember(entry.id) { mutableStateOf(false) }
-                var showAllSessions by remember(entry.id) { mutableStateOf(false) }
-                val sessions = overview?.exerciseSessions?.get(entry.id).orEmpty()
-                if (progress != null) {
-                    TextButton(onClick = { showHistory = !showHistory }) {
-                        Text(if (showHistory) "Ocultar resumen" else "Última sesión y récords")
-                    }
-                    if (showHistory) {
-                        progress.lastDate?.take(10)?.let {
-                            Text("Última sesión: $it", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        progress.maxWeightKg?.let { weight ->
-                            Text("Récord de carga: $weight kg" +
-                                (progress.repsAtMaxWeight?.let { " · $it reps" } ?: ""))
-                        }
-                        progress.bestReps?.let { Text("Máximo: $it reps") }
-                        progress.bestCalories?.let { Text("Máximo: $it cal") }
-                        progress.bestMeters?.let { Text("Máximo: $it m") }
-                        progress.bestDurationSeconds?.let { seconds ->
-                            Text("Duración máxima: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
-                        }
-                        if (sessions.isNotEmpty()) {
-                            // Historial completo por ejercicio = Pro (paridad
-                            // iOS exerciseFullHistory, contexto exerciseHistory).
-                            val subscriptions = LocalSubscriptions.current
-                            val historyAllowed = subscriptions
-                                ?.decision(dev.repera.domain.monetization.ReperaFeature.EXERCISE_FULL_HISTORY)
-                                ?.allowed ?: true
-                            if (historyAllowed) {
-                                Text("Historial · ${sessions.size} sesiones",
-                                    style = MaterialTheme.typography.titleSmall)
-                                (if (showAllSessions) sessions else sessions.take(5)).forEach { visit ->
-                                    Text(visit.date.take(10) + " · " + visit.title,
-                                        style = MaterialTheme.typography.bodyMedium)
-                                    Text(visit.lines.joinToString("  "),
-                                        style = MaterialTheme.typography.labelSmall)
-                                }
-                                if (sessions.size > 5) TextButton(
-                                    onClick = { showAllSessions = !showAllSessions }
-                                ) { Text(if (showAllSessions) "Ver menos" else "Ver todas las sesiones") }
-                            } else {
-                                TextButton(onClick = {
-                                    subscriptions?.presentPaywall(
-                                        dev.repera.domain.monetization.PaywallContext.EXERCISE_HISTORY,
-                                        feature = dev.repera.domain.monetization.ReperaFeature.EXERCISE_FULL_HISTORY
-                                    )
-                                }) { Text("Historial completo con Repera Pro") }
-                            }
-                        }
-                    }
-                }
-                TextButton(
-                    onClick = { quickLogId=entry.id },
-                    enabled = !busy && entry.supportsBasicInput
-                ) { Text(if (entry.supportsBasicInput) "Apuntar ejercicio" else "Registro avanzado pendiente") }
-            }
-        }
+                    ExerciseLibraryRow(
+                        entry = entry,
+                        aliases = englishAliases,
+                        selected = selectedExerciseId == entry.id,
+                        onClick = { openExercise(entry.id) }
+                    )
                 }
             }
         } else {
-        items(entries, key = { it.id }) { entry ->
-ReperaCard(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.id}")
-    .semantics { selected = selectedExerciseId == entry.id }
-    .clickable { openExercise(entry.id) },
-    selected = selectedExerciseId == entry.id) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(entry.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f))
-            IconButton(onClick = {
-                onSetExerciseFavorite(entry.id, !entry.isFavorite)
-            }, enabled = !busy) {
-                Icon(
-                    if (entry.isFavorite) Icons.Outlined.Star
-                    else Icons.Outlined.StarBorder,
-                    contentDescription = if (entry.isFavorite)
-                        "Quitar de favoritos" else "Marcar favorito",
-                    tint = if (entry.isFavorite) brandGreen
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+            items(entries, key = { it.id }) { entry ->
+                ExerciseLibraryRow(
+                    entry = entry,
+                    aliases = englishAliases,
+                    selected = selectedExerciseId == entry.id,
+                    onClick = { openExercise(entry.id) }
                 )
             }
-        }
-        val progress = overview?.exerciseProgress?.get(entry.id)
-        var showHistory by remember(entry.id) { mutableStateOf(false) }
-        var showAllSessions by remember(entry.id) { mutableStateOf(false) }
-        val sessions = overview?.exerciseSessions?.get(entry.id).orEmpty()
-        if (progress != null) {
-            TextButton(onClick = { showHistory = !showHistory }) {
-                Text(if (showHistory) "Ocultar resumen" else "Última sesión y récords")
-            }
-            if (showHistory) {
-                progress.lastDate?.take(10)?.let {
-                    Text("Última sesión: $it", style = MaterialTheme.typography.bodyMedium)
-                }
-                progress.maxWeightKg?.let { weight ->
-                    Text("Récord de carga: $weight kg" +
-                        (progress.repsAtMaxWeight?.let { " · $it reps" } ?: ""))
-                }
-                progress.bestReps?.let { Text("Máximo: $it reps") }
-                progress.bestCalories?.let { Text("Máximo: $it cal") }
-                progress.bestMeters?.let { Text("Máximo: $it m") }
-                progress.bestDurationSeconds?.let { seconds ->
-                    Text("Duración máxima: ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}")
-                }
-                if (sessions.isNotEmpty()) {
-                    // Historial completo por ejercicio = Pro (paridad
-                    // iOS exerciseFullHistory, contexto exerciseHistory).
-                    val subscriptions = LocalSubscriptions.current
-                    val historyAllowed = subscriptions
-                        ?.decision(dev.repera.domain.monetization.ReperaFeature.EXERCISE_FULL_HISTORY)
-                        ?.allowed ?: true
-                    if (historyAllowed) {
-                        Text("Historial · ${sessions.size} sesiones",
-                            style = MaterialTheme.typography.titleSmall)
-                        (if (showAllSessions) sessions else sessions.take(5)).forEach { visit ->
-                            Text(visit.date.take(10) + " · " + visit.title,
-                                style = MaterialTheme.typography.bodyMedium)
-                            Text(visit.lines.joinToString("  "),
-                                style = MaterialTheme.typography.labelSmall)
-                        }
-                        if (sessions.size > 5) TextButton(
-                            onClick = { showAllSessions = !showAllSessions }
-                        ) { Text(if (showAllSessions) "Ver menos" else "Ver todas las sesiones") }
-                    } else {
-                        TextButton(onClick = {
-                            subscriptions?.presentPaywall(
-                                dev.repera.domain.monetization.PaywallContext.EXERCISE_HISTORY,
-                                feature = dev.repera.domain.monetization.ReperaFeature.EXERCISE_FULL_HISTORY
-                            )
-                        }) { Text("Historial completo con Repera Pro") }
-                    }
-                }
-            }
-        }
-        TextButton(
-            onClick = { quickLogId=entry.id },
-            enabled = !busy && entry.supportsBasicInput
-        ) { Text(if (entry.supportsBasicInput) "Apuntar ejercicio" else "Registro avanzado pendiente") }
-    }
-}
-        }
-        }
-        item { OverviewEmptyActions(overview, busy, onInitializeLocal, onImportJson) }
-        item {
-            AccountSyncCard(busy, syncing, status, overview, onDriveSync, onExportJson, onSignOut)
         }
     }
     }
@@ -544,6 +403,27 @@ ReperaCard(modifier = Modifier.fillMaxWidth().testTag("library_exercise_${entry.
         } else listContent(onOpenExercise)
     }
 
+}
+
+@Composable
+private fun ExerciseLibraryRow(
+    entry: ExerciseEntry,
+    aliases: Map<String, String>,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    LibraryExerciseListRow(
+        title = entry.displayName,
+        subtitle = libraryExerciseSubtitle(entry),
+        name = entry.name,
+        sportTag = entry.sportTag,
+        aliases = aliases,
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier
+            .testTag("library_exercise_${entry.id}")
+            .semantics { this.selected = selected }
+    )
 }
 
 /**

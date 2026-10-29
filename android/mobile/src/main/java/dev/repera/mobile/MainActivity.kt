@@ -921,13 +921,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         }
                     }
                 },
-                onSaveOneOffRoutine = { title, drafts, dayIso, requestId, saved ->
-                    runWorkoutAction(onSuccess=saved) {
-                        createRoutineFromDrafts(title, drafts,
-                            RoutineSchedule(scheduledDate = dayIso),routineId=requestId) { before ->
+                onSaveOneOffRoutine = { title, drafts, dayIso, requestId, timeMinutes, isFavorite, pin, saved ->
+                    runWorkoutAction(onSuccess = saved) {
+                        val id = createRoutineFromDrafts(
+                            title, drafts,
+                            RoutineSchedule(scheduledDate = dayIso, timeMinutes = timeMinutes),
+                            routineId = requestId,
+                            locationPin = pin
+                        ) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
+                        if (isFavorite) setRoutineFavorite(id, true)
                     }
                 },
                 centerConnected = verifiedSupabase != null,
@@ -1166,7 +1171,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 accountId = profile?.uniqueId.orEmpty(),
                 initialExternalRoute = externalRoute,
                 onExternalRouteHandled = { externalRoute = null },
-                onUpdateProfile = {value -> runWorkoutAction {updateProfile(value)}},
+                onUpdateProfile = ::persistProfileSettings,
                 onUpdateHealthGoals = { goals -> runWorkoutAction { updateHealthGoals(goals) } },
                 onUpdateRotation = { plan -> runWorkoutAction { updateRotation(plan) } },
                 onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
@@ -1647,9 +1652,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
-                syncSupabaseMirrors()
-                reloadFor(stored.uniqueId)
-                refreshCatalogSilently(stored.uniqueId)
+                prepareAccountDataAfterAuth(stored.uniqueId) { current() }
             } catch (error: Exception) {
                 if(!current()) return@launch
                 if(!SupabaseAuthErrors.isUnrecoverable(error)) {
@@ -1657,6 +1660,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     // la cuenta remota queda sin verificar hasta reintentar (onResume).
                     profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                     status = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
+                    ensureLocalSeedIfMissing(stored.uniqueId) { current() }
                     reloadFor(stored.uniqueId)
                     return@launch
                 }
@@ -1731,10 +1735,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
-                syncSupabaseMirrors()
-                reloadFor(id)
-                refreshCatalogSilently(id)
-                status = if (snapshot == null) "No hay datos locales. Sincroniza Google Drive." else null
+                val signInRevision = centerGate.revision
+                prepareAccountDataAfterAuth(id) { profile?.uniqueId == id && centerGate.revision == signInRevision }
+                status = null
             } catch (error: Exception) {
                 aiPlansRealtime.stop()
                 verifiedSupabase = null; resetManualMirrorSync()
@@ -1996,6 +1999,73 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 if(current()) status = "Sincronización incompleta: " + error.localizedMessage
             } finally {
                 if(current()) {busy = false;syncing = false}
+            }
+        }
+    }
+
+    /** iOS ReperaStore seed + RemoteExerciseCatalogStore.refresh on first connect. */
+    private suspend fun ensureLocalSeedIfMissing(accountId: String, current: () -> Boolean) {
+        withContext(Dispatchers.IO) {
+            if (!current()) return@withContext
+            if (LocalSnapshotStore(this@MainActivity, accountId).read() == null) {
+                CatalogBootstrap.initializeEmptyAccount(this@MainActivity, accountId)
+            }
+        }
+    }
+
+    /**
+     * Tras Google/Supabase verificado (login o restoreStoredSession): sembrar JSON local si falta,
+     * descargar catálogo editorial, hidratar UI y luego espejos Supabase (BusinessWorkoutSyncStore).
+     */
+    private suspend fun prepareAccountDataAfterAuth(accountId: String, current: () -> Boolean) {
+        withContext(Dispatchers.IO) {
+            ensureLocalSeedIfMissing(accountId, current)
+            if (!current()) return@withContext
+            val (token, rotated) = refreshedSessionBlocking(accountId) { current() }
+            if (rotated != null) {
+                withContext(Dispatchers.Main) {
+                    if (current()) verifiedSupabase = rotated
+                }
+            }
+            if (!current()) return@withContext
+            val feed = RemoteExerciseCatalog(this@MainActivity)
+            runCatching { feed.refresh(token) }
+            feed.applyToAccount(accountId)
+        }
+        if (!current()) return
+        reloadFor(accountId)
+        if (!current()) return
+        syncPublicProfileFromSettings()
+        syncSupabaseMirrors()
+    }
+
+    /** SettingsView.onSubmit / foto: perfil público Supabase (BusinessAuthStore.syncPublicProfile). */
+    private fun persistProfileSettings(value: ProfileSettings) {
+        val avatar = value.avatarJPEG?.let {
+            runCatching { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }.getOrNull()
+        }
+        runWorkoutAction { updateProfile(value) }
+        syncPublicProfileFromSettings(value.displayName ?: profile?.displayName, avatar)
+    }
+
+    private fun syncPublicProfileFromSettings(
+        displayName: String? = snapshot?.profileSettings?.displayName ?: profile?.displayName,
+        avatarJpeg: ByteArray? = snapshot?.profileSettings?.avatarJPEG?.let {
+            runCatching { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }.getOrNull()
+        }
+    ) {
+        val session = verifiedSupabase ?: return
+        val uniqueId = profile?.uniqueId ?: return
+        val authorized = accountWorkGuard(uniqueId, session.userId)
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val refreshed = refreshedSessionBlocking(uniqueId) { authorized() }
+                    val active = refreshed.second?.also {
+                        withContext(Dispatchers.Main) { if (authorized()) verifiedSupabase = it }
+                    } ?: session
+                    PublicProfileSync(stillAuthorized = authorized).sync(active, displayName, avatarJpeg)
+                }
             }
         }
     }
@@ -2738,7 +2808,8 @@ data class StateOverview(
                             .takeIf { item.has("scheduledTimeMinutes") && it in 0..1439 },
                         blocks = blockInfos,
                         progression = item.optString("progression", "off"),
-                        isFavorite = item.optBoolean("isFavorite", false)
+                        isFavorite = item.optBoolean("isFavorite", false),
+                        locationPin = pinFromJson(item.optJSONObject("locationPin"))
                     )
                 }
             }
@@ -2915,7 +2986,8 @@ data class RoutineEntry(
     val timeMinutes: Int? = null,
     val blocks: List<RoutineBlockInfo> = emptyList(),
     val progression: String = "off",
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val locationPin: dev.repera.domain.WorkoutLocationPin? = null
 )
 
 /** Bloque de una rutina tal y como se muestra en el editor de contenido. */
