@@ -705,11 +705,7 @@ struct WorkoutView: View {
         ScrollView {
             if let draft = playReorderDraft {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    Label("Orden de bloques", systemImage: "square.stack.3d.up")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(OG.label2)
-                        .padding(.horizontal, 4)
-                        .padding(.bottom, 6)
+                    OGCardSectionTitle(title: "Orden de bloques")
 
                     ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { position, block in
                         OGReorderInsertionGap(
@@ -740,7 +736,6 @@ struct WorkoutView: View {
 
                     ForEach(draft.blocks) { block in
                         playReorderExerciseSection(block)
-                            .padding(.top, 18)
                     }
                 }
                 .padding(.horizontal, OG.pad)
@@ -800,11 +795,7 @@ struct WorkoutView: View {
             return block.movements.map { ($0.id, $0.isRest ? "Descanso" : $0.name) }
         }()
         VStack(alignment: .leading, spacing: 0) {
-            Text(block.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(OG.label2)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 6)
+            OGCardSectionTitle(title: block.title)
 
             ForEach(rows, id: \.id) { row in
                 OGReorderInsertionGap(

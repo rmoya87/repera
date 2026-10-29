@@ -483,11 +483,7 @@ struct DayEditorView: View {
     private var reorderSheet: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                Label("Orden de bloques", systemImage: "square.stack.3d.up")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(OG.label2)
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, 6)
+                OGCardSectionTitle(title: "Orden de bloques")
 
                 ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { position, block in
                     OGReorderInsertionGap(
@@ -506,7 +502,6 @@ struct DayEditorView: View {
 
                 ForEach(routine.blocks) { block in
                     reorderExercisesSection(for: block)
-                        .padding(.top, 18)
                 }
             }
             .padding(.horizontal, OG.pad)
@@ -567,11 +562,7 @@ struct DayEditorView: View {
             }
         }()
         VStack(alignment: .leading, spacing: 0) {
-            Text(block.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(OG.label2)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 6)
+            OGCardSectionTitle(title: block.title)
 
             ForEach(rows, id: \.id) { row in
                 OGReorderInsertionGap(
