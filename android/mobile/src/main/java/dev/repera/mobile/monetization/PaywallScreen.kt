@@ -231,7 +231,7 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
 private fun PaywallBenefits() {
     val features = listOf(
         "Tu evolución, al detalle" to "Historial completo por ejercicio, marcas y e1RM.",
-        "Entiende cómo progresas" to "Todos los periodos, métricas y análisis muscular avanzado.",
+        "Entiende cómo progresas" to "Todos los periodos, recuperación y análisis muscular avanzado.",
         "Más espacio para entrenar" to "Rutinas, favoritos y ejercicios propios sin límites.",
         "Escanea cualquier WOD" to "Pizarras ilimitadas y comparativas de resultados.",
         "Progresa con criterio" to "Sugerencias de carga basadas en tus entrenamientos."
