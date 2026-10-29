@@ -653,6 +653,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         drafts: List<RoutineBlockDraft>,
         schedule: RoutineSchedule = RoutineSchedule(),
         routineId:String? = null,
+        locationPin: dev.repera.domain.WorkoutLocationPin? = null,
         canCreateTemplate:(Int)->Boolean = {true},
         canCreateCustom: (Int) -> Boolean = { true }
     ): String {
@@ -683,6 +684,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (schedule.timeMinutes != null)
             nativeRoutine.put("scheduledTimeMinutes", schedule.timeMinutes)
+        locationPin?.let { pin ->
+            nativeRoutine.put("locationPin", JSONObject()
+                .put("latitude", pin.latitude)
+                .put("longitude", pin.longitude)
+                .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                .also { o ->
+                    pin.name?.let { o.put("name", it) }
+                    pin.mapItemIdentifier?.let { o.put("mapItemIdentifier", it) }
+                    pin.pointOfInterestCategory?.let { o.put("pointOfInterestCategory", it) }
+                })
+        }
         schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
         state.getJSONArray("routines").put(nativeRoutine)
         save(state)

@@ -90,7 +90,16 @@ fun ReperaMobileScreen(
     /** Escáner → Empezar: crea one-off/plantilla e inicia sesión. */
     onStartRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>, String, String?, () -> Unit) -> Unit =
         onCreateRoutineFromScan,
-    onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
+    onSaveOneOffRoutine: (
+        String,
+        List<RoutineBlockDraft>,
+        String,
+        String,
+        Int?,
+        Boolean,
+        dev.repera.domain.WorkoutLocationPin?,
+        () -> Unit
+    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
@@ -343,8 +352,9 @@ fun ReperaMobileScreen(
         // título en scroll), no un TopAppBar global «repera» encima de todas.
         // Ajustes se abre desde el avatar de Inicio o la ruta `ajustes`.
         val tabRoutes = reperaTabRoutes
-        val showTabBar = currentRoute in tabRoutes
-        val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes
+        val hideAppShell = reperaRouteHidesAppShell(currentRoute)
+        val showTabBar = currentRoute in tabRoutes && !hideAppShell
+        val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
@@ -496,6 +506,7 @@ fun ReperaMobileScreen(
                             blocks = emptyList())
                     }
                     var favorite by remember { mutableStateOf(false) }
+                    var sessionTitle by remember(accountId, requestId) { mutableStateOf("Mi entreno") }
                     RoutineBlocksEditorScreen(accountId=accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
@@ -504,10 +515,13 @@ fun ReperaMobileScreen(
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
                         sessionMode = true,
+                        pageTitle = "Crear entreno",
+                        showPlaceSection = true,
                         saveStatus=status,
                         onFavoriteChosen = { favorite = it },
+                        onTitleSuggested = { sessionTitle = it },
                         onReplace = { drafts ->
-                            onStartSessionFromDrafts(draft.title, drafts, favorite,requestId) {navController.popBackStack()}
+                            onStartSessionFromDrafts(sessionTitle, drafts, favorite,requestId) {navController.popBackStack()}
                         },
                         onBack = { navController.popBackStack() }
                     )
@@ -1025,17 +1039,37 @@ fun ReperaMobileScreen(
                             ))
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
-                    RoutineBlocksEditorScreen(accountId=accountId,
+                    val oneOffMetaSnap = remember(fecha, nombre) {
+                        arrayOf<Any?>(null, false, null)
+                    }
+                    RoutineBlocksEditorScreen(
+                        accountId = accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
-                        saveStatus=status,
+                        saveStatus = status,
                         exercises = overview?.exerciseEntries.orEmpty(),
                         busy = busy,
                         loadGuideProvider = loadGuideProvider,
                         importableRoutines = overview?.routineEntries.orEmpty(),
+                        oneOffEditor = true,
+                        scheduledDayIso = fecha,
+                        pageTitle = "Crear entreno",
                         onTitleSuggested = { t -> oneOffTitle = t },
+                        onOneOffMeta = { time, fav, pin ->
+                            oneOffMetaSnap[0] = time
+                            oneOffMetaSnap[1] = fav
+                            oneOffMetaSnap[2] = pin
+                        },
                         onReplace = { drafts ->
-                            onSaveOneOffRoutine(oneOffTitle ?: nombre, drafts, fecha,draft.id) {navController.popBackStack()}
+                            onSaveOneOffRoutine(
+                                oneOffTitle ?: nombre,
+                                drafts,
+                                fecha,
+                                draft.id,
+                                oneOffMetaSnap[0] as Int?,
+                                oneOffMetaSnap[1] as Boolean,
+                                oneOffMetaSnap[2] as dev.repera.domain.WorkoutLocationPin?
+                            ) { navController.popBackStack() }
                         },
                         onBack = { navController.popBackStack() }
                     )

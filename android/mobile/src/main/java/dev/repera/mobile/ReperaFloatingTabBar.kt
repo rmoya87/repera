@@ -47,6 +47,24 @@ internal val reperaMainTabs = listOf(
 
 internal val reperaTabRoutes: Set<String> = reperaMainTabs.map { it.route }.toSet()
 
+/** Push del editor de entreno (paridad DayEditorView): sin tab bar ni TopAppBar «repera». */
+internal fun reperaRouteHidesAppShell(route: String?): Boolean {
+    if (route.isNullOrBlank()) return false
+    return when {
+        route.startsWith("rutina/") -> true
+        route.startsWith("rutina-nueva") -> true
+        route.startsWith("escaner") -> true
+        route.startsWith("favoritos") -> true
+        route.startsWith("temporizador") -> true
+        route in setOf(
+            "entreno-libre",
+            "entreno-activo-editar",
+            "favorito-nuevo"
+        ) -> true
+        else -> false
+    }
+}
+
 /**
  * Barra de pestañas flotante tipo píldora (§1.4 / §1.6): inset horizontal,
  * elevación suave y selección con cápsula detrás del icono.

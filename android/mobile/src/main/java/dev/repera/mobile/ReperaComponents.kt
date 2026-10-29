@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -11,6 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
@@ -19,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -31,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -227,6 +234,58 @@ fun ReperaPageHeader(
             verticalAlignment = Alignment.CenterVertically,
             content = trailing
         )
+    }
+}
+
+/** Toolbar del editor de entreno (paridad DayEditorChromeModifier): ← circular + ✓ verde. */
+@Composable
+fun DayEditorTopBar(
+    onBack: () -> Unit,
+    onConfirm: () -> Unit,
+    confirmEnabled: Boolean,
+    confirmContentDescription: String,
+    busy: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onBack,
+            enabled = !busy,
+            modifier = Modifier
+                .size(44.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                .testTag("editor_back")
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Volver",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        IconButton(
+            onClick = onConfirm,
+            enabled = confirmEnabled && !busy,
+            modifier = Modifier
+                .size(44.dp)
+                .background(
+                    if (confirmEnabled && !busy) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                    CircleShape
+                )
+                .testTag("editor_confirm")
+        ) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = confirmContentDescription,
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+        }
     }
 }
 
