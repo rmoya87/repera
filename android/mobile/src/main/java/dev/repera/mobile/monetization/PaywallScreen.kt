@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -103,13 +104,12 @@ fun PaywallScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp)
+                    .padding(bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 PaywallHeader(mode = mode, onBack = { subscriptions.dismissPaywall() })
-                PaywallBenefits()
                 PaywallComparison()
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     PaywallSectionHeading("ELIGE TU PLAN")
                     PaywallPlans(
                         subscriptions = subscriptions,
@@ -132,7 +132,7 @@ fun PaywallScreen(
             }
 
             Surface(color = MaterialTheme.colorScheme.background) {
-                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
                     PaywallPrimaryCTA(
                         subscriptions = subscriptions,
                         packages = packages,
@@ -168,7 +168,7 @@ private fun PaywallSectionHeading(title: String) {
 private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (mode == PaywallMode.SHEET) {
@@ -198,78 +198,29 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Entrena sin límites.",
-                    style = MaterialTheme.typography.headlineLarge,
+                    "Todo tu progreso.",
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "Descubre todo lo que hay detrás de cada entrenamiento.",
+                    "Desbloquea el siguiente nivel de Repera.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Box(
-                modifier = Modifier.size(138.dp),
+                modifier = Modifier.size(100.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(112.dp)
+                        .size(85.dp)
                         .background(brandGreen.copy(alpha = 0.10f), CircleShape)
                 )
                 dev.repera.mobile.ReperaMascot(
                     dev.repera.mobile.ReperaMascotPose.HERO,
-                    maxHeight = 136.dp
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PaywallBenefits() {
-    // Ventaja incluida en Pro Android; la disponibilidad técnica depende
-    // de configurar Maps SDK en la compilación de producción.
-    val googleMapsTitle = "Tus rutas con Google Maps"
-    val googleMapsDescription = "Mapas 2D y 3D de Google para tus actividades y recorridos en Android."
-    val features = listOf(
-        "Tu evolución, al detalle" to "Historial completo por ejercicio, marcas y e1RM.",
-        googleMapsTitle to googleMapsDescription,
-        "Navegación 3D exclusiva" to "Sigue tus rutas con perspectiva 3D y orientación durante el recorrido, solo con Pro.",
-        "Entiende cómo progresas" to "Todos los periodos, recuperación y análisis muscular avanzado.",
-        "Más espacio para entrenar" to "Rutinas, favoritos y ejercicios propios sin límites.",
-        "Escanea cualquier WOD" to "Pizarras ilimitadas y comparativas de resultados.",
-        "Progresa con criterio" to "Sugerencias de carga basadas en tus entrenamientos."
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        PaywallSectionHeading("ESTO CAMBIA CON PRO")
-        features.forEachIndexed { index, feature ->
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Icon(
-                    Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    tint = brandGreen,
-                    modifier = Modifier.size(21.dp)
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        feature.first,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        feature.second,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            if (index != features.lastIndex) {
-                androidx.compose.material3.HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.6.dp
+                    maxHeight = 97.dp
                 )
             }
         }
@@ -278,71 +229,49 @@ private fun PaywallBenefits() {
 
 @Composable
 private fun PaywallComparison() {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PaywallSectionHeading("GRATIS FRENTE A PRO")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            PaywallComparisonItem(
-                title = "Gratis",
-                action = "Empieza",
-                detail = "Mapa 2D, progreso semanal y herramientas esenciales.",
-                isPro = false,
-                modifier = Modifier.weight(1f)
-            )
-            PaywallComparisonItem(
-                title = "Pro",
-                action = "Evoluciona",
-                detail = "Google Maps, navegación 3D y progreso avanzado sin límites.",
-                isPro = true,
-                modifier = Modifier.weight(1f)
-            )
+    val limits = dev.repera.domain.monetization.FreePlanLimits
+    val rows = listOf(
+        Triple("Mapa", "2D", "Google Maps + 3D"),
+        Triple("Progreso", "Esta semana", "Todos los periodos"),
+        Triple("Por ejercicio", "Última + récord", "Historial completo"),
+        Triple("Rutinas / favoritos",
+            "${limits.MAX_LIBRARY_ROUTINES} / ${limits.MAX_FAVORITE_ITEMS}", "Sin límites"),
+        Triple("Ejercicios propios", "${limits.MAX_CUSTOM_EXERCISES}", "Sin límites"),
+        Triple("Escáner WOD", "${limits.MAX_BOARD_SCANS_PER_MONTH}/mes", "Ilimitado"),
+        Triple("Análisis y WOD", "Básico", "Avanzado")
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        PaywallSectionHeading("GRATIS VS PRO")
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("FUNCIÓN", modifier = Modifier.weight(1.1f),
+                fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("GRATIS", modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("PRO", modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = brandGreen)
         }
-        Text(
-            "En Gratis: 3 rutinas, 3 favoritos, 5 ejercicios propios y 4 escaneos al mes.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun PaywallComparisonItem(
-    title: String,
-    action: String,
-    detail: String,
-    isPro: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(14.dp)
-    Surface(
-        modifier = modifier
-            .height(133.dp)
-            .border(
-                width = 1.dp,
-                color = if (isPro) brandGreen else MaterialTheme.colorScheme.outlineVariant,
-                shape = shape
-            ),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                title.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isPro) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                action,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 29.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(row.first, modifier = Modifier.weight(1.1f),
+                    fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface)
+                Text(row.second, modifier = Modifier.weight(1f),
+                    fontSize = 11.sp, lineHeight = 13.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(row.third, modifier = Modifier.weight(1f),
+                    fontSize = 11.sp, lineHeight = 13.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
+            androidx.compose.material3.HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                thickness = 0.6.dp
             )
         }
     }
@@ -376,7 +305,7 @@ private fun PaywallPlans(
             }
         }
     } else {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             annual?.let {
                 PlanRow(it, savingsBadge(it, monthly), selectedProductID == it.productID, onSelect)
             }
@@ -410,8 +339,8 @@ private fun PlanRow(
         color = MaterialTheme.colorScheme.surface
     ) {
         Row(
-            modifier = Modifier.padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Icon(
                 if (selected) Icons.Outlined.CheckCircle else Icons.Outlined.Circle,
@@ -470,7 +399,7 @@ private fun PaywallPrimaryCTA(
             scope.launch { onResult(subscriptions.purchase(id)) }
         },
         enabled = selectedProductID != null && !subscriptions.purchaseInFlight && packages.isNotEmpty(),
-        modifier = Modifier.fillMaxWidth().height(50.dp),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
         shape = RoundedCornerShape(14.dp),
         color = brandGreen
     ) {
@@ -505,41 +434,80 @@ private fun PaywallSecondaryActions(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (mode == PaywallMode.ONBOARDING) {
             TextButton(onClick = { onContinueFree?.invoke() }) {
-                Text("Seguir con el plan Gratis", fontWeight = FontWeight.SemiBold,
+                Text("Seguir con Gratis", fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface)
             }
         }
-        TextButton(
-            onClick = {
-                scope.launch {
-                    val ok = subscriptions.restorePurchases()
-                    if (ok) {
-                        if (mode == PaywallMode.ONBOARDING) onPurchaseSuccess?.invoke()
-                    } else onError()
+
+        // En móviles normales caben en la misma fila; si la fuente es grande
+        // o la pantalla estrecha, se reparte en dos filas sin recortar enlaces.
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 340.dp
+            if (compact) {
+                Column {
+                    Row(Modifier.fillMaxWidth()) {
+                        PaywallFooterAction("Restaurar", Modifier.weight(1f)) {
+                            scope.launch {
+                                if (subscriptions.restorePurchases()) {
+                                    if (mode == PaywallMode.ONBOARDING) onPurchaseSuccess?.invoke()
+                                } else onError()
+                            }
+                        }
+                        PaywallFooterAction("Gestionar", Modifier.weight(1f)) {
+                            openUrl(CommercialConfig.MANAGE_SUBSCRIPTIONS_URL)
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        PaywallFooterAction("Privacidad", Modifier.weight(1f)) {
+                            openUrl(CommercialConfig.PRIVACY_POLICY_URL)
+                        }
+                        PaywallFooterAction("Términos", Modifier.weight(1f)) {
+                            openUrl(CommercialConfig.TERMS_OF_USE_URL)
+                        }
+                    }
                 }
-            },
-            enabled = !subscriptions.purchaseInFlight
-        ) {
-            Text("Restaurar compras", fontWeight = FontWeight.SemiBold, color = brandGreen)
-        }
-        if (mode == PaywallMode.SHEET) {
-            TextButton(onClick = { openUrl(CommercialConfig.MANAGE_SUBSCRIPTIONS_URL) }) {
-                Text("Gestionar suscripción", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    PaywallFooterAction("Restaurar", Modifier.weight(1f)) {
+                        scope.launch {
+                            if (subscriptions.restorePurchases()) {
+                                if (mode == PaywallMode.ONBOARDING) onPurchaseSuccess?.invoke()
+                            } else onError()
+                        }
+                    }
+                    PaywallFooterAction("Gestionar", Modifier.weight(1f)) {
+                        openUrl(CommercialConfig.MANAGE_SUBSCRIPTIONS_URL)
+                    }
+                    PaywallFooterAction("Privacidad", Modifier.weight(1f)) {
+                        openUrl(CommercialConfig.PRIVACY_POLICY_URL)
+                    }
+                    PaywallFooterAction("Términos", Modifier.weight(1f)) {
+                        openUrl(CommercialConfig.TERMS_OF_USE_URL)
+                    }
+                }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            TextButton(onClick = { openUrl(CommercialConfig.PRIVACY_POLICY_URL) }) {
-                Text("Privacidad", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            TextButton(onClick = { openUrl(CommercialConfig.TERMS_OF_USE_URL) }) {
-                Text("Términos", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+    }
+}
+
+@Composable
+private fun PaywallFooterAction(
+    title: String,
+    modifier: Modifier = Modifier,
+    action: () -> Unit
+) {
+    androidx.compose.material3.TextButton(
+        onClick = action,
+        modifier = modifier.height(32.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+    ) {
+        Text(title, fontSize = 11.sp, maxLines = 1,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
