@@ -1997,6 +1997,9 @@ struct LiveActivityView: View {
     @State private var hasAppliedStored3DCamera = false
     /// Muestra Recentrar únicamente si se ha alejado el mapa de la posición real.
     @State private var mapIsCentered = true
+    /// Una manipulación manual suspende el seguimiento cinco segundos desde
+    /// el último movimiento (también al hacer zoom o girar el mapa).
+    @State private var pendingMapRecenter: Task<Void, Never>?
     /// Preferencia persistente del mapa de Comenzar: primera apertura plana (2D).
     /// Un cambio en vertical u horizontal queda guardado para futuras sesiones.
     @AppStorage("repera.live.map.navigation3D.enabled") private var navigationMapEnabled = false
@@ -2234,6 +2237,13 @@ struct LiveActivityView: View {
                 // Capturar cámara también antes del primer GPS, sin obligar
                 // a seleccionar una coordenada fija como fallback.
                 lastVisibleMapCamera = context.camera
+                // Si la persona desplaza/rota/hace zoom, MapKit marca la
+                // posición como iniciada por el usuario. Nunca luchar contra
+                // el gesto: reanudar seguimiento cinco segundos después del
+                // último cambio de cámara provocado por el usuario.
+                if position.positionedByUser {
+                    suspendMapFollowingForUserGesture()
+                }
                 // Si 3D se restauró desde Ajustes/último uso, la posición
                 // inicial .userLocation de MapKit se crea plana. Forzar su
                 // inclinación una sola vez al obtener la primera cámara.
@@ -2245,7 +2255,11 @@ struct LiveActivityView: View {
                         applyNavigationPitch(to: context.camera)
                     }
                 }
-                guard let user = recorder.currentCoordinate else { return }
+                // El centro de una cámara 3D adelantada no coincide
+                // exactamente con el pin; mientras hay gesto NO reactivar
+                // seguimiento por proximidad al punto GPS.
+                guard pendingMapRecenter == nil,
+                      let user = recorder.currentCoordinate else { return }
                 let center = context.camera.centerCoordinate
                 let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
                     .distance(from: CLLocation(latitude: center.latitude, longitude: center.longitude))
@@ -2338,10 +2352,14 @@ struct LiveActivityView: View {
             if next == .active { startMapHeadingIfNeeded() }
             else { stopMapHeadingIfNeeded() }
         }
-        .onDisappear { stopMapHeadingIfNeeded() }
+        .onDisappear {
+            stopMapHeadingIfNeeded()
+            cancelPendingMapRecenter()
+        }
         .onChange(of: locationTracker.previewHeadingDegrees) { _, _ in
-            if navigationMapEnabled, mapIsCentered,
-               let user = recorder.currentCoordinate { center3DMap(on: user) }
+            if mapIsCentered, let user = recorder.currentCoordinate {
+                center3DMap(on: user)
+            }
         }
         .onChange(of: recorder.currentCoordinate?.latitude) { _, _ in
             if mapIsCentered, let user = recorder.currentCoordinate { center3DMap(on: user) }
@@ -2459,6 +2477,7 @@ struct LiveActivityView: View {
                 if !mapIsCentered, recorder.currentCoordinate != nil {
                     mapCircleButton("location.fill", label: "Centrar en mi posición") {
                         if let user = recorder.currentCoordinate {
+                            cancelPendingMapRecenter()
                             mapIsCentered = true
                             center3DMap(on: user)
                         }
@@ -2487,6 +2506,7 @@ struct LiveActivityView: View {
     /// no ha entregado una posición. Nunca limitarse a cambiar el relieve:
     /// es la inclinación de la cámara lo que hace visible la perspectiva.
     private func toggleNavigationMapMode() {
+        cancelPendingMapRecenter()
         navigationMapEnabled.toggle()
         hasAppliedStored3DCamera = true
         mapIsCentered = true
@@ -2501,29 +2521,56 @@ struct LiveActivityView: View {
         }
     }
 
+    private func cancelPendingMapRecenter() {
+        pendingMapRecenter?.cancel()
+        pendingMapRecenter = nil
+    }
+
+    /// Se ejecuta en cada cambio de cámara que MapKit atribuye al usuario.
+    /// El Task anterior se cancela: cinco segundos contados desde el último
+    /// movimiento, sin correcciones mientras arrastra, hace zoom o rota.
+    private func suspendMapFollowingForUserGesture() {
+        mapIsCentered = false
+        cancelPendingMapRecenter()
+        pendingMapRecenter = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            pendingMapRecenter = nil
+            mapIsCentered = true
+            if let user = recorder.currentCoordinate {
+                center3DMap(on: user)
+            } else {
+                // MapKit sigue teniendo la ubicación del usuario mientras
+                // nuestro recorder espera el primer fix.
+                position = .userLocation(fallback: .automatic)
+            }
+        }
+    }
+
     private func applyNavigationPitch(to camera: MapCamera) {
         position = .camera(MapCamera(
             centerCoordinate: camera.centerCoordinate,
             distance: navigationMapEnabled ? min(camera.distance, 500) : max(camera.distance, 450),
-            heading: navigationMapEnabled ? camera.heading : 0,
+            heading: mapHeadingDegrees ?? camera.heading,
             pitch: navigationMapEnabled ? 67 : 0
         ))
     }
 
-    /// Cámara inclinada con relieve realista; continúa centrada durante una sesión.
+    /// Sigue la dirección real en ambas vistas: 2D norte arriba solo
+    /// cuando todavía no existe rumbo GPS o brújula fiable.
     private func center3DMap(on user: CLLocationCoordinate2D) {
+        let heading = mapHeadingDegrees ?? lastVisibleMapCamera?.heading ?? 0
         if !navigationMapEnabled {
             position = .camera(MapCamera(
                 centerCoordinate: user,
                 distance: recorder.sport.isCycling ? 650 : 450,
-                heading: 0,
+                heading: heading,
                 pitch: 0
             ))
             return
         }
         // Cámara tipo navegador: rumbo de la marcha, perspectiva baja
         // y un punto de mira por delante para dejar visible la ruta siguiente.
-        let heading = mapHeadingDegrees ?? 0
         let lookAheadMeters = recorder.phase == .idle ? 0.0 : 35.0
         let radians = heading * .pi / 180
         let latOffset = cos(radians) * lookAheadMeters / 111_320
