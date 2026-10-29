@@ -190,15 +190,16 @@ fun ReperaCard(
 
 /**
  * Título de sección encima de cards — paridad `OGCardSectionTitle`:
- * footnote semibold, secondary, UPPERCASE, pad h4 / top12.
+ * footnote semibold, secondary; por defecto UPPERCASE (Ajustes iOS usa title case → `uppercase = false`).
  */
 @Composable
 fun ReperaSectionTitle(
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    uppercase: Boolean = true
 ) {
     Text(
-        text = title.uppercase(),
+        text = if (uppercase) title.uppercase() else title,
         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier

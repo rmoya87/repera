@@ -59,7 +59,8 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
         route in setOf(
             "entreno-libre",
             "entreno-activo-editar",
-            "favorito-nuevo"
+            "favorito-nuevo",
+            "ajustes"
         ) -> true
         else -> false
     }
