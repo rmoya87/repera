@@ -263,6 +263,34 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
+            homeDeletionSheets
+        }
+        .ogTrailingColumnPanel(
+            isPresented: isExpandedLayout && showSettingsPanel,
+            onDismiss: { showSettingsPanel = false }
+        ) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar(.visible, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                showSettingsPanel = false
+                            } label: {
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                            }
+                            .accessibilityLabel("Cerrar Ajustes")
+                        }
+                    }
+            }
+            .background(OG.bg)
+        }
+    }
+
+    /// Lienzo y tarjetas, sin navegación ni efectos secundarios.
+    private var homeScrollContent: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // El blanco del calendario y Entreno continúa por detrás del
@@ -316,6 +344,11 @@ struct HomeView: View {
             // topbar: el blanco lo aporta el fondo exterior del contenido.
             // Solo se extiende hasta los bordes laterales e inferior.
             .background(OG.bg.ignoresSafeArea(edges: [.horizontal, .bottom]))
+    }
+
+    /// El compilador resuelve la cabecera sin mezclarla con todos los destinos.
+    private var homeToolbarContent: some View {
+        homeScrollContent
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
                 if !expanded { showSettingsPanel = false }
@@ -331,6 +364,17 @@ struct HomeView: View {
                 rebuildWeekChrome()
             }
             .ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), drawsBackground: false) {
+                homeTopBarActions
+            }
+            // El blanco detrás del topbar TRANSPARENTE viene de este lienzo
+            // exterior, no de la barra. El ScrollView tiene su fondo gris
+            // propio para que al final de Actividad no aparezca ninguna franja.
+            // No cambiar la cabecera ni unificar estos dos fondos.
+            .background(OG.surface.ignoresSafeArea())
+    }
+
+    @ViewBuilder
+    private var homeTopBarActions: some View {
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
@@ -377,12 +421,11 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Ajustes y cuenta iCloud")
                 }
-            }
-            // El blanco detrás del topbar TRANSPARENTE viene de este lienzo
-            // exterior, no de la barra. El ScrollView tiene su fondo gris
-            // propio para que al final de Actividad no aparezca ninguna franja.
-            // No cambiar la cabecera ni unificar estos dos fondos.
-            .background(OG.surface.ignoresSafeArea())
+    }
+
+    /// Observadores y tareas desacoplados de los destinos de navegación.
+    private var homeLifecycleContent: some View {
+        homeToolbarContent
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
                 refreshAvatarIfNeeded()
@@ -510,6 +553,10 @@ struct HomeView: View {
                     await refineTodayMetricsInBackground()
                 }
             }
+    }
+
+    private var homeCreationDestinations: some View {
+        homeLifecycleContent
             .sheet(isPresented: $showCreatePlanForDay, onDismiss: {
                 // Abrir la página tras el cierre vertical completo del sheet.
                 guard let pending = pendingAddWorkoutPage else { return }
@@ -600,6 +647,10 @@ struct HomeView: View {
                     }
                 }
             }
+    }
+
+    private var homeDetailDestinations: some View {
+        homeCreationDestinations
             .navigationDestination(item: $editingOwnRoutine) { routine in
                 DayEditorView(
                     routine: routine,
@@ -620,9 +671,10 @@ struct HomeView: View {
                         routine: editingOwnSessionRoutine,
                         mode: .session,
                         onClose: { editingOwnSessionID = nil },
-                        onApplyCompleted: { routine, details in
+                        onApplyCompleted: { routine, details, recordNewSetsAsPerformed in
                             let updated = CompletedWorkoutEditing.applying(
-                                routine, to: details, catalog: store.state.exercises
+                                routine, to: details, catalog: store.state.exercises,
+                                recordNewSetsAsPerformed: recordNewSetsAsPerformed
                             )
                             store.saveWorkout(updated)
                             rebuildDayBuckets()
@@ -671,6 +723,10 @@ struct HomeView: View {
                     HealthActivityDetailView(activityId: id)
                 }
             }
+    }
+
+    private var homeDeletionSheets: some View {
+        homeDetailDestinations
             .sheet(item: $workoutPendingDelete) { session in
                 OGConfirmSheet(
                     title: "¿Eliminar registro?",
@@ -726,29 +782,6 @@ struct HomeView: View {
                     onCancel: { healthPendingDelete = nil }
                 )
             }
-        }
-        .ogTrailingColumnPanel(
-            isPresented: isExpandedLayout && showSettingsPanel,
-            onDismiss: { showSettingsPanel = false }
-        ) {
-            NavigationStack {
-                SettingsView()
-                    .toolbar(.visible, for: .navigationBar)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button {
-                                showSettingsPanel = false
-                            } label: {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                            }
-                            .accessibilityLabel("Cerrar Ajustes")
-                        }
-                    }
-            }
-            .background(OG.bg)
-        }
     }
 
     @ViewBuilder
