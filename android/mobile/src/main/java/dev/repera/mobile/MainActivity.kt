@@ -3,13 +3,17 @@ package dev.repera.mobile
 import kotlinx.coroutines.sync.withLock
 import android.accounts.Account
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.result.IntentSenderRequest
+import android.graphics.Color
 import android.net.Uri
-import dev.repera.domain.ExerciseInput
-import dev.repera.domain.WodFormat
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,8 +21,8 @@ import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import androidx.lifecycle.lifecycleScope
 import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -27,9 +31,8 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.foundation.layout.Box
+import dev.repera.domain.ExerciseInput
+import dev.repera.domain.WodFormat
 import dev.repera.mobile.monetization.FreeUsageStore
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.monetization.PaywallMode
@@ -683,6 +686,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Paridad iOS: dibujar detrás de status/nav bars; el contenido pinta la banda.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                lightScrim = Color.TRANSPARENT,
+                darkScrim = Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                lightScrim = Color.TRANSPARENT,
+                darkScrim = Color.TRANSPARENT
+            )
+        )
         super.onCreate(savedInstanceState)
         externalRoute = routeFromIntent(intent)
         restoreStoredSession()

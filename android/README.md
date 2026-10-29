@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — R6 copy/UX: mapa bajo rutas, 3D default, timer Arriba, Sin formato · libre, ACTIVIDAD/EQUILIBRIO, Recientes, ENTRENO/Hoy, Abdominales, Borrar entreno, avatar placeholder (R5 clima Open-Meteo + P2 glass intactos).
+**Última actualización:** 2026-10-29 — Edge-to-edge P0 (mapas/Inicio bajo status+nav) + R6 copy/UX (mapa bajo rutas, 3D default, timer Arriba, etc.).
 
 Implementación nativa independiente en `android/`:
 

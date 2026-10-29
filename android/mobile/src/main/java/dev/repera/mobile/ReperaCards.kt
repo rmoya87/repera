@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1916,11 +1917,14 @@ internal fun RouteMapTapTarget(label: String, modifier: Modifier = Modifier,
         Dialog(onDismissRequest = { fullScreen = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Box(Modifier.fillMaxSize().testTag("fullscreen-route-root")) {
+                // Mapa a sangre detrás de status/nav; el botón respeta safe area.
                 map(true, Modifier.fillMaxSize().testTag("fullscreen-route-map"))
                 // Apple WorkoutMapZoomDestination: cierre explicito arriba a la
                 // derecha ("Cerrar mapa"), no solo gesto atras/scrim.
                 IconButton(onClick = { fullScreen = false },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 16.dp)
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 10.dp, end = 16.dp)
                         .testTag("fullscreen-route-close")) {
                     Surface(shape=androidx.compose.foundation.shape.CircleShape,
                         color=MaterialTheme.colorScheme.surface,

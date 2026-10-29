@@ -4,10 +4,9 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — R6 copy/UX leftovers: mapa Comenzar
-permanece compuesto con hoja de rutas; 3D por defecto; temporizador Día+ modo
-Arriba; «Terminar bloque»; «Sin formato · libre»; Progreso ACTIVIDAD/EQUILIBRIO;
-Recientes; ENTRENO/Hoy; Abdominales; «¿Borrar entreno?»; avatar placeholder.
+**Última actualización:** 2026-10-29 — Edge-to-edge P0: `enableEdgeToEdge`,
+Scaffold `contentWindowInsets=0`, Inicio banda = `surface` bajo status bar,
+Comenzar/mapas 100% detrás status+nav/tab; R6 copy/UX leftovers previos.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

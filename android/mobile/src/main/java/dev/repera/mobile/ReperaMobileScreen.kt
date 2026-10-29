@@ -12,12 +12,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -83,7 +82,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.SideEffect
 import android.app.Activity
-import android.graphics.Color as AndroidColor
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.compose.rememberNavController
 
@@ -340,13 +338,14 @@ fun ReperaMobileScreen(
             val activity = activityContext as? Activity ?: return@SideEffect
             val window = activity.window
             val controller = WindowInsetsControllerCompat(window, window.decorView)
-            val homeLightHeader = currentRoute == "inicio" && !darkTheme
-            controller.isAppearanceLightStatusBars = if (homeLightHeader) true else !darkTheme
-            window.statusBarColor = if (homeLightHeader) {
-                AndroidColor.WHITE
-            } else {
-                AndroidColor.TRANSPARENT
+            // Barras siempre transparentes: Inicio pinta surface (blanco/oscuro),
+            // Comenzar pinta el mapa; sin franjas de color distinto al lienzo.
+            val mapEdge = currentRoute == "en-vivo"
+            controller.isAppearanceLightStatusBars = when {
+                mapEdge -> false // iconos claros sobre mapa
+                else -> !darkTheme
             }
+            controller.isAppearanceLightNavigationBars = !darkTheme
         }
         val navigateTab: (String) -> Unit = { route ->
             navController.navigate(route) {
@@ -430,6 +429,9 @@ fun ReperaMobileScreen(
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
+            // Insets a 0: cada ruta pinta/respeta system bars (iOS safeArea).
+            // Si Scaffold consume statusBars, Inicio muestra banda gris ≠ surface.
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 if (showChromeTopBar) {
                     TopAppBar(
@@ -466,17 +468,21 @@ fun ReperaMobileScreen(
                 )
             }
         ) { padding ->
-            // Comenzar: mapa a sangre bajo la tab bar flotante (LiveActivityView iOS).
+            // Comenzar: mapa 100% detrás de status + tab/nav (LiveActivityView iOS).
             val mapUnderTabs = currentRoute == "en-vivo" && showTabBar
+            val inicioEdge = currentRoute == "inicio"
             val hostPadding = if (mapUnderTabs) {
-                Modifier.padding(
-                    start = padding.calculateStartPadding(LayoutDirection.Ltr),
-                    top = padding.calculateTopPadding(),
-                    end = padding.calculateEndPadding(LayoutDirection.Ltr),
-                    bottom = 0.dp
-                )
-            } else Modifier.padding(padding)
-            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().then(hostPadding)) {
+                Modifier // sin padding: mapa a sangre bajo status y tab bar
+            } else {
+                Modifier.padding(padding) // solo hueco de topBar/bottomBar
+            }
+            // Inicio: HomeTab pinta surface bajo statusBars. Mapa: overlays con
+            // statusBarsPadding. Resto: host evita solapar iconos del sistema.
+            val statusPad = if (mapUnderTabs || inicioEdge) Modifier
+            else Modifier.statusBarsPadding()
+            androidx.compose.foundation.layout.Box(
+                Modifier.fillMaxSize().then(hostPadding).then(statusPad)
+            ) {
             NavHost(
                 navController = navController,
                 startDestination = "inicio",
