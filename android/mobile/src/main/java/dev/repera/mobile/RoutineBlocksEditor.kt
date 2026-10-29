@@ -174,9 +174,28 @@ fun RoutineBlocksEditorScreen(
                 )
             }
         }
-        TextButton(onClick = { blocks.add(BlockDraftUi()) }, enabled = !busy) {
+        TextButton(onClick = {
+            // Semilla con título numerado (paridad «Bloque N» iOS).
+            val n = blocks.size + 1
+            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "strength")))
+        }, enabled = !busy) {
             Text("Añadir bloque")
         }
+        // Tras un bloque de fuerza: insertar WOD «Descanso» (insertRest iOS).
+        TextButton(
+            modifier = Modifier.testTag("plan_insert_rest_block"),
+            onClick = {
+                val rest = EditorBlockOps.restMovement()
+                val ui = BlockDraftUi(
+                    RoutineBlockInfo(title = "Descanso", format = "forTime", rounds = 1)
+                )
+                ui.entries.add(
+                    EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString())
+                )
+                blocks.add(ui)
+            },
+            enabled = !busy
+        ) { Text("Añadir descanso") }
         // Equivalente de «Elegir WOD» y «Añadir rutina» de DayEditorView (Apple).
         var showWods by remember { mutableStateOf(false) }
         var showRoutines by remember { mutableStateOf(false) }
@@ -314,6 +333,15 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     var interval by mutableStateOf((info?.emomIntervalSeconds ?: 60).toString())
     var work by mutableStateOf((info?.workSeconds ?: 20).toString())
     var rest by mutableStateOf((info?.restSeconds ?: 10).toString())
+    /** For Time «Entre rondas» (iOS restBetweenRoundsSeconds). */
+    var roundRest by mutableStateOf(
+        info?.sourceJson?.let {
+            runCatching { JSONObject(it).optInt("restBetweenRoundsSeconds") }
+                .getOrNull()?.takeIf { s ->
+                    JSONObject(info.sourceJson!!).has("restBetweenRoundsSeconds")
+                }?.toString()
+        } ?: ""
+    )
     var ladder by mutableStateOf(info?.ladderScheme?.joinToString("-") ?: "")
     val entries = mutableStateListOf<EntryUi>().apply {
         info?.entries?.forEach {
@@ -328,17 +356,23 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
         val intv = interval.toIntOrNull() ?: return null
         val wk = work.toIntOrNull() ?: return null
         val rst = rest.toIntOrNull() ?: return null
+        val between = roundRest.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
+        if (roundRest.isNotBlank() && between == null) return null
         val scheme = if (format == "ladder" && ladder.isNotBlank()) {
             ladder.split("-", ",", " ").filter { it.isNotBlank() }
                 .map { it.toIntOrNull() ?: return null }
         } else null
         val parsed = entries.map { entry ->
             if(entry.invalidSetInputs.values.any {it} || entry.invalidMovementInputs.values.any {it}) return null
+            // Movimiento libre / REST: quantity/sets pueden ir en sourceJson.
+            val isSourceOnly = entry.exerciseId.isBlank() && entry.sourceJson != null
             val base = RoutineDraftEntry(
                 itemId = entry.itemId, sourceJson = entry.sourceJson, quantityUnit = entry.unit,
                 exerciseId = entry.exerciseId,
-                quantity = entry.quantity.toIntOrNull() ?: return null,
-                sets = entry.sets.toIntOrNull() ?: return null,
+                quantity = if (isSourceOnly) (entry.quantity.toIntOrNull() ?: 1)
+                    else entry.quantity.toIntOrNull() ?: return null,
+                sets = if (isSourceOnly) (entry.sets.toIntOrNull() ?: 1)
+                    else entry.sets.toIntOrNull() ?: return null,
                 weightKg = if (entry.weight.isBlank()) null
                     else dev.repera.domain.ReperaNumberFormat.parse(entry.weight) ?: return null
             )
@@ -350,7 +384,8 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
             blockId = blockId, sourceJson = sourceJson,
             title = title.trim(), format = format, entries = parsed,
             timeCapMinutes = cap, rounds = rds, emomIntervalSeconds = intv,
-            workSeconds = wk, restSeconds = rst, ladderScheme = scheme
+            workSeconds = wk, restSeconds = rst, ladderScheme = scheme,
+            restBetweenRoundsSeconds = between
         )
     }
 }
@@ -483,21 +518,24 @@ private fun BlockEditorCard(
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()) { chips() }
+            // Campos alineados con iOS fieldsForFormat (PlanView).
             when (block.format) {
                 "amrap", "afap", "chipper", "buyInCashOut", "maxEffort" ->
-                    NumberRow(block, "Minutos (cap)" to "timeCap")
-                "forTime", "roundsForQuality", "partner" ->
-                    NumberRow(block, "Minutos (cap)" to "timeCap", "Rondas" to "rounds")
-                "emom", "deathBy" ->
+                    NumberRow(block, "Tiempo (min)" to "timeCap")
+                "forTime" ->
+                    NumberRow(block, "Rondas" to "rounds", "Tiempo (min)" to "timeCap",
+                        "Entre rondas (s)" to "roundRest")
+                "roundsForQuality", "partner" ->
+                    NumberRow(block, "Rondas" to "rounds", "Tiempo (min)" to "timeCap")
+                "emom", "circuit" ->
+                    NumberRow(block, "Tiempo (min)" to "timeCap", "Intervalo (s)" to "interval")
+                "deathBy" ->
                     NumberRow(block, "Rondas" to "rounds", "Intervalo (s)" to "interval")
                 "tabata" ->
-                    NumberRow(block, "Rondas" to "rounds", "Trabajo (s)" to "work",
-                        "Descanso (s)" to "rest")
-                "circuit" ->
-                    NumberRow(block, "Minutos (cap)" to "timeCap", "Rondas" to "rounds",
-                        "Descanso (s)" to "rest")
+                    NumberRow(block, "Trabajo (s)" to "work", "Descanso (s)" to "rest",
+                        "Rondas" to "rounds")
                 "ladder" -> {
-                    NumberRow(block, "Minutos (cap)" to "timeCap")
+                    NumberRow(block, "Tiempo (min)" to "timeCap")
                     OutlinedTextField(
                         value = block.ladder,
                         onValueChange = { block.ladder = it },
@@ -552,18 +590,107 @@ private fun BlockEditorCard(
                 }
               }
             }
+            // iOS WorkoutWODInsertActions: Descanso + Movimiento libre en bloques WOD.
+            // Desde fuerza, el descanso se inserta como bloque hermano (ver «Añadir descanso»).
+            var showFreeMove by remember { mutableStateOf(false) }
             if (block.format != "strength") {
-                TextButton(modifier = Modifier.testTag("plan_add_rest"), onClick = {
-                    val rest = EditorBlockOps.restMovement()
-                    block.entries.add(EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString()))
-                }) { Text("Añadir REST") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(modifier = Modifier.testTag("plan_add_rest"), onClick = {
+                        val rest = EditorBlockOps.restMovement()
+                        block.entries.add(
+                            EntryUi(
+                                "", "REST", 1, 1, null, null,
+                                rest.getString("id"), rest.toString()
+                            )
+                        )
+                    }) { Text("Descanso") }
+                    TextButton(
+                        modifier = Modifier.testTag("plan_add_free_move"),
+                        onClick = { showFreeMove = true }
+                    ) { Text("Movimiento libre") }
+                }
+            }
+            if (showFreeMove) {
+                FreeMovementDialog(
+                    onDismiss = { showFreeMove = false },
+                    onCreate = { name, reps, male, female ->
+                        val move = EditorBlockOps.freeMovement(name, reps, male, female)
+                        block.entries.add(
+                            EntryUi(
+                                "", name, reps, 1, male, null,
+                                move.getString("id"), move.toString()
+                            )
+                        )
+                        showFreeMove = false
+                    }
+                )
             }
             AddExerciseRow(exercises = exercises,
-                excluded = block.entries.map { it.exerciseId }.toSet()) { chosen ->
+                excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet()) { chosen ->
                 block.entries.add(EntryUi(chosen.id, chosen.name, 10, 3, null))
             }
         }
     }
+}
+
+@Composable
+private fun FreeMovementDialog(
+    onDismiss: () -> Unit,
+    onCreate: (name: String, reps: Int, maleKg: Double?, femaleKg: Double?) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var reps by remember { mutableStateOf("10") }
+    var male by remember { mutableStateOf("") }
+    var female by remember { mutableStateOf("") }
+    val trimmed = name.trim()
+    val repsN = reps.toIntOrNull()
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nuevo movimiento") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("Nombre") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("free_move_name")
+                )
+                OutlinedTextField(
+                    value = reps, onValueChange = { reps = it },
+                    label = { Text("Repeticiones") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth().testTag("free_move_reps")
+                )
+                OutlinedTextField(
+                    value = male, onValueChange = { male = it },
+                    label = { Text("Carga masculina · kg") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = female, onValueChange = { female = it },
+                    label = { Text("Carga femenina · kg") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = trimmed.isNotEmpty() && repsN != null && repsN > 0,
+                onClick = {
+                    onCreate(
+                        trimmed,
+                        repsN!!,
+                        male.takeIf { it.isNotBlank() }
+                            ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) },
+                        female.takeIf { it.isNotBlank() }
+                            ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
+                    )
+                }
+            ) { Text("Añadir") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 @Composable
@@ -575,6 +702,7 @@ private fun NumberRow(block: BlockDraftUi, vararg fields: Pair<String, String>) 
                 "rounds" -> block.rounds to { v: String -> block.rounds = v }
                 "interval" -> block.interval to { v: String -> block.interval = v }
                 "work" -> block.work to { v: String -> block.work = v }
+                "roundRest" -> block.roundRest to { v: String -> block.roundRest = v }
                 else -> block.rest to { v: String -> block.rest = v }
             }
             OutlinedTextField(

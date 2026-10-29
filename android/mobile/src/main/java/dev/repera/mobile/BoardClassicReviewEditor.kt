@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.BoardClassicReview
 
@@ -32,14 +33,21 @@ import dev.repera.domain.BoardClassicReview
 @Composable internal fun BoardScanReviewConfirm(
  title:String,blocks:List<dev.repera.domain.RoutineBlock>,classicMode:Boolean,
  drafts:List<BoardClassicReview.Draft>,catalog:List<dev.repera.domain.CatalogExercise>,
- busy:Boolean,requestId:String,onConfirm:(String,List<dev.repera.domain.RoutineBlock>,String)->Unit
+ busy:Boolean,requestId:String,onConfirm:(String,List<dev.repera.domain.RoutineBlock>,String)->Unit,
+ /** Paridad iOS Guardar+Empezar: crea y arranca sesión. */
+ onStart:(String,List<dev.repera.domain.RoutineBlock>,String)->Unit = onConfirm
 ) {
  val selected=androidx.compose.runtime.remember(classicMode,drafts,catalog,blocks) {
   if(classicMode) BoardClassicReview.blocks(drafts,catalog) else blocks
  }
- Button(onClick={if(selected!=null) onConfirm(title,selected,requestId)},
-  enabled=!busy && title.isNotBlank() && selected!=null && selected.isNotEmpty(),modifier=Modifier.fillMaxWidth(),
-  colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {Text("Crear rutina")}
+ val canAct=!busy && title.isNotBlank() && selected!=null && selected.isNotEmpty()
+ Column(verticalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()) {
+  Button(onClick={if(selected!=null) onConfirm(title,selected,requestId)},
+   enabled=canAct,modifier=Modifier.fillMaxWidth(),
+   colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {Text("Crear rutina")}
+  OutlinedButton(onClick={if(selected!=null) onStart(title,selected,requestId)},
+   enabled=canAct,modifier=Modifier.fillMaxWidth().testTag("board_scan_start")) {Text("Empezar")}
+ }
 }
 
 internal data class BoardReviewProposal(val lite:dev.repera.domain.BoardScanLiteParser.Output,val classic:List<BoardClassicReview.Draft>)

@@ -60,14 +60,10 @@ internal fun DayPlusSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             ReperaPageHeader(title = "Añadir entreno", subtitle = dayName)
             ReperaSectionTitle("Entreno")
+            // Orden iOS DayPlusSheet: Crear → Temporizador → Escanear → Favoritos.
             DayPlusRow(
                 Icons.Outlined.Add, "Crear entreno", "Bloques de fuerza y WODs",
                 "day_plus_create", onCreateWorkout
-            )
-            DayPlusDivider()
-            DayPlusRow(
-                Icons.Outlined.StarBorder, "Favoritos", favoritesSubtitle,
-                "day_plus_favorites", onOpenFavorites
             )
             DayPlusDivider()
             DayPlusRow(
@@ -77,7 +73,7 @@ internal fun DayPlusSheet(
             )
             DayPlusDivider()
             DayPlusRow(
-                Icons.Outlined.DocumentScanner, "Escanear pizarra o TV",
+                Icons.Outlined.DocumentScanner, "Escanear entreno",
                 "Cámara o galería", "day_plus_scan", onScanBoard
             )
             LocalSubscriptions.current?.policy?.boardScanUsageCaption?.let { caption ->
@@ -88,6 +84,11 @@ internal fun DayPlusSheet(
                     modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                 )
             }
+            DayPlusDivider()
+            DayPlusRow(
+                Icons.Outlined.StarBorder, "Favoritos", favoritesSubtitle,
+                "day_plus_favorites", onOpenFavorites
+            )
             Spacer(modifier = Modifier.padding(bottom = 24.dp))
         }
     }

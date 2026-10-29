@@ -53,6 +53,8 @@ internal fun BoardScanScreen(
     busy: Boolean,
     overview: StateOverview?,
     onConfirm: (String, List<RoutineBlock>,String) -> Unit,
+    /** Crear + iniciar sesión (paridad Empezar iOS). */
+    onStart: (String, List<RoutineBlock>, String) -> Unit = onConfirm,
     saveStatus:String? = null,
     onBack: () -> Unit
 ) {
@@ -252,7 +254,7 @@ internal fun BoardScanScreen(
             }
             item {
                 BoardScanReviewConfirm(reviewTitle,blocks,classicMode,classicDrafts,classicCatalog,
-                    busy,reviewRequestId,onConfirm)
+                    busy,reviewRequestId,onConfirm,onStart)
             }
             item {
                 OutlinedButton(onClick = { review = null; errorMessage = null },

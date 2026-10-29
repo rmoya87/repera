@@ -264,6 +264,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     private fun isRestEntry(e: RoutineDraftEntry): Boolean =
         e.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
 
+    /** Movimiento libre (sin exerciseId de catálogo) o REST ya serializado. */
+    private fun isFreeOrRestSource(e: RoutineDraftEntry): Boolean {
+        if (isRestEntry(e)) return true
+        if (e.exerciseId.isNotBlank()) return false
+        val raw = e.sourceJson ?: return false
+        return runCatching {
+            val o = JSONObject(raw)
+            !o.optBoolean("isRest") && o.optString("name").isNotBlank()
+        }.getOrDefault(false)
+    }
+
     private fun originalQuantity(m: JSONObject): Int? = when {
         m.has("reps") && !m.isNull("reps") -> m.getInt("reps")
         m.has("calories") && !m.isNull("calories") -> m.getInt("calories")
@@ -278,7 +289,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         byId: Map<String, JSONObject>,
         timeCapMinutes: Int, rounds: Int, emomIntervalSeconds: Int,
         workSeconds: Int, restSeconds: Int, ladderScheme: List<Int>?,
-        blockId: String? = null, blockSourceJson: String? = null
+        blockId: String? = null, blockSourceJson: String? = null,
+        restBetweenRoundsSeconds: Int? = null
     ): JSONObject {
         val block = (blockSourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject())
             .put("id", blockId ?: UUID.randomUUID().toString())
@@ -341,7 +353,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         } else {
             val movements = JSONArray()
             for (entry in entries) {
-                if (isRestEntry(entry)) {
+                if (isFreeOrRestSource(entry)) {
                     movements.put(JSONObject(entry.sourceJson!!)); continue
                 }
                 val movement = byId[entry.exerciseId] ?: error("Ejercicio no encontrado")
@@ -387,7 +399,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 block.put("emomIntervalSeconds", emomIntervalSeconds)
             if (format == "tabata") block.put("workSeconds", workSeconds)
                 .put("restSeconds", restSeconds)
-            if (format == "circuit") block.put("restBetweenRoundsSeconds", restSeconds)
+            // Circuit: descanso entre rondas; forTime: «Entre rondas» iOS.
+            val roundRest = restBetweenRoundsSeconds
+                ?: restSeconds.takeIf { format == "circuit" }
+            if (format in setOf("circuit", "forTime") && roundRest != null)
+                block.put("restBetweenRoundsSeconds", roundRest)
         }
         return block
     }
@@ -622,7 +638,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             array.put(buildBlock(draft.format, draft.title, draft.entries, byId,
                 draft.timeCapMinutes, draft.rounds, draft.emomIntervalSeconds,
                 draft.workSeconds, draft.restSeconds, draft.ladderScheme,
-                draft.blockId, draft.sourceJson))
+                draft.blockId, draft.sourceJson, draft.restBetweenRoundsSeconds))
         }
         return array
     }
@@ -3314,6 +3330,8 @@ data class RoutineBlockDraft(
     val workSeconds: Int = 20,
     val restSeconds: Int = 10,
     val ladderScheme: List<Int>? = null,
+    /** For Time / iOS `restBetweenRoundsSeconds` («Entre rondas»). */
+    val restBetweenRoundsSeconds: Int? = null,
     /** Identidad del bloque original (editar conserva ids y campos no editables). */
     val blockId: String? = null,
     val sourceJson: String? = null

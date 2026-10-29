@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-28 — UI paridad ~100%: ArrowBack hubs; chevrons Outlined; pad 16; solo diffs plataforma.
+**Última actualización:** 2026-10-29 — Flujos Inicio (DayPlus/Favoritos/editar/swipe/editor/escáner) paridad iOS.
 
 Implementación nativa independiente en `android/`:
 

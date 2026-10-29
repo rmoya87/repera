@@ -3,13 +3,16 @@ package dev.repera.mobile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.LocalFireDepartment
@@ -30,14 +34,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.Instant
@@ -107,6 +119,103 @@ internal fun HomeRegisterLeadingIcon(icon: ImageVector, tint: Color = brandGreen
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+    }
+}
+
+/**
+ * Swipe reveal en cards compactas de Inicio (paridad RegisterSwipeRevealCard iOS):
+ * izquierda = Eliminar; derecha = Editar cuando [onEdit] no es null.
+ */
+@Composable
+internal fun HomeSwipeRevealCard(
+    key: String,
+    busy: Boolean,
+    onDelete: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    val density = LocalDensity.current
+    val deleteWidthPx = with(density) { 88.dp.toPx() }
+    val editWidthPx = with(density) { if (onEdit != null) 72.dp.toPx() else 0f }
+    var offset by remember(key) { mutableStateOf(0f) }
+    var confirmDelete by remember(key) { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(vertical = 1.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (onEdit != null) {
+                TextButton(
+                    onClick = { offset = 0f; onEdit() },
+                    enabled = !busy && offset > 0f,
+                    modifier = Modifier
+                        .width(72.dp)
+                        .fillMaxHeight()
+                        .background(Color(0xFF0A84FF))
+                ) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "Editar", tint = Color.White)
+                }
+            } else {
+                Spacer(Modifier.width(0.dp))
+            }
+            TextButton(
+                onClick = { offset = 0f; confirmDelete = true },
+                enabled = !busy && offset < 0f,
+                modifier = Modifier
+                    .width(88.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Text(
+                    "Eliminar",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offset.toInt(), 0) }
+                .pointerInput(key, busy, onEdit != null) {
+                    if (busy) return@pointerInput
+                    detectDragGestures(
+                        onDrag = { change, drag ->
+                            if (kotlin.math.abs(drag.x) > kotlin.math.abs(drag.y)) {
+                                val maxLeft = -deleteWidthPx
+                                val maxRight = editWidthPx
+                                offset = (offset + drag.x).coerceIn(maxLeft, maxRight)
+                                change.consume()
+                            }
+                        },
+                        onDragEnd = {
+                            offset = when {
+                                offset < -deleteWidthPx * 0.45f -> -deleteWidthPx
+                                onEdit != null && offset > editWidthPx * 0.45f -> editWidthPx
+                                else -> 0f
+                            }
+                        }
+                    )
+                }
+        ) { content() }
+    }
+    if (confirmDelete) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Eliminar") },
+            text = { Text("Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 

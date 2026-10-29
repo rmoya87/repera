@@ -81,6 +81,22 @@ object EditorBlockOps {
     fun restMovement(): JSONObject = JSONObject().put("id", UUID.randomUUID().toString())
         .put("name", "REST").put("isRest", true).put("restSeconds", 60)
 
+    /** Movimiento WOD libre sin ejercicio de catálogo (FreeWODMovementCreatePage iOS). */
+    fun freeMovement(
+        name: String,
+        reps: Int,
+        weightMaleKg: Double? = null,
+        weightFemaleKg: Double? = null
+    ): JSONObject = JSONObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("name", name.trim())
+        .put("isRest", false)
+        .put("reps", reps)
+        .apply {
+            weightMaleKg?.let { put("weightMaleKg", it) }
+            weightFemaleKg?.let { put("weightFemaleKg", it) }
+        }
+
     fun newBlock(kind: String, number: Int, wodFormat: String? = null): JSONObject {
         val b = JSONObject().put("id", UUID.randomUUID().toString())
             .put("title", "Bloque $number").put("kind", kind)

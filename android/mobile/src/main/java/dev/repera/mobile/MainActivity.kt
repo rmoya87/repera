@@ -887,6 +887,30 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                                 canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed})
                         }
                 },
+                onStartRoutineFromScan = { title, blocks, requestId, dayIso, saved ->
+                    val existing = overviewForTemplateRetry(requestId)
+                    val schedule = if (!dayIso.isNullOrBlank())
+                        RoutineSchedule(scheduledDate = dayIso) else RoutineSchedule()
+                    if (schedule.scheduledDate != null || permitNewTemplate(isNew = !existing))
+                        runWorkoutAction(onSuccess = {
+                            beginLocationCapture()
+                            saved()
+                        }) {
+                            val id = createRoutineFromScan(
+                                title, blocks, schedule, routineId = requestId,
+                                canCreateTemplate = { count ->
+                                    subscriptions.policy.copy(libraryRoutineCount = count)
+                                        .canCreateLibraryRoutine(true).allowed
+                                }
+                            )
+                            startRoutine(
+                                id,
+                                subscriptions.decision(
+                                    dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION
+                                ).allowed
+                            )
+                        }
+                },
                 onStartSessionFromDrafts = { title, drafts, fav, requestId, saved ->
                     if(!fav || activeWorkout?.draftRequestId==requestId || permitNewTemplate()) runWorkoutAction(onSuccess = { beginLocationCapture();saved() }) {
                         startSessionFromDrafts(title, drafts, fav,

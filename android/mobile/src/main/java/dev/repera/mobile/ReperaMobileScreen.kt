@@ -104,6 +104,9 @@ fun ReperaMobileScreen(
     onToggleWodFavorite:(String)->Unit,
     onPlayWod:(String,String,()->Unit)->Unit,
     onCreateRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>, String, String?, () -> Unit) -> Unit,
+    /** Escáner → Empezar: crea one-off/plantilla e inicia sesión. */
+    onStartRoutineFromScan: (String, List<dev.repera.domain.RoutineBlock>, String, String?, () -> Unit) -> Unit =
+        onCreateRoutineFromScan,
     onSaveOneOffRoutine: (String, List<RoutineBlockDraft>, String,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
     centerConnected: Boolean,
@@ -289,6 +292,8 @@ fun ReperaMobileScreen(
             }
         }
         var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
+        // iOS restoresAddSheetAfterPage: reabrir DayPlus al volver de Favoritos/Tempo.
+        var restoreDayPlus by rememberSaveable(accountId) { mutableStateOf(false) }
         val centerVisible = centerSnapshot?.isLinkedOrInvited == true
         var showCenter by remember { mutableStateOf(false) }
         if (showCenter && centerVisible) {
@@ -452,8 +457,13 @@ fun ReperaMobileScreen(
                         onExportJson = onExportJson,
                         onSignOut = onSignOut,
                         onNavigateCreate = { navigateTab("crear") },
+                        onEditRoutineContent = { id ->
+                            navController.navigate("rutina/" + Uri.encode(id))
+                        },
                         onDeleteRoutine = onDeleteRoutine,
                         onRemoveScheduledRoutine = onRemoveScheduledRoutine,
+                        restoreDayPlus = restoreDayPlus,
+                        onRestoreDayPlusConsumed = { restoreDayPlus = false },
                         onOpenClock = {
                             if (activeWorkout?.wod != null) navController.navigate("reloj")
                         },
@@ -462,8 +472,14 @@ fun ReperaMobileScreen(
                                 "rutina-nueva?fecha=" + dayIso + "&nombre=" +
                                     Uri.encode("Entreno · " + dayName))
                         },
-                        onDayPlusFavorites = { navController.navigate("favoritos") },
-                        onDayPlusTimer = { navController.navigate("temporizador") },
+                        onDayPlusFavorites = { dayIso ->
+                            restoreDayPlus = true
+                            navController.navigate("favoritos?fecha=" + dayIso)
+                        },
+                        onDayPlusTimer = {
+                            restoreDayPlus = true
+                            navController.navigate("temporizador")
+                        },
                         onDayPlusScan = { dayIso ->
                             navController.navigate("escaner?fecha=" + dayIso)
                         }
@@ -511,7 +527,60 @@ fun ReperaMobileScreen(
                         onSignOut = onSignOut
                     )
                 }
+                composable(
+                    route = "favoritos?fecha={fecha}",
+                    arguments = listOf(navArgument("fecha") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    })
+                ) { backStackEntry ->
+                    val favDay = backStackEntry.arguments?.getString("fecha")
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                    FavoritesHubScreen(
+                        overview = overview,
+                        busy = busy,
+                        activeWorkout = activeWorkout,
+                        targetDate = favDay,
+                        onAssignRoutineToDate = { id, date ->
+                            onAssignRoutineToDate(id, date)
+                            restoreDayPlus = false
+                            navController.popBackStack()
+                        },
+                        onStartRoutine = { id ->
+                            restoreDayPlus = false
+                            startOrContinueRoutine(id)
+                        },
+                        onOpenTimer = { favId ->
+                            restoreDayPlus = false
+                            if (favId != null) navController.navigate("temporizador?fav=" + favId)
+                            else navController.navigate("temporizador")
+                        },
+                        onBack = { navController.popBackStack() },
+                        onCreateFavoriteWorkout = {
+                            restoreDayPlus = false
+                            navController.navigate("favorito-nuevo")
+                        },
+                        onEditFavoriteWorkout = { id ->
+                            restoreDayPlus = false
+                            navController.navigate("rutina/" + Uri.encode(id))
+                        },
+                        onRemoveFavoriteWorkout = { id ->
+                            onSetRoutineFavorite(id, false)
+                        },
+                        onSetWeekday = { r, d ->
+                            onEditRoutine(r.id, r.title, RoutineSchedule(weekday = d,
+                                timeMinutes = if (d == null) null else r.timeMinutes))
+                        },
+                        onOpenSport = { sportId ->
+                            restoreDayPlus = false
+                            pendingLiveSportId = sportId
+                            navigateTab("en-vivo")
+                        },
+                        onRemoveSportFavorite = onRemoveSportFavorite
+                    )
+                }
                 composable("favoritos") {
+                    // Acceso general (Crear): sin fecha → iniciar sesión al tocar.
                     FavoritesHubScreen(
                         overview = overview,
                         busy = busy,
@@ -522,6 +591,15 @@ fun ReperaMobileScreen(
                             else navController.navigate("temporizador")
                         },
                         onBack = { navController.popBackStack() },
+                        onCreateFavoriteWorkout = {
+                            navController.navigate("favorito-nuevo")
+                        },
+                        onEditFavoriteWorkout = { id ->
+                            navController.navigate("rutina/" + Uri.encode(id))
+                        },
+                        onRemoveFavoriteWorkout = { id ->
+                            onSetRoutineFavorite(id, false)
+                        },
                         onSetWeekday = { r, d ->
                             onEditRoutine(r.id, r.title, RoutineSchedule(weekday = d,
                                 timeMinutes = if (d == null) null else r.timeMinutes))
@@ -531,6 +609,53 @@ fun ReperaMobileScreen(
                             navigateTab("en-vivo")
                         },
                         onRemoveSportFavorite = onRemoveSportFavorite
+                    )
+                }
+                composable("favorito-nuevo") {
+                    val requestId = rememberSaveable(accountId) {
+                        java.util.UUID.randomUUID().toString()
+                    }
+                    var favTitle by remember(accountId, requestId) {
+                        mutableStateOf("Mi favorito")
+                    }
+                    val draft = remember(accountId, requestId) {
+                        RoutineEntry(
+                            id = requestId,
+                            title = "Mi favorito",
+                            supported = true,
+                            isFavorite = true,
+                            blocks = listOf(
+                                RoutineBlockInfo(
+                                    title = "Bloque 1",
+                                    format = "strength",
+                                    id = java.util.UUID.randomUUID().toString()
+                                )
+                            )
+                        )
+                    }
+                    RoutineBlocksEditorScreen(
+                        accountId = accountId,
+                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                        routine = draft,
+                        saveStatus = status,
+                        exercises = overview?.exerciseEntries.orEmpty(),
+                        busy = busy,
+                        loadGuideProvider = loadGuideProvider,
+                        importableRoutines = overview?.routineEntries.orEmpty(),
+                        editableTitle = true,
+                        onTitleSuggested = { favTitle = it },
+                        onReplace = { drafts ->
+                            onCreateTemplate(
+                                favTitle.ifBlank { "Mi favorito" },
+                                drafts,
+                                RoutineSchedule(),
+                                requestId
+                            ) {
+                                onSetRoutineFavorite(requestId, true)
+                                navController.popBackStack()
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(
@@ -544,6 +669,7 @@ fun ReperaMobileScreen(
                         favoriteId = backStackEntry.arguments?.getString("fav"),
                         onPersistSession = onSaveTimerSession,
                         onSavedDay = { millis ->
+                            restoreDayPlus = false
                             homeFocusDay = java.time.Instant.ofEpochMilli(millis)
                                 .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                             navigateTab("inicio")
@@ -568,6 +694,13 @@ fun ReperaMobileScreen(
                                 navController.popBackStack()
                             }
                         },
+                        onStart = { title, blocks, requestId ->
+                            onStartRoutineFromScan(title, blocks, requestId, scanDayIso) {
+                                navController.navigate("entreno-activo") {
+                                    popUpTo("inicio") { inclusive = false }
+                                }
+                            }
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -582,6 +715,13 @@ fun ReperaMobileScreen(
                         onConfirm = { title, blocks,requestId ->
                             onCreateRoutineFromScan(title, blocks, requestId, null) {
                                 navController.popBackStack()
+                            }
+                        },
+                        onStart = { title, blocks, requestId ->
+                            onStartRoutineFromScan(title, blocks, requestId, null) {
+                                navController.navigate("entreno-activo") {
+                                    popUpTo("inicio") { inclusive = false }
+                                }
                             }
                         },
                         onBack = { navController.popBackStack() }
@@ -813,12 +953,19 @@ fun ReperaMobileScreen(
                         .orEmpty().ifBlank { "Entreno" }
                     val requestId=androidx.compose.runtime.saveable.rememberSaveable(accountId,fecha,nombre) {java.util.UUID.randomUUID().toString()}
                     val draft = remember(accountId,fecha, nombre,requestId) {
+                        // Semilla iOS HomeView: [.strength(title: "Bloque 1")].
                         RoutineEntry(
                             id = requestId,
                             title = nombre,
                             supported = true,
                             scheduledDate = fecha,
-                            blocks = emptyList())
+                            blocks = listOf(
+                                RoutineBlockInfo(
+                                    title = "Bloque 1",
+                                    format = "strength",
+                                    id = java.util.UUID.randomUUID().toString()
+                                )
+                            ))
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
                     RoutineBlocksEditorScreen(accountId=accountId,
