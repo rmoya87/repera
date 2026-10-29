@@ -837,8 +837,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 wodTimer = wodTimer,
                 onWodTimerAction = ::changeWodTimer,
                 onWodTimerTick = ::refreshWodTimer,
-                onStartRoutine = { id ->
-                    runWorkoutAction(onSuccess = { beginLocationCapture() }) { startRoutine(id, subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed) }
+                onStartRoutine = { id, done ->
+                    runWorkoutAction(onSuccess = {
+                        beginLocationCapture()
+                        done()
+                    }) {
+                        startRoutine(
+                            id,
+                            subscriptions.decision(
+                                dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION
+                            ).allowed
+                        )
+                    }
                 },
                 onEditRoutine = { id, title, schedule ->
                     runWorkoutAction { updateRoutineDetails(id, title, schedule) }
@@ -2844,31 +2854,35 @@ data class StateOverview(
                     array.getJSONObject(n).optBoolean("isCatalogArchived", false)
                 }.map { n ->
                     val ex = array.getJSONObject(n)
+                    val sportTag = ex.optJsonString("sportTag")
+                    val muscleGroup = ex.optJsonString("muscleGroup").orEmpty()
+                    val equipment = ex.optJsonString("equipment").orEmpty()
+                    val targetMuscle = ex.optJsonString("targetMuscle").orEmpty()
                     val mode = ExerciseInput.mode(
                         ex.getString("name"),
-                        ex.optString("equipment"),
-                        ex.optString("targetMuscle"),
-                        ex.optString("muscleGroup"),
-                        ex.optString("sportTag")
+                        equipment,
+                        targetMuscle,
+                        muscleGroup,
+                        sportTag
                     )
                     ExerciseEntry(ex.getString("id"), ex.getString("name"),
                         mode.basicRecorderAvailable, mode.showsWeight,
-                        muscleGroup = ex.optString("muscleGroup"),
-                        sportTag = ex.optString("sportTag").takeIf { it.isNotBlank() },
+                        muscleGroup = muscleGroup,
+                        sportTag = sportTag,
                         hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(
                             ex.getString("name")),
                         disciplineTags = dev.repera.domain.ExerciseDisciplineTags.forExercise(
                             ex.getString("name"),
-                            ex.optString("sportTag").takeIf { it.isNotBlank() },
-                            ex.optString("muscleGroup"),
+                            sportTag,
+                            muscleGroup,
                             ExerciseCatalogFilters.isHyroxTrainingMovement(ex.getString("name"))),
                         loggingStyle = when (mode) {
                             dev.repera.domain.ExerciseInputMode.MACHINE_WORK -> "machineWork"
                             dev.repera.domain.ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"
                             else -> "strength"
                         },
-                        equipment = ex.optString("equipment"),
-                        targetMuscle = ex.optString("targetMuscle"),
+                        equipment = equipment,
+                        targetMuscle = targetMuscle,
                         secondaryMuscles = ex.optJSONArray("secondaryMuscles")?.let { arr ->
                             (0 until arr.length()).map { arr.getString(it) }
                         }.orEmpty(),
@@ -2876,11 +2890,20 @@ data class StateOverview(
                         isCatalogArchived = ex.optBoolean("isCatalogArchived"),
                         isFavorite = ex.optBoolean("isFavorite", false),
                         detailDescription = ex.optString("detailDescription")
-                            .takeIf { it.isNotBlank() },
+                            .takeIf { it.isNotBlank() && it != "null" },
                         instructions = ex.optJSONArray("instructions")?.let { arr ->
                             (0 until arr.length()).map { arr.getString(it) }
                         }.orEmpty(),
-                        isCustom = ex.optBoolean("isCustom"),mobilityHold=ex.optString("sportTag")=="Movilidad" && ex.optString("catalogId") in setOf("mobility-14","mobility-15","mobility-16","mobility-20","mobility-21","mobility-30","mobility-31","mobility-32","mobility-36","mobility-38","mobility-39","mobility-40","mobility-41","mobility-42","mobility-44","mobility-46","mobility-60","mobility-61","mobility-62","mobility-67","mobility-70","mobility-80"))
+                        isCustom = ex.optBoolean("isCustom"),
+                        mobilityHold = sportTag == "Movilidad" &&
+                            ex.optJsonString("catalogId") in setOf(
+                                "mobility-14", "mobility-15", "mobility-16", "mobility-20",
+                                "mobility-21", "mobility-30", "mobility-31", "mobility-32",
+                                "mobility-36", "mobility-38", "mobility-39", "mobility-40",
+                                "mobility-41", "mobility-42", "mobility-44", "mobility-46",
+                                "mobility-60", "mobility-61", "mobility-62", "mobility-67",
+                                "mobility-70", "mobility-80"
+                            ))
                 }.sortedBy { it.name }
             }
             val recoveryState = recovery?.let { rec ->
@@ -2997,9 +3020,15 @@ data class StateOverview(
 /** Nombre visible de un ejercicio embebido en JSON (sesiones, historial):
  * canoniza como Apple vía SportExerciseNames usando sportTag si existe,
  * sin tocar el nombre persistido. */
+/** optString de org.json convierte JSON null en el literal «null»; filtrarlo. */
+internal fun org.json.JSONObject.optJsonString(key: String): String? {
+    if (!has(key) || isNull(key)) return null
+    return optString(key).takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+}
+
 internal fun org.json.JSONObject.exerciseDisplayName(): String {
     val base = optString("name").ifBlank { return "Ejercicio" }
-    val tag = optString("sportTag").takeIf { it.isNotBlank() }
+    val tag = optJsonString("sportTag")
     return dev.repera.domain.SportExerciseNames.displayName(base, tag)
 }
 
@@ -3106,7 +3135,26 @@ data class WorkoutHistoryEntry(
     val routineId: String? = null,
     /** Temporizador libre: no es editable como fuerza/WOD ni aporta Salud. */
     val timerDetails: dev.repera.domain.TimerCompletionDetails? = null
-)
+) {
+    /**
+     * Minutos para chips/tiles (iOS displayDurationMinutes / HistoryView summary):
+     * timer → live activeDuration → reloj de pared inicio→fin.
+     */
+    fun displayDurationMinutes(): Double {
+        timerDetails?.let { return it.configuredSeconds / 60.0 }
+        if (liveSportID != null) {
+            activeDurationSeconds?.takeIf { it > 0 }?.let { return it / 60.0 }
+        }
+        val start = startedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+        if (start != null) {
+            val end = finishedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+                ?: start.plusSeconds(60)
+            val wall = java.time.Duration.between(start, end).seconds / 60.0
+            if (wall > 0) return wall
+        }
+        return activeDurationSeconds?.takeIf { it > 0 }?.div(60.0) ?: 0.0
+    }
+}
 data class WorkoutHistoryMovement(
     val name: String,
     val wod: Boolean,

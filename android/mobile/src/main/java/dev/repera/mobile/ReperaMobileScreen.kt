@@ -118,7 +118,7 @@ fun ReperaMobileScreen(
     wodTimer: WodTimerState?,
     onWodTimerAction: (String) -> Unit,
     onWodTimerTick: () -> Unit,
-    onStartRoutine: (String) -> Unit,
+    onStartRoutine: (String, () -> Unit) -> Unit,
     onEditRoutine: (String, String, RoutineSchedule) -> Unit,
     onDeleteRoutine: (String) -> Unit,
     onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
@@ -316,9 +316,17 @@ fun ReperaMobileScreen(
             return@ReperaTheme
         }
         val navController = rememberNavController()
-        // Apple SessionPreviewView: con una sesión activa, Empezar la continúa en lugar de intentar iniciar otra.
+        // Apple SessionPreviewView: ▶ abre Play; con sesión activa, continúa.
         val startOrContinueRoutine: (String) -> Unit = { id ->
-            if (activeWorkout != null) navController.navigate("entreno-activo") else onStartRoutine(id)
+            if (activeWorkout != null) {
+                navController.navigate("entreno-activo")
+            } else {
+                onStartRoutine(id) {
+                    navController.navigate("entreno-activo") {
+                        popUpTo("inicio") { inclusive = false }
+                    }
+                }
+            }
         }
         var libraryModeRequest by rememberSaveable {mutableStateOf<String?>(null)}
         // Favoritos → Comenzar: deporte a preseleccionar al abrir en-vivo.
@@ -416,7 +424,8 @@ fun ReperaMobileScreen(
         // Ajustes se abre desde el avatar de Inicio o la ruta `ajustes`.
         val tabRoutes = reperaTabRoutes
         val hideAppShell = reperaRouteHidesAppShell(currentRoute)
-        val showTabBar = currentRoute in tabRoutes && !hideAppShell
+        // R5 P2.9: iOS mantiene la tab bar en push (Crear/Ajustes/ejercicio); solo se oculta chrome repera/gear.
+        val showTabBar = currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -547,6 +556,12 @@ fun ReperaMobileScreen(
                         onNavigateCreate = { navigateTab("crear") },
                         onEditRoutineContent = { id ->
                             navController.navigate("rutina/" + Uri.encode(id))
+                        },
+                        onOpenRoutinePreview = { id ->
+                            navController.navigate("preview/" + Uri.encode(id))
+                        },
+                        onOpenFinishedWorkout = { id ->
+                            navController.navigate("historial-detalle/" + Uri.encode(id))
                         },
                         onSetRoutineFavorite = onSetRoutineFavorite,
                         onDeleteRoutine = onDeleteRoutine,
@@ -833,7 +848,9 @@ fun ReperaMobileScreen(
                 composable("entreno-activo") {
                     val workout=activeWorkout
                     if(workout==null) {
-                        LaunchedEffect(Unit) { navigateTab("inicio") }
+                        // R5 P1-2: navigateTab con saveState deja pantalla en blanco;
+                        // popBackStack como la ruta «reloj».
+                        LaunchedEffect(Unit) { navController.popBackStack() }
                     } else {
                         ActiveWorkoutScreen(
                             workout, busy, wodTimer, onWodTimerAction, onWodTimerTick,
@@ -1036,6 +1053,71 @@ fun ReperaMobileScreen(
                                 }
                             }
                         }
+                    }
+                }
+                composable(
+                    "preview/{routineId}",
+                    arguments = listOf(navArgument("routineId") { type = NavType.StringType })
+                ) { entry ->
+                    val routineId = Uri.decode(entry.arguments?.getString("routineId").orEmpty())
+                    val routine = overview?.routineEntries.orEmpty().firstOrNull { it.id == routineId }
+                    if (routine == null) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        SessionPreviewSheet(
+                            routine = routine,
+                            busy = busy,
+                            onStart = { startOrContinueRoutine(routine.id) },
+                            onEdit = {
+                                navController.popBackStack()
+                                navController.navigate("rutina/" + Uri.encode(routine.id))
+                            },
+                            onDelete = {
+                                onRemoveScheduledRoutine(routine.id)
+                                navController.popBackStack()
+                            },
+                            onClose = { navController.popBackStack() },
+                            onOpenExercise = { exerciseId ->
+                                navController.navigate("ejercicio/$exerciseId")
+                            },
+                            onToggleFavorite = { fav ->
+                                onSetRoutineFavorite(routine.id, fav)
+                            }
+                        )
+                    }
+                }
+                composable(
+                    "historial-detalle/{workoutId}",
+                    arguments = listOf(navArgument("workoutId") { type = NavType.StringType })
+                ) { entry ->
+                    val workoutId = Uri.decode(entry.arguments?.getString("workoutId").orEmpty())
+                    val workout = overview?.completeHistory.orEmpty()
+                        .firstOrNull { it.id == workoutId }
+                    if (workout == null) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        WorkoutHistoryDetailScreen(
+                            workout = workout,
+                            busy = busy,
+                            accountId = accountId,
+                            exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                            onBack = { navController.popBackStack() },
+                            onRevise = onReviseFinishedSet,
+                            onDeleteSet = onDeleteFinishedSet,
+                            onDelete = {
+                                onDeleteWorkout(it)
+                                navController.popBackStack()
+                            },
+                            onUpdate = onUpdateFinishedWorkout,
+                            onOpenExercise = { entryId, sessionId, instanceId ->
+                                navController.navigate(
+                                    "ejercicio/" + entryId + "?sesion=" + sessionId +
+                                        "&instancia=" + instanceId
+                                )
+                            },
+                            heartSeries = heartSeriesProvider
+                        )
                     }
                 }
                 composable("historial") {

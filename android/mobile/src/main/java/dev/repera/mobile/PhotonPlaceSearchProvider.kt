@@ -78,7 +78,9 @@ class PhotonPlaceSearchProvider(
     companion object {
         const val BASE = "https://photon.komoot.io/api/"
         const val MIN_INTERVAL_MS = 1_000L
-        const val COOLDOWN_MS = 120_000L
+        /** R5 P1-6: Photon suele tardar ~4,5 s; 4 s provocaba timeout+cooldown. */
+        const val COOLDOWN_MS = 30_000L
+        const val HTTP_TIMEOUT_MS = 12_000
         const val CACHE_SIZE = 40
         const val USER_AGENT = "Repera-Android/1.0 (dev.repera.mobile)"
 
@@ -125,7 +127,8 @@ class PhotonPlaceSearchProvider(
         suspend fun httpGet(url: String): HttpResult = withContext(Dispatchers.IO) {
             val c = URL(url).openConnection() as HttpURLConnection
             try {
-                c.connectTimeout = 4_000; c.readTimeout = 4_000
+                c.connectTimeout = HTTP_TIMEOUT_MS
+                c.readTimeout = HTTP_TIMEOUT_MS
                 c.setRequestProperty("User-Agent", USER_AGENT)
                 c.setRequestProperty("Accept", "application/json")
                 val code = c.responseCode

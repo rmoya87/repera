@@ -46,11 +46,12 @@ internal fun FinishedWorkoutEditorSection(
     var editing by remember(accountId, workout.id) { mutableStateOf(false) }
     val hasRoute = workout.routePoints.size >= 2
     if (!editing) {
-        if (!hasRoute && workout.locationPin != null) {
-            // Mismo criterio mapa que selector: full-bleed + chip (extra Ramón / §2ter).
+        // R5 P1-10: no mostrar pin GPS anónimo sin lugar elegido (iOS hasChosenPlace).
+        val chosen = workout.locationPin?.takeIf { it.hasChosenPlace }
+        if (!hasRoute && chosen != null) {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 WorkoutPlacePickerRow(
-                    pin = workout.locationPin,
+                    pin = chosen,
                     accountId = accountId,
                     onPinChange = {},
                     readOnly = true
@@ -70,7 +71,9 @@ internal fun FinishedWorkoutEditorSection(
     var startIso by remember(accountId, workout.id) { mutableStateOf(workout.startedAtIso) }
     var endIso by remember(accountId, workout.id) { mutableStateOf(workout.finishedAtIso) }
     var notes by remember(accountId, workout.id) { mutableStateOf(workout.notes.orEmpty()) }
-    var pin by remember(accountId, workout.id) { mutableStateOf(workout.locationPin) }
+    var pin by remember(accountId, workout.id) {
+        mutableStateOf(workout.locationPin?.takeIf { it.hasChosenPlace })
+    }
     var pinEdited by remember(accountId, workout.id) { mutableStateOf(false) }
     // Borrador del CONTENIDO: copia JSON con ids; solo se escribe al Guardar.
     val blocks = remember(accountId, workout.id) {

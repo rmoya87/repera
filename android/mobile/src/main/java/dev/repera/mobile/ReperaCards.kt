@@ -532,7 +532,8 @@ internal fun WodScoreCard(
     onDeleteMovement: (String) -> Unit,
     onFinish: () -> Unit,
     onOpenClock: () -> Unit,
-    onDiscard: () -> Unit = {}
+    onDiscard: () -> Unit = {},
+    effortUnit: String = "rir"
 ) {
     val wod = active.wod ?: return
     val spec = WodClockSpec(
@@ -621,6 +622,11 @@ internal fun WodScoreCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(active.title, style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Bloque · " + (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
+                style = MaterialTheme.typography.titleMedium,
+                color = brandGreen
+            )
             Text("%d:%02d".format(face.primarySeconds / 60, face.primarySeconds % 60),
                 style = MaterialTheme.typography.displayMedium)
             face.label?.let { label ->
@@ -630,7 +636,7 @@ internal fun WodScoreCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { onTimerAction(if (timer?.running == true) "pause" else "start") },
                     enabled = !busy && !face.finishedIntervals) {
-                    Text(if (timer?.running == true) "Pausar" else if (elapsedClock > 0) "Reanudar" else "Iniciar")
+                    Text(if (timer?.running == true) "Pausar" else if (elapsedClock > 0) "Continuar" else "Iniciar")
                 }
                 OutlinedButton(onClick = { onTimerAction("reset") }, enabled = !busy) {
                     Text("Reiniciar")
@@ -639,9 +645,16 @@ internal fun WodScoreCard(
                     Text("Pantalla completa")
                 }
             }
+            // Paridad inlineWODScoreEditor iOS.
+            Text("Resultado del bloque", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold)
             Text(wod.title + " · " +
                 (WodFormat.fromWire(wod.format)?.displayName ?: wod.format),
-                style = MaterialTheme.typography.titleMedium)
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            active.liveRows?.let { rows ->
+                LiveSetRows(active, rows, effortUnit)
+            }
             wod.movements.forEach { movement ->
                 val prefix = when {
                     movement.isRest -> movement.restSeconds?.let { "${it}s descanso" } ?: "Descanso"
@@ -1553,7 +1566,8 @@ internal fun WorkoutHistoryCard(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val mins = workout.activeDurationSeconds?.let { (it / 60.0).toInt() }
+                // R5 P1-10: reloj de pared inicio→fin (iOS HistoryView summary), no solo activeDuration.
+                val mins = workout.displayDurationMinutes().takeIf { it > 0 }?.let { kotlin.math.round(it).toInt() }
                 HistoryMetricTile("Tiempo", mins?.let { "$it′" } ?: "—", Modifier.weight(1f))
                 HistoryMetricTile("Kcal", "—", Modifier.weight(1f))
                 val vol = workout.movements.sumOf { m ->

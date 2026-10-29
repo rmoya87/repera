@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-10-29 (Android R4 restante: PlaceSearch glass/GPS, Comenzar métricas tiles, Salud conectada, timer Lugar, IA Conexión manual)
+Última actualización: 2026-10-29 (Android R5: Play/nav/Photon/Progreso/preview/músculos ES/Comenzar/timer; resumen tiempo pared + pin elegido; tab bar en push)
 
 ## Navegación y leyenda de mapas (27/10/2026)
 

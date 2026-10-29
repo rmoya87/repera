@@ -80,28 +80,22 @@ internal fun CenterTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // R5 P1-16: iOS solo campo + vacío «Busca tu entrenador o centro».
         item { Text("Buscar", style = MaterialTheme.typography.displayLarge) }
-        item { TextButton(onClick={showDirectory=true}) {Text("Busca tu entrenador o centro")} }
-        item { Text("Mis centros y entrenadores",
-            style = MaterialTheme.typography.titleMedium) }
+        item {
+            OutlinedButton(
+                onClick = { showDirectory = true },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Busca tu entrenador o centro") }
+        }
         if (!connected) {
             item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("No se han podido cargar tus centros",
-                            style = MaterialTheme.typography.titleSmall)
-                        OutlinedButton(onClick = onRefresh) { Text("Reintentar") }
-                    }
-                }
+                ReperaEmptyState(
+                    title = "Busca tu entrenador o centro",
+                    subtitle = "Cuando te inviten, aparecerán aquí."
+                )
             }
         } else {
-            item {
-                OutlinedButton(onClick = onRefresh, enabled = !loading && !submitting,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("Actualizar")
-                }
-            }
             if (loading) {
                 item {
                     Column(modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -179,24 +173,33 @@ internal fun CenterTab(
                 }
             }
         }
-        if(connected) items(snapshot?.trainingSessions.orEmpty()) {session ->
-            ProfessionalSessionCard(session,snapshot?.centerName(session.orgId) ?: "Centro",false)
-        }
-        item { Text("Reservas", style = MaterialTheme.typography.titleMedium) }
-        item {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = section == "class",
-                    onClick = { section = "class" },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                ) { Text("Clases") }
-                SegmentedButton(
-                    selected = section == "appointment",
-                    onClick = { section = "appointment" },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                ) { Text("Citas") }
+        val hasLinkedCenters = connected &&
+            snapshot?.athleteCenterIds.orEmpty().isNotEmpty()
+        if (hasLinkedCenters) {
+            items(snapshot?.trainingSessions.orEmpty()) { session ->
+                ProfessionalSessionCard(
+                    session,
+                    snapshot?.centerName(session.orgId) ?: "Centro",
+                    false
+                )
+            }
+            item { Text("Reservas", style = MaterialTheme.typography.titleMedium) }
+            item {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = section == "class",
+                        onClick = { section = "class" },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) { Text("Clases") }
+                    SegmentedButton(
+                        selected = section == "appointment",
+                        onClick = { section = "appointment" },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) { Text("Citas") }
+                }
             }
         }
+        if (hasLinkedCenters) {
         if (available.isEmpty()) {
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
@@ -269,6 +272,7 @@ internal fun CenterTab(
                 }
             }
         }
+        } // hasLinkedCenters (reservas)
     }
     val cancelling = pendingCancellation
     if (cancelling != null) {

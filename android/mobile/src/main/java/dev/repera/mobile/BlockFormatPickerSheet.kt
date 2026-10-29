@@ -33,7 +33,7 @@ internal data class BlockFormatOption(
 )
 
 internal object BlockFormatCatalog {
-    /** Orden iOS PlanView (Sin formato aparte): AMRAP… luego Fuerza/Skill, AFAP… */
+    /** Orden iOS PlanView WODFormatPickerPage (R5 P1-14): sin Circuit/Ladder extras. */
     val options: List<BlockFormatOption> = listOf(
         BlockFormatOption(
             "amrap", "AMRAP",
@@ -66,30 +66,6 @@ internal object BlockFormatCatalog {
         BlockFormatOption(
             "afap", "AFAP",
             "Haz el trabajo lo más rápido posible (sin rondas fijas)."
-        ),
-        BlockFormatOption(
-            "circuit", "Circuit",
-            "Estaciones en circuito con intervalo fijo."
-        ),
-        BlockFormatOption(
-            "ladder", "Ladder",
-            "Esquema ascendente o descendente de repeticiones."
-        ),
-        BlockFormatOption(
-            "partner", "Partner",
-            "Trabajo en pareja por rondas o estaciones."
-        ),
-        BlockFormatOption(
-            "roundsForQuality", "Rounds for Quality",
-            "Rondas enfocadas en calidad técnica, no en velocidad."
-        ),
-        BlockFormatOption(
-            "maxEffort", "Max Effort",
-            "Esfuerzo máximo en un tiempo o serie limitada."
-        ),
-        BlockFormatOption(
-            "buyInCashOut", "Buy-In / Cash-Out",
-            "Trabajo de entrada y salida alrededor del bloque principal."
         )
     )
 

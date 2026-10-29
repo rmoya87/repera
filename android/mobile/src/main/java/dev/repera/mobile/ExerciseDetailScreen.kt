@@ -555,11 +555,16 @@ private fun SessionAppearanceBlock(row: SessionAppearance, emphasizeDate: Boolea
  *  render headless inspeccionable. */
 @Composable
 internal fun MuscleEquipmentCard(entry: ExerciseEntry) {
-    val primary = entry.targetMuscle.ifBlank { entry.muscleGroup }
+    fun localizedMuscle(raw: String): String {
+        val slug = dev.repera.domain.MuscleTaxonomy.canonical(raw)
+        return if (slug != null) dev.repera.domain.MuscleTaxonomy.displayName(slug) else raw
+    }
+    val primaryRaw = entry.targetMuscle.ifBlank { entry.muscleGroup }
+    val primary = localizedMuscle(primaryRaw)
     val seen = mutableSetOf(primary.lowercase())
     val secondaries = entry.secondaryMuscles.mapNotNull { raw ->
-        dev.repera.domain.MuscleTaxonomy.canonical(raw) ?: return@mapNotNull null
-        val label = dev.repera.domain.MuscleTaxonomy.displayName(raw)
+        val slug = dev.repera.domain.MuscleTaxonomy.canonical(raw) ?: return@mapNotNull null
+        val label = dev.repera.domain.MuscleTaxonomy.displayName(slug)
         val key = label.lowercase()
         if (key.isEmpty() || key in seen) return@mapNotNull null
         seen.add(key); label

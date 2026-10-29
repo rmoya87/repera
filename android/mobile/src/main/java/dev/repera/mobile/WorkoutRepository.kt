@@ -3142,9 +3142,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     /** Rows of the Apple-style editable Play list; null when the classic form must be used (WOD, no basic recorder, or
      *  a logged work set that is not a straight set, because rows are matched to planned sets by position). */
     private fun liveRowsOf(current: JSONObject): List<LiveRowSummary>? {
-        if (current.optString("blockKind") == "wod") return null
+        // R5 P1-4: iOS muestra PlayEditableSetsView también en bloques WOD.
         val mode = inputMode(current.getJSONObject("exercise"))
-        if (!mode.basicRecorderAvailable) return null
+        if (!mode.basicRecorderAvailable && current.optString("blockKind") != "wod") return null
         val logged = current.optJSONArray("loggedSets") ?: JSONArray()
         val plan = current.optJSONArray("plannedSets") ?: JSONArray()
         val work = (0 until logged.length()).map { logged.getJSONObject(it) }.filter { it.optString("phase", "work") == "work" }

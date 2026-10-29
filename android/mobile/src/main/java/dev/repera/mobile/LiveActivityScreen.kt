@@ -88,7 +88,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         context.getSharedPreferences("repera.live.map", android.content.Context.MODE_PRIVATE)
     }
     var navigationMode by remember {
-        // iOS arranca en 3D; default true si no hay preferencia (R4 #36).
+        // R5 P1-12: Comenzar en 3D como iOS sim; default true.
         mutableStateOf(mapPrefs.getBoolean("navigation3D.enabled", true))
     }
     fun setNavigationMode(enabled: Boolean) {
@@ -265,24 +265,102 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
         while(true) { delay(1000);runtime.publish() }
     }
     if (showSportPicker) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { showSportPicker = false }) {
-            Surface(shape = MaterialTheme.shapes.large) {
-                Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(16.dp)) {
-                    Text("Elegir actividad", style = MaterialTheme.typography.titleLarge)
-                    OutlinedTextField(sportQuery,{sportQuery=it},label={Text("Buscar actividad")},singleLine=true,modifier=Modifier.fillMaxWidth())
-                    LiveSport.groups.forEach { group ->
-                        val filtered=LiveSport.selectableCases.filter {it.group==group && foldForSearch(it.title).contains(foldForSearch(sportQuery))}
-                        if(filtered.isNotEmpty()) Text(group, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-                        filtered.forEach { sport ->
-                            TextButton(onClick = { runtime.choose(sport);showSportPicker = false },
-                                modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")) {
-                                Icon(sport.materialIcon,contentDescription=null,modifier=Modifier.size(22.dp))
-                                Spacer(Modifier.width(8.dp))
+        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+        ReperaModalBottomSheet(onDismissRequest = { showSportPicker = false }) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("Elegir actividad", style = MaterialTheme.typography.titleLarge)
+                OutlinedTextField(
+                    sportQuery, { sportQuery = it },
+                    label = { Text("Buscar actividad") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                LiveSport.groups.forEach { group ->
+                    val filtered = LiveSport.selectableCases.filter {
+                        it.group == group && foldForSearch(it.title).contains(foldForSearch(sportQuery))
+                    }
+                    if (filtered.isNotEmpty()) {
+                        Text(
+                            group,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+                    filtered.forEach { sport ->
+                        TextButton(
+                            onClick = { runtime.choose(sport); showSportPicker = false },
+                            modifier = Modifier.fillMaxWidth().testTag("choose_sport_${sport.id}")
+                        ) {
+                            Icon(sport.materialIcon, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
                                 Text((if (state.sport == sport) "✓ " else "") + sport.title)
+                                Text(
+                                    sport.metricDescription,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
-                    TextButton(onClick = { showSportPicker = false }) { Text("Cerrar") }
+                }
+            }
+        }
+    }
+    if (showRoutes) {
+        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+        ReperaModalBottomSheet(onDismissRequest = { showRoutes = false }) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Mis rutas", style = MaterialTheme.typography.titleLarge)
+                RouteLibraryHeader { showRoutes = false }
+                if (routes.isEmpty()) {
+                    ReperaEmptyState(
+                        title = "Todavía no hay rutas",
+                        subtitle = "Graba un recorrido o importa un GPX para empezar."
+                    )
+                }
+                TextButton(onClick = {
+                    importGPX.launch(arrayOf(
+                        "application/gpx+xml", "application/xml", "text/xml",
+                        "application/octet-stream"
+                    ))
+                }) { Text("Importar archivo GPX") }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Últimas rutas", "Favoritos", "Todas").forEach { mode ->
+                        ReperaFilterChip(
+                            selected = routeListMode == mode,
+                            onClick = { routeListMode = mode },
+                            label = { Text(mode) }
+                        )
+                    }
+                }
+                val visibleRoutes = when (routeListMode) {
+                    "Últimas rutas" -> routes.take(5)
+                    "Favoritos" -> routes.filter { it.isFavorite }
+                    else -> routes
+                }
+                visibleRoutes.forEach { route ->
+                    ReperaCard(
+                        onClick = { runtime.selectRoute(route.id); showRoutes = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(route.title, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "${'$'}{ReperaNumberFormat.decimal(route.distanceKm)} km · ${'$'}{route.sportTitle}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -782,78 +860,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 Text(if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz")
             }
             if (state.sport.usesGPS) {
-                TextButton(onClick = { showRoutes = !showRoutes }) { Text("Biblioteca de rutas") }
+                TextButton(onClick = { showRoutes = true }) { Text("Mis rutas") }
                 state.selectedRouteID?.let { selected ->
                     Text("Ruta: ${routes.firstOrNull { it.id == selected }?.title ?: "No disponible"}")
                     TextButton(onClick = { runtime.selectRoute(null) }) { Text("Sin ruta planificada") }
-                }
-                if (showRoutes) {
-                    RouteLibraryHeader {showRoutes=false;showingMetrics=false}
-                    if (routes.isEmpty()) {
-                        ReperaEmptyState(
-                            title = "Todavía no hay rutas",
-                            subtitle = "Graba un recorrido o importa un GPX para empezar."
-                        )
-                    }
-                    TextButton(onClick = { importGPX.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "application/octet-stream")) },
-                        colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.onSurface)) { Text("Importar GPX") }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("Últimas rutas", "Favoritos", "Todas").forEach { mode ->
-                            ReperaFilterChip(selected = routeListMode == mode, onClick = { routeListMode = mode }, label = { Text(mode) })
-                        }
-                    }
-                    val visibleRoutes = when (routeListMode) {
-                        "Últimas rutas" -> routes.take(5)
-                        "Favoritos" -> routes.filter { it.isFavorite }
-                        else -> routes
-                    }
-                    visibleRoutes.forEach { route ->
-                        var edit by remember(route.id) { mutableStateOf(false) }
-                        var routeTitle by remember(route.id, routesVersion) { mutableStateOf(route.title) }
-                        var routeSport by remember(route.id, routesVersion) { mutableStateOf(route.sportID) }
-                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(route.title, style = MaterialTheme.typography.titleSmall)
-                                        Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}")
-                                    }
-                                    IconButton(onClick = {
-                                        try { routesStore?.setFavorite(route.id, !route.isFavorite); routesVersion++ }
-                                        catch (_: Exception) { error = "No se pudo cambiar el favorito." }
-                                    }) {
-                                        Icon(
-                                            if (route.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                                            contentDescription = if (route.isFavorite) "Quitar favorita" else "Marcar favorita",
-                                            tint = if (route.isFavorite) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                if (route.points.size >= 2) RouteMapView(route.points, isInteractive = false, plannedRoute = true,
-                                    modifier = Modifier.fillMaxWidth().height(110.dp))
-                                FlowRow {
-                                    TextButton(onClick = { runtime.selectRoute(route.id); showRoutes = false }) { Text("Elegir") }
-                                    TextButton(onClick = { edit = !edit }) { Text("Editar") }
-                                    TextButton(onClick = { pendingDeleteRoute = route }) { Text("Eliminar") }
-                                }
-                                if (edit) {
-                                    OutlinedTextField(routeTitle, { routeTitle = it }, label = { Text("Nombre de la ruta") })
-                                    Text("Deporte: ${routeSport?.let(LiveSport::byId)?.title ?: "Sin deporte"}")
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        listOf<LiveSport?>(null).plus(LiveSport.selectableCases).forEach { option ->
-                                            ReperaFilterChip(selected = routeSport == option?.id,
-                                                onClick = { routeSport = option?.id }, label = { Text(option?.title ?: "Sin deporte") })
-                                        }
-                                    }
-                                    TextButton(onClick = {
-                                        try { routesStore?.update(route.id, routeTitle, routeSport); routesVersion++;edit = false }
-                                        catch (_: Exception) { error = "La ruta necesita un nombre y almacenamiento disponible." }
-                                    }) { Text("Guardar ruta") }
-                                }
-                            }
-                        }
-                    }
                 }
             }
             Button(onClick={

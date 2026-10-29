@@ -52,7 +52,7 @@ internal val reperaMainTabs = listOf(
 
 internal val reperaTabRoutes: Set<String> = reperaMainTabs.map { it.route }.toSet()
 
-/** Push del editor de entreno (paridad DayEditorView): sin tab bar ni TopAppBar «repera». */
+/** Push / subpáginas: sin TopAppBar «repera»+gear (R5 P1-7). */
 internal fun reperaRouteHidesAppShell(route: String?): Boolean {
     if (route.isNullOrBlank()) return false
     return when {
@@ -61,6 +61,11 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
         route.startsWith("escaner") -> true
         route.startsWith("favoritos") -> true
         route.startsWith("temporizador") -> true
+        route.startsWith("ajustes-") -> true
+        route.startsWith("ejercicio") -> true
+        route.startsWith("preview/") -> true
+        route.startsWith("historial-detalle") -> true
+        route.startsWith("formato-bloque") -> true
         route in setOf(
             "entreno-libre",
             "entreno-activo",
@@ -68,8 +73,25 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
             "favorito-nuevo",
             "ajustes",
             "reloj",
-            "historial"
+            "historial",
+            "acceso-ia",
+            "peso-corporal",
+            "center",
+            "mensajes",
+            "programas-ia",
+            "deportes"
         ) -> true
+        else -> false
+    }
+}
+
+/** R5 P2.9: push que en iOS mantienen la tab bar (Crear / Ajustes / ficha ejercicio). */
+internal fun reperaRouteKeepsTabBar(route: String?): Boolean {
+    if (route.isNullOrBlank()) return false
+    return when {
+        route == "ajustes" -> true
+        route.startsWith("rutina-nueva") -> true
+        route.startsWith("ejercicio") -> true
         else -> false
     }
 }

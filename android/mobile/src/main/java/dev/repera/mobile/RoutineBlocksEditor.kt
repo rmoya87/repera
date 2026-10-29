@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -1274,18 +1275,24 @@ private fun EntryEditorRow(
                 val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
                     entry.name, null, null, null) ==
                     dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+                // R5 P1-15: cabecera SERIE · ANTERIOR · KG/REPS · RIR (OGSetEntryHeader iOS).
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // PlanView iOS: HSPU usa «Déficit» (cm) en lugar de KG.
-                    Text(if (hspuDeficit) "Déficit (cm)" else "KG",
+                    Text("SERIE", style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.width(36.dp))
+                    Text("ANTERIOR", style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(0.9f))
+                    Text(if (hspuDeficit) "DÉFICIT" else "KG",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(1f))
-                    Text(if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "Reps",
+                        modifier = Modifier.weight(0.9f))
+                    Text(if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "REPS",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(1f))
-                    Text(dev.repera.domain.Effort.displayName(effortUnit), style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(1f))
-                    Spacer(Modifier.weight(0.4f))
+                        modifier = Modifier.weight(0.9f))
+                    Text(dev.repera.domain.Effort.displayName(effortUnit).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(0.7f))
+                    Spacer(Modifier.width(40.dp))
                 }
+                val previousSessionSets = guide?.lastSession?.sets.orEmpty()
                 entry.plannedSets.forEachIndexed { index, ps ->
                     if(mobility) OutlinedTextField(value=entry.durationText(index,mobilityHold),
                         onValueChange={entry.setDurationText(index,it)},singleLine=true,
@@ -1318,29 +1325,44 @@ private fun EntryEditorRow(
                         if(updated!=null) entry.plannedSets[index] = updated
                         entry.rawSetInputs[index]=(updated ?: ps) to Triple(repsText,kgText,rirText)
                     }
+                    val previousLabel = previousSessionSets.getOrNull(index)?.let { prev ->
+                        val kg = prev.weightKg?.let { "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×" } ?: ""
+                        "$kg${prev.reps}"
+                    } ?: "—"
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${index + 1}",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.width(36.dp)
+                        )
+                        Text(
+                            previousLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(0.9f)
+                        )
                         OutlinedTextField(
                             value = kgText,
                             onValueChange = { kgText = it; commit() },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f))
+                            modifier = Modifier.weight(0.9f))
                         OutlinedTextField(
                             value = repsText,
                             onValueChange = { repsText = it; commit() },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f))
+                            modifier = Modifier.weight(0.9f))
                         OutlinedTextField(
                             value = rirText,
                             onValueChange = { rirText = it; commit() },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f))
+                            modifier = Modifier.weight(0.7f))
                         TextButton(
                             onClick = {
                                 entry.plannedSets.removeAt(index)
@@ -1359,7 +1381,8 @@ private fun EntryEditorRow(
 
                             },
                             enabled = entry.plannedSets.size > 1,
-                            modifier = Modifier.weight(0.4f)) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
+                            modifier = Modifier.width(40.dp)
+                        ) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
                     }
                 }
                 TextButton(onClick = {

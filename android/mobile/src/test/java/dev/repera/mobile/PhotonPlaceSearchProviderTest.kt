@@ -75,11 +75,11 @@ class PhotonPlaceSearchProviderTest {
         val p = PhotonPlaceSearchProvider({ calls.incrementAndGet(); PhotonPlaceSearchProvider.HttpResult(code, if (code == 200) fixture else "") }, { t })
         assertTrue(p.search("gimnasio").isEmpty())
         assertTrue(p.degraded)
-        t += 60_000
+        t += PhotonPlaceSearchProvider.COOLDOWN_MS / 2
         code = 200
         assertTrue(p.search("parque").isEmpty()) // aún en enfriamiento: sin red
         assertEquals(1, calls.get())
-        t += 61_000
+        t += PhotonPlaceSearchProvider.COOLDOWN_MS
         assertEquals(1, p.search("parque").size)
         assertFalse(p.degraded)
         assertEquals(2, calls.get())

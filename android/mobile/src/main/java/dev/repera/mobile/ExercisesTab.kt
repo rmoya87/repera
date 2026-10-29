@@ -340,12 +340,14 @@ internal fun ExercisesTab(
             )
         }
         val entries = filteredExerciseEntries
-        item {
-            Text("${entries.size} ejercicios", style = MaterialTheme.typography.labelMedium)
-            if (exerciseFilter == "Hyrox") {
-                Text("Movimientos útiles para Hyrox presentes en el catálogo; " +
-                    "no equivale al listado oficial completo de estaciones.",
-                    style = MaterialTheme.typography.bodySmall)
+        // R5 P2.4: iOS no muestra «N ejercicios» encima de la lista.
+        if (exerciseFilter == "Hyrox") {
+            item {
+                Text(
+                    "Movimientos útiles para Hyrox presentes en el catálogo; " +
+                        "no equivale al listado oficial completo de estaciones.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         if (entries.isEmpty()) item {

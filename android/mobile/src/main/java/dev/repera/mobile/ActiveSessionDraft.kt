@@ -188,7 +188,7 @@ internal object ActiveSessionDraft {
   val ex=session.optJSONArray("exercises")?:return null
   if(exerciseIndex !in 0 until ex.length()) return null
   val exercise=ex.getJSONObject(exerciseIndex)
-  check(exercise.optString("blockKind")!="wod") {"Usa el editor WOD para estos movimientos"}
+  // R5 P1-4: iOS PlayEditableSetsView también persiste series en bloques WOD.
   val mode=modeOf(exercise.getJSONObject("exercise"))
   val loadField=when {mode==dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT->"deficitCm";mode.showsWeight->"weightKg";else->"none"}
   val usesDuration=mode in setOf(dev.repera.domain.ExerciseInputMode.MACHINE_WORK,dev.repera.domain.ExerciseInputMode.REPS_AND_TIME,dev.repera.domain.ExerciseInputMode.LOAD_DISTANCE)

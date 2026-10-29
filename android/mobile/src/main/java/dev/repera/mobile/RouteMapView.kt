@@ -220,7 +220,15 @@ internal fun RouteMapView(
                         setAllGesturesEnabled(isInteractive)
                         isCompassEnabled = isInteractive
                     }
-                    map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
+                    // R5 P1-12: estilo oscuro en modo noche (liberty es claro).
+                    val dark = (context.resources.configuration.uiMode and
+                        android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES
+                    val styleUrl = if (dark)
+                        "https://tiles.openfreemap.org/styles/dark"
+                    else
+                        "https://tiles.openfreemap.org/styles/liberty"
+                    map.setStyle(styleUrl) { style ->
                         applyPlannedOverlay(style,currentPlan)
                         applyRoute(map, style, currentPoints, currentPlanned,water=waterSport,plannedPoints=currentPlan,mode=paceMode)
                         updateUserDirection(style, userPosition, userHeadingDegrees)
