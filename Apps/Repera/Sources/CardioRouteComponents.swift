@@ -544,9 +544,11 @@ struct RouteWeatherStrip: View {
             }
             // WeatherKit: solo marca oficial + legalPageURL (sin copy custom
             // «Fuentes y atribución legal»). MapKit aporta su propia atribución.
+            // Light UI → combinedMarkLightURL (marca oscura); dark UI → DarkURL
+            // (marca clara). Invertir deja el logo blanco invisible sobre fondo blanco.
             if hasWeather, let attributionURL,
                let mark = colorScheme == .dark
-                   ? attributionMarkLightURL : attributionMarkDarkURL {
+                   ? attributionMarkDarkURL : attributionMarkLightURL {
                 Link(destination: attributionURL) {
                     AsyncImage(url: mark) { phase in
                         if let image = phase.image {

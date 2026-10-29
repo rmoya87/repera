@@ -252,9 +252,11 @@ struct DayEditorView: View {
 
             if onApplyCompleted == nil {
                 Section {
+                    // Mapa a bleed (clear + insets 0); sin lugar → tarjeta blanca «Añadir lugar».
+                    let hasChosenPlace = routine.locationPin?.hasChosenPlace == true
                     WorkoutPlacePickerRow(pin: $routine.locationPin)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
+                        .listRowInsets(hasChosenPlace ? EdgeInsets() : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
                 } header: {
                     Text("Lugar")
                 }

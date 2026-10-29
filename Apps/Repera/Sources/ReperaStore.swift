@@ -1460,9 +1460,9 @@ final class ReperaStore: NSObject {
         mutateActive { $0.selectExercise(at: index) }
     }
 
-    /// Persiste directamente los valores introducidos durante Play. La
-    /// prescripción sirve de punto de partida; cuando se edita, la misma
-    /// transacción actualiza también el resultado sin ningún check por serie.
+    /// Persiste el borrador de Play: `plannedSets` guarda también series
+    /// editadas aún no marcadas; `performedSets` (si viene) son solo las
+    /// confirmadas (`loggedSets`), sin inventar resultados ficticios.
     func updateActiveExerciseDraft(
         id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?,
         performedSets: [LoggedSet]? = nil

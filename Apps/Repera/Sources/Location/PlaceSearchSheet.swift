@@ -658,10 +658,8 @@ struct WorkoutPlacePickerRow: View {
     /// Solo un lugar elegido (nombre o MapItem) abre el mapa; un pin GPS
     /// anónimo (captura automática) no sustituye «Añadir lugar».
     private var selectedPlace: WorkoutLocationPin? {
-        guard let pin else { return nil }
-        let named = pin.name?.nilIfBlank != nil
-        let mapped = pin.mapItemIdentifier?.nilIfBlank != nil
-        return (named || mapped) ? pin : nil
+        guard let pin, pin.hasChosenPlace else { return nil }
+        return pin
     }
 
     var body: some View {
@@ -676,6 +674,8 @@ struct WorkoutPlacePickerRow: View {
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                         .overlay(alignment: .bottom) {
+                            // Deja ~28 pt libres bajo el chip para el «Legal» nativo de MapKit
+                            // (abajo-izquierda); no taparlo con el material del lugar.
                             HStack(alignment: .center, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(pin.name?.nilIfBlank ?? "Lugar en el mapa")
@@ -695,7 +695,7 @@ struct WorkoutPlacePickerRow: View {
                             .padding(.vertical, 12)
                             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .padding(.horizontal, 12)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, 34)
                         }
                         .contentShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                 }

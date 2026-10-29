@@ -1,6 +1,6 @@
 # Seguimiento GPS deportivo unificado — Repera iOS
 
-Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
+Última actualización: 2026-10-29 (Weather marca combinedMark light/dark)
 Estado: implementación integrada en `main` (PR #75); compilación iOS/watchOS y contratos de arquitectura verificados, **validación funcional con iPhone físico pendiente**.
 
 Esta es la referencia técnica para GPS, rutas, Apple Salud, actividad en directo y entrenamientos libres/programados. La descripción de producto está en [FEATURES.md](FEATURES.md) y el contexto general en [ARCHITECTURE.md](ARCHITECTURE.md). La fuente de verdad definitiva es el código.
@@ -91,7 +91,7 @@ Evitar dos desarrollos paralelos: `Comenzar` (sesión libre) y `Play` (entrenami
 - **Cabecera de Métricas y Mapa:** Audio, Mapa y Pausa/Reanudar son tres botones de 44 pt contiguos con 6 pt entre centros de superficies, alineados al margen derecho `OG.topBarHorizontalInset`. Pausa/Reanudar ocupa el extremo derecho (mismo eje horizontal que el primer control de la vista Mapa); al pausar aparece Finalizar a la izquierda de Audio, sin mover los tres restantes. Se eliminan los subtítulos «Grabando actividad» y «En pausa»; la separación flexible se coloca entre el nombre del deporte y Audio. El título usa como máximo dos líneas y se adapta a tamaños compactos.
 
 - **Sonido compartido (Comenzar y Temporizador):** `RestFeedback` usa un tono medio (fundamental **523,25 Hz, Do5**) sintetizado localmente por `AVAudioPlayer`, sin sonidos de sistema con distinta melodía. Cada segundo de la cuenta 3, 2, 1 suena una nota breve de **0,16 s**; el paso a cero y la finalización reproducen **la misma nota** sostenida **0,49 s** (duración intermedia entre 0,16 y los 0,82 s anteriores). Respetar el interruptor de audio; el gestor no desactiva una locución GPS que entre mientras se está liberando el tono. Pausa/reanudación siguen silenciosas.
-- **Tarjeta de mapa/tiempo:** `RouteWeatherStrip` presenta icono grande a la izquierda y título/valor apilados a la derecha en cada una de las tres columnas. La fila textual independiente «Apple Weather» se elimina; por requisitos de WeatherKit se conserva una marca oficial discreta enlazada a `attribution.legalPageURL`. `HealthWorkoutRouteMap` añade margen vertical y desplaza ligeramente al norte la cámara **solo en la vista previa**, evitando que se recorte el halo superior de la ruta sin modificar coordenadas.
+- **Tarjeta de mapa/tiempo:** `RouteWeatherStrip` presenta icono grande a la izquierda y título/valor apilados a la derecha en cada una de las tres columnas. La fila textual independiente «Apple Weather» se elimina; por requisitos de WeatherKit se conserva una marca oficial discreta enlazada a `attribution.legalPageURL`, con `combinedMarkLightURL` en UI clara y `combinedMarkDarkURL` en UI oscura. `HealthWorkoutRouteMap` añade margen vertical y desplaza ligeramente al norte la cámara **solo en la vista previa**, evitando que se recorte el halo superior de la ruta sin modificar coordenadas.
 
 ## Pendiente de verificación en iPhone / TestFlight (27/10/2026)
 

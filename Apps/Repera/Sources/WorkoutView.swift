@@ -1320,9 +1320,11 @@ struct WorkoutView: View {
             }
 
             Section {
+                // Mapa a bleed (clear + insets 0); sin lugar → tarjeta blanca «Añadir lugar».
+                let hasChosenPlace = store.state.activeSession?.locationPin?.hasChosenPlace == true
                 WorkoutPlacePickerRow(pin: activeLocationPin)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                    .listRowInsets(hasChosenPlace ? EdgeInsets() : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
             } header: {
                 Text("Lugar")
             }
@@ -3631,6 +3633,8 @@ private struct PlayEditableSetsView: View {
         }
     }
 
+    /// Series editadas no marcadas → `plannedSets` (no se pierden al salir).
+    /// Solo las marcadas hechas van a `loggedSets` (tap del índice / onConfirm).
     private func persist() {
         guard let current = store.state.activeSession?.exercises.first(where: { $0.id == exerciseEntry.id }) else { return }
         let prescribed = current.plannedSets
@@ -3649,6 +3653,8 @@ private struct PlayEditableSetsView: View {
         }
         let unit = (style == .machineWork || exercise.supportsRepsOrMeters)
             ? quantityUnit : (current.quantityUnit ?? exercise.defaultQuantityUnit)
+        // No inventar loggedSets de filas sin marcar: seedIfNeeded las trataría
+        // como hechas. Los kg/reps editados ya van en `revised` → plannedSets.
         let recorded: [LoggedSet] = rows.compactMap { row in
             guard row.completed, row.reps > 0 else { return nil }
             var result = savedByID[row.id] ?? LoggedSet(id: row.id, reps: row.reps, quantityUnit: unit)
