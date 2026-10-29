@@ -2553,9 +2553,12 @@ struct LiveActivityView: View {
             defer { checkingNavigation3DAccess = false }
             await subscriptions.refreshEntitlementsForFeatureAction()
             if navigation3DAllowed {
-                applyNavigationMapModeChange()
+                // Si ya estaba guardado 3D de una sesión anterior, no
+                // invertir la preferencia al recuperar una compra tardía.
+                applyNavigationMapModeChange(activate3D: true)
             } else if subscriptions.snapshot.status == .unknown
-                        || subscriptions.snapshot.lastRefreshFailedOffline {
+                        || subscriptions.snapshot.lastRefreshFailedOffline
+                        || !subscriptions.snapshot.isConfigured {
                 navigation3DVerificationFailed = true
             } else {
                 subscriptions.presentPaywall(.generic)
@@ -2563,9 +2566,9 @@ struct LiveActivityView: View {
         }
     }
 
-    private func applyNavigationMapModeChange() {
+    private func applyNavigationMapModeChange(activate3D: Bool? = nil) {
         cancelPendingMapRecenter()
-        navigationMapEnabled.toggle()
+        navigationMapEnabled = activate3D ?? !navigationMapEnabled
         hasAppliedStored3DCamera = true
         mapIsCentered = true
         if let user = recorder.currentCoordinate {
