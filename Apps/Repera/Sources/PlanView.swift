@@ -251,8 +251,12 @@ struct DayEditorView: View {
             }
 
             if onApplyCompleted == nil {
-                Section("Lugar") {
+                Section {
                     WorkoutPlacePickerRow(pin: $routine.locationPin)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                } header: {
+                    Text("Lugar")
                 }
             }
 
@@ -479,12 +483,12 @@ struct DayEditorView: View {
         }
     }
 
-    /// Jerarquía Bloque→ejercicios con zonas de inserción reales (ScrollView).
+    /// Una sola lista jerárquica: cabecera de bloque + ejercicios dentro.
+    /// Arrastrar el bloque mueve el bloque con sus ejercicios; un ejercicio
+    /// se reordena o salta a otro bloque. Sin sección «Orden de bloques».
     private var reorderSheet: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                OGCardSectionTitle(title: "Orden de bloques")
-
                 ForEach(Array(routine.blocks.enumerated()), id: \.element.id) { position, block in
                     OGReorderInsertionGap(
                         accepts: { $0.hasPrefix("block:") }
@@ -493,15 +497,13 @@ struct DayEditorView: View {
                     }
                     reorderBlockCard(position: position, block: block)
                         .draggable("block:\(block.id.uuidString)")
+                        .padding(.bottom, 4)
+                    reorderExercisesSection(for: block)
                 }
                 OGReorderInsertionGap(
                     accepts: { $0.hasPrefix("block:") }
                 ) { token in
                     withAnimation(.smooth) { reorderBlockToken(token, before: nil) }
-                }
-
-                ForEach(routine.blocks) { block in
-                    reorderExercisesSection(for: block)
                 }
             }
             .padding(.horizontal, OG.pad)
@@ -542,6 +544,7 @@ struct DayEditorView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
         .contentShape(Rectangle())
     }
 
@@ -550,20 +553,19 @@ struct DayEditorView: View {
         let rows: [(id: UUID, name: String, type: String)] = {
             if block.kind == .strength {
                 return block.exercises.map { item in
-                    (
+                    let raw = store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio"
+                    return (
                         item.id,
-                        store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio",
+                        SportExerciseNames.localizedDisplayName(raw),
                         "exercise"
                     )
                 }
             }
             return block.movements.map {
-                ($0.id, $0.isRest ? "Descanso" : $0.name, "movement")
+                ($0.id, $0.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName($0.name), "movement")
             }
         }()
         VStack(alignment: .leading, spacing: 0) {
-            OGCardSectionTitle(title: block.title)
-
             ForEach(rows, id: \.id) { row in
                 OGReorderInsertionGap(
                     accepts: { !$0.hasPrefix("block:") }
@@ -633,6 +635,7 @@ struct DayEditorView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
         .contentShape(Rectangle())
         .draggable("\(type):\(blockID.uuidString):\(itemID.uuidString)")
     }
@@ -2102,6 +2105,7 @@ private struct InlineWODMovementSets: View {
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
+                indexTappable: false,
                 rir: draftSets[index].targetRir,
                 showsRIR: style.usesRIR,
                 onRIRChange: { value in
@@ -2434,6 +2438,7 @@ struct WODMovementEditor: View {
                     : "\(draftSets[index].targetReps)",
                 secondValue: style == .loadAndReps ? "\(draftSets[index].targetReps)" : nil,
                 firstAllowsDecimal: style == .loadAndReps && resolvedLoadField == .weightKg,
+                indexTappable: false,
                 rir: draftSets[index].targetRir,
                 showsRIR: style.usesRIR,
                 onRIRChange: { value in
@@ -2796,6 +2801,7 @@ private struct PlannedSetConfigRow: View {
                 ? (isMobilityHold ? nil : "\(set.targetReps)")
                 : (exerciseStyle == .loadAndReps ? "\(set.targetReps)" : nil),
             firstAllowsDecimal: exerciseStyle == .loadAndReps,
+            indexTappable: false,
             rir: set.targetRir,
             showsRIR: exerciseStyle.usesRIR,
             onRIRChange: { set.targetRir = $0 },

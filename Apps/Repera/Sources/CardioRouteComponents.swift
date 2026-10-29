@@ -542,34 +542,29 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            // Apple Weather attribution is always visible alongside weather values.
-            // Never overlay a tiny mark onto statistics or hide the legal link.
+            // WeatherKit: solo marca oficial + legalPageURL (sin copy custom
+            // «Fuentes y atribución legal»). MapKit aporta su propia atribución.
             if hasWeather, let attributionURL,
                let mark = colorScheme == .dark
                    ? attributionMarkLightURL : attributionMarkDarkURL {
                 Link(destination: attributionURL) {
-                    HStack(spacing: 8) {
-                        AsyncImage(url: mark) { phase in
-                            if let image = phase.image {
-                                image.resizable().scaledToFit()
-                            } else {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "apple.logo")
-                                    Text("Weather")
-                                }
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(OG.label2)
+                    AsyncImage(url: mark) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFit()
+                        } else {
+                            HStack(spacing: 3) {
+                                Image(systemName: "apple.logo")
+                                Text("Weather")
                             }
-                        }
-                        .frame(width: 94, height: 18)
-                        Text("Fuentes y atribución legal")
-                            .font(.caption2.weight(.medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(OG.label2)
+                        }
                     }
+                    .frame(width: 94, height: 18)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Apple Weather. Consultar fuentes y atribución legal")
+                .accessibilityLabel("Apple Weather")
                 .padding(.top, 10)
             }
             if !hasWeather {

@@ -19,6 +19,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +29,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,16 +43,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Hoja «Reordenar» alineada con iOS post-#151: jerarquía Bloque→ejercicios,
- * títulos `ReperaSectionTitle` (= OGCardSectionTitle) y gaps de inserción.
+ * Una sola lista jerárquica Bloque→ejercicios (paridad FINAL_REVIEW).
+ * Arrastrar el bloque mueve cabecera+ejercicios (altura real del grupo).
+ * Mover entre bloques pasa por [PlanEntryMoves.move] (conversión fuerza↔WOD).
  */
 @Composable
 internal fun PlanReorderSheet(
     blocks: SnapshotStateList<BlockDraftUi>,
     nameById: Map<String, String>,
-    onDone: () -> Unit
+    exercises: List<ExerciseEntry>,
+    onDone: () -> Unit,
+    onMoveMessage: (String?) -> Unit = {}
 ) {
     val scroll = rememberScrollState()
+    // Alturas de bloques COMPLETOS (cabecera + entradas), no solo la card.
     val blockHeights = remember { mutableStateMapOf<Int, Int>() }
     ProvideScrollDragAutoScroll(scroll) {
         Column(
@@ -69,67 +79,80 @@ internal fun PlanReorderSheet(
                     Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
                 }
             }
-            ReperaSectionTitle("Orden de bloques")
-            ReorderInsertionGap(visible = false)
-            blocks.forEachIndexed { index, block ->
+
+            blocks.forEachIndexed { blockIndex, block ->
+                ReorderInsertionGap(visible = true)
+                // P2: el DragReorderItem envuelve cabecera + ejercicios para que
+                // blockHeights / dragTargetIndex usen la geometría del bloque entero.
                 DragReorderItem(
-                    index = index,
+                    index = blockIndex,
                     heights = blockHeights,
                     count = blocks.size,
                     onDrop = { _, t ->
-                        if (t != index && t in blocks.indices) {
-                            val moved = blocks.removeAt(index); blocks.add(t, moved)
+                        if (t != blockIndex && t in blocks.indices) {
+                            val moved = blocks.removeAt(blockIndex); blocks.add(t, moved)
                         }
                     },
                     onMoveTo = { t ->
-                        if (t != index && t in blocks.indices) {
-                            val moved = blocks.removeAt(index); blocks.add(t, moved)
+                        if (t != blockIndex && t in blocks.indices) {
+                            val moved = blocks.removeAt(blockIndex); blocks.add(t, moved)
                         }
                     }
-                ) { handle ->
-                    ReorderBlockCard(
-                        position = index,
-                        title = block.title.ifBlank { "Bloque ${index + 1}" },
-                        subtitle = blockFormatSubtitle(block),
-                        handle = handle
-                    )
-                }
-                ReorderInsertionGap(visible = false)
-            }
+                ) { blockHandle ->
+                    Column(Modifier.fillMaxWidth()) {
+                        ReorderBlockCard(
+                            position = blockIndex,
+                            title = block.title.ifBlank { "Bloque ${blockIndex + 1}" },
+                            subtitle = blockFormatSubtitle(block),
+                            handle = blockHandle
+                        )
 
-            blocks.forEachIndexed { blockIndex, block ->
-                ReperaSectionTitle(block.title.ifBlank { "Bloque ${blockIndex + 1}" })
-                val entryHeights = remember(block) { mutableStateMapOf<Int, Int>() }
-                ReorderInsertionGap(visible = false)
-                block.entries.forEachIndexed { entryIndex, entry ->
-                    DragReorderItem(
-                        index = entryIndex,
-                        heights = entryHeights,
-                        count = block.entries.size,
-                        onDrop = { _, t ->
-                            if (t != entryIndex && t in block.entries.indices) {
-                                val moved = block.entries.removeAt(entryIndex)
-                                block.entries.add(t, moved)
-                            }
-                        },
-                        onMoveTo = { t ->
-                            if (t != entryIndex && t in block.entries.indices) {
-                                val moved = block.entries.removeAt(entryIndex)
-                                block.entries.add(t, moved)
+                        val entryHeights = remember(block) { mutableStateMapOf<Int, Int>() }
+                        if (block.entries.isEmpty()) {
+                            ReorderInsertionGap(visible = true, label = "Vacío · soltar aquí")
+                        }
+                        block.entries.forEachIndexed { entryIndex, entry ->
+                            ReorderInsertionGap(visible = true)
+                            DragReorderItem(
+                                index = entryIndex,
+                                heights = entryHeights,
+                                count = block.entries.size,
+                                onDrop = { _, t ->
+                                    if (t != entryIndex && t in block.entries.indices) {
+                                        val moved = block.entries.removeAt(entryIndex)
+                                        block.entries.add(t, moved)
+                                    }
+                                },
+                                onMoveTo = { t ->
+                                    if (t != entryIndex && t in block.entries.indices) {
+                                        val moved = block.entries.removeAt(entryIndex)
+                                        block.entries.add(t, moved)
+                                    }
+                                }
+                            ) { entryHandle ->
+                                ReorderExerciseCard(
+                                    name = entryDisplayName(entry, nameById),
+                                    handle = entryHandle,
+                                    otherBlocks = blocks.mapIndexedNotNull { i, b ->
+                                        if (i == blockIndex) null
+                                        else i to b.title.ifBlank { "Bloque ${i + 1}" }
+                                    },
+                                    onMoveToBlock = { target ->
+                                        // P1: conversión fuerza↔WOD / rechazo REST→fuerza.
+                                        val msg = PlanEntryMoves.move(
+                                            blocks, blockIndex, entryIndex, target,
+                                            nameById, exercises
+                                        )
+                                        onMoveMessage(msg)
+                                    }
+                                )
                             }
                         }
-                    ) { handle ->
-                        ReorderExerciseCard(
-                            name = entryDisplayName(entry, nameById),
-                            handle = handle
+                        ReorderInsertionGap(
+                            visible = true,
+                            label = "Soltar al final"
                         )
                     }
-                    ReorderInsertionGap(visible = false)
-                }
-                // Mover ejercicio al final de otro bloque vía menú accesible ya
-                // existe en el editor; aquí el gap final marca la zona iOS «Soltar».
-                if (block.entries.isEmpty()) {
-                    ReorderInsertionGap(visible = true, label = "Vacío · soltar aquí")
                 }
             }
         }
@@ -141,12 +164,13 @@ internal fun ReorderInsertionGap(visible: Boolean, label: String = "Soltar aquí
     Box(
         Modifier
             .fillMaxWidth()
-            .height(if (visible) 36.dp else 14.dp)
+            .height(if (visible) 22.dp else 10.dp)
             .animateContentSize()
             .then(
                 if (visible) Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(brandGreen.copy(alpha = 0.28f))
+                    .background(brandGreen.copy(alpha = 0.18f))
+                    .testTag("reorder_gap")
                 else Modifier
             ),
         contentAlignment = Alignment.Center
@@ -154,7 +178,7 @@ internal fun ReorderInsertionGap(visible: Boolean, label: String = "Soltar aquí
         if (visible) {
             Text(
                 label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = brandGreen,
                 fontWeight = FontWeight.SemiBold
             )
@@ -172,7 +196,8 @@ private fun ReorderBlockCard(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        tonalElevation = 2.dp,
+        shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
     ) {
         Row(
@@ -210,11 +235,18 @@ private fun ReorderBlockCard(
 }
 
 @Composable
-private fun ReorderExerciseCard(name: String, handle: Modifier) {
+private fun ReorderExerciseCard(
+    name: String,
+    handle: Modifier,
+    otherBlocks: List<Pair<Int, String>> = emptyList(),
+    onMoveToBlock: (Int) -> Unit = {}
+) {
+    var menuOpen by remember { mutableStateOf(false) }
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
+        shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
     ) {
         Row(
@@ -223,6 +255,31 @@ private fun ReorderExerciseCard(name: String, handle: Modifier) {
         ) {
             Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
+            if (otherBlocks.isNotEmpty()) {
+                Box {
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        modifier = Modifier.size(36.dp).testTag("reorder_entry_move")
+                    ) {
+                        Icon(
+                            Icons.Outlined.MoreVert,
+                            contentDescription = "Mover a otro bloque",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        otherBlocks.forEach { (idx, title) ->
+                            DropdownMenuItem(
+                                text = { Text(title) },
+                                onClick = {
+                                    menuOpen = false
+                                    onMoveToBlock(idx)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
             Icon(
                 Icons.Outlined.DragHandle,
                 contentDescription = "Reordenar ejercicio",

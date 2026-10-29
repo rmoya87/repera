@@ -36,6 +36,30 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
     }
 
+    /// Descarte explícito: el iPhone debe limpiar `activeSession` aunque no
+    /// haya snapshot activo en el Watch (tras `controller = nil`).
+    func sendDiscarded(sessionID: UUID?) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        var payload: [String: Any] = [
+            "session": Data(),
+            "discarded": true
+        ]
+        if let sessionID {
+            payload["discardedSessionId"] = sessionID.uuidString
+        }
+        do {
+            try WCSession.default.updateApplicationContext(payload)
+        } catch {
+            logger.error("Watch discard context failed: \(error.localizedDescription, privacy: .public)")
+        }
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { [weak self] error in
+                self?.logger.debug("Watch discard message deferred: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     /// Completion must not be lost when the iPhone is unavailable.
     /// Data is kept on disk until watchOS accepts the background transfer.
     func sendFinished(_ session: WorkoutSession) {

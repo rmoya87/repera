@@ -266,6 +266,9 @@ struct OGFixedTopBar<Trailing: View>: View {
         .padding(.top, OG.topBarTopInset)
         .padding(.bottom, OG.topBarBottomInset)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Cabecera blanca (status + título): el topbar es transparente y, sin
+        // este fondo, el lienzo gris del ScrollView se cuela detrás.
+        .background(OG.surface.ignoresSafeArea(edges: .top))
     }
 }
 
@@ -1698,6 +1701,8 @@ struct OGSetEntryRow: View {
     var enabled = true
     var showsConfirmation = false
     var completed = false
+    /// En editor de plan el índice no es tappable (solo Play marca series hechas).
+    var indexTappable = true
     var rir: Double? = nil
     var showsRIR = false
     var onRIRChange: (Double?) -> Void = { _ in }
@@ -1708,16 +1713,22 @@ struct OGSetEntryRow: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Button(action: onConfirm) {
-                Text("\(index)")
-                    .font(.system(size: 13, weight: .bold).monospacedDigit())
-                    .foregroundStyle(completed ? OG.onAccent : OG.label)
-                    .frame(width: 30, height: 36)
-                    .background(completed ? OG.accent : OG.surface2, in: Circle())
+            let indexBadge = Text("\(index)")
+                .font(.system(size: 13, weight: .bold).monospacedDigit())
+                .foregroundStyle(completed ? OG.onAccent : OG.label)
+                .frame(width: 30, height: 36)
+                .background(completed ? OG.accent : OG.surface2, in: Circle())
+            if indexTappable {
+                Button(action: onConfirm) { indexBadge }
+                    .buttonStyle(.plain)
+                    .disabled(!enabled)
+                    .accessibilityLabel(completed
+                        ? "Serie \(index) hecha. Toca para desmarcar"
+                        : "Serie \(index). Toca para marcar hecha")
+            } else {
+                indexBadge
+                    .accessibilityLabel("Serie \(index)")
             }
-            .buttonStyle(.plain)
-            .disabled(!enabled)
-            .accessibilityLabel(completed ? "Serie \(index) hecha. Toca para desmarcar" : "Serie \(index). Toca para marcar hecha")
 
             Text(previous ?? "—")
                 .font(.system(size: 10, weight: .medium).monospacedDigit())

@@ -705,8 +705,6 @@ struct WorkoutView: View {
         ScrollView {
             if let draft = playReorderDraft {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    OGCardSectionTitle(title: "Orden de bloques")
-
                     ForEach(Array(draft.blocks.enumerated()), id: \.element.id) { position, block in
                         OGReorderInsertionGap(
                             accepts: { $0.hasPrefix("block:") }
@@ -722,6 +720,8 @@ struct WorkoutView: View {
                         }
                         playReorderBlockCard(position: position, block: block)
                             .draggable("block:\(block.id.uuidString)")
+                            .padding(.bottom, 4)
+                        playReorderExerciseSection(block)
                     }
                     OGReorderInsertionGap(
                         accepts: { $0.hasPrefix("block:") }
@@ -732,10 +732,6 @@ struct WorkoutView: View {
                             let moved = draft.blocks.remove(at: from)
                             draft.blocks.append(moved)
                         }
-                    }
-
-                    ForEach(draft.blocks) { block in
-                        playReorderExerciseSection(block)
                     }
                 }
                 .padding(.horizontal, OG.pad)
@@ -778,6 +774,7 @@ struct WorkoutView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+        .shadow(color: Color.black.opacity(0.08), radius: 8, y: 3)
         .contentShape(Rectangle())
     }
 
@@ -786,17 +783,18 @@ struct WorkoutView: View {
         let rows: [(id: UUID, name: String)] = {
             if block.kind == .strength {
                 return block.exercises.map { item in
-                    (
+                    let raw = store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio"
+                    return (
                         item.id,
-                        store.state.exercises.first(where: { ex in ex.id == item.exerciseId })?.name ?? "Ejercicio"
+                        SportExerciseNames.localizedDisplayName(raw)
                     )
                 }
             }
-            return block.movements.map { ($0.id, $0.isRest ? "Descanso" : $0.name) }
+            return block.movements.map {
+                ($0.id, $0.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName($0.name))
+            }
         }()
         VStack(alignment: .leading, spacing: 0) {
-            OGCardSectionTitle(title: block.title)
-
             ForEach(rows, id: \.id) { row in
                 OGReorderInsertionGap(
                     accepts: { !$0.hasPrefix("block:") }
@@ -958,6 +956,7 @@ struct WorkoutView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
         .contentShape(Rectangle())
         .draggable("\(blockID.uuidString):\(itemID.uuidString)")
     }
@@ -1289,9 +1288,12 @@ struct WorkoutView: View {
                 }
             }
 
-            Section("Lugar") {
+            Section {
                 WorkoutPlacePickerRow(pin: activeLocationPin)
-                    .listRowBackground(OG.surface)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            } header: {
+                Text("Lugar")
             }
 
             Section("Notas del entreno") {
@@ -3431,6 +3433,7 @@ private struct PlayEditableSetsView: View {
         var durationSeconds: Int?
         var reps: Int
         var rir: Double?
+        var completed: Bool
     }
 
     @State private var rows: [Row] = []
@@ -3492,7 +3495,7 @@ private struct PlayEditableSetsView: View {
                 rows.append(Row(
                     id: UUID(), weightKg: last?.weightKg, deficitCm: last?.deficitCm,
                     durationSeconds: last?.durationSeconds, reps: last?.reps ?? 8,
-                    rir: last?.rir
+                    rir: last?.rir, completed: false
                 ))
                 persist()
             }
@@ -3524,17 +3527,17 @@ private struct PlayEditableSetsView: View {
             nextEditableRowID: rows.dropFirst(index + 1).first?.id,
             firstAllowsDecimal: style == .loadAndReps && exercise.loadField == .weightKg,
             showsConfirmation: false,
-            completed: false,
+            completed: row.completed,
             rir: row.rir,
             showsRIR: style.usesRIR,
             onRIRChange: { value in
-                guard rows.indices.contains(index) else { return }
+                guard rows.indices.contains(index), !rows[index].completed else { return }
                 rows[index].rir = value
                 persist()
             },
             focus: $focus,
             onFirstCommit: { text in
-                guard rows.indices.contains(index) else { return }
+                guard rows.indices.contains(index), !rows[index].completed else { return }
                 switch style {
                 case .repsOnly:
                     if let value = Int(text), value > 0 { rows[index].reps = value }
@@ -3552,10 +3555,18 @@ private struct PlayEditableSetsView: View {
                 persist()
             },
             onSecondCommit: { text in
-                guard rows.indices.contains(index) else { return }
+                guard rows.indices.contains(index), !rows[index].completed else { return }
                 if let value = Int(text), value > 0 { rows[index].reps = value; persist() }
             },
-            onConfirm: {}
+            onConfirm: {
+                guard rows.indices.contains(index) else { return }
+                rows[index].completed.toggle()
+                if rows[index].completed {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+                focus = nil
+                persist()
+            }
         )
     }
 
@@ -3576,13 +3587,15 @@ private struct PlayEditableSetsView: View {
                     ? set.targetWeightKg.map { Int($0.rounded()) } : nil),
                 durationSeconds: result?.durationSeconds ?? set.targetDurationSeconds,
                 reps: result?.reps ?? set.targetReps,
-                rir: result?.rir ?? set.targetRir
+                rir: result?.rir ?? set.targetRir,
+                completed: result != nil
             )
         }
         if rows.isEmpty {
             rows = recorded.map {
                 Row(id: $0.id, weightKg: $0.weightKg, deficitCm: $0.deficitCm,
-                    durationSeconds: $0.durationSeconds, reps: $0.reps, rir: $0.rir)
+                    durationSeconds: $0.durationSeconds, reps: $0.reps, rir: $0.rir,
+                    completed: true)
             }
         }
     }
@@ -3605,7 +3618,8 @@ private struct PlayEditableSetsView: View {
         }
         let unit = (style == .machineWork || exercise.supportsRepsOrMeters)
             ? quantityUnit : (current.quantityUnit ?? exercise.defaultQuantityUnit)
-        let recorded: [LoggedSet] = rows.map { row in
+        let recorded: [LoggedSet] = rows.compactMap { row in
+            guard row.completed, row.reps > 0 else { return nil }
             var result = savedByID[row.id] ?? LoggedSet(id: row.id, reps: row.reps, quantityUnit: unit)
             result.reps = max(1, row.reps)
             result.weightKg = exercise.loadField == .weightKg ? row.weightKg : nil

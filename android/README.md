@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — Extra Ramón: PR calc, tap serie, Actividad tras delete, locale nombres, mapa chip todos modos, Wear Descartar; Settings Acceso + Reordenar sheet.
+**Última actualización:** 2026-10-29 — FINAL_REVIEW lote 2: Reordenar jerárquico + huecos, mapa 220 dp chip abajo, Wear «Descartar entreno».
 
 Implementación nativa independiente en `android/`:
 

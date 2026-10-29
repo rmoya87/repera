@@ -339,7 +339,7 @@ private fun TransformingLazyColumnScope.outlineItems(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                "Descartar entrenamiento",
+                "Descartar entreno",
                 color = WearOg.red,
                 style = MaterialTheme.typography.labelSmall
             )

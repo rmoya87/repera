@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.focus.onFocusChanged
@@ -221,42 +222,55 @@ fun WorkoutPlacePickerRow(
                 )
             }
         } else {
+            // Paridad iOS: 220 dp, chip abajo con nombre + categoría + icono.
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(160.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .then(if (readOnly) Modifier else Modifier.clickable { showSearch = true })
                     .testTag("place_picker_map")
             ) {
                 PlacePinMap(pin.latitude, pin.longitude, isInteractive = false,
                     modifier = Modifier.fillMaxSize(), onStyleLoaded = onMapStyleLoaded)
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                     tonalElevation = 2.dp,
                     shadowElevation = 2.dp,
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(10.dp)
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 12.dp, vertical = 12.dp)
+                        .fillMaxWidth()
                         .testTag("place_picker_chip")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                     ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                pin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2
+                            )
+                            pin.pointOfInterestCategory?.takeIf { it.isNotBlank() }?.let { cat ->
+                                Text(
+                                    cat,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
                         Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            pin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -553,35 +567,37 @@ fun PlaceSearchSheet(
                                 focusManager.clearFocus(force = true)
                             })
                         if (showsConfirmMap) {
-                            // Lugar = chip sobre el mapa (full-bleed, sin barra inferior).
+                            // Chip abajo (paridad iOS): nombre + categoría/dirección + icono.
                             Surface(
-                                shape = RoundedCornerShape(20.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                                 tonalElevation = 2.dp,
                                 shadowElevation = 2.dp,
                                 modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(12.dp)
+                                    .align(Alignment.BottomCenter)
+                                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                                    .fillMaxWidth()
                                     .testTag("place_confirm_chip")
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                                 ) {
-                                    Icon(Icons.Outlined.LocationOn, contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Column {
-                                        Text(p.name, style = MaterialTheme.typography.labelLarge,
+                                    Column(Modifier.weight(1f)) {
+                                        Text(p.name, style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1)
+                                            maxLines = 2)
                                         p.addressLine?.takeIf { it.isNotBlank() }?.let {
-                                            Text(it, style = MaterialTheme.typography.labelSmall,
+                                            Text(it, style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1)
                                         }
                                     }
+                                    Spacer(Modifier.width(12.dp))
+                                    Icon(Icons.Outlined.LocationOn, contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp))
                                 }
                             }
                         }

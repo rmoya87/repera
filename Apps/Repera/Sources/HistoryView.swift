@@ -719,35 +719,12 @@ struct WorkoutDetailView: View {
                             .textCase(nil)
                     }
                     if let pin = session.locationPin {
+                        // Historial: mapa simple sin chip (el chip es de editor/Play).
                         Section {
                             WorkoutLocationPinMap(pin: pin, isInteractive: false)
-                                .frame(height: 220)
+                                .frame(height: 180)
                                 .frame(maxWidth: .infinity)
-                                .overlay(alignment: .bottom) {
-                                    HStack(alignment: .center, spacing: 12) {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text({
-                                                let raw = pin.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                                                return raw.isEmpty ? "Lugar en el mapa" : raw
-                                            }())
-                                                .font(.system(size: 17, weight: .semibold))
-                                                .foregroundStyle(OG.label)
-                                                .lineLimit(2)
-                                            if let category = PlaceCategoryStyle.label(forRaw: pin.pointOfInterestCategory) {
-                                                Text(category)
-                                                    .font(.system(size: 13))
-                                                    .foregroundStyle(OG.label2)
-                                            }
-                                        }
-                                        Spacer(minLength: 0)
-                                        PlaceCategoryIcon(categoryRaw: pin.pointOfInterestCategory)
-                                    }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
-                                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                    .padding(.horizontal, 12)
-                                    .padding(.bottom, 12)
-                                }
+                                .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
                                 .ogCardListRow()
                         } header: {
                             Text("Lugar").textCase(nil)
