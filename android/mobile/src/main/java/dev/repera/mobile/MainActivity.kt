@@ -1254,10 +1254,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 )
             }
             if (subscriptions.paywall.isPresented) {
-                @OptIn(ExperimentalMaterial3Api::class)
-                ReperaModalBottomSheet(onDismissRequest = { subscriptions.dismissPaywall() }) {
-                    PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
-                }
+                // Página nativa de Repera Pro; no abre un bottom sheet.
+                PaywallScreen(subscriptions = subscriptions, mode = PaywallMode.SHEET)
             }
             }
             }
