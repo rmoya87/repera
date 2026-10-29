@@ -8,6 +8,47 @@ import dev.repera.mobile.CompletedWorkoutEditing.ScoreField as SF
 
 /** Casos de CompletedWorkoutEditingTests.swift sobre fixtures JSON (sin dispositivo). */
 class CompletedWorkoutEditingTest {
+    @Test fun completedCrossFitScanIsOnlyRecordedAfterExplicitConfirmation() {
+        val source = JSONObject().put("id", "cf-session").put("title", "CrossFit")
+            .put("phase", "finished").put("liveSportID", "crossfit")
+            .put("startedAt", "2026-10-29T07:00:00Z")
+            .put("finishedAt", "2026-10-29T08:00:00Z")
+            .put("activeDurationSeconds", 3400.0)
+            .put("healthKitWorkoutUUID", "health-1")
+            .put("appleActiveEnergyKcal", 410.0)
+            .put("appleAverageHeartRateBpm", 151.0)
+            .put("routePoints", JSONArray())
+            .put("exercises", JSONArray()).put("wodResults", JSONArray())
+        val block = JSONObject().put("id", "block-s").put("title", "Fuerza")
+            .put("kind", "strength")
+            .put("exercises", JSONArray().put(JSONObject().put("id", "lift-1")
+                .put("exerciseId", "sq")
+                .put("plannedSets", JSONArray().put(planned("set-1", 5, 80.0))
+                    .put(planned("set-2", 5, 82.5)))))
+        val blocks = JSONArray().put(block)
+        val proposal = CompletedWorkoutEditing.applying("CrossFit", blocks, source, catalog)
+        assertEquals(0, proposal.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").length())
+
+        val done = CompletedWorkoutEditing.applying(
+            "CrossFit", blocks, source, catalog, recordNewSetsAsPerformed = true)
+        val logged = done.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets")
+        assertEquals(2, logged.length())
+        assertEquals(80.0, logged.getJSONObject(0).getDouble("weightKg"), 0.01)
+        assertEquals(82.5, logged.getJSONObject(1).getDouble("weightKg"), 0.01)
+        assertEquals(5, logged.getJSONObject(0).getInt("reps"))
+        assertEquals(410.0, done.getDouble("appleActiveEnergyKcal"), 0.01)
+        assertEquals(151.0, done.getDouble("appleAverageHeartRateBpm"), 0.01)
+        assertEquals(3400.0, done.getDouble("activeDurationSeconds"), 0.01)
+        assertEquals("health-1", done.getString("healthKitWorkoutUUID"))
+        val repeat = CompletedWorkoutEditing.applying(
+            "CrossFit", blocks, done, catalog, recordNewSetsAsPerformed = true)
+        assertEquals(2, repeat.getJSONArray("exercises").getJSONObject(0)
+            .getJSONArray("loggedSets").length())
+    }
+
+
     /** Una caminata editada con movimientos WOD conserva métricas de cardio y Salud. */
     @Test fun recordedWalkWithAddedWodPreservesCardioAndMeasuredCalories() {
         val route = JSONArray()

@@ -41,6 +41,7 @@ struct WorkoutView: View {
     @State private var addPlayExerciseToBlock: UUID?
     @State private var selectPlayFormatForBlock: UUID?
     @State private var showPlayWODCatalog = false
+    @State private var showPlayBoardScanner = false
     @State private var showPlayRoutinePicker = false
     @State private var showsPlayReorder = false
     @State private var playReorderDraggedToken: String?
@@ -195,6 +196,11 @@ struct WorkoutView: View {
 
     private var workoutDialogsView: some View {
         workoutSecondaryNavigationView
+        .sheet(isPresented: $showPlayBoardScanner) {
+            BoardScanIntoRoutineView { imported in
+                mutatePlayRoutine { $0.blocks.append(contentsOf: imported) }
+            }
+        }
         .sheet(isPresented: $showPlayRoutinePicker) {
             RoutineImportPickerSheet(
                 routines: store.favoriteRoutines.filter { !$0.blocks.isEmpty },
@@ -1432,6 +1438,10 @@ struct WorkoutView: View {
                     }
                     .foregroundStyle(OG.label)
                 }
+                Button("Escanear pizarra", systemImage: "camera.viewfinder") {
+                    showPlayBoardScanner = true
+                }
+                .foregroundStyle(OG.label)
             }
 
             Section {

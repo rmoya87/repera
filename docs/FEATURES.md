@@ -2,6 +2,15 @@
 
 Última actualización: 2026-10-29 (Android edge-to-edge mapas/Inicio + R6 copy/UX)
 
+## Completar una clase de CrossFit grabada desde «Comenzar» (29/10/2026)
+
+- Registrar la clase desde «Comenzar», finalizar y guardar tiempo activo, deporte, parciales, GPS y Salud medidos; sin detener la grabación para anotar cada serie.
+- En Inicio/Historial → Actividad → Editar, insertar bloque, WOD, favoritos o Escanear pizarra. El escáner reutiliza cámara, galería, OCR, revisión y cuotas; los bloques pasan al borrador de la MISMA actividad, no se crea una nueva.
+- La opción «Registrar las nuevas series como realizadas» está desmarcada inicialmente. Se deben revisar pesos, repeticiones y RIR antes de activarla. Solo si el usuario lo confirma se convierten las nuevas series en resultados reales con IDs y fecha de finalización para historial y Progreso. Volver a abrir y guardar no duplica series.
+- Para WOD global (AMRAP / RFT) el score se introduce aparte como marca real; no se deduce del tiempo completo de la clase ni de una prescripción escaneada.
+- La operación de edición preserva sesión, HealthKit, kcal y FC medidos, duración activa, puntos GPS, distancia, parciales y ruta. Calorías de un movimiento (máquina) son unidades de rendimiento: nunca se suman a las calorías corporales consumidas.
+- Cancelar descarta el borrador y Guardar actualiza la sesión existente. Las pruebas de CompletedWorkoutEditing en Swift y Kotlin cubren la conservación e idempotencia.
+
 ## Navegación y leyenda de mapas (27/10/2026)
 
 - **Iconos de navegación iOS/Android (29/10/2026):** Comenzar usa `play.circle` sin seleccionar y `play.circle.fill` al estar activo; Progreso usa `chart.bar` y `chart.bar.fill` respectivamente. En Android se emplean los equivalentes Material `PlayCircle` y `BarChart` (Outlined/Filled). El icono depende de la pestaña seleccionada, sin afectar Inicio ni Ejercicios.

@@ -2,6 +2,52 @@ import XCTest
 @testable import ReperaDomain
 
 final class CompletedWorkoutEditingTests: XCTestCase {
+    func testCompletedCrossFitScanCanSaveConfirmedSetsWithoutAlteringCardioOrDuplicating() {
+        let lift = Exercise(name: "Back Squat", muscleGroup: "Piernas")
+        let finished = Date(timeIntervalSince1970: 1_780_000_000)
+        let healthID = UUID()
+        let activity = WorkoutSession(
+            title: "CrossFit", exercises: [], phase: .finished,
+            startedAt: finished.addingTimeInterval(-3600), finishedAt: finished,
+            appleActiveEnergyKcal: 410, appleAverageHeartRateBpm: 151,
+            healthKitWorkoutUUID: healthID,
+            liveSportID: "crossfit", activeDurationSeconds: 3400
+        )
+        let block = RoutineBlock.strength(
+            title: "Fuerza",
+            exercises: [RoutineExercise(
+                exerciseId: lift.id,
+                plannedSets: [
+                    PlannedSet(targetReps: 5, targetWeightKg: 80, targetRir: 2),
+                    PlannedSet(targetReps: 5, targetWeightKg: 82.5, targetRir: 1)
+                ]
+            )]
+        )
+        let draft = Routine(title: "CrossFit", blocks: [block])
+        let proposal = CompletedWorkoutEditing.applying(draft, to: activity, catalog: [lift])
+        XCTAssertTrue(proposal.exercises[0].loggedSets.isEmpty)
+        XCTAssertEqual(proposal.appleActiveEnergyKcal, 410)
+
+        let saved = CompletedWorkoutEditing.applying(
+            draft, to: activity, catalog: [lift], recordNewSetsAsPerformed: true
+        )
+        XCTAssertEqual(saved.exercises[0].loggedSets.map(\.reps), [5, 5])
+        XCTAssertEqual(saved.exercises[0].loggedSets.map(\.weightKg), [80, 82.5])
+        XCTAssertEqual(saved.exercises[0].loggedSets.map(\.rir), [2, 1])
+        XCTAssertEqual(saved.exercises[0].completedReps, 10)
+        XCTAssertEqual(saved.appleActiveEnergyKcal, 410)
+        XCTAssertEqual(saved.appleAverageHeartRateBpm, 151)
+        XCTAssertEqual(saved.activeDurationSeconds, 3400)
+        XCTAssertEqual(saved.healthKitWorkoutUUID, healthID)
+        let again = CompletedWorkoutEditing.applying(
+            CompletedWorkoutEditing.routine(from: saved), to: saved, catalog: [lift],
+            recordNewSetsAsPerformed: true
+        )
+        XCTAssertEqual(again.exercises[0].loggedSets.count, 2)
+        XCTAssertEqual(again.exercises[0].loggedSets.map(\.id), saved.exercises[0].loggedSets.map(\.id))
+    }
+
+
     /// Al editar una caminata registrada no se vuelve a crear la actividad ni
     /// se mezclan las kcal medidas con las cantidades de los movimientos WOD.
     func testAddingWodToRecordedWalkPreservesGPSHealthAndDuration() {

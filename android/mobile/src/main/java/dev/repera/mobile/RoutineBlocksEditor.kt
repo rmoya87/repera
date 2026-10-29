@@ -137,6 +137,26 @@ fun RoutineBlocksEditorScreen(
     }
     var error by remember(routine.id) { mutableStateOf<String?>(null) }
     var showReorder by remember { mutableStateOf(false) }
+    var showBoardScanner by remember { mutableStateOf(false) }
+
+    if (showBoardScanner) {
+        Dialog(
+            onDismissRequest = { showBoardScanner = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                BoardScanScreen(
+                    busy = busy, overview = null, catalogOverride = exercises,
+                    onConfirm = { _, _, _ -> },
+                    onBack = { showBoardScanner = false },
+                    onImportBlocks = { imported ->
+                        imported.forEach { blocks.add(scannedRoutineBlockDraft(it)) }
+                        showBoardScanner = false
+                    }
+                )
+            }
+        }
+    }
 
     if (showReorder) {
         Dialog(
@@ -430,6 +450,14 @@ fun RoutineBlocksEditorScreen(
                         enabled = !busy
                     )
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                PlanEditorActionRow(
+                    icon = Icons.Outlined.AddCircle,
+                    label = "Escanear pizarra",
+                    modifier = Modifier.testTag("plan_scan_board"),
+                    onClick = { showBoardScanner = true },
+                    enabled = !busy
+                )
             }
         }
         if (showFavorites) {
@@ -561,6 +589,44 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
     var hadPlanned = planned != null
     val untouchedUniform: Boolean
         get() = hadPlanned && Triple(quantity, sets, weight) == initialUniform
+}
+
+/** Bloques de OCR al editor actual. Se conserva el JSON de cada movimiento (pesos M/H,
+ * escala, notas, repScheme, REST) y NO se crea una nueva sesión. */
+private fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): BlockDraftUi {
+    val draft = BlockDraftUi()
+    draft.title = block.title
+    draft.format = block.wodFormat?.raw ?: if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) "" else "amrap"
+    draft.timeCap = (block.timeCapMinutes ?: 12).toString()
+    draft.rounds = (block.rounds ?: 1).toString()
+    draft.interval = (block.emomIntervalSeconds ?: 60).toString()
+    draft.work = (block.workSeconds ?: 20).toString()
+    draft.rest = (block.restSeconds ?: 10).toString()
+    draft.roundRest = block.restBetweenRoundsSeconds?.toString() ?: ""
+    if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) {
+        block.exercises.forEach { item ->
+            val sets = item.plannedSets.map { PlannedSetDraft(
+                targetReps = it.targetReps, targetWeightKg = it.targetWeightKg,
+                targetRir = it.targetRir, id = it.id,
+                targetDurationSeconds = it.targetDurationSeconds
+            ) }
+            draft.entries.add(EntryUi(
+                item.exerciseId, item.exerciseId, sets.firstOrNull()?.targetReps ?: 8,
+                sets.size.coerceAtLeast(1), sets.firstOrNull()?.targetWeightKg,
+                sets, item.id
+            ))
+        }
+    } else {
+        block.movements.forEach { move ->
+            draft.entries.add(EntryUi(
+                move.exerciseId ?: "", move.name,
+                move.reps ?: move.calories ?: move.distanceMeters ?: 10,
+                1, move.weightMaleKg, null, move.id,
+                BoardScanImport.wireMovement(move).toString()
+            ))
+        }
+    }
+    return draft
 }
 
 internal class BlockDraftUi(info: RoutineBlockInfo? = null) {

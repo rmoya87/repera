@@ -77,7 +77,9 @@ internal fun FinishedWorkoutEditorSection(
     var pinEdited by remember(accountId, workout.id) { mutableStateOf(false) }
     // Borrador del CONTENIDO: copia JSON con ids; solo se escribe al Guardar.
     val blocks = remember(accountId, workout.id) {
-        workout.editableBlocksJson?.let { runCatching { org.json.JSONArray(it) }.getOrNull() }
+        // «Comenzar» sin WOD previo tiene cero bloques, pero se puede
+        // enriquecer la MISMA actividad con la pizarra después de la clase.
+        runCatching { org.json.JSONArray(workout.editableBlocksJson ?: "[]") }.getOrNull()
     }
     // Marca WOD completada (Apple changingScore): borrador de visualización; al guardar se reproducen las ediciones.
     var scoreSession by remember(accountId, workout.id) {
@@ -86,6 +88,32 @@ internal fun FinishedWorkoutEditorSection(
     val scoreEdits = remember(accountId, workout.id) { mutableStateListOf<WorkoutRepository.ScoreEdit>() }
     var contentVersion by remember(accountId, workout.id) { mutableIntStateOf(0) }
     var contentDirty by remember(accountId, workout.id) { mutableStateOf(false) }
+    var showBoardScanner by remember(accountId, workout.id) { mutableStateOf(false) }
+    var recordNewSetsAsPerformed by remember(accountId, workout.id) { mutableStateOf(false) }
+    if (showBoardScanner) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showBoardScanner = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                BoardScanScreen(
+                    busy = busy,
+                    overview = null,
+                    catalogOverride = exerciseCatalog,
+                    onConfirm = { _, _, _ -> },
+                    onBack = { showBoardScanner = false },
+                    onImportBlocks = { imported ->
+                        imported.forEach { block ->
+                            blocks?.put(BoardScanImport.wireBlock(block))
+                        }
+                        contentDirty = true
+                        contentVersion++
+                        showBoardScanner = false
+                    }
+                )
+            }
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Editar", style = MaterialTheme.typography.titleMedium)
@@ -103,7 +131,21 @@ internal fun FinishedWorkoutEditorSection(
             Text("Contenido", style = MaterialTheme.typography.titleMedium)
             key(contentVersion) {
                 FinishedContentEditor(blocks, exerciseCatalog, effortUnit,
-                    onEdited = { contentDirty = true }) { contentDirty = true; contentVersion++ }
+                    onEdited = { contentDirty = true },
+                    onChanged = { contentDirty = true; contentVersion++ },
+                    onScanBoard = { showBoardScanner = true })
+            }
+            if (workout.liveSportID != null) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = recordNewSetsAsPerformed,
+                        onCheckedChange = { recordNewSetsAsPerformed = it },
+                        modifier = Modifier.testTag("edit_register_new_sets")
+                    )
+                    Text("Registrar las nuevas series como realizadas")
+                }
+                Text("Revisa antes los pesos, repeticiones y RIR. Solo las series que confirmes se incorporan a Progreso. La ruta, el pulso y las calorías originales permanecen intactos.",
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
         if (blocks != null && scoreSession != null) {
@@ -160,7 +202,8 @@ internal fun FinishedWorkoutEditorSection(
                     title = title, startedAtIso = startIso, finishedAtIso = endIso,
                     notes = notes, pinEdited = pinEdited, pin = pin,
                     blocksJson = if (contentDirty) blocks?.toString() else null,
-                    saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList()))
+                    saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList(),
+                    recordNewSetsAsPerformed = recordNewSetsAsPerformed))
                 editing = false
             }) { Text("Guardar") }
             TextButton(modifier = Modifier.testTag("edit_cancel"),
@@ -234,7 +277,8 @@ private fun FinishedContentEditor(
     catalog: List<ExerciseEntry>,
     effortUnit: String = "rir",
     onEdited: () -> Unit,
-    onChanged: () -> Unit
+    onChanged: () -> Unit,
+    onScanBoard: () -> Unit = {}
 ) {
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -457,6 +501,10 @@ private fun FinishedContentEditor(
             TextButton(modifier = Modifier.testTag("block_add_wod"), onClick = {
                 blocks.put(EditorBlockOps.newBlock("wod", blocks.length() + 1, "amrap")); onChanged() }) { Text("Añadir bloque WOD") }
         }
+        TextButton(
+            modifier = Modifier.fillMaxWidth().testTag("completed_scan_board"),
+            onClick = onScanBoard
+        ) { Text("Escanear pizarra") }
     }
 }
 

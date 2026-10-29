@@ -316,7 +316,8 @@ object CompletedWorkoutEditing {
      * sesión con el contenido del editor aplicado. Mantiene ids, tiempos, ruta,
      * Salud y técnicas de los ejercicios que sobreviven, incluso movidos de bloque.
      */
-    fun applying(title: String, blocks: JSONArray, original: JSONObject, catalog: JSONArray): JSONObject {
+    fun applying(title: String, blocks: JSONArray, original: JSONObject, catalog: JSONArray,
+        recordNewSetsAsPerformed: Boolean = false): JSONObject {
         val updated = JSONObject(original.toString())
         updated.put("title", title)
         updated.put("routineBlocks", JSONArray(blocks.toString()))
@@ -420,6 +421,53 @@ object CompletedWorkoutEditing {
                         if (l.optString("phase", "work") != "work") 0 else l.optInt("reps") +
                             (l.optJSONArray("drops")?.let { d -> (0 until d.length()).sumOf { d.getJSONObject(it).optInt("reps") } } ?: 0)
                     })
+                }
+                // Registro retrospectivo explícito para actividades de «Comenzar».
+                // El escáner propone series: no las convierte en resultados
+                // hasta que se marque «Registrar ... como realizadas».
+                if (recordNewSetsAsPerformed &&
+                    original.optString("liveSportID").isNotBlank() && perMovement) {
+                    val priorIds = (0 until (oldLogged?.length() ?: 0)).map {
+                        oldLogged!!.getJSONObject(it).optString("id")
+                    }.toSet()
+                    val merged = JSONArray(entry.optJSONArray("loggedSets")?.toString() ?: "[]")
+                    val present = priorIds.toMutableSet()
+                    val deficit = ExerciseInput.mode(exercise.optString("name"),
+                        exercise.optString("equipment").takeIf { it.isNotBlank() },
+                        exercise.optString("targetMuscle").takeIf { it.isNotBlank() },
+                        exercise.optString("muscleGroup"), exercise.optString("sportTag")) ==
+                        ExerciseInputMode.HSPU_DEFICIT
+                    for (i in 0 until sets.length()) {
+                        val set = sets.getJSONObject(i)
+                        val setId = set.optString("id")
+                        val reps = set.optInt("targetReps")
+                        if (setId.isBlank() || !present.add(setId) || reps <= 0) continue
+                        val value = JSONObject().put("id", setId).put("reps", reps)
+                            .put("completedAt", finishedAt ?: java.time.Instant.now().toString())
+                            .put("phase", "work").put("kind", "straight")
+                            .put("toFailure", false).put("drops", JSONArray())
+                            .put("clusters", JSONArray())
+                        if (set.has("targetWeightKg") && !set.isNull("targetWeightKg")) {
+                            val kg = set.getDouble("targetWeightKg")
+                            if (deficit) value.put("deficitCm", kotlin.math.round(kg).toInt())
+                            else value.put("weightKg", kg)
+                        }
+                        if (set.has("targetDurationSeconds") && !set.isNull("targetDurationSeconds"))
+                            value.put("durationSeconds", set.getInt("targetDurationSeconds"))
+                        if (set.has("targetRir") && !set.isNull("targetRir"))
+                            value.put("rir", set.getDouble("targetRir"))
+                        val unit = set.optString("targetQuantityUnit")
+                            .takeIf { it == "reps" || it == "meters" || it == "calories" }
+                            ?: item.unit
+                        unit?.let { value.put("quantityUnit", it) }
+                        merged.put(value)
+                    }
+                    entry.put("loggedSets", merged)
+                    entry.put("completedReps", (0 until merged.length()).sumOf { i ->
+                        val set = merged.getJSONObject(i)
+                        if (set.optString("phase", "work") == "work") set.optInt("reps") else 0
+                    })
+                    entry.put("isCompleted", merged.length() > 0)
                 }
                 output.put(entry)
             }

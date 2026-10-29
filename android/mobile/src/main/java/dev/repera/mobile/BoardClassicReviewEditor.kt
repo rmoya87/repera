@@ -35,18 +35,28 @@ import dev.repera.domain.BoardClassicReview
  drafts:List<BoardClassicReview.Draft>,catalog:List<dev.repera.domain.CatalogExercise>,
  busy:Boolean,requestId:String,onConfirm:(String,List<dev.repera.domain.RoutineBlock>,String)->Unit,
  /** Paridad iOS Guardar+Empezar: crea y arranca sesión. */
- onStart:(String,List<dev.repera.domain.RoutineBlock>,String)->Unit = onConfirm
+ onStart:(String,List<dev.repera.domain.RoutineBlock>,String)->Unit = onConfirm,
+ onImportBlocks:((List<dev.repera.domain.RoutineBlock>)->Unit)? = null
 ) {
  val selected=androidx.compose.runtime.remember(classicMode,drafts,catalog,blocks) {
   if(classicMode) BoardClassicReview.blocks(drafts,catalog) else blocks
  }
  val canAct=!busy && title.isNotBlank() && selected!=null && selected.isNotEmpty()
  Column(verticalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()) {
-  Button(onClick={if(selected!=null) onConfirm(title,selected,requestId)},
-   enabled=canAct,modifier=Modifier.fillMaxWidth(),
-   colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {Text("Crear rutina")}
-  OutlinedButton(onClick={if(selected!=null) onStart(title,selected,requestId)},
-   enabled=canAct,modifier=Modifier.fillMaxWidth().testTag("board_scan_start")) {Text("Empezar")}
+  if (onImportBlocks != null) {
+   Button(onClick={if(selected!=null) onImportBlocks(selected)},
+    enabled=canAct,modifier=Modifier.fillMaxWidth().testTag("board_scan_import_into_completed"),
+    colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {
+    Text("Añadir al entreno registrado")
+   }
+   Text("Revisa después las cantidades reales. No se crea una segunda sesión ni se duplican las calorías.")
+  } else {
+   Button(onClick={if(selected!=null) onConfirm(title,selected,requestId)},
+    enabled=canAct,modifier=Modifier.fillMaxWidth(),
+    colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {Text("Crear rutina")}
+   OutlinedButton(onClick={if(selected!=null) onStart(title,selected,requestId)},
+    enabled=canAct,modifier=Modifier.fillMaxWidth().testTag("board_scan_start")) {Text("Empezar")}
+  }
  }
 }
 

@@ -212,7 +212,8 @@ public enum CompletedWorkoutEditing {
     public static func applying(
         _ routine: Routine,
         to original: WorkoutSession,
-        catalog: [Exercise]
+        catalog: [Exercise],
+        recordNewSetsAsPerformed: Bool = false
     ) -> WorkoutSession {
         var updated = original
         updated.title = routine.title
@@ -290,7 +291,33 @@ public enum CompletedWorkoutEditing {
                     entry.completedReps = entry.loggedSets.filter { $0.phase == .work }
                         .reduce(0) { $0 + $1.reps + $1.drops.reduce(0) { $0 + $1.reps } }
                 }
-                // Ejercicio añadido: sigue pendiente hasta que existan sets de verdad.
+                // En una actividad ya terminada de «Comenzar», el usuario puede
+                // confirmar explícitamente que las series añadidas son reales.
+                // El escáner solo propone; jamás se crea una ejecución sin optar.
+                if recordNewSetsAsPerformed, original.liveSportID != nil,
+                   block.wodFormat == nil || block.wodFormat?.resultCapture == .perMovementSets {
+                    let previousIDs = Set(old?.loggedSets.map(\.id) ?? [])
+                    let newlyRecorded = sets.filter { !previousIDs.contains($0.id) }
+                        .filter { $0.targetReps > 0 }.map { set in
+                            let isDeficit = exercise.loadField == .deficitCm
+                            return LoggedSet(
+                                id: set.id, reps: set.targetReps,
+                                weightKg: isDeficit ? nil : set.targetWeightKg,
+                                deficitCm: isDeficit
+                                    ? set.targetWeightKg.map { Int($0.rounded()) } : nil,
+                                durationSeconds: set.targetDurationSeconds,
+                                quantityUnit: unit,
+                                completedAt: original.finishedAt ?? Date(),
+                                rir: set.targetRir
+                            )
+                        }
+                    // Si se reabre el editor, los UUID existentes se conservan
+                    // para no duplicar series en Progreso.
+                    entry.loggedSets.append(contentsOf: newlyRecorded)
+                    entry.completedReps = entry.loggedSets.filter { $0.phase == .work }
+                        .reduce(0) { $0 + $1.reps + $1.drops.reduce(0) { $0 + $1.reps } }
+                    entry.isCompleted = !entry.loggedSets.isEmpty
+                }
                 output.append(entry)
             }
         }

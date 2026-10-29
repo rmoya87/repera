@@ -101,7 +101,7 @@ struct DayEditorView: View {
     /// Si no es nil, el check aplica el draft y cierra sin guardar en el store (revisión de pizarra).
     var onApplyDraft: ((Routine) -> Void)? = nil
     /// Edición de una sesión terminada usando exactamente los mismos bloques/reordenación.
-    var onApplyCompleted: ((Routine, WorkoutSession) -> Void)? = nil
+    var onApplyCompleted: ((Routine, WorkoutSession, Bool) -> Void)? = nil
     var completedSession: WorkoutSession? = nil
     var embedsNavigationStack: Bool = true
     /// Página push (Entreno → Editar): título large + chevron volver; sin X.
@@ -111,6 +111,9 @@ struct DayEditorView: View {
     @State private var createFreeMovementForBlock: UUID?
     @State private var showRoutinePicker = false
     @State private var showWODCatalog = false
+    @State private var showBoardScanner = false
+    /// El OCR es prescripción hasta que el usuario confirme lo realmente hecho.
+    @State private var recordNewSetsAsPerformed = false
     @State private var selectFormatForBlock: UUID?
     @State private var saveAsFavorite = false
     @State private var routineSaveError: String?
@@ -254,6 +257,13 @@ struct DayEditorView: View {
                         )
                         .listRowBackground(hasPlace ? Color.clear : OG.surface)
                     }
+                    if completedWorkoutDraft?.liveSportID != nil {
+                        Toggle("Registrar nuevas series como realizadas", isOn: $recordNewSetsAsPerformed)
+                            .tint(OG.accent)
+                        Text("Comprueba las repeticiones, pesos y RIR. Solo al activarlo, las series añadidas se reflejan como resultados reales en Progreso. Las calorías y el pulso registrados no se suman otra vez.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                    }
                     TextField("Notas del entreno", text: Binding(
                         get: { completedDetails?.notes ?? "" },
                         set: { completedDetails?.notes = $0.isEmpty ? nil : $0 }
@@ -357,6 +367,12 @@ struct DayEditorView: View {
                         .foregroundStyle(OG.label)
                     }
                 }
+                Button {
+                    showBoardScanner = true
+                } label: {
+                    Label("Escanear pizarra", systemImage: "camera.viewfinder")
+                        .foregroundStyle(OG.label)
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -438,6 +454,11 @@ struct DayEditorView: View {
                     }
                 }
                 createFreeMovementForBlock = nil
+            }
+        }
+        .sheet(isPresented: $showBoardScanner) {
+            BoardScanIntoRoutineView { imported in
+                routine.blocks.append(contentsOf: imported)
             }
         }
         .sheet(isPresented: $showRoutinePicker) {
@@ -1128,7 +1149,7 @@ struct DayEditorView: View {
                 guard await saveRoutineWithVerifiedAccess(favorite) else { return }
                 detailsToSave.favoriteRoutineId = favorite.id
             }
-            onApplyCompleted(edited, detailsToSave)
+            onApplyCompleted(edited, detailsToSave, recordNewSetsAsPerformed)
             closeEditor()
             return
         }

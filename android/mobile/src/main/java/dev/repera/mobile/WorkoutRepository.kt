@@ -2759,7 +2759,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         /** «Favorito» de DayEditorView al editar un entreno terminado: copia independiente (ids nuevos), nunca la misma rutina. */
         val saveAsFavorite: Boolean = false,
         /** Ediciones de la marca WOD completada (Apple changingScore), reproducidas en orden tras el contenido. */
-        val scoreEdits: List<ScoreEdit> = emptyList()
+        val scoreEdits: List<ScoreEdit> = emptyList(),
+        /** Solo si el usuario confirma que las series añadidas se realizaron. */
+        val recordNewSetsAsPerformed: Boolean = false
     )
     data class ScoreEdit(val blockId: String, val field: CompletedWorkoutEditing.ScoreField, val value: Int)
 
@@ -2806,7 +2808,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 byNorm[norm] = newId; idByName[name] = newId
             }
             val applied = CompletedWorkoutEditing.applying(
-                cleanTitle, EditorBlockOps.resolvePending(draftBlocks, idByName), target, catalogArr)
+                cleanTitle, EditorBlockOps.resolvePending(draftBlocks, idByName), target, catalogArr,
+                recordNewSetsAsPerformed = edit.recordNewSetsAsPerformed)
             for (key in listOf("exercises", "routineBlocks", "wodResults", "currentIndex"))
                 target.put(key, applied.get(key))
         }

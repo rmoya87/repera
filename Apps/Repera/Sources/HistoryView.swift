@@ -934,9 +934,10 @@ struct WorkoutDetailView: View {
                         // clearing it immediately would replace the destination with EmptyView.
                         showCompletedEditor = false
                     },
-                    onApplyCompleted: { routine, details in
+                    onApplyCompleted: { routine, details, recordNewSets in
                         let updated = CompletedWorkoutEditing.applying(
-                            routine, to: details, catalog: store.state.exercises
+                            routine, to: details, catalog: store.state.exercises,
+                            recordNewSetsAsPerformed: recordNewSets
                         )
                         store.saveWorkout(updated)
                         draft = store.state.workouts.first(where: { $0.id == sessionId })

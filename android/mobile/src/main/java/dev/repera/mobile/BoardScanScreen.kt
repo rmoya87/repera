@@ -56,7 +56,10 @@ internal fun BoardScanScreen(
     /** Crear + iniciar sesión (paridad Empezar iOS). */
     onStart: (String, List<RoutineBlock>, String) -> Unit = onConfirm,
     saveStatus:String? = null,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /** Nuevo destino del editor: no crear ni iniciar una segunda actividad. */
+    onImportBlocks: ((List<RoutineBlock>) -> Unit)? = null,
+    catalogOverride: List<ExerciseEntry> = emptyList()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -97,7 +100,7 @@ internal fun BoardScanScreen(
         scope.launch {
             try {
                 val text = BoardScanOcr.recognize(context, uri)
-                val catalog = (overview?.exerciseEntries ?: emptyList())
+                val catalog = (overview?.exerciseEntries ?: catalogOverride)
                     .map {
                         CatalogExercise(it.id, it.name,
                             (SportExerciseNames.searchAliases(it.name) + it.searchAliases).distinct(),
@@ -254,7 +257,7 @@ internal fun BoardScanScreen(
             }
             item {
                 BoardScanReviewConfirm(reviewTitle,blocks,classicMode,classicDrafts,classicCatalog,
-                    busy,reviewRequestId,onConfirm,onStart)
+                    busy,reviewRequestId,onConfirm,onStart,onImportBlocks)
             }
             item {
                 OutlinedButton(onClick = { review = null; errorMessage = null },

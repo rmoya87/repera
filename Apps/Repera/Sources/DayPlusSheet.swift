@@ -309,6 +309,8 @@ struct BoardImportReviewView: View {
     /// Desde Diario / Inicio se puede guardar al día; desde Crear solo Empezar.
     var allowsSaveToDay: Bool = true
     var embedsNavigationStack: Bool = true
+    /// Importación directa al borrador de un entreno existente, sin crear ni iniciar otra sesión.
+    var onInsertBlocks: (([RoutineBlock]) -> Void)? = nil
     var onDone: (_ started: Bool) -> Void
 
     @State private var targetWeekday: Int = CalendarHelpers.isoWeekday()
@@ -392,22 +394,33 @@ struct BoardImportReviewView: View {
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    let ok = store.startSessionFromBoard(
-                        lines: lines,
-                        ocrText: ocrText.isEmpty ? nil : ocrText,
-                        blocks: blocks.isEmpty ? nil : blocks
-                    )
-                    BoardScanLog.info("Review Empezar ok=\(ok)")
-                    guard ok else { return }
-                    if embedsNavigationStack { dismiss() }
-                    onDone(true)
-                } label: {
-                    Label("Empezar", systemImage: "play.fill")
+                if let onInsertBlocks {
+                    Button {
+                        onInsertBlocks(blocks)
+                    } label: {
+                        Label("Añadir al entreno", systemImage: "checkmark")
+                    }
+                    .fontWeight(.semibold)
+                    .tint(OG.accent)
+                    .disabled(!canConfirm)
+                } else {
+                    Button {
+                        let ok = store.startSessionFromBoard(
+                            lines: lines,
+                            ocrText: ocrText.isEmpty ? nil : ocrText,
+                            blocks: blocks.isEmpty ? nil : blocks
+                        )
+                        BoardScanLog.info("Review Empezar ok=\(ok)")
+                        guard ok else { return }
+                        if embedsNavigationStack { dismiss() }
+                        onDone(true)
+                    } label: {
+                        Label("Empezar", systemImage: "play.fill")
+                    }
+                    .fontWeight(.semibold)
+                    .tint(OG.accent)
+                    .disabled(!canConfirm)
                 }
-                .fontWeight(.semibold)
-                .tint(OG.accent)
-                .disabled(!canConfirm)
             }
         }
         .navigationDestination(isPresented: $showEditor) {
