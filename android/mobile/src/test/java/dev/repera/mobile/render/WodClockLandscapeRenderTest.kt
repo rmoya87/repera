@@ -28,13 +28,14 @@ class WodClockLandscapeRenderTest {
   rule.setContent {MaterialTheme {Box(Modifier.fillMaxSize().testTag("clock-root")) {
    WodClockScreen(active,false,WodTimerState(65000,false),{}, {}, {},requestNotificationPermission=false)
   }}}
-  rule.onNodeWithText("Reanudar").assertIsDisplayed()
+  // Producto = iOS BlockTimerScreen: «Continuar» tras pausa (no «Reanudar»).
+  rule.onNodeWithText("Continuar").assertIsDisplayed()
   val clock=rule.onNodeWithContentDescription("Ronda 2, 0 minutos 55 segundos")
   clock.assertIsDisplayed()
   val bounds=clock.fetchSemanticsNode().boundsInRoot
   val root=rule.onNodeWithTag("clock-root").fetchSemanticsNode().boundsInRoot
   assertTrue(bounds.left>=root.left && bounds.right<=root.right)
-  val control=rule.onNodeWithText("Reanudar").fetchSemanticsNode().boundsInRoot
+  val control=rule.onNodeWithText("Continuar").fetchSemanticsNode().boundsInRoot
   assertTrue(control.top>bounds.bottom)
   val bmp=rule.onNodeWithTag("clock-root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()

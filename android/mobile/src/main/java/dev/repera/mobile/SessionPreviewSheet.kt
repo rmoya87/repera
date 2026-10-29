@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
@@ -61,9 +62,12 @@ fun SessionPreviewSheet(
     /** Apple 3cb329f3/3666d1ac: destino unico administrado por el padre;
      *  cada fila abre SOLO el ejercicio pulsado. */
     onOpenExercise: (String) -> Unit = {},
-    onToggleFavorite: (Boolean) -> Unit = {}
+    onToggleFavorite: (Boolean) -> Unit = {},
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
 ) {
     val day = dayLabel(routine)
+    val context = LocalContext.current
+    val aliases = remember(context) { ExerciseSearchAssets.load(context) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -72,14 +76,17 @@ fun SessionPreviewSheet(
             .padding(bottom = 28.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.Close, contentDescription = "Cerrar")
-            }
-            Column(Modifier.weight(1f)) {
-                Text(routine.title, style = MaterialTheme.typography.titleLarge,
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.Close,
+                contentDescription = "Cerrar",
+                onClick = onClose
+            )
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                // iOS SessionPreviewView: título fijo «Entreno»; nombre de rutina en contenido.
+                Text("Entreno", style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold)
                 if (day.isNotEmpty()) {
-                    Text("Entreno · $day", style = MaterialTheme.typography.bodyMedium,
+                    Text(day, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -158,7 +165,21 @@ fun SessionPreviewSheet(
                             val entryModifier = if (tappable)
                                 Modifier.fillMaxWidth().clickable { onOpenExercise(entry.exerciseId) }
                             else Modifier.fillMaxWidth()
-                            Row(entryModifier, verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                entryModifier.padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                            val resolved = remember(entry.exerciseId, entry.name, exerciseCatalog) {
+                                if (entry.exerciseId.isNotBlank()) {
+                                    exerciseCatalog.firstOrNull { it.id == entry.exerciseId }
+                                        ?: resolveWodExercise(entry.name, exerciseCatalog, aliases,
+                                            exerciseId = entry.exerciseId)
+                                } else {
+                                    resolveWodExercise(entry.name, exerciseCatalog, aliases)
+                                }
+                            }
+                            WodExerciseThumbnail(resolved, aliases, size = 44.dp)
                             val detail = buildString {
                                 // R7 P1: nombre del ejercicio (no «· — 3×8»).
                                 append(entry.name.ifBlank { "Ejercicio" })
@@ -176,7 +197,7 @@ fun SessionPreviewSheet(
                                     append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(w)} kg")
                                 }
                             }
-                            Text("· $detail", style = MaterialTheme.typography.bodyMedium,
+                            Text(detail, style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f))
                             if (tappable) {
                                 Icon(

@@ -1,6 +1,6 @@
 # Catálogo remoto incremental de ejercicios
 
-Última actualización: 2026-10-25. Actualización invisible y tareas nativas iOS 27. **El deploy SQL y las pruebas de dispositivo se verifican por separado.**
+Última actualización: 2026-10-29. Actualización invisible y tareas nativas iOS 27; Android `RemoteExerciseCatalog` aplica caché aunque no haya eventos nuevos (paridad `applyAndRelink`). **El deploy SQL y las pruebas de dispositivo se verifican por separado.**
 
 ## Fuente editorial
 
@@ -46,6 +46,6 @@ Con una sesión administrativa autorizada y un canal seguro de escritura a base 
 4. Probar iCloud restaurado de otro dispositivo (la caché remota debe prevalecer), inicio sin cuenta, cambio de sesión y fallo de Supabase.
 6. Regenerar XcodeGen por el nuevo archivo Swift. Ejecutar `swift test` en ReperaDomain, compilar iOS/watchOS, hacer QA en iPhone y Apple Watch reales. No asumir compilación ni E2E con base de datos por el mero hecho de fusionar la rama.
 
-**Paridad Android/Wear:** la rama Android se mantiene separada. La API SQL de eventos es consumible por Android, pero no se declara integrada hasta disponer de su propia caché y pruebas. El Watch no consulta el catálogo completo en la nube: mantiene su flujo nativo mediante WatchConnectivity desde el iPhone.
+**Paridad Android/Wear:** Android consume la misma tabla `mobile_exercise_catalog_events` vía `RemoteExerciseCatalog` + `RemoteExerciseCatalogWorker` (caché `exercise_catalog_remote_v1.json`, páginas de 150, apply atómico al snapshot local). En primer plano, tras throttle 60 s o sin eventos nuevos, se reaplica la caché al estado de cuenta (como iOS `applyAndRelink`). El Watch no consulta el catálogo completo en la nube: mantiene su flujo nativo mediante WatchConnectivity desde el iPhone.
 
 **Paridad de catálogo (25/10/2026):** la variante *Fondos en anillas kipping* se ha incorporado a Supabase con instrucciones, material y músculos. La fuente editorial contiene ahora 288 ejercicios distintos, igual que el seed Android. El mapeo iOS/Android mediante `SportExerciseNames.canonicalName` evita duplicar fichas si el seed usa nombres ingleses y Supabase publica los nombres originales españoles.

@@ -372,16 +372,16 @@ fun ReperaToolbarGlassIconButton(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        // R8 P2-21: en claro, surfaceVariant≈fondo → círculo invisible; usar
-        // surface elevado + borde más marcado (iOS glass blanco con sombra).
+        // Liquid Glass → Material translucency (sin blur de backdrop nativo Apple).
+        // R8/R9: surface semitransparente + borde; contraste en claro.
         Surface(
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            tonalElevation = 1.dp,
-            shadowElevation = 1.dp,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            tonalElevation = 2.dp,
+            shadowElevation = 2.dp,
             border = BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
             ),
             modifier = Modifier.size(44.dp)
         ) {
