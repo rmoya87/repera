@@ -5,6 +5,17 @@ import kotlin.math.*
 
 /** Heading from measured geometry only. No heading or current position invented. */
 internal object LiveMapCamera {
+    const val FOLLOW_RESUME_DELAY_MS = 5_000L
+
+    /** Reanudar únicamente después de cinco segundos SIN nuevas interacciones. */
+    fun shouldResumeFollowing(
+        following: Boolean,
+        lastUserMoveMs: Long,
+        nowMs: Long
+    ): Boolean = !following && lastUserMoveMs > 0 &&
+        nowMs >= lastUserMoveMs &&
+        nowMs - lastUserMoveMs >= FOLLOW_RESUME_DELAY_MS
+
     data class Target(val latitude:Double,val longitude:Double,val bearing:Double,val pitch:Double,val zoom:Double)
     /** Solo cuando hay desplazamiento medido; nunca inferir rumbo de puntos casi inmóviles. */
     fun measuredHeading(trace: List<WorkoutRoutePoint>): Double? {
@@ -21,9 +32,18 @@ internal object LiveMapCamera {
         return (Math.toDegrees(atan2(x,y))+360)%360
     }
 
-    fun target(center:WorkoutRoutePoint,trace:List<WorkoutRoutePoint>,navigation:Boolean):Target {
-        if(!navigation) return Target(center.latitude,center.longitude,0.0,0.0,16.5)
-        val heading=measuredHeading(trace) ?: 0.0
+    /** 2D y 3D comparten el mismo rumbo medido; la vista 2D no fuerza norte.
+     *  Un rumbo fiable anterior puede conservarse al detenerse o pausar. */
+    fun target(
+        center:WorkoutRoutePoint,
+        trace:List<WorkoutRoutePoint>,
+        navigation:Boolean,
+        lastReliableHeading:Double? = null
+    ):Target {
+        val heading = measuredHeading(trace)
+            ?: lastReliableHeading?.takeIf { it.isFinite() && it >= 0.0 && it < 360.0 }
+            ?: 0.0
+        if(!navigation) return Target(center.latitude,center.longitude,heading,0.0,16.5)
         val ahead=if(trace.isEmpty()) 0.0 else 35.0
         val r=Math.toRadians(heading)
         return Target((center.latitude+cos(r)*ahead/111_320).coerceIn(-85.0,85.0),

@@ -1,3 +1,12 @@
+## Verificación del seguimiento direccional del mapa (2026-10-29)
+
+- [ ] En iOS y Android, en Caminata/Carrera con GPS fiable, mantener 2D: el norte no queda fijo arriba; el mapa gira para que la flecha apunte en la dirección de desplazamiento. La cámara sigue el pin sin desplazarlo en 2D.
+- [ ] Pasar a 3D y comprobar rumbo coincidente, inclinación y encuadre por delante de la marcha; al detenerse o perder un único fix no se debe girar bruscamente al norte ni inventar dirección.
+- [ ] Arrastrar el mapa durante más de cinco segundos, hacer zoom y rotarlo en ambos modos: **nunca recentrar mientras sigue moviéndose**; esperar cinco segundos completos después de soltar/dejar de mover el mapa para retornar al puntero y su rumbo actual.
+- [ ] Volver a tocar el mapa antes de que termine la espera: el contador vuelve a cinco segundos. Probar un gesto que deje la cámara a menos de 65 m del GPS, y llegada de nuevos fixes durante la espera.
+- [ ] Pulsar «Centrar en mi posición» durante la espera: volver inmediatamente; probar cambio 2D↔3D y salir/entrar en la pantalla sin un recenter tardío. Con GPS no disponible, no inventar un pin.
+- [ ] Validar retrato, apaisado, iPhone DUO/iPad y Android; comprobar que el mapa de rutas guardadas no hereda el seguimiento automático de «Comenzar».
+
 ## Persistencia de ediciones en Play y OCR (2026-10-26)
 
 ## Validación integral de registros y sincronización (26/10/2026)

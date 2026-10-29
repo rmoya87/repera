@@ -97,6 +97,20 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     }
     var followingMap by remember { mutableStateOf(true) }
     var recenterToken by remember { mutableStateOf(0) }
+    var lastUserMapMoveAt by remember { mutableLongStateOf(0L) }
+    // No volver a centrar durante el gesto ni durante sus 5 segundos de reposo.
+    // LaunchedEffect cancela el temporizador anterior ante cada nuevo movimiento.
+    LaunchedEffect(followingMap, lastUserMapMoveAt) {
+        if (!followingMap) {
+            delay(LiveMapCamera.FOLLOW_RESUME_DELAY_MS)
+            if (LiveMapCamera.shouldResumeFollowing(
+                followingMap, lastUserMapMoveAt, android.os.SystemClock.elapsedRealtime()
+            )) {
+                followingMap = true
+                recenterToken++
+            }
+        }
+    }
     var previewPosition by remember { mutableStateOf<dev.repera.domain.WorkoutRoutePoint?>(null) }
     // Apple 3f84691a: el cronometro del mapa/metricas avanza de forma continua
     // (1 Hz) incluso sin fixes GPS (deporte indoor o senal perdida); la pausa
@@ -121,6 +135,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
+    // Mantener el último rumbo medido dentro de la misma sesión. Un fix sin
+    // avance no debe hacer girar el mapa de vuelta hacia el norte.
+    var lastReliableHeading by remember(state.gpsSessionID, state.sport.id) {
+        mutableStateOf<Double?>(null)
+    }
+    val currentMeasuredHeading = LiveMapCamera.measuredHeading(state.points)
+    LaunchedEffect(currentMeasuredHeading) {
+        if (currentMeasuredHeading != null) lastReliableHeading = currentMeasuredHeading
+    }
     LaunchedEffect(initialSportId, state.phase) {
         val sportId = initialSportId ?: return@LaunchedEffect
         if (state.phase != LiveActivityState.Phase.IDLE) {
@@ -422,8 +445,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: () -> Unit,
                 onMapRendered = onMapRendered,navigationMode=navigationMode,
                 cameraCenter=if(followingMap) state.points.lastOrNull() ?: freshPosition else null,
                 userPosition=state.points.lastOrNull() ?: freshPosition,
-                userHeadingDegrees=LiveMapCamera.measuredHeading(state.points),
-                recenterToken=recenterToken,onCameraGesture={followingMap=false})
+                userHeadingDegrees=currentMeasuredHeading ?: lastReliableHeading,
+                recenterToken=recenterToken,
+                onCameraGesture={
+                    followingMap = false
+                    lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
+                })
             // FABs circulares a la derecha (LiveActivityView.mapHeader) — sin tarjeta superior.
             Column(
                 Modifier
