@@ -6,6 +6,7 @@ import os
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
     func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
+    func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool)
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
 }
 
@@ -14,6 +15,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
     private let pendingKey = "repera.watch.completedOutbox.v1"
     private var lastInboundSession: Data?
+    private var lastInboundSessionRevision = -1
+    private var lastTerminalEvent: String?
     private var lastInboundToday: Data?
     private var lastInboundTodayDay: TimeInterval?
 
@@ -169,7 +172,20 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         applyContext(message)
     }
 
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        applyContext(userInfo)
+    }
+
     private func applyContext(_ payload: [String: Any]) {
+        if let terminal = payload["sessionTerminalId"] as? String,
+           terminal != lastTerminalEvent,
+           let id = UUID(uuidString: terminal) {
+            lastTerminalEvent = terminal
+            delegate?.watchConnectivityDidReceiveTerminal(
+                sessionId: id, saved: payload["sessionTerminalSaved"] as? Bool == true
+            )
+        }
+
         if let ack = payload["completedAck"] as? String,
            let id = UUID(uuidString: ack) {
             let healthID = (payload["completedAckHealthKitUUID"] as? String)
@@ -188,7 +204,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 )
             }
         }
-        if let data = payload["session"] as? Data, data != lastInboundSession {
+        if let data = payload["session"] as? Data {
+            let revision = payload["sessionRevision"] as? Int ?? -1
+            guard revision >= lastInboundSessionRevision else { return }
+            if data == lastInboundSession && revision == lastInboundSessionRevision { return }
+            lastInboundSessionRevision = revision
             lastInboundSession = data
             let active = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
             delegate?.watchConnectivityDidReceive(session: active)
