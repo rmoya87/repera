@@ -15,6 +15,7 @@ object WatchSessionReconciliation {
     ): Boolean {
         if (!watchStarted || localId.isNullOrBlank()) return false
         if (finishedId == localId || explicitlyDiscardedId == localId) return false
+        if (incomingId.isNullOrBlank()) return true
         return incomingId != localId
     }
 
