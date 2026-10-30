@@ -6,6 +6,7 @@ import os
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
     func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
+    func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?)
     func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool)
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
 }
@@ -14,6 +15,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     weak var delegate: WatchConnectivityClientDelegate?
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
     private let pendingKey = "repera.watch.completedOutbox.v1"
+    private var lastInboundLive: Data?
     private var lastInboundSession: Data?
     private var lastInboundSessionRevision = -1
     private var lastTerminalEvent: String?
@@ -37,6 +39,26 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         } catch {
             logger.error("Watch state context failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Controls a phone-owned Comenzar session without opening a second GPS
+    /// or HealthKit workout on the watch. Commands are live-only: if the phone
+    /// is offline, no local state is optimistically changed.
+    @discardableResult
+    func sendLiveCommand(sessionId: UUID, command: String) -> Bool {
+        guard ["pause", "resume", "finish"].contains(command),
+              WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              WCSession.default.isReachable else { return false }
+        WCSession.default.sendMessage([
+            "action": "liveCommand",
+            "sessionId": sessionId.uuidString,
+            "command": command,
+            "actionId": UUID().uuidString
+        ], replyHandler: nil) { [weak self] error in
+            self?.logger.warning("Live watch command failed: \\(error.localizedDescription, privacy: .public)")
+        }
+        return true
     }
 
     /// Descarte explícito: el iPhone debe limpiar `activeSession` aunque no
@@ -177,6 +199,13 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     private func applyContext(_ payload: [String: Any]) {
+        if let data = payload["liveActivity"] as? Data,
+           data != lastInboundLive {
+            lastInboundLive = data
+            let live = data.isEmpty ? nil :
+                try? JSONDecoder().decode(WatchLiveActivitySnapshot.self, from: data)
+            delegate?.watchConnectivityDidReceiveLive(live)
+        }
         if let terminal = payload["sessionTerminalId"] as? String,
            terminal != lastTerminalEvent,
            let id = UUID(uuidString: terminal) {
