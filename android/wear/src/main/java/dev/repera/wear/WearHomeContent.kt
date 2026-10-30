@@ -39,6 +39,7 @@ import org.json.JSONObject
  * WearMainActivity para pruebas visuales instrumentadas). */
 internal data class WearHomeState(
     val session: WatchSessionSummary?,
+    val liveActivity: JSONObject? = null,
     val showingCachedSession: Boolean,
     val finishedSummary: FinishedSummary?,
     val todayPlan: JSONObject?,
@@ -76,6 +77,7 @@ internal data class WearHomeState(
 
 internal class WearHomeCallbacks(
     val onDismissFinished: (FinishedSummary) -> Unit = {},
+    val onLiveCommand: (String) -> Unit = {},
     val onStartTodayPlan: () -> Unit = {},
     val onStartTodayPlanAt: (Int) -> Unit = {},
     val onTogglePause: () -> Unit = {},
@@ -145,6 +147,8 @@ internal fun WearHomeContent(
                 readyItems(state.session, callbacks)
             state.session != null ->
                 runningItems(state, callbacks)
+            state.liveActivity != null ->
+                liveActivityItems(state.liveActivity, callbacks)
             state.todayPlan != null ->
                 todayItems(state.todayPlan, callbacks)
             else ->
@@ -154,6 +158,73 @@ internal fun WearHomeContent(
         state.sendStatus?.let {
             item {
                 Text(it, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+/** Phone owns GPS/Health and the watch only displays aggregate real metrics. */
+private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, callbacks: WearHomeCallbacks) {
+    val phase = live.optString("phase")
+    item {
+        Text(live.optString("sportTitle", "Actividad"),
+            style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+    }
+    item {
+        val now = remember(live.optString("sessionId")) {
+            androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis())
+        }
+        LaunchedEffect(live.optString("sessionId"), phase) {
+            while (true) {
+                kotlinx.coroutines.delay(1_000)
+                now.longValue = System.currentTimeMillis()
+            }
+        }
+        val extra = if (phase == "recording")
+            ((now.longValue - live.optLong("capturedAtMillis")) / 1000.0).coerceAtLeast(0.0)
+        else 0.0
+        Text(dev.repera.domain.LiveSportHistory.formatDuration(
+            live.optDouble("elapsedSeconds", 0.0) + extra),
+            style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
+        Text("Tiempo activo", style = MaterialTheme.typography.labelSmall)
+    }
+    item {
+        Text(ReperaNumberFormat.decimal(live.optDouble("distanceMeters", 0.0) / 1000.0) + " km",
+            style = MaterialTheme.typography.titleMedium)
+    }
+    if (!live.isNull("averageSpeedKmh")) {
+        item {
+            Text(ReperaNumberFormat.decimal(live.optDouble("averageSpeedKmh")) + " km/h media",
+                style = MaterialTheme.typography.labelMedium)
+        }
+    }
+    if (!live.isNull("nextTurn") && phase != "review") {
+        item { Text(live.optString("nextTurn"), textAlign = TextAlign.Center) }
+    }
+    if (phase == "review") {
+        item { Text("Finalizada · revisa y guarda en el teléfono",
+            textAlign = TextAlign.Center) }
+    } else {
+        item {
+            val confirm = remember(live.optString("sessionId")) {
+                androidx.compose.runtime.mutableStateOf(false)
+            }
+            if (confirm.value) {
+                Text("¿Finalizar actividad?", style = MaterialTheme.typography.labelMedium)
+                Row {
+                    TextButton(onClick = { confirm.value = false }) { Text("Cancelar") }
+                    TextButton(onClick = {
+                        confirm.value = false
+                        callbacks.onLiveCommand("finish")
+                    }) { Text("Finalizar") }
+                }
+            } else {
+                Row {
+                    TextButton(onClick = {
+                        callbacks.onLiveCommand(if (phase == "paused") "resume" else "pause")
+                    }) { Text(if (phase == "paused") "Reanudar" else "Pausar") }
+                    TextButton(onClick = { confirm.value = true }) { Text("Terminar") }
+                }
             }
         }
     }
