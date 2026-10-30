@@ -5,10 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WatchSessionReconciliationTest {
-    @Test fun phoneDiscardOrClearDoesNotPreserveWatchSession() {
-        // Empty phone active after Cancelar/Descartar → close Wear (Ramón F-5).
-        assertFalse(WatchSessionReconciliation.preserveLocal(true, "local", null, null))
-        assertFalse(WatchSessionReconciliation.preserveLocal(true, "local", null, "other"))
+    @Test fun emptyPhoneSnapshotMustPreserveWatchOwnedOfflineWork() {
+        // The mobile can be offline or recently installed. Empty is not
+        // proof that the user discarded a watch-owned workout.
+        assertTrue(WatchSessionReconciliation.preserveLocal(true, "local", null, null))
+        assertTrue(WatchSessionReconciliation.preserveLocal(true, "local", null, "other"))
         assertTrue(WatchSessionReconciliation.phoneDiscarded("local", null, null))
         assertTrue(WatchSessionReconciliation.phoneDiscarded("local", null, "other"))
     }
