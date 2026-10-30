@@ -12,6 +12,8 @@ final class WatchSessionHub: NSObject {
     private(set) var controller: SessionController?
     private(set) var todayPlan: WorkoutSession?
     private(set) var lastFinished: WorkoutSession?
+    private(set) var liveActivity: WatchLiveActivitySnapshot?
+    private(set) var liveCommandError: String?
     private(set) var isPaused = false
     private(set) var restRemaining = 0
     private(set) var blockElapsed = 0
@@ -327,6 +329,13 @@ final class WatchSessionHub: NSObject {
     /// Refresh the prescription without touching an offline workout in progress.
     func refreshToday() {
         connectivity.refreshToday()
+    }
+
+    func controlLiveActivity(_ command: String) {
+        guard let liveActivity, liveActivity.phase != .review else { return }
+        liveCommandError = connectivity.sendLiveCommand(
+            sessionId: liveActivity.id, command: command
+        ) ? nil : "Conecta el iPhone para controlar esta actividad"
     }
 
     func applicationWillResignActive() {
@@ -1181,6 +1190,13 @@ final class WatchSessionHub: NSObject {
 }
 
 extension WatchSessionHub: WatchConnectivityClientDelegate {
+    nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?) {
+        Task { @MainActor in
+            self.liveActivity = snapshot
+            self.liveCommandError = nil
+        }
+    }
+
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
             // Nil = iPhone terminó o descartó: cerrar sesión local y no resucitar al reopen.
