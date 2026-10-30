@@ -2172,11 +2172,11 @@ final class ReperaStore: NSObject {
             today: today,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
-            live: LiveActivityRecorder.shared.makeWatchSnapshot(),
             completedAck: lastWatchAcknowledgedSession,
             completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
                 state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID
-            }
+            },
+            live: LiveActivityRecorder.shared.makeWatchSnapshot()
         )
     }
 
