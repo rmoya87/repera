@@ -1199,21 +1199,9 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
-            // Nil = iPhone terminó o descartó: cerrar sesión local y no resucitar al reopen.
-            guard let session else {
-                // Nil is a snapshot (e.g. phone restarted while offline), NOT a
-                // cancellation command. Preserve a watch-owned local execution.
-                if self.startedOnThisWatch &&
-                   (self.controller != nil || self.lastFinished != nil) {
-                    // A completed watch result may still be waiting for the
-                    // phone's durable ACK or late HealthKit measurement.
-                    return
-                }
-                if self.controller != nil || (self.lastFinished != nil && !self.awaitingHealthSave) {
-                    self.discardActiveSession(fromPhone: true)
-                }
-                return
-            }
+            // An empty context is a potentially stale snapshot, not a
+            // cancellation. Only an ID-matched terminal event can close work.
+            guard let session else { return }
             guard self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
             if let current = self.controller?.session {
@@ -1229,11 +1217,15 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                     // snapshots are not allowed to overwrite pending local work.
                     return
                 }
-                // Phone owns this execution. Apply new block, set, and exercise
-                // state even after the first snapshot has been received.
+                // Phone owns this execution. Do not overwrite locally
+                // confirmed sets that have not yet been echoed by the phone.
+                let localSetIDs = Set(current.exercises.flatMap { $0.loggedSets.map(\.id) })
+                let receivedSetIDs = Set(session.exercises.flatMap { $0.loggedSets.map(\.id) })
+                guard localSetIDs.isSubset(of: receivedSetIDs) else { return }
             }
+            let exerciseChanged = self.controller?.session.currentIndex != session.currentIndex
             self.controller = SessionController(session: session)
-            self.resetSetDraft()
+            if exerciseChanged { self.resetSetDraft() }
             self.lastClockTick = Date()
             self.startClock()
             self.save()
