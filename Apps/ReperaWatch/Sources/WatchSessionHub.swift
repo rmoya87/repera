@@ -1258,3 +1258,12 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 
 struct WatchSetDraft: Codable, Sendable {
     var rir: Double?
+    var deficitCm: Int?
+    var durationSeconds: Int?
+    var unit: ExerciseQuantityUnit = .reps
+    var phase: SetPhase = .work
+    var kind: SetKind = .straight
+    var toFailure = false
+    var drops: [DropSegment] = []
+    var clusters: [RestPauseCluster] = []
+}
