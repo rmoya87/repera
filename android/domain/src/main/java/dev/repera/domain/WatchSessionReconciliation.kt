@@ -23,8 +23,10 @@ object WatchSessionReconciliation {
         if (!watchStarted || localId.isNullOrBlank()) return false
         // El teléfono terminó nuestra sesión → mostrar resumen, no conservar running.
         if (finishedId == localId) return false
-        // El teléfono descartó / no tiene active → cerrar Wear (no resucitar).
-        if (incomingId.isNullOrBlank()) return false
+        // An empty phone snapshot can mean the phone has not adopted the
+        // watch-owned offline execution yet. Only an explicit, UUID-scoped
+        // terminal event may discard this work.
+        if (incomingId.isNullOrBlank()) return true
         // El teléfono tiene otra sesión viva → conservar la del reloj.
         return incomingId != localId
     }
