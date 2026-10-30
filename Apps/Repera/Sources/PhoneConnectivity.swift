@@ -232,7 +232,6 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                 // Duplicate: ACK without re-mutating; revision 0 means "already applied".
                 return ["ok": true, "actionId": actionId.uuidString, "sessionRevision": 0]
             }
-            remember(actionId)
             let reps = message["reps"] as? Int ?? 1
             let weight = message["weightKg"] as? Double
             let revision = await delegate?.phoneConnectivityDidReceiveLogSet(
@@ -240,6 +239,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                 weightKg: weight,
                 actionId: actionId
             ) ?? 0
+            // An unsuccessful durable write is NOT an acknowledged action. Retrying
+            // with the same UUID must still be allowed after a transient error.
+            if revision > 0 { remember(actionId) }
             return [
                 "ok": revision > 0,
                 "actionId": actionId.uuidString,
