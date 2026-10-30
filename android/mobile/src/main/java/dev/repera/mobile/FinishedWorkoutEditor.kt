@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -25,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -48,7 +50,9 @@ internal fun FinishedWorkoutEditorSection(
     forceEditing: Boolean = false,
     onOpenFullEditor: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
-    onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit
+    onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit,
+    /** Permite al top bar ✓ disparar el mismo Guardar que el botón inferior. */
+    onRegisterSave: (((() -> Unit)?) -> Unit)? = null,
 ) {
     var editing by remember(accountId, workout.id, forceEditing) { mutableStateOf(forceEditing) }
     val hasRoute = workout.routePoints.size >= 2
@@ -123,56 +127,95 @@ internal fun FinishedWorkoutEditorSection(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!forceEditing) {
-            Text("Editar", style = MaterialTheme.typography.titleMedium)
-        }
-        Text(
-            "Edita los datos registrados sin modificar la rutina programada.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+    var saveAsFavorite by remember { mutableStateOf(false) }
+    fun commitSave() {
+        onSave(
+            WorkoutRepository.FinishedWorkoutEdit(
+                title = title, startedAtIso = startIso, finishedAtIso = endIso,
+                notes = notes, pinEdited = pinEdited, pin = pin,
+                blocksJson = if (contentDirty) blocks?.toString() else null,
+                saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList(),
+                recordNewSetsAsPerformed = recordNewSetsAsPerformed
+            )
         )
-        OutlinedTextField(value = title, onValueChange = { title = it },
-            label = { Text("Nombre del entreno") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("edit_title"))
-        val zone = ZoneId.systemDefault()
-        val startZ = remember(startIso) {
-            startIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
-                ?: ZonedDateTime.now(zone)
-        }
-        val durationMin = remember(startIso, endIso) {
-            val e = endIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
-            if (e != null) maxOf(1, java.time.Duration.between(startZ, e).toMinutes().toInt())
-            else 45
-        }
-        fun applyStartKeepingDuration(newStart: ZonedDateTime) {
-            startIso = newStart.toInstant().toString()
-            endIso = newStart.plusMinutes(durationMin.toLong()).toInstant().toString()
-        }
-        WorkoutDateTimeDurationRow(
-            dayIso = startZ.toLocalDate().toString(),
-            clock = "%02d:%02d".format(startZ.hour, startZ.minute),
-            durationMinutes = durationMin,
-            onDayIso = { iso ->
-                val d = runCatching { java.time.LocalDate.parse(iso) }.getOrNull() ?: return@WorkoutDateTimeDurationRow
-                applyStartKeepingDuration(
-                    startZ.withYear(d.year).withMonth(d.monthValue).withDayOfMonth(d.dayOfMonth)
+        if (onDismiss != null) onDismiss() else editing = false
+    }
+    androidx.compose.runtime.SideEffect {
+        onRegisterSave?.invoke(::commitSave)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Meta como Crear entreno: card con título + fecha|hora|duración + favorito.
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("edit_title")
                 )
-            },
-            onClock = { clock ->
-                val t = runCatching { java.time.LocalTime.parse(clock) }.getOrNull()
-                    ?: return@WorkoutDateTimeDurationRow
-                applyStartKeepingDuration(startZ.withHour(t.hour).withMinute(t.minute).withSecond(0).withNano(0))
-            },
-            onDurationMinutes = { mins ->
-                val m = mins.coerceIn(1, 600)
-                startIso = startZ.toInstant().toString()
-                endIso = startZ.plusMinutes(m.toLong()).toInstant().toString()
-            },
-            dayTestTag = "edit_start_date",
-            timeTestTag = "edit_start_time",
-            durationTestTag = "edit_duration"
-        )
+                val zone = ZoneId.systemDefault()
+                val startZ = remember(startIso) {
+                    startIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
+                        ?: ZonedDateTime.now(zone)
+                }
+                val durationMin = remember(startIso, endIso) {
+                    val e = endIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
+                    if (e != null) maxOf(1, java.time.Duration.between(startZ, e).toMinutes().toInt())
+                    else 45
+                }
+                fun applyStartKeepingDuration(newStart: ZonedDateTime) {
+                    startIso = newStart.toInstant().toString()
+                    endIso = newStart.plusMinutes(durationMin.toLong()).toInstant().toString()
+                }
+                WorkoutDateTimeDurationRow(
+                    dayIso = startZ.toLocalDate().toString(),
+                    clock = "%02d:%02d".format(startZ.hour, startZ.minute),
+                    durationMinutes = durationMin,
+                    onDayIso = { iso ->
+                        val d = runCatching { java.time.LocalDate.parse(iso) }.getOrNull()
+                            ?: return@WorkoutDateTimeDurationRow
+                        applyStartKeepingDuration(
+                            startZ.withYear(d.year).withMonth(d.monthValue).withDayOfMonth(d.dayOfMonth)
+                        )
+                    },
+                    onClock = { clock ->
+                        val t = runCatching { java.time.LocalTime.parse(clock) }.getOrNull()
+                            ?: return@WorkoutDateTimeDurationRow
+                        applyStartKeepingDuration(
+                            startZ.withHour(t.hour).withMinute(t.minute).withSecond(0).withNano(0)
+                        )
+                    },
+                    onDurationMinutes = { mins ->
+                        val m = mins.coerceIn(1, 600)
+                        startIso = startZ.toInstant().toString()
+                        endIso = startZ.plusMinutes(m.toLong()).toInstant().toString()
+                    },
+                    dayTestTag = "edit_start_date",
+                    timeTestTag = "edit_start_time",
+                    durationTestTag = "edit_duration"
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("Favorito", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(
+                        checked = saveAsFavorite,
+                        onCheckedChange = { saveAsFavorite = it },
+                        colors = reperaSwitchColors(),
+                        modifier = Modifier.testTag("edit_save_favorite")
+                    )
+                }
+            }
+        }
         if (!hasRoute) {
             ReperaSectionTitle("Lugar")
             WorkoutPlacePickerRow(pin = pin, accountId = accountId,
@@ -240,27 +283,20 @@ internal fun FinishedWorkoutEditorSection(
         OutlinedTextField(value = notes, onValueChange = { notes = it },
             label = { Text("Notas: cómo te sentiste, molestias…") }, minLines = 2, maxLines = 5,
             modifier = Modifier.fillMaxWidth().testTag("edit_notes"))
-        var saveAsFavorite by remember { mutableStateOf(false) }
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            androidx.compose.material3.Switch(checked = saveAsFavorite, onCheckedChange = { saveAsFavorite = it },
-                colors = reperaSwitchColors(),
-                modifier = Modifier.testTag("edit_save_favorite"))
-            Text("  Guardar también como favorito")
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(enabled = !busy, modifier = Modifier.testTag("edit_save"), onClick = {
-                onSave(WorkoutRepository.FinishedWorkoutEdit(
-                    title = title, startedAtIso = startIso, finishedAtIso = endIso,
-                    notes = notes, pinEdited = pinEdited, pin = pin,
-                    blocksJson = if (contentDirty) blocks?.toString() else null,
-                    saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList(),
-                    recordNewSetsAsPerformed = recordNewSetsAsPerformed))
-                if (onDismiss != null) onDismiss() else editing = false
-            }) { Text("Guardar") }
-            TextButton(modifier = Modifier.testTag("edit_cancel"),
-                onClick = {
-                    if (onDismiss != null) onDismiss() else editing = false
-                }) { Text("Cancelar") }
+        if (!forceEditing) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = !busy,
+                    modifier = Modifier.testTag("edit_save"),
+                    onClick = { commitSave() }
+                ) { Text("Guardar") }
+                TextButton(
+                    modifier = Modifier.testTag("edit_cancel"),
+                    onClick = {
+                        if (onDismiss != null) onDismiss() else editing = false
+                    }
+                ) { Text("Cancelar") }
+            }
         }
     }
 }
@@ -279,6 +315,8 @@ internal fun FinishedWorkoutEditorScreen(
     onBack: () -> Unit,
     onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit,
 ) {
+    // Misma maqueta que Crear entreno: DayEditorTopBar + título large + meta en card.
+    var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
     androidx.activity.compose.BackHandler(onBack = onBack)
     Column(
         Modifier
@@ -288,15 +326,14 @@ internal fun FinishedWorkoutEditorScreen(
             .testTag("finished_workout_editor_page"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            ReperaToolbarGlassIconButton(
-                icon = Icons.Outlined.Close,
-                contentDescription = "Cerrar",
-                onClick = onBack,
-                modifier = Modifier.testTag("finished_workout_editor_back")
-            )
-            Spacer(Modifier.weight(1f))
-        }
+        DayEditorTopBar(
+            onBack = onBack,
+            onConfirm = { pendingSave?.invoke() },
+            confirmEnabled = pendingSave != null && !busy,
+            confirmContentDescription = "Guardar",
+            busy = busy,
+            modifier = Modifier.testTag("finished_workout_editor_back")
+        )
         ReperaPageHeader(title = "Editar entreno")
         FinishedWorkoutEditorSection(
             workout = workout,
@@ -306,7 +343,8 @@ internal fun FinishedWorkoutEditorScreen(
             effortUnit = effortUnit,
             forceEditing = true,
             onDismiss = onBack,
-            onSave = onSave
+            onSave = onSave,
+            onRegisterSave = { pendingSave = it }
         )
     }
 }
@@ -907,10 +945,10 @@ internal fun DragReorderItem(
     val liftShape = RoundedCornerShape(14.dp)
     Column(modifier
         .semantics { customActions = moveActions }
-        .zIndex(if (lifting) 2f else 0f)
+        .zIndex(if (lifting) 100f else 0f)
         .graphicsLayer {
             translationY = dy
-            // Elevación baja → sombra más corta/local (antes 6f se veía muy ancha).
+            // Elevación baja → sombra corta; zIndex alto mantiene el ítem por encima.
             shadowElevation = if (lifting) 2.5f else 0f
             shape = liftShape
             clip = lifting

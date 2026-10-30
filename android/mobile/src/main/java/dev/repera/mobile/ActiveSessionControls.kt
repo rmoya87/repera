@@ -110,11 +110,7 @@ internal fun ActiveSessionControls(
                     Icon(Icons.Outlined.MoreVert, contentDescription = "Más")
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Editar entreno") },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                        onClick = { menuOpen = false; onEdit() }
-                    )
+                    // Play edita in situ; sin «Editar entreno» (paridad iOS).
                     DropdownMenuItem(
                         text = { Text("Reordenar") },
                         leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },

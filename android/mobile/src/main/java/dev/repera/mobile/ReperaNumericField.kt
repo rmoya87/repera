@@ -61,7 +61,8 @@ fun ReperaNumericField(
                 showPad = false
             },
             allowsDecimal = allowsDecimal,
-            showDraftPreview = true
+            // El valor se edita en el propio campo; sin cabecera nombre+número.
+            showDraftPreview = false
         )
     }
 }

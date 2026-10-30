@@ -381,12 +381,7 @@ struct WorkoutView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        persistActiveLiveDraft()
-                        editingRoutine = routineForEditing()
-                    } label: {
-                        Label("Editar entreno", systemImage: "pencil")
-                    }
+                    // Play ya permite editar bloques/series in situ; sin «Editar entreno».
                     Button {
                         Task { await saveCurrentWorkoutFavorite() }
                     } label: {

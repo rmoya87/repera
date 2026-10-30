@@ -12,9 +12,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +33,8 @@ import dev.repera.domain.CatalogWods
 import dev.repera.domain.WodTemplate
 
 /**
- * Elegir WOD a pantalla completa (mismo chrome que Elegir ejercicio).
+ * Elegir WOD a pantalla completa: un único bloque (card) con filas separadas
+ * por línea (paridad lista insetGrouped / Ejercicios).
  */
 @Composable
 internal fun WodCatalogPickerSheet(
@@ -51,27 +53,7 @@ internal fun WodCatalogPickerSheet(
                 .navigationBarsPadding()
                 .testTag("wod_picker_fullscreen")
         ) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ReperaToolbarGlassIconButton(
-                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Volver",
-                    onClick = onDismiss
-                )
-                Text(
-                    "Elegir WOD",
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                // Equilibra el botón volver para centrar el título.
-                androidx.compose.foundation.layout.Spacer(Modifier.padding(24.dp))
-            }
+            PickerChromeTitle(title = "Elegir WOD", onBack = onDismiss)
             ReperaSearchField(
                 value = query,
                 onValueChange = { query = it },
@@ -82,8 +64,7 @@ internal fun WodCatalogPickerSheet(
             )
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 if (results.isEmpty()) {
                     item {
@@ -95,28 +76,35 @@ internal fun WodCatalogPickerSheet(
                         )
                     }
                 } else {
-                    items(results, key = { it.id }) { t ->
-                        ReperaCard(
-                            onClick = { onPick(t) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("plan_wod_pick_${t.id}")
-                        ) {
-                            Column(
-                                Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    t.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    listOfNotNull(t.formatLabel, t.typicalLabel)
-                                        .joinToString(" · "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    item {
+                        ReperaInsetGroupedList {
+                            results.forEachIndexed { index, t ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                            .copy(alpha = 0.45f)
+                                    )
+                                }
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onPick(t) }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                                        .testTag("plan_wod_pick_${t.id}"),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        t.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        listOfNotNull(t.formatLabel, t.typicalLabel)
+                                            .joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -127,7 +115,7 @@ internal fun WodCatalogPickerSheet(
 }
 
 /**
- * Añadir favorito a pantalla completa (paridad Elegir ejercicio).
+ * Añadir favorito: mismo chrome y lista agrupada que Elegir WOD.
  */
 @Composable
 internal fun FavoriteCatalogPickerSheet(
@@ -135,6 +123,13 @@ internal fun FavoriteCatalogPickerSheet(
     onPick: (RoutineEntry) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(favorites, query) {
+        val q = foldForSearch(query)
+        if (q.isEmpty()) favorites
+        else favorites.filter { foldForSearch(it.title).contains(q) }
+    }
+
     ReperaFullscreenDialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -144,64 +139,99 @@ internal fun FavoriteCatalogPickerSheet(
                 .navigationBarsPadding()
                 .testTag("favorite_picker_fullscreen")
         ) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ReperaToolbarGlassIconButton(
-                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Volver",
-                    onClick = onDismiss
-                )
-                Text(
-                    "Añadir favorito",
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                androidx.compose.foundation.layout.Spacer(Modifier.padding(24.dp))
-            }
+            PickerChromeTitle(title = "Añadir favorito", onBack = onDismiss)
+            ReperaSearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "Buscar favorito",
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("plan_favorite_search")
+            )
             LazyColumn(
                 Modifier.fillMaxSize().testTag("add_favorite_list"),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                if (favorites.isEmpty()) {
+                if (filtered.isEmpty()) {
                     item {
                         Text(
-                            "No hay entrenos en Favoritos.",
+                            if (favorites.isEmpty()) "No hay entrenos en Favoritos."
+                            else "Sin coincidencias",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
                     }
                 } else {
-                    items(favorites, key = { it.id }) { fav ->
-                        val exerciseCount = fav.blocks.sumOf { it.entries.size }
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(fav) }
-                                .padding(vertical = 12.dp)
-                                .testTag("add_favorite_${fav.id}")
-                        ) {
-                            Text(
-                                fav.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "· $exerciseCount ej.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    item {
+                        ReperaInsetGroupedList {
+                            filtered.forEachIndexed { index, fav ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                            .copy(alpha = 0.45f)
+                                    )
+                                }
+                                val exerciseCount = fav.blocks.sumOf { it.entries.size }
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onPick(fav) }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                                        .testTag("add_favorite_${fav.id}"),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        fav.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "· $exerciseCount ej.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PickerChromeTitle(title: String, onBack: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ReperaToolbarGlassIconButton(
+            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+            contentDescription = "Volver",
+            onClick = onBack
+        )
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(24.dp))
+    }
+}
+
+/** Una sola card con filas internas (insetGrouped). */
+@Composable
+internal fun ReperaInsetGroupedList(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    ReperaCard(modifier = modifier.fillMaxWidth()) {
+        content()
     }
 }

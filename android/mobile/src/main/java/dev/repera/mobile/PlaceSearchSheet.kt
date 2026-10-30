@@ -526,47 +526,26 @@ fun PlaceSearchSheet(
             modifier = Modifier.fillMaxSize().imePadding(),
             color = androidx.compose.ui.graphics.Color.Transparent
         ) {
-            // iOS: mapa a sangre + card glass flotante arriba + chip confirmar abajo.
+            // iOS: mapa a sangre + card glass flotante — siempre juntos desde
+            // el primer frame (sin mostrar buscador solo y mapa después).
             Box(Modifier.fillMaxSize()) {
-                val p = pending
-                if (p != null && !isTyping) {
-                    // Mapa del lugar pendiente: MISMO composable en modo
-                    // confirmar y con la búsqueda presentada (iOS mantiene el
-                    // mapa y solo superpone/oculta el panel), así la vista GL
-                    // no se recrea al presentar/cerrar la búsqueda y tocarlo
-                    // la cierra (dismissSearch iOS).
-                    PlacePinMap(p.latitude, p.longitude, isInteractive = true,
-                        modifier = Modifier.fillMaxSize(),
-                        onCameraIdle = handleCameraIdle,
-                        onMapClick = {
-                            searchFocused = false
-                            focusManager.clearFocus(force = true)
-                        })
-                } else {
-                    // Browse map (browseMap iOS): con un lugar pendiente se
-                    // centra en su pin (Marker iOS); si no, en el pin inicial o
-                    // en el lugar más reciente. Así, con la búsqueda
-                    // presentada, el mapa sigue visible y tocarlo la cierra
-                    // (dismissSearch iOS).
-                    // iOS browseMap: siempre hay mapa a sangre (nunca solo texto).
-                    // Prioridad: pin → reciente → GPS usuario → Madrid (fallback).
-                    val center = pending?.let { it.latitude to it.longitude }
-                        ?: initialPin?.let { it.latitude to it.longitude }
-                        ?: recents.firstOrNull()?.let { it.latitude to it.longitude }
-                        ?: userLatLon
-                        ?: (40.4168 to -3.7038)
-                    // key: remonta al llegar el GPS para centrar (PlacePinMap
-                    // solo mueve cámara al cargar el estilo).
-                    androidx.compose.runtime.key(center.first, center.second) {
-                        PlacePinMap(center.first, center.second, isInteractive = true,
-                            modifier = Modifier.fillMaxSize(),
-                            onCameraIdle = handleCameraIdle,
-                            onMapClick = {
-                                searchFocused = false
-                                focusManager.clearFocus(force = true)
-                            })
+                // Un solo mapa estable: no remount al escribir (evita flash).
+                val mapCenter = pending?.let { it.latitude to it.longitude }
+                    ?: initialPin?.let { it.latitude to it.longitude }
+                    ?: recents.firstOrNull()?.let { it.latitude to it.longitude }
+                    ?: userLatLon
+                    ?: (40.4168 to -3.7038)
+                PlacePinMap(
+                    mapCenter.first,
+                    mapCenter.second,
+                    isInteractive = true,
+                    modifier = Modifier.fillMaxSize(),
+                    onCameraIdle = handleCameraIdle,
+                    onMapClick = {
+                        searchFocused = false
+                        focusManager.clearFocus(force = true)
                     }
-                }
+                )
 
                 // Card glass flotante (paridad iOS / compare4/52).
                 Surface(
@@ -877,7 +856,8 @@ fun PlaceSearchSheet(
                     }
                 }
 
-                if (showsConfirmMap && p != null) {
+                val confirmPending = pending
+                if (showsConfirmMap && confirmPending != null) {
                     // Chip abajo (paridad iOS): nombre + categoría/dirección + icono.
                     Surface(
                         shape = RoundedCornerShape(16.dp),
@@ -897,13 +877,13 @@ fun PlaceSearchSheet(
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    p.name,
+                                    confirmPending.name,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 2
                                 )
-                                p.addressLine?.takeIf { it.isNotBlank() }?.let {
+                                confirmPending.addressLine?.takeIf { it.isNotBlank() }?.let {
                                     Text(
                                         it,
                                         style = MaterialTheme.typography.bodySmall,

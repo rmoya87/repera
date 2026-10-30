@@ -3,6 +3,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+// background used for selected tab capsule fill
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Home
@@ -68,7 +70,7 @@ internal data class ReperaTabSpec(
 
 /** Cuatro pestañas principales (paridad iOS Liquid Glass tab bar). */
 internal val reperaMainTabs = listOf(
-    ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home),
+    ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home, Icons.Filled.Home),
     ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle, Icons.Filled.PlayCircle),
     ReperaTabSpec("progreso", "Progreso", Icons.Outlined.BarChart, Icons.Filled.BarChart),
     // SF `dumbbell` horizontal (no FitnessCenter diagonal / «⤡»).
@@ -205,7 +207,14 @@ private fun ReperaFloatingTabItem(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(width = 56.dp, height = 32.dp)
+            modifier = Modifier
+                .size(width = 56.dp, height = 32.dp)
+                .then(
+                    if (selected) Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x1430D158)) // cápsula fill verde suave
+                    else Modifier
+                )
         ) {
             Icon(
                 imageVector = tab.iconFor(selected),

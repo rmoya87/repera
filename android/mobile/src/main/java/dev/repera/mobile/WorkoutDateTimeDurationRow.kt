@@ -1,29 +1,34 @@
 package dev.repera.mobile
 
-import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.LocalTime
-import java.util.Locale
+import java.time.format.DateTimeFormatter
+
+private val dayDisplayFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 /**
- * Fecha | Hora | Duración en una fila (campos separados), paridad PlanView iOS
- * `oneOffDateTimeDurationRow` / `completedDateTimeDurationRow`.
+ * Fecha | Hora | Duración en una fila. Fecha en `dd/MM/yyyy` con teclado
+ * numérico Repera; hora con picker; duración con teclado numérico.
  */
 @Composable
 internal fun WorkoutDateTimeDurationRow(
@@ -41,38 +46,36 @@ internal fun WorkoutDateTimeDurationRow(
     val ctx = LocalContext.current
     val day = dayIso?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
     val time = runCatching { LocalTime.parse(clock) }.getOrElse { LocalTime.of(18, 0) }
-    val dayLabel = day.format(reperaPlanDayFormatter).replaceFirstChar {
-        if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString()
-    }
+    val dayLabel = day.format(dayDisplayFmt)
     val timeLabel = "%02d:%02d".format(time.hour, time.minute)
+
+    var showDatePad by remember { mutableStateOf(false) }
+    var dateDraft by remember { mutableStateOf(dayLabel.replace("/", "")) }
+    var showDurationPad by remember { mutableStateOf(false) }
+    var durationDraft by remember { mutableStateOf(durationMinutes.toString()) }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .testTag("workout_meta_datetime"),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top
     ) {
-        MetaFieldColumn(
+        MetaNumericColumn(
             caption = "Fecha",
             value = dayLabel,
             testTag = dayTestTag,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1.15f),
             onClick = {
-                DatePickerDialog(
-                    ctx,
-                    { _, y, m, d -> onDayIso(LocalDate.of(y, m + 1, d).toString()) },
-                    day.year,
-                    day.monthValue - 1,
-                    day.dayOfMonth
-                ).show()
+                dateDraft = dayLabel.replace("/", "")
+                showDatePad = true
             }
         )
-        MetaFieldColumn(
+        MetaNumericColumn(
             caption = "Hora",
             value = timeLabel,
             testTag = timeTestTag,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(0.85f),
             onClick = {
                 TimePickerDialog(
                     ctx,
@@ -83,27 +86,69 @@ internal fun WorkoutDateTimeDurationRow(
                 ).show()
             }
         )
-        MetaFieldColumn(
+        MetaNumericColumn(
             caption = "Duración",
             value = "$durationMinutes min",
             testTag = durationTestTag,
             modifier = Modifier.weight(1f),
             onClick = {
-                val next = when {
-                    durationMinutes < 30 -> 30
-                    durationMinutes < 45 -> 45
-                    durationMinutes < 60 -> 60
-                    durationMinutes < 90 -> 90
-                    else -> (durationMinutes + 15).coerceAtMost(600)
-                }
-                onDurationMinutes(next)
+                durationDraft = durationMinutes.toString()
+                showDurationPad = true
             }
+        )
+    }
+
+    if (showDatePad) {
+        ReperaNumericKeypadSheet(
+            title = "Fecha",
+            draft = dateDraft,
+            onDraftChange = { raw ->
+                dateDraft = raw.filter(Char::isDigit).take(8)
+            },
+            onDismiss = { showDatePad = false },
+            onCommit = { raw ->
+                val digits = raw.filter(Char::isDigit)
+                val parsed = parseDdMmYyyy(digits)
+                if (parsed != null) onDayIso(parsed.toString())
+                showDatePad = false
+            },
+            allowsDecimal = false,
+            showDraftPreview = false
+        )
+    }
+    if (showDurationPad) {
+        ReperaNumericKeypadSheet(
+            title = "Duración",
+            draft = durationDraft,
+            onDraftChange = { durationDraft = it.filter(Char::isDigit).take(3) },
+            onDismiss = { showDurationPad = false },
+            onCommit = { raw ->
+                raw.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 600)?.let(onDurationMinutes)
+                showDurationPad = false
+            },
+            allowsDecimal = false,
+            showDraftPreview = false
         )
     }
 }
 
+/** Interpreta `ddMMyyyy` / `ddMMyy` → LocalDate. */
+internal fun parseDdMmYyyy(digits: String): LocalDate? {
+    if (digits.length !in setOf(6, 8)) return null
+    val dd = digits.substring(0, 2).toIntOrNull() ?: return null
+    val mm = digits.substring(2, 4).toIntOrNull() ?: return null
+    val yyyy = when (digits.length) {
+        8 -> digits.substring(4, 8).toIntOrNull() ?: return null
+        else -> {
+            val yy = digits.substring(4, 6).toIntOrNull() ?: return null
+            if (yy >= 70) 1900 + yy else 2000 + yy
+        }
+    }
+    return runCatching { LocalDate.of(yyyy, mm, dd) }.getOrNull()
+}
+
 @Composable
-private fun MetaFieldColumn(
+private fun MetaNumericColumn(
     caption: String,
     value: String,
     testTag: String,
@@ -119,24 +164,17 @@ private fun MetaFieldColumn(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        TextButton(
-            onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(testTag)
-                .padding(0.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = 4.dp,
-                vertical = 4.dp
+        Box {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(testTag)
             )
-        ) {
-            Text(
-                value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Box(Modifier.matchParentSize().clickable(onClick = onClick))
         }
     }
 }

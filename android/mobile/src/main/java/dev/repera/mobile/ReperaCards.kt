@@ -1513,10 +1513,13 @@ internal fun WorkoutHistoryCard(
                 enabled = !busy,
                 modifier = Modifier.align(Alignment.CenterEnd).width(96.dp)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .background(Color(0xFFFF3B30))
             ) {
-                Text("Eliminar", color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.labelLarge)
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "Eliminar",
+                    tint = Color.White
+                )
             }
         }
         ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()

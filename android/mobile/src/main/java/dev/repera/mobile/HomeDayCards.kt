@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.FitnessCenter
@@ -172,12 +173,13 @@ internal fun HomeSwipeRevealCard(
                 modifier = Modifier
                     .width(88.dp)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .background(Color(0xFFFF3B30)) // rojo eléctrico (systemRed)
             ) {
-                Text(
-                    "Eliminar",
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.labelLarge
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "Eliminar",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

@@ -261,12 +261,14 @@ internal fun ExercisesTab(
                     }
                     item {
                         FinishedWorkoutEditorSection(
-                            detail, accountId, busy, overview?.exerciseEntries.orEmpty(),
+                            workout = detail,
+                            accountId = accountId,
+                            busy = busy,
+                            exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                             effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                             onOpenFullEditor = { editingLiveSession = true },
-                        ) { edit ->
-                            onUpdateFinishedWorkout(detail.id, edit)
-                        }
+                            onSave = { edit -> onUpdateFinishedWorkout(detail.id, edit) }
+                        )
                     }
                 }
                 }
@@ -394,10 +396,10 @@ internal fun ExercisesTab(
                 }
             }
         } else {
-            // Lista Material plana (ListItem + divisores), sin card envolvente.
-            entries.forEachIndexed { index, entry ->
-                item(key = entry.id) {
-                    Column {
+            // Un único bloque con líneas entre filas (paridad WOD/favoritos).
+            item(key = "flat-list") {
+                ReperaInsetGroupedList {
+                    entries.forEachIndexed { index, entry ->
                         if (index > 0) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
