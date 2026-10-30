@@ -1231,7 +1231,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val finishedSessionId = activeWorkout?.id
                     val route = locationTracker.stopRouteTracking()
                     runWorkoutAction(onSuccess = {
-                        finishedSessionId?.let { refineFinishedSessionWithHealth(it) }
+                        finishedSessionId?.let {
+                            WearActiveSessionBridge.publishTerminal(this, it, saved = true)
+                            refineFinishedSessionWithHealth(it)
+                        }
                     }) {
                         finish()
                         if (finishedSessionId != null && route.isNotEmpty()) {
@@ -1315,7 +1318,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onDiscardSession = {
                     StrengthRestService.cancel(this)
                     locationTracker.stopRouteTracking()
-                    runWorkoutAction { discardActiveSession() }
+                    val discardedId = activeWorkout?.id
+                    runWorkoutAction(onSuccess = {
+                        discardedId?.let { WearActiveSessionBridge.publishTerminal(this, it, saved = false) }
+                    }) { discardActiveSession() }
                 },
                 onImportJson = { importJson.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onImportCsv = { importCsv.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream")) },
