@@ -144,5 +144,10 @@ object WearActiveSessionBridge {
         publish(context, null, signedOut = true)
         publishTodayPlan(context,null)
         publishWodTimer(context,null,0,null,null)
+        val request = PutDataMapRequest.create("/repera/live-activity").apply {
+            dataMap.putByteArray("live", byteArrayOf())
+            dataMap.putLong("revision", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
     }
 }
