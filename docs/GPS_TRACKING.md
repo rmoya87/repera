@@ -1,5 +1,12 @@
 # Seguimiento GPS deportivo unificado — Repera iOS
 
+**Compañero Apple Watch (30/10/2026):** Comenzar publica distancia, duración,
+ritmo medio e indicación próxima por WatchConnectivity. El reloj es pantalla
+secundaria y control remoto de la actividad cuyo GPS pertenece al iPhone;
+no captura de nuevo la ruta ni crea un segundo workout HealthKit. Ver
+[WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md)
+para alcance y pruebas de bloqueo/reconexión pendientes.
+
 Última actualización: 2026-10-29 (Weather marca combinedMark light/dark)
 Estado: implementación integrada en `main` (PR #75); compilación iOS/watchOS y contratos de arquitectura verificados, **validación funcional con iPhone físico pendiente**.
 
