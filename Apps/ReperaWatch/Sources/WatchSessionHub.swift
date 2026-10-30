@@ -1217,10 +1217,12 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             guard self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
             if let current = self.controller?.session {
-                guard current.id == session.id else {
-                    // A watch-owned workout cannot be replaced by an unrelated
-                    // stale phone context. The athlete must close it explicitly.
-                    return
+                if current.id != session.id {
+                    // A watch-owned workout cannot be replaced by an
+                    // unrelated phone session. Phone-owned sessions can switch
+                    // only after resetting the follower state.
+                    guard !self.startedOnThisWatch else { return }
+                    self.discardActiveSession(fromPhone: true)
                 }
                 if self.startedOnThisWatch {
                     // Watch owns unsent sets, timers and native HealthKit. Phone
