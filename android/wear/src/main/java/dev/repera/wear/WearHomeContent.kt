@@ -39,7 +39,6 @@ import org.json.JSONObject
  * WearMainActivity para pruebas visuales instrumentadas). */
 internal data class WearHomeState(
     val session: WatchSessionSummary?,
-    val liveActivity: JSONObject? = null,
     val showingCachedSession: Boolean,
     val finishedSummary: FinishedSummary?,
     val todayPlan: JSONObject?,
@@ -72,7 +71,8 @@ internal data class WearHomeState(
     val reviewRounds: Int = 0,
     val reviewExtraReps: Int = 0,
     val reviewElapsedSeconds: Int = 0,
-    val setReviewIndex: Int? = null
+    val setReviewIndex: Int? = null,
+    val liveActivity: JSONObject? = null
 )
 
 internal class WearHomeCallbacks(
