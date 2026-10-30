@@ -102,6 +102,21 @@ object WearActiveSessionBridge {
         Wearable.getDataClient(context).putDataItem(request)
     }
 
+    /**
+     * A phone snapshot with no activeSession does not mean 'discard': the watch
+     * may have created its own session offline. A terminal event identifies
+     * exactly which session was explicitly completed or discarded.
+     */
+    fun publishTerminal(context: Context, sessionId: String, saved: Boolean) {
+        if (sessionId.isBlank()) return
+        val request = PutDataMapRequest.create("/repera/session-terminal").apply {
+            dataMap.putString("sessionId", sessionId)
+            dataMap.putBoolean("saved", saved)
+            dataMap.putLong("revision", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
     /** Explicit account logout: revoke cached identity and pending commands on the watch. */
     fun signOut(context: Context) {
         publish(context, null, signedOut = true)
