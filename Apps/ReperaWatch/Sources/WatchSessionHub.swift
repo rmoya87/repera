@@ -12,6 +12,8 @@ final class WatchSessionHub: NSObject {
     private(set) var controller: SessionController?
     private(set) var todayPlan: WorkoutSession?
     private(set) var lastFinished: WorkoutSession?
+    private(set) var liveActivity: WatchLiveActivitySnapshot?
+    private(set) var liveCommandError: String?
     private(set) var isPaused = false
     private(set) var restRemaining = 0
     private(set) var blockElapsed = 0
@@ -327,6 +329,13 @@ final class WatchSessionHub: NSObject {
     /// Refresh the prescription without touching an offline workout in progress.
     func refreshToday() {
         connectivity.refreshToday()
+    }
+
+    func controlLiveActivity(_ command: String) {
+        guard let liveActivity, liveActivity.phase != .review else { return }
+        liveCommandError = connectivity.sendLiveCommand(
+            sessionId: liveActivity.id, command: command
+        ) ? nil : "Conecta el iPhone para controlar esta actividad"
     }
 
     func applicationWillResignActive() {
@@ -1181,22 +1190,61 @@ final class WatchSessionHub: NSObject {
 }
 
 extension WatchSessionHub: WatchConnectivityClientDelegate {
+    nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?) {
+        Task { @MainActor in
+            self.liveActivity = snapshot
+            self.liveCommandError = nil
+        }
+    }
+
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
-            // Nil = iPhone terminó o descartó: cerrar sesión local y no resucitar al reopen.
-            guard let session else {
-                if self.controller != nil || (self.lastFinished != nil && !self.awaitingHealthSave) {
+            // An empty context is a potentially stale snapshot, not a
+            // cancellation. Only an ID-matched terminal event can close work.
+            guard let session else { return }
+            guard self.lastFinished?.id != session.id,
+                  session.phase != .finished else { return }
+            if let current = self.controller?.session {
+                if current.id != session.id {
+                    // A watch-owned workout cannot be replaced by an
+                    // unrelated phone session. Phone-owned sessions can switch
+                    // only after resetting the follower state.
+                    guard !self.startedOnThisWatch else { return }
                     self.discardActiveSession(fromPhone: true)
                 }
-                return
+                if self.startedOnThisWatch {
+                    // Watch owns unsent sets, timers and native HealthKit. Phone
+                    // snapshots are not allowed to overwrite pending local work.
+                    return
+                }
+                // Phone owns this execution. Do not overwrite locally
+                // confirmed sets that have not yet been echoed by the phone.
+                let localSetIDs = Set(current.exercises.flatMap { $0.loggedSets.map(\.id) })
+                let receivedSetIDs = Set(session.exercises.flatMap { $0.loggedSets.map(\.id) })
+                guard localSetIDs.isSubset(of: receivedSetIDs) else { return }
             }
-            guard self.controller == nil, self.lastFinished?.id != session.id,
-                  session.phase != .finished else { return }
+            let exerciseChanged = self.controller?.session.currentIndex != session.currentIndex
             self.controller = SessionController(session: session)
-            self.resetSetDraft()
+            if exerciseChanged { self.resetSetDraft() }
             self.lastClockTick = Date()
             self.startClock()
             self.save()
+        }
+    }
+
+    nonisolated func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool) {
+        Task { @MainActor in
+            // Never terminate a different or newer workout.
+            guard self.active?.id == sessionId else { return }
+            if saved && self.startedOnThisWatch {
+                // Finish the native recording and retain the HealthKit UUID.
+                // Clearing the view directly would discard a workout still
+                // being saved by HealthKit.
+                self.completeSession()
+                self.clearSummary()
+            } else {
+                self.discardActiveSession(fromPhone: true)
+            }
         }
     }
 

@@ -7,6 +7,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
+    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String)
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?)
     func phoneConnectivityDidRequestToday()
     /// An explicit request replies with today's CURRENT prescription.
@@ -21,6 +22,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
+    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
     func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
@@ -49,7 +51,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     /// Latest-state sync via application context. Reachable message is optional hint only.
-    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil) {
+    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil, live: WatchLiveActivitySnapshot? = nil) {
         guard WCSession.isSupported() else { return }
         var payload: [String: Any]
         if let session,
@@ -67,6 +69,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         } else {
             payload["todayWorkout"] = Data()
         }
+        payload["liveActivity"] = live.flatMap { try? JSONEncoder().encode($0) } ?? Data()
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
         if let completedAckHealthKitUUID {
             payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
@@ -79,6 +82,24 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         }
 
         latestPayloadLock.withLock { latestPayload = payload }
+        publishLatestContext()
+    }
+
+    /// A missing active snapshot is NOT an instruction to discard a watch-owned
+    /// workout. A terminal command is scoped to the exact session UUID.
+    func sendTerminalEvent(sessionID: UUID, saved: Bool) {
+        guard WCSession.isSupported() else { return }
+        let payload: [String: Any] = [
+            "sessionTerminalId": sessionID.uuidString,
+            "sessionTerminalSaved": saved
+        ]
+        latestPayloadLock.withLock {
+            if latestPayload == nil { latestPayload = ["session": Data()] }
+            latestPayload?.merge(payload) { _, new in new }
+        }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
+        wc.transferUserInfo(payload)
         publishLatestContext()
     }
 
@@ -176,6 +197,15 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     @discardableResult
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
+        case "liveCommand":
+            guard let raw = message["sessionId"] as? String,
+                  let id = UUID(uuidString: raw),
+                  let command = message["command"] as? String,
+                  ["pause", "resume", "finish"].contains(command) else {
+                return ["ok": false]
+            }
+            delegate?.phoneConnectivityDidReceiveLiveCommand(sessionId: id, command: command)
+            return ["ok": true]
         case "requestToday":
             // The iPhone resolves its current date-specific plan BEFORE replying,
             // rather than returning an outdated applicationContext payload.
@@ -202,7 +232,6 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                 // Duplicate: ACK without re-mutating; revision 0 means "already applied".
                 return ["ok": true, "actionId": actionId.uuidString, "sessionRevision": 0]
             }
-            remember(actionId)
             let reps = message["reps"] as? Int ?? 1
             let weight = message["weightKg"] as? Double
             let revision = await delegate?.phoneConnectivityDidReceiveLogSet(
@@ -210,6 +239,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                 weightKg: weight,
                 actionId: actionId
             ) ?? 0
+            // An unsuccessful durable write is NOT an acknowledged action. Retrying
+            // with the same UUID must still be allowed after a transient error.
+            if revision > 0 { remember(actionId) }
             return [
                 "ok": revision > 0,
                 "actionId": actionId.uuidString,

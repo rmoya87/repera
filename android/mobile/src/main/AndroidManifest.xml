@@ -62,6 +62,13 @@
         </activity>
         <activity android:name=".HealthPrivacyActivity" android:exported="false" />
         <service
+            android:name=".WearLiveCommandListener"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
+            </intent-filter>
+        </service>
+        <service
             android:name=".StrengthRestService"
             android:exported="false" />
         <service android:name=".LiveActivityService" android:exported="false"

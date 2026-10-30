@@ -7,12 +7,30 @@ import org.json.JSONObject
 
 /** Sends genuine active-session state; clearing it on logout avoids cross-account disclosure. */
 object WearActiveSessionBridge {
+    private const val SYNC_PREFS = "repera.wear.transport"
+    private const val LAST_DISCARD_ID = "lastExplicitDiscardedSessionId"
+
+    /** A cancellation is authoritative only for its exact session ID. The
+     * tombstone persists through later Data Layer snapshot coalescing.
+     */
+    fun recordExplicitDiscard(context: Context, sessionId: String) {
+        if (sessionId.isBlank()) return
+        context.getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE)
+            .edit().putString(LAST_DISCARD_ID, sessionId).apply()
+        // Publish immediately; the normal state refresh can safely overwrite
+        // this because the tombstone is included in subsequent snapshots.
+        publish(context, null)
+    }
+
     fun publish(context: Context, snapshot: ByteArray?, signedOut: Boolean = false) {
         require(!signedOut || snapshot == null) { "Sign-out cannot include session data" }
         val json = runCatching {
             snapshot?.let { JSONObject(String(it, Charsets.UTF_8)) }
         }.getOrNull()
         val activeSession = json?.optJSONObject("activeSession")
+        val transportPrefs = context.getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE)
+        val explicitlyDiscardedId = transportPrefs.getString(LAST_DISCARD_ID, null)
+            ?.takeUnless { signedOut }
         // Última sesión terminada hace menos de 6 h: el reloj muestra su
         // resumen hasta descartarlo (presentedSummary de watchOS).
         val finished = if (activeSession == null && json != null) {
@@ -46,6 +64,7 @@ object WearActiveSessionBridge {
             dataMap.putString("effortUnit", effortUnit)
             dataMap.putString("weightUnit", weightUnit)
             dataMap.putBoolean("signedOut", signedOut)
+            dataMap.putString("discardedSessionId", explicitlyDiscardedId ?: "")
             dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()
         Wearable.getDataClient(context).putDataItem(request)
@@ -102,10 +121,54 @@ object WearActiveSessionBridge {
         Wearable.getDataClient(context).putDataItem(request)
     }
 
+    /**
+     * A phone snapshot with no activeSession does not mean 'discard': the watch
+     * may have created its own session offline. A terminal event identifies
+     * exactly which session was explicitly completed or discarded.
+     */
+    fun publishTerminal(context: Context, sessionId: String, saved: Boolean) {
+        if (sessionId.isBlank()) return
+        val request = PutDataMapRequest.create("/repera/session-terminal").apply {
+            dataMap.putString("sessionId", sessionId)
+            dataMap.putBoolean("saved", saved)
+            dataMap.putLong("revision", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
+    /** Phone-owned free activity: aggregate metrics only, never route points,
+     * coordinates, private health records or inferred heart rate. */
+    fun publishLive(context: Context, runtime: LiveActivityRuntime) {
+        val state = runtime.state
+        val payload = if (state.phase == dev.repera.domain.LiveActivityState.Phase.IDLE) null
+        else JSONObject()
+            .put("sessionId", state.gpsSessionID)
+            .put("sportTitle", state.sport.title)
+            .put("phase", state.phase.name.lowercase())
+            .put("elapsedSeconds", state.durationSeconds(System.currentTimeMillis()))
+            .put("distanceMeters", if (state.sport.usesGPS) state.distanceMeters else 0)
+            .put("averageSpeedKmh", state.averageSpeedKmh(System.currentTimeMillis()) ?: JSONObject.NULL)
+            .put("nextTurn", runtime.upcomingTurn ?: JSONObject.NULL)
+            .put("capturedAtMillis", System.currentTimeMillis())
+        val request = PutDataMapRequest.create("/repera/live-activity").apply {
+            dataMap.putByteArray("live",
+                payload?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf())
+            dataMap.putLong("revision", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
     /** Explicit account logout: revoke cached identity and pending commands on the watch. */
     fun signOut(context: Context) {
+        context.getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE)
+            .edit().remove(LAST_DISCARD_ID).apply()
         publish(context, null, signedOut = true)
         publishTodayPlan(context,null)
         publishWodTimer(context,null,0,null,null)
+        val request = PutDataMapRequest.create("/repera/live-activity").apply {
+            dataMap.putByteArray("live", byteArrayOf())
+            dataMap.putLong("revision", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
     }
 }

@@ -1431,6 +1431,30 @@ final class LiveActivityRecorder: NSObject {
         updateLiveActivity()
     }
 
+    /// The watch is a companion display for a phone-owned Comenzar session.
+    /// Only aggregate GPS metrics and route instructions are sent, never points.
+    var sessionID: UUID? { phase == .idle ? nil : gpsSessionID }
+
+    func makeWatchSnapshot() -> WatchLiveActivitySnapshot? {
+        guard phase != .idle, startedAt != nil else { return nil }
+        let status: WatchLiveActivitySnapshot.Phase
+        switch phase {
+        case .recording: status = .recording
+        case .paused: status = .paused
+        case .review: status = .review
+        case .idle: return nil
+        }
+        return WatchLiveActivitySnapshot(
+            id: gpsSessionID, sportTitle: sport.title, phase: status,
+            elapsedSeconds: durationSeconds,
+            distanceMeters: sport.usesGPS ? recordedDistanceMeters : 0,
+            averageSpeedKmh: averageSpeedKmh,
+            nextTurn: sport.usesGPS ? upcomingTurn : nil,
+            nextTurnMeters: sport.usesGPS ? upcomingTurnMeters : nil,
+            capturedAt: Date()
+        )
+    }
+
     var durationSeconds: TimeInterval { duration(at: Date()) }
 
     func duration(at date: Date) -> TimeInterval {
@@ -1548,6 +1572,9 @@ final class LiveActivityRecorder: NSObject {
         previousFixActiveSeconds = nil
         chosenRoute = nil
         UserDefaults.standard.removeObject(forKey: snapshotKey)
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.liveWatchStateChanged"), object: nil
+        )
     }
 
     private func persistSnapshot() {
@@ -1868,6 +1895,9 @@ final class LiveActivityRecorder: NSObject {
     private func updateLiveActivity() {
         guard let startedAt, phase != .idle else { return }
         lastLiveActivityUpdate = Date()
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.liveWatchStateChanged"), object: nil
+        )
         lastPublishedDistanceMeters = recordedDistanceMeters
         let status: TrainingActivityAttributes.ContentState.Phase
         switch phase {

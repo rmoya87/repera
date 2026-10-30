@@ -1,5 +1,14 @@
 # Arquitectura Repera
 
+## Comenzar y sincronización de wearables (30/10/2026)
+
+Las sesiones libres del **teléfono** publican métricas agregadas a Watch/Wear,
+sin duplicar GPS ni escribir otra sesión deportiva desde el wearable.
+La identidad de una sesión activa y su evento terminal por UUID se separan:
+un contexto vacío no autoriza a descartar sesiones autónomas del reloj.
+El detalle, los límites aún no resueltos y las pruebas físicas necesarias están
+en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
+
 ## Formatos numéricos compartidos (26/10/2026)
 
 `ReperaDomain.ReperaNumberFormat` centraliza la representación humana de cifras con punto para agrupar millares desde 1.000, coma decimal y entre cero y dos posiciones decimales. Tanto los targets iOS como los watchOS reutilizan esta utilidad; las vistas raíz propagan el locale español para gráficos y formatos nativos. `SpanishDate.appLocale` (`es_ES`) y `SpanishDate.format` aplican el mismo locale a `Date.FormatStyle` / ejes de Charts (Progreso, Recuperación, récords) para no heredar inglés del dispositivo. `ReperaNumberFormat.parse` acepta cadenas españolas y puntos decimales antiguos en campos editables, sin cambiar los tipos de dominio ni las codificaciones ISO/JSON/Supabase/HealthKit. Las pruebas de regresión cubren millares, redondeo, negativos, entradas mixtas y separación de presentación y almacenamiento.

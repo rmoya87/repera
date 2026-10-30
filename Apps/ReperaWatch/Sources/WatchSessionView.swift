@@ -7,6 +7,7 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
     @State private var showSetDetails = false
+    @State private var confirmLiveFinish = false
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
     // Filled accent buttons use OG.onAccent: black.
@@ -25,6 +26,8 @@ struct WatchSessionView: View {
                     } else {
                         readyView(active)
                     }
+                } else if let live = hub.liveActivity {
+                    liveActivityView(live)
                 } else if let today = hub.todaysWorkout {
                     todayView(today)
                 } else {
@@ -37,6 +40,12 @@ struct WatchSessionView: View {
                 if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
+            .confirmationDialog("¿Finalizar actividad?", isPresented: $confirmLiveFinish) {
+                Button("Finalizar y revisar en iPhone", role: .destructive) {
+                    hub.controlLiveActivity("finish")
+                }
+                Button("Cancelar", role: .cancel) {}
+            }
         }
         .tint(accent)
     }
@@ -49,7 +58,80 @@ struct WatchSessionView: View {
         if let active = hub.active {
             return hub.current?.displayBlockHeader ?? active.title
         }
+        if let live = hub.liveActivity { return live.sportTitle }
         return hub.todaysWorkout?.title ?? "Repera"
+    }
+
+    /// Companion screen: iPhone owns GPS, HealthKit and persistence.
+    /// The watch displays aggregate metrics and sends validated controls only.
+    private func liveActivityView(_ live: WatchLiveActivitySnapshot) -> some View {
+        ScrollView {
+            VStack(spacing: 9) {
+                Text(live.phase == .review ? "Pendiente de guardar en iPhone"
+                     : (live.phase == .paused ? "En pausa" : "Actividad en curso"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(timeLabel(Int(live.displayElapsed(at: context.date))))
+                        .font(.system(size: 37, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                }
+                Text("Tiempo activo").font(.caption2).foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    VStack {
+                        Text(ReperaNumberFormat.decimal(live.distanceMeters / 1000))
+                            .font(.title3.weight(.bold))
+                        Text("km").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    if let speed = live.averageSpeedKmh {
+                        VStack {
+                            Text(ReperaNumberFormat.decimal(speed))
+                                .font(.title3.weight(.bold))
+                            Text("km/h media").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                if let turn = live.nextTurn, live.phase != .review {
+                    Label(turn, systemImage: "arrow.turn.up.right")
+                        .font(.caption2)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(.white.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                }
+                if live.phase != .review {
+                    HStack(spacing: 10) {
+                        Button {
+                            hub.controlLiveActivity(live.phase == .paused ? "resume" : "pause")
+                        } label: {
+                            Image(systemName: live.phase == .paused ? "play.fill" : "pause.fill")
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.black)
+                                .frame(minWidth: 58, minHeight: 52)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
+                        .accessibilityLabel(live.phase == .paused ? "Reanudar" : "Pausar")
+                        Button { confirmLiveFinish = true } label: {
+                            Image(systemName: "flag.checkered")
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.black)
+                                .frame(minWidth: 58, minHeight: 52)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
+                        .accessibilityLabel("Finalizar actividad")
+                    }
+                }
+                if let message = hub.liveCommandError {
+                    Text(message).font(.caption2).foregroundStyle(.orange)
+                }
+            }
+            .padding(.horizontal, 7)
+        }
     }
 
     private var emptyView: some View {

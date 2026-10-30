@@ -138,6 +138,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var weightUnit by mutableStateOf("kg")
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
+    private var liveActivityJson by mutableStateOf<JSONObject?>(null)
     private var showOutline by mutableStateOf(false)
     private var showSetDetails by mutableStateOf(false)
     private var reviewingBlock by mutableStateOf(false)
@@ -145,6 +146,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var elapsedJob: kotlinx.coroutines.Job? = null
     private var sessionStartedAtElapsed: Long? = null
     private var pausedAccumulatedMs = 0L
+    private var lastElapsedCheckpointMs = 0L
     private var pauseStartedAtElapsed: Long? = null
     private var reviewRounds by mutableStateOf(0)
     private var reviewExtraReps by mutableStateOf(0)
@@ -181,6 +183,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         }
         watchStartedSession = sessionCache.getBoolean("watchStarted", false)
+        val restoredSessionId = visibleSession?.sessionId
+        if (restoredSessionId != null &&
+            restoredSessionId == sessionCache.getString("clockSessionId", null) &&
+            visibleSession?.phase == "counting") {
+            sessionPaused = sessionCache.getBoolean("clockPaused", false)
+            val last = sessionCache.getLong("clockSavedAtMillis", System.currentTimeMillis())
+            val offlineSeconds = if (sessionPaused) 0L else
+                ((System.currentTimeMillis() - last) / 1000L).coerceIn(0L, 43_200L)
+            elapsedSeconds = (sessionCache.getInt("clockElapsedSeconds", 0) + offlineSeconds)
+                .coerceIn(0L, dev.repera.domain.WearSessionDuration.MAX_SECONDS.toLong()).toInt()
+        }
         effortUnit = sessionCache.getString("effortUnit", "rir")?.takeIf { it in setOf("rir", "rpe") } ?: "rir"
         weightUnit = sessionCache.getString("weightUnit", "kg")?.takeIf { it in setOf("kg", "lb") } ?: "kg"
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
@@ -195,6 +208,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         WearHomeContent(
                             state = WearHomeState(
                                 session = visibleSession,
+                                liveActivity = liveActivityJson,
                                 showingCachedSession = showingCachedSession,
                                 finishedSummary = finishedSummary,
                                 todayPlan = todayPlanJson,
@@ -225,6 +239,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 setReviewIndex = setReviewIndex
                             ),
                             callbacks = WearHomeCallbacks(
+                                onLiveCommand = { command -> requestLiveCommand(command) },
                                 onDismissFinished = { finished ->
                                     sessionCache.edit().putString(
                                         "finishedDismissed", finished.sessionId).apply()
@@ -364,6 +379,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onStart() {
         super.onStart()
+        if (visibleSession?.phase == "counting" && elapsedJob == null) resumeElapsedClock()
         healthBound=bindService(android.content.Intent(this,WearHealthService::class.java),healthServiceConnection,android.content.Context.BIND_AUTO_CREATE)
         motionSensor?.let { sensor ->
             sensorManager?.registerListener(this, sensor, 40_000)
@@ -374,6 +390,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         dataClient.dataItems.addOnSuccessListener { items ->
             try {
                 for (item in items) {
+                    if (item.uri.path == "/repera/session-terminal") {
+                        val data = DataMapItem.fromDataItem(item).dataMap
+                        runOnUiThread { receivePhoneTerminal(data.getString("sessionId"), data.getBoolean("saved")) }
+                    }
                     if (item.uri.path == "/repera/active-session") {
                         val data = DataMapItem.fromDataItem(item).dataMap
                         val bytes = data.getByteArray("session")
@@ -381,12 +401,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         val signedOut = data.getBoolean("signedOut")
                         val effort = data.getString("effortUnit")
                         val weight = data.getString("weightUnit")
-                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
+                        val discardedId = data.getString("discardedSessionId")
+                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight, discardedId) }
                     }
                     if (item.uri.path == "/repera/wod-timer") {
                         val bytes = DataMapItem.fromDataItem(item).dataMap
                             .getByteArray("timer")
                         runOnUiThread { showWodTimer(bytes) }
+                    }
+                    if (item.uri.path == "/repera/live-activity") {
+                        val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("live")
+                        runOnUiThread { showLiveActivity(bytes) }
                     }
                     if (item.uri.path == "/repera/today-plan") {
                         val map = DataMapItem.fromDataItem(item).dataMap
@@ -402,6 +427,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onStop() {
+        persistElapsedClock()
+        elapsedJob?.cancel()
+        elapsedJob = null
         persistDraft()
         persistRest()
         healthConnection?.observe(null);healthConnection=null
@@ -414,6 +442,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) {
+            if (event.dataItem.uri.path == "/repera/session-terminal") {
+                val data = DataMapItem.fromDataItem(event.dataItem).dataMap
+                runOnUiThread { receivePhoneTerminal(data.getString("sessionId"), data.getBoolean("saved")) }
+            }
             if (event.dataItem.uri.path == "/repera/active-session") {
                 val data = DataMapItem.fromDataItem(event.dataItem).dataMap
                 val bytes = data.getByteArray("session")
@@ -421,12 +453,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val signedOut = data.getBoolean("signedOut")
                 val effort = data.getString("effortUnit")
                 val weight = data.getString("weightUnit")
-                runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
+                val discardedId = data.getString("discardedSessionId")
+                runOnUiThread { showSession(bytes, signedOut, finished, effort, weight, discardedId) }
             }
             if (event.dataItem.uri.path == "/repera/wod-timer") {
                 val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
                     .getByteArray("timer")
                 runOnUiThread { showWodTimer(bytes) }
+            }
+            if (event.dataItem.uri.path == "/repera/live-activity") {
+                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("live")
+                runOnUiThread { showLiveActivity(bytes) }
             }
             if (event.dataItem.uri.path == "/repera/today-plan") {
                 val map = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -614,6 +651,33 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         } else {
             wodTickSeconds = timer.optInt("elapsedSeconds", 0)
+        }
+    }
+
+    private fun showLiveActivity(bytes: ByteArray?) {
+        liveActivityJson = bytes?.takeIf { it.isNotEmpty() }?.let {
+            runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
+        }
+    }
+
+    private fun requestLiveCommand(command: String) {
+        if (command !in setOf("pause", "resume", "finish")) return
+        val id = liveActivityJson?.optString("sessionId").orEmpty()
+        if (id.isBlank()) return
+        val payload = JSONObject().put("sessionId", id).put("command", command)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (liveActivityJson?.optString("sessionId") != id) return@addOnSuccessListener
+            if (nodes.isEmpty()) {
+                sendStatus = "Móvil desconectado; actividad conservada"
+                return@addOnSuccessListener
+            }
+            nodes.forEach { node ->
+                Wearable.getMessageClient(this).sendMessage(
+                    node.id, "/repera/live-command", payload
+                )
+            }
+            sendStatus = "Control enviado; esperando estado del móvil"
         }
     }
 
@@ -1013,6 +1077,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun resetElapsedClock() {
         elapsedJob?.cancel()
+        elapsedJob = null
+        sessionCache.edit().remove("clockSessionId").remove("clockElapsedSeconds")
+            .remove("clockSavedAtMillis").remove("clockPaused").apply()
         elapsedSeconds = 0
         sessionStartedAtElapsed = null
         pausedAccumulatedMs = 0L
@@ -1030,6 +1097,31 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 
+    private fun resumeElapsedClock() {
+        val now = SystemClock.elapsedRealtime()
+        sessionStartedAtElapsed = now - elapsedSeconds * 1000L
+        pausedAccumulatedMs = 0L
+        pauseStartedAtElapsed = if (sessionPaused) now else null
+        elapsedJob?.cancel()
+        elapsedJob = lifecycleScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                tickElapsed()
+            }
+        }
+    }
+
+    private fun persistElapsedClock() {
+        val session = visibleSession ?: return
+        if (session.phase != "counting") return
+        sessionCache.edit()
+            .putString("clockSessionId", session.sessionId)
+            .putInt("clockElapsedSeconds", elapsedSeconds)
+            .putLong("clockSavedAtMillis", System.currentTimeMillis())
+            .putBoolean("clockPaused", sessionPaused)
+            .apply()
+    }
+
     private fun tickElapsed() {
         val start = sessionStartedAtElapsed ?: return
         val now = SystemClock.elapsedRealtime()
@@ -1045,6 +1137,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         elapsedSeconds = ((now - start - pausedExtra) / 1000L).toInt().coerceAtLeast(0)
             .coerceAtMost(dev.repera.domain.WearSessionDuration.MAX_SECONDS)
+        if (now - lastElapsedCheckpointMs >= 5_000L) {
+            lastElapsedCheckpointMs = now
+            persistElapsedClock()
+        }
     }
 
         /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
@@ -1167,7 +1263,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         signedOut: Boolean = false,
         finished: ByteArray? = null,
         effortUnitWire: String? = null,
-        weightUnitWire: String? = null
+        weightUnitWire: String? = null,
+        explicitlyDiscardedId: String? = null
     ) {
         if (!effortUnitWire.isNullOrBlank() && effortUnitWire in setOf("rir", "rpe")) {
             effortUnit = effortUnitWire
@@ -1177,12 +1274,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             weightUnit = weightUnitWire
             sessionCache.edit().putString("weightUnit", weightUnitWire).apply()
         }
-        showSessionBody(bytes, signedOut, finished)
+        showSessionBody(bytes, signedOut, finished, explicitlyDiscardedId)
     }
 
     private fun showSessionBody(bytes: ByteArray?, signedOut: Boolean = false,
-                            finished: ByteArray? = null) {
+                            finished: ByteArray? = null,
+                            explicitlyDiscardedId: String? = null) {
         if (signedOut) {
+            liveActivityJson = null
             transportRevision++
             todayPlanJson=null
             sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
@@ -1198,14 +1297,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         val localId = visibleSession?.sessionId
         if(dev.repera.domain.WatchSessionReconciliation.preserveLocal(
-            watchStartedSession,localId,incomingId,completed?.sessionId)) {
+            watchStartedSession,localId,incomingId,completed?.sessionId,explicitlyDiscardedId)) {
             sendStatus="Otra sesión está activa en el teléfono; se conserva la del reloj"
             syncProblem=true
             return
         }
         // Teléfono terminó/descartó: tumba el id local para que un relaunch no resucite.
-        if (dev.repera.domain.WatchSessionReconciliation.phoneDiscarded(
-                localId, incomingId, completed?.sessionId)) {
+        if (!watchStartedSession && dev.repera.domain.WatchSessionReconciliation.phoneDiscarded(
+                localId, incomingId, completed?.sessionId, explicitlyDiscardedId)) {
             localId?.let { rememberDiscarded(it) }
             runCatching { pendingFinish.clear() }
             finishedSummary = null
@@ -1221,6 +1320,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         finishedSummary = showFinished
         if (bytes == null || bytes.isEmpty()) {
+            // The phone's last-known empty state is not a cancellation. Keep
+            // a valid local session and its outbox until an ID-matched finish or
+            // explicit discard arrives; Data Layer updates can be delayed.
+            if (localId != null && completed?.sessionId != localId &&
+                explicitlyDiscardedId != localId) {
+                syncProblem = true
+                sendStatus = "Sesión local conservada; esperando sincronización"
+                return
+            }
             localId?.let { rememberDiscarded(it) }
             // Terminado con resumen: conserva cola si coincide; si no, limpia.
             val erase = showFinished == null
@@ -1271,6 +1379,26 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             syncProblem = true
             // Keep the last valid summary but never claim the corrupted update succeeded.
         }
+    }
+
+    /** Terminal events are the only way to discard an unadopted watch-owned session.
+     * A plain Data Layer snapshot with no active workout must never erase it.
+     */
+    private fun receivePhoneTerminal(sessionId: String?, saved: Boolean) {
+        if (sessionId.isNullOrBlank() || visibleSession?.sessionId != sessionId) return
+        if (saved && runCatching {
+                pendingStore.all().any { it.optString("sessionId") == sessionId }
+            }.getOrDefault(true)) {
+            sendStatus = "El teléfono terminó; hay series sin confirmar. Se conservan en el reloj."
+            syncProblem = true
+            resendPending()
+            return
+        }
+        rememberDiscarded(sessionId)
+        // Saving and discarding are distinct: never erase an unsent saved set.
+        clearSession(erasePending = !saved)
+        sendStatus = if (saved) "Entrenamiento terminado desde el teléfono"
+            else "Entrenamiento descartado desde el teléfono"
     }
 
     private fun clearSession(erasePending: Boolean) {

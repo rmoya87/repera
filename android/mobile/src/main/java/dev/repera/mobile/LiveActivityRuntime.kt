@@ -19,6 +19,8 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         .digest(accountID.toByteArray()).joinToString("") { "%02x".format(it) })
     private val store = LiveActivitySnapshotStore(File(folder,"live_activity.json"))
     private var lastSaveMillis = 0L
+    private var lastWearPublishMillis = 0L
+    private var lastWearPhase: LiveActivityState.Phase? = null
     private val voice = LiveSpokenGuidance(app)
     private val voicePrefs = app.getSharedPreferences("repera.live.guidance", Context.MODE_PRIVATE)
     var spokenGuidanceEnabled = voicePrefs.getBoolean("enabled", true); private set
@@ -170,7 +172,15 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         if (state.phase == LiveActivityState.Phase.RECORDING) pause()
         location.stop(state.gpsSessionID,false);checkpoint(true)
     }
-    fun publish() { revisions.value += 1 }
+    fun publish() {
+        revisions.value += 1
+        val now = System.currentTimeMillis()
+        if (state.phase != lastWearPhase || now - lastWearPublishMillis >= 5_000) {
+            lastWearPhase = state.phase
+            lastWearPublishMillis = now
+            WearActiveSessionBridge.publishLive(app, this)
+        }
+    }
     companion object {
         private var current: LiveActivityRuntime? = null
         @Synchronized fun forAccount(context: Context, accountID: String): LiveActivityRuntime {
