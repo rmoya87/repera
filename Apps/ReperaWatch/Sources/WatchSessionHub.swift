@@ -1203,7 +1203,12 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             guard let session else {
                 // Nil is a snapshot (e.g. phone restarted while offline), NOT a
                 // cancellation command. Preserve a watch-owned local execution.
-                if self.startedOnThisWatch && self.controller != nil { return }
+                if self.startedOnThisWatch &&
+                   (self.controller != nil || self.lastFinished != nil) {
+                    // A completed watch result may still be waiting for the
+                    // phone's durable ACK or late HealthKit measurement.
+                    return
+                }
                 if self.controller != nil || (self.lastFinished != nil && !self.awaitingHealthSave) {
                     self.discardActiveSession(fromPhone: true)
                 }
