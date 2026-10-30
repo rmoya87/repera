@@ -82,6 +82,24 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         publishLatestContext()
     }
 
+    /// A missing active snapshot is NOT an instruction to discard a watch-owned
+    /// workout. A terminal command is scoped to the exact session UUID.
+    func sendTerminalEvent(sessionID: UUID, saved: Bool) {
+        guard WCSession.isSupported() else { return }
+        let payload: [String: Any] = [
+            "sessionTerminalId": sessionID.uuidString,
+            "sessionTerminalSaved": saved
+        ]
+        latestPayloadLock.withLock {
+            if latestPayload == nil { latestPayload = ["session": Data()] }
+            latestPayload?.merge(payload) { _, new in new }
+        }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
+        wc.transferUserInfo(payload)
+        publishLatestContext()
+    }
+
     /// Reliable latest state while offline; immediate state for a reachable Watch.
     private func publishLatestContext() {
         guard WCSession.isSupported(),
