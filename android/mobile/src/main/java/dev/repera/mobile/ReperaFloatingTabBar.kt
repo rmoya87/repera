@@ -22,7 +22,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,7 +32,28 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/**
+ * Altura del chrome inferior (tab bar + Continuar + nav bars) cuando está visible.
+ * El contenido dibuja detrás del menú; los scrolls usan este inset para que el
+ * último ítem acabe encima del menú al llegar al final.
+ */
+internal val LocalReperaTabBarInset = compositionLocalOf { 0.dp }
+
+/** Padding de listas con tab bar: horizontal/top fijos + bottom = inset medido. */
+@Composable
+internal fun reperaScrollContentPadding(
+    horizontal: Dp = 16.dp,
+    top: Dp = 16.dp,
+    extraBottom: Dp = 12.dp
+): PaddingValues = PaddingValues(
+    start = horizontal,
+    end = horizontal,
+    top = top,
+    bottom = LocalReperaTabBarInset.current + extraBottom
+)
 
 internal data class ReperaTabSpec(
     val route: String,

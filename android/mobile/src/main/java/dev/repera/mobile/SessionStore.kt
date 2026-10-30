@@ -91,8 +91,25 @@ internal class SessionStore(context: Context) {
 
     fun clear() {
         synchronized(identityLock) {
-            check(preferences.edit().remove(KEY_BLOB).putString(KEY_IDENTITY_REVISION,java.util.UUID.randomUUID().toString()).commit()) {"No se pudo cerrar la sesión guardada"}
+            check(
+                preferences.edit()
+                    .remove(KEY_BLOB)
+                    .remove(KEY_GOOGLE_PHOTO_URL)
+                    .putString(KEY_IDENTITY_REVISION, java.util.UUID.randomUUID().toString())
+                    .commit()
+            ) { "No se pudo cerrar la sesión guardada" }
         }
+    }
+
+    /** URL pública de la foto de Google (no secreto; fuera del blob cifrado). */
+    fun googlePhotoUrl(): String? =
+        preferences.getString(KEY_GOOGLE_PHOTO_URL, null)?.takeIf { it.isNotBlank() }
+
+    fun setGooglePhotoUrl(url: String?) {
+        val editor = preferences.edit()
+        if (url.isNullOrBlank()) editor.remove(KEY_GOOGLE_PHOTO_URL)
+        else editor.putString(KEY_GOOGLE_PHOTO_URL, url)
+        check(editor.commit()) { "No se pudo guardar la foto de Google" }
     }
 
     private fun encrypt(data: ByteArray): ByteArray {
@@ -131,6 +148,7 @@ internal class SessionStore(context: Context) {
         private const val KEY_IDENTITY_REVISION="identity_revision"
         private const val PREFS = "repera_session"
         private const val KEY_BLOB = "session_blob"
+        private const val KEY_GOOGLE_PHOTO_URL = "google_photo_url"
         private const val KEY_ALIAS = "repera_session_key"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"

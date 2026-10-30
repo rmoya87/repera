@@ -69,9 +69,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -434,6 +436,7 @@ fun ReperaMobileScreen(
         // R5 P2.9: iOS mantiene la tab bar en push (Crear/Ajustes/ejercicio); solo se oculta chrome repera/gear.
         val showTabBar = currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
+        var tabBarChromeHeightDp by remember { mutableStateOf(0.dp) }
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             // Insets a 0: cada ruta pinta/respeta system bars (iOS safeArea).
@@ -465,28 +468,42 @@ fun ReperaMobileScreen(
                 } else null
                 val continueProgress = if (session != null && session.total > 0)
                     "${session.index + 1}/${session.total}" else ""
-                ReperaTabBarChrome(
-                    showTabBar = showTabBar,
-                    selectedRoute = currentRoute,
-                    onTabSelected = navigateTab,
-                    continueTitle = continueTitle,
-                    continueProgress = continueProgress,
-                    onContinue = { navController.navigate("entreno-activo") }
-                )
+                // Mide la altura real del chrome para el inset de scroll.
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                androidx.compose.foundation.layout.Box(
+                    Modifier.onSizeChanged { size ->
+                        tabBarChromeHeightDp = with(density) { size.height.toDp() }
+                    }
+                ) {
+                    ReperaTabBarChrome(
+                        showTabBar = showTabBar,
+                        selectedRoute = currentRoute,
+                        onTabSelected = navigateTab,
+                        continueTitle = continueTitle,
+                        continueProgress = continueProgress,
+                        onContinue = { navController.navigate("entreno-activo") }
+                    )
+                }
             }
         ) { padding ->
             // Comenzar: mapa 100% detrás de status + tab/nav (LiveActivityView iOS).
             val mapUnderTabs = currentRoute == "en-vivo" && showTabBar
             val inicioEdge = currentRoute == "inicio"
-            val hostPadding = if (mapUnderTabs) {
-                Modifier // sin padding: mapa a sangre bajo status y tab bar
-            } else {
-                Modifier.padding(padding) // solo hueco de topBar/bottomBar
+            // Con tab bar: el contenido llega al borde inferior y pasa por detrás
+            // del menú flotante (solo se reserva el topBar/status).
+            val hostPadding = when {
+                mapUnderTabs -> Modifier
+                showTabBar -> Modifier.padding(top = padding.calculateTopPadding())
+                else -> Modifier.padding(padding)
             }
             // Inicio: HomeTab pinta surface bajo statusBars. Mapa: overlays con
             // statusBarsPadding. Resto: host evita solapar iconos del sistema.
             val statusPad = if (mapUnderTabs || inicioEdge) Modifier
             else Modifier.statusBarsPadding()
+            val tabInset = if (showTabBar) tabBarChromeHeightDp else 0.dp
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalReperaTabBarInset provides tabInset
+            ) {
             androidx.compose.foundation.layout.Box(
                 Modifier.fillMaxSize().then(hostPadding).then(statusPad)
             ) {
@@ -1412,8 +1429,9 @@ fun ReperaMobileScreen(
                     )
                 }
             }
-            }
-        }
+            } // Box
+            } // CompositionLocalProvider(LocalReperaTabBarInset)
+        } // Scaffold
         }
     }
 }
@@ -1480,8 +1498,14 @@ internal fun SettingsTab(
 
     val settingsScroll=rememberScrollState()
     ProvideScrollDragAutoScroll(settingsScroll) {
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(settingsScroll).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val tabInset = LocalReperaTabBarInset.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(settingsScroll)
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = tabInset + 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         if (onBack != null) {
             ReperaToolbarGlassIconButton(
                 icon = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -1514,6 +1538,7 @@ internal fun SettingsTab(
             SettingsListRow(
                 title = "Buscar",
                 leadingIcon = Icons.Outlined.Search,
+                showChevron = false,
                 enabled = !busy,
                 onClick = onOpenCenter
             )
@@ -1560,7 +1585,10 @@ internal fun SettingsTab(
                         )
                     }
                 }
-                if (settingsSubs?.businessSponsoredAccess != true) {
+                val hasPro = settingsSubs?.snapshot?.grantsProAccess == true
+                val sponsored = settingsSubs?.businessSponsoredAccess == true
+                val settingsContext = LocalContext.current
+                if (!sponsored && !hasPro) {
                     SettingsCardDivider()
                     SettingsListRow(
                         title = "Descubrir Pro",
@@ -1569,6 +1597,24 @@ internal fun SettingsTab(
                         enabled = !busy,
                         onClick = onOpenPro
                     )
+                }
+                if (!sponsored && hasPro) {
+                    SettingsCardDivider()
+                    SettingsListRow(
+                        title = "Gestionar suscripción",
+                        showChevron = false,
+                        enabled = !busy,
+                        onClick = {
+                            val uri = Uri.parse(
+                                "https://play.google.com/store/account/subscriptions"
+                            )
+                            settingsContext.startActivity(
+                                Intent(Intent.ACTION_VIEW, uri)
+                            )
+                        }
+                    )
+                }
+                if (!sponsored) {
                     SettingsCardDivider()
                     SettingsListRow(
                         title = if (restoreBusy) "Comprobando acceso…" else "Comprobar acceso Pro",
@@ -1601,6 +1647,7 @@ internal fun SettingsTab(
                             restoreBusy = true
                             restoreMessage = null
                             settingsScope.launch {
+                                // Play Billing: queryPurchasesAsync + verify (flujo recomendado Google).
                                 val ok = settingsSubs?.restorePurchases() == true
                                 restoreBusy = false
                                 restoreMessage = if (ok) {
@@ -1620,6 +1667,12 @@ internal fun SettingsTab(
                     enabled = !busy,
                     onClick = onOpenAIAccess
                 )
+            }
+        }
+        if (dev.repera.mobile.BuildConfig.DEBUG) {
+            ReperaSectionTitle("Debug Pro (solo Debug)", uppercase = false)
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                DebugProSettingsSection(settingsSubs)
             }
         }
         if (restoreMessage != null) {
@@ -1717,6 +1770,91 @@ internal fun SettingsTab(
 }
 
 @Composable
+private fun DebugProSettingsSection(
+    subscriptions: dev.repera.mobile.monetization.SubscriptionManager?
+) {
+    val statuses = listOf(
+        dev.repera.domain.monetization.SubscriptionStatus.FREE,
+        dev.repera.domain.monetization.SubscriptionStatus.TRIAL,
+        dev.repera.domain.monetization.SubscriptionStatus.PRO_MONTHLY,
+        dev.repera.domain.monetization.SubscriptionStatus.PRO_ANNUAL,
+        dev.repera.domain.monetization.SubscriptionStatus.GRACE_PERIOD,
+        dev.repera.domain.monetization.SubscriptionStatus.EXPIRED,
+        dev.repera.domain.monetization.SubscriptionStatus.REVOKED,
+        dev.repera.domain.monetization.SubscriptionStatus.UNKNOWN
+    )
+    var statusMenu by remember { mutableStateOf(false) }
+    val debug = dev.repera.mobile.monetization.DebugEntitlementController
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Simular suscripción", modifier = Modifier.weight(1f))
+            androidx.compose.material3.Switch(
+                checked = debug.overrideEnabled,
+                onCheckedChange = {
+                    debug.overrideEnabled = it
+                    subscriptions?.applyDebugProvider()
+                },
+                colors = reperaSwitchColors()
+            )
+        }
+        SettingsCardDivider()
+        Box(Modifier.fillMaxWidth()) {
+            SettingsListRow(
+                title = "Estado",
+                trailing = debug.forcedStatus.displayName,
+                trailingColor = MaterialTheme.colorScheme.primary,
+                showChevron = false,
+                onClick = { statusMenu = true }
+            )
+            DropdownMenu(
+                expanded = statusMenu,
+                onDismissRequest = { statusMenu = false },
+                modifier = Modifier.fillMaxWidth(0.92f)
+            ) {
+                statuses.forEach { status ->
+                    DropdownMenuItem(
+                        text = { Text(status.displayName) },
+                        onClick = {
+                            debug.forcedStatus = status
+                            debug.overrideEnabled = true
+                            statusMenu = false
+                            subscriptions?.applyDebugProvider()
+                        }
+                    )
+                }
+            }
+        }
+        SettingsCardDivider()
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Simular offline", modifier = Modifier.weight(1f))
+            androidx.compose.material3.Switch(
+                checked = debug.simulateOffline,
+                onCheckedChange = {
+                    debug.simulateOffline = it
+                    subscriptions?.applyDebugProvider()
+                },
+                colors = reperaSwitchColors()
+            )
+        }
+        SettingsCardDivider()
+        SettingsTextActionRow(
+            text = "Reset cuota escáner",
+            onClick = { subscriptions?.freeUsage?.resetForDebug() }
+        )
+    }
+}
+
+@Composable
 private fun SettingsDropdownPickerRow(
     label: String,
     value: String,
@@ -1725,24 +1863,45 @@ private fun SettingsDropdownPickerRow(
     onSelect: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
+    // Expansión inline debajo del campo (evita Popup desplazado a la izquierda).
+    Column(Modifier.fillMaxWidth()) {
         SettingsListRow(
             title = label,
             trailing = value,
             trailingColor = MaterialTheme.colorScheme.primary,
             showChevron = false,
             enabled = enabled,
-            onClick = if (enabled) {{ expanded = true }} else null
+            onClick = if (enabled) {{ expanded = !expanded }} else null
         )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (display, wire) ->
-                DropdownMenuItem(
-                    text = { Text(display) },
-                    onClick = {
-                        expanded = false
-                        onSelect(wire)
+        androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                options.forEach { (display, wire) ->
+                    val selected = display == value ||
+                        (label == "Esfuerzo (registro)" && display.equals(value, true))
+                    TextButton(
+                        onClick = {
+                            expanded = false
+                            onSelect(wire)
+                        },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 16.dp, vertical = 10.dp
+                        )
+                    ) {
+                        Text(
+                            display,
+                            textAlign = TextAlign.End,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (selected) FontWeight.SemiBold
+                            else FontWeight.Normal
+                        )
                     }
-                )
+                }
             }
         }
     }
@@ -1783,9 +1942,6 @@ private fun SettingsHealthRows(
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { revision++ }
-    val notificationsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { revision++ }
     fun openAppSettings() {
         context.startActivity(
             Intent(
@@ -1793,6 +1949,18 @@ private fun SettingsHealthRows(
                 Uri.parse("package:${context.packageName}")
             )
         )
+    }
+    fun openNotificationSettings() {
+        val intent = Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
+        runCatching { context.startActivity(intent) }.onFailure { openAppSettings() }
+    }
+    val notificationsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        revision++
+        if (!granted) openNotificationSettings()
     }
     Column {
         SettingsListRow(
@@ -1805,7 +1973,7 @@ private fun SettingsHealthRows(
                 if (Build.VERSION.SDK_INT >= 33 && !notificationsGranted) {
                     notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    openAppSettings()
+                    openNotificationSettings()
                 }
             }
         )

@@ -81,7 +81,7 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   return
  }
  if (onBack != null) BackHandler(onBack = onBack)
- LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=PaddingValues(16.dp),verticalArrangement= Arrangement.spacedBy(12.dp)) {
+ LazyColumn(Modifier.fillMaxSize().testTag("complete_history_list"),contentPadding=reperaScrollContentPadding(),verticalArrangement= Arrangement.spacedBy(12.dp)) {
   item {
    if (onBack != null) {
     // R7 P2: mismo círculo glass 48/44/24 que el resto de toolbars.
@@ -94,26 +94,6 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
     )
    }
    ReperaPageHeader(title = "Historial")
-  }
-  // iOS HistoryView: fila Deportes siempre visible.
-  item {
-   ReperaCard(
-    onClick = onOpenSports,
-    modifier = Modifier.fillMaxWidth().testTag("history_sports_link")
-   ) {
-    Row(
-     Modifier.padding(16.dp).fillMaxWidth(),
-     horizontalArrangement = Arrangement.SpaceBetween,
-     verticalAlignment = Alignment.CenterVertically
-    ) {
-     Text("Deportes · evolución y récords")
-     Icon(
-      Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-      contentDescription = null,
-      tint = MaterialTheme.colorScheme.onSurfaceVariant
-     )
-    }
-   }
   }
   if(rows.isEmpty()) item {
     ReperaEmptyState(

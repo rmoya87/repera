@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -354,8 +355,9 @@ fun ReperaEmptyState(
 }
 
 /**
- * Botón circular toolbar (paridad OGToolbarGlassButton / R7).
- * Touch target mínimo 48 dp; círculo visible 44 dp; icono 24 dp M3.
+ * Botón circular toolbar.
+ * Touch target 48 dp; círculo 44 dp; icono 24 dp M3.
+ * Día: blanco. Noche: negro.
  */
 @Composable
 fun ReperaToolbarGlassIconButton(
@@ -365,6 +367,9 @@ fun ReperaToolbarGlassIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val circle = if (dark) Color.Black else Color.White
+    val iconTint = if (dark) Color.White else Color.Black
     Box(
         modifier = modifier
             .size(48.dp)
@@ -372,16 +377,14 @@ fun ReperaToolbarGlassIconButton(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        // Liquid Glass → Material translucency (sin blur de backdrop nativo Apple).
-        // R8/R9: surface semitransparente + borde; contraste en claro.
         Surface(
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            tonalElevation = 2.dp,
-            shadowElevation = 2.dp,
+            color = circle,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
             border = BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
             ),
             modifier = Modifier.size(44.dp)
         ) {
@@ -390,14 +393,51 @@ fun ReperaToolbarGlassIconButton(
                     imageVector = icon,
                     contentDescription = contentDescription,
                     modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = if (enabled) iconTint else iconTint.copy(alpha = 0.38f)
                 )
             }
         }
     }
 }
 
-/** Picker segmentado en píldora (track gris, selección en cápsula blanca). */
+/**
+ * Buscador píldora compartido (ejercicios / centro / deportes).
+ */
+@Composable
+fun ReperaSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector = Icons.Outlined.Search,
+    enabled: Boolean = true,
+) {
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val searchBg = if (dark) MaterialTheme.colorScheme.surface else Color.White
+    androidx.compose.material3.OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        enabled = enabled,
+        singleLine = true,
+        shape = RoundedCornerShape(999.dp),
+        placeholder = { Text(placeholder) },
+        leadingIcon = { Icon(leadingIcon, contentDescription = null) },
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            unfocusedContainerColor = searchBg,
+            focusedContainerColor = searchBg,
+            disabledContainerColor = searchBg,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedBorderColor = MaterialTheme.colorScheme.primary
+        )
+    )
+}
+
+/**
+ * Tabs full-width estilo Android (SecondaryTabRow M3).
+ * Fondo transparente por defecto (sin franja gris dentro de cards blancas).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReperaTopicSegmentedPicker(
     options: List<String>,
@@ -405,40 +445,33 @@ fun ReperaTopicSegmentedPicker(
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     optionTestTag: (index: Int, label: String) -> String = { index, _ -> "progress_topic_$index" },
+    containerColor: Color = Color.Transparent,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        border = reperaCardBorder()
+    if (options.isEmpty()) return
+    val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
+    androidx.compose.material3.SecondaryTabRow(
+        selectedTabIndex = selectedIndex,
+        modifier = modifier.fillMaxWidth().testTag("repera_segmented_tabs"),
+        containerColor = containerColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        divider = {}
     ) {
-        Row(
-            modifier = Modifier.padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            options.forEachIndexed { index, label ->
-                val isSelected = selected == label
-                Surface(
-                    onClick = { onSelected(label) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag(optionTestTag(index, label)),
-                    shape = RoundedCornerShape(999.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
-                    shadowElevation = if (isSelected) 1.dp else 0.dp
-                ) {
+        options.forEachIndexed { index, label ->
+            androidx.compose.material3.Tab(
+                selected = index == selectedIndex,
+                onClick = { onSelected(label) },
+                modifier = Modifier.testTag(optionTestTag(index, label)),
+                text = {
                     Text(
                         text = label,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp)
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (index == selectedIndex) FontWeight.SemiBold
+                        else FontWeight.Medium,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center
                     )
                 }
-            }
+            )
         }
     }
 }

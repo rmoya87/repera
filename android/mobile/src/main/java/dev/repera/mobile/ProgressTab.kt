@@ -3,81 +3,54 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.TrendingUp
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.SegmentedButton
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
-import dev.repera.domain.ExerciseAliasSearch
-import dev.repera.domain.WodFormat
-import dev.repera.domain.WodClock
-import dev.repera.domain.WodClockSpec
+import androidx.compose.ui.unit.dp
 import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import dev.repera.domain.MuscleTaxonomy
 import dev.repera.domain.ProgressTimeRange
 import dev.repera.mobile.monetization.LocalSubscriptions
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.delay
+
+/** Rellena gráficas vacías con datos ficticios para revisión visual. Desactivar cuando no haga falta. */
+internal const val PROGRESS_DEMO_CHARTS = true
 
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -121,8 +94,14 @@ internal fun ProgressTab(
     // Apple 479d8407: la cobertura de Salud sigue al rango elegido (tambien al
     // aparecer la pestana); MainActivity solo amplia la ventana si hace falta.
     LaunchedEffect(selectedRange) { onProgressRangeChange(selectedRange) }
-    val snapshot = overview?.progressByRange?.get(selectedRange)
+    val rawSnapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
+    val monday = overview?.trainingSettings?.weekStartsOnMonday ?: true
+    val snapshot = remember(rawSnapshot, selectedRange, today, PROGRESS_DEMO_CHARTS) {
+        if (!PROGRESS_DEMO_CHARTS || rawSnapshot == null) rawSnapshot
+        else enrichSnapshotWithDemo(rawSnapshot, today)
+    }
+    val demoBanner = PROGRESS_DEMO_CHARTS
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     var shownTopic by remember { mutableStateOf(topic) }
     LaunchedEffect(topic) {
@@ -147,7 +126,7 @@ internal fun ProgressTab(
     LazyColumn(
         state = dragListState,
         modifier = modifier.fillMaxSize().then(Modifier.testTag("progress_list")),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = reperaScrollContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
@@ -164,12 +143,27 @@ internal fun ProgressTab(
                 }
             )
         }
-        item {
-            ReperaTopicSegmentedPicker(
-                options = listOf("Entreno", "Actividad", "Recuperación"),
-                selected = topic,
-                onSelected = { topic = it }
-            )
+        if (demoBanner) {
+            item {
+                Text(
+                    "Datos de ejemplo en gráficas vacías (revisión visual)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        stickyHeader {
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                ReperaTopicSegmentedPicker(
+                    options = listOf("Entreno", "Actividad", "Recuperación"),
+                    selected = topic,
+                    onSelected = { topic = it },
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
         }
         if (topic == "Entreno" && snapshot != null) {
             item { ProgressMetricsTilesGrid(snapshot, pro) }
@@ -187,25 +181,41 @@ internal fun ProgressTab(
         // iOS StatsView: tiles + heatmap Actividad + Equilibrio; sin Resumen/Constancia/Cardio en Entreno.
         if (snapshot != null) {
             if(topic=="Recuperación") {
-                val recovery=overview?.recovery ?: RecoveryState(null,null,null,null)
-                item {RecoveryHistoryCards(recovery,ProgressTimeRange.entries.first {it.wire==selectedRange},overview?.trainingSettings?.weekStartsOnMonday ?: true,pro,outerHorizontalPaddingDp=32f)}
+                val baseRecovery=overview?.recovery ?: RecoveryState(null,null,null,null)
+                val recovery=if(PROGRESS_DEMO_CHARTS) enrichRecoveryWithDemo(baseRecovery,today) else baseRecovery
+                item {RecoveryHistoryCards(recovery,ProgressTimeRange.entries.first {it.wire==selectedRange},monday,pro || PROGRESS_DEMO_CHARTS,outerHorizontalPaddingDp=32f)}
                 if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Recuperación completa",bodyText="Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.RECOVERY,onClick={
                     subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
                 })}
             }
             if(topic=="Actividad") {
-            val charts=if(pro) overview?.chartsByRange?.get(selectedRange) else ProgressPreview.charts(today,overview?.trainingSettings?.weekStartsOnMonday ?: true)
+            val realCharts=if(pro) overview?.chartsByRange?.get(selectedRange) else null
+            val charts=when {
+                !pro || PROGRESS_DEMO_CHARTS && (realCharts==null || realCharts.heartRate.isEmpty()) ->
+                    ProgressPreview.charts(today,monday)
+                else -> realCharts
+            }
             item {
                 Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                if(!pro) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
-                val prepared=charts ?: dev.repera.domain.ProgressPreparedCharts(
-                    dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},overview?.trainingSettings?.weekStartsOnMonday ?: true,
-                    emptyList(),emptyList(),0.0,null,dev.repera.domain.ProgressSeriesGranularity.DAY)
+                if(!pro || PROGRESS_DEMO_CHARTS) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
+                val prepared=charts ?: ProgressPreview.charts(today,monday)
+                val scorePoints=overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
+                val scoreDemo=scorePoints.size<2
                 ProgressHealthGrid(
-                    score={if(pro) SessionScoreProgressCard(overview?.sessionScoresByRange?.get(selectedRange).orEmpty(),range=dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},monday=prepared.weekStartsOnMonday)
-                        else SessionScoreProgressCard((0..6).map {i ->dev.repera.domain.ProgressDayPoint(today.minusDays(6L-i),listOf(6.0,7.0,7.0,8.0,6.0,8.0,9.0)[i])},preview=true,range=dev.repera.domain.ProgressTimeRange.entries.first {it.wire==selectedRange},monday=prepared.weekStartsOnMonday)},
-                    cardio={ProgressCardioCard(prepared,!pro)},calories={ProgressCaloriesCard(prepared,!pro)},
-                    weight={if(!pro) WeightPreviewCard(today) else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)})
+                    score={
+                        SessionScoreProgressCard(
+                            if (pro && !scoreDemo) scorePoints else ProgressPreview.sessionScores(today),
+                            preview = !pro || scoreDemo,
+                            range = ProgressTimeRange.entries.first { it.wire == selectedRange },
+                            monday = prepared.weekStartsOnMonday
+                        )
+                    },
+                    cardio={ProgressCardioCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},calories={ProgressCaloriesCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},
+                    weight={
+                        if (!pro || (PROGRESS_DEMO_CHARTS && snapshot.weightPoints.isEmpty()))
+                            WeightPreviewCard(today)
+                        else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)
+                    })
                 // I-124 placeholder: sin motor de zonas HR en domain todavía.
                 ReperaCard(
                     modifier = Modifier.fillMaxWidth().testTag("heart_zones_card")
@@ -278,11 +288,36 @@ internal fun ProgressTab(
             })}
             }
         }
-        if(topic=="Entreno") {
-        // Apple 2ac224f5: el historial solo aparece bajo el progreso de entreno,
-        // no en Recuperación ni Actividad.
-        // I-120: fila «🕘 Historial ›» (no TextButton genérico).
-        if (topic == "Entreno") item {
+        if (topic == "Entreno") {
+        // Resultados recientes; Historial al final (última opción de Entreno).
+        if (recent.isNotEmpty()) {
+            item { ReperaSectionTitle("Resultados recientes") }
+            items(recent, key = { "progress:" + it.id }) { workout ->
+                ReperaCard(
+                    onClick = { onOpenWorkoutDetail(workout.id) },
+                    modifier = Modifier.fillMaxWidth().testTag("progress_recent_${workout.id}")
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(workout.title, style = MaterialTheme.typography.titleMedium)
+                        if (workout.startedAt.isNotBlank()) {
+                            Text(
+                                workout.startedAt,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            item {
+                ReperaEmptyState(
+                    title = "Todavía no hay entrenamientos para analizar",
+                    subtitle = "Completa sesiones para ver resumen y tendencias"
+                )
+            }
+        }
+        item {
             ReperaCard(
                 onClick = { if (overview != null) onOpenHistory() },
                 modifier = Modifier.fillMaxWidth().testTag("progress_history_link")
@@ -309,34 +344,6 @@ internal fun ProgressTab(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-        }
-        if (recent.isNotEmpty()) {
-            item { ReperaSectionTitle("Resultados recientes") }
-            items(recent, key = { "progress:" + it.id }) { workout ->
-                // iOS: resultados recientes abren detalle full; no card expandida inline.
-                ReperaCard(
-                    onClick = { onOpenWorkoutDetail(workout.id) },
-                    modifier = Modifier.fillMaxWidth().testTag("progress_recent_${workout.id}")
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(workout.title, style = MaterialTheme.typography.titleMedium)
-                        if (workout.startedAt.isNotBlank()) {
-                            Text(
-                                workout.startedAt,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            item {
-                ReperaEmptyState(
-                    title = "Todavía no hay entrenamientos para analizar",
-                    subtitle = "Completa sesiones para ver resumen y tendencias"
-                )
             }
         }
         }
@@ -459,19 +466,21 @@ private fun ProgressRangePickerSheet(
                     )
                 }
             )
-            ReperaCard(Modifier.fillMaxWidth()) {
-                Column {
-                    ProgressTimeRange.entries.forEachIndexed { index, range ->
-                        if (index > 0) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 50.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                            )
-                        }
-                        val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
-                        val selected = selectedWire == range.wire
-                        TextButton(
-                            onClick = {
+            // Sin card envolvente (iOS StatsView): filas planas; verde solo en icono/check.
+            Column(Modifier.fillMaxWidth()) {
+                ProgressTimeRange.entries.forEachIndexed { index, range ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 50.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                    }
+                    val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
+                    val selected = selectedWire == range.wire
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
                                 if (!allowed) {
                                     onDismiss()
                                     subscriptions?.presentPaywall(
@@ -483,43 +492,82 @@ private fun ProgressRangePickerSheet(
                                 } else {
                                     onDismiss()
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.CalendarMonth,
-                                contentDescription = null,
-                                tint = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                range.title,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 12.dp),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            if (dev.repera.domain.monetization.ReperaFeature.requiresPro(range) && !isPro) {
-                                Text(
-                                    "Pro",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            } else if (selected) {
-                                Icon(
-                                    Icons.Outlined.Check,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
                             }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Outlined.CalendarMonth,
+                            contentDescription = null,
+                            tint = if (selected) brandGreenReadable
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            range.title,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 12.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (dev.repera.domain.monetization.ReperaFeature.requiresPro(range) && !isPro) {
+                            Text(
+                                "Pro",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = brandGreenReadable
+                            )
+                        } else if (selected) {
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = brandGreenReadable
+                            )
                         }
                     }
                 }
             }
         }
     }
+}
+
+/** Completa heatmap / músculos / ejercicios si faltan (solo revisión visual). */
+private fun enrichSnapshotWithDemo(
+    snap: ProgressSnapshotData,
+    today: LocalDate
+): ProgressSnapshotData {
+    val heat = ProgressPreview.heatmap(today)
+    val loads = ProgressPreview.muscleLoads()
+    val fatigue = ProgressPreview.muscleFatigue()
+    return snap.copy(
+        heatmapTime = snap.heatmapTime.ifEmpty { heat },
+        heatmapVolume = snap.heatmapVolume.ifEmpty { heat.map { it.first to ((it.second + 1) % 5) } },
+        muscleLoadAll = if (snap.muscleLoadAll.isEmpty()) loads else snap.muscleLoadAll,
+        muscleLoadHard = if (snap.muscleLoadHard.isEmpty()) loads.mapValues { it.value * 0.6 } else snap.muscleLoadHard,
+        muscleFatigueAll = if (snap.muscleFatigueAll.isEmpty()) fatigue else snap.muscleFatigueAll,
+        muscleFatigueHard = if (snap.muscleFatigueHard.isEmpty()) fatigue.mapValues { it.value * 0.7 } else snap.muscleFatigueHard,
+        hasHardSets = snap.hasHardSets || true,
+        chartExercises = snap.chartExercises.ifEmpty { ProgressPreview.chartExercises() },
+        weightPoints = snap.weightPoints.ifEmpty { ProgressPreview.weight(today) },
+        mobilitySessions = if (snap.mobilitySessions > 0) snap.mobilitySessions else 3,
+        mobilitySeconds = if (snap.mobilitySeconds > 0) snap.mobilitySeconds else 45 * 60
+    )
+}
+
+private fun enrichRecoveryWithDemo(base: RecoveryState, today: LocalDate): RecoveryState {
+    val nights = base.nights.ifEmpty { ProgressPreview.recoveryNights(today) }
+    val vitals = base.vitals.ifEmpty { ProgressPreview.recoveryVitals(today) }
+    val trend = base.trend.ifEmpty { ProgressPreview.recoveryTrend(today) }
+    return base.copy(
+        readiness = base.readiness ?: ProgressPreview.recoveryReadiness(),
+        sleepIndex = base.sleepIndex ?: 72,
+        lastNightHours = base.lastNightHours ?: nights.lastOrNull()?.hours,
+        recentAverageSleepHours = base.recentAverageSleepHours
+            ?: nights.map { it.hours }.average().takeIf { nights.isNotEmpty() },
+        nights = nights,
+        vitals = vitals,
+        trend = trend
+    )
 }
 
 

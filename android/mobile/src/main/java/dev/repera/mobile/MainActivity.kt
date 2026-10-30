@@ -1754,6 +1754,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     displayName = google.displayName ?: "Deportista"
                 )
                 profile = signedIn
+                SessionStore(this@MainActivity).setGooglePhotoUrl(
+                    google.profilePictureUri?.toString()
+                )
                 persistSession(session, signedIn)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)

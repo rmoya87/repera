@@ -139,16 +139,13 @@ fun AIAccessScreen(
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
         // R6 P0-2: Volver + título large + tarjeta «Elige tu asistente».
         if (onBack != null) {
-            IconButton(
+            ReperaToolbarGlassIconButton(
+                icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Volver",
                 onClick = onBack,
                 enabled = !busy,
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                    .testTag("ai_access_back")
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
-            }
+                modifier = Modifier.testTag("ai_access_back")
+            )
         }
         ReperaPageHeader(title = "Conecta tu IA")
         if (providers?.second == true) {

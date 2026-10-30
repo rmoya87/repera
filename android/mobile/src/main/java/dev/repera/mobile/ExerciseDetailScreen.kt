@@ -3,62 +3,65 @@ package dev.repera.mobile
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import dev.repera.domain.ReperaNumberFormat
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * Ficha de ejercicio: héroe + carrusel de pasos numerados (semántica iOS),
@@ -103,51 +106,105 @@ internal fun ExerciseDetailScreen(
     ReadableColumn {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = reperaScrollContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Ejercicios")
-                }
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Ejercicios",
+                    onClick = onBack
+                )
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onQuickLog, enabled = !busy) {
-                    Icon(Icons.Outlined.EditNote, contentDescription = "Apuntar ejercicio")
-                }
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.Outlined.EditNote,
+                    contentDescription = "Apuntar ejercicio",
+                    onClick = onQuickLog,
+                    enabled = !busy
+                )
                 if (onToggleFavorite != null) {
-                    IconButton(onClick = onToggleFavorite, enabled = !busy,
-                        modifier = Modifier.testTag("exercise_detail_favorite")) {
-                        Icon(
-                            if (entry.isFavorite) Icons.Outlined.Star
-                            else Icons.Outlined.StarBorder,
-                            contentDescription = if (entry.isFavorite) "Quitar de favoritos" else "Favorito",
-                            tint = if (entry.isFavorite) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    ReperaToolbarGlassIconButton(
+                        icon = if (entry.isFavorite) Icons.Outlined.Star
+                        else Icons.Outlined.StarBorder,
+                        contentDescription = if (entry.isFavorite) "Quitar de favoritos" else "Favorito",
+                        onClick = onToggleFavorite,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("exercise_detail_favorite")
+                    )
                 }
             }
             ReperaPageHeader(title = entry.displayName)
         }
-        // I-31 hero arte full-bleed con indicador 1/N (pager horizontal).
+        // Orden: título → imagen+descripción unidas → cómo (un cuadro) → músculos → carga → evolución
         item {
-            ExerciseArtHero(frames = frames, name = entry.name)
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    ExerciseArtHero(
+                        frames = frames,
+                        name = entry.name,
+                        clipTopOnly = entry.detailDescription != null
+                    )
+                    entry.detailDescription?.let { description ->
+                        Text(
+                            description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                        )
+                    }
+                }
+            }
         }
         if (thisSessionAppearance != null) {
             item(key = "this-session-" + highlightSessionId) {
-                ThisSessionCard(thisAppearance = thisSessionAppearance,
-                    prior = priorSessionAppearance)
+                ThisSessionCard(
+                    thisAppearance = thisSessionAppearance,
+                    prior = priorSessionAppearance
+                )
             }
         }
+        if (entry.instructions.isNotEmpty()) {
+            item { ReperaSectionTitle("Cómo hacerlo") }
+            item {
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        entry.instructions.forEachIndexed { index, step ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                            }
+                            Text(
+                                "${index + 1}. $step",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item { MuscleEquipmentCard(entry) }
+        if (!isMobility) {
+            item { ReperaSectionTitle("Carga sugerida") }
+            item { SuggestedExerciseLoadCard(testedOneRM, estimatedOneRM, incrementKg) }
+        }
         item {
-            // Paridad iOS FreeExerciseSummaryCard: la evolución completa es Pro;
-            // Gratis ve el teaser que abre el paywall con contexto exerciseEvolution.
             val subscriptions = LocalSubscriptions.current
             val evolutionAllowed = subscriptions
                 ?.decision(dev.repera.domain.monetization.ReperaFeature.EXERCISE_EVOLUTION)
                 ?.allowed ?: true
             if (evolutionAllowed) {
-                ExerciseEvolutionSection(entry = entry, exerciseSeries = exerciseSeries, testedOneRM=testedOneRM, onSetTestedOneRM=onSetTestedOneRM,busy=busy)
+                ExerciseEvolutionSection(
+                    entry = entry,
+                    exerciseSeries = exerciseSeries,
+                    testedOneRM = testedOneRM,
+                    onSetTestedOneRM = onSetTestedOneRM,
+                    busy = busy,
+                    summary = exerciseSummary(entry.id)
+                )
             } else {
                 dev.repera.mobile.monetization.ProTeaserCard(
                     title = "Tu evolución",
@@ -162,34 +219,6 @@ internal fun ExerciseDetailScreen(
                 }
             }
         }
-        // Orden iOS: descripción → Cómo hacerlo → Músculos → Carga → …
-        entry.detailDescription?.let { description ->
-            item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(description, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        }
-        if (entry.instructions.isNotEmpty()) {
-            item { ReperaSectionTitle("Cómo hacerlo") }
-            itemsIndexed(entry.instructions, key = { index, _ -> index }) { index, step ->
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    androidx.compose.foundation.layout.Column(Modifier.padding(16.dp)) {
-                        Text("${index + 1}. $step", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        }
-        item {
-            MuscleEquipmentCard(entry)
-        }
-        if (!isMobility) {
-            item { ReperaSectionTitle("Carga sugerida") }
-            item { SuggestedExerciseLoadCard(testedOneRM,estimatedOneRM,incrementKg) }
-        }
         if (entry.detailDescription == null && entry.instructions.isEmpty()) {
             item {
                 ReperaEmptyState(
@@ -203,7 +232,12 @@ internal fun ExerciseDetailScreen(
 }
 
 @Composable
-private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifier = Modifier) {
+private fun ArtImage(
+    stem: String?,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(0.dp)
+) {
     if (stem == null) return
     val context = LocalContext.current
     val bitmap by produceState<ImageBitmap?>(initialValue = null, stem) {
@@ -213,7 +247,7 @@ private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifi
         Image(
             bitmap = it,
             contentDescription = contentDescription,
-            modifier = modifier.clip(RoundedCornerShape(12.dp)),
+            modifier = modifier.clip(shape),
             contentScale = ContentScale.Crop
         )
     }
@@ -221,47 +255,66 @@ private fun ArtImage(stem: String?, contentDescription: String, modifier: Modifi
 
 /** I-31 hero full-width con swipe e indicador «1/N». */
 @Composable
-private fun ExerciseArtHero(frames: List<String>, name: String) {
+private fun ExerciseArtHero(
+    frames: List<String>,
+    name: String,
+    clipTopOnly: Boolean = false
+) {
+    val imageShape = if (clipTopOnly) {
+        RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+    } else {
+        RoundedCornerShape(12.dp)
+    }
     if (frames.isEmpty()) {
-        ArtImage(null, name, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
-        return
-    }
-    if (frames.size == 1) {
-        ArtImage(frames.first(), name, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
-        return
-    }
-    var page by rememberSaveable(frames) { mutableStateOf(0) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 3f)
-                .pointerInput(frames, page) {
-                    detectHorizontalDragGestures { _, dragAmount ->
-                        if (dragAmount < -40 && page < frames.lastIndex) page++
-                        else if (dragAmount > 40 && page > 0) page--
-                    }
+                .background(MaterialTheme.colorScheme.surfaceVariant, imageShape)
+        )
+        return
+    }
+    if (frames.size == 1) {
+        ArtImage(
+            frames.first(),
+            name,
+            Modifier.fillMaxWidth().aspectRatio(4f / 3f),
+            shape = imageShape
+        )
+        return
+    }
+    var page by rememberSaveable(frames) { mutableStateOf(0) }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(4f / 3f)
+            .clip(imageShape)
+            .pointerInput(frames, page) {
+                detectHorizontalDragGestures { _, dragAmount ->
+                    if (dragAmount < -40 && page < frames.lastIndex) page++
+                    else if (dragAmount > 40 && page > 0) page--
                 }
-                .testTag("exercise_art_hero")
-        ) {
-            ArtImage(
-                frames[page.coerceIn(0, frames.lastIndex)],
-                name,
-                Modifier.fillMaxSize()
-            )
-            Text(
-                "${page + 1}/${frames.size}",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp)
-                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .testTag("exercise_art_page")
-            )
-        }
+            }
+            .testTag("exercise_art_hero")
+    ) {
+        ArtImage(
+            frames[page.coerceIn(0, frames.lastIndex)],
+            name,
+            Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(0.dp)
+        )
+        Text(
+            "${page + 1}/${frames.size}",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .testTag("exercise_art_page")
+        )
     }
 }
 
@@ -290,15 +343,34 @@ internal fun ExerciseEvolutionSection(
         exerciseSeries(entry.id, selectedMetric, selectedRange)
     }
     var selectedPoint by remember(entry.id,metric,range) {mutableStateOf<Int?>(null)}
-    val ceiling=testedOneRM?.takeIf { entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime" && (selectedMetric==ExerciseProgressMetric.TOP_SET || selectedMetric==ExerciseProgressMetric.ESTIMATED_ONE_RM) }
+    var editingTope by remember { mutableStateOf(false) }
+    var topeDraft by remember { mutableStateOf("") }
+    val isStrengthLogging = entry.sportTag != "Movilidad" &&
+        entry.loggingStyle != "machineWork" && entry.loggingStyle != "repsAndTime"
+    val ceiling=testedOneRM?.takeIf { isStrengthLogging && (selectedMetric==ExerciseProgressMetric.TOP_SET || selectedMetric==ExerciseProgressMetric.ESTIMATED_ONE_RM) }
+    fun beginTopeEdit() {
+        if (busy) return
+        topeDraft = testedOneRM?.let { ReperaNumberFormat.decimal(it) }.orEmpty()
+        editingTope = true
+    }
+    fun commitTopeEdit() {
+        if (!editingTope) return
+        val trimmed = topeDraft.trim()
+        when {
+            trimmed.isEmpty() || trimmed == "—" -> onSetTestedOneRM(null)
+            else -> {
+                val v = ReperaNumberFormat.parse(trimmed)
+                if (v != null && v > 0) {
+                    onSetTestedOneRM(kotlin.math.round(v * 10.0) / 10.0)
+                }
+            }
+        }
+        editingTope = false
+    }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         androidx.compose.foundation.layout.Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Evolución", style = MaterialTheme.typography.titleLarge)
-            // Apple 025828b5/1b5d4eea (ExerciseEvolutionPanel.summaryTiles):
-            // fichas centradas valor 18 semibold + etiqueta 11 sobre surface2.
-            // El tope 1RM ya vive en TestedOneRMEditor (misma funcion que el
-            // topeOneRMTile editable de Apple, no se duplica).
             summary?.let { h ->
                 val isMobility = entry.sportTag == "Movilidad"
                 val isMobilityHold = entry.mobilityHold
@@ -329,10 +401,27 @@ internal fun ExerciseEvolutionSection(
                     }
                 } else if (isStrength) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        EvoTile("Máx.", h.maxWeightKg?.let {
-                            dev.repera.domain.ReperaNumberFormat.decimal(it) + " kg" } ?: "—", Modifier.weight(1f))
-                        EvoTile("e1RM", h.estimatedOneRM?.let {
-                            dev.repera.domain.ReperaNumberFormat.decimal(it) + " kg" } ?: "—", Modifier.weight(1f))
+                        TopeOneRMTile(
+                            testedOneRM = testedOneRM,
+                            editing = editingTope,
+                            draft = topeDraft,
+                            modifier = Modifier.weight(1f),
+                            onBeginEdit = ::beginTopeEdit
+                        )
+                        EvoTile(
+                            "Máx.",
+                            h.maxWeightKg?.let {
+                                ReperaNumberFormat.decimal(it) + " kg"
+                            } ?: "—",
+                            Modifier.weight(1f)
+                        )
+                        EvoTile(
+                            "e1RM",
+                            h.estimatedOneRM?.let {
+                                ReperaNumberFormat.decimal(it) + " kg"
+                            } ?: "—",
+                            Modifier.weight(1f)
+                        )
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         EvoTile("Reps máx.", h.bestReps?.toString() ?: "—", Modifier.weight(1f))
@@ -357,24 +446,47 @@ internal fun ExerciseEvolutionSection(
                     }
                 }
             }
-            if(entry.sportTag!="Movilidad" && entry.loggingStyle!="machineWork" && entry.loggingStyle!="repsAndTime")
-                TestedOneRMEditor(testedOneRM,busy,onSetTestedOneRM)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())) {
-                metrics.forEach { m ->
-                    ReperaFilterChip(selected = m.wire == metric,
-                        onClick = { metric = m.wire },
-                        label = { Text(m.title) })
-                }
+            if (isStrengthLogging && summary == null) {
+                TopeOneRMTile(
+                    testedOneRM = testedOneRM,
+                    editing = editingTope,
+                    draft = topeDraft,
+                    modifier = Modifier.fillMaxWidth(),
+                    onBeginEdit = ::beginTopeEdit
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ExerciseProgressRange.entries.forEach { r ->
-                    ReperaFilterChip(selected = r.wire == range,
-                        onClick = { range = r.wire },
-                        label = { Text(r.title) })
-                }
+            if (editingTope) {
+                ReperaNumericKeypadSheet(
+                    title = "Tope 1RM",
+                    draft = topeDraft,
+                    onDraftChange = { topeDraft = it },
+                    onDismiss = { editingTope = false },
+                    onCommit = { draft ->
+                        topeDraft = draft
+                        commitTopeEdit()
+                    }
+                )
             }
+            // Píldoras full-width (mismo estilo que Progreso / resto de la app).
+            ReperaTopicSegmentedPicker(
+                options = metrics.map { it.title },
+                selected = selectedMetric.title,
+                onSelected = { label ->
+                    metrics.firstOrNull { it.title == label }?.let { metric = it.wire }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                optionTestTag = { i, _ -> "evo_metric_$i" }
+            )
+            ReperaTopicSegmentedPicker(
+                options = ExerciseProgressRange.entries.map { it.title },
+                selected = selectedRange.title,
+                onSelected = { label ->
+                    ExerciseProgressRange.entries.firstOrNull { it.title == label }
+                        ?.let { range = it.wire }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                optionTestTag = { i, _ -> "evo_range_$i" }
+            )
             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant,RoundedCornerShape(12.dp)).padding(12.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             if (points.size<2) {
                 val (low,high)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
@@ -445,27 +557,144 @@ internal fun ExerciseEvolutionSection(
                     style = MaterialTheme.typography.bodyMedium)
             }
             }
+            summary?.takeIf { it.hasData }?.let { h ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (h.maxWeightKg != null && h.repsAtMaxWeight != null) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("Mejor serie", modifier = Modifier.weight(1f))
+                            Text(
+                                "${h.repsAtMaxWeight} × ${dev.repera.domain.ReperaNumberFormat.decimal(h.maxWeightKg!!)} kg",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    val lastBits = listOfNotNull(
+                        h.lastQuantityLabel,
+                        h.lastWeightKg?.let {
+                            "${dev.repera.domain.ReperaNumberFormat.decimal(it)} kg"
+                        }
+                    ).joinToString(" · ")
+                    val lastDay = h.lastEpochMillis?.let {
+                        java.time.Instant.ofEpochMilli(it)
+                            .atZone(java.time.ZoneId.systemDefault())
+                            .toLocalDate()
+                            .format(reperaDayFormatter)
+                    }
+                    if (lastDay != null || lastBits.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("Última", modifier = Modifier.weight(1f))
+                            Text(
+                                listOfNotNull(lastDay, lastBits.takeIf { it.isNotEmpty() })
+                                    .joinToString(" · "),
+                                fontWeight = FontWeight.Medium,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Historial", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "${h.timesPerformed} sesiones",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            "${h.timesPerformed}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-/** Apple 025828b5 evoTile: valor 18 semibold + etiqueta 11 medium label3,
- *  centrados, fondo surface2 redondeado. */
+/**
+ * Tope 1RM editable in-place (topeOneRMTile iOS):
+ * toque → draft en el tile + teclado Repera; ✓/ocultar → commitTopeEdit.
+ */
 @Composable
-private fun EvoTile(title: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier
-        .background(MaterialTheme.colorScheme.surfaceVariant,
-            androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-        .padding(10.dp),
+private fun TopeOneRMTile(
+    testedOneRM: Double?,
+    editing: Boolean,
+    draft: String,
+    modifier: Modifier = Modifier,
+    onBeginEdit: () -> Unit,
+) {
+    val display = when {
+        editing -> draft.ifEmpty { "—" }
+        testedOneRM != null -> ReperaNumberFormat.decimal(testedOneRM)
+        else -> "—"
+    }
+    EvoTile(
+        title = "Tope 1RM",
+        value = display,
+        modifier = modifier,
+        accent = true,
+        onClick = if (!editing) onBeginEdit else null
+    )
+}
+
+/** Apple evoTile: valor arriba, etiqueta abajo. [accent] = Tope 1RM verde. */
+@Composable
+private fun EvoTile(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
+    val bg = if (accent) brandGreen.copy(alpha = 0.18f)
+    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+    val labelColor = if (accent) brandGreenReadable
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    val valueColor = if (accent) brandGreenReadable
+    else MaterialTheme.colorScheme.onSurface
+    Column(
+        modifier
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .background(bg, RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
-            maxLines = 1, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth())
-        Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth())
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            value,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = valueColor,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            title,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = labelColor,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -612,10 +841,14 @@ private fun MetaChipRow(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun IconMetaChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    // Mismo chip gris que «También» (surfaceVariant), no blanco sobre card.
     Row(verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         modifier = Modifier
-            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                androidx.compose.foundation.shape.CircleShape
+            )
             .padding(horizontal = 12.dp, vertical = 7.dp)) {
         androidx.compose.material3.Icon(icon, contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))

@@ -178,7 +178,7 @@ internal fun HomeTab(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 28.dp),
+        contentPadding = PaddingValues(bottom = LocalReperaTabBarInset.current + 12.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         // Banda blanca iOS: topbar + calendario + cards del día + CTA

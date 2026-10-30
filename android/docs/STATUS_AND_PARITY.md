@@ -4,10 +4,12 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-29 — R9 residuales: live REVIEW `RouteWeatherStrip`+fecha; `FinishedWorkoutEditorScreen` / `historial-editar`; `SessionPreviewSheet` thumbs 44 dp; `WodClockScreen` arte 100/72; catálogo apply tras refresh aunque sin eventos (iOS); HC+mirror al guardar Comenzar; FGS métricas+Pausar/Finalizar; glass α0.72. Maps key `~/.gradle/gradle.properties` (nunca git).
-negra; Pro insets; Comenzar sin solape tab; sombras mapa suaves; toolbar 48/44/24;
-series Play solo `completed`; Sin formato con nombre; tab Temporizador;
-`configChanges=uiMode`; Movilidad/Photon `lang`; Pro copy Mapa 2D.
+**Última actualización:** 2026-10-30 — Progreso UI: tabs Entreno/Actividad/
+Recuperación sticky al scroll; SecondaryTabRow sin fondo gris en cards; modal
+Periodo sin card envolvente (verde solo en icono/check); Historial última fila
+de Entreno; `PROGRESS_DEMO_CHARTS` rellena gráficas vacías para revisión.
+Teclado 4×4 fillEqually (~328); chips Equipo grises como También.
+Spec `docs/superpowers/specs/2026-10-30-android-settings-exercises-parity-design.md`.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /
 Edge migrate+deploy). Billing Play **alineado** (cliente + verify + ownership).

@@ -90,39 +90,31 @@ internal fun CenterTab(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = reperaScrollContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // R6 P1-16 / P0-2: iOS «Buscar» con Volver, campo y tarjeta vacía.
         item {
             if (onBack != null) {
-                IconButton(
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Volver",
                     onClick = onBack,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                        .testTag("center_back")
-                ) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
-                }
+                    modifier = Modifier.testTag("center_back")
+                )
             }
             ReperaPageHeader(title = "Buscar")
         }
         item {
             var query by remember(accountId) { mutableStateOf("") }
-            OutlinedTextField(
+            ReperaSearchField(
                 value = query,
                 onValueChange = {
                     query = it
                     if (connected) onSearchDirectory(it)
                 },
-                placeholder = { Text("Nombre del entrenador o centro") },
-                leadingIcon = {
-                    Icon(Icons.Outlined.Search, contentDescription = null)
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().testTag("center_search_field"),
-                shape = MaterialTheme.shapes.extraLarge
+                placeholder = "Nombre del entrenador o centro",
+                modifier = Modifier.testTag("center_search_field")
             )
             if (query.isNotBlank()) {
                 TextButton(
@@ -133,29 +125,11 @@ internal fun CenterTab(
         }
         if (!connected) {
             item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier.padding(24.dp).fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Search,
-                            contentDescription = null,
-                            tint = brandGreen,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Text(
-                            "Busca tu entrenador o centro",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            "Escribe su nombre para encontrarlo y solicitar la vinculación.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                ReperaEmptyState(
+                    title = "Busca tu entrenador o centro",
+                    subtitle = "Escribe su nombre para encontrarlo y solicitar la vinculación.",
+                    icon = Icons.Outlined.Search
+                )
             }
         } else {
             if (loading) {
@@ -176,29 +150,11 @@ internal fun CenterTab(
             val invitations = snapshot?.invitations ?: emptyList()
             if (centers.isEmpty() && invitations.isEmpty() && !loading) {
                 item {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            Modifier.padding(24.dp).fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Search,
-                                contentDescription = null,
-                                tint = brandGreen,
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Text(
-                                "Busca tu entrenador o centro",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                "Escribe su nombre para encontrarlo y solicitar la vinculación.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    ReperaEmptyState(
+                        title = "Busca tu entrenador o centro",
+                        subtitle = "Escribe su nombre para encontrarlo y solicitar la vinculación.",
+                        icon = Icons.Outlined.Search
+                    )
                 }
             }
             items(invitations) { invitation ->
@@ -264,18 +220,15 @@ internal fun CenterTab(
             }
             item { Text("Reservas", style = MaterialTheme.typography.titleMedium) }
             item {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = section == "class",
-                        onClick = { section = "class" },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                    ) { Text("Clases") }
-                    SegmentedButton(
-                        selected = section == "appointment",
-                        onClick = { section = "appointment" },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                    ) { Text("Citas") }
-                }
+                ReperaTopicSegmentedPicker(
+                    options = listOf("Clases", "Citas"),
+                    selected = if (section == "class") "Clases" else "Citas",
+                    onSelected = { label ->
+                        section = if (label == "Clases") "class" else "appointment"
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    optionTestTag = { i, _ -> "center_section_$i" }
+                )
             }
         }
         if (hasLinkedCenters) {

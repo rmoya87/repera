@@ -27,6 +27,8 @@ class SubscriptionManager(
 ) {
     var snapshot by mutableStateOf(CommercialSnapshot())
         private set
+    /** Snapshot de Billing/verify antes del override debug. */
+    private var backingSnapshot: CommercialSnapshot = CommercialSnapshot()
     /** Cache estable: las vistas que solo leen Pro no se invalidan por cuotas. */
     var isPro by mutableStateOf(false)
         private set
@@ -233,7 +235,7 @@ class SubscriptionManager(
     private suspend fun refresh() {
         isRefreshing = true
         try {
-            val previous = snapshot
+            val previous = backingSnapshot
             var next = try {
                 provider.refresh()
             } catch (error: Exception) {
@@ -310,13 +312,24 @@ class SubscriptionManager(
         }
     }
 
+    /** Reaplica el snapshot de Billing respetando el override debug. */
+    fun applyDebugProvider() {
+        publishSnapshot(backingSnapshot)
+    }
+
     private fun applySnapshot(next: CommercialSnapshot) {
-        if (next == snapshot) {
+        backingSnapshot = next
+        publishSnapshot(next)
+    }
+
+    private fun publishSnapshot(next: CommercialSnapshot) {
+        val effective = DebugEntitlementController.applyTo(next)
+        if (effective == snapshot) {
             isPro = snapshot.grantsProAccess || businessSponsoredAccess
             return
         }
-        snapshot = next
-        isPro = next.grantsProAccess || businessSponsoredAccess
+        snapshot = effective
+        isPro = effective.grantsProAccess || businessSponsoredAccess
     }
 
     private fun mergedVerifiedCache(

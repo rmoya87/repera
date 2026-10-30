@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,9 +23,12 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable internal fun SettingsListRow(
     title: String,
@@ -153,6 +155,7 @@ import androidx.compose.ui.unit.dp
     val googleName = remember(sessionStore) {
         sessionStore.load()?.displayName?.trim()?.takeIf { it.isNotEmpty() }
     }
+    val googlePhotoUrl = remember(sessionStore) { sessionStore.googlePhotoUrl() }
     var name by remember(value.displayName, googleName) {
         mutableStateOf(value.displayName?.takeIf { it.isNotBlank() } ?: googleName.orEmpty())
     }
@@ -182,37 +185,59 @@ import androidx.compose.ui.unit.dp
             }.onFailure { error = "No se pudo leer la foto. Prueba otra imagen." }
         }
     }
-    val avatar = remember(value.avatarJPEG) {
+    val localAvatar = remember(value.avatarJPEG) {
         runCatching {
             value.avatarJPEG?.let { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }
                 ?.let { android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size) }
         }.getOrNull()
     }
+    val googleAvatar by produceState<android.graphics.Bitmap?>(
+        initialValue = null,
+        key1 = googlePhotoUrl
+    ) {
+        val url = googlePhotoUrl
+        if (url.isNullOrBlank()) {
+            this.value = null
+            return@produceState
+        }
+        this.value = withContext(Dispatchers.IO) {
+            runCatching {
+                java.net.URL(url).openStream().use { stream ->
+                    android.graphics.BitmapFactory.decodeStream(stream)
+                }
+            }.getOrNull()
+        }
+    }
+    val avatar = localAvatar ?: googleAvatar
     fun persistName() {
         latestOnChange(latestValue.copy(displayName = name.trim().takeIf { it.isNotEmpty() }))
     }
     Row(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(56.dp)
     ) {
         Box(
-            modifier = Modifier.clickable(enabled = profileEditable && !pickerPending) {
-                pickerRevision = sessionStore.identityRevision()
-                pickerPending = true
-                picker.launch("image/*")
-            }
+            modifier = Modifier
+                .size(56.dp)
+                .clickable(enabled = profileEditable && !pickerPending) {
+                    pickerRevision = sessionStore.identityRevision()
+                    pickerPending = true
+                    picker.launch("image/*")
+                }
         ) {
             if (avatar != null) {
                 Image(
                     avatar.asImageBitmap(),
                     "Foto de perfil",
-                    Modifier.size(52.dp).clip(CircleShape)
+                    Modifier.fillMaxSize().clip(CircleShape)
                 )
             } else {
-                // R7 P2: placeholder nube (paridad iOS cloud-slash), no persona.
                 Surface(
-                    modifier = Modifier.size(52.dp),
+                    modifier = Modifier.fillMaxSize(),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
@@ -227,28 +252,36 @@ import androidx.compose.ui.unit.dp
                 }
             }
             Surface(
-                modifier = Modifier.align(Alignment.BottomEnd).size(20.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).size(18.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.background)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.background)
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "G",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                    Icon(
+                        painter = painterResource(R.drawable.ic_google_g),
+                        contentDescription = "Google",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.Start
+        ) {
             BasicTextField(
                 value = name,
                 onValueChange = { name = it },
                 enabled = profileEditable,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.titleMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurface
+                textStyle = MaterialTheme.typography.titleSmall.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -259,7 +292,7 @@ import androidx.compose.ui.unit.dp
                         if (name.isEmpty()) {
                             Text(
                                 "Tu nombre",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -270,28 +303,27 @@ import androidx.compose.ui.unit.dp
             sessionStore.load()?.email?.takeIf { it.isNotBlank() }?.let { email ->
                 Text(
                     email,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             if (onRequestSignOut != null) {
-                TextButton(
-                    onClick = onRequestSignOut,
-                    enabled = !busy,
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(
-                        "Cerrar sesión",
-                        // iOS OG.destructive / systemRed #FF453A (no rosa M3 en oscuro).
-                        color = Color(0xFFFF453A).copy(
-                            alpha = if (busy) 0.38f else 1f
-                        )
-                    )
-                }
+                Text(
+                    "Cerrar sesión",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFFFF453A).copy(alpha = if (busy) 0.38f else 1f),
+                    modifier = Modifier.clickable(enabled = !busy, onClick = onRequestSignOut)
+                )
             }
         }
     }
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    error?.let {
+        Text(
+            it,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+    }
 }

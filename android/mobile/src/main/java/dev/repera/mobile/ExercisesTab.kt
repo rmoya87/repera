@@ -29,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBar
@@ -301,9 +302,12 @@ internal fun ExercisesTab(
                     })
             } else {
                 TextButton(onClick = { libraryMode = "Ejercicios" }) { Text("Volver a Ejercicios") }
-                OutlinedTextField(value = sportSearch, onValueChange = { sportSearch = it },
-                    label = { Text("Buscar deporte") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                ReperaSearchField(
+                    value = sportSearch,
+                    onValueChange = { sportSearch = it },
+                    placeholder = "Buscar deporte",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
                 LiveSportsCatalogScreen(overview?.liveSportSessions.orEmpty(), sportSearch,
                     onOpenSport = { selectedSportID = it.id })
             }
@@ -314,7 +318,7 @@ internal fun ExercisesTab(
     ReadableColumn {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = reperaScrollContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
@@ -338,20 +342,10 @@ internal fun ExercisesTab(
             )
         }
         item {
-            OutlinedTextField(
+            ReperaSearchField(
                 value = exerciseSearch,
                 onValueChange = { exerciseSearch = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
-                placeholder = { Text("Nombre, músculo o equipo") },
-                leadingIcon = {
-                    Icon(Icons.Outlined.Search, contentDescription = null)
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary
-                )
+                placeholder = "Nombre, músculo o equipo"
             )
         }
         val entries = filteredExerciseEntries
@@ -400,22 +394,21 @@ internal fun ExercisesTab(
                 }
             }
         } else {
-            item(key = "library-grouped") {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            // Lista Material plana (ListItem + divisores), sin card envolvente.
+            entries.forEachIndexed { index, entry ->
+                item(key = entry.id) {
                     Column {
-                        entries.forEachIndexed { index, entry ->
-                            if (index > 0) {
-                                androidx.compose.material3.HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                                )
-                            }
-                            ExerciseLibraryRow(
-                                entry = entry,
-                                aliases = englishAliases,
-                                selected = selectedExerciseId == entry.id,
-                                onClick = { openExercise(entry.id) }
+                        if (index > 0) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
                             )
                         }
+                        ExerciseLibraryRow(
+                            entry = entry,
+                            aliases = englishAliases,
+                            selected = selectedExerciseId == entry.id,
+                            onClick = { openExercise(entry.id) }
+                        )
                     }
                 }
             }

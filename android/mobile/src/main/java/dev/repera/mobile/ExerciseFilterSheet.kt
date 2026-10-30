@@ -25,69 +25,123 @@ import java.text.Collator
 import java.util.Locale
 
 /** Presentation order only. Stable filter values and matching remain unchanged. */
-internal fun alphabeticExerciseFacets(filters:List<String>):List<String> {
-    val collator=Collator.getInstance(Locale.forLanguageTag("es-ES"))
-    return filters.distinct().sortedWith {a,b ->collator.compare(a,b)}
+internal fun alphabeticExerciseFacets(filters: List<String>): List<String> {
+    val collator = Collator.getInstance(Locale.forLanguageTag("es-ES"))
+    return filters.distinct().sortedWith { a, b -> collator.compare(a, b) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ExerciseFilterSheet(filters:List<String>,filter:String,sort:String,
-    onFilter:(String)->Unit,onSort:(String)->Unit,onClose:()->Unit) {
-    ReperaModalBottomSheet(onDismissRequest=onClose) {
-        ExerciseFilterContent(filters,filter,sort,onFilter,onSort,onClose)
+internal fun ExerciseFilterSheet(
+    filters: List<String>,
+    filter: String,
+    sort: String,
+    onFilter: (String) -> Unit,
+    onSort: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    // Modal a pantalla completa (paridad petición UI Android).
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = MaterialTheme.shapes.extraLarge,
+        tonalElevation = 0.dp,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        ExerciseFilterContent(filters, filter, sort, onFilter, onSort, onClose)
     }
 }
 
 @Composable
-internal fun ExerciseFilterContent(filters:List<String>,filter:String,sort:String,
-    onFilter:(String)->Unit,onSort:(String)->Unit,onClose:()->Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal=16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement=Arrangement.spacedBy(18.dp)) {
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Ordenar y filtrar",style=MaterialTheme.typography.headlineSmall,modifier=Modifier.weight(1f))
-            IconButton(onClick=onClose) {Icon(Icons.Outlined.Close,"Cerrar filtros")}
+internal fun ExerciseFilterContent(
+    filters: List<String>,
+    filter: String,
+    sort: String,
+    onFilter: (String) -> Unit,
+    onSort: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .padding(horizontal = 16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Ordenar y filtrar",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.Close,
+                contentDescription = "Cerrar filtros",
+                onClick = onClose
+            )
         }
         ReperaSectionTitle("Ordenar")
-        ReperaCard(Modifier.fillMaxWidth()) {
-            listOf("Alfabético","Músculo","Material").forEach {mode ->
-                val icon=when(mode) {
-                    "Alfabético" -> Icons.Outlined.SortByAlpha
-                    "Músculo" -> ExerciseCategorySymbols.muscle
-                    else -> ExerciseCategorySymbols.equipment
-                }
-                ExerciseFacetRow(mode,icon,sort==mode) {onSort(mode)}
+        listOf("Alfabético", "Músculo", "Material").forEach { mode ->
+            val icon = when (mode) {
+                "Alfabético" -> Icons.Outlined.SortByAlpha
+                "Músculo" -> ExerciseCategorySymbols.muscle
+                else -> ExerciseCategorySymbols.equipment
             }
+            ExerciseFacetRow(mode, icon, sort == mode) { onSort(mode) }
         }
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 12.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
         ReperaSectionTitle("Filtrar")
-        ReperaCard(Modifier.fillMaxWidth()) {
-            alphabeticExerciseFacets(filters).forEach {value ->
-                val selected=filter==value
-                val icon=when(value) {
-                    "Todos" -> Icons.Outlined.GridView
-                    "Cardio" -> if(selected) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder
-                    "Favoritos" -> if(selected) Icons.Outlined.Star else Icons.Outlined.StarBorder
-                    "WODs" -> Icons.Outlined.Timer
-                    "Deportes" -> Icons.Outlined.DirectionsRun
-                    else -> ExerciseCategorySymbols.discipline(value)
-                }
-                ExerciseFacetRow(value,icon,selected) {onFilter(value)}
+        alphabeticExerciseFacets(filters).forEach { value ->
+            val selected = filter == value
+            val icon = when (value) {
+                "Todos" -> Icons.Outlined.GridView
+                "Cardio" -> if (selected) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder
+                "Favoritos" -> if (selected) Icons.Outlined.Star else Icons.Outlined.StarBorder
+                "WODs" -> Icons.Outlined.Timer
+                "Deportes" -> Icons.Outlined.DirectionsRun
+                else -> ExerciseCategorySymbols.discipline(value)
             }
+            ExerciseFacetRow(value, icon, selected) { onFilter(value) }
         }
-        if(sort!="Alfabético" || filter!="Todos") TextButton(onClick={
-            onSort("Alfabético");onFilter("Todos")
-        }) {Text("Restablecer opciones")}
-        Spacer(Modifier.height(16.dp))
+        if (sort != "Alfabético" || filter != "Todos") {
+            TextButton(onClick = {
+                onSort("Alfabético"); onFilter("Todos")
+            }) { Text("Restablecer opciones") }
+        }
+        Spacer(Modifier.height(24.dp))
     }
 }
 
 @Composable
-private fun ExerciseFacetRow(title:String,icon:ImageVector,isSelected:Boolean,onClick:()->Unit) {
-    TextButton(onClick=onClick,modifier=Modifier.fillMaxWidth().semantics {selected=isSelected},
-        contentPadding=PaddingValues(horizontal=16.dp,vertical=12.dp),
-        colors=ButtonDefaults.textButtonColors(contentColor=if(isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)) {
-        Icon(icon,null,Modifier.size(22.dp))
-        Text(title,modifier=Modifier.weight(1f).padding(horizontal=12.dp))
-        if(isSelected) Text("✓",style=MaterialTheme.typography.titleMedium)
+private fun ExerciseFacetRow(
+    title: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { selected = isSelected },
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = if (isSelected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface
+        )
+    ) {
+        Icon(icon, null, Modifier.size(22.dp))
+        Text(title, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
+        if (isSelected) Text("✓", style = MaterialTheme.typography.titleMedium)
     }
 }
