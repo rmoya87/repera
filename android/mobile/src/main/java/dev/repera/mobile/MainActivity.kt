@@ -1361,11 +1361,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     override fun onStart() {
         super.onStart()
+        WearUiPresence.active = true
         wearMessages.addListener(this)
         if (verifiedSupabase != null && profile != null) aiPlansRealtime.start()
     }
 
     override fun onStop() {
+        WearUiPresence.active = false
         aiPlansRealtime.stop()
         wearMessages.removeListener(this)
         // Apple f6f13169: checkpoint GPS forzado antes de una posible suspension;
