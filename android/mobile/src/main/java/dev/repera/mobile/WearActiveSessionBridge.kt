@@ -117,6 +117,28 @@ object WearActiveSessionBridge {
         Wearable.getDataClient(context).putDataItem(request)
     }
 
+    /** Phone-owned free activity: aggregate metrics only, never route points,
+     * coordinates, private health records or inferred heart rate. */
+    fun publishLive(context: Context, runtime: LiveActivityRuntime) {
+        val state = runtime.state
+        val payload = if (state.phase == dev.repera.domain.LiveActivityState.Phase.IDLE) null
+        else JSONObject()
+            .put("sessionId", state.gpsSessionID)
+            .put("sportTitle", state.sport.title)
+            .put("phase", state.phase.name.lowercase())
+            .put("elapsedSeconds", state.durationSeconds(System.currentTimeMillis()))
+            .put("distanceMeters", if (state.sport.usesGPS) state.distanceMeters else 0)
+            .put("averageSpeedKmh", state.averageSpeedKmh(System.currentTimeMillis()) ?: JSONObject.NULL)
+            .put("nextTurn", runtime.upcomingTurn ?: JSONObject.NULL)
+            .put("capturedAtMillis", System.currentTimeMillis())
+        val request = PutDataMapRequest.create("/repera/live-activity").apply {
+            dataMap.putByteArray("live",
+                payload?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf())
+            dataMap.putLong("revision", System.currentTimeMillis())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
     /** Explicit account logout: revoke cached identity and pending commands on the watch. */
     fun signOut(context: Context) {
         publish(context, null, signedOut = true)
