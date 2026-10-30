@@ -15,8 +15,8 @@ def read(path: str) -> str:
 class WatchLiveSyncContractTests(unittest.TestCase):
     def test_watch_owned_workout_survives_empty_phone_snapshot(self):
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
-        self.assertIn("self.startedOnThisWatch &&", hub)
-        self.assertIn("self.lastFinished != nil", hub)
+        self.assertIn("guard let session else { return }", hub)
+        self.assertIn("localSetIDs.isSubset(of: receivedSetIDs)", hub)
         self.assertIn("watchConnectivityDidReceiveTerminal", hub)
         self.assertIn("self.completeSession()", hub)
         phone = read("Apps/Repera/Sources/ReperaStore.swift")
