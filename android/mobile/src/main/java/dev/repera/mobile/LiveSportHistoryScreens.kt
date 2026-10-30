@@ -7,10 +7,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Whatshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -179,19 +182,50 @@ private fun SaveRouteSwipeRow(id:String,enabled:Boolean,onSave:()->Unit,content:
 // Apple 1b5d4eea/056cba8b/025828b5 (WorkoutSummaryTile): icono+etiqueta en
 // fila centrada y valor centrado debajo, altura intrinseca (sin minimo fijo).
 @Composable
-internal fun WorkoutSummaryTile(title: String, value: String, icon: ImageVector, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
-            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+internal fun WorkoutSummaryTile(
+    title: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
+    compact: Boolean = false
+) {
+    Column(
+        modifier
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+            .padding(
+                horizontal = if (compact) 6.dp else 12.dp,
+                vertical = if (compact) 8.dp else 10.dp
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 7.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(if (compact) 11.dp else 13.dp)
+            )
+            Text(
+                title,
+                fontSize = if (compact) 10.sp else 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
         }
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-            maxLines = 1, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth())
+        Text(
+            value,
+            fontSize = if (compact) 15.sp else 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

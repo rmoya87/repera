@@ -125,7 +125,7 @@ private fun IndicatorRow(indicator: ReviewIndicator) {
 }
 
 /**
- * Hoja post-entreno (SessionReviewSheet iOS): título + card + «Listo».
+ * Hoja post-entreno (SessionReviewSheet iOS): título + card + ✓ Listo.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,10 +143,7 @@ internal fun SessionReviewSheet(
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Tu rendimiento", fontSize = 23.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f))
-                TextButton(onClick = onDismiss) {
-                    Text("Listo", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                        color = brandGreen)
-                }
+                ReperaDoneCheckButton(onClick = onDismiss)
             }
             SessionReviewCard(review, startsExpanded = true)
         }

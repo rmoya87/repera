@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -62,7 +65,9 @@ internal fun BoardScanScreen(
     onBack: () -> Unit,
     /** Nuevo destino del editor: no crear ni iniciar una segunda actividad. */
     onImportBlocks: ((List<RoutineBlock>) -> Unit)? = null,
-    catalogOverride: List<ExerciseEntry> = emptyList()
+    catalogOverride: List<ExerciseEntry> = emptyList(),
+    /** Modal ajustado (editor / DayPlus); sin fillMaxSize ni status bars. */
+    asSheet: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -148,7 +153,16 @@ internal fun BoardScanScreen(
 
     val blocks = review
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = if (asSheet) {
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 640.dp)
+        } else {
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        },
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

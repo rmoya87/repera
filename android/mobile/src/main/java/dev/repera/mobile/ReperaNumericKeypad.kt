@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -9,13 +10,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
@@ -29,12 +32,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -44,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import dev.repera.domain.ReperaNumberFormat
 
 private val keypadBg = Color(0xFFECEDF2)
@@ -72,7 +78,6 @@ fun ReperaNumericKeypad(
         modifier
             .fillMaxWidth()
             .background(keypadBg)
-            .navigationBarsPadding()
             .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 10.dp)
             .height(302.dp)
             .testTag("repera_numeric_keypad"),
@@ -139,9 +144,9 @@ internal sealed class NumericKeypadAction {
 }
 
 /**
- * Teclado anclado abajo + valor editable (inputView iOS).
- * ✓ / ocultar → [onCommit]. Toque fuera / atrás → [onDismiss] sin guardar
- * si hay preview; en modo inline (sin preview) fuera también confirma.
+ * Teclado anclado abajo. El valor se edita en el propio input/tile
+ * ([onDraftChange]); no se muestra un número flotante sobre el pad.
+ * El fondo del teclado continúa bajo la barra de gestos (sin franja negra).
  */
 @Composable
 fun ReperaNumericKeypadSheet(
@@ -151,7 +156,7 @@ fun ReperaNumericKeypadSheet(
     onDismiss: () -> Unit,
     onCommit: (String) -> Unit,
     allowsDecimal: Boolean = true,
-    showDraftPreview: Boolean = true,
+    showDraftPreview: Boolean = false,
 ) {
     Dialog(
         onDismissRequest = {
@@ -159,9 +164,19 @@ fun ReperaNumericKeypadSheet(
         },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = true
+            decorFitsSystemWindows = false,
+            dismissOnClickOutside = true,
+            dismissOnBackPress = true
         )
     ) {
+        val view = LocalView.current
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.let { window ->
+                window.setDimAmount(0f)
+                window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setBackgroundDrawableResource(android.R.color.transparent)
+            }
+        }
         Box(Modifier.fillMaxSize()) {
             Box(
                 Modifier
@@ -178,29 +193,32 @@ fun ReperaNumericKeypadSheet(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .background(keypadBg)
             ) {
-                Surface(
-                    Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-                ) {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            draft.ifEmpty { "—" },
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = brandGreenReadable,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .testTag("numeric_keypad_draft"),
-                            textAlign = TextAlign.Center
-                        )
+                if (showDraftPreview) {
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                    ) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                title,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                draft.ifEmpty { "—" },
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = brandGreenReadable,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .testTag("numeric_keypad_draft"),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
                 ReperaNumericKeypad(
@@ -222,6 +240,13 @@ fun ReperaNumericKeypadSheet(
                     },
                     onDismiss = { onCommit(draft) },
                     onSubmit = { onCommit(draft) }
+                )
+                // Continúa el color del teclado bajo la barra de gestos.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                        .background(keypadBg)
                 )
             }
         }

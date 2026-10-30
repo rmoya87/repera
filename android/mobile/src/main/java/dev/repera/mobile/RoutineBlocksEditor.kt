@@ -66,8 +66,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WorkoutLocationPin
 import java.time.LocalDate
@@ -101,11 +99,17 @@ fun RoutineBlocksEditorScreen(
     scheduledDayIso: String? = null,
     pageTitle: String? = null,
     showPlaceSection: Boolean = true,
-    onOneOffMeta: (timeMinutes: Int?, isFavorite: Boolean, locationPin: WorkoutLocationPin?) -> Unit =
-        { _, _, _ -> },
+    onOneOffMeta: (
+        dayIso: String?,
+        timeMinutes: Int?,
+        isFavorite: Boolean,
+        locationPin: WorkoutLocationPin?
+    ) -> Unit = { _, _, _, _ -> },
     accountId:String = "",
     /** Preferencia de visualización RIR/RPE; el almacenamiento sigue en RIR. */
-    effortUnit:String = "rir"
+    effortUnit:String = "rir",
+    /** Abrir ficha del ejercicio (miniatura / título). */
+    onOpenExercise: (String) -> Unit = {}
 ) {
     val scopeKey=remember(accountId,routine.id) {org.json.JSONArray(listOf(accountId,routine.id)).toString()}
     val textSaver=remember(scopeKey) {Saver<String,String>(save={saveScopedEditorValue(scopeKey,it)},restore={restoreScopedEditorValue(scopeKey,it)})}
@@ -123,8 +127,11 @@ fun RoutineBlocksEditorScreen(
         mutableStateOf(
             routine.timeMinutes?.let { m ->
                 "%02d:%02d".format(m / 60, m % 60)
-            }
+            } ?: if (oneOffEditor) "18:00" else null
         )
+    }
+    var metaDayIso by rememberSaveable(accountId, routine.id, stateSaver = nullableTextSaver) {
+        mutableStateOf(scheduledDayIso)
     }
     var draftPin by remember(accountId, routine.id) { mutableStateOf(routine.locationPin) }
     var suggestedTitle by rememberSaveable(accountId,routine.id,stateSaver=nullableTextSaver) { mutableStateOf<String?>(null) }
@@ -140,29 +147,25 @@ fun RoutineBlocksEditorScreen(
     var showBoardScanner by remember { mutableStateOf(false) }
 
     if (showBoardScanner) {
-        Dialog(
-            onDismissRequest = { showBoardScanner = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                BoardScanScreen(
-                    busy = busy, overview = null, catalogOverride = exercises,
-                    onConfirm = { _, _, _ -> },
-                    onBack = { showBoardScanner = false },
-                    onImportBlocks = { imported ->
-                        imported.forEach { blocks.add(scannedRoutineBlockDraft(it)) }
-                        showBoardScanner = false
-                    }
-                )
-            }
+        // Modal ajustado (paridad BoardScanSourceSheet / DayPlus escanear).
+        ReperaModalBottomSheet(onDismissRequest = { showBoardScanner = false }) {
+            BoardScanScreen(
+                busy = busy,
+                overview = null,
+                catalogOverride = exercises,
+                asSheet = true,
+                onConfirm = { _, _, _ -> },
+                onBack = { showBoardScanner = false },
+                onImportBlocks = { imported ->
+                    imported.forEach { blocks.add(scannedRoutineBlockDraft(it)) }
+                    showBoardScanner = false
+                }
+            )
         }
     }
 
     if (showReorder) {
-        Dialog(
-            onDismissRequest = { showReorder = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
+        ReperaFullscreenDialog(onDismissRequest = { showReorder = false }) {
             PlanReorderFullscreen(
                 blocks = blocks,
                 nameById = nameById,
@@ -176,8 +179,12 @@ fun RoutineBlocksEditorScreen(
     val scrollState = rememberScrollState()
     val geo = remember(routine.id) { EditorGeometry() }
     ProvideScrollDragAutoScroll(scrollState) {
-    Column(modifier = Modifier.verticalScroll(scrollState).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier = Modifier
+            .verticalScroll(scrollState)
+            .padding(reperaScrollContentPadding(extraBottom = 16.dp)),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         val confirmLabel = if (sessionMode) "Empezar" else "Guardar"
         val canConfirm = !busy && (!editableTitle || draftTitle.trim().isNotBlank())
         fun persistAndSave() {
@@ -210,7 +217,7 @@ fun RoutineBlocksEditorScreen(
                     return
                 }
                 onTitleSuggested(draftTitle.trim())
-                onOneOffMeta(timeMinutes, oneOffFavorite, draftPin)
+                onOneOffMeta(metaDayIso, timeMinutes, oneOffFavorite, draftPin)
             } else if (sessionMode) {
                 onTitleSuggested(draftTitle.trim().ifBlank { "Mi entreno" })
             } else suggestedTitle?.let(onTitleSuggested)
@@ -250,63 +257,21 @@ fun RoutineBlocksEditorScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("workout_meta_title")
                     )
-                    scheduledDayIso?.let { iso ->
-                        val dayLabel = runCatching {
-                            LocalDate.parse(iso).format(reperaPlanDayFormatter)
-                                .replaceFirstChar {
-                                    if (it.isLowerCase()) it.titlecase(Locale("es", "ES"))
-                                    else it.toString()
-                                }
-                        }.getOrDefault(iso)
+                    if (oneOffEditor) {
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
                         )
-                        Text(
-                            dayLabel,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .testTag("workout_meta_date")
+                        var plannedDurationMin by remember(routine.id) {
+                            mutableStateOf(45)
+                        }
+                        WorkoutDateTimeDurationRow(
+                            dayIso = metaDayIso,
+                            clock = scheduledClock ?: "18:00",
+                            durationMinutes = plannedDurationMin,
+                            onDayIso = { metaDayIso = it },
+                            onClock = { scheduledClock = it },
+                            onDurationMinutes = { plannedDurationMin = it.coerceIn(1, 600) }
                         )
-                    }
-                    if (oneOffEditor) {
-                        val ctx = androidx.compose.ui.platform.LocalContext.current
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Hora programada",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            androidx.compose.material3.Switch(
-                                checked = scheduledClock != null,
-                                onCheckedChange = { on ->
-                                    scheduledClock = if (on) scheduledClock ?: "18:00" else null
-                                },
-                                colors = reperaSwitchColors(),
-                                modifier = Modifier.testTag("workout_scheduled_time_switch")
-                            )
-                        }
-                        if (scheduledClock != null) {
-                            TextButton(
-                                modifier = Modifier.testTag("workout_scheduled_time"),
-                                onClick = {
-                                    val t = runCatching { LocalTime.parse(scheduledClock) }
-                                        .getOrDefault(LocalTime.of(18, 0))
-                                    android.app.TimePickerDialog(
-                                        ctx,
-                                        { _, h, mi -> scheduledClock = "%02d:%02d".format(h, mi) },
-                                        t.hour,
-                                        t.minute,
-                                        true
-                                    ).show()
-                                }
-                            ) { Text(scheduledClock!!) }
-                        }
                         Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -321,6 +286,28 @@ fun RoutineBlocksEditorScreen(
                                 onCheckedChange = { oneOffFavorite = it },
                                 colors = reperaSwitchColors(),
                                 modifier = Modifier.testTag("workout_favorite_switch")
+                            )
+                        }
+                    } else {
+                        metaDayIso?.let { iso ->
+                            val dayLabel = runCatching {
+                                LocalDate.parse(iso).format(reperaPlanDayFormatter)
+                                    .replaceFirstChar {
+                                        if (it.isLowerCase()) it.titlecase(Locale("es", "ES"))
+                                        else it.toString()
+                                    }
+                            }.getOrDefault(iso)
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                            )
+                            Text(
+                                dayLabel,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .testTag("workout_meta_date")
                             )
                         }
                     }
@@ -384,36 +371,8 @@ fun RoutineBlocksEditorScreen(
                 // iOS permite Eliminar bloque aunque quede uno (R4 #20 / P2 #17).
                 onRemove = { blocks.removeAt(index) },
                 onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
-                onInsertRestBlock = {
-                    val rest = EditorBlockOps.restMovement()
-                    val ui = BlockDraftUi(
-                        RoutineBlockInfo(title = "Descanso", format = "forTime", rounds = 1)
-                    )
-                    ui.entries.add(
-                        EntryUi("", "REST", 1, 1, null, null, rest.getString("id"), rest.toString())
-                    )
-                    blocks.add(ui)
-                },
-                effortUnit = effortUnit,
-                moveTargets = blocks.mapIndexedNotNull { ti, tb ->
-                    if (ti == index) null else ti to tb.title.ifBlank { "Bloque ${ti + 1}" } },
-                onMoveEntry = { entryIndex, targetIndex ->
-                    error = PlanEntryMoves.move(blocks, index, entryIndex, targetIndex, nameById, exercises)
-                },
-                onEntryBounds = { ei, top, bottom -> geo.items.getOrPut(index) { mutableMapOf() }[ei.toString()] = top to bottom },
-                onEntryDrop = { ei, centerY, sameTarget ->
-                    val tb = EditorBlockOps.dropBlockIndex(centerY, geo.blockBounds(blocks.size))
-                    if (tb != null) {
-                        if (tb == index) {
-                            if (sameTarget != ei) { val moved = block.entries.removeAt(ei); block.entries.add(sameTarget, moved) }
-                        } else {
-                            val n = blocks[tb].entries.size
-                            val before = EditorBlockOps.dropBeforeId(centerY,
-                                (geo.items[tb] ?: emptyMap<String, Pair<Float, Float>>()).filterKeys { (it.toIntOrNull() ?: Int.MAX_VALUE) < n }.toList())
-                            error = PlanEntryMoves.move(blocks, index, ei, tb, nameById, exercises, before?.toIntOrNull())
-                        }
-                    }
-                }
+                onOpenExercise = onOpenExercise,
+                effortUnit = effortUnit
             )
         }
         var showWods by remember { mutableStateOf(false) }
@@ -461,7 +420,7 @@ fun RoutineBlocksEditorScreen(
             }
         }
         if (showFavorites) {
-            AddFavoriteSheet(
+            FavoriteCatalogPickerSheet(
                 favorites = favorites,
                 onPick = { src ->
                     src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
@@ -484,26 +443,20 @@ fun RoutineBlocksEditorScreen(
                     }) { Text(src.title + " · " + src.blocks.size + " bloques") }
                 } } })
         if (showWods) {
-            var query by remember { mutableStateOf("") }
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showWods = false },
-                confirmButton = { TextButton(onClick = { showWods = false }) { Text("Cancelar") } },
-                title = { Text("Elegir WOD") },
-                text = { Column {
-                    OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
-                        label = { Text("Buscar") }, modifier = Modifier.fillMaxWidth().testTag("plan_wod_search"))
-                    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                        items(dev.repera.domain.CatalogWods.search(query).size) { i ->
-                            val t = dev.repera.domain.CatalogWods.search(query)[i]
-                            TextButton(modifier = Modifier.testTag("plan_wod_pick_${t.id}"), onClick = {
-                                val info = EditorBlockOps.templateToBlockInfo(t, exercises)
-                                blocks.add(BlockDraftUi(info)); error = null
-                                val cur = routine.title.trim()
-                                if (suggestedTitle == null && (cur.isEmpty() || cur == "Entreno" || cur == "Nuevo entreno"))
-                                    suggestedTitle = t.name
-                                showWods = false
-                            }) { Text(t.name + " · " + t.formatLabel) }
-                        } } } })
+            WodCatalogPickerSheet(
+                onPick = { t ->
+                    val info = EditorBlockOps.templateToBlockInfo(t, exercises)
+                    blocks.add(BlockDraftUi(info)); error = null
+                    val cur = routine.title.trim()
+                    if (suggestedTitle == null &&
+                        (cur.isEmpty() || cur == "Entreno" || cur == "Nuevo entreno")
+                    ) {
+                        suggestedTitle = t.name
+                    }
+                    showWods = false
+                },
+                onDismiss = { showWods = false }
+            )
         }
     }
     }
@@ -780,15 +733,10 @@ private fun BlockEditorCard(
     exercises: List<ExerciseEntry>,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: (() -> Unit)?,
-    moveTargets: List<Pair<Int, String>> = emptyList(),
-    onMoveEntry: (Int, Int) -> Unit = { _, _ -> },
-    onEntryBounds: (Int, Float, Float) -> Unit = { _, _, _ -> },
-    onEntryDrop: (entryIndex: Int, centerY: Float, sameBlockTarget: Int) -> Unit = { _, _, _ -> },
     onOpenReorder: (() -> Unit)? = null,
-    onInsertRestBlock: () -> Unit = {},
+    onOpenExercise: (String) -> Unit = {},
     effortUnit: String = "rir"
 ) {
-    val entryHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     val isStrengthLike = block.format.isBlank() || block.format == "strength"
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
@@ -886,7 +834,7 @@ private fun BlockEditorCard(
                     NumberRow(block, "TIEMPO" to "timeCap")
                 "forTime" ->
                     NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap",
-                        "Entre rondas (s)" to "roundRest")
+                        "Rondas (s)" to "roundRest")
                 "roundsForQuality", "partner" ->
                     NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap")
                 "emom", "circuit" ->
@@ -908,65 +856,48 @@ private fun BlockEditorCard(
                 }
             }
             block.entries.forEachIndexed { index, entry ->
-              androidx.compose.runtime.key(entry) {
-                DragReorderItem(index, entryHeights, block.entries.size,
-                    onDrop = { cy, t -> onEntryDrop(index, cy, t) },
-                    onMoveTo = { t -> if (t != index && t in block.entries.indices) { val moved = block.entries.removeAt(index); block.entries.add(t, moved) } },
-                    onBounds = { top, bottom -> onEntryBounds(index, top, bottom) }) { entryHandle ->
-                  // Deslizar para quitar (OGSwipeDeleteButton de Apple); el arrastre sigue siendo por pulsación larga.
-                  val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState(
-                      confirmValueChange = { v ->
-                          if (v == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) {
-                              block.entries.remove(entry); true } else false })
-                  androidx.compose.material3.SwipeToDismissBox(state = swipe, enableDismissFromStartToEnd = false,
-                      modifier = Modifier.testTag("plan_entry_swipe"),
-                      backgroundContent = { Text("Quitar", color = MaterialTheme.colorScheme.error,
-                          modifier = Modifier.fillMaxWidth().padding(16.dp)) }) {
-                    // Fondo opaco: el "Quitar" rojo traslucía en reposo (captura CI 25/10).
-                    androidx.compose.material3.Surface {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                androidx.compose.runtime.key(entry) {
+                    val ex = exercises.firstOrNull { it.id == entry.exerciseId }
                     EntryEditorRow(
                         entry = entry,
                         resolvedName = entry.name.ifBlank {
-                            nameById[entry.exerciseId] ?: "Ejercicio" },
+                            nameById[entry.exerciseId] ?: "Ejercicio"
+                        },
                         isStrength = isStrengthLike,
-                        mobility=exercises.firstOrNull {it.id==entry.exerciseId}?.sportTag=="Movilidad",
-                        mobilityHold=exercises.firstOrNull {it.id==entry.exerciseId}?.mobilityHold==true,
-                        // Apple 63824a81 + f7109bd7: el selector de unidad se
-                        // ofrece a supportsRepsOrMeters (Repeticiones/Metros,
-                        // con o sin kg) ademas del cardio Calorias/Metros.
-                        weightedRepsOrMeters = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
-                            dev.repera.domain.ExerciseInput.supportsRepsOrMeters(ex.name) } == true,
-                        unitChoices = exercises.firstOrNull { it.id == entry.exerciseId }?.let { ex ->
-                            dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(ex.name, ex.equipment) } == true,
+                        mobility = ex?.sportTag == "Movilidad",
+                        mobilityHold = ex?.mobilityHold == true,
+                        weightedRepsOrMeters = ex?.let {
+                            dev.repera.domain.ExerciseInput.supportsRepsOrMeters(it.name)
+                        } == true,
+                        unitChoices = ex?.let {
+                            dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(
+                                it.name, it.equipment
+                            )
+                        } == true,
                         loadGuideProvider = loadGuideProvider,
                         onRemove = { block.entries.remove(entry) },
-                        handle = entryHandle,
-                        moveTargets = moveTargets,
-                        onMove = { target -> onMoveEntry(index, target) },
-                        onUp = if (index > 0) ({ val m = block.entries.removeAt(index); block.entries.add(index - 1, m) }) else null,
-                        onDown = if (index < block.entries.size - 1) ({ val m = block.entries.removeAt(index); block.entries.add(index + 1, m) }) else null,
+                        onOpenReorder = onOpenReorder,
+                        onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
+                            { onOpenExercise(id) }
+                        },
+                        exerciseEntry = ex,
                         effortUnit = effortUnit
                     )
-                    }
-                  }
                 }
-              }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             WorkoutWODInsertActions(
                 onExercise = { showExercisePicker = true },
                 onRest = {
-                    if (isStrengthLike) {
-                        onInsertRestBlock()
-                    } else {
-                        val rest = EditorBlockOps.restMovement()
-                        block.entries.add(
-                            EntryUi(
-                                "", "REST", 1, 1, null, null,
-                                rest.getString("id"), rest.toString()
-                            )
+                    // Descanso siempre como entrada DENTRO del bloque (no bloque aparte).
+                    val rest = EditorBlockOps.restMovement()
+                    block.entries.add(
+                        EntryUi(
+                            "", "REST", 1, 1, null, null,
+                            rest.getString("id"), rest.toString()
                         )
-                    }
+                    )
                 },
                 onFreeMovement = { showFreeMove = true }
             )
@@ -1013,19 +944,23 @@ internal fun WorkoutWODInsertActions(
             onClick = onExercise,
             modifier = Modifier.testTag("plan_add_exercise")
         )
-        // R8 P2: stack vertical evita «Movimiento libre» en 2 líneas en fila estrecha.
-        WorkoutInlineAddButton(
-            label = "Descanso",
-            icon = Icons.Outlined.PauseCircle,
-            onClick = onRest,
-            modifier = Modifier.testTag("plan_add_rest")
-        )
-        WorkoutInlineAddButton(
-            label = "Movimiento libre",
-            icon = Icons.Outlined.AddCircle,
-            onClick = onFreeMovement,
-            modifier = Modifier.testTag("plan_add_free_move")
-        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            WorkoutInlineAddButton(
+                label = "Descanso",
+                icon = Icons.Outlined.PauseCircle,
+                onClick = onRest,
+                modifier = Modifier.weight(1f).testTag("plan_add_rest")
+            )
+            WorkoutInlineAddButton(
+                label = "Movimiento libre",
+                icon = Icons.Outlined.AddCircle,
+                onClick = onFreeMovement,
+                modifier = Modifier.weight(1f).testTag("plan_add_free_move")
+            )
+        }
     }
 }
 
@@ -1163,11 +1098,11 @@ private fun NumberRow(block: BlockDraftUi, vararg fields: Pair<String, String>) 
                 "timeCap" -> "min"
                 else -> null
             }
-            OutlinedTextField(
-                value = value, onValueChange = setter,
-                label = { Text(label) }, singleLine = true,
-                suffix = unit?.let { { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            ReperaNumericField(
+                value = value,
+                onValueChange = setter,
+                label = if (unit != null) "$label ($unit)" else label,
+                allowsDecimal = false,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1179,122 +1114,209 @@ private fun EntryEditorRow(
     entry: EntryUi,
     resolvedName: String,
     isStrength: Boolean,
-    mobility:Boolean=false,mobilityHold:Boolean=false,
+    mobility: Boolean = false,
+    mobilityHold: Boolean = false,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: () -> Unit,
-    handle: Modifier = Modifier,
-    moveTargets: List<Pair<Int, String>> = emptyList(),
-    onMove: (Int) -> Unit = {},
     unitChoices: Boolean = false,
     weightedRepsOrMeters: Boolean = false,
-    onUp: (() -> Unit)? = null,
-    onDown: (() -> Unit)? = null,
+    onOpenReorder: (() -> Unit)? = null,
+    onOpenDetail: (() -> Unit)? = null,
+    exerciseEntry: ExerciseEntry? = null,
     effortUnit: String = "rir"
 ) {
-    val isRest = entry.sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false) } == true
-    // Apple 4c9a5d10: la etiqueta de cantidad de un recorrido (reps/m) es el
-    // shortLabel de la unidad elegida, no «Reps»/«Cantidad» fijo.
-    fun shortUnitLabel(u:String?):String = when(u) {"meters"->"m";"calories"->"cal";else->"reps"}
-    val entryUnit:String? = if (weightedRepsOrMeters)
+    val isRest = entry.sourceJson?.let {
+        runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false)
+    } == true
+    fun shortUnitLabel(u: String?): String = when (u) {
+        "meters" -> "m"
+        "calories" -> "cal"
+        else -> "reps"
+    }
+    val entryUnit: String? = if (weightedRepsOrMeters)
         entry.unit ?: entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
             ?.optString("quantityUnit")?.takeIf { it == "reps" || it == "meters" || it == "calories" }
             ?: dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
     else null
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("plan_entry_drag").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(resolvedName, style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f))
-            var moving by remember { mutableStateOf(false) }
-            if (moveTargets.isNotEmpty() && !(isRest && moveTargets.all { false })) {
-                TextButton(modifier = Modifier.testTag("plan_entry_move"), onClick = { moving = true }) { Text("Mover") }
-                DropdownMenu(expanded = moving, onDismissRequest = { moving = false }) {
-                    moveTargets.forEach { (ti, title) ->
-                        DropdownMenuItem(text = { Text(title) }, modifier = Modifier.testTag("plan_entry_move_to_$ti"),
-                            onClick = { moving = false; onMove(ti) })
+    // Series siempre visibles (sin «Cerrar series»).
+    entry.setsExpanded = true
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val openDetail = onOpenDetail
+            Row(
+                Modifier
+                    .weight(1f)
+                    .then(
+                        if (openDetail != null) Modifier.clickable(onClick = openDetail)
+                        else Modifier
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (exerciseEntry != null) {
+                    ExerciseListThumb(
+                        name = exerciseEntry.name,
+                        sportTag = exerciseEntry.sportTag,
+                        aliases = emptyMap()
+                    )
+                } else if (!isRest) {
+                    ExerciseListThumb(
+                        name = resolvedName,
+                        sportTag = null,
+                        aliases = emptyMap()
+                    )
+                }
+                Text(
+                    if (isRest) "Descanso" else resolvedName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2
+                )
+            }
+            var entryMenu by remember { mutableStateOf(false) }
+            Box {
+                Surface(
+                    onClick = { entryMenu = true },
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
+                    ),
+                    modifier = Modifier.size(34.dp).testTag("plan_entry_menu")
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Outlined.MoreHoriz,
+                            contentDescription = "Opciones del ejercicio",
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
+                DropdownMenu(expanded = entryMenu, onDismissRequest = { entryMenu = false }) {
+                    onOpenReorder?.let {
+                        DropdownMenuItem(
+                            text = { Text("Reordenar") },
+                            onClick = { entryMenu = false; it() }
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = {
+                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                        },
+                        onClick = { entryMenu = false; onRemove() }
+                    )
+                }
             }
-            IconButton(enabled = onUp != null, modifier = Modifier.testTag("plan_entry_up"), onClick = { onUp?.invoke() }) {
-                Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
-            IconButton(enabled = onDown != null, modifier = Modifier.testTag("plan_entry_down"), onClick = { onDown?.invoke() }) {
-                Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Bajar") }
-            TextButton(onClick = onRemove) { Text("Quitar") }
         }
         if (isRest) {
-            OutlinedTextField(value = entry.restText(), singleLine = true, label = { Text("Segundos de descanso") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().testTag("plan_rest_seconds"),
-                onValueChange = {entry.setRestText(it)})
+            ReperaNumericField(
+                value = entry.restText(),
+                onValueChange = { entry.setRestText(it) },
+                label = "Segundos de descanso",
+                allowsDecimal = false,
+                testTag = "plan_rest_seconds"
+            )
             return@Column
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
+            ReperaNumericField(
                 value = entry.quantity,
                 onValueChange = { entry.quantity = it },
-                label = { Text(if (isStrength) "Reps"
-                    else if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "Cantidad") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                label = if (isStrength) "Reps"
+                    else if (weightedRepsOrMeters) shortUnitLabel(entryUnit)
+                    else "Cantidad",
+                allowsDecimal = false,
                 modifier = Modifier.weight(1f)
             )
             if (isStrength) {
-                OutlinedTextField(
+                ReperaNumericField(
                     value = entry.sets,
                     onValueChange = { entry.sets = it },
-                    label = { Text("Series") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = "Series",
+                    allowsDecimal = false,
                     modifier = Modifier.weight(1f)
                 )
-                OutlinedTextField(
+                ReperaNumericField(
                     value = entry.weight,
                     onValueChange = { entry.weight = it },
-                    label = { Text("Peso kg (opc.)") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    label = "Peso kg",
+                    allowsDecimal = true,
                     modifier = Modifier.weight(1f)
                 )
             }
         }
         if (unitChoices || weightedRepsOrMeters) {
-            // Picker "Unidad" (Apple 63824a81/f7109bd7): Repeticiones/Metros
-            // para supportsRepsOrMeters; Calorias/Metros para cardio.
             val src = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-            val current = entry.unit ?: src?.optString("quantityUnit")?.takeIf { it == "calories" || it == "meters" || it == "reps" }
-                ?: if (weightedRepsOrMeters) dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
-                else if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters")) "meters" else "calories"
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (weightedRepsOrMeters) {
-                    ReperaFilterChip(selected = current == "reps", onClick = { entry.unit = "reps" },
-                        label = { Text("Repeticiones") }, modifier = Modifier.testTag("plan_unit_reps"))
-                } else {
-                    ReperaFilterChip(selected = current == "calories", onClick = { entry.unit = "calories" },
-                        label = { Text("Calorías") }, modifier = Modifier.testTag("plan_unit_calories"))
+            val current = entry.unit
+                ?: src?.optString("quantityUnit")?.takeIf {
+                    it == "calories" || it == "meters" || it == "reps"
                 }
-                ReperaFilterChip(selected = current == "meters", onClick = { entry.unit = "meters" },
-                    label = { Text("Metros") }, modifier = Modifier.testTag("plan_unit_meters"))
+                ?: if (weightedRepsOrMeters)
+                    dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
+                else if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters"))
+                    "meters"
+                else "calories"
+            val options = if (weightedRepsOrMeters) {
+                listOf("Repeticiones", "Metros")
+            } else {
+                listOf("Calorías", "Metros")
             }
+            val selectedLabel = when (current) {
+                "reps" -> "Repeticiones"
+                "calories" -> "Calorías"
+                else -> "Metros"
+            }
+            ReperaTopicSegmentedPicker(
+                options = options,
+                selected = selectedLabel,
+                onSelected = { label ->
+                    entry.unit = when (label) {
+                        "Repeticiones" -> "reps"
+                        "Calorías" -> "calories"
+                        else -> "meters"
+                    }
+                },
+                optionTestTag = { _, label ->
+                    when (label) {
+                        "Repeticiones" -> "plan_unit_reps"
+                        "Calorías" -> "plan_unit_calories"
+                        else -> "plan_unit_meters"
+                    }
+                }
+            )
         }
         if (!isStrength) {
             WodMovementDetails(entry)
-            TextButton(modifier = Modifier.testTag("plan_wod_sets"),
-                onClick = { entry.setsExpanded = !entry.setsExpanded }) {
-                Text(if (entry.setsExpanded) "Cerrar series del movimiento"
-                    else "Editar series del movimiento")
-            }
-            if (entry.setsExpanded) {
-                entry.plannedSets.forEachIndexed { idx, set ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(
+            entry.plannedSets.forEachIndexed { idx, set ->
+                ReperaSwipeDeleteRow(
+                    canDelete = entry.plannedSets.size > 1,
+                    onDelete = {
+                        entry.plannedSets.removeAt(idx)
+                        syncWodPlannedSets(entry)
+                    }
+                ) {
+                    Row(
+                        Modifier.padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        ReperaNumericField(
                             value = set.targetReps.toString(),
                             onValueChange = { v ->
-                                val reps = v.filter { it.isDigit() }.toIntOrNull()?.coerceIn(1, 10000) ?: return@OutlinedTextField
+                                val reps = v.filter { it.isDigit() }.toIntOrNull()?.coerceIn(1, 10000)
+                                    ?: return@ReperaNumericField
                                 entry.plannedSets[idx] = set.copy(targetReps = reps)
                                 syncWodPlannedSets(entry)
                             },
-                            label = { Text("Reps") }, singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("plan_wod_set_reps_$idx"),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                        OutlinedTextField(
+                            label = "Reps",
+                            allowsDecimal = false,
+                            modifier = Modifier.weight(1f),
+                            testTag = "plan_wod_set_reps_$idx"
+                        )
+                        ReperaNumericField(
                             value = set.targetWeightKg?.let {
                                 if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
                             } ?: "",
@@ -1304,138 +1326,141 @@ private fun EntryEditorRow(
                                 entry.plannedSets[idx] = set.copy(targetWeightKg = parsed)
                                 syncWodPlannedSets(entry)
                             },
-                            label = { Text("Kg") }, singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("plan_wod_set_kg_$idx"),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                        TextButton(enabled = entry.plannedSets.size > 1, onClick = {
-                            entry.plannedSets.removeAt(idx)
-                            syncWodPlannedSets(entry)
-                        }) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
+                            label = "Kg",
+                            allowsDecimal = true,
+                            modifier = Modifier.weight(1f),
+                            testTag = "plan_wod_set_kg_$idx"
+                        )
                     }
                 }
-                TextButton(enabled = entry.plannedSets.size < 20, onClick = {
-                    val last = entry.plannedSets.lastOrNull()
-                    entry.plannedSets.add(PlannedSetDraft(
-                        targetReps = last?.targetReps ?: (entry.quantity.toIntOrNull() ?: 8),
-                        targetWeightKg = last?.targetWeightKg))
-                    syncWodPlannedSets(entry)
-                }) { Text("Añadir serie") }
             }
+            OutlinedButton(
+                enabled = entry.plannedSets.size < 20,
+                onClick = {
+                    val last = entry.plannedSets.lastOrNull()
+                    entry.plannedSets.add(
+                        PlannedSetDraft(
+                            targetReps = last?.targetReps ?: (entry.quantity.toIntOrNull() ?: 8),
+                            targetWeightKg = last?.targetWeightKg
+                        )
+                    )
+                    syncWodPlannedSets(entry)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = brandGreen),
+                border = BorderStroke(1.dp, brandGreen)
+            ) { Text("Añadir serie", modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
         }
         if (isStrength) {
-            TextButton(onClick = { entry.setsExpanded = !entry.setsExpanded }) {
-                Text(if (entry.setsExpanded) "Cerrar series"
-                    else "Editar series una a una")
+            val reference = entry.plannedSets.firstOrNull()
+            val guide = remember(
+                entry.exerciseId, reference?.targetReps, reference?.targetRir
+            ) {
+                loadGuideProvider(
+                    entry.exerciseId,
+                    reference?.targetReps ?: 8,
+                    reference?.targetRir
+                )
             }
-            if (entry.setsExpanded) {
-                // Port de RoutineExerciseEditor (PlanView iOS): guía de carga
-                // + filas KG/Reps/RIR por serie. El RIR ausente se muestra
-                // vacío; la guía lo etiqueta «asumido», nunca confirmado.
-                val reference = entry.plannedSets.firstOrNull()
-                val guide = remember(entry.exerciseId, reference?.targetReps,
-                    reference?.targetRir) {
-                    loadGuideProvider(entry.exerciseId,
-                        reference?.targetReps ?: 8, reference?.targetRir)
+            val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
+                entry.name, null, null, null
+            ) == dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+            Row(
+                Modifier.padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("SERIE", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
+                Text("ANTERIOR", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(0.9f))
+                Text(
+                    if (hspuDeficit) "DÉFICIT" else "KG",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(0.9f)
+                )
+                Text(
+                    if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "REPS",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(0.9f)
+                )
+                Text(
+                    dev.repera.domain.Effort.displayName(effortUnit).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(0.7f)
+                )
+            }
+            val previousSessionSets = guide?.lastSession?.sets.orEmpty()
+            entry.plannedSets.forEachIndexed { index, ps ->
+                if (mobility) {
+                    OutlinedTextField(
+                        value = entry.durationText(index, mobilityHold),
+                        onValueChange = { entry.setDurationText(index, it) },
+                        singleLine = true,
+                        label = { Text("Duración serie ${index + 1} (segundos)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth().testTag("plan_set_duration_$index")
+                    )
                 }
-                if (guide != null) {
-                    Text("Referencia", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    LoadGuideSection(guide, effortUnit) { kg ->
-                        val last = guide.lastSession
-                        val scaled = last?.let {
-                            ExerciseLoadGuide.scaledPlannedSets(kg, it.sets,
-                                guide.incrementKg, guide.effectiveRir)
-                        }
-                        entry.plannedSets.clear();entry.invalidSetInputs.clear();entry.rawSetInputs.clear()
-                            entry.rawMovementInputs.keys.filter {it.startsWith("duration:")}.forEach {entry.rawMovementInputs.remove(it);entry.invalidMovementInputs.remove(it)}
-                        if (scaled != null) {
-                            entry.plannedSets.addAll(scaled)
-                        } else {
-                            // Sin sesión previa: fijar el kg en las series
-                            // actuales (bucle final de applySuggestedLoad iOS).
-                            entry.plannedSets.addAll(guide.let { g ->
-                                (1..(entry.sets.toIntOrNull() ?: 3).coerceIn(1, 30))
-                                    .map { PlannedSetDraft(
-                                        targetReps = g.targetReps,
-                                        targetWeightKg = kg,
-                                        targetRir = reference?.targetRir
-                                            ?: g.effectiveRir) }
-                            })
-                        }
+                val storedRirText = ps.targetRir?.let {
+                    val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
+                    if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
+                } ?: ""
+                val current = entry.rawSetInputs[index]?.takeIf { it.first == ps }?.second
+                    ?: Triple(ps.targetReps.toString(), ps.targetWeightKg?.toString() ?: "", storedRirText)
+                var repsText = current.first
+                var kgText = current.second
+                var rirText = current.third
+                fun commit() {
+                    val displayRir = rirText.takeIf { it.isNotBlank() }?.let {
+                        dev.repera.domain.ReperaNumberFormat.parse(it)
                     }
-                    if (guide.lastSession != null) {
-                        TextButton(onClick = {
-                            entry.plannedSets.clear();entry.invalidSetInputs.clear();entry.rawSetInputs.clear()
-                            entry.rawMovementInputs.keys.filter {it.startsWith("duration:")}.forEach {entry.rawMovementInputs.remove(it);entry.invalidMovementInputs.remove(it)}
-                            entry.plannedSets.addAll(
-                                ExerciseLoadGuide.copyLastSession(
-                                    guide.lastSession.sets))
-                        }) { Text("Copiar última sesión") }
+                    val canonicalRir = displayRir?.let {
+                        dev.repera.domain.Effort.toRIR(it, effortUnit)
                     }
-                    Text("Aplicar escala la última sesión al kg sugerido (misma progresión, reps y " +
-                            dev.repera.domain.Effort.displayName(effortUnit) + ").",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
-                    entry.name, null, null, null) ==
-                    dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
-                // R5 P1-15: cabecera SERIE · ANTERIOR · KG/REPS · RIR (OGSetEntryHeader iOS).
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("SERIE", style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(36.dp))
-                    Text("ANTERIOR", style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(0.9f))
-                    Text(if (hspuDeficit) "DÉFICIT" else "KG",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(0.9f))
-                    Text(if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "REPS",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(0.9f))
-                    Text(dev.repera.domain.Effort.displayName(effortUnit).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.weight(0.7f))
-                    Spacer(Modifier.width(40.dp))
-                }
-                val previousSessionSets = guide?.lastSession?.sets.orEmpty()
-                entry.plannedSets.forEachIndexed { index, ps ->
-                    if(mobility) OutlinedTextField(value=entry.durationText(index,mobilityHold),
-                        onValueChange={entry.setDurationText(index,it)},singleLine=true,
-                        label={Text("Duración serie ${index+1} (segundos)")},
-                        keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
-                        modifier=Modifier.fillMaxWidth().testTag("plan_set_duration_$index"))
-
-                    val storedRirText = ps.targetRir?.let {
-                        val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
-                        if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
+                    val rirForParse = canonicalRir?.let {
+                        if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
                     } ?: ""
-                    val current=entry.rawSetInputs[index]?.takeIf {it.first==ps}?.second
-                        ?: Triple(ps.targetReps.toString(),ps.targetWeightKg?.toString() ?: "",storedRirText)
-                    var repsText=current.first
-                    var kgText=current.second
-                    var rirText=current.third
-                    fun commit() {
-                        val displayRir = rirText.takeIf { it.isNotBlank() }?.let {
-                            dev.repera.domain.ReperaNumberFormat.parse(it)
-                        }
-                        val canonicalRir = displayRir?.let {
-                            dev.repera.domain.Effort.toRIR(it, effortUnit)
-                        }
-                        val rirForParse = canonicalRir?.let {
-                            if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
-                        } ?: ""
-                        val parsed=parsePlannedSetText(repsText,kgText,rirForParse,ps.id)
-                        entry.invalidSetInputs[index]=parsed==null && rirText.isNotBlank()
-                        val updated=parsed?.copy(targetDurationSeconds=ps.targetDurationSeconds,sourceJson=ps.sourceJson)
-                        if(updated!=null) entry.plannedSets[index] = updated
-                        entry.rawSetInputs[index]=(updated ?: ps) to Triple(repsText,kgText,rirText)
+                    val parsed = parsePlannedSetText(repsText, kgText, rirForParse, ps.id)
+                    entry.invalidSetInputs[index] = parsed == null && rirText.isNotBlank()
+                    val updated = parsed?.copy(
+                        targetDurationSeconds = ps.targetDurationSeconds,
+                        sourceJson = ps.sourceJson
+                    )
+                    if (updated != null) entry.plannedSets[index] = updated
+                    entry.rawSetInputs[index] = (updated ?: ps) to Triple(repsText, kgText, rirText)
+                }
+                val previousLabel = previousSessionSets.getOrNull(index)?.let { prev ->
+                    val kg = prev.weightKg?.let {
+                        "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×"
+                    } ?: ""
+                    "$kg${prev.reps}"
+                } ?: "—"
+                fun removeSetAt(index: Int) {
+                    entry.plannedSets.removeAt(index)
+                    val shifted = entry.invalidSetInputs.filterKeys { it != index }
+                        .mapKeys { if (it.key > index) it.key - 1 else it.key }
+                    entry.invalidSetInputs.clear(); entry.invalidSetInputs.putAll(shifted)
+                    val rawShifted = entry.rawSetInputs.filterKeys { it != index }
+                        .mapKeys { if (it.key > index) it.key - 1 else it.key }
+                    entry.rawSetInputs.clear(); entry.rawSetInputs.putAll(rawShifted)
+                    fun shiftedKey(key: String): String? {
+                        if (!key.startsWith("duration:")) return key
+                        val n = key.substringAfter(':').toInt()
+                        return if (n == index) null else "duration:${if (n > index) n - 1 else n}"
                     }
-                    val previousLabel = previousSessionSets.getOrNull(index)?.let { prev ->
-                        val kg = prev.weightKg?.let { "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×" } ?: ""
-                        "$kg${prev.reps}"
-                    } ?: "—"
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
+                    val rawDurations = entry.rawMovementInputs.toMap()
+                        .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
+                    val invalidDurations = entry.invalidMovementInputs.toMap()
+                        .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
+                    entry.rawMovementInputs.clear(); entry.rawMovementInputs.putAll(rawDurations)
+                    entry.invalidMovementInputs.clear(); entry.invalidMovementInputs.putAll(invalidDurations)
+                }
+                ReperaSwipeDeleteRow(
+                    canDelete = entry.plannedSets.size > 1,
+                    onDelete = { removeSetAt(index) }
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
                             "${index + 1}",
                             style = MaterialTheme.typography.labelLarge,
@@ -1447,56 +1472,51 @@ private fun EntryEditorRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(0.9f)
                         )
-                        OutlinedTextField(
+                        ReperaNumericField(
                             value = kgText,
                             onValueChange = { kgText = it; commit() },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(0.9f))
-                        OutlinedTextField(
+                            label = "",
+                            allowsDecimal = true,
+                            modifier = Modifier.weight(0.9f)
+                        )
+                        ReperaNumericField(
                             value = repsText,
                             onValueChange = { repsText = it; commit() },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(0.9f))
-                        OutlinedTextField(
+                            label = "",
+                            allowsDecimal = false,
+                            modifier = Modifier.weight(0.9f)
+                        )
+                        ReperaNumericField(
                             value = rirText,
                             onValueChange = { rirText = it; commit() },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(0.7f))
-                        TextButton(
-                            onClick = {
-                                entry.plannedSets.removeAt(index)
-                                val shifted=entry.invalidSetInputs.filterKeys {it!=index}.mapKeys {if(it.key>index) it.key-1 else it.key}
-                                entry.invalidSetInputs.clear();entry.invalidSetInputs.putAll(shifted)
-                                val rawShifted=entry.rawSetInputs.filterKeys {it!=index}.mapKeys {if(it.key>index) it.key-1 else it.key}
-                                entry.rawSetInputs.clear();entry.rawSetInputs.putAll(rawShifted)
-                                fun shiftedKey(key:String):String? {
-                                    if(!key.startsWith("duration:")) return key
-                                    val n=key.substringAfter(':').toInt();return if(n==index) null else "duration:${if(n>index) n-1 else n}"
-                                }
-                                val rawDurations=entry.rawMovementInputs.toMap().mapNotNull {(k,v) ->shiftedKey(k)?.let {it to v}}.toMap()
-                                val invalidDurations=entry.invalidMovementInputs.toMap().mapNotNull {(k,v) ->shiftedKey(k)?.let {it to v}}.toMap()
-                                entry.rawMovementInputs.clear();entry.rawMovementInputs.putAll(rawDurations)
-                                entry.invalidMovementInputs.clear();entry.invalidMovementInputs.putAll(invalidDurations)
-
-                            },
-                            enabled = entry.plannedSets.size > 1,
-                            modifier = Modifier.width(40.dp)
-                        ) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
+                            label = "",
+                            allowsDecimal = true,
+                            modifier = Modifier.weight(0.7f)
+                        )
                     }
                 }
-                TextButton(onClick = {
+            }
+            OutlinedButton(
+                onClick = {
                     val last = entry.plannedSets.lastOrNull()
-                    entry.plannedSets.add(PlannedSetDraft(
-                        targetReps = last?.targetReps ?: 8,
-                        targetWeightKg = last?.targetWeightKg,
-                        targetRir = last?.targetRir,targetDurationSeconds=last?.targetDurationSeconds))
-                }) { Text("+ Añadir serie") }
+                    entry.plannedSets.add(
+                        PlannedSetDraft(
+                            targetReps = last?.targetReps ?: 8,
+                            targetWeightKg = last?.targetWeightKg,
+                            targetRir = last?.targetRir,
+                            targetDurationSeconds = last?.targetDurationSeconds
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = brandGreen),
+                border = BorderStroke(1.dp, brandGreen)
+            ) {
+                Text(
+                    "Añadir serie",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
     }

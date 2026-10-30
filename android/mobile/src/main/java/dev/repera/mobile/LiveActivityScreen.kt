@@ -33,15 +33,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.Whatshot
@@ -192,7 +194,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     var routesVersion by remember { mutableStateOf(0) }
     var showRoutes by remember { mutableStateOf(false) }
     var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
-    var routeListMode by remember { mutableStateOf("Últimas rutas") }
     LaunchedEffect(routesStore) {
         if (routesStore != null) {
             try {
@@ -449,32 +450,47 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         "application/octet-stream"
                     ))
                 }) { Text("Importar archivo GPX") }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Últimas rutas", "Favoritos", "Todas").forEach { mode ->
-                        ReperaFilterChip(
-                            selected = routeListMode == mode,
-                            onClick = { routeListMode = mode },
-                            label = { Text(mode) }
-                        )
+                val recentRoutes = routesStore?.latestRoutes?.take(5).orEmpty()
+                val favoriteRoutes = routesStore?.favoriteRoutes.orEmpty()
+                if (recentRoutes.isNotEmpty()) {
+                    Text("Últimas rutas", style = MaterialTheme.typography.titleSmall)
+                    recentRoutes.forEach { route ->
+                        ReperaCard(
+                            onClick = { runtime.selectRoute(route.id); showRoutes = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(route.title, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
-                val visibleRoutes = when (routeListMode) {
-                    "Últimas rutas" -> routes.take(5)
-                    "Favoritos" -> routes.filter { it.isFavorite }
-                    else -> routes
-                }
-                visibleRoutes.forEach { route ->
-                    ReperaCard(
-                        onClick = { runtime.selectRoute(route.id); showRoutes = false },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(route.title, style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "${'$'}{ReperaNumberFormat.decimal(route.distanceKm)} km · ${'$'}{route.sportTitle}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                if (favoriteRoutes.isNotEmpty()) {
+                    Text("Favoritos", style = MaterialTheme.typography.titleSmall)
+                    favoriteRoutes.forEach { route ->
+                        ReperaCard(
+                            onClick = { runtime.selectRoute(route.id); showRoutes = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(route.title, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -493,27 +509,24 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }) { Text("Eliminar") } },
             dismissButton = { TextButton(onClick = { pendingDeleteRoute = null }) { Text("Cancelar") } })
     }
-    if(confirmDiscard) AlertDialog(onDismissRequest={confirmDiscard=false},
-        title={Text("¿Descartar actividad?")},text={Text("No se guardará esta actividad.")},
-        confirmButton={TextButton(onClick={ if(runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false };confirmDiscard=false }) {Text("Descartar")}},
-        dismissButton={TextButton(onClick={confirmDiscard=false}) {Text("Cancelar")}})
-    if (startCountdown > 0) {
-        AlertDialog(
-            onDismissRequest = { cancelStartCountdown() },
-            title = { Text("Empezando…", modifier = Modifier.testTag("live_start_countdown")) },
-            text = {
-                Text(
-                    "$startCountdown",
-                    style = MaterialTheme.typography.displayLarge,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+    if (confirmDiscard) {
+        ReperaConfirmSheet(
+            title = "¿Descartar actividad?",
+            message = "Perderás el recorrido y los datos que no hayas guardado.",
+            confirmTitle = "Descartar sin guardar",
+            onConfirm = {
+                if (runtime.discard()) {
+                    LiveActivityService.stop(context)
+                    title = ""
+                    notes = ""
+                    showingMetrics = false
+                }
+                confirmDiscard = false
             },
-            confirmButton = {
-                TextButton(onClick = { cancelStartCountdown() }) { Text("Cancelar") }
-            }
+            onCancel = { confirmDiscard = false }
         )
     }
+    // Cuenta atrás en el botón Iniciar (sustituye el icono play); sin diálogo modal.
     // Idle GPS: auto-centrar como LiveActivityView (.userLocation) al entrar.
     LaunchedEffect(accountId, state.phase, state.sport.usesGPS) {
         if (state.phase == LiveActivityState.Phase.IDLE && state.sport.usesGPS) {
@@ -551,7 +564,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     followingMap = false
                     lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
                 })
-            // FABs circulares a la derecha (LiveActivityView.mapHeader) — sin tarjeta superior.
+            // FABs a la derecha (LiveActivityView.mapHeader): pausa/fin + mapa/métricas/voz.
             Column(
                 Modifier
                     .align(Alignment.TopEnd)
@@ -561,8 +574,25 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.End
             ) {
+                if (state.phase == LiveActivityState.Phase.RECORDING) {
+                    LiveMapSessionFab(
+                        Icons.Filled.Pause, "Pausar grabación",
+                        background = Color(0xFFFFD60A), foreground = Color.Black
+                    ) { runtime.pause() }
+                } else if (state.phase == LiveActivityState.Phase.PAUSED) {
+                    LiveMapSessionFab(
+                        Icons.Filled.PlayArrow, "Reanudar grabación",
+                        background = brandGreen, foreground = Color.Black
+                    ) { runtime.resume(); startService() }
+                    LiveMapSessionFab(
+                        Icons.Outlined.Flag, "Finalizar y guardar",
+                        background = Color.Black, foreground = Color.White
+                    ) {
+                        runtime.finish(); LiveActivityService.stop(context)
+                    }
+                }
                 LiveMapCircleFab(
-                    icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.Layers,
+                    icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
                     label = when {
                         effectiveNavigationMode -> "Cambiar a vista 2D"
                         canNavigate3D -> "Cambiar a vista 3D"
@@ -674,7 +704,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                             Alignment.BottomStart else Alignment.BottomCenter
                     )
                     .navigationBarsPadding()
-                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 72.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp)
                     .then(
                         if (mapLandscape)
                             Modifier.width(
@@ -742,42 +772,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         )
                     }
                 } else {
-                    Column(
-                        Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            LiveSportHistory.formatDuration(state.durationSeconds(nowTick)) + " · " +
-                                ReperaNumberFormat.decimal(
-                                    state.distanceMeters / 1000, maximumFractionDigits = 2
-                                ) + " km",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        if (state.activeKilometerMeters >= 40) {
-                            val split = state.currentSplitSeconds(System.currentTimeMillis())
-                            val current = if (state.sport.displaysSpeed && split > 0)
-                                "${ReperaNumberFormat.decimal(state.activeKilometerMeters / split * 3.6)} km/h"
-                            else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
-                            Text("Km ${state.activeKilometer} · $current")
-                        }
-                        FlowRow {
-                            Button(onClick = { showingMetrics = true }) { Text("Ver métricas") }
-                            if (state.phase == LiveActivityState.Phase.RECORDING)
-                                TextButton(onClick = { runtime.pause() }) { Text("Pausar") }
-                            else TextButton(onClick = { runtime.resume(); startService() }) { Text("Reanudar") }
-                            TextButton(onClick = {
-                                runtime.finish(); LiveActivityService.stop(context)
-                            }) { Text("Finalizar") }
-                        }
-                        Row {
-                            TextButton(onClick = { confirmDiscard = true }) { Text("Descartar") }
-                            TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
-                                Text(
-                                    if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz"
-                                )
-                            }
-                        }
-                    }
+                    LiveMapMetricStrip(state = state, nowTick = nowTick)
                 }
             }
         }
@@ -832,6 +827,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
+                // Paridad iOS metricsTrailingActions: Audio · Mapa · Pausa | Finalizar+Play.
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     LiveMapCircleFab(
                         if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp
@@ -845,6 +841,26 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     }
                     LiveMapCircleFab(Icons.Outlined.Map, "Ver mapa") {
                         showingMetrics = false
+                    }
+                    if (state.phase == LiveActivityState.Phase.RECORDING) {
+                        LiveMapSessionFab(
+                            Icons.Filled.Pause, "Pausar grabación",
+                            background = Color(0xFFFFD60A), foreground = Color.Black,
+                            onClick = { runtime.pause() }
+                        )
+                    } else if (state.phase == LiveActivityState.Phase.PAUSED) {
+                        LiveMapSessionFab(
+                            Icons.Outlined.Flag, "Finalizar y guardar",
+                            background = Color.Black, foreground = Color.White,
+                            onClick = {
+                                runtime.finish(); LiveActivityService.stop(context)
+                            }
+                        )
+                        LiveMapSessionFab(
+                            Icons.Filled.PlayArrow, "Reanudar grabación",
+                            background = brandGreen, foreground = Color.Black,
+                            onClick = { runtime.resume(); startService() }
+                        )
                     }
                 }
             }
@@ -868,9 +884,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 textAlign = TextAlign.Center
             )
             if (state.phase != LiveActivityState.Phase.IDLE) {
-                LiveKilometerSplitsSection(
-                    state.splitsSeconds,
-                    state.sport.displaysSpeed,
+                LiveKilometerSplitSummary(
+                    state = state,
+                    nowTick = nowTick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 )
             }
             Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
@@ -936,7 +955,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 72.dp)
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp)
                         .testTag("live_idle_panel"),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
@@ -998,46 +1017,75 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     }
                 }
             } else {
-                // Controles compactos (panel mapa en grabación/pausa).
-                Column(
+                (error ?: runtime.lastError)?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                Spacer(
                     Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 72.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FlowRow {
-                        if (state.phase == LiveActivityState.Phase.RECORDING)
-                            TextButton(
-                                onClick = { runtime.pause() },
-                                modifier = Modifier.testTag("live_pause")
-                            ) { Text("Pausar") }
-                        else TextButton(
-                            onClick = { runtime.resume(); startService() },
-                            modifier = Modifier.testTag("live_resume")
-                        ) { Text("Reanudar") }
-                        TextButton(
-                            onClick = {
-                                runtime.finish(); LiveActivityService.stop(context)
-                            },
-                            modifier = Modifier.testTag("live_finish")
-                        ) { Text("Finalizar") }
-                        TextButton(onClick = { confirmDiscard = true }) { Text("Descartar") }
-                    }
-                    (error ?: runtime.lastError)?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error)
-                    }
-                }
+                        .height(72.dp)
+                )
             }
         }
         return
     }
-    // Sin GPS / rutas / review: formulario bajo status bar (mapa usa fillMaxSize a sangre).
+    // REVIEW: resumen estilo Fitness (mapa + métricas + guardar), sin el formulario genérico.
+    if (state.phase == LiveActivityState.Phase.REVIEW) {
+        LiveActivityReviewContent(
+            state = state,
+            title = title,
+            onTitleChange = { title = it },
+            notes = notes,
+            onNotesChange = { notes = it },
+            previewHealth = previewHealth,
+            routes = routes,
+            nowTick = nowTick,
+            error = error ?: runtime.lastError,
+            onMapRendered = onMapRendered,
+            onSave = {
+                try {
+                    val now = System.currentTimeMillis()
+                    val savedDay = state.startedMillis ?: now
+                    val sessionId = WorkoutRepository(context, accountId).saveLiveActivity(
+                        state.snapshot(now)!!,
+                        state.finishedMillis ?: now,
+                        state.durationSeconds(now),
+                        title,
+                        notes
+                    )
+                    if (runtime.discard()) {
+                        LiveActivityService.stop(context)
+                        title = ""
+                        notes = ""
+                        showingMetrics = false
+                        onSavedDay(savedDay)
+                        onSaved(sessionId)
+                    } else {
+                        error = "La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
+                    }
+                } catch (_: Exception) {
+                    error = "No se pudo guardar. La actividad sigue disponible para reintentar."
+                }
+            },
+            onDiscard = { confirmDiscard = true },
+            recoveryBlocked = runtime.recoveryBlocked
+        )
+        return
+    }
+    // Sin GPS / rutas: formulario bajo status bar (mapa usa fillMaxSize a sangre).
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp)
         .testTag("live_activity_screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         ReperaPageHeader(title = "Comenzar")
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
-        if(state.sport.usesGPS && state.phase!=LiveActivityState.Phase.REVIEW)
+        if(state.sport.usesGPS)
             TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text("Ver mapa")}
         if(state.phase==LiveActivityState.Phase.IDLE) {
             OutlinedButton(onClick = { showSportPicker = true }, modifier = Modifier.testTag("live_sport_picker")) {
@@ -1093,44 +1141,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
                     Text("Km ${state.activeKilometer} · $current")
                 }
-                // Apple c99475d9: si el GPS no adquirio señal, la vista previa de
-                // guardado muestra igualmente el mapa de la ruta elegida,
-                // diferenciada (plannedRoute) del recorrido registrado.
-                val chosenRoutePoints = routes.firstOrNull { it.id==state.selectedRouteID }?.points.orEmpty()
-                val previewRecorded = state.points.size >= 2
-                val previewPoints = if (previewRecorded) state.points else chosenRoutePoints
-                // Apple 1c729659: preview sin gestos + superficie tactil dedicada
-                // que abre el recorrido a pantalla completa.
-                if(previewPoints.size>=2) RouteMapTapTarget(label = "Abrir recorrido a pantalla completa",
-                    modifier = Modifier.fillMaxWidth().height(220.dp)) { interactive, mapModifier ->
-                    RouteMapView(previewPoints,isInteractive=interactive,modifier=mapModifier,waterSport=state.sport.isWaterSport,
-                        paceMode=AdaptiveRoutePace.modeForSport(state.sport.name),
-                        plannedRoute=!previewRecorded,
-                        plannedPoints=if (previewRecorded) chosenRoutePoints else emptyList(),onMapRendered=onMapRendered)
-                }
-                // iOS SessionMapWeatherCard: franja Tiempo/Humedad/Viento bajo el mapa
-                // en REVIEW (Open-Meteo = campos WeatherKit).
-                if (state.phase == LiveActivityState.Phase.REVIEW) {
-                    val weatherPoint = previewPoints.firstOrNull() ?: state.points.firstOrNull()
-                    val weatherEpoch = state.startedMillis
-                    if (weatherPoint != null && weatherEpoch != null) {
-                        RouteWeatherStrip(
-                            latitude = weatherPoint.latitude,
-                            longitude = weatherPoint.longitude,
-                            workoutEpochMs = weatherEpoch,
-                            modifier = Modifier.testTag("live_review_weather_under_map")
-                        )
-                    }
-                }
-                // Apple (live main) e9feae2b: resumen de parciales en el HUD solo con GPS
-                // y fase recording/paused (en REVIEW se muestra en el bloque de guardado).
-                if (state.phase == LiveActivityState.Phase.RECORDING || state.phase == LiveActivityState.Phase.PAUSED) {
-                    LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
-                    // Apple 213ce753/c9a8246a: el silencio de alertas habladas vive
-                    // en el HUD de kilometraje compartido, tambien en metricas.
-                    TextButton(onClick={runtime.toggleSpokenGuidance()}) {
-                        Text(if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz")
-                    }
+                LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
+                TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
+                    Text(
+                        if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz"
+                        else "Activar avisos por voz"
+                    )
                 }
             }
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
@@ -1143,59 +1159,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 }
                 else -> {}
             }
-            if(state.phase!=LiveActivityState.Phase.REVIEW) Button(onClick={runtime.finish();LiveActivityService.stop(context)},modifier=Modifier.testTag("live_finish")) {Text("Finalizar")}
-            else {
-                // iOS review: fecha completa + hora de inicio (no rango).
-                state.startedMillis?.let { started ->
-                    val zoned = java.time.Instant.ofEpochMilli(started)
-                        .atZone(java.time.ZoneId.systemDefault())
-                    Text(
-                        zoned.format(java.time.format.DateTimeFormatter.ofPattern(
-                            "EEEE d MMMM · H:mm", java.util.Locale("es", "ES"))),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("live_review_started_subtitle")
-                    )
-                }
-                // Apple 1b5d4eea (LiveActivityView reviewTiles): metricas de la
-                // revision en fichas icono+etiqueta+valor, sin contenedor exterior.
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    WorkoutSummaryTile("Tiempo activo",
-                        LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),
-                        Icons.Outlined.AccessTime, Modifier.weight(1f))
-                    if (state.sport.usesGPS) {
-                        WorkoutSummaryTile("Distancia",
-                            ReperaNumberFormat.decimal(state.distanceMeters / 1000) + " km",
-                            Icons.Outlined.Route, Modifier.weight(1f))
-                    }
-                    WorkoutSummaryTile("Energía",
-                        previewHealth?.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }
-                            ?.let { "%.0f kcal".format(it) } ?: "—",
-                        Icons.Outlined.Whatshot, Modifier.weight(1f))
-                }
-                previewHealth?.let { sample ->
-                    val heart = sample.averageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }
-                    val energy = sample.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }
-                    if (heart != null || energy != null) {
-                        Text("Health Connect · datos medidos", style = MaterialTheme.typography.titleMedium)
-                        heart?.let { Text("Pulso medio: %.0f lpm".format(it)) }
-                        energy?.let { Text("Energía activa: %.0f kcal".format(it)) }
-                    }
-                }
-                OutlinedTextField(title,{title=it},label={Text("Nombre de la actividad")},modifier=Modifier.fillMaxWidth())
-                OutlinedTextField(notes,{notes=it},label={Text("Notas")},modifier=Modifier.fillMaxWidth())
-                Button(onClick={
-                    try {
-                        val now=System.currentTimeMillis()
-                        val savedDay=state.startedMillis ?: now
-                        val sessionId = WorkoutRepository(context,accountId).saveLiveActivity(state.snapshot(now)!!,
-                            state.finishedMillis ?: now,state.durationSeconds(now),title,notes)
-                        if (runtime.discard()) { LiveActivityService.stop(context);title="";notes="";showingMetrics=false;onSavedDay(savedDay);onSaved(sessionId) }
-                        else error="La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
-                    } catch (_: Exception) {error="No se pudo guardar. La actividad sigue disponible para reintentar."}
-                },modifier=Modifier.testTag("live_save")) {Text("Guardar actividad")}
-            }
-            TextButton(onClick={confirmDiscard=true}) {Text("Descartar")}
+            Button(
+                onClick = { runtime.finish(); LiveActivityService.stop(context) },
+                modifier = Modifier.testTag("live_finish")
+            ) { Text("Finalizar") }
+            TextButton(onClick = { confirmDiscard = true }) { Text("Descartar") }
             LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
@@ -1203,7 +1171,275 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
 }
 
-/** FAB circular glass del mapa (LiveActivityView.mapCircleButton). R7: touch 48 / círculo 44 / icono 24. */
+/** Aviso sin GPS: debajo de los tiles, con icono de mapa. */
+@Composable
+private fun LiveReviewMapUnavailableCard(
+    hasDistance: Boolean,
+    modifier: Modifier = Modifier
+) {
+    ReperaCard(modifier = modifier.testTag("live_review_map_missing")) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(brandGreen.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Outlined.Map,
+                    contentDescription = null,
+                    tint = brandGreen,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "Recorrido no disponible",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    if (hasDistance)
+                        "La distancia y los parciales se conservan, pero no hay puntos GPS para dibujar el mapa."
+                    else
+                        "No se registraron puntos GPS en esta actividad.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** Resumen al finalizar: mapa hero + métricas + guardar (paridad Fitness / iOS review). */
+@Composable
+private fun LiveActivityReviewContent(
+    state: LiveActivityState,
+    title: String,
+    onTitleChange: (String) -> Unit,
+    notes: String,
+    onNotesChange: (String) -> Unit,
+    previewHealth: dev.repera.domain.SessionCardioSample?,
+    routes: List<LiveSavedRoute>,
+    nowTick: Long,
+    error: String?,
+    onMapRendered: (() -> Unit)?,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
+    recoveryBlocked: Boolean
+) {
+    val chosenRoutePoints = routes.firstOrNull { it.id == state.selectedRouteID }?.points.orEmpty()
+    val previewRecorded = state.points.size >= 2
+    val previewPoints = if (previewRecorded) state.points else chosenRoutePoints
+    val average = state.averageSpeedKmh(nowTick)
+    val paceOrSpeed = when {
+        average == null || average <= 0.1 ->
+            if (state.sport.displaysSpeed) "—" else "—:—"
+        state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
+        else -> {
+            val secs = (3600.0 / average).toInt()
+            if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
+        }
+    }
+    val energyText = previewHealth?.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }
+        ?.let { "%.0f kcal".format(it) } ?: "—"
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .testTag("live_activity_screen"),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        ReperaPageHeader(title = "Guardar entreno")
+        if (state.sport.usesGPS && previewPoints.isNotEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .testTag("live_review_map_card")
+            ) {
+                RouteMapTapTarget(
+                    label = "Abrir recorrido a pantalla completa",
+                    modifier = Modifier.fillMaxWidth().height(280.dp)
+                ) { interactive, mapModifier ->
+                    RouteMapView(
+                        previewPoints,
+                        isInteractive = interactive,
+                        modifier = mapModifier,
+                        waterSport = state.sport.isWaterSport,
+                        paceMode = AdaptiveRoutePace.modeForSport(state.sport.name),
+                        plannedRoute = !previewRecorded,
+                        plannedPoints = if (previewRecorded) chosenRoutePoints else emptyList(),
+                        controlsOverlay = true,
+                        cameraCenter = previewPoints.lastOrNull(),
+                        userPosition = previewPoints.lastOrNull(),
+                        onMapRendered = onMapRendered
+                    )
+                }
+                val weatherPoint = previewPoints.firstOrNull()
+                val weatherEpoch = state.startedMillis
+                if (weatherPoint != null && weatherEpoch != null) {
+                    RouteWeatherStrip(
+                        latitude = weatherPoint.latitude,
+                        longitude = weatherPoint.longitude,
+                        workoutEpochMs = weatherEpoch,
+                        modifier = Modifier.testTag("live_review_weather_under_map")
+                    )
+                }
+            }
+        }
+        state.startedMillis?.let { started ->
+            val zoned = java.time.Instant.ofEpochMilli(started)
+                .atZone(java.time.ZoneId.systemDefault())
+            Text(
+                zoned.format(
+                    java.time.format.DateTimeFormatter.ofPattern(
+                        "EEEE, d 'de' MMMM 'de' yyyy, H:mm",
+                        java.util.Locale("es", "ES")
+                    )
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("live_review_started_subtitle")
+            )
+        }
+        // Una sola fila: tiempo · distancia · ritmo · energía (paridad pedida).
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            WorkoutSummaryTile(
+                "Tiempo",
+                LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),
+                Icons.Outlined.AccessTime,
+                Modifier.weight(1f),
+                iconTint = Color(0xFF0A84FF),
+                compact = true
+            )
+            if (state.sport.usesGPS) {
+                WorkoutSummaryTile(
+                    "Distancia",
+                    ReperaNumberFormat.decimal(state.distanceMeters / 1000) + " km",
+                    Icons.Outlined.Route,
+                    Modifier.weight(1f),
+                    iconTint = brandGreen,
+                    compact = true
+                )
+                WorkoutSummaryTile(
+                    if (state.sport.displaysSpeed) "Veloc." else "Ritmo",
+                    paceOrSpeed,
+                    Icons.Outlined.AccessTime,
+                    Modifier.weight(1f),
+                    iconTint = Color(0xFF0A84FF),
+                    compact = true
+                )
+            }
+            WorkoutSummaryTile(
+                "Energía",
+                energyText,
+                Icons.Outlined.Whatshot,
+                Modifier.weight(1f),
+                iconTint = Color(0xFFFF9F0A),
+                compact = true
+            )
+        }
+        if (state.sport.usesGPS && previewPoints.isEmpty()) {
+            LiveReviewMapUnavailableCard(
+                hasDistance = state.distanceMeters > 0,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (state.sport.tracksElevation && state.hasElevationSamples) {
+            Text(
+                "+%.0f m de ascenso · −%.0f m de descenso".format(
+                    state.elevationGainMeters,
+                    state.elevationLossMeters
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (state.splitsSeconds.isNotEmpty()) {
+            ReperaSectionTitle("Entreno")
+            ReperaCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    LiveKilometerSplitsSection(
+                        state.splitsSeconds,
+                        state.sport.displaysSpeed,
+                        routePoints = if (previewRecorded) state.points else emptyList()
+                    )
+                }
+            }
+        }
+        ReperaSectionTitle("Detalles de la actividad")
+        ReperaCard(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    title,
+                    onTitleChange,
+                    label = { Text("Nombre") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    notes,
+                    onNotesChange,
+                    label = { Text("Notas (opcional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                state.selectedRouteID?.let { id ->
+                    Text(
+                        "Ruta: ${routes.firstOrNull { it.id == id }?.title ?: "Elegida"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Button(
+            onClick = onSave,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("live_save"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = brandGreen,
+                contentColor = Color.Black
+            ),
+            shape = RoundedCornerShape(999.dp)
+        ) {
+            Text("Guardar", fontWeight = FontWeight.Bold)
+        }
+        TextButton(
+            onClick = onDiscard,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+        ) {
+            Text("Descartar actividad", color = Color(0xFFFF453A))
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (recoveryBlocked) {
+            TextButton(onClick = onDiscard) { Text("Descartar recuperación dañada") }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** FAB circular opaco del mapa (LiveActivityView.mapCircleButton). R7: touch 48 / círculo 44 / icono 24. */
 @Composable
 private fun LiveMapCircleFab(icon: ImageVector, label: String, onClick: () -> Unit) {
     Box(
@@ -1215,8 +1451,7 @@ private fun LiveMapCircleFab(icon: ImageVector, label: String, onClick: () -> Un
         Surface(
             onClick = onClick,
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            // Liquid Glass → Material translucency + sombra suave sobre mapa.
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 2.dp,
             border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)),
             modifier = Modifier.size(44.dp)
@@ -1226,6 +1461,177 @@ private fun LiveMapCircleFab(icon: ImageVector, label: String, onClick: () -> Un
                     modifier = Modifier.size(24.dp))
             }
         }
+    }
+}
+
+/** Pausa / reanudar / finalizar estilo Apple Watch sobre el mapa. */
+@Composable
+private fun LiveMapSessionFab(
+    icon: ImageVector,
+    label: String,
+    background: Color,
+    foreground: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = background,
+            shadowElevation = 2.dp,
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(22.dp))
+            }
+        }
+    }
+}
+
+/** Parcial del km actual bajo Duración (paridad iOS kilometerSplitSummary). */
+@Composable
+private fun LiveKilometerSplitSummary(
+    state: LiveActivityState,
+    nowTick: Long,
+    modifier: Modifier = Modifier
+) {
+    val split = state.currentSplitSeconds(nowTick)
+    val kmMetric = when {
+        state.activeKilometerMeters < 1 -> if (state.sport.displaysSpeed) "— km/h" else "—:— min/km"
+        state.sport.displaysSpeed && split > 0 ->
+            "${ReperaNumberFormat.decimal(state.activeKilometerMeters / split * 3.6)} km/h"
+        split > 0 ->
+            "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
+        else -> if (state.sport.displaysSpeed) "— km/h" else "—:— min/km"
+    }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Km ${state.activeKilometer}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                "${state.activeKilometerMeters.toInt()} m",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                kmMetric,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
+        LinearProgressIndicator(
+            progress = { (state.activeKilometerMeters / 1000.0).toFloat().coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+            color = brandGreen,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    }
+}
+
+/** Panel activo: duración, ritmo/velocidad, distancia + parcial del km (paridad mapMetricStrip iOS). */
+@Composable
+private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long) {
+    val durationSec = state.durationSeconds(nowTick)
+    val durationText = run {
+        val total = maxOf(0, durationSec.toInt())
+        "%02d:%02d:%02d".format(total / 3600, (total / 60) % 60, total % 60)
+    }
+    val average = state.averageSpeedKmh(nowTick)
+    val paceOrSpeed = when {
+        average == null || average <= 0.1 ->
+            if (state.sport.displaysSpeed) "—" else "—:—"
+        state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
+        else -> {
+            val secs = (3600.0 / average).toInt()
+            if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
+        }
+    }
+    val paceLabel = if (state.sport.displaysSpeed) "Veloc. media" else "Ritmo medio"
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            LiveMapSmallMetric("Duración", durationText, Modifier.weight(1f), prominent = true)
+            LiveMapSmallMetric(paceLabel, paceOrSpeed, Modifier.weight(1f))
+            LiveMapSmallMetric(
+                "Distancia (km)",
+                ReperaNumberFormat.decimal(state.distanceMeters / 1000),
+                Modifier.weight(1f)
+            )
+        }
+        if (state.sport.tracksElevation && state.hasElevationSamples) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "+${state.elevationGainMeters.toInt()} m ascenso",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "−${state.elevationLossMeters.toInt()} m descenso",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        LiveKilometerSplitSummary(
+            state = state,
+            nowTick = nowTick,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun LiveMapSmallMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    prominent: Boolean = false
+) {
+    Column(
+        modifier.padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            value,
+            style = if (prominent) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -1270,7 +1676,8 @@ private fun RowScope.LiveIdleSelectionAction(
                 Text(
                     "$countdown",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.Black
+                    color = Color.Black,
+                    modifier = Modifier.testTag("live_start_countdown")
                 )
             } else {
                 Icon(

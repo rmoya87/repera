@@ -14,17 +14,24 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -197,7 +204,6 @@ internal fun ProgressTab(
             }
             item {
                 Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                if(!pro || PROGRESS_DEMO_CHARTS) Text("Ejemplo · FC y calorías ficticias, no son tus datos de Salud")
                 val prepared=charts ?: ProgressPreview.charts(today,monday)
                 val scorePoints=overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
                 val scoreDemo=scorePoints.size<2
@@ -212,26 +218,18 @@ internal fun ProgressTab(
                     },
                     cardio={ProgressCardioCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},calories={ProgressCaloriesCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},
                     weight={
-                        if (!pro || (PROGRESS_DEMO_CHARTS && snapshot.weightPoints.isEmpty()))
-                            WeightPreviewCard(today)
+                        if (!pro || (PROGRESS_DEMO_CHARTS && snapshot.weightPoints.size < 2))
+                            WeightPreviewCard(
+                                today,
+                                loggedPoints = snapshot.weightPoints,
+                                accountId = accountId,
+                                busy = busy,
+                                onLogBodyWeight = onLogBodyWeight
+                            )
                         else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)
                     })
-                // I-124 placeholder: sin motor de zonas HR en domain todavía.
-                ReperaCard(
-                    modifier = Modifier.fillMaxWidth().testTag("heart_zones_card")
-                ) {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text("Zonas cardiacas", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Sin datos de zonas todavía. Cuando Health Connect aporte FC por zona, aparecerán aquí (Z1–Z5).",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                ReperaSectionTitle("Zonas cardíacas")
+                HeartZonesDemoCard()
                 }
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
@@ -252,7 +250,7 @@ internal fun ProgressTab(
             if(topic=="Entreno") {
             if (snapshot.heatmapTime.isNotEmpty()) {
                 // ActivityHeatmapView iOS: UNA tarjeta con picker segmentado.
-                item { ReperaSectionTitle("ACTIVIDAD") }
+                item { ReperaSectionTitle("Actividad") }
                 item { ActivityHeatmapCard(snapshot.heatmapTime,
                     snapshot.heatmapVolume,
                     dev.repera.domain.ProgressTimeRange.entries.first { it.wire == selectedRange }) }
@@ -260,7 +258,7 @@ internal fun ProgressTab(
             // Apple order (StatsView training): tiles, activity, muscle balance, mobility, then
             // exercises/records or the Free preview + teaser. The card has its own empty text,
             // so it is not hidden when there are no muscle statuses (Apple does not hide it).
-            item { ReperaSectionTitle("EQUILIBRIO MUSCULAR") }
+            item { ReperaSectionTitle("Equilibrio muscular") }
             item {
                 // Current Apple StatsView explicitly exposes map and bars to Free.
                 MuscleBalanceCard(
@@ -548,7 +546,15 @@ private fun enrichSnapshotWithDemo(
         muscleFatigueHard = if (snap.muscleFatigueHard.isEmpty()) fatigue.mapValues { it.value * 0.7 } else snap.muscleFatigueHard,
         hasHardSets = snap.hasHardSets || true,
         chartExercises = snap.chartExercises.ifEmpty { ProgressPreview.chartExercises() },
-        weightPoints = snap.weightPoints.ifEmpty { ProgressPreview.weight(today) },
+        weightPoints = when {
+            snap.weightPoints.size >= 2 -> snap.weightPoints
+            snap.weightPoints.isEmpty() -> ProgressPreview.weight(today)
+            else -> {
+                // Un solo pesaje real: conserva la curva de ejemplo y ancla el último punto.
+                val preview = ProgressPreview.weight(today)
+                preview.dropLast(1) + snap.weightPoints.last()
+            }
+        },
         mobilitySessions = if (snap.mobilitySessions > 0) snap.mobilitySessions else 3,
         mobilitySeconds = if (snap.mobilitySeconds > 0) snap.mobilitySeconds else 45 * 60
     )
@@ -594,58 +600,161 @@ internal fun formatWeight(value: Double): String =
 
 /** Same weight summary surface for Free, with explicitly fictitious points. */
 @Composable
-internal fun WeightPreviewCard(today:LocalDate) {
-    val points=ProgressPreview.weight(today)
-    ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Peso corporal · ejemplo",style=MaterialTheme.typography.titleMedium)
-        Text("Datos ficticios. Objetivo de ejemplo: 74 kg")
-        DayPointLineChart(points,goal=74.0,interactive=false,weightStyle=true,weightPreview=true)
-        WeightStatTiles(points.lastOrNull()?.value,74.0)
-    }}
+internal fun WeightPreviewCard(
+    today: LocalDate,
+    loggedPoints: List<dev.repera.domain.ProgressDayPoint> = emptyList(),
+    accountId: String = "",
+    busy: Boolean = false,
+    onLogBodyWeight: (Double) -> Unit = {}
+) {
+    val points = when {
+        loggedPoints.size >= 2 -> loggedPoints
+        loggedPoints.isEmpty() -> ProgressPreview.weight(today)
+        else -> ProgressPreview.weight(today).dropLast(1) + loggedPoints.last()
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .widthIn(max = 420.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ReperaSectionTitle(
+            if (loggedPoints.isEmpty()) "Peso corporal · ejemplo" else "Peso corporal"
+        )
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DayPointLineChart(points, goal = 74.0, interactive = false, weightStyle = true, weightPreview = true)
+                WeightStatTiles(points.lastOrNull()?.value, 74.0)
+                if (accountId.isNotEmpty()) {
+                    WeightLogRow(accountId, busy, onLogBodyWeight)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun HeartZonesDemoCard() {
+    data class Zone(val label: String, val pct: Float, val color: Color)
+    val zones = listOf(
+        Zone("Z1", 0.18f, Color(0xFF64D2FF)),
+        Zone("Z2", 0.28f, Color(0xFF30D158)),
+        Zone("Z3", 0.24f, Color(0xFFFFD60A)),
+        Zone("Z4", 0.18f, Color(0xFFFF9F0A)),
+        Zone("Z5", 0.12f, Color(0xFFFF453A))
+    )
+    ReperaCard(Modifier.fillMaxWidth().testTag("heart_zones_card")) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            ) {
+                zones.forEach { zone ->
+                    Box(
+                        Modifier
+                            .weight(zone.pct)
+                            .fillMaxHeight()
+                            .background(zone.color),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "${(zone.pct * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                zones.forEach { zone ->
+                    Text(zone.label, style = MaterialTheme.typography.labelSmall, color = zone.color)
+                }
+            }
+        }
+    }
 }
 
 @Composable internal fun ProgressWeightCard(points:List<dev.repera.domain.ProgressDayPoint>,delta30d:Double?,goalKg:Double?,accountId:String,busy:Boolean,onLogBodyWeight:(Double)->Unit) {
- if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp)) {
-  Text("Peso corporal",style=MaterialTheme.typography.titleMedium)
+ Column(
+  Modifier.fillMaxWidth().widthIn(max = 420.dp),
+  verticalArrangement = Arrangement.spacedBy(8.dp)
+ ) {
+  ReperaSectionTitle("Peso corporal")
+ if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
   WeightStatTiles(null,goalKg)
   EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
+  WeightLogRow(accountId, busy, onLogBodyWeight)
  }} else {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Peso corporal", style = MaterialTheme.typography.titleMedium)
+                        Column(Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             val last = points.last()
-                            Text("Último: ${formatWeight(last.value)} kg " +
-                                "(${last.day.format(reperaDayFormatter)})")
+                            Text(
+                                "Último: ${formatWeight(last.value)} kg (${last.day.format(reperaDayFormatter)})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             delta30d?.let { delta ->
                                 val sign = if (delta >= 0) "+" else ""
                                 Text("Cambio 30 días: $sign${formatWeight(delta)} kg",
-                                    style = MaterialTheme.typography.bodyMedium)
+                                    style = MaterialTheme.typography.bodySmall)
                             }
                             WeightStatTiles(last.value, goalKg)
                             DayPointLineChart(points,goal=goalKg,weightStyle=true)
-                            val weightScope=remember(accountId) {org.json.JSONArray(listOf(accountId,"progress-weight-input")).toString()}
-                            val weightSaver=remember(weightScope) {androidx.compose.runtime.saveable.Saver<String,String>(save={saveScopedEditorValue(weightScope,it)},restore={restoreScopedEditorValue(weightScope,it)})}
-                            var weightInput by rememberSaveable(accountId,stateSaver=weightSaver) { mutableStateOf("") }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedTextField(
-                                    value = weightInput,
-                                    onValueChange = { weightInput = it },
-                                    label = { Text("Peso de hoy (kg)") },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal),
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(onClick = {
-                                    dev.repera.domain.ReperaNumberFormat.parse(weightInput)?.let {
-                                        onLogBodyWeight(it)
-                                        weightInput = ""
-                                    }
-                                }, enabled = !busy) { Text("Registrar") }
-                            }
+                            WeightLogRow(accountId, busy, onLogBodyWeight)
                         }
                     }
  }
+ }
+}
+
+@Composable
+private fun WeightLogRow(accountId: String, busy: Boolean, onLogBodyWeight: (Double) -> Unit) {
+    val weightScope = remember(accountId) {
+        org.json.JSONArray(listOf(accountId, "progress-weight-input")).toString()
+    }
+    val weightSaver = remember(weightScope) {
+        androidx.compose.runtime.saveable.Saver<String, String>(
+            save = { saveScopedEditorValue(weightScope, it) },
+            restore = { restoreScopedEditorValue(weightScope, it) }
+        )
+    }
+    var weightInput by rememberSaveable(accountId, stateSaver = weightSaver) { mutableStateOf("") }
+    val fieldHeight = 56.dp
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = weightInput,
+            onValueChange = { weightInput = it },
+            label = { Text("Peso (kg)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier
+                .fillMaxWidth(0.25f)
+                .height(fieldHeight)
+        )
+        Button(
+            onClick = {
+                dev.repera.domain.ReperaNumberFormat.parse(weightInput)?.let {
+                    onLogBodyWeight(it)
+                    weightInput = ""
+                }
+            },
+            enabled = !busy && weightInput.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black,
+                contentColor = Color.White,
+                disabledContainerColor = Color.Black.copy(alpha = 0.35f),
+                disabledContentColor = Color.White.copy(alpha = 0.7f)
+            ),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(fieldHeight),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+        ) { Text("Registrar") }
+    }
 }

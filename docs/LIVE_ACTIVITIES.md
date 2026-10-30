@@ -2,9 +2,13 @@
 
 ## Experiencia
 
-La tercera pestaña es **En vivo**. Se puede seleccionar deporte y grabar una actividad libre sin crear una plantilla. Los deportes con GPS muestran mapa y métricas, mientras que los demás utilizan una pantalla simplificada con cronómetro. La grabación permite pausar, reanudar, finalizar, añadir un título y notas, y guardar.
+La tercera pestaña es **Comenzar** (antes «En vivo»). Se puede seleccionar deporte y grabar una actividad libre sin crear una plantilla. Los deportes con GPS muestran mapa y métricas, mientras que los demás utilizan una pantalla simplificada con cronómetro. La grabación permite pausar, reanudar, finalizar, añadir un título y notas, y guardar.
 
-El guardado llama a `ReperaStore.saveWorkout(_ :)`, creando un `WorkoutSession` con `phase = .finished`, `startedAt`, `finishedAt`, `liveSportID`, `activeDurationSeconds`, `recordedDistanceMeters` y `routePoints`. Se persiste con los mismos mecanismos local/iCloud que los entrenos habituales, incrementando `workoutsEpoch`. **Inicio agrupa los registros de En vivo por el día local de inicio** (no por el de finalización); al guardarlos vuelve a Inicio seleccionando esa fecha. Las tarjetas permiten consultar el detalle, el mapa y la distancia. Las actividades también se encuentran en Historial y Progreso.
+Al **finalizar**, la pantalla «Guardar entreno» presenta un resumen estilo Fitness: mapa del recorrido (si hay puntos), tiles de tiempo/distancia/ritmo/energía, parciales, nombre/notas y Guardar. **Descartar actividad** abre la modal inferior de confirmación (`OGConfirmSheet` / `ReperaConfirmSheet`), no un diálogo de sistema.
+
+El guardado llama a `ReperaStore.saveWorkout(_ :)`, creando un `WorkoutSession` con `phase = .finished`, `startedAt`, `finishedAt`, `liveSportID`, `activeDurationSeconds`, `recordedDistanceMeters` y `routePoints`. Se persiste con los mismos mecanismos local/iCloud que los entrenos habituales, incrementando `workoutsEpoch`. **Inicio agrupa los registros de Comenzar por el día local de inicio** (no por el de finalización); al guardarlos vuelve a Inicio seleccionando esa fecha. Las tarjetas permiten consultar el detalle, el mapa y la distancia. Las actividades también se encuentran en Historial y Progreso.
+
+Última actualización: 2026-10-30.
 
 ## Ubicación y recorridos
 

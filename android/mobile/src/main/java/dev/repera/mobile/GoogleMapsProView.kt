@@ -184,13 +184,33 @@ internal fun GoogleRouteMapView(
     }
     LaunchedEffect(map, cameraCenter, cameraTrace, navigationMode, userHeadingDegrees, recenterToken) {
         val ready = map ?: return@LaunchedEffect
-        val center = cameraCenter ?: return@LaunchedEffect
-        val target = LiveMapCamera.target(center, cameraTrace, navigationMode, userHeadingDegrees)
-        ready.animateCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder()
-            .target(LatLng(target.latitude, target.longitude))
-            .zoom(target.zoom.toFloat())
-            .bearing(target.bearing.toFloat())
-            .tilt(target.pitch.toFloat()).build()), 550, null)
+        val center = cameraCenter
+        if (center != null) {
+            val target = LiveMapCamera.target(center, cameraTrace, navigationMode, userHeadingDegrees)
+            ready.animateCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder()
+                        .target(LatLng(target.latitude, target.longitude))
+                        .zoom(target.zoom.toFloat())
+                        .bearing(target.bearing.toFloat())
+                        .tilt(target.pitch.toFloat())
+                        .build()
+                ),
+                550,
+                null
+            )
+        } else {
+            val current = ready.cameraPosition
+            ready.animateCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder(current)
+                        .tilt(if (navigationMode) 60f else 0f)
+                        .build()
+                ),
+                550,
+                null
+            )
+        }
     }
 }
 

@@ -142,9 +142,17 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
                         }
                     }
                 } label: {
-                    Label(filter == .all ? "Filtrar" : filter.title, systemImage: "line.3.horizontal.decrease")
+                    // Icono solo: el toolbar de iOS 27 lo envuelve en círculo glass
+                    // (paridad con filtrar de Biblioteca / Android topbar blanco).
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(filter == .all ? OG.label : OG.accent)
                 }
-                .accessibilityLabel("Filtrar ejercicios por grupo muscular o disciplina")
+                .accessibilityLabel(
+                    filter == .all
+                        ? "Filtrar ejercicios por grupo muscular o disciplina"
+                        : "Filtro: \(filter.title)"
+                )
             }
         }
         .animation(nil, value: rowIDsToken)

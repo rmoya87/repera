@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -502,6 +503,7 @@ internal fun StandaloneTimerScreen(
             },
             properties = androidx.compose.ui.window.DialogProperties(
                 usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
                 dismissOnBackPress = true,
                 dismissOnClickOutside = false
             )
@@ -546,9 +548,9 @@ internal fun StandaloneTimerScreen(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ReperaToolbarGlassIconButton(
@@ -830,8 +832,20 @@ internal fun StandaloneClock(
             }
             if (landscape) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = onClose) { Text("Volver", color = Color.White) }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onClose, modifier = Modifier.testTag("timer_clock_back")) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Volver",
+                                tint = Color.White
+                            )
+                        }
                         Text(title, style = MaterialTheme.typography.titleLarge,
                             color = Color.White, maxLines = 1,
                             modifier = Modifier.padding(start = 8.dp))
@@ -851,8 +865,20 @@ internal fun StandaloneClock(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = onClose) { Text("Volver", color = Color.White) }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onClose, modifier = Modifier.testTag("timer_clock_back")) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Volver",
+                                tint = Color.White
+                            )
+                        }
                     }
                     Column(
                         modifier = Modifier.fillMaxWidth(),

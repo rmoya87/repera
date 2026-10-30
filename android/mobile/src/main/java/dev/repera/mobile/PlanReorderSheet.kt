@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,11 +20,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +30,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +54,7 @@ internal fun PlanReorderFullscreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         PlanReorderTopBar(onBack = onDone, onDone = onDone)
         PlanReorderSheet(
@@ -91,17 +89,10 @@ private fun PlanReorderTopBar(onBack: () -> Unit, onDone: () -> Unit) {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
-        Button(
+        ReperaDoneCheckButton(
             onClick = onDone,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = brandGreen.copy(alpha = 0.12f),
-                contentColor = brandGreen
-            ),
-            shape = RoundedCornerShape(999.dp),
-            modifier = Modifier.testTag("plan_reorder_done")
-        ) {
-            Text("Listo", fontWeight = FontWeight.SemiBold)
-        }
+            testTag = "plan_reorder_done"
+        )
     }
 }
 
@@ -196,14 +187,14 @@ private fun ReorderBlockBox(
 ) {
     val entryHeights = remember(block) { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
     val shape = RoundedCornerShape(14.dp)
+    // Misma card que el resto de la app: borde fino, sin sombra fuerte.
     Column(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .shadow(2.dp, shape, clip = false)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f), shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .testTag("reorder_block_box")
     ) {
         Row(

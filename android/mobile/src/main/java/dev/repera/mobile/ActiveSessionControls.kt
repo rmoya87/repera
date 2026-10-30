@@ -34,6 +34,8 @@ internal fun ActiveSessionControls(
     /** Cuando la toolbar de Play lleva chevrons (paridad WorkoutView). */
     showExerciseNav: Boolean = true,
     onConfigureBlockTimer: () -> Unit = {},
+    /** Si false, el timer vive en la cabecera de cada bloque (PlayBlockHeaderCard). */
+    showBlockTimerInToolbar: Boolean = true,
     accountId: String = "",
     /** I-40 Sustituir / Eliminar ejercicio en Play. */
     catalog: List<ExerciseEntry> = emptyList(),
@@ -85,9 +87,11 @@ internal fun ActiveSessionControls(
                     Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Siguiente")
                 }
             }
-            IconButton(enabled = !busy, onClick = onConfigureBlockTimer,
-                modifier = Modifier.testTag("active_block_timer")) {
-                Icon(Icons.Outlined.Timer, contentDescription = "Temporizador del bloque")
+            if (showBlockTimerInToolbar) {
+                IconButton(enabled = !busy, onClick = onConfigureBlockTimer,
+                    modifier = Modifier.testTag("active_block_timer")) {
+                    Icon(Icons.Outlined.Timer, contentDescription = "Temporizador del bloque")
+                }
             }
             IconButton(enabled = !busy, onClick = { editingNotes = true }) {
                 Icon(Icons.Outlined.Notes, contentDescription = if (active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")

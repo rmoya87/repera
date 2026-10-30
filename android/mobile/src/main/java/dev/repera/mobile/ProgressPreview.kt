@@ -83,10 +83,11 @@ internal object ProgressPreview {
     fun muscleFatigue(): Map<String, Double> =
         muscleLoads().mapValues { (_, v) -> (v * 0.55).coerceIn(0.0, 10.0) }
 
+    /** Nombres reales del catálogo: al pulsar se resuelve por nombre → ficha. */
     fun chartExercises(): List<ProgressExerciseRow> = listOf(
-        ProgressExerciseRow("demo-squat", "Sentadilla", 120.0, System.currentTimeMillis()),
-        ProgressExerciseRow("demo-bench", "Press banca", 85.0, System.currentTimeMillis() - 86_400_000),
-        ProgressExerciseRow("demo-dl", "Peso muerto", 140.0, System.currentTimeMillis() - 172_800_000)
+        ProgressExerciseRow("Sentadilla", "Sentadilla", 120.0, System.currentTimeMillis()),
+        ProgressExerciseRow("Press banca", "Press banca", 85.0, System.currentTimeMillis() - 86_400_000),
+        ProgressExerciseRow("Peso muerto", "Peso muerto", 140.0, System.currentTimeMillis() - 172_800_000)
     )
 
     fun recoveryTrend(today: LocalDate) = (0..6).map { i ->

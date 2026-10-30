@@ -109,10 +109,6 @@ struct FavoritesHubView: View {
                     }
                 } header: {
                     Text("Entrenos")
-                } footer: {
-                    if targetDate != nil {
-                        Text("Selecciona un favorito para añadir una copia al día elegido sin cambiar la plantilla original.")
-                    }
                 }
             }
 
@@ -183,15 +179,35 @@ struct FavoritesHubView: View {
                         isFavorite: true
                     )
                 } label: {
-                    Label("Crear entreno favorito", systemImage: "star.circle")
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Crear entreno favorito")
+                                .foregroundStyle(OG.label)
+                            Text("Plantilla reutilizable desde Añadir entreno")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
+                    } icon: {
+                        Image(systemName: "star.circle")
+                            .foregroundStyle(OG.label)
+                    }
                 }
                 NavigationLink {
                     StandaloneTimerView(embedsNavigation: false, onSaved: onSavedTimer)
                 } label: {
-                    Label("Crear temporizador favorito", systemImage: "timer")
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Crear temporizador favorito")
+                                .foregroundStyle(OG.label)
+                            Text("Guarda la config con «Guardar en favoritos»")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
+                    } icon: {
+                        Image(systemName: "timer")
+                            .foregroundStyle(OG.label)
+                    }
                 }
-            } footer: {
-                Text("En el temporizador usa «Guardar en favoritos» con la configuración que quieras reutilizar.")
             }
         }
         .ogListChrome()

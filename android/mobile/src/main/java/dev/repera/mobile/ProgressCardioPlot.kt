@@ -47,7 +47,7 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
   } else {
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].avgBpm)+" lpm",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth()) {
-    Column(Modifier.width(44.dp).height(190.dp),verticalArrangement=Arrangement.SpaceBetween) {
+    Column(Modifier.width(36.dp).height(190.dp),verticalArrangement=Arrangement.SpaceBetween) {
      listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))}
     }
     Canvas(Modifier.weight(1f).height(190.dp).testTag("cardio_observed_plot")

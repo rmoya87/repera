@@ -63,6 +63,8 @@ enum OG {
 
     static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255) // #30d158
     static let onAccent = Color.black
+    /// Icono ✓ sobre círculo verde de «Listo»/confirmar: blanco día / negro noche.
+    static let onDoneAccent = adaptive(light: .white, dark: .black)
     static let yellow = Color(red: 1, green: 214 / 255, blue: 10 / 255)
     /// Ámbar de Favoritos (#FFB700), ligeramente anaranjado.
     /// No modifica el amarillo de avisos, métricas y temporizadores.
@@ -178,9 +180,9 @@ struct OGCardSectionTitle: View {
 
     var body: some View {
         Text(title)
-            .font(.footnote.weight(.semibold))
+            .font(.body.weight(.semibold))
             .foregroundStyle(OG.label2)
-            .textCase(.uppercase)
+            // Sentence case: no UPPERCASE forzado (mismo tamaño en toda la app).
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
             .padding(.top, 12)
@@ -736,12 +738,13 @@ struct OGConfirmSheet: View {
                 Button(action: onCancel) {
                     Text("Cancelar")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(OG.label)
+                        .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                         .glassEffect(.regular.interactive(), in: .capsule)
                 }
                 .buttonStyle(.plain)
+                .tint(.black)
             }
         }
         .padding(.horizontal, OG.pad)
@@ -941,6 +944,26 @@ struct CloseToolbarButton: View {
             appliesGlass: large,
             action: action
         )
+    }
+}
+
+/// Confirmación «Listo»: ✓ en círculo verde acento (blanco día / negro noche).
+struct OGDoneCheckButton: View {
+    var accessibilityLabel: String = "Listo"
+    var enabled: Bool = true
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(OG.onDoneAccent)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(OG.accent)
+        .accessibilityLabel(accessibilityLabel)
+        .opacity(enabled ? 1 : 0.4)
+        .disabled(!enabled)
     }
 }
 

@@ -909,7 +909,7 @@ struct HealthRecoveryProgressView: View {
         let phases = phaseAverages
         let nights = displayNights
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Sueño")
+            OGCardSectionTitle(title: "Sueño esta semana")
             sleepNightCard(
                 hours: headlineHours,
                 hoursCaption: hoursLabel,
@@ -947,7 +947,8 @@ struct HealthRecoveryProgressView: View {
                 Chart {
                     ForEach(values) { sample in
                         LineMark(x: .value("Día", sample.date), y: .value(title, sample.value))
-                            .interpolationMethod(.linear)
+                            .interpolationMethod(.catmullRom)
+                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                             .foregroundStyle(OG.accent)
                     }
                     if let selectedVitalDate,
@@ -978,6 +979,7 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .frame(height: physiologyChartHeight)
+                .padding(.bottom, 4)
                 .accessibilityLabel("Tendencia: \(title)")
             } else {
                 ProgressEmptyChart(
@@ -1158,55 +1160,8 @@ struct HealthRecoveryProgressView: View {
                     .frame(height: readinessChartHeight, alignment: .center)
                 } else if let readiness = currentReadiness {
                     let tint = readinessColor(readiness.score)
-                    VStack(alignment: .leading, spacing: usesExpandedLayout ? 9 : 16) {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label(
-                                    readinessRecommendation(readiness.advice),
-                                    systemImage: readiness.score >= 8
-                                        ? "figure.run"
-                                        : (readiness.score >= 6 ? "figure.walk" : "bed.double")
-                                )
-                                .labelStyle(.titleAndIcon)
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(tint)
-                                .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer(minLength: 8)
-                            ZStack {
-                                Circle()
-                                    .stroke(OG.surface3, lineWidth: 9)
-                                Circle()
-                                    .trim(from: 0, to: CGFloat(readiness.score / 10))
-                                    .stroke(tint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                                    .rotationEffect(.degrees(-90))
-                                VStack(spacing: 1) {
-                                    Text("\(Int(readiness.score.rounded()))")
-                                        .font(.system(size: 29, weight: .bold, design: .rounded))
-                                        .foregroundStyle(OG.label)
-                                    Text("de 10")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(OG.label2)
-                                }
-                            }
-                            .frame(
-                                width: usesExpandedLayout ? 76 : 95,
-                                height: usesExpandedLayout ? 76 : 95
-                            )
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
-                        }
-
-                        Divider().opacity(0.25)
-
-                        LazyVGrid(
-                            columns: [
-                                GridItem(.flexible(), alignment: .leading),
-                                GridItem(.flexible(), alignment: .leading)
-                            ],
-                            alignment: .leading,
-                            spacing: usesExpandedLayout ? 8 : 16
-                        ) {
+                    HStack(alignment: .center, spacing: 16) {
+                        VStack(alignment: .leading, spacing: usesExpandedLayout ? 8 : 10) {
                             readinessFactor(
                                 "Sueño", icon: "moon",
                                 value: currentSleepHours.map {
@@ -1214,20 +1169,44 @@ struct HealthRecoveryProgressView: View {
                                 } ?? "Sin datos"
                             )
                             readinessFactor(
-                                "Carga reciente", icon: "dumbbell",
+                                "Carga", icon: "dumbbell",
                                 value: readiness.fatiguePenalty >= 2.3 ? "Alta"
                                     : (readiness.fatiguePenalty >= 1.1 ? "Moderada" : "Baja")
                             )
                             readinessFactor(
-                                "VFC · pulso", icon: "heart", value: currentCardiacReadings
+                                "VFC", icon: "heart", value: currentCardiacReadings
                             )
                             readinessFactor(
-                                "Cardio en Salud", icon: "waveform.path.ecg",
+                                "Cardio", icon: "waveform.path.ecg",
                                 value: readiness.cardioMinutes48h.map {
                                     "\(Int($0.rounded())) min"
                                 } ?? "Sin datos"
                             )
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        ZStack {
+                            Circle()
+                                .stroke(OG.surface3, lineWidth: 9)
+                            Circle()
+                                .trim(from: 0, to: CGFloat(readiness.score / 10))
+                                .stroke(tint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                            VStack(spacing: 1) {
+                                Text("\(Int(readiness.score.rounded()))")
+                                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                                    .foregroundStyle(OG.label)
+                                Text("de 10")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                        .frame(
+                            width: usesExpandedLayout ? 76 : 100,
+                            height: usesExpandedLayout ? 76 : 100
+                        )
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                     }
                     .frame(minHeight: readinessChartHeight, alignment: .center)
                 } else {
@@ -1325,15 +1304,10 @@ struct HealthRecoveryProgressView: View {
         let xStart = nights.map(\.date).min() ?? Date()
         let xEnd = nights.map(\.date).max() ?? Date()
         return OGCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 12) {
-                    Image(systemName: "moon.stars")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(NightSky.glow)
-                        .frame(width: 40, height: 40)
-                        .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(hoursCaption)
+                        Text("Media")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(OG.label2)
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -1344,12 +1318,14 @@ struct HealthRecoveryProgressView: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(OG.label2)
                         }
+                        Text(hoursCaption)
+                            .font(.caption2)
+                            .foregroundStyle(OG.label3)
                     }
-                    Spacer(minLength: 8)
-                }
-
-                if deep + rem + light > 0.2 {
-                    phaseDistributionBar(deep: deep, rem: rem, light: light)
+                    if deep + rem + light > 0.2 {
+                        phaseDistributionBar(deep: deep, rem: rem, light: light)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
 
                 Chart {
@@ -1419,44 +1395,46 @@ struct HealthRecoveryProgressView: View {
         }
     }
 
-    /// Barra de fases con etiquetas encima (sin tiles sueltos).
+    /// Etiquetas encima + dato dentro de cada color; esquinas redondeadas.
     private func phaseDistributionBar(deep: Double, rem: Double, light: Double) -> some View {
         let total = max(0.01, deep + rem + light)
-        return VStack(alignment: .leading, spacing: 6) {
+        let phases: [(String, Double, Color)] = [
+            ("Profundo", deep, NightSky.deep),
+            ("REM", rem, NightSky.mid),
+            ("Ligero", light, NightSky.glow),
+        ]
+        return VStack(alignment: .leading, spacing: 4) {
             GeometryReader { geo in
                 let w = geo.size.width
                 HStack(spacing: 0) {
-                    phaseSegment(title: "Profundo", hours: deep, width: w * deep / total, color: NightSky.deep)
-                    phaseSegment(title: "REM", hours: rem, width: w * rem / total, color: NightSky.mid)
-                    phaseSegment(title: "Ligero", hours: light, width: w * light / total, color: NightSky.glow)
+                    ForEach(Array(phases.enumerated()), id: \.offset) { _, phase in
+                        Text(phase.0)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(width: max(0, w * phase.1 / total), alignment: .center)
+                    }
                 }
             }
-            .frame(height: 36)
+            .frame(height: 14)
+            GeometryReader { geo in
+                let w = geo.size.width
+                HStack(spacing: 0) {
+                    ForEach(Array(phases.enumerated()), id: \.offset) { _, phase in
+                        Text("\(ReperaNumberFormat.decimal(phase.1)) h")
+                            .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .frame(width: max(0, w * phase.1 / total), height: 32)
+                            .background(phase.2)
+                    }
+                }
+            }
+            .frame(height: 32)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Distribución de fases")
-    }
-
-    private func phaseSegment(title: String, hours: Double, width: CGFloat, color: Color) -> some View {
-        VStack(spacing: 2) {
-            if width >= 52 {
-                Text(title)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text("\(ReperaNumberFormat.decimal(hours)) h")
-                    .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
-            } else if width >= 28 {
-                Text(ReperaNumberFormat.decimal(hours))
-                    .font(.system(size: 10, weight: .bold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: width, height: 36)
-        .background(color)
     }
 
     @ViewBuilder

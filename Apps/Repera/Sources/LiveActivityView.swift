@@ -2028,6 +2028,7 @@ struct LiveActivityView: View {
             }
             .background(OG.bg)
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
+            .toolbar(recorder.phase == .review ? .hidden : .automatic, for: .tabBar)
             .navigationTitle(recorder.phase == .review ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
@@ -3145,80 +3146,10 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Misma presentación de detalle que Entreno/Historial: mapa y parciales
-    /// compartidos, con campos para el nuevo registro (aún sin persistir).
+    /// Resumen estilo Fitness/Historial: mapa protagonista, métricas y guardado.
     private var review: some View {
         List {
             if let session = recorder.makeSession(title: title, notes: notes) {
-                // Fecha y métricas directamente sobre el fondo, sin contenedor exterior.
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(SpanishDate.format(
-                        session.startedAt ?? Date(),
-                        date: .complete,
-                        time: .shortened
-                    ))
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-                    HStack(spacing: 10) {
-                        reviewTile(
-                            "Tiempo activo",
-                            value: formattedTime(recorder.durationSeconds),
-                            icon: "clock.fill", tint: OG.blue
-                        )
-                        if recorder.sport.usesGPS {
-                            reviewTile(
-                                "Distancia",
-                                value: "\(ReperaNumberFormat.decimal((session.recordedDistanceMeters ?? 0) / 1000)) km",
-                                icon: "point.bottomleft.forward.to.point.topright.scurvepath",
-                                tint: OG.accent
-                            )
-                        }
-                        reviewTile(
-                            "Energía",
-                            value: previewHealthExtras.flatMap { extras in
-                                extras.hasExternalSaludSource ?
-                                    extras.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" } : nil
-                            } ?? "—",
-                            icon: "flame.fill",
-                            tint: OG.orange
-                        )
-                    }
-                    if let extras = previewHealthExtras, extras.hasExternalSaludSource,
-                       let heartRate = extras.averageHeartRateBpm {
-                        Label(
-                            "Pulso medio: \(Int(heartRate.rounded())) lpm",
-                            systemImage: "heart"
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-                    }
-                    if recorder.estimatedRecoveryMeters > 0 {
-                        Label(
-                            "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. El tiempo de ese intervalo también es aproximado; no son medidas GPS.",
-                            systemImage: "location.north.line"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                    }
-                    if recorder.sport.tracksElevation && recorder.hasElevationSamples {
-                        HStack(spacing: 14) {
-                            Label(
-                                "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
-                                systemImage: "arrow.up.right"
-                            )
-                            Label(
-                                "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
-                                systemImage: "arrow.down.right"
-                            )
-                        }
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                    }
-                }
-                .ogCardListRow(top: 4, bottom: 4)
-
-                // Misma plantilla de mapa que el historial, con transición
-                // de zoom compartida al modo interactivo a pantalla completa.
                 let previewPoints = session.routePoints.count >= 2
                     ? session.routePoints : (recorder.chosenRoute?.points ?? [])
                 let isRecordedRoute = session.routePoints.count >= 2
@@ -3233,9 +3164,13 @@ struct LiveActivityView: View {
                         isEstimated: point.isEstimated == true
                     )
                 }
-                if previewPoints.count >= 2 {
+                let distanceMeters = session.recordedDistanceMeters ?? 0
+
+                // 1) Mapa hero solo si hay puntos GPS.
+                if !previewPoints.isEmpty {
                     Section {
                         SessionMapWeatherCard(
+                            mapHeight: 280,
                             latitude: route.first?.latitude,
                             longitude: route.first?.longitude,
                             workoutDate: session.startedAt ?? .now
@@ -3260,20 +3195,120 @@ struct LiveActivityView: View {
                         }
                         .ogCardListRow()
                     }
-                } else if recorder.sport.usesGPS {
+                }
+
+                // 2) Fecha + tiles (tiempo / distancia / ritmo / energía).
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(SpanishDate.format(
+                            session.startedAt ?? Date(),
+                            date: .complete,
+                            time: .shortened
+                        ))
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+
+                        // Una sola fila: tiempo · distancia · ritmo · energía.
+                        HStack(spacing: 8) {
+                            reviewTile(
+                                "Tiempo",
+                                value: formattedTime(recorder.durationSeconds),
+                                icon: "clock.fill", tint: OG.blue
+                            )
+                            if recorder.sport.usesGPS {
+                                reviewTile(
+                                    "Distancia",
+                                    value: "\(ReperaNumberFormat.decimal(distanceMeters / 1000)) km",
+                                    icon: "point.bottomleft.forward.to.point.topright.scurvepath",
+                                    tint: OG.accent
+                                )
+                                reviewTile(
+                                    recorder.sport.displaysSpeed ? "Veloc." : "Ritmo",
+                                    value: paceOrSpeed,
+                                    icon: recorder.sport.displaysSpeed
+                                        ? "gauge.with.dots.needle.67percent"
+                                        : "speedometer",
+                                    tint: OG.blue
+                                )
+                            }
+                            reviewTile(
+                                "Energía",
+                                value: previewHealthExtras.flatMap { extras in
+                                    extras.hasExternalSaludSource
+                                        ? extras.activeEnergyKcal.map {
+                                            "\(Int($0.rounded())) kcal"
+                                        }
+                                        : nil
+                                } ?? "—",
+                                icon: "flame.fill",
+                                tint: OG.orange
+                            )
+                        }
+
+                        if recorder.estimatedRecoveryMeters > 0 {
+                            Label(
+                                "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. El tiempo de ese intervalo también es aproximado; no son medidas GPS.",
+                                systemImage: "location.north.line"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                        }
+                        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                            HStack(spacing: 14) {
+                                Label(
+                                    "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
+                                    systemImage: "arrow.up.right"
+                                )
+                                Label(
+                                    "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
+                                    systemImage: "arrow.down.right"
+                                )
+                            }
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(OG.label2)
+                        }
+                    }
+                    .ogCardListRow(top: 4, bottom: 4)
+                }
+
+                // Tras los tiles: aviso si no hay mapa GPS.
+                if previewPoints.isEmpty, recorder.sport.usesGPS {
                     Section {
-                        ContentUnavailableView(
-                            "Recorrido sin puntos GPS",
-                            systemImage: "location.slash",
-                            description: Text("La distancia y los parciales se conservan aunque no haya puntos para dibujar el mapa.")
-                        )
+                        HStack(alignment: .center, spacing: 14) {
+                            ZStack {
+                                Circle()
+                                    .fill(OG.accent.opacity(0.14))
+                                    .frame(width: 48, height: 48)
+                                Image(systemName: "map")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundStyle(OG.accent)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Recorrido no disponible")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                Text(
+                                    distanceMeters > 0
+                                    ? "La distancia y los parciales se conservan, pero no hay puntos GPS para dibujar el mapa."
+                                    : "No se registraron puntos GPS en esta actividad."
+                                )
+                                .font(.system(size: 13))
+                                .foregroundStyle(OG.label2)
+                                .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(OG.pad)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(OG.surface, in: RoundedRectangle(
+                            cornerRadius: OG.radiusCard, style: .continuous
+                        ))
                         .ogCardListRow()
                     }
                 }
 
-                // Un solo Entreno: primero tiles y parciales específicos
-                // del deporte y, inmediatamente después, Salud/altitud.
-                let hasSportValues = ((session.recordedDistanceMeters ?? 0) > 0
+                // 3) Parciales + Salud (plantilla Historial).
+                let hasSportValues = (distanceMeters > 0
                     && (session.activeDurationSeconds ?? 0) > 0)
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
                 let hasHealthValues = previewHealthExtras?.hasAuthenticSaludMetrics == true
@@ -3322,8 +3357,8 @@ struct LiveActivityView: View {
                         .foregroundStyle(OG.label)
                     TextField("Notas (opcional)", text: $notes, axis: .vertical)
                         .lineLimit(2...5)
-                    if let route = recorder.chosenRoute {
-                        Label("Ruta: \(route.title)", systemImage: "star.fill")
+                    if let planned = recorder.chosenRoute {
+                        Label("Ruta: \(planned.title)", systemImage: "star.fill")
                             .foregroundStyle(OG.label2)
                     }
                 }
@@ -3346,7 +3381,7 @@ struct LiveActivityView: View {
                     Button(role: .destructive) {
                         showDiscard = true
                     } label: {
-                        Text("Descartar")
+                        Text("Descartar actividad")
                             .font(.system(size: 16, weight: .medium))
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 16)

@@ -160,13 +160,36 @@ internal fun RouteMapView(
         // La inclinación por gesto también es 3D: deshabilitarla en Gratis y en modo 2D.
         loadedMap?.uiSettings?.setTiltGesturesEnabled(isInteractive && effectiveNavigationMode)
     }
-    androidx.compose.runtime.LaunchedEffect(cameraCenter,navigationMode,recenterToken,loadedMap,userHeadingDegrees,cameraTrace) {
-        val map=loadedMap ?: return@LaunchedEffect
-        val center=cameraCenter ?: return@LaunchedEffect
-        val camera=LiveMapCamera.target(center,cameraTrace,effectiveNavigationMode,userHeadingDegrees)
-        map.animateCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder()
-            .target(LatLng(camera.latitude,camera.longitude)).zoom(camera.zoom)
-            .bearing(camera.bearing).tilt(camera.pitch).build()), 550)
+    androidx.compose.runtime.LaunchedEffect(
+        cameraCenter, effectiveNavigationMode, recenterToken, loadedMap, userHeadingDegrees, cameraTrace
+    ) {
+        val map = loadedMap ?: return@LaunchedEffect
+        val center = cameraCenter
+        if (center != null) {
+            val camera = LiveMapCamera.target(center, cameraTrace, effectiveNavigationMode, userHeadingDegrees)
+            map.animateCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    org.maplibre.android.camera.CameraPosition.Builder()
+                        .target(LatLng(camera.latitude, camera.longitude))
+                        .zoom(camera.zoom)
+                        .bearing(camera.bearing)
+                        .tilt(camera.pitch)
+                        .build()
+                ),
+                550
+            )
+        } else {
+            // Sin GPS aún: aplicar solo la inclinación 3D/2D a la cámara actual.
+            val current = map.cameraPosition
+            map.animateCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    org.maplibre.android.camera.CameraPosition.Builder(current)
+                        .tilt(if (effectiveNavigationMode) 60.0 else 0.0)
+                        .build()
+                ),
+                550
+            )
+        }
     }
     // SOLO ausencia de enlace nativo de MapLibre (ABI sin .so, Robolectric)
     // degrada al Canvas. Cualquier otro error de configuracion/inicializacion

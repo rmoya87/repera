@@ -25,8 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -142,14 +144,13 @@ internal fun ReperaFloatingTabBar(
     modifier: Modifier = Modifier
 ) {
     val pillShape = RoundedCornerShape(999.dp)
-    // Cápsula glass translúcida (paridad iOS Liquid Glass tab bar, R4 #4).
-    val glass = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
+    // Fondo blanco opaco; pestaña activa en verde (icono + texto).
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("floating_tab_bar"),
         shape = pillShape,
-        color = glass,
+        color = Color.White,
         shadowElevation = 4.dp,
         tonalElevation = 0.dp,
         border = BorderStroke(
@@ -184,30 +185,27 @@ private fun ReperaFloatingTabItem(
     modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
-    // Selección en pastilla gris (iOS), no verde claro.
-    val iconTint = if (selected) scheme.onSurface else scheme.onSurfaceVariant
-    val labelColor = if (selected) scheme.onSurface else scheme.onSurfaceVariant
+    val iconTint = if (selected) brandGreen else scheme.onSurfaceVariant
+    val labelColor = if (selected) brandGreen else scheme.onSurfaceVariant
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Column(
         modifier = modifier
-            .clickable(onClick = onClick)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(
+                interactionSource = interaction,
+                indication = androidx.compose.material3.ripple(
+                    bounded = true,
+                    color = Color.Black.copy(alpha = 0.12f)
+                ),
+                onClick = onClick
+            )
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(width = 56.dp, height = 32.dp)
-                .then(
-                    if (selected) {
-                        Modifier.background(
-                            scheme.surfaceVariant.copy(alpha = 0.92f),
-                            RoundedCornerShape(999.dp)
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
+            modifier = Modifier.size(width = 56.dp, height = 32.dp)
         ) {
             Icon(
                 imageVector = tab.iconFor(selected),

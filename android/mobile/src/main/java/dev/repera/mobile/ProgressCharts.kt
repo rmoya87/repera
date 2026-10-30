@@ -58,26 +58,53 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
 }
 
 @Composable internal fun ProgressCardioCard(charts:ProgressPreparedCharts,preview:Boolean) {
- ReperaCard(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
-  Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-    Text("Cardio",style=MaterialTheme.typography.titleMedium)
-    if(preview) Text("Ejemplo",style=MaterialTheme.typography.labelMedium)
-    else if(charts.heartRate.isNotEmpty()) Text("Media ${Math.round(charts.heartRate.map {it.avgBpm}.average())} lpm",style=MaterialTheme.typography.labelMedium)
+ Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+   ReperaSectionTitle(
+    if (preview) "Cardio · ejemplo" else "Cardio",
+    modifier = Modifier.weight(1f, fill = false)
+   )
+   if (!preview && charts.heartRate.isNotEmpty()) {
+    Text(
+     "Media ${Math.round(charts.heartRate.map { it.avgBpm }.average())} lpm",
+     style = MaterialTheme.typography.labelMedium,
+     color = MaterialTheme.colorScheme.onSurfaceVariant,
+     maxLines = 1,
+     softWrap = false,
+     modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
+    )
    }
-   ProgressCardioPlot(charts,preview)
+  }
+  ReperaCard(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
+   Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+    ProgressCardioPlot(charts,preview)
+   }
   }
  }
 }
 @Composable internal fun ProgressCaloriesCard(charts:ProgressPreparedCharts,preview:Boolean) {
- ReperaCard(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
-  Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-    Text("Calorías",style=MaterialTheme.typography.titleMedium)
-    if(preview || charts.caloriesTotal>0) Text((if(preview) "Ejemplo · " else "")+Math.round(charts.caloriesTotal)+" kcal",style=MaterialTheme.typography.labelMedium)
+ Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+   ReperaSectionTitle(
+    if (preview) "Calorías · ejemplo" else "Calorías",
+    modifier = Modifier.weight(1f, fill = false)
+   )
+   if (charts.caloriesTotal > 0) {
+    Text(
+     "${Math.round(charts.caloriesTotal)} kcal",
+     style = MaterialTheme.typography.labelMedium,
+     color = MaterialTheme.colorScheme.onSurfaceVariant,
+     maxLines = 1,
+     softWrap = false,
+     modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
+    )
    }
-   ProgressCaloriesPlot(charts,preview)
-   ProgressCalorieStats(charts)
+  }
+  ReperaCard(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
+   Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+    ProgressCaloriesPlot(charts,preview)
+    ProgressCalorieStats(charts)
+   }
   }
  }
 }
@@ -399,7 +426,7 @@ internal fun DayPointLineChart(
                         Text(valueFormat(value),style=MaterialTheme.typography.labelSmall,
                             maxLines=1,softWrap=false)
                     }},
-                    modifier=Modifier.width(52.dp).height(plotHeight).padding(end=4.dp)
+                    modifier=Modifier.width(36.dp).height(plotHeight).padding(end=2.dp)
                 ) {measurables,constraints ->
                     val labels=measurables.map {it.measure(constraints.copy(minWidth=0,minHeight=0))}
                     layout(constraints.maxWidth,constraints.maxHeight) {
@@ -413,9 +440,9 @@ internal fun DayPointLineChart(
             } else
             Column(
                 modifier = Modifier
-                    .width(52.dp)
+                    .width(36.dp)
                     .height(plotHeight+24.dp)
-                    .padding(end = 4.dp),
+                    .padding(end = 2.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(valueFormat(axisMax),
@@ -498,13 +525,31 @@ internal fun DayPointLineChart(
                     curve.moveTo(observed.first().x,observed.first().y)
                     ReadinessCurve.segments(observed).forEach {c ->curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
                     clipRect {drawPath(curve,color=line,style=Stroke(width=2.25.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))}
-                } else {
-                    if(physiologyStyle) {
-                        val grid= line.copy(alpha=0.12f)
-                        listOf(0f,0.5f,1f).forEach {f ->drawLine(grid,Offset(f*size.width,0f),Offset(f*size.width,size.height),0.5.dp.toPx())}
+                } else if (physiologyStyle) {
+                    val grid = line.copy(alpha = 0.12f)
+                    listOf(0f, 0.5f, 1f).forEach { f ->
+                        drawLine(grid, Offset(f * size.width, 0f), Offset(f * size.width, size.height), 0.5.dp.toPx())
                     }
-                    if(physiologyStyle) clipRect {drawPath(path,color=line,style=Stroke(width=2.dp.toPx()))}
-                    else drawPath(path,color=line,style=Stroke(width=4f))
+                    // Suavizado (misma curva que peso/recuperación); no segmentos rectos.
+                    val curve = Path()
+                    val observed = points.indices.map { ReadinessCurve.Point(x(it), y(points[it].value)) }
+                    curve.moveTo(observed.first().x, observed.first().y)
+                    ReadinessCurve.segments(observed).forEach { c ->
+                        curve.cubicTo(c.control1.x, c.control1.y, c.control2.x, c.control2.y, c.end.x, c.end.y)
+                    }
+                    clipRect {
+                        drawPath(
+                            curve,
+                            color = line,
+                            style = Stroke(
+                                width = 2.dp.toPx(),
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                join = androidx.compose.ui.graphics.StrokeJoin.Round
+                            )
+                        )
+                    }
+                } else {
+                    drawPath(path, color = line, style = Stroke(width = 4f))
                 }
                 if(!physiologyStyle && !readinessStyle) drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))
@@ -555,7 +600,7 @@ internal fun DayPointLineChart(
 internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.compose.ui.unit.Dp=96.dp) {
     val axis=MaterialTheme.colorScheme.onSurfaceVariant
     Row(Modifier.fillMaxWidth()) {
-        Column(Modifier.width(44.dp).height(plotHeight),verticalArrangement=Arrangement.SpaceBetween) {
+        Column(Modifier.width(36.dp).height(plotHeight),verticalArrangement=Arrangement.SpaceBetween) {
             listOf(high,(low+high)/2,low).forEach {Text(formatWeight(it),style=MaterialTheme.typography.labelSmall)}
         }
         Canvas(Modifier.weight(1f).height(plotHeight).testTag("empty_health_chart_axes")) {

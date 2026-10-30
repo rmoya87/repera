@@ -113,7 +113,7 @@ internal fun ExerciseDetailScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ReperaToolbarGlassIconButton(
                     icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Ejercicios",
+                    contentDescription = "Volver",
                     onClick = onBack
                 )
                 Spacer(Modifier.weight(1f))
@@ -431,7 +431,7 @@ internal fun ExerciseEvolutionSection(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (style == "machineWork") {
                             EvoTile("Cal máx.", h.bestCalories?.toString() ?: "—", Modifier.weight(1f))
-                            EvoTile("m máx.", h.bestMeters?.toString() ?: "—", Modifier.weight(1f))
+                            EvoTile("Mejor m", h.bestMeters?.toString() ?: "—", Modifier.weight(1f))
                         } else {
                             EvoTile("Reps máx.", h.bestReps?.toString() ?: "—", Modifier.weight(1f))
                             EvoTile("Tiempo", h.bestDurationSeconds?.let { fmtDur(it) } ?: "—", Modifier.weight(1f))

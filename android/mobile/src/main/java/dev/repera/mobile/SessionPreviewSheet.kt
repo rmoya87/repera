@@ -90,23 +90,22 @@ fun SessionPreviewSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            // Toolbar iOS: ☆ ··· ▶
-            IconButton(
-                enabled = !busy,
-                onClick = { onToggleFavorite(!routine.isFavorite) }
-            ) {
-                Icon(
-                    if (routine.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                    contentDescription = if (routine.isFavorite) "Quitar de favoritos" else "Favorito",
-                    tint = if (routine.isFavorite) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Toolbar iOS: ☆ ··· en círculos blancos · ▶
             var menuOpen by remember { mutableStateOf(false) }
             var confirmDelete by remember { mutableStateOf(false) }
+            ReperaToolbarGlassIconButton(
+                icon = if (routine.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                contentDescription = if (routine.isFavorite) "Quitar de favoritos" else "Favorito",
+                onClick = { onToggleFavorite(!routine.isFavorite) },
+                enabled = !busy,
+                active = routine.isFavorite
+            )
             Box {
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = "Más")
-                }
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.Outlined.MoreVert,
+                    contentDescription = "Más",
+                    onClick = { menuOpen = true }
+                )
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text("Editar") },

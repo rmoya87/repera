@@ -13,6 +13,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,23 +28,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
 /**
- * I-41 Configurar temporizador de bloque: Trabajar por ronda / Descansar entre rondas
- * + «Iniciar temporizador» (paridad sheet iOS WorkoutView.manualRoundDurationSheet).
+ * Configurar temporizador de bloque (paridad iOS WorkoutView.manualRoundDurationSheet):
+ * ejercicio / series·reps, trabajar por ronda, y —al estilo Apple— interruptor
+ * «Descanso entre series» + duración si está activo.
  */
 @Composable
 fun BlockTimerConfigSheet(
     rounds: Int,
     initialWorkSeconds: Int = 60,
     initialRestSeconds: Int = 0,
+    exerciseName: String? = null,
+    setsRepsSummary: String? = null,
     onDismiss: () -> Unit,
     onStart: (workSeconds: Int, restSeconds: Int) -> Unit
 ) {
     var workMin by remember { mutableStateOf((initialWorkSeconds / 60).coerceIn(0, 120).toString()) }
     var workSec by remember { mutableStateOf((initialWorkSeconds % 60).coerceIn(0, 59).toString()) }
-    var restMin by remember { mutableStateOf((initialRestSeconds / 60).coerceIn(0, 10).toString()) }
-    var restSec by remember { mutableStateOf((initialRestSeconds % 60).coerceIn(0, 59).toString()) }
+    var restEnabled by remember { mutableStateOf(initialRestSeconds > 0) }
+    var restMin by remember {
+        mutableStateOf(
+            ((if (initialRestSeconds > 0) initialRestSeconds else 60) / 60)
+                .coerceIn(0, 10).toString()
+        )
+    }
+    var restSec by remember {
+        mutableStateOf(
+            ((if (initialRestSeconds > 0) initialRestSeconds else 60) % 60)
+                .coerceIn(0, 59).toString()
+        )
+    }
     val workTotal = (workMin.toIntOrNull() ?: 0) * 60 + (workSec.toIntOrNull() ?: 0)
-    val restTotal = (restMin.toIntOrNull() ?: 0) * 60 + (restSec.toIntOrNull() ?: 0)
+    val restTotal = if (restEnabled) {
+        (restMin.toIntOrNull() ?: 0) * 60 + (restSec.toIntOrNull() ?: 0)
+    } else 0
     val canStart = workTotal > 0
 
     Dialog(onDismissRequest = onDismiss) {
@@ -63,8 +80,16 @@ fun BlockTimerConfigSheet(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
+                    val subtitle = buildString {
+                        exerciseName?.takeIf { it.isNotBlank() }?.let {
+                            append(it)
+                            if (!setsRepsSummary.isNullOrBlank()) append(" · ")
+                        }
+                        if (!setsRepsSummary.isNullOrBlank()) append(setsRepsSummary)
+                        else append("Bloque libre · $rounds ronda${if (rounds == 1) "" else "s"}")
+                    }
                     Text(
-                        "Bloque libre · $rounds ronda${if (rounds == 1) "" else "s"}",
+                        subtitle,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -78,14 +103,34 @@ fun BlockTimerConfigSheet(
                     maxMinutesHint = 120
                 )
                 HorizontalDivider()
-                TimerDurationRow(
-                    title = "Descansar entre rondas",
-                    minutes = restMin,
-                    seconds = restSec,
-                    onMinutes = { restMin = it.filter(Char::isDigit).take(2) },
-                    onSeconds = { restSec = it.filter(Char::isDigit).take(2) },
-                    maxMinutesHint = 10
-                )
+                // Estilo Apple Fitness: primero preguntar si hay descanso entre series.
+                Row(
+                    Modifier.fillMaxWidth().testTag("block_timer_rest_toggle"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Descanso entre series",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = restEnabled,
+                        onCheckedChange = { restEnabled = it },
+                        colors = reperaSwitchColors()
+                    )
+                }
+                if (restEnabled) {
+                    TimerDurationRow(
+                        title = "Tiempo de descanso",
+                        minutes = restMin,
+                        seconds = restSec,
+                        onMinutes = { restMin = it.filter(Char::isDigit).take(2) },
+                        onSeconds = { restSec = it.filter(Char::isDigit).take(2) },
+                        maxMinutesHint = 10
+                    )
+                }
                 Button(
                     colors = reperaPrimaryButtonColors(),
                     onClick = { onStart(workTotal, restTotal) },

@@ -13,10 +13,11 @@ enum class ExerciseProgressMetric(val wire: String, val title: String) {
     EFFORT("effort", "Esfuerzo"),
     BEST_QUANTITY("bestQuantity", "Mejor"),
     TOTAL_QUANTITY("totalQuantity", "Total"),
-    BEST_METERS("bestMeters", "m máx."),
-    BEST_CALORIES("bestCalories", "cal máx."),
-    TOTAL_METERS("totalMeters", "m total"),
-    TOTAL_CALORIES("totalCalories", "cal total"),
+    // Títulos cortos y distintos: en tabs «m máx.»/«m total» se truncaban a «m» «m».
+    BEST_METERS("bestMeters", "Mejor m"),
+    BEST_CALORIES("bestCalories", "Mejor cal"),
+    TOTAL_METERS("totalMeters", "Suma m"),
+    TOTAL_CALORIES("totalCalories", "Suma cal"),
     BEST_HOLD("bestHold", "Mejor sostén"),
     DURATION("duration", "Tiempo");
 

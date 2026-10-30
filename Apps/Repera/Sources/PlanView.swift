@@ -45,21 +45,16 @@ private struct DayEditorChromeModifier: ViewModifier {
     private var confirmButton: some View {
         if usesPageCloseHeader {
             // La toolbar de iOS 27 dibuja el círculo; no aplicar otro glass manual.
-            Button(action: onConfirm) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(OG.onAccent)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(OG.accent)
-            .accessibilityLabel(confirmTitle)
-            .opacity(canConfirm ? 1 : 0.4)
-            .disabled(!canConfirm)
+            OGDoneCheckButton(
+                accessibilityLabel: confirmTitle,
+                enabled: canConfirm,
+                action: onConfirm
+            )
         } else {
             OGToolbarGlassButton(
                 systemName: "checkmark",
                 accessibilityLabel: confirmTitle,
-                tint: .white,
+                tint: OG.onDoneAccent,
                 appliesGlass: true,
                 glassTint: OG.accent,
                 action: onConfirm
@@ -126,6 +121,8 @@ struct DayEditorView: View {
     @State private var pendingReplacement: PendingWorkoutReplacement?
     @State private var openedSetID: UUID?
     @State private var completedDetails: WorkoutSession?
+    /// Duración estimada del one-off (UI; el fin real se calcula en sesiones terminadas).
+    @State private var oneOffPlannedDurationMinutes: Int = 45
     @State private var scaledInputDrafts: [String: String] = [:]
 
     /// La ruta de Historial abre directamente una sesión finalizada. El diseño
@@ -195,11 +192,7 @@ struct DayEditorView: View {
                         ForEach(ProgressionPolicy.allCases, id: \.self) { Text($0.displayName).tag($0) }
                     }
                 case .oneOff:
-                    if let date = routine.scheduledDate {
-                        Text(SpanishDate.long(date))
-                            .foregroundStyle(OG.label2)
-                    }
-                    scheduledTimeControls
+                    oneOffDateTimeDurationRow
                     Toggle("Favorito", isOn: $routine.isFavorite)
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
@@ -232,12 +225,7 @@ struct DayEditorView: View {
 
             if onApplyCompleted != nil {
                 Section {
-                    DatePicker("Inicio", selection: completedDateBinding(isEnd: false),
-                               displayedComponents: [.date, .hourAndMinute])
-                        .tint(OG.accent)
-                    DatePicker("Fin", selection: completedDateBinding(isEnd: true),
-                               displayedComponents: [.date, .hourAndMinute])
-                        .tint(OG.accent)
+                    completedDateTimeDurationRow
                     if completedWorkoutDraft?.routePoints.isEmpty == true {
                         let hasPlace = completedWorkoutDraft?.locationPin != nil
                         WorkoutPlacePickerRow(
@@ -557,9 +545,7 @@ struct DayEditorView: View {
         .onDisappear { reorderDraggedToken = nil }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Listo") { showsReorder = false }
-                    .fontWeight(.semibold)
-                    .tint(OG.accent)
+                OGDoneCheckButton { showsReorder = false }
             }
         }
     }
@@ -1339,10 +1325,132 @@ struct DayEditorView: View {
                 return completedDetails?.startedAt ?? completedDetails?.finishedAt ?? Date()
             },
             set: { date in
-                if isEnd { completedDetails?.finishedAt = date }
-                else { completedDetails?.startedAt = date }
+                if isEnd {
+                    completedDetails?.finishedAt = date
+                } else {
+                    let previousStart = completedDetails?.startedAt
+                    let previousEnd = completedDetails?.finishedAt
+                    let preservedSeconds: TimeInterval = {
+                        guard let previousStart, let previousEnd else { return 60 * 45 }
+                        return max(60, previousEnd.timeIntervalSince(previousStart))
+                    }()
+                    completedDetails?.startedAt = date
+                    completedDetails?.finishedAt = date.addingTimeInterval(preservedSeconds)
+                }
             }
         )
+    }
+
+    private var completedDurationMinutes: Int {
+        let start = completedDetails?.startedAt ?? Date()
+        let end = completedDetails?.finishedAt ?? start.addingTimeInterval(45 * 60)
+        return max(1, Int(round(end.timeIntervalSince(start) / 60)))
+    }
+
+    private var completedDurationMinutesBinding: Binding<Int> {
+        Binding(
+            get: { completedDurationMinutes },
+            set: { minutes in
+                ensureCompletedWorkoutDraft()
+                let start = completedDetails?.startedAt ?? Date()
+                completedDetails?.startedAt = start
+                completedDetails?.finishedAt = start.addingTimeInterval(TimeInterval(max(1, minutes) * 60))
+            }
+        )
+    }
+
+    /// One-off: fecha y hora en controles separados (misma fila).
+    private var oneOffDateTimeBinding: Binding<Date> {
+        Binding(
+            get: {
+                routine.scheduledDateTime(on: routine.scheduledDate ?? Date())
+                    ?? Calendar.current.date(
+                        bySettingHour: 18, minute: 0, second: 0,
+                        of: routine.scheduledDate ?? Date()
+                    )
+                    ?? Date()
+            },
+            set: { date in
+                routine.scheduledDate = Calendar.current.startOfDay(for: date)
+                routine.setScheduledTime(from: date)
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var oneOffDateTimeDurationRow: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Fecha").font(.caption).foregroundStyle(OG.label2)
+                DatePicker(
+                    "",
+                    selection: oneOffDateTimeBinding,
+                    displayedComponents: .date
+                )
+                .labelsHidden()
+                .tint(OG.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Hora").font(.caption).foregroundStyle(OG.label2)
+                DatePicker(
+                    "",
+                    selection: oneOffDateTimeBinding,
+                    displayedComponents: .hourAndMinute
+                )
+                .labelsHidden()
+                .tint(OG.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Duración").font(.caption).foregroundStyle(OG.label2)
+                Stepper(
+                    "\(oneOffPlannedDurationMinutes) min",
+                    value: $oneOffPlannedDurationMinutes,
+                    in: 1...600,
+                    step: 5
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var completedDateTimeDurationRow: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Fecha").font(.caption).foregroundStyle(OG.label2)
+                DatePicker(
+                    "",
+                    selection: completedDateBinding(isEnd: false),
+                    displayedComponents: .date
+                )
+                .labelsHidden()
+                .tint(OG.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Hora").font(.caption).foregroundStyle(OG.label2)
+                DatePicker(
+                    "",
+                    selection: completedDateBinding(isEnd: false),
+                    displayedComponents: .hourAndMinute
+                )
+                .labelsHidden()
+                .tint(OG.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Duración").font(.caption).foregroundStyle(OG.label2)
+                Stepper(
+                    "\(completedDurationMinutes) min",
+                    value: completedDurationMinutesBinding,
+                    in: 1...600,
+                    step: 1
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     /// No interpretar un estado Gratis antiguo como prueba de que Pro caducó.
@@ -1764,7 +1872,7 @@ struct DayEditorView: View {
             case .rounds: return "Rondas"
             case .work: return "Trabajo"
             case .rest: return "Descanso"
-            case .roundRest: return "Entre rondas"
+            case .roundRest: return "Rondas"
             }
         }
 

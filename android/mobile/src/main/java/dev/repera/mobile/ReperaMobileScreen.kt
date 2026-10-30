@@ -594,6 +594,9 @@ fun ReperaMobileScreen(
                         onOpenFinishedWorkout = { id ->
                             navController.navigate("historial-detalle/" + Uri.encode(id))
                         },
+                        onEditFinishedWorkout = { id ->
+                            navController.navigate("historial-editar/" + Uri.encode(id))
+                        },
                         onSetRoutineFavorite = onSetRoutineFavorite,
                         onDeleteRoutine = onDeleteRoutine,
                         onRemoveScheduledRoutine = onRemoveScheduledRoutine,
@@ -642,7 +645,8 @@ fun ReperaMobileScreen(
                         onReplace = { drafts ->
                             onStartSessionFromDrafts(sessionTitle, drafts, favorite,requestId) {navController.popBackStack()}
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
                     )
                 }
                 composable("crear") {
@@ -791,7 +795,8 @@ fun ReperaMobileScreen(
                                 navController.popBackStack()
                             }
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
                     )
                 }
                 composable(
@@ -874,7 +879,8 @@ fun ReperaMobileScreen(
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         onReplace={blocks ->onUpdateActivePlan(editorSessionId,draft.id,blocks) {navController.popBackStack()}},
                         onBack={navController.popBackStack()},loadGuideProvider=loadGuideProvider,
-                        saveStatus=editorSaveStatus(status),importableRoutines=overview?.routineEntries.orEmpty())
+                        saveStatus=editorSaveStatus(status),importableRoutines=overview?.routineEntries.orEmpty(),
+                        onOpenExercise = { id -> navController.navigate("ejercicio/$id") })
                 }
                 composable("entreno-activo") {
                     val workout=activeWorkout
@@ -950,7 +956,21 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("progreso") {
-                    ProgressTab(onOpenExercise={id ->navController.navigate("ejercicio/$id")},
+                    ProgressTab(
+                        onOpenExercise = { idOrName ->
+                            val entries = overview?.exerciseEntries.orEmpty()
+                            val resolved = entries.firstOrNull { it.id == idOrName }
+                                ?: entries.firstOrNull {
+                                    it.id.equals(idOrName, ignoreCase = true)
+                                }
+                                ?: entries.firstOrNull {
+                                    it.displayName.equals(idOrName, ignoreCase = true)
+                                        || it.name.equals(idOrName, ignoreCase = true)
+                                }
+                            val targetId = resolved?.id ?: idOrName
+                            // Push sobre Progreso: Volver hace pop y recupera esta pestaña.
+                            navController.navigate("ejercicio/${Uri.encode(targetId)}")
+                        },
                         onOpenSports={libraryModeRequest="Deportes";navController.navigate("ejercicios")},
                         accountId = accountId,
                         busy = busy,
@@ -1280,7 +1300,8 @@ fun ReperaMobileScreen(
                             onReplace = { drafts ->
                                 onReplaceRoutineBlocks(routineId, drafts,suggestedTitle) {navController.popBackStack()}
                             },
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.popBackStack() },
+                            onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
                         )
                     }
                 }
@@ -1319,7 +1340,7 @@ fun ReperaMobileScreen(
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
                     val oneOffMetaSnap = remember(fecha, nombre) {
-                        arrayOf<Any?>(null, false, null)
+                        arrayOf<Any?>(null, null, false, null)
                     }
                     RoutineBlocksEditorScreen(
                         accountId = accountId,
@@ -1334,26 +1355,28 @@ fun ReperaMobileScreen(
                         scheduledDayIso = fecha,
                         pageTitle = "Crear entreno",
                         onTitleSuggested = { t -> oneOffTitle = t },
-                        onOneOffMeta = { time, fav, pin ->
-                            oneOffMetaSnap[0] = time
-                            oneOffMetaSnap[1] = fav
-                            oneOffMetaSnap[2] = pin
+                        onOneOffMeta = { day, time, fav, pin ->
+                            oneOffMetaSnap[0] = day
+                            oneOffMetaSnap[1] = time
+                            oneOffMetaSnap[2] = fav
+                            oneOffMetaSnap[3] = pin
                         },
                         onReplace = { drafts ->
                             onSaveOneOffRoutine(
                                 oneOffTitle ?: nombre,
                                 drafts,
-                                fecha,
+                                (oneOffMetaSnap[0] as? String) ?: fecha,
                                 draft.id,
-                                oneOffMetaSnap[0] as Int?,
-                                oneOffMetaSnap[1] as Boolean,
-                                oneOffMetaSnap[2] as dev.repera.domain.WorkoutLocationPin?
+                                oneOffMetaSnap[1] as Int?,
+                                oneOffMetaSnap[2] as Boolean,
+                                oneOffMetaSnap[3] as dev.repera.domain.WorkoutLocationPin?
                             ) { navController.popBackStack() }
                         },
                         onBack = {
                             restoreDayPlus = true
                             navController.popBackStack()
-                        }
+                        },
+                        onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
                     )
                 }
                 composable(
@@ -1380,9 +1403,22 @@ fun ReperaMobileScreen(
                     val highlightInstanceId =
                         backStackEntry.arguments?.getString("instanceId")
                             ?.takeIf { it.isNotBlank() }
-                    val entry = overview?.exerciseEntries?.firstOrNull { it.id == exerciseId }
+                    val decodedId = Uri.decode(exerciseId)
+                    val entries = overview?.exerciseEntries.orEmpty()
+                    val entry = entries.firstOrNull { it.id == decodedId }
+                        ?: entries.firstOrNull { it.id == exerciseId }
+                        ?: entries.firstOrNull {
+                            it.displayName.equals(decodedId, ignoreCase = true)
+                                || it.name.equals(decodedId, ignoreCase = true)
+                        }
                     if (entry == null) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        LaunchedEffect(Unit) {
+                            if (!navController.popBackStack()) {
+                                navController.navigate("progreso") {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
                     } else {
                         var quick by rememberSaveable(entry.id,accountId) {mutableStateOf(false)}
                         if(quick) QuickLogSheet(entry,accountId,busy,loadGuideProvider(entry.id,8,null)?.lastSession?.sets?.lastOrNull(),{quick=false}) {rows,notes,requestId ->
@@ -1402,7 +1438,14 @@ fun ReperaMobileScreen(
                             highlightSessionId = highlightSessionId,
                             highlightInstanceId = highlightInstanceId,
                             sessionAppearances = sessionAppearances,
-                            onBack = { navController.popBackStack() }
+                            onBack = {
+                                // Vuelve a la pantalla anterior (p. ej. Progreso).
+                                if (!navController.popBackStack()) {
+                                    navController.navigate("progreso") {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -1425,7 +1468,8 @@ fun ReperaMobileScreen(
                         onReplace = { drafts ->
                             onReplaceRoutineBlocks(panelRoutine.id, drafts,suggestedTitle) {routinePanelId=null}
                         },
-                        onBack = { routinePanelId=null }
+                        onBack = { routinePanelId=null },
+                        onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
                     )
                 }
             }

@@ -1,8 +1,10 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,15 +12,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,17 +38,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+
+private val favoriteEditBlue = Color(0xFF007AFF)
 
 /**
  * Hub de favoritos del menú «＋» de día (port de FavoritesHubView iOS):
  * entrenos, actividades Comenzar y temporizadores habituales.
  * Con [targetDate] el tap copia al día (assignRoutine) sin iniciar sesión.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FavoritesHubScreen(
     overview: StateOverview?,
@@ -45,13 +63,11 @@ internal fun FavoritesHubScreen(
     onStartRoutine: (String) -> Unit,
     onOpenTimer: (String?) -> Unit,
     onBack: () -> Unit,
-    /** Día ISO desde DayPlus: tap = copiar al día (no empezar). */
     targetDate: LocalDate? = null,
     onAssignRoutineToDate: (String, LocalDate) -> Unit = { _, _ -> },
     onCreateFavoriteWorkout: () -> Unit = {},
     onEditFavoriteWorkout: (String) -> Unit = {},
     onRemoveFavoriteWorkout: (String) -> Unit = {},
-    /** «También en Programado» (DayEditorView modo favorito): día de la semana opcional del favorito. */
     onSetWeekday: (routine: RoutineEntry, weekday: Int?) -> Unit = { _, _ -> },
     onOpenSport: (sportID: String) -> Unit = {},
     onRemoveSportFavorite: (id: String) -> Unit = {}
@@ -62,16 +78,35 @@ internal fun FavoritesHubScreen(
     val favorites = overview?.routineEntries.orEmpty().filter { it.isFavorite }
     val sportFavorites = overview?.favoriteSportActivities.orEmpty()
         .takeIf { targetDate == null }.orEmpty()
+    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    var pendingDeleteTitle by remember { mutableStateOf("") }
+
+    if (pendingDeleteId != null) {
+        ReperaConfirmSheet(
+            title = "¿Eliminar favorito?",
+            message = "Se quitará «$pendingDeleteTitle» de Favoritos. La plantilla no se borra del historial.",
+            confirmTitle = "Eliminar",
+            onConfirm = {
+                val id = pendingDeleteId
+                pendingDeleteId = null
+                if (id != null) onRemoveFavoriteWorkout(id)
+            },
+            onCancel = { pendingDeleteId = null }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("favorites_hub"),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = reperaScrollContentPadding(extraBottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Column {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver")
-                }
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Volver",
+                    onClick = onBack
+                )
                 ReperaPageHeader(title = "Favoritos")
             }
         }
@@ -85,47 +120,71 @@ internal fun FavoritesHubScreen(
         }
         if (favorites.isNotEmpty()) {
             item { ReperaSectionTitle("Entrenos") }
-            if (targetDate != null) {
-                item {
-                    Text(
-                        "Selecciona un favorito para añadir una copia al día elegido sin cambiar la plantilla original.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
         }
         items(favorites, key = { "favhub:" + it.id }) { routine ->
-            ReperaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !busy && (targetDate != null || activeWorkout == null)) {
-                        if (targetDate != null) {
-                            onAssignRoutineToDate(routine.id, targetDate)
-                        } else {
-                            onStartRoutine(routine.id)
+            FavoriteSwipeCard(
+                enabled = !busy,
+                onEdit = { onEditFavoriteWorkout(routine.id) },
+                onDeleteReveal = {
+                    pendingDeleteTitle = routine.title
+                    pendingDeleteId = routine.id
+                },
+                onClick = {
+                    if (targetDate != null) onAssignRoutineToDate(routine.id, targetDate)
+                    else if (activeWorkout == null) onStartRoutine(routine.id)
+                }
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            Modifier
+                                .size(44.dp)
+                                .background(brandGreen.copy(alpha = 0.14f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Star,
+                                contentDescription = null,
+                                tint = brandGreen,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                routine.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                buildString {
+                                    val n = routine.blocks.size
+                                    append(if (n == 1) "1 bloque" else "$n bloques")
+                                    append(" · ")
+                                    append(
+                                        if (targetDate != null) "Añadir al día"
+                                        else "Empezar"
+                                    )
+                                },
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(routine.title, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (targetDate != null) "Toca para añadir al día"
-                        else "Toca para empezar",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     if (targetDate == null) {
                         Text(
-                            "También en Programado",
-                            fontSize = 12.sp,
+                            "Programado",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.horizontalScroll(
-                                androidx.compose.foundation.rememberScrollState()
-                            )
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
                         ) {
                             ReperaFilterChip(
                                 selected = routine.weekday == null && routine.scheduledDate == null,
@@ -146,18 +205,6 @@ internal fun FavoritesHubScreen(
                                 )
                             }
                         }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(
-                            onClick = { onEditFavoriteWorkout(routine.id) },
-                            enabled = !busy,
-                            modifier = Modifier.testTag("fav_edit_" + routine.id)
-                        ) { Text("Editar") }
-                        TextButton(
-                            onClick = { onRemoveFavoriteWorkout(routine.id) },
-                            enabled = !busy,
-                            modifier = Modifier.testTag("fav_delete_" + routine.id)
-                        ) { Text("Eliminar") }
                     }
                 }
             }
@@ -183,9 +230,6 @@ internal fun FavoritesHubScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        TextButton(onClick = { onRemoveSportFavorite(activity.id) }) {
-                            Text("Eliminar")
-                        }
                     }
                 }
             }
@@ -198,37 +242,163 @@ internal fun FavoritesHubScreen(
                         .fillMaxWidth()
                         .clickable(enabled = !busy) { onOpenTimer(timer.id) }
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(timer.title, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                timer.config.shortLabel,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        TextButton(onClick = {
-                            timerStore.delete(timer.id)
-                            favoriteTimers = timerStore.favorites()
-                        }) { Text("Eliminar") }
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text(timer.title, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            timer.config.shortLabel,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
         }
         item {
-            TextButton(
-                onClick = onCreateFavoriteWorkout,
+            FavoriteCreateRow(
+                icon = Icons.Outlined.Star,
+                title = "Crear entreno favorito",
+                subtitle = "Plantilla reutilizable desde Añadir entreno",
                 enabled = !busy,
-                modifier = Modifier.testTag("fav_create_workout")
-            ) { Text("Crear entreno favorito") }
+                testTag = "fav_create_workout",
+                onClick = onCreateFavoriteWorkout
+            )
         }
         item {
-            TextButton(onClick = { onOpenTimer(null) }, enabled = !busy) {
-                Text("Crear temporizador favorito")
+            FavoriteCreateRow(
+                icon = Icons.Outlined.Timer,
+                title = "Crear temporizador favorito",
+                subtitle = "Configura y guarda con «Guardar en favoritos»",
+                enabled = !busy,
+                testTag = "fav_create_timer",
+                onClick = { onOpenTimer(null) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FavoriteCreateRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    ReperaCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .testTag(testTag)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(28.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+        }
+    }
+}
+
+/**
+ * Swipe L→R: círculo azul + lápiz (editar).
+ * Swipe R→L: círculo rojo + basura; al pulsar confirma borrado.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FavoriteSwipeCard(
+    enabled: Boolean,
+    onEdit: () -> Unit,
+    onDeleteReveal: () -> Unit,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val state = rememberSwipeToDismissBoxState(confirmValueChange = { true })
+    SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = enabled,
+        enableDismissFromEndToStart = enabled,
+        backgroundContent = {
+            val dir = state.dismissDirection
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentAlignment = when (dir) {
+                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                    SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                    else -> Alignment.CenterEnd
+                }
+            ) {
+                when (dir) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Surface(
+                            onClick = onEdit,
+                            shape = CircleShape,
+                            color = favoriteEditBlue,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("fav_edit_action")
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Edit,
+                                    contentDescription = "Editar",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Surface(
+                            onClick = onDeleteReveal,
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("fav_delete_action")
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = "Eliminar",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                    else -> Spacer(Modifier.size(48.dp))
+                }
+            }
+        }
+    ) {
+        ReperaCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled, onClick = onClick)
+        ) {
+            content()
         }
     }
 }

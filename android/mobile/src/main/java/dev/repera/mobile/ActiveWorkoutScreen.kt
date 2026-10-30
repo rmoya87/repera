@@ -3,6 +3,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
@@ -98,11 +99,18 @@ internal fun ActiveWorkoutScreen(
     }
 
     if (showBlockTimer) {
-        val rounds = (workout.wod?.rounds ?: workout.prescribedQuantity ?: 3).coerceAtLeast(1)
+        val rounds = (workout.wod?.rounds
+            ?: workout.pendingSets.size.takeIf { it > 0 }
+            ?: 3).coerceAtLeast(1)
+        val setsLabel = workout.pendingSets.size.takeIf { it > 0 }?.let { "$it series" }
+        val repsLabel = workout.prescribedQuantity?.let { "$it reps" }
         BlockTimerConfigSheet(
             rounds = rounds,
             initialWorkSeconds = blockWorkOverride,
             initialRestSeconds = blockRestOverride,
+            exerciseName = workout.exerciseName,
+            setsRepsSummary = listOfNotNull(setsLabel, repsLabel).joinToString(" · ")
+                .ifBlank { null },
             onDismiss = { showBlockTimer = false },
             onStart = { work, rest ->
                 blockWorkOverride = work
@@ -112,6 +120,9 @@ internal fun ActiveWorkoutScreen(
                 onOpenClock()
             }
         )
+    }
+    val playGroups = remember(workout.id, workout.navigationEntries) {
+        playBlockGroups(workout)
     }
     /** iOS requestBlockClockStart: formatos con time cap / intervalo van al reloj; solo bloque libre abre el sheet. */
     fun openBlockClockOrConfig() {
@@ -132,15 +143,12 @@ internal fun ActiveWorkoutScreen(
     if (showPlayReorder) {
         val blocks = playReorderBlocks
         if (blocks != null) {
-            androidx.compose.ui.window.Dialog(
+            ReperaFullscreenDialog(
                 onDismissRequest = {
                     commitPlayReorder()
                     showPlayReorder = false
                     playReorderBlocks = null
-                },
-                properties = androidx.compose.ui.window.DialogProperties(
-                    usePlatformDefaultWidth = false
-                )
+                }
             ) {
                 PlanReorderFullscreen(
                     blocks = blocks,
@@ -165,7 +173,8 @@ internal fun ActiveWorkoutScreen(
         )
     }
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
-        contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        contentPadding=reperaScrollContentPadding(extraBottom = 16.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {
             ActiveWorkoutToolbar(
                 title = inlineTitle,
@@ -205,20 +214,84 @@ internal fun ActiveWorkoutScreen(
                 catalog = catalog,
                 onSubstituteExercise = onSubstituteExercise,
                 onRemoveExercise = onRemoveExercise,
-                showExerciseNav = false
+                showExerciseNav = false,
+                showBlockTimerInToolbar = false
             )
         }
-        item {
-            if(workout.wod!=null) WodScoreCard(active=workout,busy=busy,timer=timer,
-                onTimerAction=onTimerAction,onTimerTick=onTimerTick,onSave=onWodScore,
-                onMovement=onWodMovement,onCompleteBlock=onCompleteWodBlock,
-                onReviseMovement=onReviseWodMovement,onDeleteMovement=onDeleteWodMovement,
-                onFinish=onFinish,onDiscard=onDiscard,onOpenClock=onOpenClock,
-                effortUnit=effortUnit)
-            else ActiveWorkoutCard(effortUnit=effortUnit,weightUnit=weightUnit,active=workout,busy=busy,onLogSet=onLogSet,
-                onLogDropSet=onLogDropSet,onLogRestPauseSet=onLogRestPauseSet,
-                onReviseSet=onReviseSet,onDeleteSet=onDeleteSet,onNext=onNext,
-                onFinish=onFinish,onDiscard=onDiscard)
+        // Bloques como crear/editar: timer ○ · ⋯ ○ en cabecera (WorkoutView iOS).
+        if (playGroups.isEmpty()) {
+            item {
+                if (workout.wod != null) WodScoreCard(
+                    active = workout, busy = busy, timer = timer,
+                    onTimerAction = onTimerAction, onTimerTick = onTimerTick, onSave = onWodScore,
+                    onMovement = onWodMovement, onCompleteBlock = onCompleteWodBlock,
+                    onReviseMovement = onReviseWodMovement, onDeleteMovement = onDeleteWodMovement,
+                    onFinish = onFinish, onDiscard = onDiscard, onOpenClock = onOpenClock,
+                    effortUnit = effortUnit
+                )
+                else ActiveWorkoutCard(
+                    effortUnit = effortUnit, weightUnit = weightUnit, active = workout, busy = busy,
+                    onLogSet = onLogSet, onLogDropSet = onLogDropSet,
+                    onLogRestPauseSet = onLogRestPauseSet, onReviseSet = onReviseSet,
+                    onDeleteSet = onDeleteSet, onNext = onNext, onFinish = onFinish,
+                    onDiscard = onDiscard
+                )
+            }
+        } else {
+            itemsIndexed(playGroups, key = { _, g -> g.blockId }) { gi, group ->
+                val entries = group.indexes.mapNotNull { ix ->
+                    workout.navigationEntries.firstOrNull { it.index == ix }
+                }
+                val lines = entries.map { e ->
+                    buildString {
+                        append(e.name.ifBlank { "Ejercicio" })
+                        if (e.completed) append(" · hecho")
+                    }
+                }
+                val isCurrent = group.indexes.contains(workout.index)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PlayBlockHeaderCard(
+                        title = group.title.ifBlank { "Bloque ${gi + 1}" },
+                        subtitle = if (group.kind == "wod")
+                            workout.wod?.format?.takeIf { it.isNotBlank() }?.let {
+                                BlockFormatCatalog.title(it)
+                            } else null,
+                        exerciseLines = lines,
+                        current = isCurrent,
+                        busy = busy,
+                        onTimer = {
+                            if (group.indexes.isNotEmpty() &&
+                                !group.indexes.contains(workout.index)
+                            ) {
+                                onSelectExercise(group.indexes.first())
+                            }
+                            openBlockClockOrConfig()
+                        },
+                        onReorder = { beginPlayReorder() },
+                        onSelectExercise = onSelectExercise,
+                        exerciseIndexes = group.indexes
+                    )
+                    if (isCurrent) {
+                        if (workout.wod != null) WodScoreCard(
+                            active = workout, busy = busy, timer = timer,
+                            onTimerAction = onTimerAction, onTimerTick = onTimerTick,
+                            onSave = onWodScore, onMovement = onWodMovement,
+                            onCompleteBlock = onCompleteWodBlock,
+                            onReviseMovement = onReviseWodMovement,
+                            onDeleteMovement = onDeleteWodMovement,
+                            onFinish = onFinish, onDiscard = onDiscard, onOpenClock = onOpenClock,
+                            effortUnit = effortUnit
+                        )
+                        else ActiveWorkoutCard(
+                            effortUnit = effortUnit, weightUnit = weightUnit,
+                            active = workout, busy = busy, onLogSet = onLogSet,
+                            onLogDropSet = onLogDropSet, onLogRestPauseSet = onLogRestPauseSet,
+                            onReviseSet = onReviseSet, onDeleteSet = onDeleteSet,
+                            onNext = onNext, onFinish = onFinish, onDiscard = onDiscard
+                        )
+                    }
+                }
+            }
         }
         // R8 M1 / P1-7: botones negros + Añadir bloque / WOD / favorito / pizarra
         // (compare8/48-play-fin), antes de Lugar.
@@ -250,6 +323,7 @@ internal fun ActiveWorkoutScreen(
 
 /** Acciones de plan en Play (iOS WorkoutView al final del scroll). */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun PlaySessionPlanFooter(
     busy: Boolean,
     workout: ActiveWorkout,
@@ -287,29 +361,21 @@ private fun PlaySessionPlanFooter(
     }
 
     if (showBoardScanner) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showBoardScanner = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                BoardScanScreen(
-                    busy = busy,
-                    overview = overview,
-                    onConfirm = { _, _, _ -> },
-                    onBack = { showBoardScanner = false },
-                    onImportBlocks = { imported ->
-                        mutateBlocks { list ->
-                            imported.forEach { list.add(scannedRoutineBlockDraft(it)) }
-                        }
-                        showBoardScanner = false
-                    },
-                    catalogOverride = catalog
-                )
-            }
+        ReperaModalBottomSheet(onDismissRequest = { showBoardScanner = false }) {
+            BoardScanScreen(
+                busy = busy,
+                overview = overview,
+                asSheet = true,
+                onConfirm = { _, _, _ -> },
+                onBack = { showBoardScanner = false },
+                onImportBlocks = { imported ->
+                    mutateBlocks { list ->
+                        imported.forEach { list.add(scannedRoutineBlockDraft(it)) }
+                    }
+                    showBoardScanner = false
+                },
+                catalogOverride = catalog
+            )
         }
     }
 
@@ -371,7 +437,7 @@ private fun PlaySessionPlanFooter(
     }
 
     if (showFavorites) {
-        AddFavoriteSheet(
+        FavoriteCatalogPickerSheet(
             favorites = favorites,
             onPick = { src ->
                 mutateBlocks { blocks ->
@@ -383,30 +449,14 @@ private fun PlaySessionPlanFooter(
         )
     }
     if (showWods) {
-        var query by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showWods = false },
-            confirmButton = { TextButton(onClick = { showWods = false }) { Text("Cancelar") } },
-            title = { Text("Elegir WOD") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = query, onValueChange = { query = it }, singleLine = true,
-                        label = { Text("Buscar") }, modifier = Modifier.fillMaxWidth()
-                    )
-                    androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                        items(dev.repera.domain.CatalogWods.search(query).size) { i ->
-                            val t = dev.repera.domain.CatalogWods.search(query)[i]
-                            TextButton(onClick = {
-                                mutateBlocks { blocks ->
-                                    blocks.add(BlockDraftUi(EditorBlockOps.templateToBlockInfo(t, catalog)))
-                                }
-                                showWods = false
-                            }) { Text(t.name + " · " + t.formatLabel) }
-                        }
-                    }
+        WodCatalogPickerSheet(
+            onPick = { t ->
+                mutateBlocks { blocks ->
+                    blocks.add(BlockDraftUi(EditorBlockOps.templateToBlockInfo(t, catalog)))
                 }
-            }
+                showWods = false
+            },
+            onDismiss = { showWods = false }
         )
     }
     if (showFreeMove) {

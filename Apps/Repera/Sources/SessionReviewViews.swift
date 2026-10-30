@@ -14,9 +14,7 @@ struct SessionReviewSheet: View {
                     .font(.system(size: 23, weight: .bold))
                     .foregroundStyle(OG.label)
                 Spacer()
-                Button("Listo", action: onDismiss)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(OG.accent)
+                OGDoneCheckButton(action: onDismiss)
             }
             SessionReviewCard(review: review, startsExpanded: true)
         }

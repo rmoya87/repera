@@ -744,9 +744,7 @@ struct WorkoutView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Listo") { showsPlayReorder = false }
-                    .fontWeight(.semibold)
-                    .tint(OG.accent)
+                OGDoneCheckButton { showsPlayReorder = false }
             }
         }
         .onDisappear {
@@ -1520,7 +1518,7 @@ struct WorkoutView: View {
             case .rounds: return "Rondas"
             case .work: return "Trabajo"
             case .rest: return "Descanso"
-            case .roundRest: return "Entre rondas"
+            case .roundRest: return "Rondas"
             }
         }
         var unit: String {

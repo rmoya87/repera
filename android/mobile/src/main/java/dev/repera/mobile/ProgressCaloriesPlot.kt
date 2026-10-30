@@ -57,7 +57,7 @@ internal object ProgressPlotAxis {
   } else {
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].value)+" kcal",style=MaterialTheme.typography.labelSmall)}
    Row(Modifier.fillMaxWidth()) {
-    Column(Modifier.width(44.dp).height(210.dp),verticalArrangement=Arrangement.SpaceBetween) {
+    Column(Modifier.width(36.dp).height(210.dp),verticalArrangement=Arrangement.SpaceBetween) {
      Text(Math.round(maximum).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
      Text(Math.round(maximum/2).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
      Text("0",style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))

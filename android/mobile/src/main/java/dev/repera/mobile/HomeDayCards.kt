@@ -140,11 +140,15 @@ internal fun HomeSwipeRevealCard(
     val editWidthPx = with(density) { if (onEdit != null) 72.dp.toPx() else 0f }
     var offset by remember(key) { mutableStateOf(0f) }
     var confirmDelete by remember(key) { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxWidth()) {
+    // Clip del contenedor al mismo radio que la card frontal: sin picos de
+    // Editar/Eliminar sobresaliendo por las esquinas del entreno.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(registerCardShape)
+    ) {
         Row(
-            modifier = Modifier
-                .matchParentSize()
-                .padding(vertical = 1.dp),
+            modifier = Modifier.matchParentSize(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -180,6 +184,7 @@ internal fun HomeSwipeRevealCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(registerCardShape)
                 .offset { IntOffset(offset.toInt(), 0) }
                 .pointerInput(key, busy, onEdit != null) {
                     if (busy) return@pointerInput

@@ -2,10 +2,16 @@ package dev.repera.mobile
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -17,17 +23,30 @@ import androidx.compose.ui.unit.sp
  * alineados con Theme.swift (radiusCard 14, radiusLG 16). Envuelve onboarding,
  * tabs y splash para no caer en el púrpura por defecto de Material.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReperaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = reperaColorScheme(darkTheme),
-        shapes = reperaShapes,
-        typography = reperaTypography,
-        content = content
+    // Ripple suave y acotado: evita el cuadrado negro agresivo al pulsar tabs/filas.
+    val ripple = RippleConfiguration(
+        color = if (darkTheme) Color.White else Color.Black,
+        rippleAlpha = RippleAlpha(
+            draggedAlpha = 0.08f,
+            focusedAlpha = 0.08f,
+            hoveredAlpha = 0.04f,
+            pressedAlpha = 0.12f
+        )
     )
+    CompositionLocalProvider(LocalRippleConfiguration provides ripple) {
+        MaterialTheme(
+            colorScheme = reperaColorScheme(darkTheme),
+            shapes = reperaShapes,
+            typography = reperaTypography,
+            content = content
+        )
+    }
 }
 
 /** Radios tipo OG.radiusCard / OG.radiusLG; sheets usan extraLarge. */

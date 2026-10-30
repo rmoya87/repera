@@ -131,6 +131,8 @@ internal fun HomeTab(
     onOpenRoutinePreview: (String) -> Unit = {},
     /** R5 P1-10: resumen terminado a pantalla completa. */
     onOpenFinishedWorkout: (String) -> Unit = {},
+    /** Swipe Editar → editor tipo crear (historial-editar), no solo el detalle. */
+    onEditFinishedWorkout: (String) -> Unit = onOpenFinishedWorkout,
     onSetRoutineFavorite: (String, Boolean) -> Unit = { _, _ -> },
     // «＋» del día seleccionado (DayPlusSheet iOS desde HomeView, c5aae1cc).
     onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
@@ -252,8 +254,9 @@ internal fun HomeTab(
                             key = workout.id,
                             busy = busy,
                             onDelete = { onDeleteWorkout(workout.id) },
+                            // Swipe Editar → misma página de crear/editar (historial-editar).
                             onEdit = if (workout.timerDetails == null)
-                                ({ onOpenFinishedWorkout(workout.id) }) else null
+                                ({ onEditFinishedWorkout(workout.id) }) else null
                         ) {
                             HomeCompletedWorkoutCard(
                                 workout, day,

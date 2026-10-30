@@ -43,12 +43,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,10 +59,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.draw.clip
+import androidx.core.view.WindowCompat
 
 /**
  * Defaults M3 alineados con OG iOS: cards blancas/surface sobre bg gris,
@@ -214,8 +220,11 @@ fun ReperaSectionTitle(
         text = if (uppercase) title.uppercase() else title,
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // Sin fillMaxWidth: en filas con métrica a la derecha (p. ej. «7/10»)
+        // el título no debe comprimir el valor a una columna de caracteres.
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier
-            .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 0.dp)
             .padding(top = 12.dp)
     )
@@ -264,6 +273,39 @@ fun ReperaPageHeader(
     }
 }
 
+/**
+ * ✓ de confirmación («Listo»): círculo [brandGreen], icono blanco en día / negro en noche.
+ * Usar en toda la app donde antes había un botón de texto «Listo».
+ */
+@Composable
+fun ReperaDoneCheckButton(
+    onClick: () -> Unit,
+    contentDescription: String = "Listo",
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    testTag: String? = null
+) {
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val iconTint = if (dark) Color.Black else Color.White
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(44.dp)
+            .background(
+                if (enabled) brandGreen else brandGreen.copy(alpha = 0.4f),
+                CircleShape
+            )
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+    ) {
+        Icon(
+            Icons.Outlined.Check,
+            contentDescription = contentDescription,
+            tint = iconTint
+        )
+    }
+}
+
 /** Toolbar del editor de entreno (paridad DayEditorChromeModifier): ← glass + ✓ verde. */
 @Composable
 fun DayEditorTopBar(
@@ -288,24 +330,12 @@ fun DayEditorTopBar(
             modifier = Modifier.testTag("editor_back")
         )
         Spacer(Modifier.weight(1f))
-        IconButton(
+        ReperaDoneCheckButton(
             onClick = onConfirm,
+            contentDescription = confirmContentDescription,
             enabled = confirmEnabled && !busy,
-            modifier = Modifier
-                .size(44.dp)
-                .background(
-                    if (confirmEnabled && !busy) brandGreen
-                    else brandGreen.copy(alpha = 0.4f),
-                    CircleShape
-                )
-                .testTag("editor_confirm")
-        ) {
-            Icon(
-                Icons.Outlined.Check,
-                contentDescription = confirmContentDescription,
-                tint = Color.Black
-            )
-        }
+            testTag = "editor_confirm"
+        )
     }
 }
 
@@ -355,9 +385,92 @@ fun ReperaEmptyState(
 }
 
 /**
+ * Fila con swipe dcha→izq que revela círculo rojo + basura (paridad OGSetSwipeDeleteRow).
+ * Al pulsar la papelera se elimina; no hay icono X permanente.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReperaSwipeDeleteRow(
+    canDelete: Boolean,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    if (!canDelete) {
+        Box(modifier) { content() }
+        return
+    }
+    val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        // Permite revelar la papelera; el borrado es al pulsar el círculo rojo.
+        confirmValueChange = { true }
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(end = 8.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Surface(
+                    onClick = onDelete,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = "Eliminar",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+        }
+    ) {
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            content()
+        }
+    }
+}
+
+/**
+ * Dialog a pantalla completa sin bandas negras en status/nav
+ * (edge-to-edge; paridad Reordenar / Elegir ejercicio / Escanear pizarra).
+ */
+@Composable
+fun ReperaFullscreenDialog(
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        val dialogView = LocalView.current
+        SideEffect {
+            (dialogView.parent as? DialogWindowProvider)?.window?.let { w ->
+                WindowCompat.setDecorFitsSystemWindows(w, false)
+                w.statusBarColor = android.graphics.Color.TRANSPARENT
+                w.navigationBarColor = android.graphics.Color.TRANSPARENT
+            }
+        }
+        content()
+    }
+}
+
+/**
  * Botón circular toolbar.
  * Touch target 48 dp; círculo 44 dp; icono 24 dp M3.
- * Día: blanco. Noche: negro.
+ * Día: blanco. Noche: negro. [active] tine el icono de acento (filtro activo).
  */
 @Composable
 fun ReperaToolbarGlassIconButton(
@@ -366,15 +479,31 @@ fun ReperaToolbarGlassIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    active: Boolean = false,
 ) {
     val dark = androidx.compose.foundation.isSystemInDarkTheme()
     val circle = if (dark) Color.Black else Color.White
-    val iconTint = if (dark) Color.White else Color.Black
+    val iconTint = when {
+        active -> brandGreen
+        dark -> Color.White
+        else -> Color.Black
+    }
+    val interaction = remember {
+        androidx.compose.foundation.interaction.MutableInteractionSource()
+    }
     Box(
         modifier = modifier
             .size(48.dp)
             .clip(CircleShape)
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = androidx.compose.material3.ripple(
+                    bounded = true,
+                    color = Color.Black.copy(alpha = 0.10f)
+                ),
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Surface(
@@ -651,7 +780,10 @@ fun ReperaConfirmSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
-                        .testTag("confirm_sheet_cancel")
+                        .testTag("confirm_sheet_cancel"),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color.Black
+                    )
                 ) {
                     Text("Cancelar", fontWeight = FontWeight.SemiBold)
                 }

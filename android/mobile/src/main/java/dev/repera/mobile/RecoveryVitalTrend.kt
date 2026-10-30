@@ -11,7 +11,7 @@ import dev.repera.domain.ProgressDayPoint
 /** HealthRecovery.vitalChart: linear observed trend, no static markers; <2 keeps axes. */
 @Composable internal fun RecoveryVitalTrend(samples:List<ProgressDayPoint>,height:Dp=128.dp) {
  val values=samples.sortedBy {it.day}
- Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(7.dp)) {
+ Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
    Text("VFC (RMSSD)",style=MaterialTheme.typography.titleSmall)
    values.lastOrNull()?.let {Text(dev.repera.domain.ReperaNumberFormat.decimal(it.value,maximumFractionDigits=0)+" ms",style=MaterialTheme.typography.labelMedium)}

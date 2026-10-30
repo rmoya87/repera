@@ -173,6 +173,6 @@ internal fun TestedOneRMEditorDialog(
         onDraftChange = { draft = it },
         onDismiss = onDismiss,
         onCommit = ::commit,
-        showDraftPreview = true
+        showDraftPreview = false
     )
 }

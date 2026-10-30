@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -10,8 +11,6 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,13 +24,11 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 /** Editor de un entreno terminado (WorkoutDetailView.isEditing iOS): título,
  *  inicio/fin, lugar (sólo sin ruta) y notas. Trabaja sobre un BORRADOR local:
@@ -40,6 +37,7 @@ import java.time.format.DateTimeFormatter
  *  @param forceEditing abre ya en modo edición (página full iOS DayEditorView).
  *  @param onOpenFullEditor si no es null, «Editar entreno» navega en vez de inline.
  *  @param onDismiss tras Guardar/Cancelar en modo página (pop). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FinishedWorkoutEditorSection(
     workout: WorkoutHistoryEntry,
@@ -105,27 +103,23 @@ internal fun FinishedWorkoutEditorSection(
     var showBoardScanner by remember(accountId, workout.id) { mutableStateOf(false) }
     var recordNewSetsAsPerformed by remember(accountId, workout.id) { mutableStateOf(false) }
     if (showBoardScanner) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showBoardScanner = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                BoardScanScreen(
-                    busy = busy,
-                    overview = null,
-                    catalogOverride = exerciseCatalog,
-                    onConfirm = { _, _, _ -> },
-                    onBack = { showBoardScanner = false },
-                    onImportBlocks = { imported ->
-                        imported.forEach { block ->
-                            blocks?.put(BoardScanImport.wireBlock(block))
-                        }
-                        contentDirty = true
-                        contentVersion++
-                        showBoardScanner = false
+        ReperaModalBottomSheet(onDismissRequest = { showBoardScanner = false }) {
+            BoardScanScreen(
+                busy = busy,
+                overview = null,
+                catalogOverride = exerciseCatalog,
+                asSheet = true,
+                onConfirm = { _, _, _ -> },
+                onBack = { showBoardScanner = false },
+                onImportBlocks = { imported ->
+                    imported.forEach { block ->
+                        blocks?.put(BoardScanImport.wireBlock(block))
                     }
-                )
-            }
+                    contentDirty = true
+                    contentVersion++
+                    showBoardScanner = false
+                }
+            )
         }
     }
 
@@ -141,8 +135,44 @@ internal fun FinishedWorkoutEditorSection(
         OutlinedTextField(value = title, onValueChange = { title = it },
             label = { Text("Nombre del entreno") }, singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag("edit_title"))
-        DateTimeRow("Inicio", startIso, "edit_start") { startIso = it }
-        DateTimeRow("Fin", endIso, "edit_end") { endIso = it }
+        val zone = ZoneId.systemDefault()
+        val startZ = remember(startIso) {
+            startIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
+                ?: ZonedDateTime.now(zone)
+        }
+        val durationMin = remember(startIso, endIso) {
+            val e = endIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
+            if (e != null) maxOf(1, java.time.Duration.between(startZ, e).toMinutes().toInt())
+            else 45
+        }
+        fun applyStartKeepingDuration(newStart: ZonedDateTime) {
+            startIso = newStart.toInstant().toString()
+            endIso = newStart.plusMinutes(durationMin.toLong()).toInstant().toString()
+        }
+        WorkoutDateTimeDurationRow(
+            dayIso = startZ.toLocalDate().toString(),
+            clock = "%02d:%02d".format(startZ.hour, startZ.minute),
+            durationMinutes = durationMin,
+            onDayIso = { iso ->
+                val d = runCatching { java.time.LocalDate.parse(iso) }.getOrNull() ?: return@WorkoutDateTimeDurationRow
+                applyStartKeepingDuration(
+                    startZ.withYear(d.year).withMonth(d.monthValue).withDayOfMonth(d.dayOfMonth)
+                )
+            },
+            onClock = { clock ->
+                val t = runCatching { java.time.LocalTime.parse(clock) }.getOrNull()
+                    ?: return@WorkoutDateTimeDurationRow
+                applyStartKeepingDuration(startZ.withHour(t.hour).withMinute(t.minute).withSecond(0).withNano(0))
+            },
+            onDurationMinutes = { mins ->
+                val m = mins.coerceIn(1, 600)
+                startIso = startZ.toInstant().toString()
+                endIso = startZ.plusMinutes(m.toLong()).toInstant().toString()
+            },
+            dayTestTag = "edit_start_date",
+            timeTestTag = "edit_start_time",
+            durationTestTag = "edit_duration"
+        )
         if (!hasRoute) {
             ReperaSectionTitle("Lugar")
             WorkoutPlacePickerRow(pin = pin, accountId = accountId,
@@ -281,8 +311,6 @@ internal fun FinishedWorkoutEditorScreen(
     }
 }
 
-private val shownFormat = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
-
 /**
  * Campo de marca WOD con estado local: no escribe 0 al vaciar el texto
  * (IME/recomposición) ni al abrir el editor sin tocar (P0-3 R6).
@@ -315,26 +343,6 @@ private fun RowScope.FinishedScoreField(
         modifier = Modifier.weight(1f)
             .testTag("edit_score_${block.optString("id")}_${field.name}")
     )
-}
-
-@Composable
-private fun DateTimeRow(label: String, iso: String?, tag: String, onChange: (String) -> Unit) {
-    val context = LocalContext.current
-    val zone = ZoneId.systemDefault()
-    val current = remember(iso) {
-        iso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() } ?: ZonedDateTime.now(zone)
-    }
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        TextButton(modifier = Modifier.testTag(tag), onClick = {
-            DatePickerDialog(context, { _, y, m, d ->
-                TimePickerDialog(context, { _, h, min ->
-                    onChange(current.withYear(y).withMonth(m + 1).withDayOfMonth(d)
-                        .withHour(h).withMinute(min).withSecond(0).withNano(0).toInstant().toString())
-                }, current.hour, current.minute, true).show()
-            }, current.year, current.monthValue - 1, current.dayOfMonth).show()
-        }) { Text(current.format(shownFormat)) }
-    }
 }
 
 /** Editor de bloques de un entreno terminado: reordenar, quitar, añadir
@@ -894,17 +902,27 @@ internal fun DragReorderItem(
     val moveActions = if (onMoveTo == null) emptyList() else moveActionTargets(index, count).map { (label, target) ->
         androidx.compose.ui.semantics.CustomAccessibilityAction(label) { onMoveTo(target); true }
     }
-    // Arrastre: zIndex + sombra tenue con esquinas redondeadas (sin pico / clip).
+    // Arrastre: fondo blanco + sombra corta (no ancha) y esquinas redondeadas.
     val lifting = dragging || dy != 0f
+    val liftShape = RoundedCornerShape(14.dp)
     Column(modifier
         .semantics { customActions = moveActions }
         .zIndex(if (lifting) 2f else 0f)
         .graphicsLayer {
             translationY = dy
-            shadowElevation = if (lifting) 18f else 0f
-            shape = RoundedCornerShape(14.dp)
-            clip = false
+            // Elevación baja → sombra más corta/local (antes 6f se veía muy ancha).
+            shadowElevation = if (lifting) 2.5f else 0f
+            shape = liftShape
+            clip = lifting
+            ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.10f)
+            spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.14f)
         }
+        .then(
+            if (lifting) Modifier
+                .clip(liftShape)
+                .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
+            else Modifier
+        )
         .onSizeChanged { heights[index] = it.height; sizePx = it }
         .onGloballyPositioned { c ->
             val p = c.positionInRoot().y
