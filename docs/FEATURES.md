@@ -1,5 +1,20 @@
 # Funcionalidades Repera
 
+## Comenzar en Apple Watch y Wear OS — integración móvil (30/10/2026)
+
+La actividad libre iniciada en iPhone/Android ya dispone en los relojes de
+pantalla compañera de **tiempo activo, kilómetros, media de velocidad e indicación
+de próximo giro**, cuando procede. Los controles de pausa/reanudación y terminar
+piden la acción al teléfono propietario; terminar lleva a su revisión antes de
+guardar. El GPS sigue siendo único; el reloj no debe crear un workout de Salud
+duplicado por visualizar esta actividad. Wear OS recibe el estado por Data Layer
+y Android procesa los controles de Comenzar fuera de MainActivity.
+
+Queda pendiente el inicio autónomo de una actividad GPS *desde el reloj* sin
+teléfono, con su propia captura de ruta y reconciliación de sensores, además de
+validación física y CI. Ver [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
+
+
 Última actualización: 2026-10-30 (Comenzar reloj H:MM:SS; Continuar comprimido ritmo+distancia)
 
 ## Completar una clase de CrossFit grabada desde «Comenzar» (29/10/2026)
