@@ -1,5 +1,14 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
+**Nueva implementación 30/10/2026 (pendiente de E2E físico):** Wear recibe por
+Data Layer las métricas agregadas de Comenzar en Android y permite pedir pausa,
+reanudación y paso a revisión por un servicio en segundo plano; la ruta GPS
+continúa teniendo un solo propietario en el teléfono. Un snapshot vacío no
+borra sesiones autónomas del reloj; hay eventos terminales identificados por
+UUID y recepción background de series/cierre. No equivale a poder salir a
+correr solo con Wear ni constituye certificación de paridad final.
+Documento: `docs/WATCH_WEAR_LIVE_SYNC_2026_10_30.md`.
+
 Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
