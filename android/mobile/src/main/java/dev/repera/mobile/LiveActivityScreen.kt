@@ -158,6 +158,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     val centerPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { capturePosition() }
 
     if(accountId.isBlank()) { Text("Inicia sesión para guardar actividades.");return }
+    // Altura real del chrome (menú + Continuar). Sin sumar navigationBars otra vez:
+    // tabChromeInset ya incluye nav bars medidos en el host.
+    val tabChromeInset = LocalReperaTabBarInset.current
+    val bottomChromePad = tabChromeInset.takeIf { it > 0.dp } ?: 96.dp
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
     val revision by runtime.updates.collectAsState()
     // Leer antes de cualquier retorno (también canvas GPS): los campos de
@@ -413,12 +417,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         }
                     }
                 }
-                OutlinedTextField(
-                    sportQuery, { sportQuery = it },
-                    placeholder = { Text("Buscar actividad") },
-                    singleLine = true,
+                ReperaMetaTextField(
+                    caption = "Buscar actividad",
+                    value = sportQuery,
+                    onValueChange = { sportQuery = it },
+                    placeholder = "Buscar actividad",
                     modifier = Modifier
-                        .fillMaxWidth()
                         .padding(top = 8.dp)
                         .testTag("sport_picker_search")
                 )
@@ -652,30 +656,62 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 }
             }
             if (state.selectedRouteID != null && state.phase != LiveActivityState.Phase.REVIEW) {
+                // Paridad iOS navigationDirectionsBanner: icono+distancia | instrucción.
                 val cue = runtime.upcomingCue
-                val instruction = cue?.instruction ?: runtime.upcomingTurn ?: "Sigue el recorrido"
+                val instruction = cue?.instruction
+                    ?: runtime.upcomingTurn
+                    ?: if (state.phase == LiveActivityState.Phase.IDLE) "Ruta cargada"
+                    else "Sigue el recorrido"
                 val direction = when {
                     cue?.offRoute == true -> "!"
                     instruction.contains("derecha", true) -> "↱"
                     instruction.contains("izquierda", true) -> "↰"
-                    instruction.contains("sentido", true) -> "↶"
+                    instruction.contains("sentido", true) || instruction.contains("giro", true) -> "↶"
                     else -> "↑"
                 }
                 Row(
                     Modifier.align(Alignment.TopStart).statusBarsPadding()
                         .padding(top = 12.dp, start = 14.dp, end = 80.dp)
-                        .background(Color(0xFF30D272), RoundedCornerShape(18.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                        .fillMaxWidth()
+                        .background(Color(0xFF30D158), RoundedCornerShape(18.dp))
+                        .padding(horizontal = 12.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(direction, style = MaterialTheme.typography.headlineLarge, color = Color.Black)
-                    Column {
-                        Text(instruction, style = MaterialTheme.typography.titleMedium, color = Color.Black)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(76.dp)
+                    ) {
+                        Text(
+                            direction,
+                            style = MaterialTheme.typography.displaySmall,
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
                         cue?.distanceMeters?.let { meters ->
-                            Text(if (meters >= 1000) "%.1f km".format(java.util.Locale.US, meters/1000.0)
-                                 else "$meters m",
-                                 style = MaterialTheme.typography.titleSmall, color = Color.Black)
+                            Text(
+                                if (meters >= 1000) "%.1f km".format(java.util.Locale.US, meters / 1000.0)
+                                else "$meters m",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            instruction,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2
+                        )
+                        if (cue?.offRoute == true) {
+                            Text(
+                                "Revisa el mapa",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Black
+                            )
                         }
                     }
                 }
@@ -696,15 +732,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     modifier = Modifier.align(Alignment.Center)
                 ) { Text("Descartar recuperación dañada") }
             }
-            // R7: nunca solapar la tab bar — navBars + holgura de la píldora.
+            // Hueco = altura medida del chrome (menú ± Continuar); sin sumar navBars otra vez.
             Surface(
                 Modifier
                     .align(
                         if (mapLandscape && state.phase != LiveActivityState.Phase.IDLE)
                             Alignment.BottomStart else Alignment.BottomCenter
                     )
-                    .navigationBarsPadding()
-                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = bottomChromePad)
                     .then(
                         if (mapLandscape)
                             Modifier.width(
@@ -804,6 +839,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .padding(bottom = bottomChromePad)
                 .testTag("live_activity_screen")
         ) {
             Row(
@@ -954,8 +990,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 Surface(
                     Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp)
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)
                         .testTag("live_idle_panel"),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
@@ -1023,16 +1058,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .navigationBarsPadding()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-                Spacer(
-                    Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .height(72.dp)
-                )
+                // El Column ya reserva bottomChromePad frente al menú.
+                Spacer(Modifier.height(8.dp))
             }
         }
         return
@@ -1081,8 +1111,16 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         return
     }
     // Sin GPS / rutas: formulario bajo status bar (mapa usa fillMaxSize a sangre).
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp)
-        .testTag("live_activity_screen"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+            .padding(bottom = bottomChromePad)
+            .testTag("live_activity_screen"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         ReperaPageHeader(title = "Comenzar")
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
         if(state.sport.usesGPS)
@@ -1389,18 +1427,16 @@ private fun LiveActivityReviewContent(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
-                    title,
-                    onTitleChange,
-                    label = { Text("Nombre") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                ReperaMetaTextField(
+                    caption = "Nombre",
+                    value = title,
+                    onValueChange = onTitleChange
                 )
-                OutlinedTextField(
-                    notes,
-                    onNotesChange,
-                    label = { Text("Notas (opcional)") },
-                    modifier = Modifier.fillMaxWidth()
+                ReperaMetaTextField(
+                    caption = "Notas (opcional)",
+                    value = notes,
+                    onValueChange = onNotesChange,
+                    singleLine = false
                 )
                 state.selectedRouteID?.let { id ->
                     Text(

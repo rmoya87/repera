@@ -29,13 +29,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -728,15 +726,11 @@ private fun WeightLogRow(accountId: String, busy: Boolean, onLogBodyWeight: (Dou
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedTextField(
+        ReperaNumericField(
             value = weightInput,
             onValueChange = { weightInput = it },
-            label = { Text("Peso (kg)") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier
-                .fillMaxWidth(0.25f)
-                .height(fieldHeight)
+            label = "Peso (kg)",
+            modifier = Modifier.fillMaxWidth(0.25f)
         )
         Button(
             onClick = {

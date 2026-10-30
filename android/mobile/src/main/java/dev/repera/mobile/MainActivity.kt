@@ -172,7 +172,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     manualMirrorLastAt = java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM,java.time.format.FormatStyle.SHORT)
                         .format(java.time.ZonedDateTime.now())
                     manualMirrorCount = r.mirroredCount
-                } else manualMirrorError = r?.error ?: result.exceptionOrNull()?.localizedMessage ?: "No se pudo sincronizar con Supabase."
+                } else manualMirrorError = r?.error ?: result.exceptionOrNull()?.localizedMessage ?: "No se pudo sincronizar con la nube."
                 manualMirrorSyncing = false
             }
         }
@@ -864,8 +864,31 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         )
                     }
                 },
-                onEditRoutine = { id, title, schedule ->
-                    runWorkoutAction { updateRoutineDetails(id, title, schedule) }
+                onEditRoutine = { id, title, schedule, favorite, pin, clearPin ->
+                    runWorkoutAction {
+                        updateRoutineDetails(
+                            id, title, schedule,
+                            isFavorite = favorite,
+                            locationPin = pin,
+                            clearLocationPin = clearPin
+                        )
+                    }
+                },
+                onSaveEditedDayRoutine = { id, title, schedule, favorite, pin, clearPin, notes, drafts, done ->
+                    runWorkoutAction(onSuccess = done) {
+                        updateRoutineDetails(
+                            id, title, schedule,
+                            isFavorite = favorite,
+                            locationPin = pin,
+                            clearLocationPin = clearPin,
+                            notes = notes,
+                            clearNotes = notes.isNullOrBlank()
+                        )
+                        replaceRoutineBlocks(id, drafts, suggestedTitle = title) { before ->
+                            subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
+                            subscriptions.canCreateCustomExercise(true).allowed
+                        }
+                    }
                 },
                 onDeleteRoutine = { id -> runWorkoutAction { deleteRoutine(id) } },
                 onRemoveScheduledRoutine = { id -> runWorkoutAction { removeScheduledRoutine(id) } },
@@ -935,28 +958,34 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             )
                         }
                 },
-                onStartSessionFromDrafts = { title, drafts, fav, requestId, saved ->
+                onStartSessionFromDrafts = { title, drafts, fav, requestId, notes, pin, saved ->
                     if(!fav || activeWorkout?.draftRequestId==requestId || permitNewTemplate()) runWorkoutAction(onSuccess = { beginLocationCapture();saved() }) {
                         startSessionFromDrafts(title, drafts, fav,
                             subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed,requestId=requestId,
+                            notes = notes,
+                            locationPin = pin,
                             canSaveFavorite={count ->subscriptions.policy.copy(favoriteCount=count).canCreateFavorite(true).allowed}) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
                     }
                 },
-                onSaveOneOffRoutine = { title, drafts, dayIso, requestId, timeMinutes, isFavorite, pin, saved ->
+                onSaveOneOffRoutine = { title, drafts, dayIso, requestId, timeMinutes, isFavorite, pin, notes, saved ->
                     runWorkoutAction(onSuccess = saved) {
                         val id = createRoutineFromDrafts(
                             title, drafts,
                             RoutineSchedule(scheduledDate = dayIso, timeMinutes = timeMinutes),
                             routineId = requestId,
-                            locationPin = pin
+                            locationPin = pin,
+                            notes = notes
                         ) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
                         }
-                        if (isFavorite) setRoutineFavorite(id, true)
+                        if (isFavorite) setRoutineFavorite(id, true) { count ->
+                            subscriptions.policy.copy(favoriteCount = count)
+                                .canCreateFavorite(true).allowed
+                        }
                     }
                 },
                 centerConnected = verifiedSupabase != null,
@@ -1116,7 +1145,27 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { setRoutineProgression(id, policy) }
                 },
                 onSetRoutineFavorite = { id, favorite ->
-                    runWorkoutAction { setRoutineFavorite(id, favorite) }
+                    runWorkoutAction {
+                        setRoutineFavorite(id, favorite) { count ->
+                            subscriptions.policy.copy(favoriteCount = count)
+                                .canCreateFavorite(true).allowed
+                        }
+                    }
+                },
+                onToggleWorkoutFavorite = { id ->
+                    runWorkoutAction {
+                        check(
+                            toggleWorkoutFavorite(id) { count ->
+                                subscriptions.policy.copy(favoriteCount = count)
+                                    .canCreateFavorite(true).allowed
+                            }
+                        ) { "No se pudo actualizar el favorito" }
+                    }
+                },
+                isWorkoutFavorite = { id ->
+                    runCatching {
+                        profile?.uniqueId?.let { WorkoutRepository(this@MainActivity, it).isWorkoutFavorite(id) }
+                    }.getOrNull() == true
                 },
                 onSetExerciseFavorite = { id, favorite ->
                     runWorkoutAction { setExerciseFavorite(id, favorite) }
@@ -1237,7 +1286,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     }
                     ok
                 },
-                onUpdateFinishedWorkout = { workoutId, edit ->
+                onUpdateFinishedWorkout = { workoutId, edit, drafts ->
                   // Como Apple: con Favorito, si la cuota de rutinas no deja, paywall y NO se aplica nada.
                   if (edit.saveAsFavorite && !subscriptions.canCreateLibraryRoutine(isNew = true).allowed) {
                     subscriptions.presentPaywall(
@@ -1245,7 +1294,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
                   } else
                     runWorkoutAction {
-                        updateFinishedWorkout(workoutId, edit,
+                        val withBlocks = if (drafts != null) {
+                            val json = blocksJsonFromDrafts(drafts) { before ->
+                                subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
+                                subscriptions.canCreateCustomExercise(true).allowed
+                            }
+                            edit.copy(blocksJson = json)
+                        } else edit
+                        updateFinishedWorkout(workoutId, withBlocks,
                             canSaveFavorite={count ->subscriptions.policy.copy(favoriteCount=count).canCreateFavorite(true).allowed}) { before ->
                             subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
                             subscriptions.canCreateCustomExercise(true).allowed
@@ -1773,7 +1829,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = null
                 snapshot = null
                 activeWorkout = null
-                status = "Google/Supabase: " + (error.localizedMessage ?: "no se ha podido autenticar")
+                status = "No se ha podido autenticar: " + (error.localizedMessage ?: "error desconocido")
             } finally {
                 busy = false
             }
@@ -2247,7 +2303,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun refreshWodTimer() {
         val user = profile?.uniqueId
         val active = activeWorkout
-        wodTimer = if (user != null && active?.wod != null)
+        // También bloque libre (fuerza): el reloj no exige WOD.
+        wodTimer = if (user != null && active != null)
             WodTimerStore(this, user).read(active.id, active.index,
                 active.navigationEntries.firstOrNull { it.index == active.index }?.blockId)
         else null
@@ -2259,7 +2316,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun changeWodTimer(action: String) {
         val user = profile?.uniqueId ?: return
         val active = activeWorkout ?: return
-        if (active.wod == null || busy) return
+        if (busy) return
         runCatching {
             val store = WodTimerStore(this, user)
             val blockId = active.navigationEntries.firstOrNull { it.index == active.index }?.blockId
@@ -2897,7 +2954,8 @@ data class StateOverview(
                         blocks = blockInfos,
                         progression = item.optString("progression", "off"),
                         isFavorite = item.optBoolean("isFavorite", false),
-                        locationPin = pinFromJson(item.optJSONObject("locationPin"))
+                        locationPin = pinFromJson(item.optJSONObject("locationPin")),
+                        notes = item.optString("notes").takeIf { it.isNotBlank() }
                     )
                 }
             }
@@ -3094,7 +3152,8 @@ data class RoutineEntry(
     val blocks: List<RoutineBlockInfo> = emptyList(),
     val progression: String = "off",
     val isFavorite: Boolean = false,
-    val locationPin: dev.repera.domain.WorkoutLocationPin? = null
+    val locationPin: dev.repera.domain.WorkoutLocationPin? = null,
+    val notes: String? = null
 )
 
 /** Bloque de una rutina tal y como se muestra en el editor de contenido. */

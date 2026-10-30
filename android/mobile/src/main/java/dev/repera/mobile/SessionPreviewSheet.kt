@@ -15,20 +15,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
@@ -66,8 +61,6 @@ fun SessionPreviewSheet(
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
 ) {
     val day = dayLabel(routine)
-    val context = LocalContext.current
-    val aliases = remember(context) { ExerciseSearchAssets.load(context) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -90,45 +83,70 @@ fun SessionPreviewSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            // Toolbar iOS: ☆ ··· en círculos blancos · ▶
+            // Toolbar: ☆ ··· ▶ — mismo hit 48 / círculo 44 que el resto de topbars.
             var menuOpen by remember { mutableStateOf(false) }
             var confirmDelete by remember { mutableStateOf(false) }
-            ReperaToolbarGlassIconButton(
-                icon = if (routine.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                contentDescription = if (routine.isFavorite) "Quitar de favoritos" else "Favorito",
-                onClick = { onToggleFavorite(!routine.isFavorite) },
-                enabled = !busy,
-                active = routine.isFavorite
-            )
-            Box {
-                ReperaToolbarGlassIconButton(
-                    icon = Icons.Outlined.MoreVert,
-                    contentDescription = "Más",
-                    onClick = { menuOpen = true }
-                )
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Editar") },
-                        onClick = { menuOpen = false; onEdit() })
-                    DropdownMenuItem(
-                        // R8 P2-5: rutina planificada = «Borrar entreno» (iOS).
-                        text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
-                        onClick = { menuOpen = false; confirmDelete = true })
-                }
-            }
-            IconButton(
-                enabled = !busy && routine.supported,
-                onClick = { onStart(); onClose() },
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(brandGreen)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Filled.PlayArrow,
-                    contentDescription = "Empezar entrenamiento",
-                    tint = Color.Black
+                ReperaToolbarGlassIconButton(
+                    icon = if (routine.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                    contentDescription = if (routine.isFavorite) "Quitar de favoritos" else "Favorito",
+                    onClick = { onToggleFavorite(!routine.isFavorite) },
+                    enabled = !busy,
+                    active = routine.isFavorite
                 )
+                Box {
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.MoreVert,
+                        contentDescription = "Más",
+                        onClick = { menuOpen = true }
+                    )
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Editar") },
+                            onClick = { menuOpen = false; onEdit() })
+                        DropdownMenuItem(
+                            text = { Text("Borrar entreno", color = MaterialTheme.colorScheme.error) },
+                            onClick = { menuOpen = false; confirmDelete = true })
+                    }
+                }
+                val isFuture = routine.scheduledDate?.let { iso ->
+                    runCatching { LocalDate.parse(iso.take(10)).isAfter(LocalDate.now()) }
+                        .getOrDefault(false)
+                } == true
+                val canStart = !busy && routine.supported && !isFuture
+                val playTint = if (canStart) brandGreen
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            enabled = canStart,
+                            onClick = { onStart(); onClose() }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(playTint),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = if (isFuture)
+                                "No se puede empezar un entreno futuro"
+                            else "Empezar entrenamiento",
+                            tint = if (canStart) Color.Black
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
             if (confirmDelete) {
                 // Paridad iOS (terminados): «¿Eliminar entreno?» / «Eliminar».
@@ -148,70 +166,13 @@ fun SessionPreviewSheet(
                 subtitle = "Edítala para añadir ejercicios"
             )
         } else {
-            routine.blocks.forEach { block ->
-                ReperaCard(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                ) {
-                    Column(Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(block.title, style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold)
-                        Text(blockFormatLabel(block),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        block.entries.forEach { entry ->
-                            val tappable = entry.exerciseId.isNotBlank()
-                            val entryModifier = if (tappable)
-                                Modifier.fillMaxWidth().clickable { onOpenExercise(entry.exerciseId) }
-                            else Modifier.fillMaxWidth()
-                            Row(
-                                entryModifier.padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                            val resolved = remember(entry.exerciseId, entry.name, exerciseCatalog) {
-                                if (entry.exerciseId.isNotBlank()) {
-                                    exerciseCatalog.firstOrNull { it.id == entry.exerciseId }
-                                        ?: resolveWodExercise(entry.name, exerciseCatalog, aliases,
-                                            exerciseId = entry.exerciseId)
-                                } else {
-                                    resolveWodExercise(entry.name, exerciseCatalog, aliases)
-                                }
-                            }
-                            WodExerciseThumbnail(resolved, aliases, size = 44.dp)
-                            val detail = buildString {
-                                // R7 P1: nombre del ejercicio (no «· — 3×8»).
-                                append(entry.name.ifBlank { "Ejercicio" })
-                                val unitLabel = when (entry.quantityUnit) {
-                                    "meters" -> " m"; "calories" -> " cal"; else -> ""
-                                }
-                                if (entry.sets > 0 && entry.quantity > 0) {
-                                    if (unitLabel.isNotEmpty())
-                                        append(" — ${entry.sets}×${entry.quantity}$unitLabel")
-                                    else append(" — ${entry.sets}×${entry.quantity}")
-                                } else if (entry.quantity > 0) {
-                                    append(" — ${entry.quantity}$unitLabel")
-                                }
-                                entry.weightKg?.let { w ->
-                                    append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(w)} kg")
-                                }
-                            }
-                            Text(detail, style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f))
-                            if (tappable) {
-                                Icon(
-                                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            }
-                        }
-                    }
-                }
-            }
+            // Por hacer: solo ejercicios (mismo desglose Apple que el resumen).
+            RoutinePlanBreakdown(
+                blocks = routine.blocks,
+                exerciseCatalog = exerciseCatalog,
+                onOpenExercise = onOpenExercise
+            )
         }
-        // R7 P1: sin CTA extra «Empezar entrenamiento» (iOS solo tiene ▶ en cabecera).
     }
 }
 
@@ -230,12 +191,3 @@ private fun dayLabel(routine: RoutineEntry): String {
     return if (minutes != null) "%s · %02d:%02d".format(day, minutes / 60, minutes % 60) else day
 }
 
-private fun blockFormatLabel(block: RoutineBlockInfo): String = when (block.format) {
-    "" -> "Sin formato"
-    "strength" -> "Fuerza"
-    "amrap" -> "AMRAP ${block.timeCapMinutes}'"
-    "emom" -> "EMOM ${block.timeCapMinutes}' · cada ${block.emomIntervalSeconds}s"
-    "fortime", "forTime" -> "For Time · cap ${block.timeCapMinutes}'"
-    "tabata" -> "Tabata ${block.workSeconds}/${block.restSeconds}s × ${block.rounds}"
-    else -> BlockFormatCatalog.title(block.format)
-}

@@ -87,16 +87,16 @@ class SupabaseIdentity(
             val expiry = data.optLong("expires_in", 0)
             require(userId.isNotBlank() && token.isNotBlank() && refresh.isNotBlank() &&
                 data.optString("token_type").equals("bearer", true) && expiry > 0) {
-                "La respuesta de Supabase no contiene una sesión válida"
+                "La respuesta del servidor de cuenta no contiene una sesión válida"
             }
             return Session(userId, token, refresh, expiry, System.currentTimeMillis() / 1000)
         }
     }
 }
 
-/** Fallo HTTP de Supabase Auth. Nunca incluye cuerpo ni tokens en el mensaje. */
+/** Fallo HTTP de auth. Nunca incluye cuerpo ni tokens en el mensaje. */
 class AuthHttpException(val httpCode: Int, val errorCode: String?) :
-    IllegalStateException("Supabase Auth HTTP $httpCode: revisa Google Client IDs")
+    IllegalStateException("No se pudo autenticar (HTTP $httpCode). Revisa la configuración de Google.")
 
 /** Apple isUnrecoverableAuthError: solo una revocación confirmada exige iniciar sesión de nuevo; la red u otros fallos no. */
 object SupabaseAuthErrors {

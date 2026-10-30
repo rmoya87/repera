@@ -23,7 +23,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -229,11 +228,10 @@ internal fun BoardScanScreen(
             }
         } else {
             item {
-                OutlinedTextField(
+                ReperaMetaTextField(
+                    caption = "Título de la rutina",
                     value = reviewTitle,
-                    onValueChange = { reviewTitle = it;reviewRequestId=java.util.UUID.randomUUID().toString() },
-                    label = { Text("Título de la rutina") },
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { reviewTitle = it; reviewRequestId = java.util.UUID.randomUUID().toString() }
                 )
             }
             item {

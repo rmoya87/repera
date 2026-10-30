@@ -130,6 +130,7 @@ internal fun ExerciseDetailScreen(
                         contentDescription = if (entry.isFavorite) "Quitar de favoritos" else "Favorito",
                         onClick = onToggleFavorite,
                         enabled = !busy,
+                        active = entry.isFavorite,
                         modifier = Modifier.testTag("exercise_detail_favorite")
                     )
                 }

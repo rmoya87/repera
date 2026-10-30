@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Search
@@ -63,6 +65,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -120,7 +123,26 @@ fun ReperaMobileScreen(
     onWodTimerAction: (String) -> Unit,
     onWodTimerTick: () -> Unit,
     onStartRoutine: (String, () -> Unit) -> Unit,
-    onEditRoutine: (String, String, RoutineSchedule) -> Unit,
+    onEditRoutine: (
+        String,
+        String,
+        RoutineSchedule,
+        Boolean?,
+        dev.repera.domain.WorkoutLocationPin?,
+        Boolean
+    ) -> Unit = { _, _, _, _, _, _ -> },
+    /** Editar entreno del día: meta + bloques en una sola persistencia. */
+    onSaveEditedDayRoutine: (
+        String,
+        String,
+        RoutineSchedule,
+        Boolean?,
+        dev.repera.domain.WorkoutLocationPin?,
+        Boolean,
+        String?,
+        List<RoutineBlockDraft>,
+        () -> Unit
+    ) -> Unit = { _, _, _, _, _, _, _, _, done -> done() },
     onDeleteRoutine: (String) -> Unit,
     onRemoveScheduledRoutine: (String) -> Unit = onDeleteRoutine,
     onCopyPreviousWeek: (java.time.LocalDate) -> Unit = {},
@@ -145,9 +167,18 @@ fun ReperaMobileScreen(
         Int?,
         Boolean,
         dev.repera.domain.WorkoutLocationPin?,
+        String?,
         () -> Unit
-    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
-    onStartSessionFromDrafts: (String, List<RoutineBlockDraft>, Boolean,String,()->Unit) -> Unit = { _, _, _, _, _ -> },
+    ) -> Unit = { _, _, _, _, _, _, _, _, _ -> },
+    onStartSessionFromDrafts: (
+        String,
+        List<RoutineBlockDraft>,
+        Boolean,
+        String,
+        String?,
+        dev.repera.domain.WorkoutLocationPin?,
+        () -> Unit
+    ) -> Unit = { _, _, _, _, _, _, _ -> },
     centerConnected: Boolean,
     centerLoading: Boolean,
     centerSubmitting: Boolean,
@@ -219,6 +250,9 @@ fun ReperaMobileScreen(
     onDeleteBodyWeight:(String)->Unit = {},
     onSetRoutineProgression: (String, String) -> Unit,
     onSetRoutineFavorite: (String, Boolean) -> Unit,
+    /** Estrella de historial / detalle: toggleWorkoutFavorite (plantilla + enlace). */
+    onToggleWorkoutFavorite: (String) -> Unit = {},
+    isWorkoutFavorite: (String) -> Boolean = { false },
     onSetExerciseFavorite: (String, Boolean) -> Unit,
     onCreateCustomExercise: (
         name: String, muscleGroup: String, equipment: String?,
@@ -248,7 +282,11 @@ fun ReperaMobileScreen(
     onRemoveSportFavorite: (String) -> Unit = {},
     onSaveTimerSession: (StandaloneTimerCompletion) -> Boolean = { false },
     initialExternalRoute: String? = null, onExternalRouteHandled: () -> Unit = {},
-    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
+    onUpdateFinishedWorkout: (
+        String,
+        WorkoutRepository.FinishedWorkoutEdit,
+        List<RoutineBlockDraft>?
+    ) -> Unit = { _, _, _ -> },
     onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
     onImportJson: () -> Unit,
     onImportCsv: () -> Unit,
@@ -277,7 +315,7 @@ fun ReperaMobileScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text("Accede con Google. Tu historial permanece protegido y la misma cuenta verificada conserva su identidad en Supabase.",
+                    Text("Accede con Google. Tu historial permanece protegido y la misma cuenta verificada conserva tu identidad en la nube de Repera.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -317,17 +355,42 @@ fun ReperaMobileScreen(
             return@ReperaTheme
         }
         val navController = rememberNavController()
+        val activityContext = LocalContext.current
+        // Si hay live pendiente → modal; si no, arranca / continúa.
+        var pendingLiveContinue by remember { mutableStateOf<(() -> Unit)?>(null) }
+        val runAfterClearingLive: (() -> Unit) -> Unit = { action ->
+            if (LiveActivityRuntime.hasPendingActivity(activityContext, accountId)) {
+                pendingLiveContinue = action
+            } else {
+                action()
+            }
+        }
         // Apple SessionPreviewView: ▶ abre Play; con sesión activa, continúa.
         val startOrContinueRoutine: (String) -> Unit = { id ->
             if (activeWorkout != null) {
                 navController.navigate("entreno-activo")
             } else {
-                onStartRoutine(id) {
-                    navController.navigate("entreno-activo") {
-                        popUpTo("inicio") { inclusive = false }
+                runAfterClearingLive {
+                    onStartRoutine(id) {
+                        navController.navigate("entreno-activo") {
+                            popUpTo("inicio") { inclusive = false }
+                        }
                     }
                 }
             }
+        }
+        if (pendingLiveContinue != null) {
+            PendingLiveActivitySheet(
+                onConfirmCloseAndContinue = {
+                    val next = pendingLiveContinue
+                    pendingLiveContinue = null
+                    if (finishAndSavePendingLiveActivity(activityContext, accountId)) {
+                        onLiveActivitySaved(null)
+                        next?.invoke()
+                    }
+                },
+                onDismiss = { pendingLiveContinue = null }
+            )
         }
         var libraryModeRequest by rememberSaveable {mutableStateOf<String?>(null)}
         // Favoritos → Comenzar: deporte a preseleccionar al abrir en-vivo.
@@ -335,7 +398,6 @@ fun ReperaMobileScreen(
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
         val darkTheme = isSystemInDarkTheme()
-        val activityContext = LocalContext.current
         SideEffect {
             val activity = activityContext as? Activity ?: return@SideEffect
             val window = activity.window
@@ -372,8 +434,12 @@ fun ReperaMobileScreen(
         var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
         // I-42: Minimizar reloj → barra flotante sobre la sesión (no destruye el timer).
         var clockMinimized by rememberSaveable(accountId) { mutableStateOf(false) }
-        LaunchedEffect(activeWorkout?.id, activeWorkout?.wod) {
-            if (activeWorkout?.wod == null) clockMinimized = false
+        var manualClockConfig by remember(accountId) { mutableStateOf<ManualBlockTimerConfig?>(null) }
+        LaunchedEffect(activeWorkout?.id) {
+            if (activeWorkout == null) {
+                clockMinimized = false
+                manualClockConfig = null
+            }
         }
         // iOS restoresAddSheetAfterPage: reabrir DayPlus al volver de Favoritos/Tempo.
         var restoreDayPlus by rememberSaveable(accountId) { mutableStateOf(false) }
@@ -461,13 +527,62 @@ fun ReperaMobileScreen(
             },
             bottomBar = {
                 val session = activeWorkout
-                val continueTitle = if (session != null && showTabBar) {
-                    session.exerciseName.takeIf { it.isNotBlank() }
+                val liveRuntime = remember(accountId) {
+                    if (accountId.isNotBlank()) {
+                        runCatching {
+                            LiveActivityRuntime.forAccount(activityContext, accountId)
+                        }.getOrNull()
+                    } else null
+                }
+                val liveTick by when (val runtime = liveRuntime) {
+                    null -> remember { kotlinx.coroutines.flow.MutableStateFlow(0L) }
+                    else -> runtime.updates
+                }.collectAsState(0L)
+                val livePending = showTabBar && accountId.isNotBlank() &&
+                    LiveActivityRuntime.hasPendingActivity(activityContext, accountId)
+                // Tick periódico para refrescar duración de Comenzar en Continuar.
+                var liveClock by remember { mutableStateOf(0L) }
+                LaunchedEffect(livePending, liveTick) {
+                    if (!livePending) return@LaunchedEffect
+                    while (true) {
+                        liveClock = System.currentTimeMillis()
+                        kotlinx.coroutines.delay(1_000)
+                    }
+                }
+                // En Comenzar: solo Continuar de Play (no Live: ya estás ahí).
+                val onComenzarTab = currentRoute == "en-vivo"
+                val continueTitle = when {
+                    !showTabBar -> null
+                    session != null -> session.exerciseName.takeIf { it.isNotBlank() }
                         ?: session.title.takeIf { it.isNotBlank() }
                         ?: "Entreno"
-                } else null
-                val continueProgress = if (session != null && session.total > 0)
-                    "${session.index + 1}/${session.total}" else ""
+                    livePending && !onComenzarTab ->
+                        liveRuntime?.state?.sport?.title ?: "Actividad en vivo"
+                    else -> null
+                }
+                val continueProgress = when {
+                    session != null && session.total > 0 ->
+                        "${session.index + 1}/${session.total}"
+                    livePending && liveRuntime != null -> {
+                        val now = if (liveClock > 0L) liveClock else System.currentTimeMillis()
+                        val secs = liveRuntime.state.durationSeconds(now)
+                            .toInt().coerceAtLeast(0)
+                        "%d:%02d".format(secs / 60, secs % 60)
+                    }
+                    else -> ""
+                }
+                val continueExercise = remember(session?.exerciseId, session?.exerciseName, overview) {
+                    val id = session?.exerciseId.orEmpty()
+                    val name = session?.exerciseName.orEmpty()
+                    val catalog = overview?.exerciseEntries.orEmpty()
+                    when {
+                        id.isNotBlank() -> catalog.firstOrNull { it.id == id }
+                        name.isNotBlank() -> catalog.firstOrNull {
+                            it.name.equals(name, ignoreCase = true)
+                        }
+                        else -> null
+                    }
+                }
                 // Mide la altura real del chrome para el inset de scroll.
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 androidx.compose.foundation.layout.Box(
@@ -475,13 +590,22 @@ fun ReperaMobileScreen(
                         tabBarChromeHeightDp = with(density) { size.height.toDp() }
                     }
                 ) {
+                    val liveSportIcon = if (livePending && session == null) {
+                        liveRuntime?.state?.sport?.materialIcon
+                    } else null
                     ReperaTabBarChrome(
                         showTabBar = showTabBar,
                         selectedRoute = currentRoute,
                         onTabSelected = navigateTab,
                         continueTitle = continueTitle,
                         continueProgress = continueProgress,
-                        onContinue = { navController.navigate("entreno-activo") }
+                        continueExercise = continueExercise,
+                        continueIsLive = livePending && session == null,
+                        continueLiveIcon = liveSportIcon,
+                        onContinue = {
+                            if (session != null) navController.navigate("entreno-activo")
+                            else navigateTab("en-vivo")
+                        }
                     )
                 }
             }
@@ -570,6 +694,7 @@ fun ReperaMobileScreen(
                             navController.navigate("reloj")
                         },
                         onOpenActiveSession = { navController.navigate("entreno-activo") },
+                        onOpenLiveActivity = { navigateTab("en-vivo") },
                         onOpenClock = {
                             clockMinimized = false
                             navController.navigate("reloj")
@@ -629,6 +754,10 @@ fun ReperaMobileScreen(
                     }
                     var favorite by remember { mutableStateOf(false) }
                     var sessionTitle by remember(accountId, requestId) { mutableStateOf("Mi entreno") }
+                    var sessionNotes by remember(accountId, requestId) { mutableStateOf("") }
+                    var sessionPin by remember(accountId, requestId) {
+                        mutableStateOf<dev.repera.domain.WorkoutLocationPin?>(null)
+                    }
                     RoutineBlocksEditorScreen(accountId=accountId,
                         effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                         routine = draft,
@@ -641,9 +770,21 @@ fun ReperaMobileScreen(
                         showPlaceSection = true,
                         saveStatus=editorSaveStatus(status),
                         onFavoriteChosen = { favorite = it },
+                        onSessionNotesChosen = { sessionNotes = it },
+                        onSessionPinChosen = { sessionPin = it },
                         onTitleSuggested = { sessionTitle = it },
                         onReplace = { drafts ->
-                            onStartSessionFromDrafts(sessionTitle, drafts, favorite,requestId) {navController.popBackStack()}
+                            runAfterClearingLive {
+                                onStartSessionFromDrafts(
+                                    sessionTitle, drafts, favorite, requestId,
+                                    sessionNotes, sessionPin
+                                ) {
+                                    navController.popBackStack()
+                                    navController.navigate("entreno-activo") {
+                                        popUpTo("inicio") { inclusive = false }
+                                    }
+                                }
+                            }
                         },
                         onBack = { navController.popBackStack() },
                         onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
@@ -708,8 +849,14 @@ fun ReperaMobileScreen(
                             onSetRoutineFavorite(id, false)
                         },
                         onSetWeekday = { r, d ->
-                            onEditRoutine(r.id, r.title, RoutineSchedule(weekday = d,
-                                timeMinutes = if (d == null) null else r.timeMinutes))
+                            onEditRoutine(
+                                r.id, r.title,
+                                RoutineSchedule(
+                                    weekday = d,
+                                    timeMinutes = if (d == null) null else r.timeMinutes
+                                ),
+                                null, null, false
+                            )
                         },
                         onOpenSport = { sportId ->
                             restoreDayPlus = false
@@ -741,8 +888,14 @@ fun ReperaMobileScreen(
                             onSetRoutineFavorite(id, false)
                         },
                         onSetWeekday = { r, d ->
-                            onEditRoutine(r.id, r.title, RoutineSchedule(weekday = d,
-                                timeMinutes = if (d == null) null else r.timeMinutes))
+                            onEditRoutine(
+                                r.id, r.title,
+                                RoutineSchedule(
+                                    weekday = d,
+                                    timeMinutes = if (d == null) null else r.timeMinutes
+                                ),
+                                null, null, false
+                            )
                         },
                         onOpenSport = { sportId ->
                             pendingLiveSportId = sportId
@@ -897,6 +1050,7 @@ fun ReperaMobileScreen(
                             onNext, onFinish,
                             onDiscardSession,
                             onOpenClock = {
+                                manualClockConfig = null
                                 clockMinimized = false
                                 navController.navigate("reloj")
                             },
@@ -921,7 +1075,14 @@ fun ReperaMobileScreen(
                                 navController.navigate("reloj")
                             },
                             importableRoutines = overview?.routineEntries.orEmpty(),
-                            overview = overview
+                            overview = overview,
+                            onLaunchManualClock = { config ->
+                                manualClockConfig = config
+                                onWodTimerAction("start")
+                                clockMinimized = false
+                                navController.navigate("reloj")
+                            },
+                            loadGuideProvider = loadGuideProvider
                         )
                     }
                 }
@@ -996,7 +1157,9 @@ fun ReperaMobileScreen(
                 }
                 composable("reloj") {
                     val clockWorkout = activeWorkout
-                    if (clockWorkout?.wod != null) {
+                    val canShowClock = clockWorkout != null &&
+                        (clockWorkout.wod != null || manualClockConfig != null)
+                    if (canShowClock && clockWorkout != null) {
                         WodClockScreen(
                             active = clockWorkout,
                             busy = busy,
@@ -1008,6 +1171,7 @@ fun ReperaMobileScreen(
                                 navController.popBackStack()
                             },
                             exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+                            manualConfig = manualClockConfig,
                         )
                     } else {
                         LaunchedEffect(Unit) { navController.popBackStack() }
@@ -1101,15 +1265,11 @@ fun ReperaMobileScreen(
                                 )
                             }
                             ReperaPageHeader(title = "Objetivos")
-                            ReperaCard(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(16.dp)) {
-                                    HealthGoalsSection(
-                                        overview?.healthGoals ?: HealthGoals(),
-                                        busy || overview == null,
-                                        onUpdateHealthGoals
-                                    )
-                                }
-                            }
+                            HealthGoalsSection(
+                                overview?.healthGoals ?: HealthGoals(),
+                                busy || overview == null,
+                                onUpdateHealthGoals
+                            )
                         }
                     }
                 }
@@ -1180,7 +1340,9 @@ fun ReperaMobileScreen(
                                 navController.navigate(
                                     "historial-editar/" + Uri.encode(workout.id)
                                 )
-                            }
+                            },
+                            onToggleFavorite = { onToggleWorkoutFavorite(workout.id) },
+                            isFavorite = isWorkoutFavorite(workout.id)
                         )
                     }
                 }
@@ -1189,10 +1351,15 @@ fun ReperaMobileScreen(
                     arguments = listOf(navArgument("workoutId") { type = NavType.StringType })
                 ) { entry ->
                     val workoutId = Uri.decode(entry.arguments?.getString("workoutId").orEmpty())
-                    val workout = overview?.completeHistory.orEmpty()
-                        .firstOrNull { it.id == workoutId }
+                    val workout = rememberCachedHistoryWorkout(workoutId, overview)
                     if (workout == null) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        // No pop inmediato: overview puede refrescarse un frame vacío.
+                        LaunchedEffect(workoutId) {
+                            kotlinx.coroutines.delay(400)
+                            if (overview?.completeHistory.orEmpty().none { it.id == workoutId }) {
+                                navController.popBackStack()
+                            }
+                        }
                     } else {
                         FinishedWorkoutEditorScreen(
                             workout = workout,
@@ -1200,9 +1367,10 @@ fun ReperaMobileScreen(
                             busy = busy,
                             exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                             effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                            importableRoutines = overview?.routineEntries.orEmpty(),
                             onBack = { navController.popBackStack() },
-                            onSave = { edit ->
-                                onUpdateFinishedWorkout(workout.id, edit)
+                            onSave = { edit, drafts ->
+                                onUpdateFinishedWorkout(workout.id, edit, drafts)
                             }
                         )
                     }
@@ -1223,7 +1391,9 @@ fun ReperaMobileScreen(
                             libraryModeRequest = "Deportes"
                             navController.navigate("ejercicios")
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onToggleWorkoutFavorite = onToggleWorkoutFavorite,
+                        isWorkoutFavorite = isWorkoutFavorite
                     )
                 }
                 composable("peso-corporal") {
@@ -1284,8 +1454,17 @@ fun ReperaMobileScreen(
                     } else {
                         // Editor sobre borrador local (RoutineBlocksEditorScreen):
                         // solo «Guardar» persiste; «Volver» descarta sin tocar
-                        // la rutina, igual que en iOS.
+                        // la rutina, igual que en iOS. Meta día = Crear entreno.
                         var suggestedTitle by remember(accountId,routineId) {mutableStateOf<String?>(null)}
+                        val editMetaSnap = remember(accountId, routineId) {
+                            arrayOf<Any?>(
+                                routine.scheduledDate,
+                                routine.timeMinutes,
+                                routine.isFavorite,
+                                routine.locationPin,
+                                routine.notes
+                            )
+                        }
                         RoutineBlocksEditorScreen(accountId=accountId,
                             effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                             routine = routine,
@@ -1294,11 +1473,47 @@ fun ReperaMobileScreen(
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
                             importableRoutines = overview?.routineEntries.orEmpty(),
+                            // Misma maqueta que Crear cuando es entreno del día.
+                            oneOffEditor = routine.scheduledDate != null,
+                            pageTitle = if (routine.scheduledDate != null) "Editar entreno" else null,
+                            scheduledDayIso = routine.scheduledDate,
                             onTitleSuggested = { t ->
                                 suggestedTitle=t
                             },
+                            onOneOffMeta = { day, time, fav, pin, notes, _ ->
+                                editMetaSnap[0] = day
+                                editMetaSnap[1] = time
+                                editMetaSnap[2] = fav
+                                editMetaSnap[3] = pin
+                                editMetaSnap[4] = notes
+                            },
                             onReplace = { drafts ->
-                                onReplaceRoutineBlocks(routineId, drafts,suggestedTitle) {navController.popBackStack()}
+                                if (routine.scheduledDate != null) {
+                                    val title = suggestedTitle ?: routine.title
+                                    val day = editMetaSnap[0] as? String
+                                    val time = editMetaSnap[1] as? Int
+                                    val fav = editMetaSnap[2] as? Boolean
+                                    val pin = editMetaSnap[3] as? dev.repera.domain.WorkoutLocationPin
+                                    val notes = editMetaSnap[4] as? String
+                                    // Una sola acción: meta + bloques (busy bloquea un 2º runWorkoutAction).
+                                    onSaveEditedDayRoutine(
+                                        routineId,
+                                        title,
+                                        RoutineSchedule(
+                                            scheduledDate = day ?: routine.scheduledDate,
+                                            timeMinutes = time
+                                        ),
+                                        fav,
+                                        pin,
+                                        pin == null && routine.locationPin != null,
+                                        notes,
+                                        drafts
+                                    ) { navController.popBackStack() }
+                                } else {
+                                    onReplaceRoutineBlocks(routineId, drafts, suggestedTitle) {
+                                        navController.popBackStack()
+                                    }
+                                }
                             },
                             onBack = { navController.popBackStack() },
                             onOpenExercise = { id -> navController.navigate("ejercicio/$id") }
@@ -1340,7 +1555,7 @@ fun ReperaMobileScreen(
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
                     val oneOffMetaSnap = remember(fecha, nombre) {
-                        arrayOf<Any?>(null, null, false, null)
+                        arrayOf<Any?>(null, null, false, null, null)
                     }
                     RoutineBlocksEditorScreen(
                         accountId = accountId,
@@ -1355,11 +1570,12 @@ fun ReperaMobileScreen(
                         scheduledDayIso = fecha,
                         pageTitle = "Crear entreno",
                         onTitleSuggested = { t -> oneOffTitle = t },
-                        onOneOffMeta = { day, time, fav, pin ->
+                        onOneOffMeta = { day, time, fav, pin, notes, _ ->
                             oneOffMetaSnap[0] = day
                             oneOffMetaSnap[1] = time
                             oneOffMetaSnap[2] = fav
                             oneOffMetaSnap[3] = pin
+                            oneOffMetaSnap[4] = notes
                         },
                         onReplace = { drafts ->
                             onSaveOneOffRoutine(
@@ -1369,7 +1585,8 @@ fun ReperaMobileScreen(
                                 draft.id,
                                 oneOffMetaSnap[1] as Int?,
                                 oneOffMetaSnap[2] as Boolean,
-                                oneOffMetaSnap[3] as dev.repera.domain.WorkoutLocationPin?
+                                oneOffMetaSnap[3] as dev.repera.domain.WorkoutLocationPin?,
+                                oneOffMetaSnap[4] as String?
                             ) { navController.popBackStack() }
                         },
                         onBack = {
@@ -2052,12 +2269,14 @@ private fun SettingsHealthRows(
         SettingsCardDivider()
         SettingsListRow(
             title = "Objetivos",
+            leadingIcon = Icons.Outlined.Flag,
             enabled = !busy && overviewReady,
             onClick = onOpenHealthGoals
         )
         SettingsCardDivider()
         SettingsListRow(
             title = "Peso",
+            leadingIcon = Icons.Outlined.MonitorWeight,
             enabled = !busy && overviewReady,
             onClick = onOpenBodyWeights
         )

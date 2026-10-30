@@ -616,6 +616,18 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
+    /** Serializa borradores del editor de bloques al JSON de `routineBlocks` / edición terminada. */
+    @Synchronized fun blocksJsonFromDrafts(
+        drafts: List<RoutineBlockDraft>,
+        canCreateCustom: (Int) -> Boolean = { true }
+    ): String {
+        val state = requireState()
+        return validatedDraftBlocks(
+            materializePendingCustoms(drafts, state, canCreateCustom),
+            state
+        ).toString()
+    }
+
     /** Validación y construcción de bloques desde borradores del editor
      *  (compartida por replaceRoutineBlocks y createRoutineFromDrafts). */
     private fun validatedDraftBlocks(
@@ -675,6 +687,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         schedule: RoutineSchedule = RoutineSchedule(),
         routineId:String? = null,
         locationPin: dev.repera.domain.WorkoutLocationPin? = null,
+        notes: String? = null,
         canCreateTemplate:(Int)->Boolean = {true},
         canCreateCustom: (Int) -> Boolean = { true }
     ): String {
@@ -716,6 +729,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     pin.pointOfInterestCategory?.let { o.put("pointOfInterestCategory", it) }
                 })
         }
+        notes?.trim()?.takeIf { it.isNotEmpty() }?.let { nativeRoutine.put("notes", it) }
         schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
         state.getJSONArray("routines").put(nativeRoutine)
         save(state)
@@ -962,6 +976,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         title: String, drafts: List<RoutineBlockDraft>, saveAsFavorite: Boolean,
         allowAdvancedProgression: Boolean = true,
         requestId:String? = null,
+        notes: String? = null,
+        locationPin: dev.repera.domain.WorkoutLocationPin? = null,
         canSaveFavorite:(Int)->Boolean = {true},
         canCreateCustom: (Int) -> Boolean = { true }
     ): ActiveWorkout {
@@ -981,8 +997,20 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val routine = JSONObject().put("id", UUID.randomUUID().toString()).put("title", cleaned)
             .put("blocks", validatedDraftBlocks(materializePendingCustoms(drafts, state, canCreateCustom), state))
             .put("progression", "off").put("isFavorite", saveAsFavorite)
+        locationPin?.let { pin ->
+            routine.put("locationPin", JSONObject()
+                .put("latitude", pin.latitude)
+                .put("longitude", pin.longitude)
+                .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                .also { o ->
+                    pin.name?.let { o.put("name", it) }
+                    pin.mapItemIdentifier?.let { o.put("mapItemIdentifier", it) }
+                    pin.pointOfInterestCategory?.let { o.put("pointOfInterestCategory", it) }
+                })
+        }
         val session = assembleSession(state, routine, allowAdvancedProgression, applyDefaultPolicy = true)
         requestId?.let {session.put("draftRequestId",it)}
+        notes?.trim()?.takeIf { it.isNotEmpty() }?.let { session.put("notes", it) }
         if (saveAsFavorite) state.getJSONArray("routines").put(routine)
         state.put("activeSession", session)
         save(state)
@@ -2184,14 +2212,93 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
-    /** Marca o desmarca una rutina como favorita (paridad setRoutineFavorite iOS). */
-    @Synchronized fun setRoutineFavorite(id: String, favorite: Boolean) {
+    /**
+     * Marca o desmarca una rutina como favorita (paridad setRoutineFavorite iOS):
+     * si tiene día programado, crea/actualiza una plantilla reutilizable sin fecha
+     * (favoriteTemplateId) para que aparezca en «Añadir favorito» / hub.
+     */
+    @Synchronized fun setRoutineFavorite(
+        id: String,
+        favorite: Boolean,
+        canSaveFavorite: (Int) -> Boolean = { true }
+    ) {
         val state = requireState()
         val routines = state.getJSONArray("routines")
         val routine = (0 until routines.length())
             .map { routines.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id } ?: error("Rutina no encontrada")
-        routine.put("isFavorite", favorite)
+        val scheduled = routine.optString("scheduledDate").takeIf {
+            it.isNotBlank() && !it.equals("null", true)
+        }
+        if (favorite) {
+            val linkedId = routine.optString("favoriteTemplateId").takeIf {
+                it.isNotBlank() && !it.equals("null", true)
+            }
+            val linkedFav = linkedId?.let { fid ->
+                (0 until routines.length()).map { routines.getJSONObject(it) }
+                    .firstOrNull { it.optString("id") == fid }?.optBoolean("isFavorite") == true
+            } == true
+            val already = linkedFav || (routine.optBoolean("isFavorite") && linkedId == null)
+            if (!already) {
+                val count = WorkoutFavoriteSupport.favoriteCount(state)
+                check(canSaveFavorite(count)) { "Límite de favoritos alcanzado" }
+            }
+        }
+        if (scheduled != null) {
+            if (favorite) {
+                val existingTemplateId = routine.optString("favoriteTemplateId").takeIf {
+                    it.isNotBlank() && !it.equals("null", true)
+                }
+                val template = existingTemplateId?.let { fid ->
+                    (0 until routines.length()).map { routines.getJSONObject(it) }
+                        .firstOrNull { it.optString("id") == fid }
+                }
+                if (template != null) {
+                    template.put("isFavorite", true)
+                } else {
+                    val blocks = routine.optJSONArray("blocks") ?: JSONArray()
+                    val copy = JSONArray()
+                    for (k in 0 until blocks.length()) {
+                        EditorBlockOps.freshIds(blocks.getJSONObject(k).toString())
+                            ?.let { copy.put(JSONObject(it)) }
+                    }
+                    check(copy.length() > 0) {
+                        "Añade ejercicios al entreno antes de marcarlo como favorito"
+                    }
+                    val templateId = UUID.randomUUID().toString()
+                    routines.put(
+                        JSONObject()
+                            .put("id", templateId)
+                            .put("title", routine.optString("title").ifBlank { "Favorito" })
+                            .put("blocks", copy)
+                            .put("progression", routine.optString("progression", "off"))
+                            .put("isFavorite", true)
+                    )
+                    routine.put("favoriteTemplateId", templateId)
+                }
+                routine.put("isFavorite", true)
+            } else {
+                routine.optString("favoriteTemplateId").takeIf {
+                    it.isNotBlank() && !it.equals("null", true)
+                }?.let { fid ->
+                    (0 until routines.length()).map { routines.getJSONObject(it) }
+                        .firstOrNull { it.optString("id") == fid }
+                        ?.put("isFavorite", false)
+                }
+                routine.put("isFavorite", false)
+                routine.remove("favoriteTemplateId")
+            }
+        } else {
+            routine.put("isFavorite", favorite)
+            // Reflejar en días que apuntan a esta plantilla.
+            for (i in 0 until routines.length()) {
+                val other = routines.getJSONObject(i)
+                if (other.optString("favoriteTemplateId") == id) {
+                    other.put("isFavorite", favorite)
+                    if (!favorite) other.remove("favoriteTemplateId")
+                }
+            }
+        }
         save(state)
     }
 
@@ -2269,7 +2376,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun updateRoutineDetails(
         id: String,
         title: String,
-        schedule: RoutineSchedule
+        schedule: RoutineSchedule,
+        isFavorite: Boolean? = null,
+        locationPin: dev.repera.domain.WorkoutLocationPin? = null,
+        clearLocationPin: Boolean = false,
+        notes: String? = null,
+        clearNotes: Boolean = false
     ) {
         val cleaned = title.trim()
         require(cleaned.isNotBlank()) { "Escribe un título válido" }
@@ -2296,6 +2408,26 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (schedule.timeMinutes != null)
             routine.put("scheduledTimeMinutes", schedule.timeMinutes)
         schedule.weekday?.let { WeeklyScheduleActions.makeWeekdayExclusive(state,id,it) }
+        isFavorite?.let { routine.put("isFavorite", it) }
+        when {
+            clearLocationPin -> routine.remove("locationPin")
+            locationPin != null -> routine.put("locationPin", JSONObject()
+                .put("latitude", locationPin.latitude)
+                .put("longitude", locationPin.longitude)
+                .put("recordedAtEpochMs", locationPin.recordedAtEpochMs)
+                .apply {
+                    locationPin.name?.let { put("name", it) }
+                    locationPin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
+                    locationPin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+                })
+        }
+        when {
+            clearNotes -> routine.remove("notes")
+            notes != null -> {
+                val trimmed = notes.trim()
+                if (trimmed.isEmpty()) routine.remove("notes") else routine.put("notes", trimmed)
+            }
+        }
         save(state)
     }
 
@@ -2855,15 +2987,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 })
         }
         if (edit.saveAsFavorite) {
-            // routineForEditing de Apple: la rutina guardada si existe; si no, se
-            // reconstruye desde la sesión (p. ej. quick log sin routineBlocks).
-            val src = CompletedWorkoutEditing.blocksFrom(target, null)
-            val copy = JSONArray()
-            for (k in 0 until src.length())
-                EditorBlockOps.freshIds(src.getJSONObject(k).toString())?.let { copy.put(JSONObject(it)) }
-            if (copy.length() > 0) state.getJSONArray("routines").put(JSONObject()
-                .put("id", UUID.randomUUID().toString()).put("title", cleanTitle).put("blocks", copy)
-                .put("progression", "off").put("isFavorite", true))
+            // Preferir toggleWorkoutFavorite (enlaza favoriteRoutineId) si aún no es favorito.
+            if (!WorkoutFavoriteSupport.isWorkoutFavorite(state, target.optString("id"))) {
+                WorkoutFavoriteSupport.toggleWorkoutFavorite(state, target.optString("id"), true)
+            }
         }
         save(state)
         return true

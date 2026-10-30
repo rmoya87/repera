@@ -262,56 +262,66 @@ fun WorkoutPlacePickerRow(
                 )
             }
         } else {
-            // Paridad iOS: 220 dp, chip abajo con nombre + categoría + icono.
-            Box(
+            // Paridad iOS: mapa + franja debajo, esquinas rectas, a bleed (sin
+            // borde ni radius). Toque abre buscador (capa sobre MapView).
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .height(220.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .then(if (readOnly) Modifier else Modifier.clickable { showSearch = true })
                     .testTag("place_picker_map")
+                    .then(if (readOnly) Modifier else Modifier.clickable { showSearch = true })
             ) {
-                PlacePinMap(pin.latitude, pin.longitude, isInteractive = false,
-                    modifier = Modifier.fillMaxSize(), onStyleLoaded = onMapStyleLoaded)
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                    tonalElevation = 2.dp,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = 12.dp, vertical = 12.dp)
+                Box(
+                    Modifier
                         .fillMaxWidth()
+                        .height(220.dp)
+                ) {
+                    PlacePinMap(
+                        pin.latitude, pin.longitude, isInteractive = false,
+                        modifier = Modifier.fillMaxSize(), onStyleLoaded = onMapStyleLoaded
+                    )
+                    if (!readOnly) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .clickable { showSearch = true }
+                                .testTag("place_picker_map_tap")
+                        )
+                    }
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
                         .testTag("place_picker_chip")
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                pin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 2
-                            )
-                            pin.pointOfInterestCategory?.takeIf { it.isNotBlank() }?.let { cat ->
-                                Text(
-                                    cat,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Icon(
-                            Icons.Outlined.LocationOn,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
+                    Icon(
+                        Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            pin.name?.takeIf { it.isNotBlank() } ?: "Lugar en el mapa",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2
                         )
+                        pin.pointOfInterestCategory?.takeIf { it.isNotBlank() }?.let { cat ->
+                            Text(
+                                cat,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }
@@ -526,15 +536,21 @@ fun PlaceSearchSheet(
             modifier = Modifier.fillMaxSize().imePadding(),
             color = androidx.compose.ui.graphics.Color.Transparent
         ) {
-            // iOS: mapa a sangre + card glass flotante — siempre juntos desde
-            // el primer frame (sin mostrar buscador solo y mapa después).
-            Box(Modifier.fillMaxSize()) {
-                // Un solo mapa estable: no remount al escribir (evita flash).
-                val mapCenter = pending?.let { it.latitude to it.longitude }
-                    ?: initialPin?.let { it.latitude to it.longitude }
-                    ?: recents.firstOrNull()?.let { it.latitude to it.longitude }
-                    ?: userLatLon
-                    ?: (40.4168 to -3.7038)
+            // iOS: mapa a sangre + card glass — fondo ya visible el primer frame
+            // (antes solo se veía el buscador hasta cargar teselas).
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                // Centro fijo en el 1.er frame: evita stretch/remount al llegar GPS
+                // o al confirmar pin (la cámara se mueve dentro del MapView).
+                val mapCenter = remember {
+                    initialPin?.let { it.latitude to it.longitude }
+                        ?: recents.firstOrNull()?.let { it.latitude to it.longitude }
+                        ?: (40.4168 to -3.7038)
+                }
+                Box(Modifier.fillMaxSize()) {
                 PlacePinMap(
                     mapCenter.first,
                     mapCenter.second,
@@ -546,6 +562,7 @@ fun PlaceSearchSheet(
                         focusManager.clearFocus(force = true)
                     }
                 )
+                }
 
                 // Card glass flotante (paridad iOS / compare4/52).
                 Surface(

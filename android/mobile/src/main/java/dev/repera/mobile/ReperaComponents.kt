@@ -180,12 +180,13 @@ fun ReperaCard(
         shape = shape,
         colors = if (selected) reperaSelectedCardColors() else reperaCardColors(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = if (selected) null else reperaCardBorder(),
+        // Sin outline: cajas blancas limpias (superficie + radio).
+        border = null,
         content = content
     )
 }
 
-/** Variante clicable con los mismos colores/borde que [ReperaCard]. */
+/** Variante clicable con los mismos colores que [ReperaCard]. */
 @Composable
 fun ReperaCard(
     onClick: () -> Unit,
@@ -200,7 +201,7 @@ fun ReperaCard(
         shape = shape,
         colors = if (selected) reperaSelectedCardColors() else reperaCardColors(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = if (selected) null else reperaCardBorder(),
+        border = null,
         content = content
     )
 }
@@ -480,11 +481,13 @@ fun ReperaToolbarGlassIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     active: Boolean = false,
+    /** Tint cuando [active] (favoritos ★ → [brandAmber], no verde). */
+    activeTint: Color = brandAmber,
 ) {
     val dark = androidx.compose.foundation.isSystemInDarkTheme()
     val circle = if (dark) Color.Black else Color.White
     val iconTint = when {
-        active -> brandGreen
+        active -> activeTint
         dark -> Color.White
         else -> Color.Black
     }
@@ -500,7 +503,7 @@ fun ReperaToolbarGlassIconButton(
                 interactionSource = interaction,
                 indication = androidx.compose.material3.ripple(
                     bounded = true,
-                    color = Color.Black.copy(alpha = 0.10f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
                 ),
                 onClick = onClick
             ),

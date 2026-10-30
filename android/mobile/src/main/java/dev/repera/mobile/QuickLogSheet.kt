@@ -6,8 +6,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import dev.repera.domain.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,7 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
    }}}}
    TextButton(onClick={rows.add(rows.lastOrNull() ?: defaultRow);rowKeys.add(java.util.UUID.randomUUID().toString())},enabled=!busy && rows.size<100) {Text("Añadir serie")}
    Row {Switch(includeNotes,{includeNotes=it},enabled=!busy,colors=reperaSwitchColors());Text("Añadir nota",Modifier.padding(12.dp))}
-   if(includeNotes) OutlinedTextField(notes,{notes=it},label={Text("Cómo te sentiste, carga…")},enabled=!busy)
+   if(includeNotes) ReperaMetaTextField(caption="Cómo te sentiste, carga…",value=notes,onValueChange={notes=it},enabled=!busy)
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
    Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     OutlinedButton(onClick=onDismiss,enabled=!busy) {Text("Cancelar")}
@@ -63,20 +61,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 @Composable
 internal fun QuickNumericField(initial:String,label:String,enabled:Boolean,decimal:Boolean=false,onChange:(String)->Unit) {
  var text by rememberSaveable {mutableStateOf(initial)}
- // Apple 643fa111 (OG.inputSurface): fondo negro suave en modo noche y gris
- // claro en modo dia, sin alterar el resto del tema.
- val inputSurface = if (androidx.compose.foundation.isSystemInDarkTheme())
-     androidx.compose.ui.graphics.Color(0xFF0A0A0C) else androidx.compose.ui.graphics.Color(0xFFF2F5F3)
- OutlinedTextField(text,{value ->
-  // Apple b2bb19eb: coma visible, maximo 2 decimales y pegado normalizado en
-  // campos decimales; solo digitos en enteros. Edicion rechazada = sin cambio.
-  val accepted=if(decimal) dev.repera.domain.ReperaNumberFormat.keypadDecimal(text,value)
-      else dev.repera.domain.ReperaNumberFormat.keypadInteger(text,value)
-  if(accepted!=text){text=accepted;onChange(accepted)}},label={Text(label)},enabled=enabled,singleLine=true,
-  colors=androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-      focusedContainerColor=inputSurface,unfocusedContainerColor=inputSurface,
-      disabledContainerColor=inputSurface),
-  keyboardOptions=KeyboardOptions(keyboardType=if(decimal) KeyboardType.Decimal else KeyboardType.Number))
+ ReperaNumericField(
+     value = text,
+     onValueChange = { accepted ->
+         val next = if (decimal) {
+             dev.repera.domain.ReperaNumberFormat.keypadDecimal(text, accepted)
+         } else {
+             dev.repera.domain.ReperaNumberFormat.keypadInteger(text, accepted)
+         }
+         text = next
+         onChange(next)
+     },
+     label = label,
+     enabled = enabled,
+     allowsDecimal = decimal
+ )
 }
 
 /** Mutable holder rebuilt from [QuickLogDraft] after recreation. */

@@ -98,7 +98,7 @@ import androidx.compose.ui.platform.testTag
       if(current.heart.isEmpty()) Text("Sin pulso autorizado de esta fuente") else {
        Text("Pulso medido · media ${current.heart.map {it.second}.average().toInt()} lpm")
        Text("Mín ${current.heart.minOf {it.second}} · Máx ${current.heart.maxOf {it.second}} lpm")
-       HeartRateCurveSection(entry.id) {current.heart}
+       HeartRateCurveSection(entry.id, provider = { current.heart })
       }
       Text("Solo mediciones de la fuente del registro. No se estima energía ni pulso.",style=MaterialTheme.typography.bodySmall)
      }

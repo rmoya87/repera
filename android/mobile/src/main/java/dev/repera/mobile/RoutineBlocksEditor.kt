@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -48,7 +50,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,6 +63,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -97,14 +99,22 @@ fun RoutineBlocksEditorScreen(
     /** DayPlus / one-off: título «Crear entreno», meta (nombre, fecha, hora, favorito) y lugar. */
     oneOffEditor: Boolean = false,
     scheduledDayIso: String? = null,
+    /** Duración inicial (min) del meta Fecha|Hora|Duración; p. ej. entreno ya realizado. */
+    initialPlannedDurationMinutes: Int = 45,
     pageTitle: String? = null,
     showPlaceSection: Boolean = true,
     onOneOffMeta: (
         dayIso: String?,
         timeMinutes: Int?,
         isFavorite: Boolean,
-        locationPin: WorkoutLocationPin?
-    ) -> Unit = { _, _, _, _ -> },
+        locationPin: WorkoutLocationPin?,
+        notes: String?,
+        durationMinutes: Int?
+    ) -> Unit = { _, _, _, _, _, _ -> },
+    /** Sesión libre: notas iniciales al pulsar Empezar (junto a onFavoriteChosen). */
+    onSessionNotesChosen: (String) -> Unit = {},
+    /** Sesión libre: lugar elegido al pulsar Empezar. */
+    onSessionPinChosen: (WorkoutLocationPin?) -> Unit = {},
     accountId:String = "",
     /** Preferencia de visualización RIR/RPE; el almacenamiento sigue en RIR. */
     effortUnit:String = "rir",
@@ -127,13 +137,22 @@ fun RoutineBlocksEditorScreen(
         mutableStateOf(
             routine.timeMinutes?.let { m ->
                 "%02d:%02d".format(m / 60, m % 60)
-            } ?: if (oneOffEditor) "18:00" else null
+            } ?: if (oneOffEditor || routine.scheduledDate != null || scheduledDayIso != null) "18:00" else null
         )
     }
     var metaDayIso by rememberSaveable(accountId, routine.id, stateSaver = nullableTextSaver) {
-        mutableStateOf(scheduledDayIso)
+        mutableStateOf(scheduledDayIso ?: routine.scheduledDate)
     }
     var draftPin by remember(accountId, routine.id) { mutableStateOf(routine.locationPin) }
+    var draftNotes by rememberSaveable(accountId, routine.id, stateSaver = textSaver) {
+        mutableStateOf(routine.notes.orEmpty())
+    }
+    // Editar entreno del día = misma meta que Crear (nombre/fecha/hora/duración/favorito).
+    val dayMetaEditor = oneOffEditor ||
+        (!sessionMode && (scheduledDayIso != null || routine.scheduledDate != null))
+    var plannedDurationMin by rememberSaveable(accountId, routine.id) {
+        mutableStateOf(initialPlannedDurationMinutes)
+    }
     var suggestedTitle by rememberSaveable(accountId,routine.id,stateSaver=nullableTextSaver) { mutableStateOf<String?>(null) }
     val nameById = remember(exercises) { exercises.associate { it.id to it.name } }
     val blocks = rememberSaveable(accountId,routine.id,saver=blocksSaver) {
@@ -200,28 +219,39 @@ fun RoutineBlocksEditorScreen(
             }
             val parsedClock = scheduledClock?.trim()?.takeIf { it.isNotEmpty() }
                 ?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
-            if (oneOffEditor && scheduledClock?.isNotBlank() == true && parsedClock == null) {
+            if (dayMetaEditor && scheduledClock?.isNotBlank() == true && parsedClock == null) {
                 error = "Hora no válida"
                 return
             }
             val timeMinutes = parsedClock?.let { it.hour * 60 + it.minute }
-            if (editableTitle && !oneOffEditor) {
+            if (editableTitle && !dayMetaEditor) {
                 if (draftTitle.trim().isBlank()) {
                     error = "Escribe un título válido"
                     return
                 }
                 onTitleSuggested(draftTitle.trim())
-            } else if (oneOffEditor) {
+            } else if (dayMetaEditor) {
                 if (draftTitle.trim().isBlank()) {
                     error = "Escribe un título válido"
                     return
                 }
                 onTitleSuggested(draftTitle.trim())
-                onOneOffMeta(metaDayIso, timeMinutes, oneOffFavorite, draftPin)
+                onOneOffMeta(
+                    metaDayIso,
+                    timeMinutes,
+                    oneOffFavorite,
+                    draftPin,
+                    draftNotes.trim().takeIf { it.isNotEmpty() },
+                    plannedDurationMin.coerceIn(1, 600)
+                )
             } else if (sessionMode) {
                 onTitleSuggested(draftTitle.trim().ifBlank { "Mi entreno" })
             } else suggestedTitle?.let(onTitleSuggested)
-            if (sessionMode) onFavoriteChosen(asFavorite)
+            if (sessionMode) {
+                onFavoriteChosen(asFavorite)
+                onSessionNotesChosen(draftNotes)
+                onSessionPinChosen(draftPin)
+            }
             onReplace(drafts)
         }
         DayEditorTopBar(
@@ -233,129 +263,107 @@ fun RoutineBlocksEditorScreen(
         )
         val headerTitle = pageTitle ?: when {
             oneOffEditor -> "Crear entreno"
+            dayMetaEditor && !oneOffEditor -> "Editar entreno"
             sessionMode -> "Crear entreno"
             editableTitle -> draftTitle.ifBlank { "Nueva rutina" }
             else -> routine.title
         }
         ReperaPageHeader(title = headerTitle)
-        if (oneOffEditor || sessionMode) {
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // R5 P2 fila 11: nombre y fecha en filas separadas (iOS),
-                    // nombre en regular 17, no negrita con fecha como subtítulo.
-                    BasicTextField(
-                        value = draftTitle,
-                        onValueChange = { draftTitle = it },
-                        enabled = !busy,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("workout_meta_title")
-                    )
-                    if (oneOffEditor) {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+        if (dayMetaEditor || sessionMode) {
+            // Mapa a bleed: padding solo en filas de texto; lugar sin márgenes laterales.
+            ReperaCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Column(
+                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        WorkoutMetaTitleField(
+                            value = draftTitle,
+                            onValueChange = { draftTitle = it },
+                            enabled = !busy
                         )
-                        var plannedDurationMin by remember(routine.id) {
-                            mutableStateOf(45)
-                        }
-                        WorkoutDateTimeDurationRow(
-                            dayIso = metaDayIso,
-                            clock = scheduledClock ?: "18:00",
-                            durationMinutes = plannedDurationMin,
-                            onDayIso = { metaDayIso = it },
-                            onClock = { scheduledClock = it },
-                            onDurationMinutes = { plannedDurationMin = it.coerceIn(1, 600) }
-                        )
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Favorito",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            androidx.compose.material3.Switch(
-                                checked = oneOffFavorite,
-                                onCheckedChange = { oneOffFavorite = it },
-                                colors = reperaSwitchColors(),
-                                modifier = Modifier.testTag("workout_favorite_switch")
-                            )
-                        }
-                    } else {
-                        metaDayIso?.let { iso ->
-                            val dayLabel = runCatching {
-                                LocalDate.parse(iso).format(reperaPlanDayFormatter)
-                                    .replaceFirstChar {
-                                        if (it.isLowerCase()) it.titlecase(Locale("es", "ES"))
-                                        else it.toString()
-                                    }
-                            }.getOrDefault(iso)
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                            )
-                            Text(
-                                dayLabel,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .testTag("workout_meta_date")
+                        if (dayMetaEditor) {
+                            WorkoutDateTimeDurationRow(
+                                dayIso = metaDayIso,
+                                clock = scheduledClock ?: "18:00",
+                                durationMinutes = plannedDurationMin,
+                                onDayIso = { metaDayIso = it },
+                                onClock = { scheduledClock = it },
+                                onDurationMinutes = { plannedDurationMin = it.coerceIn(1, 600) }
                             )
                         }
                     }
-                    if (sessionMode) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Favorito",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            androidx.compose.material3.Switch(
-                                checked = asFavorite,
-                                onCheckedChange = { asFavorite = it },
-                                colors = reperaSwitchColors(),
-                                modifier = Modifier.testTag("session_favorite_switch")
-                            )
+                    if (showPlaceSection) {
+                        WorkoutPlacePickerRow(
+                            pin = draftPin,
+                            accountId = accountId,
+                            onPinChange = { draftPin = it },
+                            modifier = if (draftPin == null) {
+                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            } else {
+                                Modifier.fillMaxWidth()
+                            }
+                        )
+                    }
+                    Column(
+                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (dayMetaEditor) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Favorito",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                androidx.compose.material3.Switch(
+                                    checked = oneOffFavorite,
+                                    onCheckedChange = { oneOffFavorite = it },
+                                    colors = reperaSwitchColors(),
+                                    modifier = Modifier.testTag("workout_favorite_switch")
+                                )
+                            }
                         }
+                        if (sessionMode && !dayMetaEditor) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Favorito",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                androidx.compose.material3.Switch(
+                                    checked = asFavorite,
+                                    onCheckedChange = { asFavorite = it },
+                                    colors = reperaSwitchColors(),
+                                    modifier = Modifier.testTag("session_favorite_switch")
+                                )
+                            }
+                        }
+                        WorkoutMetaNotesField(
+                            value = draftNotes,
+                            onValueChange = { draftNotes = it },
+                            enabled = !busy
+                        )
                     }
                 }
             }
         } else if (editableTitle) {
-            OutlinedTextField(
-                value = draftTitle, onValueChange = { draftTitle = it }, enabled = !busy,
-                label = { Text("Nombre de la rutina") },
-                modifier = Modifier.testTag("new_template_title")
+            ReperaMetaTextField(
+                caption = "Nombre de la rutina",
+                value = draftTitle,
+                onValueChange = { draftTitle = it },
+                enabled = !busy,
+                testTag = "new_template_title"
             )
-        }
-        if (showPlaceSection && !sessionMode) {
-            ReperaSectionTitle("Lugar")
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                if (draftPin != null) {
-                    WorkoutPlacePickerRow(
-                        pin = draftPin,
-                        accountId = accountId,
-                        onPinChange = { draftPin = it }
-                    )
-                } else {
-                    WorkoutPlacePickerRow(
-                        pin = null,
-                        accountId = accountId,
-                        onPinChange = { draftPin = it },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
-                }
-            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         saveStatus?.let {Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("routine_save_status"))}
@@ -378,7 +386,10 @@ fun RoutineBlocksEditorScreen(
         var showWods by remember { mutableStateOf(false) }
         var showRoutines by remember { mutableStateOf(false) }
         var showFavorites by remember { mutableStateOf(false) }
-        val favorites = importableRoutines.filter { it.id != routine.id && it.isFavorite && it.blocks.isNotEmpty() }
+        // Plantillas reutilizables (sin día): las del calendario enlazan vía favoriteTemplateId.
+        val favorites = importableRoutines.filter {
+            it.id != routine.id && it.isFavorite && it.scheduledDate == null && it.blocks.isNotEmpty()
+        }
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column {
                 PlanEditorActionRow(
@@ -422,6 +433,7 @@ fun RoutineBlocksEditorScreen(
         if (showFavorites) {
             FavoriteCatalogPickerSheet(
                 favorites = favorites,
+                exerciseCatalog = exercises,
                 onPick = { src ->
                     src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
                     showFavorites = false
@@ -493,7 +505,8 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
         }
         addAll(base)
     }
-    var detailsOpen by mutableStateOf(false)
+    // Siempre abiertos: sin «Detalles del movimiento» / «Cerrar detalles».
+    var detailsOpen by mutableStateOf(true)
     val rawMovementInputs=androidx.compose.runtime.mutableStateMapOf<String,String>()
     val invalidMovementInputs=androidx.compose.runtime.mutableStateMapOf<String,Boolean>()
     fun movementText(key:String):String = rawMovementInputs[key] ?: sourceJson?.let {raw ->
@@ -726,8 +739,13 @@ internal fun restoreScopedEditorValue(scope:String,raw:String):String? {
 internal fun restoreRoutineEditorBlocksOrNull(raw:String):androidx.compose.runtime.snapshots.SnapshotStateList<BlockDraftUi>? =
     runCatching {restoreRoutineEditorBlocks(raw)}.getOrNull()
 
+/**
+ * Card de bloque de Crear/Editar. En Play se pasa [onTimer] para el círculo
+ * del temporizador a la izquierda de ⋯; [trailingContent] pinta el logging
+ * del ejercicio actual dentro del mismo cuadrado.
+ */
 @Composable
-private fun BlockEditorCard(
+internal fun BlockEditorCard(
     block: BlockDraftUi,
     nameById: Map<String, String>,
     exercises: List<ExerciseEntry>,
@@ -735,13 +753,15 @@ private fun BlockEditorCard(
     onRemove: (() -> Unit)?,
     onOpenReorder: (() -> Unit)? = null,
     onOpenExercise: (String) -> Unit = {},
-    effortUnit: String = "rir"
+    effortUnit: String = "rir",
+    onTimer: (() -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val isStrengthLike = block.format.isBlank() || block.format == "strength"
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
     var showFormats by remember { mutableStateOf(false) }
-    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+    ReperaCard(modifier = Modifier.fillMaxWidth().testTag("plan_block_card")) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -755,6 +775,15 @@ private fun BlockEditorCard(
                     singleLine = true,
                     modifier = Modifier.weight(1f).testTag("plan_block_title")
                 )
+                if (onTimer != null) {
+                    PlayCircleIconButton(
+                        icon = Icons.Outlined.Timer,
+                        contentDescription = "Temporizador del bloque",
+                        testTag = "play_block_timer",
+                        onClick = onTimer
+                    )
+                    Spacer(Modifier.size(8.dp))
+                }
                 var blockMenu by remember { mutableStateOf(false) }
                 Box {
                     Surface(
@@ -846,12 +875,11 @@ private fun BlockEditorCard(
                         "Rondas" to "rounds")
                 "ladder" -> {
                     NumberRow(block, "TIEMPO" to "timeCap")
-                    OutlinedTextField(
+                    ReperaMetaTextField(
+                        caption = "Esquema (21-15-9)",
                         value = block.ladder,
                         onValueChange = { block.ladder = it },
-                        label = { Text("Esquema (21-15-9)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        placeholder = "21-15-9"
                     )
                 }
             }
@@ -927,6 +955,10 @@ private fun BlockEditorCard(
                     onDismiss = { showExercisePicker = false }
                 )
             }
+            if (trailingContent != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                trailingContent()
+            }
         }
     }
 }
@@ -1001,10 +1033,22 @@ internal fun PlanEditorActionRow(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
+    val interaction = remember {
+        androidx.compose.foundation.interaction.MutableInteractionSource()
+    }
     Row(
         modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = androidx.compose.material3.ripple(
+                    bounded = true,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                ),
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1037,29 +1081,64 @@ internal fun FreeMovementDialog(
         title = { Text("Nuevo movimiento") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("Nombre") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("free_move_name")
+                ReperaMetaTextField(
+                    caption = "Nombre",
+                    value = name,
+                    onValueChange = { name = it },
+                    testTag = "free_move_name"
                 )
-                OutlinedTextField(
-                    value = reps, onValueChange = { reps = it },
-                    label = { Text("Repeticiones") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().testTag("free_move_reps")
+                var repsPad by remember { mutableStateOf(false) }
+                var malePad by remember { mutableStateOf(false) }
+                var femalePad by remember { mutableStateOf(false) }
+                ReperaMetaNumericField(
+                    caption = "Repeticiones",
+                    value = reps,
+                    onClick = { repsPad = true },
+                    testTag = "free_move_reps"
                 )
-                OutlinedTextField(
-                    value = male, onValueChange = { male = it },
-                    label = { Text("Carga masculina · kg") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
+                ReperaMetaNumericField(
+                    caption = "Carga masculina · kg",
+                    value = male,
+                    onClick = { malePad = true }
                 )
-                OutlinedTextField(
-                    value = female, onValueChange = { female = it },
-                    label = { Text("Carga femenina · kg") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
+                ReperaMetaNumericField(
+                    caption = "Carga femenina · kg",
+                    value = female,
+                    onClick = { femalePad = true }
                 )
+                if (repsPad) {
+                    ReperaNumericKeypadSheet(
+                        title = "Repeticiones",
+                        draft = reps,
+                        onDraftChange = { reps = it.filter(Char::isDigit).take(4) },
+                        onDismiss = { repsPad = false },
+                        onCommit = { reps = it.filter(Char::isDigit).take(4); repsPad = false },
+                        allowsDecimal = false,
+                        showDraftPreview = true
+                    )
+                }
+                if (malePad) {
+                    ReperaNumericKeypadSheet(
+                        title = "Carga masculina · kg",
+                        draft = male,
+                        onDraftChange = { male = it },
+                        onDismiss = { malePad = false },
+                        onCommit = { male = it; malePad = false },
+                        allowsDecimal = true,
+                        showDraftPreview = true
+                    )
+                }
+                if (femalePad) {
+                    ReperaNumericKeypadSheet(
+                        title = "Carga femenina · kg",
+                        draft = female,
+                        onDraftChange = { female = it },
+                        onDismiss = { femalePad = false },
+                        onCommit = { female = it; femalePad = false },
+                        allowsDecimal = true,
+                        showDraftPreview = true
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1222,33 +1301,7 @@ private fun EntryEditorRow(
             )
             return@Column
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ReperaNumericField(
-                value = entry.quantity,
-                onValueChange = { entry.quantity = it },
-                label = if (isStrength) "Reps"
-                    else if (weightedRepsOrMeters) shortUnitLabel(entryUnit)
-                    else "Cantidad",
-                allowsDecimal = false,
-                modifier = Modifier.weight(1f)
-            )
-            if (isStrength) {
-                ReperaNumericField(
-                    value = entry.sets,
-                    onValueChange = { entry.sets = it },
-                    label = "Series",
-                    allowsDecimal = false,
-                    modifier = Modifier.weight(1f)
-                )
-                ReperaNumericField(
-                    value = entry.weight,
-                    onValueChange = { entry.weight = it },
-                    label = "Peso kg",
-                    allowsDecimal = true,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
+        // Sin fila «Cantidad» suelta: las reps viven en la tabla de series.
         if (unitChoices || weightedRepsOrMeters) {
             val src = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
             val current = entry.unit
@@ -1290,7 +1343,48 @@ private fun EntryEditorRow(
             )
         }
         if (!isStrength) {
-            WodMovementDetails(entry)
+            // Peso solo en filas de series (paridad Apple InlineWOD); sin campo suelto.
+            val wodGuide = remember(entry.exerciseId) {
+                loadGuideProvider(entry.exerciseId, entry.quantity.toIntOrNull() ?: 8, null)
+            }
+            val previousWodSets = wodGuide?.lastSession?.sets.orEmpty()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "SERIE",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.width(40.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Text(
+                    "ANTERIOR",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    "REPS",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(0.9f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Text(
+                    "KG",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(0.9f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Text(
+                    dev.repera.domain.Effort.displayName(effortUnit).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(0.7f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
             entry.plannedSets.forEachIndexed { idx, set ->
                 ReperaSwipeDeleteRow(
                     canDelete = entry.plannedSets.size > 1,
@@ -1299,24 +1393,58 @@ private fun EntryEditorRow(
                         syncWodPlannedSets(entry)
                     }
                 ) {
+                    val previousLabel = previousWodSets.getOrNull(idx)?.let { prev ->
+                        val kg = prev.weightKg?.let {
+                            "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×"
+                        }.orEmpty()
+                        if (kg.isEmpty()) "${prev.reps} rep" else "$kg${prev.reps}"
+                    } ?: "—"
                     Row(
-                        Modifier.padding(vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        ReperaNumericField(
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${idx + 1}",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            previousLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1
+                        )
+                        CompactSetField(
                             value = set.targetReps.toString(),
                             onValueChange = { v ->
                                 val reps = v.filter { it.isDigit() }.toIntOrNull()?.coerceIn(1, 10000)
-                                    ?: return@ReperaNumericField
+                                    ?: return@CompactSetField
                                 entry.plannedSets[idx] = set.copy(targetReps = reps)
                                 syncWodPlannedSets(entry)
                             },
-                            label = "Reps",
+                            modifier = Modifier.weight(0.9f),
+                            useReperaKeypad = true,
                             allowsDecimal = false,
-                            modifier = Modifier.weight(1f),
+                            fieldLabel = "Reps",
                             testTag = "plan_wod_set_reps_$idx"
                         )
-                        ReperaNumericField(
+                        CompactSetField(
                             value = set.targetWeightKg?.let {
                                 if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
                             } ?: "",
@@ -1326,11 +1454,22 @@ private fun EntryEditorRow(
                                 entry.plannedSets[idx] = set.copy(targetWeightKg = parsed)
                                 syncWodPlannedSets(entry)
                             },
-                            label = "Kg",
+                            modifier = Modifier.weight(0.9f),
+                            useReperaKeypad = true,
                             allowsDecimal = true,
-                            modifier = Modifier.weight(1f),
+                            fieldLabel = "Kg",
                             testTag = "plan_wod_set_kg_$idx"
                         )
+                        Box(Modifier.weight(0.7f)) {
+                            EffortMenuField(
+                                storedRir = set.targetRir,
+                                effortUnit = effortUnit,
+                                compact = true
+                            ) { next ->
+                                entry.plannedSets[idx] = set.copy(targetRir = next)
+                                syncWodPlannedSets(entry)
+                            }
+                        }
                     }
                 }
             }
@@ -1362,43 +1501,64 @@ private fun EntryEditorRow(
                     reference?.targetRir
                 )
             }
-            val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
-                entry.name, null, null, null
-            ) == dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+            val inputMode = remember(entry.name, exerciseEntry?.equipment) {
+                dev.repera.domain.ExerciseInput.mode(
+                    entry.name, exerciseEntry?.equipment, null, exerciseEntry?.sportTag
+                )
+            }
+            val hspuDeficit = inputMode == dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+            val showsLoad = inputMode.showsWeight || hspuDeficit ||
+                inputMode == dev.repera.domain.ExerciseInputMode.LOAD_DISTANCE
+            val showsRir = inputMode != dev.repera.domain.ExerciseInputMode.REPS_AND_TIME &&
+                inputMode != dev.repera.domain.ExerciseInputMode.MACHINE_WORK
+            // Cabecera compacta (OGSetEntryHeader): SERIE · ANTERIOR · [KG] · REPS · [RIR]
             Row(
-                Modifier.padding(top = 4.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("SERIE", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
-                Text("ANTERIOR", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(0.9f))
                 Text(
-                    if (hspuDeficit) "DÉFICIT" else "KG",
+                    "SERIE",
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(0.9f)
+                    modifier = Modifier.width(40.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 Text(
-                    if (weightedRepsOrMeters) shortUnitLabel(entryUnit) else "REPS",
+                    "ANTERIOR",
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(0.9f)
+                    modifier = Modifier.weight(1f)
                 )
+                if (showsLoad) {
+                    Text(
+                        if (hspuDeficit) "DÉFICIT" else "KG",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(0.9f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
                 Text(
-                    dev.repera.domain.Effort.displayName(effortUnit).uppercase(),
+                    when {
+                        mobility -> "SEG"
+                        weightedRepsOrMeters -> shortUnitLabel(entryUnit).uppercase()
+                        else -> "REPS"
+                    },
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(0.7f)
+                    modifier = Modifier.weight(0.9f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
+                if (showsRir) {
+                    Text(
+                        dev.repera.domain.Effort.displayName(effortUnit).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(0.7f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
             val previousSessionSets = guide?.lastSession?.sets.orEmpty()
             entry.plannedSets.forEachIndexed { index, ps ->
-                if (mobility) {
-                    OutlinedTextField(
-                        value = entry.durationText(index, mobilityHold),
-                        onValueChange = { entry.setDurationText(index, it) },
-                        singleLine = true,
-                        label = { Text("Duración serie ${index + 1} (segundos)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth().testTag("plan_set_duration_$index")
-                    )
-                }
                 val storedRirText = ps.targetRir?.let {
                     val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
                     if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
@@ -1407,31 +1567,31 @@ private fun EntryEditorRow(
                     ?: Triple(ps.targetReps.toString(), ps.targetWeightKg?.toString() ?: "", storedRirText)
                 var repsText = current.first
                 var kgText = current.second
-                var rirText = current.third
-                fun commit() {
-                    val displayRir = rirText.takeIf { it.isNotBlank() }?.let {
-                        dev.repera.domain.ReperaNumberFormat.parse(it)
-                    }
-                    val canonicalRir = displayRir?.let {
-                        dev.repera.domain.Effort.toRIR(it, effortUnit)
-                    }
-                    val rirForParse = canonicalRir?.let {
+                fun commit(reps: String = repsText, kg: String = kgText, rir: Double? = ps.targetRir) {
+                    val rirForParse = rir?.let {
                         if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
                     } ?: ""
-                    val parsed = parsePlannedSetText(repsText, kgText, rirForParse, ps.id)
-                    entry.invalidSetInputs[index] = parsed == null && rirText.isNotBlank()
+                    val parsed = parsePlannedSetText(reps, kg, rirForParse, ps.id)
+                    entry.invalidSetInputs[index] = parsed == null && rir != null
                     val updated = parsed?.copy(
-                        targetDurationSeconds = ps.targetDurationSeconds,
-                        sourceJson = ps.sourceJson
+                        targetDurationSeconds = if (mobility) {
+                            entry.durationText(index, mobilityHold).toIntOrNull()
+                                ?: ps.targetDurationSeconds
+                        } else ps.targetDurationSeconds,
+                        sourceJson = ps.sourceJson,
+                        targetRir = rir
                     )
                     if (updated != null) entry.plannedSets[index] = updated
-                    entry.rawSetInputs[index] = (updated ?: ps) to Triple(repsText, kgText, rirText)
+                    entry.rawSetInputs[index] = (updated ?: ps) to Triple(reps, kg, rirForParse)
+                    entry.quantity = (entry.plannedSets.firstOrNull()?.targetReps ?: 8).toString()
+                    entry.sets = entry.plannedSets.size.toString()
+                    entry.weight = entry.plannedSets.firstOrNull()?.targetWeightKg?.toString().orEmpty()
                 }
                 val previousLabel = previousSessionSets.getOrNull(index)?.let { prev ->
                     val kg = prev.weightKg?.let {
                         "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×"
                     } ?: ""
-                    "$kg${prev.reps}"
+                    if (kg.isEmpty()) "${prev.reps} rep" else "$kg${prev.reps}"
                 } ?: "—"
                 fun removeSetAt(index: Int) {
                     entry.plannedSets.removeAt(index)
@@ -1452,47 +1612,83 @@ private fun EntryEditorRow(
                         .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
                     entry.rawMovementInputs.clear(); entry.rawMovementInputs.putAll(rawDurations)
                     entry.invalidMovementInputs.clear(); entry.invalidMovementInputs.putAll(invalidDurations)
+                    entry.sets = entry.plannedSets.size.toString()
                 }
                 ReperaSwipeDeleteRow(
                     canDelete = entry.plannedSets.size > 1,
                     onDelete = { removeSetAt(index) }
                 ) {
                     Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "${index + 1}",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.width(36.dp)
-                        )
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${index + 1}",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(
                             previousLabel,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(0.9f)
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1
                         )
-                        ReperaNumericField(
-                            value = kgText,
-                            onValueChange = { kgText = it; commit() },
-                            label = "",
-                            allowsDecimal = true,
-                            modifier = Modifier.weight(0.9f)
-                        )
-                        ReperaNumericField(
-                            value = repsText,
-                            onValueChange = { repsText = it; commit() },
-                            label = "",
+                        if (showsLoad) {
+                            CompactSetField(
+                                value = kgText,
+                                onValueChange = { kgText = it; commit(kg = it) },
+                                modifier = Modifier.weight(0.9f),
+                                useReperaKeypad = true,
+                                allowsDecimal = !hspuDeficit,
+                                fieldLabel = if (hspuDeficit) "Déficit" else "Kg",
+                                testTag = "plan_set_kg_$index"
+                            )
+                        }
+                        CompactSetField(
+                            value = if (mobility) {
+                                entry.durationText(index, mobilityHold)
+                            } else repsText,
+                            onValueChange = { v ->
+                                if (mobility) {
+                                    entry.setDurationText(index, v)
+                                } else {
+                                    repsText = v
+                                    commit(reps = v)
+                                }
+                            },
+                            modifier = Modifier.weight(0.9f),
+                            useReperaKeypad = true,
                             allowsDecimal = false,
-                            modifier = Modifier.weight(0.9f)
+                            fieldLabel = if (mobility) "Segundos" else "Reps",
+                            testTag = if (mobility) "plan_set_duration_$index" else "plan_set_reps_$index"
                         )
-                        ReperaNumericField(
-                            value = rirText,
-                            onValueChange = { rirText = it; commit() },
-                            label = "",
-                            allowsDecimal = true,
-                            modifier = Modifier.weight(0.7f)
-                        )
+                        if (showsRir) {
+                            Box(Modifier.weight(0.7f)) {
+                                EffortMenuField(
+                                    storedRir = ps.targetRir,
+                                    effortUnit = effortUnit,
+                                    compact = true
+                                ) { next ->
+                                    commit(rir = next)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1507,6 +1703,7 @@ private fun EntryEditorRow(
                             targetDurationSeconds = last?.targetDurationSeconds
                         )
                     )
+                    entry.sets = entry.plannedSets.size.toString()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = brandGreen),
@@ -1533,32 +1730,6 @@ private fun syncWodPlannedSets(entry: EntryUi) {
     entry.sourceJson = o.toString()
     entry.quantity = (entry.plannedSets.firstOrNull()?.targetReps ?: 10).toString()
     entry.sets = entry.plannedSets.size.toString()
-}
-
-/** Campos WOD del movimiento que el borrador simple no modelaba (Apple WODMovementEditor): Peso H/M,
- *  escala alternativa y notas. Editan el JSON original del movimiento (ids y demás campos intactos). */
-@Composable
-private fun WodMovementDetails(entry: EntryUi) {
-    TextButton(modifier = Modifier.testTag("plan_wod_details"), onClick = { entry.detailsOpen = !entry.detailsOpen }) {
-        Text(if (entry.detailsOpen) "Cerrar detalles" else "Detalles del movimiento")
-    }
-    if (!entry.detailsOpen) return
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(value = entry.movementText("weightMaleKg"), singleLine = true, label = { Text("Peso H (kg)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.weight(1f).testTag("plan_wod_male"),
-            onValueChange = { entry.setMovementText("weightMaleKg", it, true) })
-        OutlinedTextField(value = entry.movementText("weightFemaleKg"), singleLine = true, label = { Text("Peso M (kg)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.weight(1f).testTag("plan_wod_female"),
-            onValueChange = { entry.setMovementText("weightFemaleKg", it, true) })
-    }
-    OutlinedTextField(value = entry.movementText("scaleAlternative"), singleLine = true, label = { Text("Escala alternativa") },
-        modifier = Modifier.fillMaxWidth().testTag("plan_wod_scale"),
-        onValueChange = { entry.setMovementText("scaleAlternative", it, false) })
-    OutlinedTextField(value = entry.movementText("notes"), singleLine = true, label = { Text("Notas") },
-        modifier = Modifier.fillMaxWidth().testTag("plan_wod_notes"),
-        onValueChange = { entry.setMovementText("notes", it, false) })
 }
 
 /** Mover una entrada a otro bloque (Apple applyReorder): misma clase o conversión fuerza↔WOD con la regla de Apple. */

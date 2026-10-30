@@ -21,7 +21,7 @@
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-10-29 (Android R9 residuales live/historial/catálogo + equivalentes HC/FGS/Open-Meteo/Maps)
+Última actualización: 2026-10-30 (Continuar corte; Play tabs; iOS Continuar full clicable)
 
 ## Series de movilidad (iOS)
 
@@ -166,7 +166,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 `RootTabView`: **Inicio · Diario · Crear|Center · Progreso · Ejercicios**. La pestaña central es **Crear** (`StartHubSheet`) salvo vínculo/invitación a gimnasio o entrenador, cuando pasa a **Center**. El + de Inicio sigue abriendo Crear en hoja. `CenterView` divide **Clases / Citas** con datos reales de Supabase.
 
 - Flujo de entreno: overlay `NavigationStack` (`sessionPreview` → `workout`).
-- Tab bar: `minimize` solo con sesión activa; accessory **Continuar**.
+- Tab bar: `minimize` con accesorio Continuar (fuerza o Comenzar); accessory **Continuar** desde `ContinueAccessoryModel` (sesión Play o `LiveActivityRecorder`).
 
 La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** como alternativas sin sobrescribir almacenamiento local. Ajustes: **Buscar centro o entrenador**, ficha con bonos/sesiones, sync unificado; mensajes en topbar de Inicio.
 
@@ -196,10 +196,11 @@ Android (`android/mobile`, Material 3 — 2026-10-29):
 - `ReperaTheme` / `reperaColorScheme` mapean `OG.*` (primary verde, superficies, outline); se aplica en la raíz de `MainActivity` para onboarding, permisos y tabs (evita el púrpura M3 por defecto).
 - Edge-to-edge Android (29/10/2026): `enableEdgeToEdge` + `SystemBarStyle` transparente en `MainActivity`; `ReperaMobileScreen` Scaffold con `contentWindowInsets` a cero; Inicio pinta `surface` bajo status bars; Comenzar mapa a sangre bajo status/tab; demás rutas `statusBarsPadding` en host. Iconos claros sobre mapa (`en-vivo`), claros/oscuros según tema en el resto.
 - `ReperaComponents`: `ReperaCard` (surface + borde, radio 14, sin tonal purple; overload clicable), `ReperaFilterChip`, `ReperaModalBottomSheet`, `ReperaSectionTitle` (≈ `OGCardSectionTitle`), `ReperaPageHeader` (≈ `OGFixedTopBar`/`OGPageHeader`), `ReperaEmptyState`, switches/botones/segmentados verdes; tipografía `reperaTypography` con títulos semibold.
-- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; **tab bar flotante Android** `ReperaFloatingTabBar` / `ReperaTabBarChrome` (píldora **blanca opaca** inset ~16 dp, borde `outlineVariant`, sombra suave; **pestaña activa icono+texto `brandGreen`**; pestañas Comenzar/Progreso con `PlayCircle`/`BarChart`; accesorio «Continuar» encima; **oculta fuera de las 4 rutas tab**). iOS conserva Liquid Glass / tint del sistema sin este cambio. **sin TopAppBar «repera» en las 4 tabs** (título large in-content como iOS); TopAppBar solo en rutas anidadas.
+- Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; **tab bar flotante Android** `ReperaFloatingTabBar` / `ReperaTabBarChrome` (píldora **blanca opaca** inset ~16 dp; accesorio «Continuar» encima con **corte** ~8 dp vs menú (`padding(bottom≈64)`); **oculta fuera de las 4 rutas tab**). iOS Continuar: mismos componentes en expanded/inline (thumb + título + progreso), círculo `OG.orange` opaco, área completa clicable. **sin TopAppBar «repera» en las 4 tabs**.
+- Play Android (30/10/2026): `BlockEditorCard` + timer; logging con `ReperaTopicSegmentedPicker` (Calorías/Metros, Trabajo/Calentamiento, Normal/Dropset/Rest-pause); sin cabecera «Ejercicio n/n» ni contador de series. Comenzar: inset medido sin doble navBars.
 - Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
 - Sigue distinto de iOS a propósito: Material 3 (cristal simulado con Surface, no Liquid Glass nativo), MapLibre vs MapKit, sin glass toolbar 44 del sistema.
-- Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). `HomeProfileButton` sin avatar: círculo `surfaceVariant` + borde (≈ botón glass del engranaje iOS).
+- Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). `HomeProfileButton`: foto local/Google o silueta persona → Ajustes. Ficha `HomeInProgressCard` (EN CURSO, play ámbar) cuando hay Play o Comenzar pendiente; `ReperaContinueAccessory` con sombra/altura extra detrás del menú.
 - Editor de rutina Android (`RoutineBlocksEditor`, 29/10/2026): alineado a `PlanView.swift` — `BlockFormatCatalog` con «Sin formato» (`format` vacío), `ExercisePickerSheet` y `PlanReorderFullscreen` a pantalla completa, acciones de inserción tipo `WorkoutWODInsertActions`, `restoreDayPlus` al salir de `rutina-nueva`.
 - Auth Android (`MainActivity.restoreStoredSession`, 29/10/2026 R4): el setter de `verifiedSupabase` incrementa `AccountRevisionGate` en null→userId; la revisión para `prepareAccountDataAfterAuth` se captura **después** de esa asignación (como en `signInWithGoogle`). Si se captura antes, seed/catálogo/espejos no corren y la UI queda sin estado local.
 - R4 restante Android (29/10/2026): `PlaceSearchSheet` mapa a sangre + card glass (cápsula Search, MyLocation, Últimos lugares, sesgo Photon/haversine); `LiveActivityScreen` métricas tiles Duración/Velocidad|Ritmo/Distancia + padding 88 dp sobre tab; `ConnectedHealthScreen` vía Ajustes → Salud; `StandaloneTimer` sección Lugar/`locationPin`; `AIAccessScreen` disclosure «Conexión manual».

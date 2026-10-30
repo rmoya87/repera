@@ -40,11 +40,14 @@ internal object CompleteHistoryOrder {
 @Composable
 internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountId:String,
  onRevise:(String,String,String,Int,Double?,Int?)->Unit,onDeleteSet:(String,String,String)->Unit,onDelete:(String)->Unit,
- onUpdate:(String,WorkoutRepository.FinishedWorkoutEdit)->Unit,heartSeries:suspend(String)->List<Pair<Long,Int>>,
+ onUpdate:(String,WorkoutRepository.FinishedWorkoutEdit,List<RoutineBlockDraft>?)->Unit,heartSeries:suspend(String)->List<Pair<Long,Int>>,
  externalProvider:suspend(ExternalHealthHistoryEntry)->ExternalHealthDetail? = {null},
  onOpenExercise:(String,String,String)->Unit,
  onOpenSports: () -> Unit = {},
- onBack: (() -> Unit)? = null) {
+ onBack: (() -> Unit)? = null,
+ onToggleWorkoutFavorite: (String) -> Unit = {},
+ isWorkoutFavorite: (String) -> Boolean = { false },
+) {
  val rows=remember(overview) {CompleteHistoryOrder.rows(overview?.completeHistory.orEmpty(),overview?.externalHealthHistory.orEmpty())}
  var selectedWorkoutId by remember(accountId) { mutableStateOf<String?>(null) }
  var external by remember(accountId) {mutableStateOf<ExternalHealthHistoryEntry?>(null)}
@@ -52,9 +55,8 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
   overview?.completeHistory.orEmpty().firstOrNull { it.id == id }
  }
  var editingWorkoutId by remember(accountId) { mutableStateOf<String?>(null) }
- val editingWorkout = editingWorkoutId?.let { id ->
-  overview?.completeHistory.orEmpty().firstOrNull { it.id == id }
- }
+ val cachedEditing = rememberCachedHistoryWorkout(editingWorkoutId.orEmpty(), overview)
+ val editingWorkout = if (editingWorkoutId != null) cachedEditing else null
  if (editingWorkout != null) {
   BackHandler { editingWorkoutId = null }
   FinishedWorkoutEditorScreen(
@@ -63,9 +65,10 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    busy = busy,
    exerciseCatalog = overview?.exerciseEntries.orEmpty(),
    effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+   importableRoutines = overview?.routineEntries.orEmpty(),
    onBack = { editingWorkoutId = null },
-   onSave = { edit ->
-    onUpdate(editingWorkout.id, edit)
+   onSave = { edit, drafts ->
+    onUpdate(editingWorkout.id, edit, drafts)
     editingWorkoutId = null
    }
   )
@@ -90,20 +93,8 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
    onOpenExercise = onOpenExercise,
    heartSeries = heartSeries,
    onEditFinished = { editingWorkoutId = selectedWorkout.id },
-   onToggleFavorite = { fav ->
-    onUpdate(
-     selectedWorkout.id,
-     WorkoutRepository.FinishedWorkoutEdit(
-      title = selectedWorkout.title,
-      startedAtIso = selectedWorkout.startedAtIso,
-      finishedAtIso = selectedWorkout.finishedAtIso,
-      notes = selectedWorkout.notes,
-      pinEdited = false,
-      pin = selectedWorkout.locationPin,
-      saveAsFavorite = fav
-     )
-    )
-   }
+   onToggleFavorite = { onToggleWorkoutFavorite(selectedWorkout.id) },
+   isFavorite = isWorkoutFavorite(selectedWorkout.id)
   )
   return
  }
@@ -188,7 +179,7 @@ internal fun WorkoutHistoryDetailScreen(
  onRevise: (String, String, String, Int, Double?, Int?) -> Unit,
  onDeleteSet: (String, String, String) -> Unit,
  onDelete: (String) -> Unit,
- onUpdate: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit,
+ onUpdate: (String, WorkoutRepository.FinishedWorkoutEdit, List<RoutineBlockDraft>?) -> Unit,
  onOpenExercise: (String, String, String) -> Unit,
  heartSeries: suspend (String) -> List<Pair<Long, Int>>,
  onEditFinished: (() -> Unit)? = null,
@@ -346,15 +337,12 @@ internal fun WorkoutHistoryDetailScreen(
   }
   workout.review?.let { item { SessionReviewCard(it) } }
   item {
-   // Sección «Entreno» + FC (iOS HealthSessionMetricsCard); vacío si no hay muestras.
-   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    ReperaSectionTitle("Entreno")
-    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-     Column(Modifier.padding(16.dp)) {
-      HeartRateCurveSection(workout.id, heartSeries)
-     }
-    }
-   }
+   // Solo si hay curva de FC (si no, dejaba «Entreno» + card vacía).
+   HeartRateCurveSection(
+    sessionId = workout.id,
+    provider = heartSeries,
+    sectionTitle = "Entreno"
+   )
   }
   // Bloques / ejercicios con thumb (paridad iOS exerciseCard).
   val blockTitle = workout.results.firstOrNull()?.takeIf { it.isNotBlank() }

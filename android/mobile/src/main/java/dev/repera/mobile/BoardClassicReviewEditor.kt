@@ -19,12 +19,35 @@ import dev.repera.domain.BoardClassicReview
   drafts.forEachIndexed {index,draft ->
    ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
     Row {Checkbox(draft.included,{onChange(index,draft.copy(included=it))},enabled=!busy);Text(draft.line.raw)}
-    OutlinedTextField(draft.name,{onChange(index,draft.copy(name=it))},label={Text("Ejercicio ${index+1}")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+    ReperaMetaTextField(
+        caption = "Ejercicio ${index + 1}",
+        value = draft.name,
+        onValueChange = { onChange(index, draft.copy(name = it)) },
+        enabled = !busy
+    )
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-     OutlinedTextField(draft.sets,{onChange(index,draft.copy(sets=it))},label={Text("Series ${index+1}")},enabled=!busy,modifier=Modifier.weight(1f))
-     OutlinedTextField(draft.reps,{onChange(index,draft.copy(reps=it))},label={Text("Repeticiones ${index+1}")},enabled=!busy,modifier=Modifier.weight(1f))
+     ReperaMetaTextField(
+         caption = "Series ${index + 1}",
+         value = draft.sets,
+         onValueChange = { onChange(index, draft.copy(sets = it)) },
+         enabled = !busy,
+         modifier = Modifier.weight(1f)
+     )
+     ReperaMetaTextField(
+         caption = "Repeticiones ${index + 1}",
+         value = draft.reps,
+         onValueChange = { onChange(index, draft.copy(reps = it)) },
+         enabled = !busy,
+         modifier = Modifier.weight(1f)
+     )
     }
-    OutlinedTextField(draft.load,{onChange(index,draft.copy(load=it))},label={Text("Carga propuesta ${index+1}")},supportingText={Text("Opcional. Se conserva el número de la pizarra, sin conversión automática de unidades.")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+    ReperaMetaTextField(
+        caption = "Carga propuesta ${index + 1}",
+        value = draft.load,
+        onValueChange = { onChange(index, draft.copy(load = it)) },
+        enabled = !busy,
+        placeholder = "Opcional. Se conserva el número de la pizarra, sin conversión automática de unidades."
+    )
    }}
   }
  }

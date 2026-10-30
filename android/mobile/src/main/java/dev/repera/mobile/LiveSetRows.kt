@@ -75,36 +75,88 @@ internal fun playSetCompleteHaptic(context: android.content.Context) {
  }
 }
 
+/** Celda numérica compacta de serie (OGSetNumericCell iOS): sin caption, una fila. */
 @Composable
-private fun CompactSetField(
+internal fun CompactSetField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     testTag: String? = null,
-    keyboardType: KeyboardType = KeyboardType.Number
+    keyboardType: KeyboardType = KeyboardType.Number,
+    /** Si true, abre teclado Repera en lugar del IME del sistema. */
+    useReperaKeypad: Boolean = false,
+    allowsDecimal: Boolean = keyboardType == KeyboardType.Decimal,
+    fieldLabel: String = ""
 ) {
     val shape = RoundedCornerShape(10.dp)
-    Box(
-        modifier = modifier
-            .heightIn(min = 36.dp)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
-        contentAlignment = Alignment.Center
-    ) {
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            modifier = Modifier.fillMaxWidth()
-        )
+    if (useReperaKeypad) {
+        var showPad by remember { mutableStateOf(false) }
+        var draft by remember { mutableStateOf(value) }
+        val shown = if (showPad) draft else value
+        Box(
+            modifier = modifier
+                .heightIn(min = 36.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                .clickable {
+                    draft = value
+                    showPad = true
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                shown.ifBlank { "—" },
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                maxLines = 1
+            )
+        }
+        if (showPad) {
+            ReperaNumericKeypadSheet(
+                title = fieldLabel.ifBlank { "Valor" },
+                draft = draft,
+                onDraftChange = { draft = it },
+                onDismiss = {
+                    onValueChange(draft)
+                    showPad = false
+                },
+                onCommit = {
+                    onValueChange(it)
+                    showPad = false
+                },
+                allowsDecimal = allowsDecimal,
+                showDraftPreview = true
+            )
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .heightIn(min = 36.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
+            contentAlignment = Alignment.Center
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -134,8 +186,23 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
   if(edited) persist(active.id,active.index,LiveRowEdit.toDraftRows(rows.toList()),unit)
  }
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
-  if(active.cardioToggle || active.repsMetersToggle) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-   listOf((if(active.repsMetersToggle) "reps" to "Repeticiones" else "calories" to "Calorías"),"meters" to "Metros").forEach {(v,l) ->ReperaFilterChip(selected=unit==v,onClick={unit=v;touch()},label={Text(l)})}
+  if (active.cardioToggle || active.repsMetersToggle) {
+   val unitOptions = if (active.repsMetersToggle) {
+    listOf("reps" to "Repeticiones", "meters" to "Metros")
+   } else {
+    listOf("calories" to "Calorías", "meters" to "Metros")
+   }
+   val selectedLabel = unitOptions.firstOrNull { it.first == unit }?.second
+    ?: unitOptions.first().second
+   ReperaTopicSegmentedPicker(
+    options = unitOptions.map { it.second },
+    selected = selectedLabel,
+    onSelected = { label ->
+     unit = unitOptions.firstOrNull { it.second == label }?.first ?: unit
+     touch()
+    },
+    optionTestTag = { i, _ -> "live_unit_tab_$i" }
+   )
   }
   // R8 P0: cabecera SERIE · ANTERIOR · REPS · RIR compacta (iOS PlayEditableSetsView).
   Row(
@@ -187,10 +254,16 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
       )
      }
      Text(
-      if (row.completed) "Hecha" else "—",
+      when {
+       row.completed -> "Hecha"
+       active.prescribedQuantity != null && active.prescribedQuantity > 0 ->
+        "${active.prescribedQuantity} rep"
+       else -> "—"
+      },
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.weight(1f)
+      modifier = Modifier.weight(1f),
+      maxLines = 1
      )
      CompactSetField(
       value = row.reps.toString(),

@@ -73,7 +73,7 @@ internal fun RouteUnavailableNotice(workout: WorkoutHistoryEntry) {
     if (!RouteUnavailable.applies(workout.liveSportID?.let(LiveSport::byId), workout.recordedDistanceMeters, workout.routePoints.size)) return
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Recorrido no disponible en este dispositivo", style = MaterialTheme.typography.titleSmall)
-        Text("Se ha recuperado la distancia, pero los puntos GPS no viajan por Supabase. El recorrido original puede seguir en el dispositivo donde se grabó.",
+        Text("Se ha recuperado la distancia, pero los puntos GPS no viajan por la nube. El recorrido original puede seguir en el dispositivo donde se grabó.",
             style = MaterialTheme.typography.bodySmall)
     }
 }

@@ -59,7 +59,6 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Switch
 import androidx.compose.material3.OutlinedButton
@@ -105,6 +104,8 @@ import kotlinx.coroutines.delay
 internal val brandGreen = Color(0xFF30D158)
 /** Verde legible como texto/primary sobre fondos claros (AA ~4.9:1); brandGreen da ~2:1. */
 internal val brandGreenReadable = Color(0xFF0E7A38)
+/** Ámbar / naranja sistema (favoritos ★, play en curso) — paridad OG.orange iOS. */
+internal val brandAmber = Color(0xFFFF9F0A)
 
 @Composable
 internal fun ActiveWorkoutCard(
@@ -119,7 +120,9 @@ internal fun ActiveWorkoutCard(
     onLogDropSet: (Int, Double?, List<Pair<Int, Double?>>, Double?, Boolean) -> Unit = { _, _, _, _, _ -> },
     onLogRestPauseSet: (List<Pair<Int, Int>>, Double?, Double?, Boolean) -> Unit = { _, _, _, _ -> },
     effortUnit:String="rir",
-    weightUnit:String="kg"
+    weightUnit:String="kg",
+    /** Dentro de [BlockEditorCard] en Play: sin card anidada. */
+    embedded: Boolean = false,
 ) {
     val weightLabel = WeightDisplay.label(weightUnit)
     var technique by remember(active.id, active.index, active.completedSets) {
@@ -189,12 +192,14 @@ internal fun ActiveWorkoutCard(
         (toFailure || warmup || rirText.isBlank() || (parsedRir != null && parsedRir.isFinite() && parsedRir >= 0 && (effortUnit!="rpe" || parsedRir<=10))) &&
         validDuration && (unit in if(active.repsMetersToggle) setOf("reps","meters") else if (active.cardioToggle) setOf("calories", "meters")
             else setOf(active.quantityUnit))
-    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(active.title, style = MaterialTheme.typography.titleLarge)
-            Text("Ejercicio ${active.index + 1}/${active.total}: ${active.exerciseName}",
-                style = MaterialTheme.typography.titleMedium)
-            Text("${active.completedSets} series registradas")
+    val logBody: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier.padding(if (embedded) 0.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (!embedded) {
+                Text(active.title, style = MaterialTheme.typography.titleLarge)
+            }
             active.sets.forEachIndexed { index, set ->
                 if (active.liveRows != null && set.phase == "work") return@forEachIndexed
                 Row(modifier = Modifier.fillMaxWidth(),
@@ -246,8 +251,8 @@ internal fun ActiveWorkoutCard(
                 }
                 if (editingPendingId == pending.id) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(pendingReps, { pendingReps = it.filter(Char::isDigit) }, label = { Text("Reps") }, singleLine = true, modifier = Modifier.weight(1f))
-                        if (active.allowsWeight) OutlinedTextField(pendingWeight, { pendingWeight = it }, label = { Text(weightLabel) }, singleLine = true, modifier = Modifier.weight(1f))
+                        ReperaNumericField(value = pendingReps, onValueChange = { pendingReps = it.filter(Char::isDigit) }, label = "Reps", allowsDecimal = false, modifier = Modifier.weight(1f))
+                        if (active.allowsWeight) ReperaNumericField(value = pendingWeight, onValueChange = { pendingWeight = it }, label = weightLabel, modifier = Modifier.weight(1f))
                     }
                     val kg = WeightDisplay.parseToKg(pendingWeight, weightUnit)
                     val okKg = pendingWeight.isBlank() || kg != null
@@ -256,44 +261,52 @@ internal fun ActiveWorkoutCard(
                 }
             }
             if (editingId != null) {
-                OutlinedTextField(
+                ReperaNumericField(
                     value = editingQuantity,
                     onValueChange = { editingQuantity = it.filter(Char::isDigit) },
-                    label = { Text(if (active.mobilityHold) "Postura (1)"
+                    label = if (active.mobilityHold) "Postura (1)"
                         else if (active.mobility) "Repeticiones"
-                        else "Corregir repeticiones") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                        else "Corregir repeticiones",
+                    allowsDecimal = false
                 )
                 if (active.allowsWeight) {
-                    OutlinedTextField(
+                    ReperaNumericField(
                         value = editingWeight,
                         onValueChange = { editingWeight = it },
-                        label = { Text("Corregir peso ($weightLabel)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        label = "Corregir peso ($weightLabel)"
                     )
                 }
                 if (active.allowsDeficit) {
-                    OutlinedTextField(value = editingDeficit,
+                    ReperaNumericField(
+                        value = editingDeficit,
                         onValueChange = { editingDeficit = it.filter(Char::isDigit) },
-                        label = { Text("Corregir déficit HSPU (cm)") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth())
+                        label = "Corregir déficit HSPU (cm)",
+                        allowsDecimal = false)
                 }
                 if (active.cardioToggle || active.repsMetersToggle) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val first=if(active.repsMetersToggle) "reps" else "calories"
-                        ReperaFilterChip(selected = editingUnit == first,
-                            onClick = { editingUnit = first }, label = { Text(if(active.repsMetersToggle) "Reps" else "Cal") })
-                        ReperaFilterChip(selected = editingUnit == "meters",
-                            onClick = { editingUnit = "meters" }, label = { Text("m") })
+                    val editUnitOptions = if (active.repsMetersToggle) {
+                        listOf("reps" to "Repeticiones", "meters" to "Metros")
+                    } else {
+                        listOf("calories" to "Calorías", "meters" to "Metros")
                     }
+                    val editSelected = editUnitOptions.firstOrNull { it.first == editingUnit }?.second
+                        ?: editUnitOptions.first().second
+                    ReperaTopicSegmentedPicker(
+                        options = editUnitOptions.map { it.second },
+                        selected = editSelected,
+                        onSelected = { label ->
+                            editingUnit = editUnitOptions.firstOrNull { it.second == label }?.first
+                                ?: editingUnit
+                        },
+                        optionTestTag = { i, _ -> "edit_unit_tab_$i" }
+                    )
                 }
                 if (active.durationInput) {
-                    OutlinedTextField(value = editingDuration,
+                    ReperaNumericField(
+                        value = editingDuration,
                         onValueChange = { editingDuration = it.filter(Char::isDigit) },
-                        label = { Text("Duración en segundos (opcional)") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth())
+                        label = "Duración en segundos (opcional)",
+                        allowsDecimal = false)
                 }
                 val parsedEdit = editingQuantity.toIntOrNull()
                 val editWeight = WeightDisplay.parseToKg(editingWeight, weightUnit)
@@ -322,14 +335,63 @@ internal fun ActiveWorkoutCard(
             var showClassic by remember(active.id, active.index) { mutableStateOf(false) }
             active.liveRows?.let { rows ->
                 LiveSetRows(active, rows, effortUnit)
-                ReperaFilterChip(selected = showClassic, onClick = { showClassic = !showClassic },
-                    label = { Text("Calentamiento o técnica (dropset, rest-pause)") })
+                if (!active.durationInput) {
+                    ReperaTopicSegmentedPicker(
+                        options = listOf("Series", "Calentamiento / técnico"),
+                        selected = if (showClassic) "Calentamiento / técnico" else "Series",
+                        onSelected = { showClassic = it == "Calentamiento / técnico" },
+                        optionTestTag = { i, _ -> "play_classic_tab_$i" }
+                    )
+                }
             }
             if (active.liveRows == null || showClassic) {
-            OutlinedTextField(
+            if (active.cardioToggle || active.repsMetersToggle) {
+                val unitOptions = if (active.repsMetersToggle) {
+                    listOf("reps" to "Repeticiones", "meters" to "Metros")
+                } else {
+                    listOf("calories" to "Calorías", "meters" to "Metros")
+                }
+                val selectedLabel = unitOptions.firstOrNull { it.first == unit }?.second
+                    ?: unitOptions.first().second
+                ReperaTopicSegmentedPicker(
+                    options = unitOptions.map { it.second },
+                    selected = selectedLabel,
+                    onSelected = { label ->
+                        unit = unitOptions.firstOrNull { it.second == label }?.first ?: unit
+                    },
+                    optionTestTag = { i, _ -> "log_unit_tab_$i" }
+                )
+            }
+            if (!active.durationInput) {
+                ReperaTopicSegmentedPicker(
+                    options = listOf("Trabajo", "Calentamiento"),
+                    selected = if (warmup) "Calentamiento" else "Trabajo",
+                    onSelected = { warmup = it == "Calentamiento" },
+                    optionTestTag = { i, _ -> "log_phase_tab_$i" }
+                )
+            }
+            if (!active.durationInput && !warmup) {
+                ReperaTopicSegmentedPicker(
+                    options = listOf("Normal", "Dropset", "Rest-pause"),
+                    selected = when (technique) {
+                        "dropset" -> "Dropset"
+                        "restpause" -> "Rest-pause"
+                        else -> "Normal"
+                    },
+                    onSelected = { label ->
+                        technique = when (label) {
+                            "Dropset" -> "dropset"
+                            "Rest-pause" -> "restpause"
+                            else -> "normal"
+                        }
+                    },
+                    optionTestTag = { i, _ -> "log_technique_tab_$i" }
+                )
+            }
+            ReperaNumericField(
                 value = quantity,
                 onValueChange = { quantity = it.filter { char -> char.isDigit() } },
-                label = { Text(when (unit) {
+                label = when (unit) {
                     "calories" -> "Calorías"
                     "meters" -> "Metros"
                     else -> when {
@@ -338,25 +400,15 @@ internal fun ActiveWorkoutCard(
                         active.durationInput -> "Veces"
                         else -> "Repeticiones"
                     }
-                }) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                },
+                allowsDecimal = false
             )
             if (active.allowsDeficit) {
-                OutlinedTextField(
+                ReperaNumericField(
                     value = deficit,
                     onValueChange = { deficit = it.filter(Char::isDigit) },
-                    label = { Text("Déficit HSPU (cm, opcional)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth())
-            }
-            if (active.cardioToggle || active.repsMetersToggle) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val first=if(active.repsMetersToggle) "reps" else "calories"
-                    ReperaFilterChip(selected = unit == first,
-                        onClick = { unit = first }, label = { Text(if(active.repsMetersToggle) "Repeticiones" else "Calorías") })
-                    ReperaFilterChip(selected = unit == "meters",
-                        onClick = { unit = "meters" }, label = { Text("Metros") })
-                }
+                    label = "Déficit HSPU (cm, opcional)",
+                    allowsDecimal = false)
             }
             if (active.durationInput) {
                 if (active.mobilityHold) {
@@ -364,25 +416,25 @@ internal fun ActiveWorkoutCard(
                         style = MaterialTheme.typography.labelMedium)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    ReperaNumericField(
                         value = durationMin,
                         onValueChange = { durationMin = it.filter(Char::isDigit) },
-                        label = { Text("Minutos") }, singleLine = true,
+                        label = "Minutos",
+                        allowsDecimal = false,
                         modifier = Modifier.weight(1f))
-                    OutlinedTextField(
+                    ReperaNumericField(
                         value = durationSec,
                         onValueChange = { durationSec = it.filter(Char::isDigit) },
-                        label = { Text("Segundos") }, singleLine = true,
+                        label = "Segundos",
+                        allowsDecimal = false,
                         modifier = Modifier.weight(1f))
                 }
             }
             if (active.allowsWeight) {
-                OutlinedTextField(
+                ReperaNumericField(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = { Text("Peso ($weightLabel)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = "Peso ($weightLabel)"
                 )
             }
             if (!active.durationInput && !warmup && !toFailure) {
@@ -401,33 +453,24 @@ internal fun ActiveWorkoutCard(
                     }.orEmpty()
                 }
             }
-            if (!active.durationInput) Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
-            ) {
-                Checkbox(checked = warmup, onCheckedChange = { warmup = it }, enabled = !busy, modifier=Modifier.testTag("set_warmup"))
-                Text("Serie de calentamiento", modifier = Modifier.padding(top = 12.dp))
-            }
             if (!active.durationInput && !warmup) {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                    Switch(checked=toFailure,onCheckedChange={toFailure=it},enabled=!busy, modifier=Modifier.testTag("set_to_failure"))
+                Row(
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Switch(
+                        checked = toFailure,
+                        onCheckedChange = { toFailure = it },
+                        enabled = !busy,
+                        modifier = Modifier.testTag("set_to_failure")
+                    )
                     Text("Al fallo")
                 }
-                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("normal" to "Normal", "dropset" to "Dropset",
-                        "restpause" to "Rest-pause").forEach { option ->
-                        ReperaFilterChip(selected = technique == option.first,
-                            onClick = { technique = option.first },
-                            label = { Text(option.second) })
-                    }
-                }
                 if (technique == "dropset") {
-                    OutlinedTextField(
+                    ReperaMetaTextField(
+                        caption = "Caídas: reps x $weightLabel (p. ej. 8x45, 6x40)",
                         value = dropsText,
-                        onValueChange = { dropsText = it.take(80) },
-                        label = { Text("Caídas: reps x $weightLabel (p. ej. 8x45, 6x40)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        onValueChange = { dropsText = it.take(80) })
                 }
                 if (technique == "restpause") {
                     RestPauseClusterEditor(pendingClusters,clusterReps,clusterRest,busy,
@@ -485,35 +528,19 @@ internal fun ActiveWorkoutCard(
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar serie") }
             }
-            OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Text(if (active.index + 1 == active.total) "Terminar último ejercicio" else "Siguiente ejercicio")
+            if (active.index + 1 < active.total) {
+                OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("Siguiente ejercicio")
+                }
             }
-            Button(
-                onClick = onFinish,
-                enabled = !busy,
-                colors = reperaPrimaryButtonColors(),
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Finalizar entrenamiento") }
-            // Cancelar sin guardar (endActiveSession(save: false) iOS) — siempre con confirmación.
-            var confirmCancel by remember(active.id) { mutableStateOf(false) }
-            TextButton(onClick = { confirmCancel = true }, enabled = !busy) {
-                Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
-            }
-            if (confirmCancel) {
-                AlertDialog(
-                    onDismissRequest = { confirmCancel = false },
-                    confirmButton = {
-                        TextButton(onClick = { confirmCancel = false; onDiscard() }) {
-                            Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { confirmCancel = false }) { Text("Seguir entrenando") }
-                    },
-                    title = { Text("¿Cancelar entreno?") },
-                    text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") }
-                )
-            }
+            // Finalizar / cancelar solo con el ✓ de la toolbar (resumen → Guardar / Descartar).
+        }
+    }
+    if (embedded) {
+        logBody()
+    } else {
+        ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+            logBody()
         }
     }
 }
@@ -534,7 +561,8 @@ internal fun WodScoreCard(
     onFinish: () -> Unit,
     onOpenClock: () -> Unit,
     onDiscard: () -> Unit = {},
-    effortUnit: String = "rir"
+    effortUnit: String = "rir",
+    embedded: Boolean = false,
 ) {
     val wod = active.wod ?: return
     val spec = WodClockSpec(
@@ -617,12 +645,14 @@ internal fun WodScoreCard(
     val valid = if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
 
-    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    val wodBody: @Composable () -> Unit = {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(if (embedded) 0.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(active.title, style = MaterialTheme.typography.titleLarge)
+            if (!embedded) {
+                Text(active.title, style = MaterialTheme.typography.titleLarge)
+            }
             Text(
                 "Bloque · " + (WodFormat.fromWire(wod.format)?.displayName
                     ?: wod.format.replaceFirstChar { it.uppercase() }),
@@ -695,18 +725,24 @@ internal fun WodScoreCard(
                         Text((if (selectedMovement == i) "✓ " else "") + movement.name)
                     }
                 }
-                OutlinedTextField(value = intervalInput,
+                ReperaNumericField(
+                    value = intervalInput,
                     onValueChange = { intervalEdited = true; intervalInput = it.filter(Char::isDigit) },
-                    label = { Text("Intervalo o ronda (desde 1)") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = quantityInput,
+                    label = "Intervalo o ronda (desde 1)",
+                    allowsDecimal = false)
+                ReperaNumericField(
+                    value = quantityInput,
                     onValueChange = { quantityInput = it.filter(Char::isDigit) },
-                    label = { Text(when { candidates.getOrNull(selectedMovement)?.calories != null -> "Calorías realizadas"; candidates.getOrNull(selectedMovement)?.meters != null -> "Metros realizados"; else -> "Repeticiones realizadas" }) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = weightInput,
+                    label = when {
+                        candidates.getOrNull(selectedMovement)?.calories != null -> "Calorías realizadas"
+                        candidates.getOrNull(selectedMovement)?.meters != null -> "Metros realizados"
+                        else -> "Repeticiones realizadas"
+                    },
+                    allowsDecimal = false)
+                ReperaNumericField(
+                    value = weightInput,
                     onValueChange = { weightInput = it.filter { char -> char.isDigit() || char == '.' } },
-                    label = { Text("Peso en kg (opcional)") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = "Peso en kg (opcional)")
                 val validMovement = candidates.isNotEmpty() &&
                     intervalInput.toIntOrNull()?.let { it in 1..100000 } == true &&
                     quantityInput.toIntOrNull()?.let { it >= 0 } == true &&
@@ -727,14 +763,15 @@ internal fun WodScoreCard(
                     }
                     Text("Intervalo ${record.intervalIndex + 1} · ${record.name} · ${record.quantity} ${when (record.quantityUnit) { "calories" -> "cal"; "meters" -> "m"; else -> "reps" }}",
                         style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(value = editQuantity,
+                    ReperaNumericField(
+                        value = editQuantity,
                         onValueChange = { editQuantity = it.filter(Char::isDigit) },
-                        label = { Text("Cantidad registrada") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = editWeight,
+                        label = "Cantidad registrada",
+                        allowsDecimal = false)
+                    ReperaNumericField(
+                        value = editWeight,
                         onValueChange = { editWeight = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                        label = { Text("Peso registrado (opcional)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        label = "Peso registrado (opcional)")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
                             onReviseMovement(record.id, editQuantity.toInt(), editWeight.toDoubleOrNull())
@@ -758,36 +795,32 @@ internal fun WodScoreCard(
                         onTimerAction("pause")
                     }, enabled = !busy) { Text("Usar tiempo del cronómetro") }
                 }
-                OutlinedTextField(
+                ReperaNumericField(
                     value = minutes,
                     onValueChange = { minutes = it.filter(Char::isDigit) },
-                    label = { Text("Minutos") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = "Minutos",
+                    allowsDecimal = false
                 )
-                OutlinedTextField(
+                ReperaNumericField(
                     value = seconds,
                     onValueChange = { seconds = it.filter(Char::isDigit) },
-                    label = { Text("Segundos (0–59)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = "Segundos (0–59)",
+                    allowsDecimal = false
                 )
             } else {
                 if (wod.expectsRounds) {
-                    OutlinedTextField(
+                    ReperaNumericField(
                         value = rounds,
                         onValueChange = { rounds = it.filter(Char::isDigit) },
-                        label = { Text("Rondas completadas") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        label = "Rondas completadas",
+                        allowsDecimal = false
                     )
                 }
-                OutlinedTextField(
+                ReperaNumericField(
                     value = extraReps,
                     onValueChange = { extraReps = it.filter(Char::isDigit) },
-                    label = { Text(if (wod.expectsRounds) "Repeticiones adicionales" else "Repeticiones totales") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    label = if (wod.expectsRounds) "Repeticiones adicionales" else "Repeticiones totales",
+                    allowsDecimal = false
                 )
             }
             if (!perMovement) Button(
@@ -798,29 +831,14 @@ internal fun WodScoreCard(
                     else onSave(rounds.toIntOrNull(), extraReps.toIntOrNull(), null)
                 }
             ) { Text("Guardar resultado y continuar") }
-            TextButton(onClick = onFinish, enabled = !busy) {
-                Text("Finalizar sin añadir otro resultado")
-            }
-            // Cancelar sin guardar (endActiveSession(save: false) iOS) — siempre con confirmación.
-            var confirmCancel by remember(active.id) { mutableStateOf(false) }
-            TextButton(onClick = { confirmCancel = true }, enabled = !busy) {
-                Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
-            }
-            if (confirmCancel) {
-                AlertDialog(
-                    onDismissRequest = { confirmCancel = false },
-                    confirmButton = {
-                        TextButton(onClick = { confirmCancel = false; onDiscard() }) {
-                            Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { confirmCancel = false }) { Text("Seguir entrenando") }
-                    },
-                    title = { Text("¿Cancelar entreno?") },
-                    text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") }
-                )
-            }
+            // Finalizar / cancelar solo con el ✓ de la toolbar (resumen → Guardar / Descartar).
+        }
+    }
+    if (embedded) {
+        wodBody()
+    } else {
+        ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+            wodBody()
         }
     }
 }
@@ -867,7 +885,7 @@ internal fun ScheduledRoutineCard(
                         else Icons.Outlined.StarBorder,
                         contentDescription = if (routine.isFavorite)
                             "Quitar de favoritas" else "Marcar como favorita",
-                        tint = if (routine.isFavorite) brandGreen
+                        tint = if (routine.isFavorite) brandAmber
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -926,10 +944,10 @@ internal fun ScheduledRoutineCard(
                 }
             }
             if (editing) {
-                OutlinedTextField(
-                    value = editTitle, onValueChange = { editTitle = it },
-                    label = { Text("Nombre") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth())
+                ReperaMetaTextField(
+                    caption = "Nombre",
+                    value = editTitle,
+                    onValueChange = { editTitle = it })
                 Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("library" to "Sin fecha", "date" to "Día concreto",
@@ -1053,10 +1071,10 @@ internal fun RoutineCreatorCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("Nueva rutina", style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(
-                value = title, onValueChange = { title = it },
-                label = { Text("Nombre de la rutina") },
-                singleLine = true, modifier = Modifier.fillMaxWidth()
+            ReperaMetaTextField(
+                caption = "Nombre de la rutina",
+                value = title,
+                onValueChange = { title = it }
             )
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1080,73 +1098,79 @@ internal fun RoutineCreatorCard(
             if (kind != "strength") {
                 if (kind in setOf("amrap", "forTime", "chipper", "ladder", "deathBy",
                     "partner", "maxEffort")) {
-                    OutlinedTextField(
-                        value = cap, onValueChange = { cap = it.filter(Char::isDigit) },
-                        label = { Text("Límite (minutos)") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    ReperaNumericField(
+                        value = cap,
+                        onValueChange = { cap = it.filter(Char::isDigit) },
+                        label = "Límite (minutos)",
+                        allowsDecimal = false
                     )
                 }
                 if (kind in setOf("forTime", "emom", "tabata", "circuit", "partner",
                     "roundsForQuality")) {
-                    OutlinedTextField(
+                    ReperaNumericField(
                         value = rounds,
                         onValueChange = { rounds = it.filter(Char::isDigit) },
-                        label = { Text(if (kind == "emom") "Número de intervalos" else "Número de rondas") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                        label = if (kind == "emom") "Número de intervalos" else "Número de rondas",
+                        allowsDecimal = false
                     )
                 }
                 if (kind == "ladder") {
-                    OutlinedTextField(
-                        value = ladderText, onValueChange = { ladderText = it.take(60) },
-                        label = { Text("Escalera de reps (p. ej. 21-15-9)") },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true
+                    ReperaMetaTextField(
+                        caption = "Escalera de reps (p. ej. 21-15-9)",
+                        value = ladderText,
+                        onValueChange = { ladderText = it.take(60) }
                     )
                 }
                 if (kind in setOf("emom", "circuit", "deathBy")) {
-                    OutlinedTextField(value = interval,
+                    ReperaNumericField(
+                        value = interval,
                         onValueChange = { interval = it.filter(Char::isDigit) },
-                        label = { Text(when (kind) {
+                        label = when (kind) {
                             "circuit" -> "Duración por estación (segundos)"
                             "deathBy" -> "Cada (segundos, 60 = EMOM)"
                             else -> "Duración del intervalo (segundos)"
-                        }) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        },
+                        allowsDecimal = false)
                 }
                 if (kind == "tabata") {
-                    OutlinedTextField(value = workSeconds,
+                    ReperaNumericField(
+                        value = workSeconds,
                         onValueChange = { workSeconds = it.filter(Char::isDigit) },
-                        label = { Text("Trabajo (segundos)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        label = "Trabajo (segundos)",
+                        allowsDecimal = false)
                 }
                 if (kind in setOf("tabata", "circuit")) {
-                    OutlinedTextField(value = restSeconds,
+                    ReperaNumericField(
+                        value = restSeconds,
                         onValueChange = { restSeconds = it.filter(Char::isDigit) },
-                        label = { Text(if (kind == "tabata") "Descanso por intervalo (segundos)"
-                            else "Descanso entre rondas (segundos)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        label = if (kind == "tabata") "Descanso por intervalo (segundos)"
+                            else "Descanso entre rondas (segundos)",
+                        allowsDecimal = false)
                 }
             }
-            OutlinedTextField(
-                value = reps, onValueChange = { reps = it.filter(Char::isDigit) },
-                label = { Text("Repeticiones por ejercicio") },
-                modifier = Modifier.fillMaxWidth(), singleLine = true
+            ReperaNumericField(
+                value = reps,
+                onValueChange = { reps = it.filter(Char::isDigit) },
+                label = "Repeticiones por ejercicio",
+                allowsDecimal = false
             )
             if (kind == "strength") {
-                OutlinedTextField(
-                    value = sets, onValueChange = { sets = it.filter(Char::isDigit) },
-                    label = { Text("Series por ejercicio") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                ReperaNumericField(
+                    value = sets,
+                    onValueChange = { sets = it.filter(Char::isDigit) },
+                    label = "Series por ejercicio",
+                    allowsDecimal = false
                 )
-                OutlinedTextField(
+                ReperaNumericField(
                     value = entryRest,
                     onValueChange = { entryRest = it.filter(Char::isDigit) },
-                    label = { Text("Descanso opcional (segundos)") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                    label = "Descanso opcional (segundos)",
+                    allowsDecimal = false
                 )
-                OutlinedTextField(
-                    value = weight, onValueChange = { weight = it },
-                    label = { Text("Peso prescrito opcional (kg)") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
+                ReperaNumericField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = "Peso prescrito opcional (kg)"
                 )
             }
             Text("Programación", style = MaterialTheme.typography.titleMedium)
@@ -1159,11 +1183,10 @@ internal fun RoutineCreatorCard(
                     }
             }
             if (planning == "date") {
-                OutlinedTextField(
+                ReperaMetaTextField(
+                    caption = "Fecha (AAAA-MM-DD)",
                     value = specificDate,
-                    onValueChange = { specificDate = it.take(10) },
-                    label = { Text("Fecha (AAAA-MM-DD)") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth()
+                    onValueChange = { specificDate = it.take(10) }
                 )
             }
             if (planning == "weekly") {
@@ -1177,10 +1200,11 @@ internal fun RoutineCreatorCard(
                 }
             }
             if (planning != "library") {
-                OutlinedTextField(value = clockTime,
-                    onValueChange = { clockTime = it.take(5) },
-                    label = { Text("Hora opcional (HH:mm)") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true)
+                ReperaMetaTextField(
+                    caption = "Hora opcional (HH:mm)",
+                    value = clockTime,
+                    onValueChange = { clockTime = it.take(5) }
+                )
             }
             Text("Ejercicios de la rutina", style = MaterialTheme.typography.titleMedium)
             chosen.forEach { draft ->
@@ -1197,10 +1221,10 @@ internal fun RoutineCreatorCard(
                     }
                 }
             }
-            OutlinedTextField(
-                value = search, onValueChange = { search = it },
-                label = { Text("Buscar para añadir") },
-                modifier = Modifier.fillMaxWidth(), singleLine = true
+            ReperaMetaTextField(
+                caption = "Buscar para añadir",
+                value = search,
+                onValueChange = { search = it }
             )
             candidates.forEach { candidate ->
                 TextButton(
@@ -1349,8 +1373,8 @@ private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasC
                 when {
                     hasCompleted && isSelected -> Color.Black
                     hasCompleted -> brandGreen
-                    // Punto bajo hoy aunque no haya entreno (paridad iOS weekSelector, R4 #2).
-                    isToday && !isSelected -> brandGreen.copy(alpha = 0.55f)
+                    // Sin entreno: punto gris (no verde) para hoy u otros días.
+                    isToday && !isSelected -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                     else -> Color.Transparent
                 }
             ))
@@ -1468,7 +1492,11 @@ internal fun WorkoutHistoryCard(
     onOpenExerciseFromSession: (String, String, String) -> Unit = { _, _, _ -> },
     accountId: String = "",
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
-    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
+    onUpdateFinishedWorkout: (
+        String,
+        WorkoutRepository.FinishedWorkoutEdit,
+        List<RoutineBlockDraft>?
+    ) -> Unit = { _, _, _ -> },
     /** Serie de FC de la sesión (epoch ms → lpm) desde Salud; vacía sin
      *  permisos o sin datos (la sección solo se pinta con ≥2 muestras). */
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
@@ -1666,21 +1694,20 @@ internal fun WorkoutHistoryCard(
                             style = MaterialTheme.typography.titleSmall)
                         exercise.editableSets.forEachIndexed { n, set ->
                             if (editingSetId == set.setId) {
-                                OutlinedTextField(
+                                ReperaNumericField(
                                     value = editQuantity,
                                     onValueChange = { editQuantity = it.filter(Char::isDigit) },
-                                    label = { Text("Cantidad (reps / cal / m)") },
-                                    singleLine = true, modifier = Modifier.fillMaxWidth())
-                                OutlinedTextField(
+                                    label = "Cantidad (reps / cal / m)",
+                                    allowsDecimal = false)
+                                ReperaNumericField(
                                     value = editWeight,
                                     onValueChange = { editWeight = it.take(8) },
-                                    label = { Text("Peso kg (vacío = sin peso)") },
-                                    singleLine = true, modifier = Modifier.fillMaxWidth())
-                                OutlinedTextField(
+                                    label = "Peso kg (vacío = sin peso)")
+                                ReperaNumericField(
                                     value = editDuration,
                                     onValueChange = { editDuration = it.filter(Char::isDigit) },
-                                    label = { Text("Duración s (opcional)") },
-                                    singleLine = true, modifier = Modifier.fillMaxWidth())
+                                    label = "Duración s (opcional)",
+                                    allowsDecimal = false)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     val quantityValue = editQuantity.toIntOrNull()
                                     TextButton(
@@ -1759,7 +1786,7 @@ internal fun WorkoutHistoryCard(
                     exerciseCatalog = exerciseCatalog,
                     effortUnit = effortUnit,
                     onOpenFullEditor = onOpenFinishedEditor,
-                    onSave = { onUpdateFinishedWorkout(workout.id, it) })
+                    onSave = { onUpdateFinishedWorkout(workout.id, it, null) })
                 workout.movements.forEachIndexed { index, movement ->
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -1865,12 +1892,10 @@ internal fun BenchmarkWodPicker(
             Text("WODs benchmark", style = MaterialTheme.typography.titleLarge)
             Text("Girls, Heroes y Opens del catálogo Repera, con bandas de puntuación de referencia.",
                 style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(
+            ReperaMetaTextField(
+                caption = "Buscar benchmark",
                 value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("Buscar benchmark") }
+                onValueChange = { query = it }
             )
             results.take(12).forEach { template ->
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -2224,7 +2249,9 @@ internal fun loadGuideSetLine(set: LoadGuideSet): String =
 @Composable
 internal fun HeartRateCurveSection(
     sessionId: String,
-    provider: suspend (String) -> List<Pair<Long, Int>>
+    provider: suspend (String) -> List<Pair<Long, Int>>,
+    /** Si no hay muestras no se pinta nada (evita fila «Entreno» vacía). */
+    sectionTitle: String? = null
 ) {
     val series by produceState(initialValue = emptyList<Pair<Long, Int>>(),
         key1 = sessionId) {
@@ -2239,6 +2266,7 @@ internal fun HeartRateCurveSection(
     val picked = selectedTime?.let { sel ->
         series.minByOrNull { kotlin.math.abs(it.first - sel) }
     }
+    val curve: @Composable () -> Unit = {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween) {
@@ -2297,6 +2325,17 @@ internal fun HeartRateCurveSection(
         Text("${minBpm}–${maxBpm} lpm durante la sesión · arrastra para inspeccionar",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    }
+    if (sectionTitle != null) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ReperaSectionTitle(sectionTitle)
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) { curve() }
+            }
+        }
+    } else {
+        curve()
     }
 }
 

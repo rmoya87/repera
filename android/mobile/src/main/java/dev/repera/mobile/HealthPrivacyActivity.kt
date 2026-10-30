@@ -22,7 +22,7 @@ class HealthPrivacyActivity : Activity() {
                     Si no hay mediciones o revocas el acceso, Repera muestra datos no disponibles.
 
                     Repera no genera calorías ficticias, no vende datos de salud y
-                    no necesita enviar esas mediciones a Google Drive ni a Supabase
+                    no necesita enviar esas mediciones a Google Drive ni a la nube
                     para mostrar la actividad diaria.
 
                     El acceso al historial anterior a 30 días es opcional y se solicita

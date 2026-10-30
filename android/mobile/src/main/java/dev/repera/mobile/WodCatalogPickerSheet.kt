@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -121,7 +123,8 @@ internal fun WodCatalogPickerSheet(
 internal fun FavoriteCatalogPickerSheet(
     favorites: List<RoutineEntry>,
     onPick: (RoutineEntry) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
 ) {
     var query by remember { mutableStateOf("") }
     val filtered = remember(favorites, query) {
@@ -163,6 +166,7 @@ internal fun FavoriteCatalogPickerSheet(
                         )
                     }
                 } else {
+                    // Una caja: filas estilo Inicio (icono · nombre · chips) separadas por línea.
                     item {
                         ReperaInsetGroupedList {
                             filtered.forEachIndexed { index, fav ->
@@ -172,26 +176,12 @@ internal fun FavoriteCatalogPickerSheet(
                                             .copy(alpha = 0.45f)
                                     )
                                 }
-                                val exerciseCount = fav.blocks.sumOf { it.entries.size }
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
+                                FavoriteRoutineListRow(
+                                    routine = fav,
+                                    modifier = Modifier
                                         .clickable { onPick(fav) }
-                                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                                        .testTag("add_favorite_${fav.id}"),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        fav.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        "· $exerciseCount ej.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                        .testTag("add_favorite_${fav.id}")
+                                )
                             }
                         }
                     }
@@ -233,5 +223,67 @@ internal fun ReperaInsetGroupedList(
 ) {
     ReperaCard(modifier = modifier.fillMaxWidth()) {
         content()
+    }
+}
+
+/**
+ * Fila de favorito estilo Inicio: círculo+icono, título y chips (bloques / formato).
+ */
+@Composable
+internal fun FavoriteRoutineListRow(
+    routine: RoutineEntry,
+    modifier: Modifier = Modifier,
+) {
+    val chips = buildList {
+        val nBlocks = routine.blocks.size
+        if (nBlocks > 0) add("${nBlocks} bloq.")
+        val formats = routine.blocks.map { it.format }.filter { it.isNotBlank() }.distinct()
+        formats.take(2).forEach { fmt ->
+            add(
+                when (fmt) {
+                    "strength" -> "Fuerza"
+                    "amrap" -> "AMRAP"
+                    "emom" -> "EMOM"
+                    "fortime", "forTime" -> "For Time"
+                    "tabata" -> "Tabata"
+                    else -> BlockFormatCatalog.title(fmt).ifBlank { fmt }
+                }
+            )
+        }
+        val nEx = routine.blocks.sumOf { it.entries.size }
+        if (nEx > 0) add("$nEx ej.")
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        HomeRegisterLeadingIcon(
+            Icons.Outlined.FitnessCenter,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                routine.title.ifBlank { "Entreno" },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2
+            )
+            if (chips.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    chips.forEach { label ->
+                        HomeRegisterChip(label, Icons.Outlined.FitnessCenter)
+                    }
+                }
+            }
+        }
     }
 }

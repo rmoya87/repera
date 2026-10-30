@@ -145,21 +145,16 @@ internal fun FinishedWorkoutEditorSection(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Meta como Crear entreno: card con título + fecha|hora|duración + favorito.
+        // Meta: título + fecha|hora|duración + notas + favorito. Lugar va en sección aparte.
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                androidx.compose.foundation.text.BasicTextField(
+                WorkoutMetaTitleField(
                     value = title,
                     onValueChange = { title = it },
-                    textStyle = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    ),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("edit_title")
+                    testTag = "edit_title"
                 )
                 val zone = ZoneId.systemDefault()
                 val startZ = remember(startIso) {
@@ -202,6 +197,11 @@ internal fun FinishedWorkoutEditorSection(
                     timeTestTag = "edit_start_time",
                     durationTestTag = "edit_duration"
                 )
+                WorkoutMetaNotesField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    testTag = "edit_notes"
+                )
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
@@ -218,11 +218,19 @@ internal fun FinishedWorkoutEditorSection(
         }
         if (!hasRoute) {
             ReperaSectionTitle("Lugar")
-            WorkoutPlacePickerRow(pin = pin, accountId = accountId,
-                onPinChange = { pin = it; pinEdited = true })
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                WorkoutPlacePickerRow(
+                    pin = pin,
+                    accountId = accountId,
+                    onPinChange = { pin = it; pinEdited = true },
+                    modifier = if (pin == null) {
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    } else Modifier
+                )
+            }
         }
         if (blocks != null) {
-            Text("Contenido", style = MaterialTheme.typography.titleMedium)
+            // Misma estructura que Crear: título de sección por bloque (sin «Contenido»).
             key(contentVersion) {
                 FinishedContentEditor(blocks, exerciseCatalog, effortUnit,
                     onEdited = { contentDirty = true },
@@ -280,9 +288,6 @@ internal fun FinishedWorkoutEditorSection(
                 if (cap == "ELAPSED_TIME") Text("Tiempo real empleado (no el time cap).", style = MaterialTheme.typography.bodySmall)
             }
         }
-        OutlinedTextField(value = notes, onValueChange = { notes = it },
-            label = { Text("Notas: cómo te sentiste, molestias…") }, minLines = 2, maxLines = 5,
-            modifier = Modifier.fillMaxWidth().testTag("edit_notes"))
         if (!forceEditing) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
@@ -302,8 +307,8 @@ internal fun FinishedWorkoutEditorSection(
 }
 
 /**
- * Página completa «Editar entreno» (iOS DayEditorView vía showCompletedEditor).
- * No edita el plan programado; solo el registro terminado.
+ * Página completa «Editar entreno» terminado: misma maqueta que Crear
+ * ([RoutineBlocksEditorScreen]) con los datos ya rellenados.
  */
 @Composable
 internal fun FinishedWorkoutEditorScreen(
@@ -313,38 +318,107 @@ internal fun FinishedWorkoutEditorScreen(
     exerciseCatalog: List<ExerciseEntry>,
     effortUnit: String,
     onBack: () -> Unit,
-    onSave: (WorkoutRepository.FinishedWorkoutEdit) -> Unit,
+    onSave: (WorkoutRepository.FinishedWorkoutEdit, List<RoutineBlockDraft>) -> Unit,
+    importableRoutines: List<RoutineEntry> = emptyList(),
 ) {
-    // Misma maqueta que Crear entreno: DayEditorTopBar + título large + meta en card.
-    var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
     androidx.activity.compose.BackHandler(onBack = onBack)
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-            .testTag("finished_workout_editor_page"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        DayEditorTopBar(
-            onBack = onBack,
-            onConfirm = { pendingSave?.invoke() },
-            confirmEnabled = pendingSave != null && !busy,
-            confirmContentDescription = "Guardar",
-            busy = busy,
-            modifier = Modifier.testTag("finished_workout_editor_back")
+    val zone = ZoneId.systemDefault()
+    val startZ = remember(workout.id, workout.startedAtIso) {
+        workout.startedAtIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
+            ?: ZonedDateTime.now(zone)
+    }
+    val durationMin = remember(workout.id, workout.startedAtIso, workout.finishedAtIso) {
+        val end = workout.finishedAtIso?.let { runCatching { Instant.parse(it).atZone(zone) }.getOrNull() }
+        if (end != null) maxOf(1, java.time.Duration.between(startZ, end).toMinutes().toInt())
+        else 45
+    }
+    val blockInfos = remember(workout.id, workout.editableBlocksJson, exerciseCatalog) {
+        parseRoutineBlocksFromEditableJson(workout.editableBlocksJson, exerciseCatalog)
+    }
+    val draftRoutine = remember(workout.id, blockInfos) {
+        RoutineEntry(
+            id = workout.id,
+            title = workout.title,
+            supported = true,
+            scheduledDate = startZ.toLocalDate().toString(),
+            timeMinutes = startZ.hour * 60 + startZ.minute,
+            blocks = blockInfos.ifEmpty {
+                listOf(
+                    RoutineBlockInfo(
+                        title = "Bloque 1",
+                        format = "",
+                        id = java.util.UUID.randomUUID().toString()
+                    )
+                )
+            },
+            locationPin = workout.locationPin?.takeIf { it.hasChosenPlace },
+            notes = workout.notes
         )
-        ReperaPageHeader(title = "Editar entreno")
-        FinishedWorkoutEditorSection(
-            workout = workout,
+    }
+    val metaSnap = remember(workout.id) {
+        arrayOf<Any?>(
+            draftRoutine.scheduledDate,
+            draftRoutine.timeMinutes,
+            false,
+            draftRoutine.locationPin,
+            draftRoutine.notes,
+            durationMin
+        )
+    }
+    var suggestedTitle by remember(workout.id) { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize().testTag("finished_workout_editor_page")) {
+        RoutineBlocksEditorScreen(
             accountId = accountId,
-            busy = busy,
-            exerciseCatalog = exerciseCatalog,
             effortUnit = effortUnit,
-            forceEditing = true,
-            onDismiss = onBack,
-            onSave = onSave,
-            onRegisterSave = { pendingSave = it }
+            routine = draftRoutine,
+            exercises = exerciseCatalog,
+            busy = busy,
+            oneOffEditor = true,
+            scheduledDayIso = draftRoutine.scheduledDate,
+            initialPlannedDurationMinutes = durationMin,
+            pageTitle = "Editar entreno",
+            showPlaceSection = workout.routePoints.size < 2,
+            importableRoutines = importableRoutines,
+            onTitleSuggested = { suggestedTitle = it },
+            onOneOffMeta = { day, time, fav, pin, notes, duration ->
+                metaSnap[0] = day
+                metaSnap[1] = time
+                metaSnap[2] = fav
+                metaSnap[3] = pin
+                metaSnap[4] = notes
+                metaSnap[5] = duration
+            },
+            onReplace = { drafts ->
+                val day = metaSnap[0] as? String ?: draftRoutine.scheduledDate
+                val timeMin = metaSnap[1] as? Int ?: draftRoutine.timeMinutes
+                val fav = metaSnap[2] as? Boolean ?: false
+                val pin = metaSnap[3] as? dev.repera.domain.WorkoutLocationPin
+                val notes = metaSnap[4] as? String
+                val duration = (metaSnap[5] as? Int)?.coerceIn(1, 600) ?: durationMin
+                val dayDate = day?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                    ?: startZ.toLocalDate()
+                val clock = timeMin?.let { java.time.LocalTime.of(it / 60, it % 60) }
+                    ?: startZ.toLocalTime()
+                val newStart = dayDate.atTime(clock).atZone(zone)
+                val newEnd = newStart.plusMinutes(duration.toLong())
+                onSave(
+                    WorkoutRepository.FinishedWorkoutEdit(
+                        title = suggestedTitle ?: workout.title,
+                        startedAtIso = newStart.toInstant().toString(),
+                        finishedAtIso = newEnd.toInstant().toString(),
+                        notes = notes,
+                        pinEdited = true,
+                        pin = pin,
+                        blocksJson = null,
+                        saveAsFavorite = fav,
+                        recordNewSetsAsPerformed = false
+                    ),
+                    drafts
+                )
+                onBack()
+            },
+            onBack = onBack,
+            onOpenExercise = {}
         )
     }
 }
@@ -363,21 +437,19 @@ private fun RowScope.FinishedScoreField(
 ) {
     var text by remember(initial) { mutableStateOf(initial.toString()) }
     var committed by remember(initial) { mutableIntStateOf(initial) }
-    OutlinedTextField(
+    ReperaNumericField(
         value = text,
         onValueChange = { raw ->
             val filtered = raw.filter { it.isDigit() }.take(5)
             text = filtered
-            if (filtered.isEmpty()) return@OutlinedTextField
-            val v = filtered.toIntOrNull() ?: return@OutlinedTextField
-            if (v == committed) return@OutlinedTextField
+            if (filtered.isEmpty()) return@ReperaNumericField
+            val v = filtered.toIntOrNull() ?: return@ReperaNumericField
+            if (v == committed) return@ReperaNumericField
             committed = v
             onCommit(v)
         },
-        label = { Text(label) },
-        singleLine = true,
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+        label = label,
+        allowsDecimal = false,
         modifier = Modifier.weight(1f)
             .testTag("edit_score_${block.optString("id")}_${field.name}")
     )
@@ -400,17 +472,29 @@ private fun FinishedContentEditor(
         val blkHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         val geo = remember { EditorGeometry() }
         for (b in 0 until blocks.length()) {
+            val sectionTitle = blocks.getJSONObject(b).optString("title")
+                .ifBlank { "Bloque ${b + 1}" }
+            ReperaSectionTitle(sectionTitle)
             DragReorderItem(b, blkHeights, blocks.length(),
                 onDrop = { _, t -> if (t != b && EditorBlockOps.moveBlock(blocks, b, t)) onChanged() },
                 onMoveTo = { t -> if (EditorBlockOps.moveBlock(blocks, b, t)) onChanged() },
                 onBounds = { top, bottom -> geo.blocks[b] = top to bottom }) { handle ->
             val block = blocks.getJSONObject(b)
             var title by remember(block.optString("id")) { mutableStateOf(block.optString("title")) }
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Icon(Icons.Outlined.DragHandle, contentDescription = "Reordenar", modifier = handle.testTag("block_drag_$b").padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(value = title, singleLine = true, label = { Text("Bloque ${b + 1}") },
-                    modifier = Modifier.weight(1f).testTag("block_title_$b"),
-                    onValueChange = { title = it; block.put("title", it); onEdited() })
+                BasicTextField(
+                    value = title,
+                    onValueChange = { title = it; block.put("title", it); onEdited() },
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("block_title_$b")
+                )
                 TextButton(enabled = b > 0, modifier = Modifier.testTag("block_up_$b"), onClick = {
                     EditorBlockOps.moveBlock(blocks, b, b - 1); onChanged() }) { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Subir") }
                 TextButton(enabled = b < blocks.length() - 1, modifier = Modifier.testTag("block_down_$b"), onClick = {
@@ -430,8 +514,7 @@ private fun FinishedContentEditor(
                     }
                 }
                 WodMovementsEditor(blocks, b, nameById, catalog, geo, onEdited, onChanged, effortUnit)
-                return@DragReorderItem
-            }
+            } else {
             val items = block.optJSONArray("exercises") ?: org.json.JSONArray().also { block.put("exercises", it) }
             val exHeights = remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
             for (i in 0 until items.length()) {
@@ -508,54 +591,82 @@ private fun FinishedContentEditor(
                             }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
-                        OutlinedTextField(value = reps,
-                            label = { Text(if (repsOrMeters) "Reps / m" else "Reps") }, singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("set_reps_${b}_${i}_$s"),
+                    val inputMode = remember(exRawName) {
+                        dev.repera.domain.ExerciseInput.mode(exRawName, null, null, null)
+                    }
+                    val hspuDeficit = inputMode ==
+                        dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
+                    val showsLoad = inputMode.showsWeight || hspuDeficit
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                ),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            Text(
+                                "${s + 1}",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        CompactSetField(
+                            value = reps,
                             onValueChange = { v ->
-                                // Apple: tope 100_000 en metros con recorrido.
                                 reps = v.filter { it.isDigit() }
                                     .take(if (repsOrMeters && setUnit == "meters") 6 else 4)
                                 set.put("targetReps", reps.toIntOrNull() ?: 0)
                                 onEdited()
-                            })
-                        val hspuDeficit = dev.repera.domain.ExerciseInput.mode(
-                            exRawName, null, null, null) ==
-                            dev.repera.domain.ExerciseInputMode.HSPU_DEFICIT
-                        OutlinedTextField(value = kg,
-                            label = { Text(if (hspuDeficit) "Déficit (cm)" else "Kg") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("set_kg_${b}_${i}_$s"),
-                            onValueChange = { v ->
-                                kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
-                                val parsed = dev.repera.domain.ReperaNumberFormat.parse(kg)
-                                if (parsed != null) set.put("targetWeightKg", parsed) else set.remove("targetWeightKg")
+                            },
+                            modifier = Modifier.weight(1f).testTag("set_reps_${b}_${i}_$s"),
+                            useReperaKeypad = true,
+                            allowsDecimal = false,
+                            fieldLabel = if (repsOrMeters) "Reps / m" else "Reps"
+                        )
+                        if (showsLoad) {
+                            CompactSetField(
+                                value = kg,
+                                onValueChange = { v ->
+                                    kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
+                                    val parsed = dev.repera.domain.ReperaNumberFormat.parse(kg)
+                                    if (parsed != null) set.put("targetWeightKg", parsed)
+                                    else set.remove("targetWeightKg")
+                                    onEdited()
+                                },
+                                modifier = Modifier.weight(1f).testTag("set_kg_${b}_${i}_$s"),
+                                useReperaKeypad = true,
+                                allowsDecimal = !hspuDeficit,
+                                fieldLabel = if (hspuDeficit) "Déficit" else "Kg"
+                            )
+                        }
+                        val storedRir = if (set.has("targetRir") && !set.isNull("targetRir"))
+                            set.getDouble("targetRir") else null
+                        Box(Modifier.weight(0.7f).testTag("set_rir_${b}_${i}_$s")) {
+                            EffortMenuField(
+                                storedRir = storedRir,
+                                effortUnit = effortUnit,
+                                compact = true
+                            ) { next ->
+                                if (next != null) set.put("targetRir", next)
+                                else set.remove("targetRir")
                                 onEdited()
-                            })
-                        var rir by remember(effortUnit) { mutableStateOf(
-                            if (set.has("targetRir") && !set.isNull("targetRir"))
-                                set.getDouble("targetRir").let {
-                                    val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
-                                    if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
-                                }
-                            else "") }
-                        OutlinedTextField(value = rir,
-                            label = { Text(dev.repera.domain.Effort.displayName(effortUnit)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).testTag("set_rir_${b}_${i}_$s"),
-                            onValueChange = { v ->
-                                rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
-                                val parsed = dev.repera.domain.ReperaNumberFormat.parse(rir)
-                                if (parsed != null && parsed in 0.0..10.0) {
-                                    set.put("targetRir",
-                                        dev.repera.domain.Effort.toRIR(parsed, effortUnit))
-                                } else set.remove("targetRir")
-                                onEdited()
-                            })
+                            }
+                        }
                         TextButton(modifier = Modifier.testTag("set_remove_${b}_${i}_$s"),
-                            onClick = { sets.remove(s); onChanged() }) { Icon(Icons.Outlined.Close, contentDescription = "Eliminar") }
+                            onClick = { sets.remove(s); onChanged() }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "Eliminar")
+                        }
                     }
                     }
                 }
@@ -584,9 +695,11 @@ private fun FinishedContentEditor(
                     title = { Text("Añadir ejercicio") },
                     text = {
                         Column {
-                            OutlinedTextField(value = q, onValueChange = { q = it }, singleLine = true,
-                                label = { Text("Buscar en todo el catálogo") },
-                                modifier = Modifier.fillMaxWidth().testTag("ex_search"))
+                            ReperaMetaTextField(
+                                caption = "Buscar en todo el catálogo",
+                                value = q,
+                                onValueChange = { q = it },
+                                modifier = Modifier.testTag("ex_search"))
                             androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 320.dp)) {
                                 items(filtered.size, key = { filtered[it].id }) { idx ->
                                     val entry = filtered[idx]
@@ -608,6 +721,9 @@ private fun FinishedContentEditor(
                     dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancelar") } }
                 )
             }
+            } // else strength
+            } // Column
+            } // ReperaCard
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -688,16 +804,21 @@ private fun WodMovementsEditor(
         }
         if (m.optBoolean("isRest")) {
             var secs by remember(id) { mutableStateOf((if (m.has("restSeconds")) m.optInt("restSeconds") else 60).toString()) }
-            OutlinedTextField(value = secs, singleLine = true, label = { Text("Segundos") },
-                modifier = Modifier.fillMaxWidth().testTag("mv_rest_${b}_$i"),
+            ReperaNumericField(
+                value = secs,
+                label = "Segundos",
+                allowsDecimal = false,
+                modifier = Modifier.testTag("mv_rest_${b}_$i"),
                 onValueChange = { v -> secs = v.filter { it.isDigit() }.take(3)
                     m.put("restSeconds", (secs.toIntOrNull() ?: 60).coerceIn(15, 300)); onEdited() })
             return@DragReorderItem
         }
         var name by remember(id) { mutableStateOf(m.optString("name")) }
-        OutlinedTextField(value = name, singleLine = true, label = { Text("Nombre") },
-            modifier = Modifier.fillMaxWidth().testTag("mv_name_${b}_$i"),
-            onValueChange = { name = it; m.put("name", it); onEdited() })
+        ReperaMetaTextField(
+            caption = "Nombre",
+            value = name,
+            onValueChange = { name = it; m.put("name", it); onEdited() },
+            modifier = Modifier.testTag("mv_name_${b}_$i"))
         val catalogEntry = catalog.firstOrNull { it.id == m.optString("exerciseId") }
             ?: catalog.firstOrNull { it.name.equals(m.optString("name"), true) }
         val inputMode = catalogEntry?.let {
@@ -758,19 +879,24 @@ private fun WodMovementsEditor(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("Serie ${s + 1}", modifier = Modifier.width(64.dp))
-                OutlinedTextField(value = reps, singleLine = true,
-                    label = { Text(when {
+                ReperaNumericField(
+                    value = reps,
+                    label = when {
                         machine && machineUnit == "calories" -> "Cal"
                         machine -> "m"
                         repsAndTime -> "Veces"
                         else -> "Reps"
-                    }) },
+                    },
+                    allowsDecimal = false,
                     modifier = Modifier.weight(1f).testTag("mv_set_reps_${b}_${i}_$s"),
                     onValueChange = { v -> reps = v.filter { it.isDigit() }.take(4)
                         set.put("targetReps", (reps.toIntOrNull() ?: 1).coerceAtLeast(1))
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 if (repsAndTime) {
-                    OutlinedTextField(value = duration, singleLine = true, label = { Text("Seg") },
+                    ReperaNumericField(
+                        value = duration,
+                        label = "Seg",
+                        allowsDecimal = false,
                         modifier = Modifier.weight(1f).testTag("mv_set_dur_${b}_${i}_$s"),
                         onValueChange = { v -> duration = v.filter { it.isDigit() }.take(4)
                             val secs = duration.toIntOrNull()?.coerceIn(1, 3600)
@@ -778,8 +904,9 @@ private fun WodMovementsEditor(
                             else set.remove("targetDurationSeconds")
                             EditorBlockOps.writeSetsToMovement(m, sets, machine); onEdited() })
                 }
-                if (!machine) OutlinedTextField(value = kg, singleLine = true,
-                    label = { Text(if (hspuDeficit) "Déficit (cm)" else "Kg") },
+                if (!machine) ReperaNumericField(
+                    value = kg,
+                    label = if (hspuDeficit) "Déficit (cm)" else "Kg",
                     modifier = Modifier.weight(1f).testTag("mv_set_kg_${b}_${i}_$s"),
                     onValueChange = { v -> kg = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
                         val parsed = dev.repera.domain.ReperaNumberFormat.parse(kg)
@@ -791,8 +918,9 @@ private fun WodMovementsEditor(
                             val display = dev.repera.domain.Effort.fromRIR(it, effortUnit)
                             if (display % 1.0 == 0.0) display.toInt().toString() else display.toString()
                         } else "") }
-                    OutlinedTextField(value = rir, singleLine = true,
-                        label = { Text(dev.repera.domain.Effort.displayName(effortUnit)) },
+                    ReperaNumericField(
+                        value = rir,
+                        label = dev.repera.domain.Effort.displayName(effortUnit),
                         modifier = Modifier.weight(1f).testTag("mv_set_rir_${b}_${i}_$s"),
                         onValueChange = { v -> rir = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)
                             val p = dev.repera.domain.ReperaNumberFormat.parse(rir)
@@ -818,34 +946,44 @@ private fun WodMovementsEditor(
         var dist by remember(id) { mutableStateOf(if (!machine && m.has("distanceMeters") && !m.isNull("distanceMeters")) m.optInt("distanceMeters").toString() else "") }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             var male by remember(id) { mutableStateOf(if (m.has("weightMaleKg") && !m.isNull("weightMaleKg")) m.getDouble("weightMaleKg").toString() else "") }
-            if (!machine) OutlinedTextField(value = male, singleLine = true, label = { Text("Peso H (kg)") },
+            if (!machine) ReperaNumericField(
+                value = male,
+                label = "Peso H (kg)",
                 modifier = Modifier.weight(1f).testTag("mv_male_${b}_$i"),
                 onValueChange = { v -> male = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
                     val p = dev.repera.domain.ReperaNumberFormat.parse(male)
                     if (p != null) {
                         m.put("weightMaleKg", p)
-                        // Apple applyMovementWeightToEmptySets: solo series sin peso.
                         for (k in 0 until sets.length()) sets.getJSONObject(k).let { st ->
                             if (!st.has("targetWeightKg") || st.isNull("targetWeightKg")) st.put("targetWeightKg", p) }
                         EditorBlockOps.writeSetsToMovement(m, sets, machine); onChanged()
                     } else { m.remove("weightMaleKg"); onEdited() } })
-            OutlinedTextField(value = female, singleLine = true, label = { Text("Peso M (kg)") },
+            ReperaNumericField(
+                value = female,
+                label = "Peso M (kg)",
                 modifier = Modifier.weight(1f).testTag("mv_female_${b}_$i"),
                 onValueChange = { v -> female = v.filter { it.isDigit() || it == '.' || it == ',' }.take(7)
                     val p = dev.repera.domain.ReperaNumberFormat.parse(female)
                     if (p != null) m.put("weightFemaleKg", p) else m.remove("weightFemaleKg"); onEdited() })
-            if (!machine) OutlinedTextField(value = dist, singleLine = true, label = { Text("Metros") },
+            if (!machine) ReperaNumericField(
+                value = dist,
+                label = "Metros",
+                allowsDecimal = false,
                 modifier = Modifier.weight(1f).testTag("mv_dist_${b}_$i"),
                 onValueChange = { v -> dist = v.filter { it.isDigit() }.take(4)
                     val p = dist.toIntOrNull()?.coerceIn(0, 5000)
                     if (p != null && p > 0) m.put("distanceMeters", p) else m.remove("distanceMeters"); onEdited() })
         }
-        OutlinedTextField(value = scale, singleLine = true, label = { Text("Escala alternativa") },
-            modifier = Modifier.fillMaxWidth().testTag("mv_scale_${b}_$i"),
-            onValueChange = { scale = it; if (it.isEmpty()) m.remove("scaleAlternative") else m.put("scaleAlternative", it); onEdited() })
-        OutlinedTextField(value = notes, singleLine = true, label = { Text("Notas") },
-            modifier = Modifier.fillMaxWidth().testTag("mv_notes_${b}_$i"),
-            onValueChange = { notes = it; if (it.isEmpty()) m.remove("notes") else m.put("notes", it); onEdited() })
+        ReperaMetaTextField(
+            caption = "Escala alternativa",
+            value = scale,
+            onValueChange = { scale = it; if (it.isEmpty()) m.remove("scaleAlternative") else m.put("scaleAlternative", it); onEdited() },
+            modifier = Modifier.testTag("mv_scale_${b}_$i"))
+        ReperaMetaTextField(
+            caption = "Notas",
+            value = notes,
+            onValueChange = { notes = it; if (it.isEmpty()) m.remove("notes") else m.put("notes", it); onEdited() },
+            modifier = Modifier.testTag("mv_notes_${b}_$i"))
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -858,8 +996,11 @@ private fun WodMovementsEditor(
             val filtered = remember(q, catalog) { if (n.isBlank()) catalog else catalog.filter { foldForSearch(it.name).contains(n) } }
             AlertDialog(onDismissRequest = { picking = false }, title = { Text("Añadir movimiento") },
                 text = { Column {
-                    OutlinedTextField(value = q, onValueChange = { q = it }, singleLine = true,
-                        label = { Text("Buscar en todo el catálogo") }, modifier = Modifier.fillMaxWidth().testTag("mv_search"))
+                    ReperaMetaTextField(
+                        caption = "Buscar en todo el catálogo",
+                        value = q,
+                        onValueChange = { q = it },
+                        modifier = Modifier.testTag("mv_search"))
                     androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 320.dp)) {
                         items(filtered.size, key = { filtered[it].id }) { idx ->
                             val e = filtered[idx]

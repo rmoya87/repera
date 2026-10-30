@@ -66,14 +66,32 @@ struct RootTabView: View {
                 }
             }
             // Observe Equatable chrome — not the full `activeSession` graph.
-            .tabBarMinimizeBehavior(store.hasActiveSession ? .onScrollDown : .never)
+            // En Comenzar no se muestra Continuar de Live (ya estás ahí); sí el de Play.
+            .tabBarMinimizeBehavior(continueModelForCurrentTab != nil ? .onScrollDown : .never)
             .modifier(ContinueAccessoryModifier(
-                model: store.continueAccessory,
+                model: continueModelForCurrentTab,
                 onContinue: {
-                    previewRoutine = nil
-                    flowPath = [.sessionPreview(routineId: nil)]
+                    if store.continueAccessory?.isLiveActivity == true {
+                        flowPath = []
+                        tab = .start
+                    } else {
+                        previewRoutine = nil
+                        flowPath = [.sessionPreview(routineId: nil)]
+                    }
                 }
             ))
+            // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
+            .onChange(of: LiveActivityRecorder.shared.phase) { _, _ in
+                store.refreshContinueChrome()
+            }
+            .task(id: LiveActivityRecorder.shared.isActive) {
+                store.refreshContinueChrome()
+                guard LiveActivityRecorder.shared.isActive else { return }
+                while !Task.isCancelled, LiveActivityRecorder.shared.isActive {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    store.refreshContinueChrome()
+                }
+            }
 
             if let root = flowPath.first {
                 NavigationStack(path: flowTailBinding) {
@@ -186,6 +204,13 @@ struct RootTabView: View {
         }
     }
 
+    /// Continuar encima del menú: en la pestaña Comenzar solo Play (no Live).
+    private var continueModelForCurrentTab: ContinueAccessoryModel? {
+        guard let model = store.continueAccessory else { return nil }
+        if tab == .start, model.isLiveActivity { return nil }
+        return model
+    }
+
     private var flowTailBinding: Binding<[WorkoutFlowRoute]> {
         Binding(
             get: { Array(flowPath.dropFirst()) },
@@ -271,6 +296,11 @@ struct RootTabView: View {
             flowPath = [.sessionPreview(routineId: nil)]
             return
         }
+        if LiveActivityRecorder.shared.isActive {
+            flowPath = []
+            tab = .start
+            return
+        }
         guard let today = store.routineForToday() else {
             showStartHub = true
             return
@@ -296,31 +326,7 @@ private struct ContinueAccessoryModifier: ViewModifier {
     func body(content: Content) -> some View {
         if let model {
             content.tabViewBottomAccessory {
-                Button(action: onContinue) {
-                    HStack(spacing: 12) {
-                        ContinueAccessoryThumb(name: model.thumbName)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Continuar")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(OG.label2)
-                            Text(model.title)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .lineLimit(1)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        Text(model.progressLabel)
-                            .font(.system(size: 13, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(OG.accent)
-                    }
-                    .padding(.horizontal, OG.pad)
-                    .padding(.vertical, 2)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Continuar \(model.title)")
+                ContinueAccessoryContent(model: model, onContinue: onContinue)
             }
         } else {
             content
@@ -328,18 +334,74 @@ private struct ContinueAccessoryModifier: ViewModifier {
     }
 }
 
+/// Mismos componentes en expanded e inline; toda el área es clicable.
+private struct ContinueAccessoryContent: View {
+    var model: ContinueAccessoryModel
+    var onContinue: () -> Void
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    private var isInline: Bool { placement == .inline }
+
+    var body: some View {
+        Button(action: onContinue) {
+            HStack(spacing: isInline ? 10 : 12) {
+                ContinueAccessoryThumb(
+                    name: model.thumbName,
+                    sportSymbol: model.sportSymbol,
+                    isLiveActivity: model.isLiveActivity,
+                    compact: isInline
+                )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Continuar")
+                        .font(.system(size: isInline ? 11 : 12, weight: .medium))
+                        .foregroundStyle(OG.label2)
+                    Text(model.title)
+                        .font(.system(size: isInline ? 14 : 16, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 6)
+                Text(model.progressLabel)
+                    .font(.system(size: isInline ? 12 : 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(model.isLiveActivity ? OG.orange : OG.accent)
+            }
+            .padding(.horizontal, isInline ? 10 : OG.pad)
+            .padding(.vertical, isInline ? 6 : 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .accessibilityLabel("Continuar \(model.title)")
+    }
+}
+
 private struct ContinueAccessoryThumb: View {
     var name: String?
+    var sportSymbol: String? = nil
+    var isLiveActivity: Bool = false
+    var compact: Bool = false
     @State private var image: UIImage?
+
+    private var size: CGFloat { compact ? 36 : 40 }
 
     var body: some View {
         Group {
-            if let image {
+            if let image, !isLiveActivity {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 40, height: 40)
+                    .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else if isLiveActivity {
+                ZStack {
+                    Circle().fill(OG.orange)
+                    Image(systemName: sportSymbol ?? "figure.run")
+                        .font(.system(size: compact ? 15 : 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: size, height: size)
             } else {
                 ZStack {
                     Circle().fill(OG.accent.opacity(0.2))
@@ -347,11 +409,11 @@ private struct ContinueAccessoryThumb: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(OG.accent)
                 }
-                .frame(width: 40, height: 40)
+                .frame(width: size, height: size)
             }
         }
         .task(id: name) {
-            guard let name else {
+            guard let name, !isLiveActivity else {
                 image = nil
                 return
             }

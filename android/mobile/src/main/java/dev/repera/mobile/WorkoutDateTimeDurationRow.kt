@@ -1,14 +1,20 @@
 package dev.repera.mobile
 
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -25,10 +32,11 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 private val dayDisplayFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val metaBoxShape = RoundedCornerShape(11.dp)
 
 /**
- * Fecha | Hora | Duración en una fila. Fecha en `dd/MM/yyyy` con teclado
- * numérico Repera; hora con picker; duración con teclado numérico.
+ * Fecha | Hora | Duración en un único cuadro (paridad iOS surface2).
+ * Mientras el teclado está abierto el campo muestra el borrador en vivo.
  */
 @Composable
 internal fun WorkoutDateTimeDurationRow(
@@ -49,29 +57,50 @@ internal fun WorkoutDateTimeDurationRow(
     val dayLabel = day.format(dayDisplayFmt)
     val timeLabel = "%02d:%02d".format(time.hour, time.minute)
 
-    var showDatePad by remember { mutableStateOf(false) }
-    var dateDraft by remember { mutableStateOf(dayLabel.replace("/", "")) }
     var showDurationPad by remember { mutableStateOf(false) }
     var durationDraft by remember { mutableStateOf(durationMinutes.toString()) }
+
+    val durationShown = if (showDurationPad) {
+        val d = durationDraft.filter(Char::isDigit)
+        if (d.isEmpty()) "" else "$d min"
+    } else "$durationMinutes min"
+
+    val boxBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val divider = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(metaBoxShape)
+            .background(boxBg)
             .testTag("workout_meta_datetime"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        MetaNumericColumn(
+        MetaUnifiedCell(
             caption = "Fecha",
             value = dayLabel,
             testTag = dayTestTag,
             modifier = Modifier.weight(1.15f),
             onClick = {
-                dateDraft = dayLabel.replace("/", "")
-                showDatePad = true
+                DatePickerDialog(
+                    ctx,
+                    { _, y, m, d ->
+                        onDayIso(LocalDate.of(y, m + 1, d).toString())
+                    },
+                    day.year,
+                    day.monthValue - 1,
+                    day.dayOfMonth
+                ).show()
             }
         )
-        MetaNumericColumn(
+        Box(
+            Modifier
+                .width(1.dp)
+                .height(36.dp)
+                .background(divider)
+        )
+        MetaUnifiedCell(
             caption = "Hora",
             value = timeLabel,
             testTag = timeTestTag,
@@ -86,9 +115,15 @@ internal fun WorkoutDateTimeDurationRow(
                 ).show()
             }
         )
-        MetaNumericColumn(
+        Box(
+            Modifier
+                .width(1.dp)
+                .height(36.dp)
+                .background(divider)
+        )
+        MetaUnifiedCell(
             caption = "Duración",
-            value = "$durationMinutes min",
+            value = durationShown,
             testTag = durationTestTag,
             modifier = Modifier.weight(1f),
             onClick = {
@@ -98,37 +133,77 @@ internal fun WorkoutDateTimeDurationRow(
         )
     }
 
-    if (showDatePad) {
-        ReperaNumericKeypadSheet(
-            title = "Fecha",
-            draft = dateDraft,
-            onDraftChange = { raw ->
-                dateDraft = raw.filter(Char::isDigit).take(8)
-            },
-            onDismiss = { showDatePad = false },
-            onCommit = { raw ->
-                val digits = raw.filter(Char::isDigit)
-                val parsed = parseDdMmYyyy(digits)
-                if (parsed != null) onDayIso(parsed.toString())
-                showDatePad = false
-            },
-            allowsDecimal = false,
-            showDraftPreview = false
-        )
-    }
     if (showDurationPad) {
         ReperaNumericKeypadSheet(
-            title = "Duración",
+            title = "Duración (min)",
             draft = durationDraft,
             onDraftChange = { durationDraft = it.filter(Char::isDigit).take(3) },
-            onDismiss = { showDurationPad = false },
+            onDismiss = {
+                durationDraft.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 600)
+                    ?.let(onDurationMinutes)
+                showDurationPad = false
+            },
             onCommit = { raw ->
-                raw.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 600)?.let(onDurationMinutes)
+                val mins = raw.filter(Char::isDigit).toIntOrNull()?.coerceIn(1, 600)
+                if (mins != null) onDurationMinutes(mins)
                 showDurationPad = false
             },
             allowsDecimal = false,
-            showDraftPreview = false
+            showDraftPreview = true
         )
+    }
+}
+
+/** Título editable con look meta (caption + fondo surface2). */
+@Composable
+internal fun WorkoutMetaTitleField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Entreno",
+    enabled: Boolean = true,
+    testTag: String = "workout_meta_title"
+) {
+    ReperaMetaTextField(
+        caption = "Nombre",
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        placeholder = placeholder,
+        enabled = enabled,
+        testTag = testTag
+    )
+}
+
+/** Notas del entreno con look meta (caption + fondo surface2). */
+@Composable
+internal fun WorkoutMetaNotesField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    testTag: String = "workout_meta_notes"
+) {
+    ReperaMetaTextField(
+        caption = "Notas",
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        placeholder = "Notas del entreno",
+        singleLine = false,
+        enabled = enabled,
+        testTag = testTag
+    )
+}
+
+/** `ddMMyyyy` → `dd/MM/yyyy` parcial mientras se teclea. */
+internal fun formatDdMmYyyyDraft(digits: String): String {
+    val d = digits.filter(Char::isDigit).take(8)
+    return buildString {
+        d.forEachIndexed { i, c ->
+            if (i == 2 || i == 4) append('/')
+            append(c)
+        }
     }
 }
 
@@ -148,7 +223,7 @@ internal fun parseDdMmYyyy(digits: String): LocalDate? {
 }
 
 @Composable
-private fun MetaNumericColumn(
+private fun MetaUnifiedCell(
     caption: String,
     value: String,
     testTag: String,
@@ -156,7 +231,10 @@ private fun MetaNumericColumn(
     onClick: () -> Unit
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .testTag(testTag),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
@@ -164,17 +242,11 @@ private fun MetaNumericColumn(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Box {
-            OutlinedTextField(
-                value = value,
-                onValueChange = {},
-                readOnly = true,
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(testTag)
-            )
-            Box(Modifier.matchParentSize().clickable(onClick = onClick))
-        }
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
     }
 }

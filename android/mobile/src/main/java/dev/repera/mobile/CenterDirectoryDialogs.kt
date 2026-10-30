@@ -27,7 +27,7 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
  LaunchedEffect(query,connected) {if(connected) {delay(350);onSearch(query)}}
  AlertDialog(onDismissRequest=onClose,title={Text("Buscar centro o entrenador")},
   text={Column(Modifier.verticalScroll(rememberScrollState())) {
-   OutlinedTextField(query,{query=it},label={Text("Nombre del centro o entrenador")},modifier=Modifier.testTag("center_directory_query"))
+   ReperaMetaTextField(caption="Nombre del centro o entrenador",value=query,onValueChange={query=it},testTag="center_directory_query")
    if(!connected) Text("La búsqueda estará disponible al recuperar la conexión.")
    else if(searching) CircularProgressIndicator()
    else if(rows.isEmpty()) ReperaEmptyState(
@@ -44,7 +44,7 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
    listOf("class" to "Clases / bono de sesiones","appointment" to "Entrenador personal","unlimited" to "Acceso ilimitado").forEach {(kind,label) ->
     Row {RadioButton(passKind==kind,{passKind=kind});TextButton(onClick={passKind=kind}) {Text(label)}}
    }
-   OutlinedTextField(note,{note=it},label={Text("Nota para el centro (opcional)")})
+   ReperaMetaTextField(caption="Nota para el centro (opcional)",value=note,onValueChange={note=it})
    Text("El centro confirmará el bono solicitado.")
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
   }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text("Vincularme y continuar")}},

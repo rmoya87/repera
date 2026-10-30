@@ -216,7 +216,7 @@ class WorkoutMirrorStore(
                 restoredBlockSnapshots = restoredBlocks)
         } catch (error: Exception) {
             Result(ok = false,
-                error = "La sincronización con Supabase está pendiente: " +
+                error = "La sincronización en la nube está pendiente: " +
                     (error.localizedMessage ?: ""))
         }
     }

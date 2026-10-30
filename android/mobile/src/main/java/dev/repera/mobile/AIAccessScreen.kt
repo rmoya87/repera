@@ -279,10 +279,11 @@ fun AIAccessScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    OutlinedTextField(
-                        value = tokenName, onValueChange = { tokenName = it },
-                        label = { Text("Nombre del acceso (ej. Mi entrenador IA)") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    ReperaMetaTextField(
+                        caption = "Nombre del acceso (ej. Mi entrenador IA)",
+                        value = tokenName,
+                        onValueChange = { tokenName = it }
+                    )
                     ExposedDropdownMenuBox(expanded = expiryMenu,
                         onExpandedChange = { expiryMenu = it }) {
                         OutlinedTextField(

@@ -24,11 +24,11 @@ internal data class ManualMirrorSyncState(
 internal val LocalManualMirrorSync = staticCompositionLocalOf { ManualMirrorSyncState() }
 
 internal object ManualMirrorSyncText {
-    const val NOT_CONNECTED = "No hay una sesión activa de Supabase. Reconecta tu cuenta en Ajustes."
-    const val IDLE = "Los entrenos finalizados se guardan localmente y se envían a Supabase al conectarte."
+    const val NOT_CONNECTED = "No hay una sesión activa en la nube. Reconecta tu cuenta en Ajustes."
+    const val IDLE = "Los entrenos finalizados se guardan en este dispositivo y se sincronizan al conectar tu cuenta."
     /** Apple: error > última sincronización > texto inicial. */
     fun footer(state: ManualMirrorSyncState): String = state.error
-        ?: state.lastSyncAtText?.let { "Última sincronización con Supabase: $it · ${state.mirroredCount} registros remotos" }
+        ?: state.lastSyncAtText?.let { "Última sincronización: $it · ${state.mirroredCount} registros remotos" }
         ?: IDLE
 }
 

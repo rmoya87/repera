@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,12 +26,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -426,12 +423,10 @@ internal fun StandaloneTimerScreen(
             onDismissRequest = { showSaveDialog = false },
             title = { Text("Guardar en favoritos") },
             text = {
-                OutlinedTextField(
+                ReperaMetaTextField(
+                    caption = "Nombre",
                     value = saveTitle,
-                    onValueChange = { saveTitle = it },
-                    label = { Text("Nombre") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { saveTitle = it }
                 )
             },
             confirmButton = {
@@ -700,16 +695,15 @@ private fun IntRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(title, modifier = Modifier.weight(1f))
-        TextField(
+        ReperaNumericField(
             value = value.toString(),
             onValueChange = { input ->
                 input.filter(Char::isDigit).toIntOrNull()?.let {
                     if (it in range) onValue(it)
                 }
             },
-            label = { Text("RONDAS") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            label = "RONDAS",
+            allowsDecimal = false,
             modifier = Modifier.width(110.dp)
         )
     }
@@ -729,28 +723,26 @@ private fun TimeRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(title, modifier = Modifier.weight(1f))
-        TextField(
+        ReperaNumericField(
             value = minutes.toString(),
             onValueChange = { input ->
                 input.filter(Char::isDigit).toIntOrNull()?.let {
                     if (it in 0..maxMinutes) onMinutes(it)
                 }
             },
-            label = { Text("MIN") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            label = "MIN",
+            allowsDecimal = false,
             modifier = Modifier.width(100.dp)
         )
-        TextField(
+        ReperaNumericField(
             value = seconds.toString(),
             onValueChange = { input ->
                 input.filter(Char::isDigit).toIntOrNull()?.let {
                     if (it in 0..59) onSeconds(it)
                 }
             },
-            label = { Text("SEG") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            label = "SEG",
+            allowsDecimal = false,
             modifier = Modifier.width(100.dp).padding(start = 8.dp)
         )
     }

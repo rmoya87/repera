@@ -1151,13 +1151,15 @@ struct HomeView: View {
     private func dayEntrenoStack(workouts: [WorkoutSession]) -> some View {
         let isToday = calendar.isDateInToday(selectedDay)
         let hasActive = isToday && store.hasActiveSession
+        let hasLive = isToday && LiveActivityRecorder.shared.isActive
+        let hasInProgress = hasActive || hasLive
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
         let planned = plannedRoutinesForSelectedDay
         let businessBookings = selectedDayBusinessBookings
         let professionalPlans = selectedDayProfessionalSessions
 
         LazyVStack(spacing: 6) {
-            if hasActive {
+            if hasInProgress {
                 Button(action: onStart) {
                     dayActionRowContent
                 }
@@ -1170,7 +1172,12 @@ struct HomeView: View {
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     OGSwipeDeleteButton(accessibilityLabel: "Descartar entreno en curso") {
-                        store.endActiveSession(save: false)
+                        if hasActive {
+                            store.endActiveSession(save: false)
+                        } else if hasLive {
+                            LiveActivityRecorder.shared.discard()
+                            store.refreshContinueChrome()
+                        }
                     }
                 }
             }
@@ -1211,7 +1218,7 @@ struct HomeView: View {
                     .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
                 }
             }
-            if !hasActive && workouts.isEmpty && planned.isEmpty
+            if !hasInProgress && workouts.isEmpty && planned.isEmpty
                 && businessBookings.isEmpty && professionalPlans.isEmpty && !hasCompletedActivity {
                 emptyWorkoutCard
             }
@@ -1223,7 +1230,7 @@ struct HomeView: View {
 
             // El CTA ocupa siempre la misma posición si solo hay una ficha.
             // Cuando hay varias sesiones, el listado sí crece verticalmente.
-            if !hasActive {
+            if !hasInProgress {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
             }
@@ -1595,7 +1602,7 @@ struct HomeView: View {
     }
 
     private func startPlannedDayIfPossible() {
-        if calendar.isDateInToday(selectedDay), store.hasActiveSession {
+        if calendar.isDateInToday(selectedDay), store.hasWorkoutInProgress {
             onStart()
             return
         }
@@ -1625,7 +1632,7 @@ struct HomeView: View {
         let isToday = calendar.isDateInToday(selectedDay)
         let planned = plannedRoutineForSelectedDay
         return Button {
-            if isToday, store.hasActiveSession {
+            if isToday, store.hasWorkoutInProgress {
                 onStart()
             } else if let planned {
                 onStartRoutine(planned)
@@ -1642,6 +1649,7 @@ struct HomeView: View {
     private var dayActionRowContent: some View {
         let isToday = calendar.isDateInToday(selectedDay)
         let planned = plannedRoutineForSelectedDay
+        let inProgress = isToday && store.hasWorkoutInProgress
         return HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(todayIconBg)
@@ -1652,7 +1660,9 @@ struct HomeView: View {
                         .foregroundStyle(todayIconFg)
                 }
             VStack(alignment: .leading, spacing: 2) {
-                Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
+                Text(inProgress
+                     ? "EN CURSO"
+                     : WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(OG.label3)
                     .tracking(0.3)
@@ -1662,7 +1672,7 @@ struct HomeView: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if isToday, store.hasActiveSession {
+                if inProgress {
                     Text("Toca para continuar · desliza para eliminar")
                         .font(.system(size: 12))
                         .foregroundStyle(OG.label2)
@@ -1883,9 +1893,12 @@ struct HomeView: View {
     }
 
     private var selectedDayTitle: String {
-        if calendar.isDateInToday(selectedDay), store.hasActiveSession {
-            let name = store.continueAccessory?.title ?? "Entreno"
-            return "\(name) (en curso)"
+        if calendar.isDateInToday(selectedDay), store.hasWorkoutInProgress {
+            let name = store.continueAccessory?.title
+                ?? (LiveActivityRecorder.shared.isActive
+                    ? LiveActivityRecorder.shared.sport.title
+                    : "Entreno")
+            return name
         }
         if let done = workoutsOnSelectedDay.first {
             return done.title
@@ -1903,7 +1916,7 @@ struct HomeView: View {
 
     /// Hora a la derecha del día (no en el título) para dejar ancho al nombre del entreno.
     private var selectedDayTimeLabel: String? {
-        if calendar.isDateInToday(selectedDay), store.hasActiveSession {
+        if calendar.isDateInToday(selectedDay), store.hasWorkoutInProgress {
             return nil
         }
         if let done = workoutsOnSelectedDay.first, let start = done.startedAt {
@@ -1920,21 +1933,21 @@ struct HomeView: View {
     }
 
     private var todayIconBg: Color {
-        if calendar.isDateInToday(selectedDay), store.hasActiveSession { return OG.orange }
+        if calendar.isDateInToday(selectedDay), store.hasWorkoutInProgress { return OG.orange }
         if calendar.isDateInToday(selectedDay), store.routineForToday() != nil { return OG.accent }
         return OG.surface3
     }
 
     private var todayIconFg: Color {
         if calendar.isDateInToday(selectedDay),
-           store.hasActiveSession || store.routineForToday() != nil {
+           store.hasWorkoutInProgress || store.routineForToday() != nil {
             return Color.black
         }
         return OG.label2
     }
 
     private var todayIcon: String {
-        if calendar.isDateInToday(selectedDay), store.hasActiveSession { return "play.fill" }
+        if calendar.isDateInToday(selectedDay), store.hasWorkoutInProgress { return "play.fill" }
         if hasCompletedActivityOnSelectedDay { return "checkmark" }
         if plannedTitleForSelectedDay != nil { return "figure.strengthtraining.traditional" }
         return "moon.fill"

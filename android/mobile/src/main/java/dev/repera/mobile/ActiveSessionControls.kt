@@ -34,7 +34,7 @@ internal fun ActiveSessionControls(
     /** Cuando la toolbar de Play lleva chevrons (paridad WorkoutView). */
     showExerciseNav: Boolean = true,
     onConfigureBlockTimer: () -> Unit = {},
-    /** Si false, el timer vive en la cabecera de cada bloque (PlayBlockHeaderCard). */
+    /** Si false, el timer vive en BlockEditorCard (círculo a la izquierda de ⋯). */
     showBlockTimerInToolbar: Boolean = true,
     accountId: String = "",
     /** I-40 Sustituir / Eliminar ejercicio en Play. */
@@ -45,7 +45,6 @@ internal fun ActiveSessionControls(
     var choosing by remember { mutableStateOf(false) }
     var editingNotes by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
-    var confirmCancel by remember { mutableStateOf(false) }
     var showSubstitute by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
     val noteScope = remember(accountId, active.id) { org.json.JSONArray(listOf(accountId, active.id)).toString() }
@@ -102,7 +101,9 @@ internal fun ActiveSessionControls(
             ) {
                 Icon(
                     if (active.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                    contentDescription = if (active.isFavorite) "En favoritos" else "Favorito"
+                    contentDescription = if (active.isFavorite) "En favoritos" else "Favorito",
+                    tint = if (active.isFavorite) brandAmber
+                    else MaterialTheme.colorScheme.onSurface
                 )
             }
             Box {
@@ -130,14 +131,7 @@ internal fun ActiveSessionControls(
                             modifier = Modifier.testTag("active_remove_exercise")
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text("Cancelar entreno") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.MoreVert, contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error)
-                        },
-                        onClick = { menuOpen = false; confirmCancel = true }
-                    )
+                    // Cancelar solo desde el resumen (✓ → Descartar).
                 }
             }
         }
@@ -165,21 +159,6 @@ internal fun ActiveSessionControls(
             }
         )
     }
-    if (confirmCancel) {
-        AlertDialog(
-            onDismissRequest = { confirmCancel = false },
-            title = { Text("¿Cancelar entreno?") },
-            text = { Text("Se borra la sesión en curso sin guardarla. No aparecerá en el historial.") },
-            confirmButton = {
-                TextButton(onClick = { confirmCancel = false; onDiscard() }) {
-                    Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmCancel = false }) { Text("Seguir entrenando") }
-            }
-        )
-    }
     if(choosing) AlertDialog(onDismissRequest={choosing=false},title={Text("Ejercicios y bloques")},
         text={Column(Modifier.verticalScroll(rememberScrollState())) {
             active.navigationEntries.forEach {entry ->
@@ -189,7 +168,7 @@ internal fun ActiveSessionControls(
             }
         }},confirmButton={TextButton(onClick={choosing=false}) {Text("Cerrar")}})
     if(editingNotes) AlertDialog(onDismissRequest={editingNotes=false},title={Text("Notas del entreno")},
-        text={OutlinedTextField(notes,{notes=it},modifier=Modifier.testTag("active_notes_input"),label={Text("Notas")})},
+        text={ReperaMetaTextField(caption="Notas",value=notes,onValueChange={notes=it},modifier=Modifier.testTag("active_notes_input"))},
         confirmButton={TextButton(enabled=!busy,onClick={editingNotes=false;onNotes(notes)}) {Text("Guardar notas")}},
         dismissButton={TextButton(onClick={notes=active.notes.orEmpty();editingNotes=false}) {Text("Cancelar")}})
 }

@@ -2031,10 +2031,18 @@ final class ReperaStore: NSObject {
         }
     }
 
+    /// Refresco del accesorio Continuar (fuerza o Comenzar) desde fuera del store.
+    func refreshContinueChrome() {
+        publishSessionChrome()
+    }
+
     private func publishSessionChrome() {
         let active = state.activeSession
+        let live = LiveActivityRecorder.shared
         let nextHas = active != nil
+        // Continuar encima del menú: fuerza O Comenzar.
         let nextAccessory = ContinueAccessoryModel(session: active)
+            ?? ContinueAccessoryModel(liveRecorder: live)
         var changed = false
         if hasActiveSession != nextHas {
             hasActiveSession = nextHas

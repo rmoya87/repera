@@ -100,7 +100,11 @@ internal fun ExercisesTab(
     onNavigateHome: () -> Unit,
     modifier: Modifier = Modifier,
     accountId: String = "", onArchiveChanged: () -> Unit = {},
-    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
+    onUpdateFinishedWorkout: (
+        String,
+        WorkoutRepository.FinishedWorkoutEdit,
+        List<RoutineBlockDraft>?
+    ) -> Unit = { _, _, _ -> },
     heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() },
     exerciseSummary:(String)->dev.repera.domain.ExerciseHistorySummary? = { null },
     exerciseSeries:(String,ExerciseProgressMetric,ExerciseProgressRange)->List<ExerciseProgressPoint> = {_,_,_->emptyList()},
@@ -221,9 +225,10 @@ internal fun ExercisesTab(
                     busy = busy,
                     exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                     effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                    importableRoutines = overview?.routineEntries.orEmpty(),
                     onBack = { editingLiveSession = false },
-                    onSave = { edit ->
-                        onUpdateFinishedWorkout(detail.id, edit)
+                    onSave = { edit, drafts ->
+                        onUpdateFinishedWorkout(detail.id, edit, drafts)
                         editingLiveSession = false
                     }
                 )
@@ -267,7 +272,7 @@ internal fun ExercisesTab(
                             exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                             effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
                             onOpenFullEditor = { editingLiveSession = true },
-                            onSave = { edit -> onUpdateFinishedWorkout(detail.id, edit) }
+                            onSave = { edit -> onUpdateFinishedWorkout(detail.id, edit, null) }
                         )
                     }
                 }

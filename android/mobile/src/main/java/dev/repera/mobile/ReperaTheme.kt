@@ -29,14 +29,15 @@ fun ReperaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    // Ripple suave y acotado: evita el cuadrado negro agresivo al pulsar tabs/filas.
+    // Ripple M3 suave (onSurface, no negro sólido): evita el cuadrado negro
+    // al pulsar tabs/filas; alphas bajos como el estado pressed de Android.
     val ripple = RippleConfiguration(
-        color = if (darkTheme) Color.White else Color.Black,
+        color = if (darkTheme) Color.White else Color(0xFF1C1C1E),
         rippleAlpha = RippleAlpha(
-            draggedAlpha = 0.08f,
-            focusedAlpha = 0.08f,
+            draggedAlpha = 0.06f,
+            focusedAlpha = 0.06f,
             hoveredAlpha = 0.04f,
-            pressedAlpha = 0.12f
+            pressedAlpha = 0.08f
         )
     )
     CompositionLocalProvider(LocalRippleConfiguration provides ripple) {

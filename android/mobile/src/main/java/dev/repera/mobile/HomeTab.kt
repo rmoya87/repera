@@ -106,10 +106,16 @@ internal fun HomeTab(
     clockMinimized: Boolean = false,
     onExpandClock: () -> Unit = {},
     onOpenActiveSession: () -> Unit = {},
+    /** Continuar actividad Comenzar (en-vivo). */
+    onOpenLiveActivity: () -> Unit = {},
     onFinish: () -> Unit,
     onDiscardSession: () -> Unit = {},
     accountId: String = "",
-    onUpdateFinishedWorkout: (String, WorkoutRepository.FinishedWorkoutEdit) -> Unit = { _, _ -> },
+    onUpdateFinishedWorkout: (
+        String,
+        WorkoutRepository.FinishedWorkoutEdit,
+        List<RoutineBlockDraft>?
+    ) -> Unit = { _, _, _ -> },
     onActivePinChange: (dev.repera.domain.WorkoutLocationPin?) -> Unit = {},
     onInitializeLocal: () -> Unit,
     onImportJson: () -> Unit,
@@ -249,6 +255,31 @@ internal fun HomeTab(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // En curso (fuerza o Comenzar) sustituye el icono verde por play ámbar.
+                    val isToday = day == LocalDate.now()
+                    val homeContext = androidx.compose.ui.platform.LocalContext.current
+                    val livePending = isToday && accountId.isNotBlank() &&
+                        LiveActivityRuntime.hasPendingActivity(homeContext, accountId)
+                    val liveTitle = if (livePending && accountId.isNotBlank()) {
+                        runCatching {
+                            LiveActivityRuntime.forAccount(homeContext, accountId).state.sport.title
+                        }.getOrNull() ?: "Actividad en vivo"
+                    } else "Actividad en vivo"
+                    if (isToday && activeWorkout != null) {
+                        HomeInProgressCard(
+                            title = activeWorkout.exerciseName.ifBlank {
+                                activeWorkout.title.ifBlank { "Entreno" }
+                            },
+                            subtitle = "${activeWorkout.index + 1}/${activeWorkout.total}",
+                            onClick = onOpenActiveSession
+                        )
+                    } else if (livePending) {
+                        HomeInProgressCard(
+                            title = liveTitle,
+                            subtitle = "Comenzar",
+                            onClick = onOpenLiveActivity
+                        )
+                    }
                     dayWorkouts.forEach { workout ->
                         HomeSwipeRevealCard(
                             key = workout.id,
@@ -412,156 +443,7 @@ internal fun HomeTab(
             }
         }
 
-        item {
-            if (activeWorkout != null) {
-                key(activeWorkout.id, activeWorkout.index, activeWorkout.completedSets) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        var showBlockTimer by remember(activeWorkout.id, activeWorkout.index) {
-                            mutableStateOf(false)
-                        }
-                        if (showBlockTimer) {
-                            val rounds = (activeWorkout.wod?.rounds
-                                ?: activeWorkout.prescribedQuantity ?: 3).coerceAtLeast(1)
-                            BlockTimerConfigSheet(
-                                rounds = rounds,
-                                initialWorkSeconds = activeWorkout.wod?.workSeconds ?: 60,
-                                initialRestSeconds = activeWorkout.wod?.restSeconds
-                                    ?: activeWorkout.wod?.restBetweenRoundsSeconds ?: 0,
-                                onDismiss = { showBlockTimer = false },
-                                onStart = { _, _ ->
-                                    showBlockTimer = false
-                                    onWodTimerAction("start")
-                                    onOpenClock()
-                                }
-                            )
-                        }
-                        if (clockMinimized && activeWorkout.wod != null && wodTimer != null) {
-                            MinimizedWodClockBar(
-                                active = activeWorkout,
-                                timer = wodTimer,
-                                busy = busy,
-                                onExpand = onExpandClock,
-                                onTimerAction = onWodTimerAction,
-                                onTimerTick = onWodTimerTick
-                            )
-                        }
-                        // I-44 card espejo «Sesión en curso» (shot 58) → abre Play.
-                        ReperaCard(
-                            onClick = onOpenActiveSession,
-                            modifier = Modifier.fillMaxWidth().testTag("home_active_session_mirror")
-                        ) {
-                            Row(
-                                Modifier.padding(16.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "Sesión en curso",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        activeWorkout.title.ifBlank { "Entreno" },
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        "Ahora: ${activeWorkout.exerciseName} · ${activeWorkout.index + 1}/${activeWorkout.total}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Box(
-                                    Modifier
-                                        .size(48.dp)
-                                        .background(Color(0xFFFF9F0A), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.PlayArrow,
-                                        contentDescription = "Continuar",
-                                        tint = Color.Black
-                                    )
-                                }
-                            }
-                        }
-                        ActiveSessionControls(
-                            active = activeWorkout,
-                            busy = busy,
-                            onSelect = onSelectActiveExercise,
-                            onNotes = onUpdateActiveNotes,
-                            onFavorite = onSaveActiveFavorite,
-                            onEdit = onEditActivePlan,
-                            onDiscard = onDiscardSession,
-                            onConfigureBlockTimer = { showBlockTimer = true },
-                            accountId = accountId,
-                            catalog = overview?.exerciseEntries.orEmpty(),
-                            onSubstituteExercise = onSubstituteActiveExercise,
-                            onRemoveExercise = onRemoveActiveExercise
-                        )
-                        if (activeWorkout.wod != null) {
-                            WodScoreCard(
-                                active = activeWorkout,
-                                busy = busy,
-                                timer = wodTimer,
-                                onTimerAction = onWodTimerAction,
-                                onTimerTick = onWodTimerTick,
-                                onSave = onWodScore,
-                                onMovement = onWodMovement,
-                                onCompleteBlock = onCompleteWodBlock,
-                                onReviseMovement = onReviseWodMovement,
-                                onDeleteMovement = onDeleteWodMovement,
-                                onFinish = onFinish,
-                                onDiscard = onDiscardSession,
-                                onOpenClock = onOpenClock
-                            )
-                        } else {
-                            ActiveWorkoutCard(
-                                effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
-                                weightUnit = overview?.trainingSettings?.weightUnit ?: "kg",
-                                active = activeWorkout,
-                                busy = busy,
-                                onLogSet = onLogSet,
-                                onLogDropSet = onLogDropSet,
-                                onLogRestPauseSet = onLogRestPauseSet,
-                                onReviseSet = onReviseSet,
-                                onDeleteSet = onDeleteSet,
-                                onNext = onNext,
-                                onFinish = onFinish,
-                                onDiscard = onDiscardSession
-                            )
-                        }
-                        // R5 P1-10: solo lugar elegido (no pin GPS anónimo).
-                        val activePin = overview?.activeLocationPin?.takeIf { it.hasChosenPlace }
-                        ReperaCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            if (activePin != null) {
-                                WorkoutPlacePickerRow(
-                                    pin = activePin,
-                                    accountId = accountId,
-                                    onPinChange = onActivePinChange
-                                )
-                            } else {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text("Lugar", style = MaterialTheme.typography.titleMedium)
-                                    WorkoutPlacePickerRow(
-                                        pin = null,
-                                        accountId = accountId,
-                                        onPinChange = onActivePinChange
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Play / Comenzar en curso: solo ficha EN CURSO arriba + Continuar sobre el menú.
     }
     }
 }

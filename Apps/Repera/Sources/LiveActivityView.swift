@@ -2009,6 +2009,11 @@ struct LiveActivityView: View {
     /// Una suscripción caducada nunca restaura la perspectiva 3D.
     private var navigation3DAllowed: Bool { subscriptions.policy.canUse3DNavigation }
     private var effectiveNavigation3D: Bool { navigationMapEnabled && navigation3DAllowed }
+
+    /// Continuar de Play encima del menú en esta pestaña: subir controles.
+    private var continueChromeLift: CGFloat {
+        store.hasActiveSession ? 72 : 0
+    }
     @State private var checkingNavigation3DAccess = false
     @State private var navigation3DVerificationFailed = false
 
@@ -2322,7 +2327,7 @@ struct LiveActivityView: View {
                             .frame(width: 44, alignment: .trailing)
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 10 + continueChromeLift)
 
                     if recorder.phase == .idle {
                         VStack {
@@ -2331,7 +2336,7 @@ struct LiveActivityView: View {
                                 .frame(maxWidth: 570)
                                 .frame(maxWidth: .infinity)
                                 .padding(.horizontal, 14)
-                                .padding(.bottom, 10)
+                                .padding(.bottom, 10 + continueChromeLift)
                         }
                     }
                 } else {
@@ -2356,7 +2361,7 @@ struct LiveActivityView: View {
                         }
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 10 + continueChromeLift)
                 }
             }
             // Apple: el MAPA puede llegar al borde físico, pero su
@@ -2940,7 +2945,7 @@ struct LiveActivityView: View {
                         .frame(maxWidth: 570)
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 14)
-                        .padding(.bottom, 10)
+                        .padding(.bottom, 10 + continueChromeLift)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -6,7 +6,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,16 +13,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -75,7 +75,9 @@ internal fun FavoritesHubScreen(
     val context = LocalContext.current
     val timerStore = remember { StandaloneTimerStore(context) }
     var favoriteTimers by remember { mutableStateOf(timerStore.favorites()) }
-    val favorites = overview?.routineEntries.orEmpty().filter { it.isFavorite }
+    // Hub: plantillas ★ sin día (las del calendario solo apuntan con favoriteTemplateId).
+    val favorites = overview?.routineEntries.orEmpty()
+        .filter { it.isFavorite && it.scheduledDate == null }
     val sportFavorites = overview?.favoriteSportActivities.orEmpty()
         .takeIf { targetDate == null }.orEmpty()
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
@@ -120,89 +122,57 @@ internal fun FavoritesHubScreen(
         }
         if (favorites.isNotEmpty()) {
             item { ReperaSectionTitle("Entrenos") }
-        }
-        items(favorites, key = { "favhub:" + it.id }) { routine ->
-            FavoriteSwipeCard(
-                enabled = !busy,
-                onEdit = { onEditFavoriteWorkout(routine.id) },
-                onDeleteReveal = {
-                    pendingDeleteTitle = routine.title
-                    pendingDeleteId = routine.id
-                },
-                onClick = {
-                    if (targetDate != null) onAssignRoutineToDate(routine.id, targetDate)
-                    else if (activeWorkout == null) onStartRoutine(routine.id)
-                }
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            Modifier
-                                .size(44.dp)
-                                .background(brandGreen.copy(alpha = 0.14f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Outlined.Star,
-                                contentDescription = null,
-                                tint = brandGreen,
-                                modifier = Modifier.size(22.dp)
+            item {
+                ReperaInsetGroupedList(modifier = Modifier.testTag("fav_entrenos_group")) {
+                    favorites.forEachIndexed { index, routine ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                                modifier = Modifier.padding(start = 70.dp)
                             )
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                routine.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                buildString {
-                                    val n = routine.blocks.size
-                                    append(if (n == 1) "1 bloque" else "$n bloques")
-                                    append(" · ")
-                                    append(
-                                        if (targetDate != null) "Añadir al día"
-                                        else "Empezar"
-                                    )
-                                },
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    if (targetDate == null) {
-                        Text(
-                            "Programado",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        FavoriteSwipeRow(
+                            enabled = !busy,
+                            onEdit = { onEditFavoriteWorkout(routine.id) },
+                            onDeleteReveal = {
+                                pendingDeleteTitle = routine.title
+                                pendingDeleteId = routine.id
+                            },
+                            onClick = {
+                                if (targetDate != null) onAssignRoutineToDate(routine.id, targetDate)
+                                else if (activeWorkout == null) onStartRoutine(routine.id)
+                            }
                         ) {
-                            ReperaFilterChip(
-                                selected = routine.weekday == null && routine.scheduledDate == null,
-                                enabled = !busy,
-                                modifier = Modifier.testTag("fav_weekday_none_" + routine.id),
-                                onClick = { onSetWeekday(routine, null) },
-                                label = { Text("Solo favorito") }
-                            )
-                            listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { i, d ->
-                                ReperaFilterChip(
-                                    selected = routine.weekday == i + 1,
-                                    enabled = !busy,
-                                    modifier = Modifier.testTag(
-                                        "fav_weekday_" + (i + 1) + "_" + routine.id
-                                    ),
-                                    onClick = { onSetWeekday(routine, i + 1) },
-                                    label = { Text(d) }
-                                )
+                            Column {
+                                FavoriteRoutineListRow(routine = routine)
+                                if (targetDate == null) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier
+                                            .horizontalScroll(rememberScrollState())
+                                            .padding(start = 70.dp, end = 14.dp, bottom = 10.dp)
+                                    ) {
+                                        ReperaFilterChip(
+                                            selected = routine.weekday == null &&
+                                                routine.scheduledDate == null,
+                                            enabled = !busy,
+                                            modifier = Modifier.testTag("fav_weekday_none_" + routine.id),
+                                            onClick = { onSetWeekday(routine, null) },
+                                            label = { Text("Solo favorito") }
+                                        )
+                                        listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { i, d ->
+                                            ReperaFilterChip(
+                                                selected = routine.weekday == i + 1,
+                                                enabled = !busy,
+                                                modifier = Modifier.testTag(
+                                                    "fav_weekday_" + (i + 1) + "_" + routine.id
+                                                ),
+                                                onClick = { onSetWeekday(routine, i + 1) },
+                                                label = { Text(d) }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -211,21 +181,54 @@ internal fun FavoritesHubScreen(
         }
         if (sportFavorites.isNotEmpty()) {
             item { ReperaSectionTitle("Actividades") }
-            items(sportFavorites, key = { "favsport:" + it.id }) { activity ->
-                ReperaCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !busy) { onOpenSport(activity.sportID) }
-                        .testTag("fav_sport_" + activity.id)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(activity.title, style = MaterialTheme.typography.titleMedium)
+            item {
+                ReperaInsetGroupedList {
+                    sportFavorites.forEachIndexed { index, activity ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !busy) { onOpenSport(activity.sportID) }
+                                .testTag("fav_sport_" + activity.id)
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(activity.title, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Iniciar otra actividad del mismo tipo",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (favoriteTimers.isNotEmpty()) {
+            item { ReperaSectionTitle("Temporizadores") }
+            item {
+                ReperaInsetGroupedList {
+                    favoriteTimers.forEachIndexed { index, timer ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                            )
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !busy) { onOpenTimer(timer.id) }
+                                .padding(16.dp)
+                        ) {
+                            Text(timer.title, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Iniciar otra actividad del mismo tipo",
+                                timer.config.shortLabel,
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -234,44 +237,32 @@ internal fun FavoritesHubScreen(
                 }
             }
         }
-        if (favoriteTimers.isNotEmpty()) {
-            item { ReperaSectionTitle("Temporizadores") }
-            items(favoriteTimers, key = { "favtimer:" + it.id }) { timer ->
-                ReperaCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !busy) { onOpenTimer(timer.id) }
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text(timer.title, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            timer.config.shortLabel,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+        item { ReperaSectionTitle("Crear") }
+        item {
+            ReperaInsetGroupedList(modifier = Modifier.testTag("fav_crear_group")) {
+                FavoriteCreateRow(
+                    icon = Icons.Outlined.Star,
+                    title = "Entrenamiento",
+                    subtitle = "Plantilla reutilizable desde Añadir entreno",
+                    enabled = !busy,
+                    testTag = "fav_create_workout",
+                    accent = brandAmber,
+                    onClick = onCreateFavoriteWorkout
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                    modifier = Modifier.padding(start = 70.dp)
+                )
+                FavoriteCreateRow(
+                    icon = Icons.Outlined.Timer,
+                    title = "Temporizador",
+                    subtitle = "Configura y guarda con «Guardar en favoritos»",
+                    enabled = !busy,
+                    testTag = "fav_create_timer",
+                    accent = brandGreen,
+                    onClick = { onOpenTimer(null) }
+                )
             }
-        }
-        item {
-            FavoriteCreateRow(
-                icon = Icons.Outlined.Star,
-                title = "Crear entreno favorito",
-                subtitle = "Plantilla reutilizable desde Añadir entreno",
-                enabled = !busy,
-                testTag = "fav_create_workout",
-                onClick = onCreateFavoriteWorkout
-            )
-        }
-        item {
-            FavoriteCreateRow(
-                icon = Icons.Outlined.Timer,
-                title = "Crear temporizador favorito",
-                subtitle = "Configura y guarda con «Guardar en favoritos»",
-                enabled = !busy,
-                testTag = "fav_create_timer",
-                onClick = { onOpenTimer(null) }
-            )
         }
     }
 }
@@ -283,51 +274,61 @@ private fun FavoriteCreateRow(
     subtitle: String,
     enabled: Boolean,
     testTag: String,
+    accent: Color,
     onClick: () -> Unit
 ) {
-    ReperaCard(
-        modifier = Modifier
+    Row(
+        Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
             .testTag(testTag)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(
+        Box(
             Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                .size(44.dp)
+                .background(accent.copy(alpha = 0.18f), CircleShape),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(28.dp)
+                tint = accent,
+                modifier = Modifier.size(22.dp)
             )
-            Column(Modifier.weight(1f)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
 /**
  * Swipe L→R: círculo azul + lápiz (editar).
  * Swipe R→L: círculo rojo + basura; al pulsar confirma borrado.
+ * Sin card propia: va dentro del grupo inset.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FavoriteSwipeCard(
+private fun FavoriteSwipeRow(
     enabled: Boolean,
     onEdit: () -> Unit,
     onDeleteReveal: () -> Unit,
@@ -393,10 +394,11 @@ private fun FavoriteSwipeCard(
             }
         }
     ) {
-        ReperaCard(
-            modifier = Modifier
+        Box(
+            Modifier
                 .fillMaxWidth()
                 .clickable(enabled = enabled, onClick = onClick)
+                .background(MaterialTheme.colorScheme.surface)
         ) {
             content()
         }

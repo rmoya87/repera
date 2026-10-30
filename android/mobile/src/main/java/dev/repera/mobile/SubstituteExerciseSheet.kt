@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -83,12 +82,11 @@ internal fun SubstituteExerciseSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
+                ReperaMetaTextField(
+                    caption = "Buscar",
                     value = query,
                     onValueChange = { query = it },
-                    singleLine = true,
-                    label = { Text("Buscar") },
-                    modifier = Modifier.fillMaxWidth().testTag("substitute_search")
+                    modifier = Modifier.testTag("substitute_search")
                 )
                 LazyColumn(
                     Modifier.heightIn(max = 360.dp).testTag("substitute_list"),

@@ -27,6 +27,8 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timer
@@ -48,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -63,7 +66,6 @@ import java.util.Locale
 
 private val registerCardShape = RoundedCornerShape(12.dp)
 private val chipShape = RoundedCornerShape(8.dp)
-private val iconCircle = Color(0xFFD4F5DE)
 
 /** «ENTRENO · 7:11» (hoy) o «VIERNES · 7:11» (iOS WorkoutListCaption / RegisterSessionChrome). */
 internal fun homeDayTimeCaption(day: LocalDate, timeLabel: String?): String {
@@ -112,12 +114,17 @@ internal fun HomeRegisterChip(text: String, icon: ImageVector) {
 }
 
 @Composable
-internal fun HomeRegisterLeadingIcon(icon: ImageVector, tint: Color = brandGreen) {
+internal fun HomeRegisterLeadingIcon(
+    icon: ImageVector,
+    tint: Color = brandGreen,
+    /** Paridad iOS: círculo = tint @ 22 %. Día libre / vacío → gris, no verde. */
+    circleColor: Color = tint.copy(alpha = 0.22f)
+) {
     Box(
         modifier = Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(iconCircle),
+            .background(circleColor),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
@@ -211,18 +218,12 @@ internal fun HomeSwipeRevealCard(
         ) { content() }
     }
     if (confirmDelete) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Eliminar") },
-            text = { Text("Esta acción no se puede deshacer.") },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete() }) {
-                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
-            }
+        ReperaConfirmSheet(
+            title = "¿Eliminar entreno?",
+            message = "Esta acción no se puede deshacer.",
+            confirmTitle = "Eliminar",
+            onConfirm = { confirmDelete = false; onDelete() },
+            onCancel = { confirmDelete = false }
         )
     }
 }
@@ -234,7 +235,8 @@ internal fun HomeDayRegisterCard(
     leadingIcon: ImageVector,
     chips: List<Pair<ImageVector, String>>,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    leadingIconTint: Color = brandGreen,
 ) {
     Column(
         modifier = modifier
@@ -249,7 +251,7 @@ internal fun HomeDayRegisterCard(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            HomeRegisterLeadingIcon(leadingIcon)
+            HomeRegisterLeadingIcon(leadingIcon, tint = leadingIconTint)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     caption,
@@ -287,13 +289,64 @@ internal fun HomeDayRegisterCard(
 
 @Composable
 internal fun HomeEmptyDayCard(day: LocalDate) {
-    HomeDayRegisterCard(
-        caption = homeDayTimeCaption(day, null),
-        title = "Sin entrenamientos programados",
-        leadingIcon = Icons.Outlined.EventBusy,
-        chips = listOf(Icons.Outlined.Schedule to "Día libre · puedes añadir un entrenamiento"),
-        onClick = {}
-    )
+    // Paridad iOS emptyWorkoutCard: icono gris, subtítulo sin chip.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(registerCardShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f), registerCardShape)
+            .padding(vertical = 10.dp)
+            .testTag("home_empty_day")
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            HomeRegisterLeadingIcon(
+                Icons.Outlined.EventBusy,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    homeDayTimeCaption(day, null),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.3.sp,
+                        fontSize = 11.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Sin entrenamientos programados",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 17.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        // Pegado al título (iOS padding.top 2); icono/fondo grises vía tint.
+        Row(
+            modifier = Modifier
+                .padding(start = 70.dp, end = 14.dp, top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Icon(
+                Icons.Outlined.NightsStay,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Día libre · puedes añadir un entrenamiento",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
@@ -336,6 +389,30 @@ internal fun HomeCompletedWorkoutCard(
     )
 }
 
+/**
+ * Ficha «en curso» en el listado del día (paridad dayActionRow iOS):
+ * círculo naranja + play, título del ejercicio, tap → Play / Comenzar.
+ */
+@Composable
+internal fun HomeInProgressCard(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    HomeDayRegisterCard(
+        caption = "EN CURSO",
+        title = title,
+        leadingIcon = Icons.Filled.PlayArrow,
+        chips = if (subtitle.isNotBlank()) {
+            listOf(Icons.Outlined.Schedule to subtitle)
+        } else emptyList(),
+        onClick = onClick,
+        modifier = modifier.testTag("home_in_progress_card"),
+        leadingIconTint = brandAmber
+    )
+}
+
 @Composable
 internal fun HomePlannedRoutineCard(
     routine: RoutineEntry,
@@ -348,12 +425,15 @@ internal fun HomePlannedRoutineCard(
             add(Icons.Outlined.FitnessCenter to "${routine.blocks.size} bloq.")
         }
     }
+    // Solo realizados (historial) van en verde; planificados siempre gris.
+    val tint = MaterialTheme.colorScheme.onSurfaceVariant
     HomeDayRegisterCard(
         caption = homeDayTimeCaption(day, time),
         title = routine.title,
         leadingIcon = Icons.Outlined.FitnessCenter,
         chips = chips,
-        onClick = onClick
+        onClick = onClick,
+        leadingIconTint = tint
     )
 }
 

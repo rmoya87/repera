@@ -1333,9 +1333,9 @@ struct WorkoutView: View {
 
                         PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)
                             .id(entry.id)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
                             .listRowBackground(OG.surface)
-                            .listRowSeparator(.hidden)
+                            .listRowSeparator(.hidden, edges: .top)
                     }
 
                     if block.indexes.contains(session.currentIndex),

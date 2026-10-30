@@ -691,8 +691,9 @@ struct WorkoutPlacePickerRow: View {
                         WorkoutPlaceSummaryRow(pin: pin)
                     }
                     .background(OG.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                    // Esquinas rectas (mapa + franja del lugar) a bleed de card.
+                    .clipShape(Rectangle())
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Editar lugar: \(pin.name?.nilIfBlank ?? "mapa")")

@@ -175,6 +175,9 @@ struct DayEditorView: View {
             if usesPageCloseHeader {
                 OGScrollablePageTitle(navTitle).ogScrollingTitleListRow()
             }
+            // Una sola caja meta: título + fecha/hora/duración + lugar + notas + favorito
+            // (crear / editar / play / histórico). Sin «Datos del entreno realizado» ni
+            // el pie «Edita los datos…».
             Section {
                 TextField(nameFieldPlaceholder, text: $routine.title)
                 switch mode {
@@ -193,27 +196,56 @@ struct DayEditorView: View {
                     }
                 case .oneOff:
                     oneOffDateTimeDurationRow
+                    editorPlaceRow(pin: $routine.locationPin)
                     Toggle("Favorito", isOn: $routine.isFavorite)
+                        .tint(OG.accent)
                 case .favorite:
                     Toggle("Favorito", isOn: $routine.isFavorite)
                         .disabled(true)
+                        .tint(OG.accent)
                     Text("Puedes volver a utilizar este entreno desde Añadir entreno → Favoritos.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                     scheduledTimeControls
                 case .session:
-                    if onApplyDraft == nil {
-                        Toggle("Favorito", isOn: $saveAsFavorite)
+                    if onApplyCompleted != nil {
+                        completedDateTimeDurationRow
+                        if completedWorkoutDraft?.routePoints.isEmpty == true {
+                            editorCompletedPlaceRow
+                        }
+                        if completedWorkoutDraft?.liveSportID != nil {
+                            Toggle("Registrar nuevas series como realizadas", isOn: $recordNewSetsAsPerformed)
+                                .tint(OG.accent)
+                            Text("Comprueba las repeticiones, pesos y RIR. Solo al activarlo, las series añadidas se reflejan como resultados reales en Progreso. Las calorías y el pulso registrados no se suman otra vez.")
+                                .font(.footnote)
+                                .foregroundStyle(OG.label2)
+                        }
+                        TextField("Notas del entreno", text: Binding(
+                            get: { completedDetails?.notes ?? "" },
+                            set: { completedDetails?.notes = $0.isEmpty ? nil : $0 }
+                        ), axis: .vertical)
+                        .lineLimit(2...5)
+                        if onApplyDraft == nil {
+                            Toggle("Favorito", isOn: $saveAsFavorite)
+                                .tint(OG.accent)
+                        }
+                    } else {
+                        editorPlaceRow(pin: $routine.locationPin)
+                        if onApplyDraft == nil {
+                            Toggle("Favorito", isOn: $saveAsFavorite)
+                                .tint(OG.accent)
+                        }
                     }
                 }
             } footer: {
                 switch mode {
                 case .session:
-                    Text(onApplyCompleted != nil
-                         ? "Edita los datos registrados sin modificar la rutina programada."
-                         : onApplyDraft == nil
-                            ? "Empieza la sesión ahora. Puedes añadir entrenos para otros días desde Inicio."
-                            : "Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
+                    // Sin pie entre meta unificada; solo aviso al revisar pizarra.
+                    if onApplyCompleted != nil || onApplyDraft == nil {
+                        EmptyView()
+                    } else {
+                        Text("Los cambios se aplican al revisar la pizarra; aún no se guarda el día.")
+                    }
                 case .favorite:
                     Text("Los favoritos se reutilizan desde Añadir entreno → Favoritos.")
                 case .oneOff:
@@ -223,52 +255,10 @@ struct DayEditorView: View {
                 }
             }
 
-            if onApplyCompleted != nil {
+            // Lugar aparte solo en plantillas (plan / favorito); crear/editar/play van en la meta.
+            if showsStandalonePlaceSection {
                 Section {
-                    completedDateTimeDurationRow
-                    if completedWorkoutDraft?.routePoints.isEmpty == true {
-                        let hasPlace = completedWorkoutDraft?.locationPin != nil
-                        WorkoutPlacePickerRow(
-                            pin: Binding(
-                                get: { completedWorkoutDraft?.locationPin },
-                                set: { newValue in
-                                    ensureCompletedWorkoutDraft()
-                                    completedDetails?.locationPin = newValue
-                                }
-                            ),
-                            showsExistingAnonymousPin: true
-                        )
-                        .listRowInsets(
-                            hasPlace
-                            ? EdgeInsets()
-                            : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
-                        )
-                        .listRowBackground(hasPlace ? Color.clear : OG.surface)
-                    }
-                    if completedWorkoutDraft?.liveSportID != nil {
-                        Toggle("Registrar nuevas series como realizadas", isOn: $recordNewSetsAsPerformed)
-                            .tint(OG.accent)
-                        Text("Comprueba las repeticiones, pesos y RIR. Solo al activarlo, las series añadidas se reflejan como resultados reales en Progreso. Las calorías y el pulso registrados no se suman otra vez.")
-                            .font(.footnote)
-                            .foregroundStyle(OG.label2)
-                    }
-                    TextField("Notas del entreno", text: Binding(
-                        get: { completedDetails?.notes ?? "" },
-                        set: { completedDetails?.notes = $0.isEmpty ? nil : $0 }
-                    ), axis: .vertical)
-                    .lineLimit(2...5)
-                } header: {
-                    Text("Datos del entreno realizado")
-                }
-            }
-
-            if onApplyCompleted == nil {
-                Section {
-                    // Mapa a bleed (clear + insets 0); sin lugar → tarjeta blanca «Añadir lugar».
-                    let hasChosenPlace = routine.locationPin?.hasChosenPlace == true
-                    WorkoutPlacePickerRow(pin: $routine.locationPin)
-                        .listRowInsets(hasChosenPlace ? EdgeInsets() : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                        .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
+                    editorPlaceRow(pin: $routine.locationPin)
                 } header: {
                     Text("Lugar")
                 }
@@ -1053,6 +1043,49 @@ struct DayEditorView: View {
         }
     }
 
+    /// Crear / editar día / play llevan el lugar en la meta; plan y favorito
+    /// mantienen la sección «Lugar» aparte.
+    private var showsStandalonePlaceSection: Bool {
+        guard onApplyCompleted == nil else { return false }
+        switch mode {
+        case .plan, .favorite: return true
+        case .oneOff, .session: return false
+        }
+    }
+
+    @ViewBuilder
+    private func editorPlaceRow(pin: Binding<WorkoutLocationPin?>) -> some View {
+        let hasChosenPlace = pin.wrappedValue?.hasChosenPlace == true
+        WorkoutPlacePickerRow(pin: pin)
+            .listRowInsets(
+                hasChosenPlace
+                ? EdgeInsets()
+                : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+            )
+            .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
+    }
+
+    @ViewBuilder
+    private var editorCompletedPlaceRow: some View {
+        let hasPlace = completedWorkoutDraft?.locationPin != nil
+        WorkoutPlacePickerRow(
+            pin: Binding(
+                get: { completedWorkoutDraft?.locationPin },
+                set: { newValue in
+                    ensureCompletedWorkoutDraft()
+                    completedDetails?.locationPin = newValue
+                }
+            ),
+            showsExistingAnonymousPin: true
+        )
+        .listRowInsets(
+            hasPlace
+            ? EdgeInsets()
+            : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        )
+        .listRowBackground(hasPlace ? Color.clear : OG.surface)
+    }
+
     private var navTitle: String {
         if onApplyDraft != nil || onApplyCompleted != nil { return "Editar entreno" }
         switch mode {
@@ -1379,80 +1412,211 @@ struct DayEditorView: View {
 
     @ViewBuilder
     private var oneOffDateTimeDurationRow: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Fecha").font(.caption).foregroundStyle(OG.label2)
-                DatePicker(
-                    "",
-                    selection: oneOffDateTimeBinding,
-                    displayedComponents: .date
-                )
-                .labelsHidden()
-                .tint(OG.accent)
+        dateTimeDurationRow(
+            date: oneOffDateTimeBinding,
+            durationDisplay: "\(oneOffPlannedDurationMinutes) min",
+            onDurationMinus: {
+                oneOffPlannedDurationMinutes = max(1, oneOffPlannedDurationMinutes - 5)
+            },
+            onDurationPlus: {
+                oneOffPlannedDurationMinutes = min(600, oneOffPlannedDurationMinutes + 5)
+            },
+            onDurationCommit: { text in
+                let digits = text.filter(\.isNumber)
+                if let v = Int(digits) {
+                    oneOffPlannedDurationMinutes = min(600, max(1, v))
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Hora").font(.caption).foregroundStyle(OG.label2)
-                DatePicker(
-                    "",
-                    selection: oneOffDateTimeBinding,
-                    displayedComponents: .hourAndMinute
-                )
-                .labelsHidden()
-                .tint(OG.accent)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Duración").font(.caption).foregroundStyle(OG.label2)
-                Stepper(
-                    "\(oneOffPlannedDurationMinutes) min",
-                    value: $oneOffPlannedDurationMinutes,
-                    in: 1...600,
-                    step: 5
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        )
     }
 
     @ViewBuilder
     private var completedDateTimeDurationRow: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Fecha").font(.caption).foregroundStyle(OG.label2)
-                DatePicker(
-                    "",
-                    selection: completedDateBinding(isEnd: false),
-                    displayedComponents: .date
-                )
-                .labelsHidden()
-                .tint(OG.accent)
+        dateTimeDurationRow(
+            date: completedDateBinding(isEnd: false),
+            durationDisplay: "\(completedDurationMinutes) min",
+            onDurationMinus: {
+                completedDurationMinutesBinding.wrappedValue =
+                    max(1, completedDurationMinutes - 1)
+            },
+            onDurationPlus: {
+                completedDurationMinutesBinding.wrappedValue =
+                    min(600, completedDurationMinutes + 1)
+            },
+            onDurationCommit: { text in
+                let digits = text.filter(\.isNumber)
+                if let v = Int(digits) {
+                    completedDurationMinutesBinding.wrappedValue = min(600, max(1, v))
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Hora").font(.caption).foregroundStyle(OG.label2)
-                DatePicker(
-                    "",
-                    selection: completedDateBinding(isEnd: false),
-                    displayedComponents: .hourAndMinute
-                )
-                .labelsHidden()
-                .tint(OG.accent)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Duración").font(.caption).foregroundStyle(OG.label2)
-                Stepper(
-                    "\(completedDurationMinutes) min",
-                    value: completedDurationMinutesBinding,
-                    in: 1...600,
-                    step: 1
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        )
     }
 
+    /// Fecha / Hora / Duración en un único cuadro surface2 (como inputs de
+    /// ejercicio); tap → picker de fecha, hora o teclado numérico.
+    private func dateTimeDurationRow(
+        date: Binding<Date>,
+        durationDisplay: String,
+        onDurationMinus: @escaping () -> Void,
+        onDurationPlus: @escaping () -> Void,
+        onDurationCommit: @escaping (String) -> Void
+    ) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            MetaDateTimeCell(
+                caption: "Fecha",
+                text: Self.metaDayFormatter.string(from: date.wrappedValue),
+                components: .date,
+                date: date
+            )
+            metaCellDivider
+            MetaDateTimeCell(
+                caption: "Hora",
+                text: Self.metaTimeFormatter.string(from: date.wrappedValue),
+                components: .hourAndMinute,
+                date: date
+            )
+            metaCellDivider
+            MetaDurationCell(
+                caption: "Duración",
+                display: durationDisplay,
+                onCommitText: onDurationCommit
+            )
+        }
+        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        // API de steppers conservada por call sites; el campo usa teclado.
+        .onAppear { _ = onDurationMinus; _ = onDurationPlus }
+        .accessibilityElement(children: .contain)
+        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+    }
+
+    private var metaCellDivider: some View {
+        Rectangle()
+            .fill(OG.surface3.opacity(0.85))
+            .frame(width: 1)
+            .padding(.vertical, 10)
+    }
+
+    private static let metaDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "dd/MM/yyyy"
+        return f
+    }()
+
+    private static let metaTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+}
+
+/// Celda dentro del cuadro único: caption + valor; tap abre DatePicker.
+private struct MetaDateTimeCell: View {
+    var caption: String
+    var text: String
+    var components: DatePickerComponents
+    @Binding var date: Date
+    @State private var open = false
+
+    var body: some View {
+        Button { open = true } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                Text(text)
+                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $open) {
+            NavigationStack {
+                Group {
+                    if components == .date {
+                        DatePicker("", selection: $date, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                    } else {
+                        DatePicker("", selection: $date, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                    }
+                }
+                .labelsHidden()
+                .tint(OG.accent)
+                .padding()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Listo") { open = false }
+                    }
+                }
+                .navigationTitle(components == .date ? "Fecha" : "Hora")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .presentationDetents(components == .date ? [.medium, .large] : [.height(280)])
+            .ogSheetCorners()
+        }
+    }
+}
+
+/// Celda de duración dentro del mismo cuadro; tap → teclado numérico Repera.
+private struct MetaDurationCell: View {
+    var caption: String
+    var display: String
+    var onCommitText: (String) -> Void
+    @State private var editing = false
+    @State private var draft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(OG.label2)
+            Group {
+                if editing {
+                    OGNumericTextField(
+                        text: $draft,
+                        allowsDecimal: false,
+                        textAlignment: .left,
+                        fontSize: 16,
+                        autoFocus: true,
+                        onFocusLost: { commit() },
+                        onCommit: { commit() }
+                    )
+                    .onChange(of: draft) { _, value in
+                        onCommitText(value.trimmingCharacters(in: .whitespacesAndNewlines))
+                    }
+                } else {
+                    Text(display)
+                        .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(OG.label)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            draft = display.filter(\.isNumber)
+                            editing = true
+                        }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+    }
+
+    private func commit() {
+        onCommitText(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+        editing = false
+    }
+}
+
+extension DayEditorView {
     /// No interpretar un estado Gratis antiguo como prueba de que Pro caducó.
     /// Consultar de nuevo las compras verificadas antes de bloquear una rutina.
     @discardableResult
@@ -1675,6 +1839,7 @@ struct DayEditorView: View {
                         Text("Metros").tag(ExerciseQuantityUnit.meters)
                     }
                     .pickerStyle(.segmented)
+                    .listRowSeparator(.hidden)
                 }
 
                 OGSetEntryHeader(
@@ -1691,7 +1856,7 @@ struct DayEditorView: View {
                                 ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
                     showsRIR: ex.loggingStyle.usesRIR
                 )
-                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 4, trailing: 16))
+                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 4, trailing: 16))
                 .listRowSeparator(.hidden, edges: .top)
 
                 ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, plannedSet in
@@ -2076,15 +2241,6 @@ struct DayEditorView: View {
                 // Ya se registran los datos reales junto al título y miniatura.
                 EmptyView()
             } else {
-                if isEditingCompletedWorkout {
-                    let logged = completedWorkoutDraft?.exercises.first(where: { $0.id == move.id
-                        || ($0.blockId == routine.blocks[index].id
-                            && $0.exercise.name.localizedCaseInsensitiveCompare(move.name) == .orderedSame)
-                    })?.loggedSets.isEmpty == false
-                    Text(logged ? "Series registradas" : "Sin series registradas · prescripción")
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                }
                 InlineWODMovementSets(
                     movement: Binding(
                         get: { routine.blocks[index].movements[mIndex] },
@@ -2093,6 +2249,8 @@ struct DayEditorView: View {
                     block: routine.blocks[index],
                     openedSetID: $openedSetID
                 )
+                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+                .listRowSeparator(.hidden, edges: .top)
             }
         }
 

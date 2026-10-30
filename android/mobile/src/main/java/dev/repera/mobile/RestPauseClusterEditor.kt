@@ -1,10 +1,8 @@
 package dev.repera.mobile
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 /** No nested card: the caller already owns section margins and background. */
@@ -21,12 +19,22 @@ internal fun RestPauseClusterEditor(clusters:List<Pair<Int,Int>>,reps:String,res
             }
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(reps,{onReps(it.filter(Char::isDigit))},label={Text("REPS")},
-                modifier=Modifier.weight(1f),singleLine=true,enabled=!busy,
-                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
-            OutlinedTextField(rest,{onRest(it.filter(Char::isDigit))},label={Text("DESCANSO")},suffix={Text("s")},
-                modifier=Modifier.weight(1f),singleLine=true,enabled=!busy,
-                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
+            ReperaNumericField(
+                value = reps,
+                onValueChange = { onReps(it.filter(Char::isDigit)) },
+                label = "REPS",
+                allowsDecimal = false,
+                enabled = !busy,
+                modifier = Modifier.weight(1f)
+            )
+            ReperaNumericField(
+                value = rest,
+                onValueChange = { onRest(it.filter(Char::isDigit)) },
+                label = "DESCANSO (s)",
+                allowsDecimal = false,
+                enabled = !busy,
+                modifier = Modifier.weight(1f)
+            )
         }
         val r=reps.toIntOrNull();val seconds=rest.toIntOrNull()
         OutlinedButton(onClick={if(r!=null && seconds!=null) onAdd(r,seconds)},
