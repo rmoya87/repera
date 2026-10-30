@@ -2010,10 +2010,10 @@ struct LiveActivityView: View {
     private var navigation3DAllowed: Bool { subscriptions.policy.canUse3DNavigation }
     private var effectiveNavigation3D: Bool { navigationMapEnabled && navigation3DAllowed }
 
-    /// Continuar de Play encima del menú en esta pestaña: subir controles.
-    private var continueChromeLift: CGFloat {
-        store.hasActiveSession ? 72 : 0
-    }
+    /// El TabView ya mete el accessory Continuar en el safe area inferior.
+    /// Solo hace falta la misma holgura de 10 pt que frente al menú; un lift
+    /// extra duplicaba el hueco entre Carrera/… y Continuar.
+    private var continueChromeLift: CGFloat { 0 }
     @State private var checkingNavigation3DAccess = false
     @State private var navigation3DVerificationFailed = false
 
@@ -3521,9 +3521,9 @@ struct LiveActivityView: View {
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
+    /// Horas solo si > 0; dígito de hora sin cero a la izquierda (1:05:09, no 01:05:09).
     private func formattedTime(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        return String(format: "%02d:%02d:%02d", total / 3600, (total / 60) % 60, total % 60)
+        LiveActivityClock.format(seconds)
     }
 
     private func smallMetric(_ label: String, value: String, prominent: Bool = false) -> some View {
@@ -4162,11 +4162,7 @@ private struct LiveRouteLibraryDetailView: View {
     }
 
     private func clock(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        if total >= 3600 {
-            return String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
-        }
-        return String(format: "%02d:%02d", total / 60, total % 60)
+        LiveActivityClock.format(seconds)
     }
 
     private func region(for points: [WorkoutRoutePoint]) -> MKCoordinateRegion {

@@ -271,7 +271,8 @@ internal fun ReperaContinueAccessory(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                // Fondo blanco se prolonga por detrás de la píldora (sin corte gris).
+                .padding(start = 14.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -322,12 +323,26 @@ internal fun ReperaContinueAccessory(
                 )
             }
             if (progress.isNotEmpty()) {
-                Text(
-                    progress,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = accent
-                )
+                val lines = progress.split('\n')
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        lines.first(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accent,
+                        maxLines = 1
+                    )
+                    if (lines.size > 1) {
+                        Text(
+                            lines.drop(1).joinToString(" "),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
     }
@@ -355,7 +370,7 @@ internal fun ReperaTabBarChrome(
             .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
     ) {
         if (continueTitle != null) {
-            // Encima del menú con un pequeño «corte» (~8 dp) visible entre ambos.
+            // Continuar detrás del menú: el blanco tapa el hueco bajo la píldora.
             ReperaContinueAccessory(
                 title = continueTitle,
                 progress = continueProgress,
@@ -365,7 +380,7 @@ internal fun ReperaTabBarChrome(
                 liveSportIcon = continueLiveIcon,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 64.dp)
+                    .padding(bottom = 28.dp)
                     .zIndex(0f)
             )
         }

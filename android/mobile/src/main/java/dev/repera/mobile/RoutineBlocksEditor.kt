@@ -1212,11 +1212,36 @@ private fun EntryEditorRow(
         "calories" -> "cal"
         else -> "reps"
     }
-    val entryUnit: String? = if (weightedRepsOrMeters)
-        entry.unit ?: entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-            ?.optString("quantityUnit")?.takeIf { it == "reps" || it == "meters" || it == "calories" }
-            ?: dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
-    else null
+    fun quantityColumnHeader(u: String): String = when (u) {
+        "calories" -> "CAL"
+        "meters" -> "M"
+        else -> "REPS"
+    }
+    fun quantityFieldLabel(u: String): String = when (u) {
+        "calories" -> "Calorías"
+        "meters" -> "Metros"
+        else -> "Reps"
+    }
+    fun quantityPreviousSuffix(u: String): String = when (u) {
+        "calories" -> "cal"
+        "meters" -> "m"
+        else -> "rep"
+    }
+    fun resolveQuantityUnit(): String {
+        if (!unitChoices && !weightedRepsOrMeters) return "reps"
+        val src = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+        return entry.unit
+            ?: src?.optString("quantityUnit")?.takeIf {
+                it == "calories" || it == "meters" || it == "reps"
+            }
+            ?: if (weightedRepsOrMeters)
+                dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
+            else if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters"))
+                "meters"
+            else "calories"
+    }
+    val quantityUnit = resolveQuantityUnit()
+    val entryUnit: String? = if (unitChoices || weightedRepsOrMeters) quantityUnit else null
     // Series siempre visibles (sin «Cerrar series»).
     entry.setsExpanded = true
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1301,24 +1326,14 @@ private fun EntryEditorRow(
             )
             return@Column
         }
-        // Sin fila «Cantidad» suelta: las reps viven en la tabla de series.
+        // Sin fila «Cantidad» suelta: las reps/cal/m viven en la tabla de series.
         if (unitChoices || weightedRepsOrMeters) {
-            val src = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-            val current = entry.unit
-                ?: src?.optString("quantityUnit")?.takeIf {
-                    it == "calories" || it == "meters" || it == "reps"
-                }
-                ?: if (weightedRepsOrMeters)
-                    dev.repera.domain.ExerciseInput.defaultQuantityUnit(entry.name, null)
-                else if (src?.has("distanceMeters") == true && !src.isNull("distanceMeters"))
-                    "meters"
-                else "calories"
             val options = if (weightedRepsOrMeters) {
                 listOf("Repeticiones", "Metros")
             } else {
                 listOf("Calorías", "Metros")
             }
-            val selectedLabel = when (current) {
+            val selectedLabel = when (quantityUnit) {
                 "reps" -> "Repeticiones"
                 "calories" -> "Calorías"
                 else -> "Metros"
@@ -1327,11 +1342,16 @@ private fun EntryEditorRow(
                 options = options,
                 selected = selectedLabel,
                 onSelected = { label ->
-                    entry.unit = when (label) {
+                    val next = when (label) {
                         "Repeticiones" -> "reps"
                         "Calorías" -> "calories"
                         else -> "meters"
                     }
+                    entry.unit = next
+                    val o = entry.sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+                        ?: JSONObject()
+                    o.put("quantityUnit", next)
+                    entry.sourceJson = o.toString()
                 },
                 optionTestTag = { _, label ->
                     when (label) {
@@ -1367,7 +1387,7 @@ private fun EntryEditorRow(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "REPS",
+                    quantityColumnHeader(quantityUnit),
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.weight(0.9f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1397,7 +1417,8 @@ private fun EntryEditorRow(
                         val kg = prev.weightKg?.let {
                             "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×"
                         }.orEmpty()
-                        if (kg.isEmpty()) "${prev.reps} rep" else "$kg${prev.reps}"
+                        val suffix = quantityPreviousSuffix(quantityUnit)
+                        if (kg.isEmpty()) "${prev.reps} $suffix" else "$kg${prev.reps}"
                     } ?: "—"
                     Row(
                         Modifier
@@ -1441,7 +1462,7 @@ private fun EntryEditorRow(
                             modifier = Modifier.weight(0.9f),
                             useReperaKeypad = true,
                             allowsDecimal = false,
-                            fieldLabel = "Reps",
+                            fieldLabel = quantityFieldLabel(quantityUnit),
                             testTag = "plan_wod_set_reps_$idx"
                         )
                         CompactSetField(
@@ -1541,7 +1562,7 @@ private fun EntryEditorRow(
                 Text(
                     when {
                         mobility -> "SEG"
-                        weightedRepsOrMeters -> shortUnitLabel(entryUnit).uppercase()
+                        unitChoices || weightedRepsOrMeters -> quantityColumnHeader(quantityUnit)
                         else -> "REPS"
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -1591,7 +1612,8 @@ private fun EntryEditorRow(
                     val kg = prev.weightKg?.let {
                         "${dev.repera.domain.ReperaNumberFormat.decimal(it)}×"
                     } ?: ""
-                    if (kg.isEmpty()) "${prev.reps} rep" else "$kg${prev.reps}"
+                    val suffix = quantityPreviousSuffix(quantityUnit)
+                    if (kg.isEmpty()) "${prev.reps} $suffix" else "$kg${prev.reps}"
                 } ?: "—"
                 fun removeSetAt(index: Int) {
                     entry.plannedSets.removeAt(index)
@@ -1675,7 +1697,7 @@ private fun EntryEditorRow(
                             modifier = Modifier.weight(0.9f),
                             useReperaKeypad = true,
                             allowsDecimal = false,
-                            fieldLabel = if (mobility) "Segundos" else "Reps",
+                            fieldLabel = if (mobility) "Segundos" else quantityFieldLabel(quantityUnit),
                             testTag = if (mobility) "plan_set_duration_$index" else "plan_set_reps_$index"
                         )
                         if (showsRir) {

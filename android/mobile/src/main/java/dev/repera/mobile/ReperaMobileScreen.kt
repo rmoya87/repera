@@ -565,9 +565,25 @@ fun ReperaMobileScreen(
                         "${session.index + 1}/${session.total}"
                     livePending && liveRuntime != null -> {
                         val now = if (liveClock > 0L) liveClock else System.currentTimeMillis()
-                        val secs = liveRuntime.state.durationSeconds(now)
-                            .toInt().coerceAtLeast(0)
-                        "%d:%02d".format(secs / 60, secs % 60)
+                        val st = liveRuntime.state
+                        val secs = st.durationSeconds(now).toInt().coerceAtLeast(0)
+                        val duration = LiveActivityClock.format(secs)
+                        if (!st.sport.usesGPS) duration
+                        else {
+                            val average = st.averageSpeedKmh(now)
+                            val pace = when {
+                                average == null || average <= 0.1 ->
+                                    if (st.sport.displaysSpeed) "— km/h" else "—:—"
+                                st.sport.displaysSpeed ->
+                                    "${dev.repera.domain.ReperaNumberFormat.decimal(average)} km/h"
+                                else -> {
+                                    val p = (3600.0 / average).toInt()
+                                    if (p >= 3600) "—:—" else "%d:%02d /km".format(p / 60, p % 60)
+                                }
+                            }
+                            val km = "${dev.repera.domain.ReperaNumberFormat.decimal(st.distanceMeters / 1000.0)} km"
+                            "$duration\n$pace · $km"
+                        }
                     }
                     else -> ""
                 }

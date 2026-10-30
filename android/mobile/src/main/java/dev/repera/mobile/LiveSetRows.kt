@@ -165,7 +165,16 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
  val key=active.id+"|"+active.index
  val context = LocalContext.current
  val rows=remember(key) {mutableStateListOf<LiveRowSummary>().apply {addAll(initial)}}
- var unit by remember(key) {mutableStateOf(active.quantityUnit)}
+ fun coerceLiveUnit(raw: String): String = when {
+  active.repsMetersToggle -> if (raw == "meters") "meters" else "reps"
+  active.cardioToggle -> when (raw) {
+   "meters" -> "meters"
+   "calories" -> "calories"
+   else -> "calories"
+  }
+  else -> raw.ifBlank { "reps" }
+ }
+ var unit by remember(key) { mutableStateOf(coerceLiveUnit(active.quantityUnit)) }
  var edited by remember(key) {mutableStateOf(false)}
  // Results recorded outside these rows (Wear, classic form) show up as completed rows; otherwise the next edit would drop them.
  val known=remember(key) {HashSet<String>().apply {initial.forEach {add(it.id)}}}
@@ -184,6 +193,11 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
  // Hand the newest rows over at once; the activity keeps them in memory and saves them (debounced or before any other action).
  LaunchedEffect(key,rows.toList(),unit,edited) {
   if(edited) persist(active.id,active.index,LiveRowEdit.toDraftRows(rows.toList()),unit)
+ }
+ val unitSuffix = when (unit) {
+  "calories" -> "cal"
+  "meters" -> "m"
+  else -> "rep"
  }
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
   if (active.cardioToggle || active.repsMetersToggle) {
@@ -257,7 +271,7 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
       when {
        row.completed -> "Hecha"
        active.prescribedQuantity != null && active.prescribedQuantity > 0 ->
-        "${active.prescribedQuantity} rep"
+        "${active.prescribedQuantity} $unitSuffix"
        else -> "—"
       },
       style = MaterialTheme.typography.bodySmall,
@@ -268,11 +282,22 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
      CompactSetField(
       value = row.reps.toString(),
       onValueChange = { v ->
-       rows[i]=LiveRowEdit.reps(rows[i],v.filter(Char::isDigit),if(active.repsMetersToggle) {if(unit=="meters") 100000 else 50} else active.quantityCap)
+       val cap = when {
+        active.repsMetersToggle && unit == "meters" -> 100000
+        active.cardioToggle && unit == "calories" -> 2000
+        active.cardioToggle && unit == "meters" -> 100000
+        else -> active.quantityCap
+       }
+       rows[i]=LiveRowEdit.reps(rows[i],v.filter(Char::isDigit),cap)
        touch()
       },
       modifier = Modifier.weight(0.9f),
-      testTag = "set_reps_${i+1}"
+      testTag = "set_reps_${i+1}",
+      fieldLabel = when (unit) {
+       "calories" -> "Calorías"
+       "meters" -> "Metros"
+       else -> "Reps"
+      }
      )
      if (active.durationInput) {
       CompactSetField(

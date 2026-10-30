@@ -818,10 +818,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         showingMetrics && !showRoutes
     ) {
         val durationSec = state.durationSeconds(nowTick)
-        val durationText = run {
-            val total = maxOf(0, durationSec.toInt())
-            "%02d:%02d:%02d".format(total / 3600, (total / 60) % 60, total % 60)
-        }
+        val durationText = LiveActivityClock.format(durationSec)
         val average = state.averageSpeedKmh(nowTick)
         val paceOrSpeed = when {
             average == null || average <= 0.1 ->
@@ -1582,10 +1579,7 @@ private fun LiveKilometerSplitSummary(
 @Composable
 private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long) {
     val durationSec = state.durationSeconds(nowTick)
-    val durationText = run {
-        val total = maxOf(0, durationSec.toInt())
-        "%02d:%02d:%02d".format(total / 3600, (total / 60) % 60, total % 60)
-    }
+    val durationText = LiveActivityClock.format(durationSec)
     val average = state.averageSpeedKmh(nowTick)
     val paceOrSpeed = when {
         average == null || average <= 0.1 ->
@@ -1768,6 +1762,20 @@ private object LiveStartFeedback {
             vibrator?.vibrate(
                 android.os.VibrationEffect.createOneShot(250, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
             )
+        }
+    }
+}
+
+/** Reloj Comenzar: MM:SS bajo 1 h; H:MM:SS con hora sin cero a la izquierda. */
+internal object LiveActivityClock {
+    fun format(seconds: Double): String = format(seconds.toInt())
+    fun format(seconds: Long): String = format(seconds.toInt())
+    fun format(seconds: Int): String {
+        val total = maxOf(0, seconds)
+        return if (total >= 3600) {
+            "%d:%02d:%02d".format(total / 3600, (total / 60) % 60, total % 60)
+        } else {
+            "%02d:%02d".format((total / 60) % 60, total % 60)
         }
     }
 }

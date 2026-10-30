@@ -334,7 +334,7 @@ private struct ContinueAccessoryModifier: ViewModifier {
     }
 }
 
-/// Mismos componentes en expanded e inline; toda el área es clicable.
+/// Expanded (arriba) e inline (derecha del menú): mismos campos; toda el área clicable.
 private struct ContinueAccessoryContent: View {
     var model: ContinueAccessoryModel
     var onContinue: () -> Void
@@ -361,9 +361,30 @@ private struct ContinueAccessoryContent: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                Text(model.progressLabel)
-                    .font(.system(size: isInline ? 12 : 13, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(model.isLiveActivity ? OG.orange : OG.accent)
+                if model.isLiveActivity,
+                   model.paceLabel != nil || model.distanceLabel != nil {
+                    // Mismas métricas en expandido y comprimido: duración + ritmo + distancia.
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(model.progressLabel)
+                            .font(.system(size: isInline ? 12 : 13, weight: .semibold).monospacedDigit())
+                        HStack(spacing: 6) {
+                            if let pace = model.paceLabel {
+                                Text(pace)
+                            }
+                            if let distance = model.distanceLabel {
+                                Text(distance)
+                            }
+                        }
+                        .font(.system(size: isInline ? 11 : 12, weight: .semibold).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    }
+                    .foregroundStyle(OG.orange)
+                } else {
+                    Text(model.progressLabel)
+                        .font(.system(size: isInline ? 12 : 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(model.isLiveActivity ? OG.orange : OG.accent)
+                }
             }
             .padding(.horizontal, isInline ? 10 : OG.pad)
             .padding(.vertical, isInline ? 6 : 8)
