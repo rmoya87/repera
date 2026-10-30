@@ -1572,6 +1572,9 @@ final class LiveActivityRecorder: NSObject {
         previousFixActiveSeconds = nil
         chosenRoute = nil
         UserDefaults.standard.removeObject(forKey: snapshotKey)
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.liveWatchStateChanged"), object: nil
+        )
     }
 
     private func persistSnapshot() {
