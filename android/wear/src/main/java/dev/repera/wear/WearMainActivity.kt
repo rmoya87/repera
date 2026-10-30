@@ -138,6 +138,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var weightUnit by mutableStateOf("kg")
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
+    private var liveActivityJson by mutableStateOf<JSONObject?>(null)
     private var showOutline by mutableStateOf(false)
     private var showSetDetails by mutableStateOf(false)
     private var reviewingBlock by mutableStateOf(false)
@@ -195,6 +196,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         WearHomeContent(
                             state = WearHomeState(
                                 session = visibleSession,
+                                liveActivity = liveActivityJson,
                                 showingCachedSession = showingCachedSession,
                                 finishedSummary = finishedSummary,
                                 todayPlan = todayPlanJson,
@@ -225,6 +227,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 setReviewIndex = setReviewIndex
                             ),
                             callbacks = WearHomeCallbacks(
+                                onLiveCommand = { command -> requestLiveCommand(command) },
                                 onDismissFinished = { finished ->
                                     sessionCache.edit().putString(
                                         "finishedDismissed", finished.sessionId).apply()
@@ -392,6 +395,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                             .getByteArray("timer")
                         runOnUiThread { showWodTimer(bytes) }
                     }
+                    if (item.uri.path == "/repera/live-activity") {
+                        val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("live")
+                        runOnUiThread { showLiveActivity(bytes) }
+                    }
                     if (item.uri.path == "/repera/today-plan") {
                         val map = DataMapItem.fromDataItem(item).dataMap
                         val bytes = map.getByteArray("plan")
@@ -435,6 +442,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
                     .getByteArray("timer")
                 runOnUiThread { showWodTimer(bytes) }
+            }
+            if (event.dataItem.uri.path == "/repera/live-activity") {
+                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("live")
+                runOnUiThread { showLiveActivity(bytes) }
             }
             if (event.dataItem.uri.path == "/repera/today-plan") {
                 val map = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -622,6 +633,33 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         } else {
             wodTickSeconds = timer.optInt("elapsedSeconds", 0)
+        }
+    }
+
+    private fun showLiveActivity(bytes: ByteArray?) {
+        liveActivityJson = bytes?.takeIf { it.isNotEmpty() }?.let {
+            runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
+        }
+    }
+
+    private fun requestLiveCommand(command: String) {
+        if (command !in setOf("pause", "resume", "finish")) return
+        val id = liveActivityJson?.optString("sessionId").orEmpty()
+        if (id.isBlank()) return
+        val payload = JSONObject().put("sessionId", id).put("command", command)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (liveActivityJson?.optString("sessionId") != id) return@addOnSuccessListener
+            if (nodes.isEmpty()) {
+                sendStatus = "Móvil desconectado; actividad conservada"
+                return@addOnSuccessListener
+            }
+            nodes.forEach { node ->
+                Wearable.getMessageClient(this).sendMessage(
+                    node.id, "/repera/live-command", payload
+                )
+            }
+            sendStatus = "Control enviado; esperando estado del móvil"
         }
     }
 
@@ -1191,6 +1229,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun showSessionBody(bytes: ByteArray?, signedOut: Boolean = false,
                             finished: ByteArray? = null) {
         if (signedOut) {
+            liveActivityJson = null
             transportRevision++
             todayPlanJson=null
             sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
