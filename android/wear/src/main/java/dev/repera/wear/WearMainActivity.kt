@@ -401,7 +401,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                         val signedOut = data.getBoolean("signedOut")
                         val effort = data.getString("effortUnit")
                         val weight = data.getString("weightUnit")
-                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
+                        val discardedId = data.getString("discardedSessionId")
+                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight, discardedId) }
                     }
                     if (item.uri.path == "/repera/wod-timer") {
                         val bytes = DataMapItem.fromDataItem(item).dataMap
@@ -452,7 +453,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 val signedOut = data.getBoolean("signedOut")
                 val effort = data.getString("effortUnit")
                 val weight = data.getString("weightUnit")
-                runOnUiThread { showSession(bytes, signedOut, finished, effort, weight) }
+                val discardedId = data.getString("discardedSessionId")
+                runOnUiThread { showSession(bytes, signedOut, finished, effort, weight, discardedId) }
             }
             if (event.dataItem.uri.path == "/repera/wod-timer") {
                 val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -1261,7 +1263,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         signedOut: Boolean = false,
         finished: ByteArray? = null,
         effortUnitWire: String? = null,
-        weightUnitWire: String? = null
+        weightUnitWire: String? = null,
+        explicitlyDiscardedId: String? = null
     ) {
         if (!effortUnitWire.isNullOrBlank() && effortUnitWire in setOf("rir", "rpe")) {
             effortUnit = effortUnitWire
@@ -1271,11 +1274,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             weightUnit = weightUnitWire
             sessionCache.edit().putString("weightUnit", weightUnitWire).apply()
         }
-        showSessionBody(bytes, signedOut, finished)
+        showSessionBody(bytes, signedOut, finished, explicitlyDiscardedId)
     }
 
     private fun showSessionBody(bytes: ByteArray?, signedOut: Boolean = false,
-                            finished: ByteArray? = null) {
+                            finished: ByteArray? = null,
+                            explicitlyDiscardedId: String? = null) {
         if (signedOut) {
             liveActivityJson = null
             transportRevision++
@@ -1293,14 +1297,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         val localId = visibleSession?.sessionId
         if(dev.repera.domain.WatchSessionReconciliation.preserveLocal(
-            watchStartedSession,localId,incomingId,completed?.sessionId)) {
+            watchStartedSession,localId,incomingId,completed?.sessionId,explicitlyDiscardedId)) {
             sendStatus="Otra sesión está activa en el teléfono; se conserva la del reloj"
             syncProblem=true
             return
         }
         // Teléfono terminó/descartó: tumba el id local para que un relaunch no resucite.
         if (!watchStartedSession && dev.repera.domain.WatchSessionReconciliation.phoneDiscarded(
-                localId, incomingId, completed?.sessionId)) {
+                localId, incomingId, completed?.sessionId, explicitlyDiscardedId)) {
             localId?.let { rememberDiscarded(it) }
             runCatching { pendingFinish.clear() }
             finishedSummary = null
@@ -1316,6 +1320,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         finishedSummary = showFinished
         if (bytes == null || bytes.isEmpty()) {
+            // The phone's last-known empty state is not a cancellation. Keep
+            // a valid local session and its outbox until an ID-matched finish or
+            // explicit discard arrives; Data Layer updates can be delayed.
+            if (localId != null && completed?.sessionId != localId &&
+                explicitlyDiscardedId != localId) {
+                syncProblem = true
+                sendStatus = "Sesión local conservada; esperando sincronización"
+                return
+            }
             localId?.let { rememberDiscarded(it) }
             // Terminado con resumen: conserva cola si coincide; si no, limpia.
             val erase = showFinished == null
