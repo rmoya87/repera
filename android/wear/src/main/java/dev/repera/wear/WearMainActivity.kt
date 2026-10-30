@@ -374,6 +374,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         dataClient.dataItems.addOnSuccessListener { items ->
             try {
                 for (item in items) {
+                    if (item.uri.path == "/repera/session-terminal") {
+                        val data = DataMapItem.fromDataItem(item).dataMap
+                        runOnUiThread { receivePhoneTerminal(data.getString("sessionId"), data.getBoolean("saved")) }
+                    }
                     if (item.uri.path == "/repera/active-session") {
                         val data = DataMapItem.fromDataItem(item).dataMap
                         val bytes = data.getByteArray("session")
@@ -414,6 +418,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) {
+            if (event.dataItem.uri.path == "/repera/session-terminal") {
+                val data = DataMapItem.fromDataItem(event.dataItem).dataMap
+                runOnUiThread { receivePhoneTerminal(data.getString("sessionId"), data.getBoolean("saved")) }
+            }
             if (event.dataItem.uri.path == "/repera/active-session") {
                 val data = DataMapItem.fromDataItem(event.dataItem).dataMap
                 val bytes = data.getByteArray("session")
@@ -1204,7 +1212,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         // Teléfono terminó/descartó: tumba el id local para que un relaunch no resucite.
-        if (dev.repera.domain.WatchSessionReconciliation.phoneDiscarded(
+        if (!watchStartedSession && dev.repera.domain.WatchSessionReconciliation.phoneDiscarded(
                 localId, incomingId, completed?.sessionId)) {
             localId?.let { rememberDiscarded(it) }
             runCatching { pendingFinish.clear() }
@@ -1271,6 +1279,26 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             syncProblem = true
             // Keep the last valid summary but never claim the corrupted update succeeded.
         }
+    }
+
+    /** Terminal events are the only way to discard an unadopted watch-owned session.
+     * A plain Data Layer snapshot with no active workout must never erase it.
+     */
+    private fun receivePhoneTerminal(sessionId: String?, saved: Boolean) {
+        if (sessionId.isNullOrBlank() || visibleSession?.sessionId != sessionId) return
+        if (saved && runCatching {
+                pendingStore.all().any { it.optString("sessionId") == sessionId }
+            }.getOrDefault(true)) {
+            sendStatus = "El teléfono terminó; hay series sin confirmar. Se conservan en el reloj."
+            syncProblem = true
+            resendPending()
+            return
+        }
+        rememberDiscarded(sessionId)
+        // Saving and discarding are distinct: never erase an unsent saved set.
+        clearSession(erasePending = !saved)
+        sendStatus = if (saved) "Entrenamiento terminado desde el teléfono"
+            else "Entrenamiento descartado desde el teléfono"
     }
 
     private fun clearSession(erasePending: Boolean) {
