@@ -1144,6 +1144,10 @@ final class ReperaStore: NSObject {
             await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: save)
         }
         pushActiveToWatch(immediate: true)
+        // A nil snapshot only describes current phone state. This durable,
+        // UUID-scoped event tells the Watch if this exact session was saved
+        // or explicitly discarded, including while the devices are offline.
+        connectivity.sendTerminalEvent(sessionID: session.id, saved: save)
 
         if save {
             let tracker = WorkoutLocationTracker.shared
