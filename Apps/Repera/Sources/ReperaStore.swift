@@ -54,6 +54,7 @@ final class ReperaStore: NSObject {
     private let connectivity = PhoneConnectivity()
     private var watchPushTask: Task<Void, Never>?
     @ObservationIgnored private var watchPlanObserver: NSObjectProtocol?
+    @ObservationIgnored private var watchLiveObserver: NSObjectProtocol?
     /// Last durable Watch result acknowledged back to the watch.
     private var lastWatchAcknowledgedSession: UUID?
 
@@ -163,6 +164,14 @@ final class ReperaStore: NSObject {
     }
 
     func bootstrap() {
+        if watchLiveObserver == nil {
+            watchLiveObserver = NotificationCenter.default.addObserver(
+                forName: Notification.Name("repera.liveWatchStateChanged"),
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.sendWatchContextNow() }
+            }
+        }
         if watchPlanObserver == nil {
             watchPlanObserver = NotificationCenter.default.addObserver(
                 forName: Notification.Name("repera.professionalPlansChanged"),
@@ -2163,6 +2172,7 @@ final class ReperaStore: NSObject {
             today: today,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
+            live: LiveActivityRecorder.shared.makeWatchSnapshot(),
             completedAck: lastWatchAcknowledgedSession,
             completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
                 state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID
@@ -3210,6 +3220,20 @@ extension ReperaStore: PhoneConnectivityDelegate {
     nonisolated func phoneConnectivityDidUpdateReachability(_ reachable: Bool) {
         Task { @MainActor in
             self.isWatchReachable = reachable
+            self.sendWatchContextNow()
+        }
+    }
+
+    nonisolated func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {
+        Task { @MainActor in
+            let recorder = LiveActivityRecorder.shared
+            guard recorder.sessionID == sessionId else { return }
+            switch command {
+            case "pause": recorder.pause()
+            case "resume": recorder.resume()
+            case "finish": recorder.finish() // Opens review on the phone; does not autosave.
+            default: return
+            }
             self.sendWatchContextNow()
         }
     }
