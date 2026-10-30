@@ -1185,18 +1185,51 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
         Task { @MainActor in
             // Nil = iPhone terminó o descartó: cerrar sesión local y no resucitar al reopen.
             guard let session else {
+                // Nil is a snapshot (e.g. phone restarted while offline), NOT a
+                // cancellation command. Preserve a watch-owned local execution.
+                if self.startedOnThisWatch && self.controller != nil { return }
                 if self.controller != nil || (self.lastFinished != nil && !self.awaitingHealthSave) {
                     self.discardActiveSession(fromPhone: true)
                 }
                 return
             }
-            guard self.controller == nil, self.lastFinished?.id != session.id,
+            guard self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
+            if let current = self.controller?.session {
+                guard current.id == session.id else {
+                    // A watch-owned workout cannot be replaced by an unrelated
+                    // stale phone context. The athlete must close it explicitly.
+                    return
+                }
+                if self.startedOnThisWatch {
+                    // Watch owns unsent sets, timers and native HealthKit. Phone
+                    // snapshots are not allowed to overwrite pending local work.
+                    return
+                }
+                // Phone owns this execution. Apply new block, set, and exercise
+                // state even after the first snapshot has been received.
+            }
             self.controller = SessionController(session: session)
             self.resetSetDraft()
             self.lastClockTick = Date()
             self.startClock()
             self.save()
+        }
+    }
+
+    nonisolated func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool) {
+        Task { @MainActor in
+            // Never terminate a different or newer workout.
+            guard self.active?.id == sessionId else { return }
+            if saved && self.startedOnThisWatch {
+                // Finish the native recording and retain the HealthKit UUID.
+                // Clearing the view directly would discard a workout still
+                // being saved by HealthKit.
+                self.completeSession()
+                self.dismissFinished()
+            } else {
+                self.discardActiveSession(fromPhone: true)
+            }
         }
     }
 
