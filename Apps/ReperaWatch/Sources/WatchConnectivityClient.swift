@@ -56,7 +56,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             "command": command,
             "actionId": UUID().uuidString
         ], replyHandler: nil) { [weak self] error in
-            self?.logger.warning("Live watch command failed: \\(error.localizedDescription, privacy: .public)")
+            self?.logger.warning("Live watch command failed: \(error.localizedDescription, privacy: .public)")
         }
         return true
     }
