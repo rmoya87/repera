@@ -146,6 +146,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var elapsedJob: kotlinx.coroutines.Job? = null
     private var sessionStartedAtElapsed: Long? = null
     private var pausedAccumulatedMs = 0L
+    private var lastElapsedCheckpointMs = 0L
     private var pauseStartedAtElapsed: Long? = null
     private var reviewRounds by mutableStateOf(0)
     private var reviewExtraReps by mutableStateOf(0)
@@ -182,6 +183,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         }
         watchStartedSession = sessionCache.getBoolean("watchStarted", false)
+        val restoredSessionId = visibleSession?.sessionId
+        if (restoredSessionId != null &&
+            restoredSessionId == sessionCache.getString("clockSessionId", null) &&
+            visibleSession?.phase == "counting") {
+            sessionPaused = sessionCache.getBoolean("clockPaused", false)
+            val last = sessionCache.getLong("clockSavedAtMillis", System.currentTimeMillis())
+            val offlineSeconds = if (sessionPaused) 0L else
+                ((System.currentTimeMillis() - last) / 1000L).coerceIn(0L, 43_200L)
+            elapsedSeconds = (sessionCache.getInt("clockElapsedSeconds", 0) + offlineSeconds)
+                .coerceIn(0L, dev.repera.domain.WearSessionDuration.MAX_SECONDS.toLong()).toInt()
+        }
         effortUnit = sessionCache.getString("effortUnit", "rir")?.takeIf { it in setOf("rir", "rpe") } ?: "rir"
         weightUnit = sessionCache.getString("weightUnit", "kg")?.takeIf { it in setOf("kg", "lb") } ?: "kg"
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
@@ -367,6 +379,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onStart() {
         super.onStart()
+        if (visibleSession?.phase == "counting" && elapsedJob == null) resumeElapsedClock()
         healthBound=bindService(android.content.Intent(this,WearHealthService::class.java),healthServiceConnection,android.content.Context.BIND_AUTO_CREATE)
         motionSensor?.let { sensor ->
             sensorManager?.registerListener(this, sensor, 40_000)
@@ -413,6 +426,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onStop() {
+        persistElapsedClock()
+        elapsedJob?.cancel()
+        elapsedJob = null
         persistDraft()
         persistRest()
         healthConnection?.observe(null);healthConnection=null
@@ -1059,6 +1075,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun resetElapsedClock() {
         elapsedJob?.cancel()
+        elapsedJob = null
+        sessionCache.edit().remove("clockSessionId").remove("clockElapsedSeconds")
+            .remove("clockSavedAtMillis").remove("clockPaused").apply()
         elapsedSeconds = 0
         sessionStartedAtElapsed = null
         pausedAccumulatedMs = 0L
@@ -1076,6 +1095,31 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 
+    private fun resumeElapsedClock() {
+        val now = SystemClock.elapsedRealtime()
+        sessionStartedAtElapsed = now - elapsedSeconds * 1000L
+        pausedAccumulatedMs = 0L
+        pauseStartedAtElapsed = if (sessionPaused) now else null
+        elapsedJob?.cancel()
+        elapsedJob = lifecycleScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                tickElapsed()
+            }
+        }
+    }
+
+    private fun persistElapsedClock() {
+        val session = visibleSession ?: return
+        if (session.phase != "counting") return
+        sessionCache.edit()
+            .putString("clockSessionId", session.sessionId)
+            .putInt("clockElapsedSeconds", elapsedSeconds)
+            .putLong("clockSavedAtMillis", System.currentTimeMillis())
+            .putBoolean("clockPaused", sessionPaused)
+            .apply()
+    }
+
     private fun tickElapsed() {
         val start = sessionStartedAtElapsed ?: return
         val now = SystemClock.elapsedRealtime()
@@ -1091,6 +1135,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         elapsedSeconds = ((now - start - pausedExtra) / 1000L).toInt().coerceAtLeast(0)
             .coerceAtMost(dev.repera.domain.WearSessionDuration.MAX_SECONDS)
+        if (now - lastElapsedCheckpointMs >= 5_000L) {
+            lastElapsedCheckpointMs = now
+            persistElapsedClock()
+        }
     }
 
         /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
