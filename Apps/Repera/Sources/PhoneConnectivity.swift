@@ -7,6 +7,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
+    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String)
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?)
     func phoneConnectivityDidRequestToday()
     /// An explicit request replies with today's CURRENT prescription.
@@ -21,6 +22,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
+    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
     func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
@@ -49,7 +51,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     /// Latest-state sync via application context. Reachable message is optional hint only.
-    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil) {
+    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil, live: WatchLiveActivitySnapshot? = nil) {
         guard WCSession.isSupported() else { return }
         var payload: [String: Any]
         if let session,
@@ -67,6 +69,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         } else {
             payload["todayWorkout"] = Data()
         }
+        payload["liveActivity"] = live.flatMap { try? JSONEncoder().encode($0) } ?? Data()
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
         if let completedAckHealthKitUUID {
             payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
@@ -194,6 +197,15 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     @discardableResult
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
+        case "liveCommand":
+            guard let raw = message["sessionId"] as? String,
+                  let id = UUID(uuidString: raw),
+                  let command = message["command"] as? String,
+                  ["pause", "resume", "finish"].contains(command) else {
+                return ["ok": false]
+            }
+            delegate?.phoneConnectivityDidReceiveLiveCommand(sessionId: id, command: command)
+            return ["ok": true]
         case "requestToday":
             // The iPhone resolves its current date-specific plan BEFORE replying,
             // rather than returning an outdated applicationContext payload.
