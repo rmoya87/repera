@@ -96,7 +96,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             healthConnection?.observe {state ->runOnUiThread {
                 health=if(state.sessionId==currentSensorSessionId()) state.heart to state.energy else null
                 val companion = liveActivityJson
-                if(state.sessionId==companion?.optString("sessionId") && state.recording) {
+                if(state.sessionId!=null && state.sessionId==companion?.optString("sessionId") && state.recording) {
                     val wantPause = companion.optString("phase") == "paused"
                     if(state.paused != wantPause) healthConnection?.pause(state.sessionId!!,wantPause)
                 }
@@ -575,6 +575,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if(event.path=="/repera/live-start-ack") {
+            val ack=runCatching { JSONObject(String(event.data,Charsets.UTF_8)) }.getOrNull() ?: return
+            if(!ack.optBoolean("ok",false)) runOnUiThread {
+                sendStatus=ack.optString("reason")
+                    .ifBlank { "Abre Repera en el teléfono para comenzar la actividad" }
+            }
+            return
+        }
         if(event.path=="/repera/session-finish-ack") {
             val ack=runCatching {JSONObject(String(event.data,Charsets.UTF_8))}.getOrNull() ?: return
             if(ack.optString("status")=="saved") runOnUiThread {
