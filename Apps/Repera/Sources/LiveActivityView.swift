@@ -4040,20 +4040,26 @@ private struct LiveRouteLibraryPickerView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
-        .overlay(alignment: .topTrailing) {
-            if duoRail.isExpanded {
-                OGDuoContextRail(actions: [
-                    .init(
-                        id: "close-routes",
-                        systemName: "xmark",
-                        accessibilityLabel: "Cerrar Mis rutas",
-                        handler: onClose
-                    )
-                ])
-                .padding(.trailing, 26)
-                .padding(.top, 8)
-            }
+        .onAppear { publishRouteDuoActions() }
+        .onChange(of: duoRail.isExpanded) { _, _ in publishRouteDuoActions() }
+        .onDisappear { duoRail.clear(owner: "routes") }
+    }
+
+    /// El cierre se coloca en la misma columna derecha de la hora y del
+    /// menú de Inicio/Comenzar/Progreso/Ejercicios, no en el topbar del sheet.
+    private func publishRouteDuoActions() {
+        guard duoRail.isExpanded else {
+            duoRail.clear(owner: "routes")
+            return
         }
+        duoRail.publish(owner: "routes", actions: [
+            .init(
+                id: "close-routes",
+                systemName: "xmark",
+                accessibilityLabel: "Cerrar Mis rutas",
+                handler: onClose
+            )
+        ])
     }
 }
 
