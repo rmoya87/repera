@@ -4,7 +4,7 @@ import SwiftUI
 import WatchKit
 
 /// Métricas de actividad iniciada en el reloj (GPS outdoor + HealthKit).
-/// Título = navigationTitle; métricas en columna; Finalizar vuelve al hub.
+/// El título lo muestra el root junto a la hora; métricas en columna.
 struct WatchLiveSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     let sport: WatchLiveSport
@@ -98,8 +98,6 @@ struct WatchLiveSessionView: View {
             }
             .padding(.horizontal, 6)
         }
-        .navigationTitle(sport.title)
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Mute: círculo accent del tint del NavigationStack; icono negro (como Pausar/Finalizar).
             ToolbarItem(placement: .topBarTrailing) {

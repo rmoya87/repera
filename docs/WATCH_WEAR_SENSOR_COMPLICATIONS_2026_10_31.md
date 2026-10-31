@@ -46,3 +46,8 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 - El PNG 3D anterior se conserva en Assets para usos preexistentes, pero `ReperaWatchWidget.swift` no lo utiliza para la marca. El nuevo widget utiliza los dos recursos PDF `ReperaWatchFlatColor` y `ReperaWatchFlatMono`.
 - `tests/test_watch_complication_contract.py` comprueba el encabezado PDF, `preserves-vector-representation`, `template-rendering-intent`, la transparencia even-odd y los nombres de imagen usados por SwiftUI. CI inspecciona que ambos recursos estén en `Assets.car` de la extensión embebida.
 - Falta verificar el resultado en el selector real y la esfera instalada. No afirmar que esté resuelto hasta disponer de captura de esa compilación.
+
+### Ajustes visuales Apple Watch (01/11/2026)
+- Complicación circular ampliada de 36 a 44 pt, fondo verde corporativo hasta el borde y PDF plano centrado al 88 % para aportar más verde lateral. Corner: 32 pt; rectangular: 29/31 pt.
+- Inicio: título del elemento seleccionado arriba a la izquierda junto a la hora; icono central sin título duplicado; botones de silencio y temporizador al final del lienzo extendido fuera del safe area inferior, con margen de bisel.
+- Actividades: título en toolbar topBarLeading en vez del encabezado nativo debajo de la hora; Live Sport usa el mismo encabezado. Revisar en watchOS real/simulador, los tests estáticos no garantizan disposición visual.

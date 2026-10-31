@@ -34,9 +34,16 @@ private struct ReperaLogo: View {
     var body: some View {
         Group {
             if renderingMode == .fullColor {
-                Image("ReperaWatchFlatColor")
-                    .resizable()
-                    .scaledToFit()
+                ZStack {
+                    // Relleno verde hasta el borde y más margen lateral
+                    // alrededor de la mascota plana, como Shazam.
+                    Circle()
+                        .fill(Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255))
+                    Image("ReperaWatchFlatColor")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: diameter * 0.88, height: diameter * 0.88)
+                }
             } else {
                 Image("ReperaWatchFlatMono")
                     .resizable()
@@ -46,6 +53,7 @@ private struct ReperaLogo: View {
             }
         }
         .frame(width: diameter, height: diameter)
+        .clipShape(Circle())
         .unredacted()
         .accessibilityLabel("Repera")
     }
@@ -61,7 +69,7 @@ private struct ReperaWatchComplication: View {
             case .accessoryRectangular:
                 if let live = entry.session {
                     HStack(alignment: .center, spacing: 6) {
-                        ReperaLogo(diameter: 26)
+                        ReperaLogo(diameter: 29)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 4) {
                                 Image(systemName: live.paused ? "pause.fill" : "figure.walk")
@@ -84,7 +92,7 @@ private struct ReperaWatchComplication: View {
                     }
                 } else {
                     HStack(spacing: 6) {
-                        ReperaLogo(diameter: 28)
+                        ReperaLogo(diameter: 31)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Repera").font(.headline)
                             Text("Iniciar actividad").font(.caption2)
@@ -95,7 +103,7 @@ private struct ReperaWatchComplication: View {
             case .accessoryCircular:
                 // La complicación circular es el acceso directo a Repera, incluso
                 // durante una sesión. Las métricas se muestran en rectangular.
-                ReperaLogo(diameter: 36)
+                ReperaLogo(diameter: 44)
             case .accessoryInline:
                 if let live = entry.session {
                     Text("\(live.paused ? "⏸" : "▶") \(live.title) · \(live.elapsedLabel)")
@@ -103,9 +111,9 @@ private struct ReperaWatchComplication: View {
                     Text("Repera")
                 }
             case .accessoryCorner:
-                ReperaLogo(diameter: 28)
+                ReperaLogo(diameter: 32)
             default:
-                ReperaLogo(diameter: 34)
+                ReperaLogo(diameter: 40)
             }
         }
         .widgetURL(URL(string: entry.session == nil

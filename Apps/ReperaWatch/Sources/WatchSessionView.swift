@@ -47,10 +47,21 @@ struct WatchSessionView: View {
                     )
                 }
             }
-            .navigationTitle(isHubHome ? "" : pageTitle)
+            // No usar el título nativo debajo de la hora.
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            // En el hub no hay título: libera las esquinas para mute (izq.) y timer (der.).
             .toolbar(isHubHome ? .hidden : .automatic, for: .navigationBar)
+            .toolbar {
+                if !isHubHome {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Text(pageTitle)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
             .sheet(isPresented: $showOutline) {
                 if let workout = hub.active { outlineView(workout) }
             }
@@ -80,8 +91,7 @@ struct WatchSessionView: View {
             && hub.pendingCompanionSport == nil
     }
 
-    /// Native watchOS navigation title sits under the system clock.
-    /// Do not repeat it as a heading inside scrolling workout content.
+    /// Título de actividad alineado con la hora, sin encabezado duplicado.
     private var pageTitle: String {
         if hub.presentedSummary != nil { return "Resultado" }
         if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }
@@ -1041,7 +1051,6 @@ struct WatchSessionView: View {
             }
             .padding(.horizontal, 6)
         }
-        .navigationTitle("Resultado")
     }
 
     private func statsLine(icon: String, label: String, value: String) -> some View {

@@ -66,6 +66,29 @@ class WatchComplicationTests(unittest.TestCase):
         for family in ("Circular", "Corner", "Rectangular", "Inline"):
             self.assertIn(f"case .accessory{family}:", widget)
 
+    def test_icono_circular_grande_y_verde_lateral(self):
+        widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
+        self.assertIn("ReperaLogo(diameter: 44)", widget)
+        self.assertIn("ReperaLogo(diameter: 32)", widget)
+        self.assertIn("Circle()", widget)
+        self.assertIn(".frame(width: diameter * 0.88, height: diameter * 0.88)", widget)
+        self.assertIn(".clipShape(Circle())", widget)
+
+    def test_inicio_titulo_junto_hora_y_controles_abajo(self):
+        home = read("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
+        root = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        live = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
+        self.assertEqual(home.count("Text(selected.title)"), 1)
+        self.assertIn(".overlay(alignment: .topLeading)", home)
+        self.assertIn(".padding(.trailing, 66)", home)
+        self.assertIn(".ignoresSafeArea(.container, edges: .bottom)", home)
+        self.assertIn(".overlay(alignment: .bottomLeading)", home)
+        self.assertIn(".overlay(alignment: .bottomTrailing)", home)
+        self.assertEqual(home.count(".padding(.bottom, 13)"), 2)
+        self.assertIn("ToolbarItem(placement: .topBarLeading)", root)
+        self.assertIn('.navigationTitle("")', root)
+        self.assertNotIn(".navigationTitle(sport.title)", live)
+
     def test_kind_nuevo_y_recargas_watch_sincronizadas(self):
         kind = "com.app.repera.watch.complication.brand6"
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
