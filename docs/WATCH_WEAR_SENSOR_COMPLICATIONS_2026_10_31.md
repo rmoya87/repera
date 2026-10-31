@@ -28,7 +28,7 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 6. Compilar en Xcode con perfiles App Group y ejecutar Android unit tests, instrumentados en Wear real y revisión de permisos Health Services.
 
 ## Diagnóstico y comprobaciones de empaquetado (31/10/2026)
-- Las imágenes antiguas `ReperaComplicationIcon` (66/132/198 px) tienen fondo opaco y no deben usarse para renderizar complicaciones. El código nuevo extrae una plantilla transparente de la cara del PNG oficial de Repera; el anterior `ReperaComplicationAppIconStore` tampoco participa en el widget.
+- Las imágenes antiguas `ReperaComplicationIcon` (66/132/198 px) tienen fondo opaco y no deben usarse para renderizar complicaciones. El widget actual usa el `ReperaIcon` oficial directamente, y nunca genera plantillas de la cara con CoreGraphics ni `UIImage`; el anterior `ReperaComplicationAppIconStore` tampoco participa en el widget.
 - El target `ReperaWatchWidget` **sí empaqueta** `Assets.xcassets` y el PNG oficial, con `ReperaIcon` en su `Assets.car`. Ya no se utilizan los antiguos iconos opacos `ReperaComplicationIcon` ni los PNG sueltos; `AppIcon` del target principal `ReperaWatch` sigue intacto.
 - CI ejecuta `tests/test_watch_complication_contract.py`, verifica igualdad SHA-256 de **iPhone, Apple Watch y complicación**, obliga a una única imagen canónica `ReperaIcon/repera.png` (sin PNG `@2x`/`@3x` huérfanos en el imageset; provocan «unassigned children» en Xcode) y valida el `Info.plist` y `Assets.car` de la extensión embebida en `ReperaWatch.app/PlugIns`. La comprobación visual en un Apple Watch requiere instalar nueva build, volver a añadir la complicación y revisar editor/esfera en ambos modos.
 
