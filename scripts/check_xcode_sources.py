@@ -127,6 +127,20 @@ def validate(root: Path) -> None:
                 "y vuelve a abrir Repera.xcodeproj."
             )
 
+    # WidgetKit extension: SharedStore defines ReperaComplicationSnapshot.
+    widget_sources = _target_compile_sources(pbx, "ReperaWatchWidget")
+    for name in (
+        "ReperaWatchWidget.swift",
+        "ReperaComplicationSharedStore.swift",
+        "ReperaComplicationAppIconStore.swift",
+    ):
+        if f"{name} in Sources" not in widget_sources:
+            raise ValueError(
+                f"ReperaWatchWidget no compila {name}: falta en Build Phases → Compile Sources. "
+                "Cierra Xcode, regenera con xcodegen generate --spec project.yml "
+                "y vuelve a abrir Repera.xcodeproj."
+            )
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -137,7 +151,7 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print("OK: fuentes iOS, ReperaWatch y En vivo incluidas en Compile Sources.")
+    print("OK: fuentes iOS, ReperaWatch, Widget y En vivo incluidas en Compile Sources.")
     return 0
 
 

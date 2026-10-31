@@ -2720,8 +2720,6 @@ enum HealthActivityIcons {
             return "figure.pickleball"
         case .squash:
             return "figure.squash"
-        case .traditionalStrengthTraining:
-            return "figure.strengthtraining.traditional"
         case .golf:
             return "figure.golf"
         case .crossTraining:
