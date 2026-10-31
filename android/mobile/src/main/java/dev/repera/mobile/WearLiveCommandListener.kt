@@ -25,6 +25,11 @@ class WearLiveCommandListener : WearableListenerService() {
             if (!WearUiPresence.active) handleBackgroundWorkout(event)
             return
         }
+        if (event.path == "/repera/live-start") {
+            // MainActivity owns foreground starts; this path covers a locked phone.
+            if (!WearUiPresence.active) handleBackgroundLiveStart(event)
+            return
+        }
         if (event.path != "/repera/live-command") return
         val command = runCatching {
             JSONObject(String(event.data, Charsets.UTF_8))
@@ -43,6 +48,51 @@ class WearLiveCommandListener : WearableListenerService() {
                 "resume" -> runtime.resume()
                 "finish" -> runtime.finish() // Review/Save remains on the phone.
             }
+        }
+    }
+
+    /** Android may reject a background location FGS even when the explicit user
+     * gesture was on a companion watch. Never claim started on rejection; the
+     * watch receives a status and the phone has no orphan recording. */
+    private fun handleBackgroundLiveStart(event: MessageEvent) {
+        val id = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8)).optString("sportId")
+        }.getOrNull().orEmpty()
+        val sport = dev.repera.domain.LiveSport.byId(id) ?: return
+        val node = event.sourceNodeId
+        val owner = SessionStore(this).load()?.uniqueId ?: return
+        Handler(Looper.getMainLooper()).post {
+            var ok = false
+            var reason = "No se puede iniciar en segundo plano; abre Repera en el móvil"
+            if (SessionStore(this).load()?.uniqueId == owner) {
+                val runtime = LiveActivityRuntime.forAccount(this, owner)
+                val phase = runtime.state.phase
+                if (phase == dev.repera.domain.LiveActivityState.Phase.RECORDING ||
+                    phase == dev.repera.domain.LiveActivityState.Phase.PAUSED) {
+                    ok = true
+                } else if (!runtime.recoveryBlocked) {
+                    if (phase == dev.repera.domain.LiveActivityState.Phase.REVIEW) runtime.discard()
+                    if (runtime.state.phase == dev.repera.domain.LiveActivityState.Phase.IDLE &&
+                        runCatching { WorkoutRepository(this, owner).activeSessionOutdoorInfo() == null }.getOrDefault(false)
+                    ) {
+                        runtime.choose(sport)
+                        runtime.start()
+                        if (runtime.state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
+                            ok = runCatching {
+                                LiveActivityService.startFromVisibleUI(this,owner)
+                                true
+                            }.getOrDefault(false)
+                            if (!ok) runtime.discard()
+                        }
+                    } else reason = "Hay otra sesión activa o pendiente de revisión"
+                }
+                if (ok) runtime.publish()
+            }
+            Wearable.getMessageClient(this).sendMessage(
+                node, "/repera/live-start-ack",
+                JSONObject().put("sportId", id).put("ok", ok).put("reason", if(ok) "" else reason)
+                    .toString().toByteArray(Charsets.UTF_8)
+            )
         }
     }
 
