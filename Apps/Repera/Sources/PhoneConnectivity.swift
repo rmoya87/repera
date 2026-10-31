@@ -8,6 +8,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidReceive(session: WorkoutSession)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String)
+    func phoneConnectivityDidReceiveLiveHealth(sessionId: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?)
     /// - Returns: `true` si el iPhone arrancó Comenzar; `false` si está ocupado.
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool)
@@ -26,6 +27,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 
 extension PhoneConnectivityDelegate {
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {}
+    func phoneConnectivityDidReceiveLiveHealth(sessionId: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?) {}
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
@@ -229,6 +231,15 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             }
             let started = await (delegate?.phoneConnectivityDidReceiveStartLive(sportID: sportID) ?? false)
             return ["ok": started]
+        case "liveHealthResult":
+            guard let raw = message["sessionId"] as? String,
+                  let id = UUID(uuidString: raw) else { return ["ok": false] }
+            delegate?.phoneConnectivityDidReceiveLiveHealth(
+                sessionId: id, kcal: message["kcal"] as? Double,
+                averageBpm: message["averageBpm"] as? Double,
+                workoutUUID: (message["workoutUUID"] as? String).flatMap(UUID.init(uuidString:))
+            )
+            return ["ok": true]
         case "setAudioMuted":
             let muted = message["audioMuted"] as? Bool ?? false
             delegate?.phoneConnectivityDidReceiveAudioMuted(muted)
