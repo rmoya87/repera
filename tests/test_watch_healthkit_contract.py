@@ -97,7 +97,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertNotIn("figure.strengthtraining", widget)
         logo = widget.split("private struct ReperaLogo: View", 1)[1].split("private struct ReperaWatchComplication: View", 1)[0]
         self.assertNotIn("systemName", logo)
-        self.assertIn('UIImage(named: "ReperaIcon")', widget)
+        self.assertIn(".unredacted()", widget)
+        self.assertIn("context.isPreview", widget)
         self.assertIn(".widgetAccentable()", widget)
         self.assertTrue((ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png").is_file())
         self.assertIn(".onOpenURL", app)
