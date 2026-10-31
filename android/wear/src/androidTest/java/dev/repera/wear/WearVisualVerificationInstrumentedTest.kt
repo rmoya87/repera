@@ -104,7 +104,7 @@ class WearVisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         compose.onNodeWithText("Back Squat", substring = true).assertExists()
-        compose.onNodeWithText("145 lpm", substring = true).assertExists()
+        compose.onNodeWithText("♥ 145 lpm", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
         save("wear_sesion_fuerza_inicio", compose.onRoot().captureToImage())
         scrollHastaTexto("Reps")
@@ -135,10 +135,9 @@ class WearVisualVerificationInstrumentedTest {
             }
         }
         compose.waitForIdle()
-        compose.onNodeWithText("Iniciar entreno", substring = true).assertExists()
+        compose.onNodeWithText("Empuje", substring = true).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
-        scrollHastaTexto("Reintentar sincronización")
-        compose.onNodeWithText("Reintentar sincronización").assertIsDisplayed()
+        compose.onNodeWithText("Reintentar", substring = true).assertIsDisplayed()
         save("wear_entreno_de_hoy", compose.onRoot().captureToImage())
     }
 
@@ -244,7 +243,7 @@ class WearVisualVerificationInstrumentedTest {
                 )
             }
         }
-        compose.onNodeWithText("Sin plan descargado").assertExists()
-        compose.onNodeWithText("Sincronizar").assertExists()
+        compose.onNodeWithText("Carrera", substring = true).assertExists()
+        compose.onNodeWithText("Sincronizar").assertDoesNotExist()
     }
 }
