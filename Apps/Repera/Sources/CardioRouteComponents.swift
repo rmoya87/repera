@@ -8,14 +8,10 @@ import WeatherKit
 /// Gráficas nativas dentro de la misma tarjeta de Entreno, con selección táctil.
 struct CardioAltitudeChart: View {
     var extras: HealthKitStore.SessionHealthExtras
-    @State private var selection: Topic = .cardio
+    /// Solo caminata/senderismo, bici/MTB/gravel, esquí/snow/surf/skate.
+    var showsAltitudeProfile: Bool = false
     @State private var selectedTime: Date?
     @State private var selectedDistance: Double?
-
-    private enum Topic: String, CaseIterable {
-        case cardio = "Cardio"
-        case altitude = "Altitud"
-    }
 
     private var result: CardioRouteAnalysis.Result {
         CardioRouteAnalysis.analyze(route: extras.routePoints.map {
@@ -61,18 +57,11 @@ struct CardioAltitudeChart: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Picker("Perfil", selection: $selection) {
-                ForEach(Topic.allCases, id: \.self) { topic in
-                    Text(topic.rawValue).tag(topic)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            if selection == .cardio {
-                cardio
-                cardioStatTiles
-            } else {
+        VStack(alignment: .leading, spacing: 16) {
+            // Cardio primero; elevación debajo (sin selector Cardio/Altitud).
+            cardio
+            cardioStatTiles
+            if showsAltitudeProfile {
                 elevation
                 altitudeStatTiles
             }
@@ -89,9 +78,6 @@ struct CardioAltitudeChart: View {
                 Text("\(Int(point.bpm.rounded())) lpm")
                     .foregroundStyle(OG.red)
                     .contentTransition(.numericText())
-            } else if let average = extras.averageHeartRateBpm {
-                Text("Media \(Int(average.rounded())) lpm")
-                    .foregroundStyle(OG.label2)
             }
         }
         .font(.system(size: 13, weight: .semibold).monospacedDigit())
@@ -304,11 +290,27 @@ struct CardioSplitsView: View {
     /// Dentro de una única card que también contiene las gráficas de Salud.
     var embedded: Bool = false
 
+    private var showsSpeedExtremes: Bool {
+        sport?.showsElevationAndSpeedStats == true
+    }
+
+    private var recordedSpeedsKmh: [Double] {
+        let fromPoints = routePoints.compactMap(\.speedMps)
+            .filter { $0.isFinite && $0 > 0 && $0 <= 50 }
+            .map { $0 * 3.6 }
+        if !fromPoints.isEmpty { return fromPoints }
+        if let maxSpeedKmh, maxSpeedKmh > 0 { return [maxSpeedKmh] }
+        return []
+    }
+
     private var recordedMaxSpeedKmh: Double? {
         if let maxSpeedKmh, maxSpeedKmh > 0 { return maxSpeedKmh }
-        return routePoints.compactMap(\.speedMps)
-            .filter { $0.isFinite && $0 > 0 && $0 <= 50 }
-            .max().map { $0 * 3.6 }
+        return recordedSpeedsKmh.max()
+    }
+
+    private var recordedMinSpeedKmh: Double? {
+        guard showsSpeedExtremes else { return nil }
+        return recordedSpeedsKmh.min()
     }
 
     private func decimal(_ number: Double) -> String {
@@ -380,19 +382,23 @@ struct CardioSplitsView: View {
         VStack(alignment: .leading, spacing: 12) {
             if hasGPSMetrics {
                 HStack(spacing: 7) {
-                    SessionSportMetricTile(
-                        title: "Vel. media",
-                        value: averageSpeedKmh.map(decimal) ?? "—",
-                        unit: "km/h", tint: OG.blue
-                    )
-                    SessionSportMetricTile(
-                        title: "Vel. máx",
-                        value: recordedMaxSpeedKmh.map(decimal) ?? "—",
-                        unit: "km/h", tint: OG.accent
-                    )
-                    if cycling || sport?.displaysSpeed == true {
-                        // Ciclismo y deportes acuáticos priorizan distancia
-                        // frente a un ritmo por kilómetro poco representativo.
+                    if showsSpeedExtremes {
+                        SessionSportMetricTile(
+                            title: "Vel. mín",
+                            value: recordedMinSpeedKmh.map(decimal) ?? "—",
+                            unit: "km/h", tint: OG.label2
+                        )
+                        SessionSportMetricTile(
+                            title: "Vel. media",
+                            value: averageSpeedKmh.map(decimal) ?? "—",
+                            unit: "km/h", tint: OG.blue
+                        )
+                        SessionSportMetricTile(
+                            title: "Vel. máx",
+                            value: recordedMaxSpeedKmh.map(decimal) ?? "—",
+                            unit: "km/h", tint: OG.accent
+                        )
+                    } else if cycling || sport?.displaysSpeed == true {
                         SessionSportMetricTile(
                             title: "Distancia",
                             value: healthMovementMeters.map { decimal($0 / 1000) } ?? "—",
@@ -405,6 +411,11 @@ struct CardioSplitsView: View {
                                 $0.replacingOccurrences(of: " min/km", with: "")
                             } ?? "—",
                             unit: "min/km", tint: OG.label
+                        )
+                        SessionSportMetricTile(
+                            title: "Distancia",
+                            value: healthMovementMeters.map { decimal($0 / 1000) } ?? "—",
+                            unit: "km", tint: OG.accent
                         )
                     }
                 }
@@ -451,8 +462,8 @@ struct CardioSplitsView: View {
                     }
                 }
             } else if let healthStats {
-                // Tenis/pádel y sesiones de fuerza con cardio: pasos y
-                // distancia medidos. No equivale a metros de pista exactos.
+                // Tenis/pádel y fuerza: pasos/distancia aquí; FC media va en
+                // Mín / Media / Máx bajo el gráfico (HealthHeartRateStatRow).
                 HStack(spacing: 7) {
                     if let steps = healthStats.stepsCount, steps > 0 {
                         SessionSportMetricTile(
@@ -468,13 +479,6 @@ struct CardioSplitsView: View {
                                 : (healthStats.movementDistanceLabel ?? "Distancia"),
                             value: meters >= 1000 ? decimal(meters / 1000) : "\(Int(meters.rounded()))",
                             unit: meters >= 1000 ? "km" : "m", tint: OG.blue
-                        )
-                    }
-                    if let bpm = healthStats.averageHeartRateBpm, bpm > 0 {
-                        SessionSportMetricTile(
-                            title: "Pulso medio",
-                            value: "\(Int(bpm.rounded()))",
-                            unit: "lpm", tint: OG.red
                         )
                     }
                 }

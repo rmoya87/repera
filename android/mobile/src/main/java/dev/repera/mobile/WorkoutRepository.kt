@@ -1926,20 +1926,109 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         professional:List<BusinessCenterStore.ProfessionalSession> = emptyList()): JSONObject? {
         val state = loadOrNull() ?: return null
         if (!state.isNull("activeSession")) return null
+        return assembleTodayPlanSession(state, today, professional)
+    }
+
+    /** Hub del reloj: plan de hoy; si no hay, el one-off atrasado más reciente sin entreno terminado. */
+    @Synchronized fun effectivePlanSession(today: LocalDate = LocalDate.now(),
+        professional: List<BusinessCenterStore.ProfessionalSession> = emptyList()): JSONObject? {
+        val state = loadOrNull() ?: return null
+        if (!state.isNull("activeSession")) return null
+        assembleTodayPlanSession(state, today, professional)?.let { return it }
+        return mostRecentOverduePlanSession(state, today, professional)
+    }
+
+    /** Últimos deportes Comenzar guardados, más recientes primero (paridad watchOS). */
+    @Synchronized fun recentLiveSportIDsForWatch(limit: Int = 8): List<String> {
+        val workouts = loadOrNull()?.optJSONArray("workouts") ?: return emptyList()
+        val seen = mutableSetOf<String>()
+        val ordered = mutableListOf<String>()
+        for (i in 0 until workouts.length()) {
+            val id = workouts.getJSONObject(i).optString("liveSportID").takeIf { it.isNotBlank() }
+                ?: continue
+            if (!seen.add(id)) continue
+            ordered += id
+            if (ordered.size >= limit) break
+        }
+        return ordered
+    }
+
+    private fun assembleTodayPlanSession(
+        state: JSONObject,
+        today: LocalDate,
+        professional: List<BusinessCenterStore.ProfessionalSession>
+    ): JSONObject? {
         val routines = state.optJSONArray("routines") ?: JSONArray()
-        val choices=(0 until routines.length()).map { routines.getJSONObject(it) }
-        val rotationID=RotationSettings.nextRoutineId(state)
-        val routine = if(TrainingSettings.read(state).scheduleMode=="rotation") choices.firstOrNull {it.optString("id")==rotationID}
-        else choices.firstOrNull {it.optString("scheduledDate").take(10)==today.toString()} ?:
-            choices.firstOrNull { routine ->
-                val scheduled=routine.optString("scheduledDate").takeIf {it.isNotBlank() && it!="null"}
-                scheduled==null && routine.optInt("weekday",-1)==today.dayOfWeek.value
+        val choices = (0 until routines.length()).map { routines.getJSONObject(it) }
+        val rotationID = RotationSettings.nextRoutineId(state)
+        val routine = if (TrainingSettings.read(state).scheduleMode == "rotation") {
+            choices.firstOrNull { it.optString("id") == rotationID }
+        } else {
+            choices.firstOrNull { it.optString("scheduledDate").take(10) == today.toString() }
+                ?: choices.firstOrNull { routine ->
+                    val scheduled = routine.optString("scheduledDate")
+                        .takeIf { it.isNotBlank() && it != "null" }
+                    scheduled == null && routine.optInt("weekday", -1) == today.dayOfWeek.value
+                }
+        }
+        val personal = routine?.let { runCatching { assembleSession(state, it) }.getOrNull() }
+        if (personal?.optJSONArray("exercises")?.length()?.let { it > 0 } == true) return personal
+        val assigned = professional.firstOrNull {
+            it.scheduledDate == today.toString() && it.status == "scheduled" &&
+                it.prescription?.optInt("schemaVersion") == 1 &&
+                (it.prescription.optJSONArray("blocks")?.length() ?: 0) > 0
+        } ?: return null
+        return try { projectProfessionalWatchPlan(state, assigned) } catch (_: org.json.JSONException) { null }
+    }
+
+    private fun mostRecentOverduePlanSession(
+        state: JSONObject,
+        today: LocalDate,
+        professional: List<BusinessCenterStore.ProfessionalSession>
+    ): JSONObject? {
+        val workouts = state.optJSONArray("workouts") ?: JSONArray()
+        val finishedRoutineIDs = buildSet {
+            for (i in 0 until workouts.length()) {
+                val w = workouts.getJSONObject(i)
+                if (w.optString("phase") != "finished") continue
+                w.optString("routineId").takeIf { it.isNotBlank() && it != "null" }?.let { add(it) }
             }
-        val personal=routine?.let {runCatching {assembleSession(state,it)}.getOrNull()}
-        if(personal?.optJSONArray("exercises")?.length()?.let {it>0}==true) return personal
-        val assigned=professional.firstOrNull {it.scheduledDate==today.toString() && it.status=="scheduled" &&
-            it.prescription?.optInt("schemaVersion")==1 && (it.prescription.optJSONArray("blocks")?.length() ?: 0)>0} ?: return null
-        return try {projectProfessionalWatchPlan(state,assigned)} catch(_:org.json.JSONException) {null}
+        }
+        val routines = state.optJSONArray("routines") ?: JSONArray()
+        var bestPersonal: Pair<LocalDate, JSONObject>? = null
+        for (i in 0 until routines.length()) {
+            val routine = routines.getJSONObject(i)
+            val scheduled = routine.optString("scheduledDate").takeIf { it.isNotBlank() && it != "null" }
+                ?: continue
+            val day = runCatching { LocalDate.parse(scheduled.take(10)) }.getOrNull() ?: continue
+            if (!day.isBefore(today)) continue
+            val rid = routine.optString("id")
+            if (rid in finishedRoutineIDs) continue
+            val preview = runCatching { assembleSession(state, routine) }.getOrNull()
+            if (preview?.optJSONArray("exercises")?.length()?.let { it > 0 } != true) continue
+            if (bestPersonal == null || day.isAfter(bestPersonal!!.first)) {
+                bestPersonal = day to routine
+            }
+        }
+        bestPersonal?.second?.let { routine ->
+            runCatching { assembleSession(state, routine) }.getOrNull()?.let { return it }
+        }
+        var bestBusiness: Pair<LocalDate, BusinessCenterStore.ProfessionalSession>? = null
+        for (assigned in professional) {
+            if (assigned.status != "scheduled") continue
+            if (assigned.prescription?.optInt("schemaVersion") != 1) continue
+            if ((assigned.prescription.optJSONArray("blocks")?.length() ?: 0) <= 0) continue
+            val day = runCatching { LocalDate.parse(assigned.scheduledDate.take(10)) }.getOrNull()
+                ?: continue
+            if (!day.isBefore(today)) continue
+            if (bestBusiness == null || day.isAfter(bestBusiness!!.first)) {
+                bestBusiness = day to assigned
+            }
+        }
+        bestBusiness?.second?.let { assigned ->
+            return try { projectProfessionalWatchPlan(state, assigned) } catch (_: org.json.JSONException) { null }
+        }
+        return null
     }
 
     private fun projectProfessionalWatchPlan(state:JSONObject,assigned:BusinessCenterStore.ProfessionalSession):JSONObject? {

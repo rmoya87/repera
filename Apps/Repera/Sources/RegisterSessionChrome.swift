@@ -10,10 +10,10 @@ struct WorkoutSummaryTile: View {
     var tint: Color
 
     var body: some View {
-        VStack(alignment: .center, spacing: 7) {
-            HStack(spacing: 6) {
+        VStack(alignment: .center, spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
                 Text(title)
@@ -24,20 +24,236 @@ struct WorkoutSummaryTile: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
             Text(value)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 20, weight: .semibold, design: .rounded).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
-                .minimumScaleFactor(0.65)
-                .frame(maxWidth: .infinity, alignment: .center)
+                .minimumScaleFactor(0.45)
+                .frame(maxWidth: .infinity, maxHeight: 26, alignment: .center)
         }
-        // Altura intrínseca: evita el hueco vacío que dejaba el mínimo fijo.
-        // Las tres fichas conservan la misma altura por compartir esta plantilla.
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, 12)
+        // Altura fija para que Tiempo / Marca / Kcal alineen aunque el valor sea corto o largo.
+        .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .center)
+        .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .background(OG.surface, in: RoundedRectangle(
             cornerRadius: OG.radiusCard, style: .continuous
         ))
+    }
+}
+
+/// Tres tiles de cabecera según tipo de sesión (Historial + Guardar entreno).
+struct SessionSummaryTileSpec: Equatable {
+    var title: String
+    var value: String
+    var icon: String
+    var tint: Color
+}
+
+enum SessionSummaryTilesBuilder {
+    static func tiles(
+        session: WorkoutSession,
+        sport: LiveSport?,
+        health: HealthKitStore.SessionHealthExtras?,
+        durationLabel: String,
+        paceOrSpeedLabel: String? = nil
+    ) -> [SessionSummaryTileSpec] {
+        let kcal = authenticKcal(session: session, health: health)
+        let kcalValue = kcal.map { "\(Int($0.rounded()))" } ?? "—"
+        let steps = health?.stepsCount.flatMap { $0 > 0 ? $0 : nil }
+        let stepsValue = steps.map { ReperaNumberFormat.integer($0) } ?? "—"
+        let avgHR = health?.averageHeartRateBpm.flatMap { $0 > 0 ? $0 : nil }
+        let hrValue = avgHR.map { "\(Int($0.rounded()))" } ?? "—"
+        let distanceMeters = resolvedDistanceMeters(session: session, health: health)
+        let distanceValue: String = {
+            guard let meters = distanceMeters, meters > 0 else { return "—" }
+            if meters >= 1000 {
+                return "\(ReperaNumberFormat.decimal(meters / 1000)) km"
+            }
+            return "\(Int(meters.rounded())) m"
+        }()
+
+        if let timer = session.timerDetails {
+            var row = [
+                SessionSummaryTileSpec(title: "Tiempo", value: DurationText.format(timer.configuredSeconds),
+                                       icon: "clock.fill", tint: OG.blue),
+                SessionSummaryTileSpec(title: "Modalidad", value: timer.modeTitle,
+                                       icon: "timer", tint: OG.accent)
+            ]
+            if timer.modeRaw == "intervals" {
+                row.append(SessionSummaryTileSpec(title: "Rondas", value: "\(timer.rounds)",
+                                                  icon: "repeat", tint: OG.orange))
+            } else {
+                row.append(SessionSummaryTileSpec(title: "Kcal", value: kcalValue,
+                                                  icon: "flame.fill", tint: OG.orange))
+            }
+            return row
+        }
+
+        let time = SessionSummaryTileSpec(
+            title: "Tiempo", value: durationLabel, icon: "clock.fill", tint: OG.blue
+        )
+
+        if let sport, sport.usesGPS {
+            let thirdTitle: String
+            let thirdIcon: String
+            if sport.showsElevationAndSpeedStats || sport.displaysSpeed {
+                thirdTitle = "Vel. media"
+                thirdIcon = "gauge.with.dots.needle.67percent"
+            } else {
+                thirdTitle = "Ritmo"
+                thirdIcon = "speedometer"
+            }
+            return [
+                time,
+                SessionSummaryTileSpec(
+                    title: "Distancia", value: distanceValue,
+                    icon: "point.bottomleft.forward.to.point.topright.scurvepath", tint: OG.accent
+                ),
+                SessionSummaryTileSpec(
+                    title: thirdTitle, value: paceOrSpeedLabel ?? "—",
+                    icon: thirdIcon, tint: OG.blue
+                )
+            ]
+        }
+
+        if let sport, sport.usesStepsKcalSummaryTiles {
+            return [
+                time,
+                SessionSummaryTileSpec(title: "Kcal", value: kcalValue, icon: "flame.fill", tint: OG.orange),
+                SessionSummaryTileSpec(title: "Pasos", value: stepsValue, icon: "figure.walk", tint: OG.accent)
+            ]
+        }
+
+        if let sport, sport.usesHeartRateSummaryTiles {
+            return [
+                time,
+                SessionSummaryTileSpec(title: "Kcal", value: kcalValue, icon: "flame.fill", tint: OG.orange),
+                SessionSummaryTileSpec(title: "FC media", value: hrValue, icon: "heart.fill", tint: OG.red)
+            ]
+        }
+
+        if let sport, sport.usesFitnessClassSummaryTiles {
+            let third: SessionSummaryTileSpec = {
+                if avgHR != nil {
+                    return SessionSummaryTileSpec(title: "FC media", value: hrValue,
+                                                  icon: "heart.fill", tint: OG.red)
+                }
+                return SessionSummaryTileSpec(title: "Pasos", value: stepsValue,
+                                              icon: "figure.walk", tint: OG.accent)
+            }()
+            return [
+                time,
+                SessionSummaryTileSpec(title: "Kcal", value: kcalValue, icon: "flame.fill", tint: OG.orange),
+                third
+            ]
+        }
+
+        if sport == .swimming || sport == .elliptical || sport == .stairClimbing || sport == .climbing {
+            let third: SessionSummaryTileSpec = {
+                if let meters = distanceMeters, meters > 0 {
+                    return SessionSummaryTileSpec(
+                        title: "Distancia", value: distanceValue,
+                        icon: "point.bottomleft.forward.to.point.topright.scurvepath", tint: OG.accent
+                    )
+                }
+                return SessionSummaryTileSpec(title: "FC media", value: hrValue,
+                                              icon: "heart.fill", tint: OG.red)
+            }()
+            return [
+                time,
+                SessionSummaryTileSpec(title: "Kcal", value: kcalValue, icon: "flame.fill", tint: OG.orange),
+                third
+            ]
+        }
+
+        // Entreno programado (sin liveSport): fuerza → volumen; WOD → marca.
+        if sport == nil {
+            if let wod = session.wodResults.first {
+                let mark = compactWODMark(wod)
+                if mark != "—" {
+                    return [
+                        time,
+                        SessionSummaryTileSpec(
+                            title: "Marca", value: mark,
+                            icon: "flag.checkered", tint: OG.accent
+                        ),
+                        SessionSummaryTileSpec(
+                            title: "Kcal", value: kcalValue,
+                            icon: "flame.fill", tint: OG.orange
+                        )
+                    ]
+                }
+            }
+            let volume = session.totalVolumeKg > 0
+                ? ReperaNumberFormat.integer(Int(session.totalVolumeKg.rounded()))
+                : "—"
+            return [
+                time,
+                SessionSummaryTileSpec(title: "Kcal", value: kcalValue, icon: "flame.fill", tint: OG.orange),
+                SessionSummaryTileSpec(title: "Volumen", value: volume, icon: "scalemass.fill", tint: OG.accent)
+            ]
+        }
+
+        // Fallback indoor / other.
+        return [
+            time,
+            SessionSummaryTileSpec(title: "Kcal", value: kcalValue, icon: "flame.fill", tint: OG.orange),
+            SessionSummaryTileSpec(title: "FC media", value: hrValue, icon: "heart.fill", tint: OG.red)
+        ]
+    }
+
+    private static func authenticKcal(
+        session: WorkoutSession,
+        health: HealthKitStore.SessionHealthExtras?
+    ) -> Double? {
+        if health?.hasExternalSaludSource == true,
+           let kcal = health?.activeEnergyKcal, kcal > 0 {
+            return kcal
+        }
+        if let kcal = session.appleActiveEnergyKcal, kcal > 0 { return kcal }
+        return nil
+    }
+
+    private static func resolvedDistanceMeters(
+        session: WorkoutSession,
+        health: HealthKitStore.SessionHealthExtras?
+    ) -> Double? {
+        if let recorded = session.recordedDistanceMeters, recorded > 0 { return recorded }
+        if let meters = health?.movementDistanceMeters, meters > 0 { return meters }
+        return nil
+    }
+
+    /// Marca corta para el tile (el detalle WOD debajo lleva el texto completo).
+    /// Ej.: `12:34`, `150`, `3+45` — evita «3 rondas + 45 reps» que no cabe.
+    private static func compactWODMark(_ result: WODBlockResult) -> String {
+        if let elapsedSeconds = result.elapsedSeconds {
+            let m = elapsedSeconds / 60
+            let s = elapsedSeconds % 60
+            return String(format: "%d:%02d", m, s)
+        }
+        if let totalReps = result.totalReps {
+            if let rounds = result.roundsCompleted {
+                return "\(rounds)+\(totalReps)"
+            }
+            return "\(totalReps)"
+        }
+        if let rounds = result.roundsCompleted {
+            return "\(rounds)"
+        }
+        return "—"
+    }
+}
+
+struct SessionSummaryTilesRow: View {
+    var specs: [SessionSummaryTileSpec]
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(Array(specs.enumerated()), id: \.offset) { _, spec in
+                WorkoutSummaryTile(
+                    title: spec.title, value: spec.value, icon: spec.icon, tint: spec.tint
+                )
+            }
+        }
     }
 }
 

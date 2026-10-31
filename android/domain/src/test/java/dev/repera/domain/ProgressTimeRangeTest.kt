@@ -11,7 +11,7 @@ class ProgressTimeRangeTest {
 
     @Test fun titlesAndChartDaysMatchIos() {
         assertEquals("Hoy", ProgressTimeRange.TODAY.title)
-        assertEquals("Esta semana", ProgressTimeRange.WEEK.title)
+        assertEquals("Últimos 7 días", ProgressTimeRange.WEEK.title)
         assertEquals("Este mes", ProgressTimeRange.MONTH.title)
         assertEquals("90 días", ProgressTimeRange.DAYS_90.title)
         assertEquals(1, ProgressTimeRange.TODAY.chartDayCount)
@@ -21,10 +21,9 @@ class ProgressTimeRangeTest {
         assertEquals(360, ProgressTimeRange.DAYS_360.chartDayCount)
     }
 
-    @Test fun weekStartsOnMondayByDefault() {
-        // Sabado 24 -> lunes 19 de la misma semana.
-        assertEquals(LocalDate.of(2026, 10, 19), ProgressTimeRange.WEEK.startDate(now))
-        // Con semana empezando en domingo -> domingo 18.
+    @Test fun weekIsRollingSevenDays() {
+        // Sábado 24 -> domingo 18 (hoy inclusive + 6 atrás).
+        assertEquals(LocalDate.of(2026, 10, 18), ProgressTimeRange.WEEK.startDate(now))
         assertEquals(LocalDate.of(2026, 10, 18),
             ProgressTimeRange.WEEK.startDate(now, weekStartsOnMonday = false))
         assertEquals(LocalDate.of(2026, 10, 1), ProgressTimeRange.MONTH.startDate(now))
@@ -32,17 +31,17 @@ class ProgressTimeRangeTest {
     }
 
     @Test fun containsBoundsAndFuture() {
-        assertTrue(ProgressTimeRange.WEEK.contains(LocalDate.of(2026, 10, 19), now))
+        assertTrue(ProgressTimeRange.WEEK.contains(LocalDate.of(2026, 10, 18), now))
         assertTrue(ProgressTimeRange.WEEK.contains(now, now))
-        assertFalse(ProgressTimeRange.WEEK.contains(LocalDate.of(2026, 10, 18), now))
+        assertFalse(ProgressTimeRange.WEEK.contains(LocalDate.of(2026, 10, 17), now))
         assertFalse(ProgressTimeRange.WEEK.contains(now.plusDays(1), now))
         assertTrue(ProgressTimeRange.TODAY.contains(now, now))
         assertFalse(ProgressTimeRange.TODAY.contains(now.minusDays(1), now))
     }
 
     @Test fun previousPeriodWindows() {
-        // 602e9c39: solo los días transcurridos son comparables (sábado: lun-sáb previo).
-        assertEquals(LocalDate.of(2026, 10, 12) to LocalDate.of(2026, 10, 18),
+        // Ventana móvil previa: 11–18 (fin exclusivo = inicio actual).
+        assertEquals(LocalDate.of(2026, 10, 11) to LocalDate.of(2026, 10, 18),
             ProgressTimeRange.WEEK.previousPeriodBounds(now))
         assertEquals(LocalDate.of(2026, 9, 1) to LocalDate.of(2026, 9, 25),
             ProgressTimeRange.MONTH.previousPeriodBounds(now))
@@ -51,7 +50,7 @@ class ProgressTimeRangeTest {
         assertTrue(ProgressTimeRange.WEEK.containsInPreviousPeriod(
             LocalDate.of(2026, 10, 15), now))
         assertFalse(ProgressTimeRange.WEEK.containsInPreviousPeriod(
-            LocalDate.of(2026, 10, 19), now))
+            LocalDate.of(2026, 10, 18), now))
     }
 
     @Test fun healthFetchMarginsMatchIos() {

@@ -317,6 +317,8 @@ struct WorkoutDetailView: View {
     @State private var fullScreenPin: WorkoutLocationPin?
     /// Un solo destino: evita apilar fichas si hay varios links en la misma card.
     @State private var exerciseRoute: DetailExerciseRoute?
+    /// POI sugerido ≤50 m (pista, playa, estación…) aún no aceptado en el pin.
+    @State private var placeSuggestion: WorkoutLocationPin?
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
@@ -330,6 +332,44 @@ struct WorkoutDetailView: View {
     private var subtitle: String {
         guard let session = draft, let start = session.startedAt else { return "" }
         return SpanishDate.sessionSubtitle(start: start, end: session.finishedAt)
+    }
+
+    private func sessionIsGPSSport(_ session: WorkoutSession) -> Bool {
+        session.liveSportID.flatMap { LiveSport(rawValue: $0)?.usesGPS } == true
+    }
+
+    private func detailDurationLabel(_ session: WorkoutSession) -> String {
+        if let timer = session.timerDetails {
+            return DurationText.format(timer.configuredSeconds)
+        }
+        let minutes: Double = {
+            if session.liveSportID != nil { return session.durationMinutes }
+            if let start = session.startedAt {
+                let end = session.finishedAt ?? start.addingTimeInterval(60)
+                let wall = max(0, end.timeIntervalSince(start) / 60)
+                if wall > 0 { return wall }
+            }
+            return session.durationMinutes
+        }()
+        return minutes > 0 ? "\(Int(minutes.rounded()))′" : "—"
+    }
+
+    private func detailPaceOrSpeedLabel(_ session: WorkoutSession) -> String? {
+        let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+        guard let sport, sport.usesGPS else { return nil }
+        let meters: Double? = {
+            if let recorded = session.recordedDistanceMeters, recorded > 0 { return recorded }
+            return healthExtras?.movementDistanceMeters.flatMap { $0 > 0 ? $0 : nil }
+        }()
+        guard let meters, meters > 0 else { return nil }
+        let seconds = session.activeDurationSeconds
+            ?? (session.durationMinutes > 0 ? session.durationMinutes * 60 : nil)
+        guard let seconds, seconds > 0 else { return nil }
+        if sport.showsElevationAndSpeedStats || sport.displaysSpeed {
+            return ReperaNumberFormat.decimal(meters / seconds * 3.6)
+        }
+        let secPerKm = Int((seconds / (meters / 1000)).rounded())
+        return String(format: "%d:%02d", secPerKm / 60, secPerKm % 60)
     }
 
     private var workoutNavTitle: String {
@@ -423,6 +463,24 @@ struct WorkoutDetailView: View {
             await store.refineSessionReviewWithHealth(sessionId: sessionId)
             guard !Task.isCancelled else { return }
             draft = store.state.workouts.first(where: { $0.id == sessionId })
+            if let current = draft, current.locationPin?.hasChosenPlace != true {
+                let sport = current.liveSportID.flatMap(LiveSport.init(rawValue:))
+                let suggested = await SportNearbyPlaceSuggester.suggestForSession(
+                    sport: sport,
+                    routePoints: current.routePoints,
+                    existingPin: current.locationPin
+                )
+                guard !Task.isCancelled else { return }
+                if let suggested, suggested.hasChosenPlace {
+                    placeSuggestion = suggested
+                } else if current.locationPin == nil, let suggested {
+                    // Pin GPS anónimo para pintar mapa en indoor (pádel, HIIT…).
+                    var updated = current
+                    updated.locationPin = suggested
+                    store.saveWorkout(updated)
+                    draft = store.state.workouts.first(where: { $0.id == sessionId })
+                }
+            }
             didHydrateDetail = true
         }
         // Push con zoom animado desde la vista previa y retorno a su origen.
@@ -608,7 +666,107 @@ struct WorkoutDetailView: View {
     private func mapCoordinates(_ session: WorkoutSession) -> (lat: Double, lon: Double)? {
         if let point = displayedRoute(session).first { return (point.latitude, point.longitude) }
         if let pin = session.locationPin { return (pin.latitude, pin.longitude) }
+        if let pin = placeSuggestion { return (pin.latitude, pin.longitude) }
         return nil
+    }
+
+    @ViewBuilder
+    private func placeSuggestionBanner(_ suggestion: WorkoutLocationPin, session: WorkoutSession) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Lugar sugerido", systemImage: "mappin.and.ellipse")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(OG.accent)
+            Text(suggestion.name ?? "Sitio cercano")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(OG.label)
+            Text("A menos de 50 m de tu posición al entrenar.")
+                .font(.system(size: 12))
+                .foregroundStyle(OG.label2)
+            HStack(spacing: 10) {
+                Button("Usar este lugar") {
+                    acceptPlaceSuggestion(suggestion, for: session)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                Button("Descartar") {
+                    placeSuggestion = nil
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(OG.pad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+    }
+
+    private func acceptPlaceSuggestion(_ suggestion: WorkoutLocationPin, for session: WorkoutSession) {
+        var updated = session
+        updated.locationPin = suggestion
+        store.saveWorkout(updated)
+        draft = store.state.workouts.first(where: { $0.id == sessionId }) ?? updated
+        placeSuggestion = nil
+    }
+
+    @ViewBuilder
+    private func detailMapSections(_ session: WorkoutSession) -> some View {
+        let mapKind = sessionMapContent(session)
+        let displayPin = session.locationPin?.hasChosenPlace == true
+            ? session.locationPin
+            : (placeSuggestion ?? session.locationPin)
+        let coordinate: (lat: Double, lon: Double)? = mapCoordinates(session)
+            ?? displayPin.map { (lat: $0.latitude, lon: $0.longitude) }
+        if mapKind != .none || coordinate != nil {
+            Section {
+                SessionMapWeatherCard(
+                    latitude: coordinate?.lat,
+                    longitude: coordinate?.lon,
+                    workoutDate: session.startedAt ?? session.finishedAt ?? Date(),
+                    placePin: displayPin
+                ) {
+                    if mapKind != .none {
+                        sessionMapView(session)
+                    } else if let pin = displayPin {
+                        WorkoutMapTapTarget(accessibilityLabel: "Ampliar ubicación") {
+                            fullScreenRoutePoints = []
+                            fullScreenPin = pin
+                            showFullScreenRoute = true
+                        } map: {
+                            WorkoutLocationPinMap(pin: pin, isInteractive: false)
+                                .matchedTransitionSource(id: sessionId, in: routeZoomNamespace)
+                        }
+                    }
+                }
+                .ogCardListRow()
+                if let suggestion = placeSuggestion,
+                   session.locationPin?.hasChosenPlace != true {
+                    placeSuggestionBanner(suggestion, session: session)
+                        .ogCardListRow()
+                }
+                if session.routePoints.contains(where: { $0.isEstimated == true }) {
+                    Text("El tramo discontinuo se ha estimado en línea recta tras un cierre inesperado; no es una medición GPS.")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                        .ogCardListRow()
+                }
+            }
+        } else if sessionIsGPSSport(session),
+                  (session.recordedDistanceMeters ?? 0) > 0 {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Recorrido no disponible", systemImage: "map")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                    Text("La distancia está guardada, pero todavía no están disponibles los puntos del recorrido. Comprueba que iCloud esté activado y sincronizado en tus dispositivos.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
+                .padding(OG.pad)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                .ogCardListRow()
+            }
+        }
     }
 
     @ViewBuilder
@@ -674,26 +832,74 @@ struct WorkoutDetailView: View {
         List {
             OGScrollablePageTitle(workoutNavTitle).ogScrollingTitleListRow()
             if let session = draft {
-                // La fecha es cabecera EXTERIOR, no contenido de la primera
-                // fila insetGrouped. Evita que las esquinas redondeadas de List
-                // recorten la L de «Lunes» mientras deja visibles solo las tiles.
+                // Fecha + tiles en el mismo inset que las cards (no Section header).
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        summaryCard(session)
+                        if !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundStyle(OG.label2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        SessionSummaryTilesRow(
+                            specs: SessionSummaryTilesBuilder.tiles(
+                                session: session,
+                                sport: session.liveSportID.flatMap(LiveSport.init(rawValue:)),
+                                health: healthExtras,
+                                durationLabel: detailDurationLabel(session),
+                                paceOrSpeedLabel: detailPaceOrSpeedLabel(session)
+                            )
+                        )
                         if let review = session.sessionReview {
                             SessionReviewCard(review: review)
                         }
                     }
                     .ogCardListRow(top: 0, bottom: 2)
-                } header: {
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(OG.label2)
-                            .textCase(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.leading, 2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                // Métricas primero (antes mapa / ejercicios), sin título «Entreno».
+                let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+                let extras = displayedMetrics(session)
+                let hasTrackedMetrics = displayedRoute(session).count >= 2
+                    || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
+                    || (session.liveSportID != nil && (session.recordedDistanceMeters ?? 0) > 0
+                        && (session.activeDurationSeconds ?? 0) > 0)
+                let hasMovement = extras?.stepsCount != nil || extras?.movementDistanceMeters != nil
+                if session.timerDetails == nil, hasTrackedMetrics || extras != nil {
+                    Section {
+                        VStack(alignment: .leading, spacing: 14) {
+                            if hasTrackedMetrics || sport != nil || hasMovement {
+                                CardioSplitsView(
+                                    routePoints: displayedRoute(session),
+                                    heartRate: extras?.heartRateSeries ?? [],
+                                    cycling: sport?.displaysSpeed ?? (extras?.activityType == .cycling),
+                                    activeKilometerSeconds: session.liveKilometerSplitsSeconds,
+                                    totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
+                                    totalDistanceMeters: session.recordedDistanceMeters,
+                                    maxSpeedKmh: extras?.maxSpeedKmh,
+                                    healthStats: extras,
+                                    sport: sport,
+                                    embedded: true
+                                )
+                            }
+                            if let extras {
+                                if hasTrackedMetrics || sport != nil || hasMovement {
+                                    Divider().opacity(0.35)
+                                }
+                                HealthSessionMetricsCard(
+                                    extras: extras,
+                                    includeSourceRows: extras.hasExternalSaludSource,
+                                    embedded: true,
+                                    showsAltitudeProfile: sport?.showsElevationAndSpeedStats == true
+                                )
+                            }
+                        }
+                        .padding(OG.pad)
+                        .background(OG.surface, in: RoundedRectangle(
+                            cornerRadius: OG.radiusCard, style: .continuous
+                        ))
+                        .ogCardListRow()
                     }
                 }
 
@@ -718,118 +924,11 @@ struct WorkoutDetailView: View {
                             .foregroundStyle(OG.accent)
                             .textCase(nil)
                     }
-                    if let pin = session.locationPin {
-                        // El lugar se muestra bajo el mapa, nunca encima.
-                        Section {
-                            VStack(spacing: 0) {
-                                WorkoutLocationPinMap(pin: pin, isInteractive: false)
-                                    .frame(height: 180)
-                                    .frame(maxWidth: .infinity)
-                                    .clipped()
-                                if pin.hasChosenPlace {
-                                    Divider().opacity(0.35)
-                                    WorkoutPlaceSummaryRow(pin: pin)
-                                }
-                            }
-                            .background(OG.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                            .ogCardListRow()
-                        } header: {
-                            Text("Lugar").textCase(nil)
-                        }
-                    }
                 }
 
-                // El mapa va directamente debajo de la fecha y las tiles.
-                if !isEditing, session.timerDetails == nil, sessionMapContent(session) != .none {
-                    Section {
-                        let coordinate = mapCoordinates(session)
-                        SessionMapWeatherCard(
-                            latitude: coordinate?.lat,
-                            longitude: coordinate?.lon,
-                            workoutDate: session.startedAt ?? session.finishedAt ?? Date(),
-                            placePin: session.locationPin
-                        ) {
-                            sessionMapView(session)
-                        }
-                        .ogCardListRow()
-                        if session.routePoints.contains(where: { $0.isEstimated == true }) {
-                            Text("El tramo discontinuo se ha estimado en línea recta tras un cierre inesperado; no es una medición GPS.")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .ogCardListRow()
-                        }
-                    }
-                } else if !isEditing,
-                          session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
-                          (session.recordedDistanceMeters ?? 0) > 0 {
-                    // La distancia puede estar disponible antes que las
-                    // coordenadas. No dibujar un trazado inventado.
-                    Section {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label("Recorrido no disponible", systemImage: "map")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                            Text("La distancia está guardada, pero todavía no están disponibles los puntos del recorrido. Comprueba que iCloud esté activado y sincronizado en tus dispositivos.")
-                                .font(.system(size: 13))
-                                .foregroundStyle(OG.label2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
-                        .padding(OG.pad)
-                        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-                        .ogCardListRow()
-                    }
-                }
-
-                // Plantilla única: métricas deportivas + parciales y a
-                // continuación gráfica/Salud bajo UN solo título Entreno.
-                let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
-                let extras = displayedMetrics(session)
-                let hasTrackedMetrics = displayedRoute(session).count >= 2
-                    || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
-                    || (session.liveSportID != nil && (session.recordedDistanceMeters ?? 0) > 0
-                        && (session.activeDurationSeconds ?? 0) > 0)
-                let hasMovement = extras?.stepsCount != nil || extras?.movementDistanceMeters != nil
-                if hasTrackedMetrics || extras != nil {
-                    Section {
-                        VStack(alignment: .leading, spacing: 14) {
-                            if hasTrackedMetrics || sport != nil || hasMovement {
-                                CardioSplitsView(
-                                    routePoints: displayedRoute(session),
-                                    heartRate: extras?.heartRateSeries ?? [],
-                                    cycling: sport?.displaysSpeed ?? (extras?.activityType == .cycling),
-                                    activeKilometerSeconds: session.liveKilometerSplitsSeconds,
-                                    totalActiveSeconds: session.activeDurationSeconds ?? session.durationMinutes * 60,
-                                    totalDistanceMeters: session.recordedDistanceMeters,
-                                    maxSpeedKmh: extras?.maxSpeedKmh,
-                                    healthStats: extras,
-                                    sport: sport,
-                                    embedded: true
-                                )
-                            }
-                            if let extras {
-                                if hasTrackedMetrics || sport != nil || hasMovement {
-                                    Divider().opacity(0.35)
-                                }
-                                HealthSessionMetricsCard(
-                                    extras: extras,
-                                    includeSourceRows: extras.hasExternalSaludSource,
-                                    embedded: true
-                                )
-                            }
-                        }
-                        .padding(OG.pad)
-                        .background(OG.surface, in: RoundedRectangle(
-                            cornerRadius: OG.radiusCard, style: .continuous
-                        ))
-                        .ogCardListRow()
-                    } header: {
-                        Text("Entreno")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(OG.accent)
-                            .textCase(nil)
-                    }
+                // GPS: mapa del recorrido junto a las métricas (protagonista).
+                if !isEditing, sessionIsGPSSport(session) {
+                    detailMapSections(session)
                 }
 
                 if isEditing {
@@ -919,6 +1018,11 @@ struct WorkoutDetailView: View {
                         notesCard
                             .ogCardListRow()
                     }
+                }
+
+                // No GPS (fuerza, pádel, HIIT, timer…): mapa/lugar al final.
+                if !isEditing, !sessionIsGPSSport(session) {
+                    detailMapSections(session)
                 }
             }
         }
@@ -1039,94 +1143,6 @@ struct WorkoutDetailView: View {
     private func cancelEditing() {
         draft = store.state.workouts.first(where: { $0.id == sessionId })
         isEditing = false
-    }
-
-    private func summaryCard(_ session: WorkoutSession) -> some View {
-        if let timer = session.timerDetails {
-            return AnyView(HStack(spacing: 10) {
-                summaryTile(
-                    title: "Tiempo",
-                    value: DurationText.format(timer.configuredSeconds),
-                    icon: "clock.fill", tint: OG.blue
-                )
-                summaryTile(
-                    title: "Modalidad", value: timer.modeTitle,
-                    icon: "timer", tint: OG.accent
-                )
-                if timer.modeRaw == "intervals" {
-                    summaryTile(
-                        title: "Rondas", value: "\(timer.rounds)",
-                        icon: "repeat", tint: OG.orange
-                    )
-                }
-            })
-        }
-        // Tres tarjetas estables: no colapsar el resultado a una sola cuando
-        // Apple Salud no aporta kcal o la sesión no tiene series con peso.
-        // Kcal solo si vienen de una fuente real de Salud, nunca de MET estimados.
-        let actualKcal = healthExtras?.hasExternalSaludSource == true
-            ? healthExtras?.activeEnergyKcal
-            : nil
-        let minutes: Double = {
-            if session.liveSportID != nil { return session.durationMinutes }
-            if let start = session.startedAt {
-                let end = session.finishedAt ?? start.addingTimeInterval(60)
-                let wall = max(0, end.timeIntervalSince(start) / 60)
-                if wall > 0 { return wall }
-            }
-            return session.durationMinutes
-        }()
-
-        let route = displayedRoute(session)
-        let distanceMeters: Double? = {
-            if let recorded = session.recordedDistanceMeters, recorded > 0 { return recorded }
-            guard route.count >= 2 else { return nil }
-            let samples = route.map {
-                CardioRouteAnalysis.Sample(
-                    date: $0.date, latitude: $0.latitude,
-                    longitude: $0.longitude, altitudeMeters: $0.altitudeMeters
-                )
-            }
-            let meters = CardioRouteAnalysis.analyze(route: samples).distanceMeters
-            return meters > 0 ? meters : nil
-        }()
-
-        return AnyView(HStack(spacing: 10) {
-            summaryTile(
-                title: "Tiempo",
-                value: session.timerDetails.map { DurationText.format($0.configuredSeconds) }
-                    ?? (minutes > 0 ? "\(Int(minutes.rounded()))′" : "—"),
-                icon: "clock.fill",
-                tint: OG.blue
-            )
-            summaryTile(
-                title: "Kcal",
-                value: actualKcal.flatMap { $0 > 0 ? "\(Int($0.rounded()))" : nil } ?? "—",
-                icon: "flame.fill",
-                tint: OG.orange
-            )
-            if let distanceMeters {
-                summaryTile(
-                    title: "Distancia",
-                    value: "\(ReperaNumberFormat.decimal(distanceMeters / 1000)) km",
-                    icon: "point.bottomleft.forward.to.point.topright.scurvepath",
-                    tint: OG.accent
-                )
-            } else {
-                summaryTile(
-                    title: "Volumen",
-                    value: session.totalVolumeKg > 0
-                        ? ReperaNumberFormat.integer(Int(session.totalVolumeKg.rounded()))
-                        : "—",
-                    icon: "scalemass.fill",
-                    tint: OG.accent
-                )
-            }
-        })
-    }
-
-    private func summaryTile(title: String, value: String, icon: String, tint: Color) -> some View {
-        WorkoutSummaryTile(title: title, value: value, icon: icon, tint: tint)
     }
 
     private var notesCard: some View {
@@ -1936,6 +1952,8 @@ struct HealthSessionMetricsCard: View {
     /// Si false, dispositivo/kcal van en otro bloque (ficha Salud).
     var includeSourceRows: Bool = true
     var embedded: Bool = false
+    /// Elevación solo en caminata/senderismo, bici/gravel/MTB, esquí/snow/surf/skate.
+    var showsAltitudeProfile: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1963,21 +1981,17 @@ struct HealthSessionMetricsCard: View {
             }
 
             if extras.routePoints.count >= 2 {
-                // Tiles de FC/velocidad o altitud viven dentro del selector Cardio/Altitud.
-                CardioAltitudeChart(extras: extras)
+                // Cardio arriba; elevación apilada debajo (sin pestaña) si el deporte lo admite.
+                CardioAltitudeChart(extras: extras, showsAltitudeProfile: showsAltitudeProfile)
             } else if !extras.heartRateSeries.isEmpty {
                 HealthHeartRateChart(series: extras.heartRateSeries, stats: extras)
-                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil {
-                    HealthHeartRateStatRow(stats: extras)
-                }
-            } else if let average = extras.averageHeartRateBpm {
-                Label("Ritmo cardíaco · media \(Int(average.rounded())) lpm", systemImage: "heart.fill")
+                HealthHeartRateStatRow(stats: extras)
+            } else if extras.averageHeartRateBpm != nil
+                        || extras.minHeartRateBpm != nil
+                        || extras.maxHeartRateBpm != nil {
+                Label("Ritmo cardíaco", systemImage: "heart.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(OG.red)
-                if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil {
-                    HealthHeartRateStatRow(stats: extras)
-                }
-            } else if extras.minHeartRateBpm != nil || extras.maxHeartRateBpm != nil {
                 HealthHeartRateStatRow(stats: extras)
             }
 
@@ -2039,11 +2053,6 @@ private struct HealthHeartRateChart: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(OG.red)
                 Spacer()
-                if let avg = stats.averageHeartRateBpm {
-                    Text("media \(Int(avg.rounded()))")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                }
             }
 
             Chart(series) { point in
@@ -2099,12 +2108,9 @@ private struct HealthHeartRateStatRow: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            if stats.minHeartRateBpm != nil {
-                stat("Mín", value: stats.minHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.label2)
-            }
-            if stats.maxHeartRateBpm != nil {
-                stat("Máx", value: stats.maxHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.red)
-            }
+            stat("Mín", value: stats.minHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.label2)
+            stat("Media", value: stats.averageHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.blue)
+            stat("Máx", value: stats.maxHeartRateBpm.map { "\(Int($0.rounded()))" }, unit: "lpm", tint: OG.red)
         }
     }
 
@@ -2246,16 +2252,16 @@ struct HealthActivityDetailView: View {
         return List {
             OGScrollablePageTitle(activity.title).ogScrollingTitleListRow()
             Section {
-                summaryRow(activity, detail: detail)
-                    .ogCardListRow(top: 0, bottom: 2)
-            } header: {
-                if !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(OG.label2)
-                        .textCase(nil)
-                        .padding(.leading, 2)
+                VStack(alignment: .leading, spacing: 10) {
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(OG.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    summaryRow(activity, detail: detail)
                 }
+                .ogCardListRow(top: 0, bottom: 2)
             }
 
             if showRouteMap {

@@ -25,8 +25,8 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
         ReperaSectionTitle("Preparación para entrenar")
         ReperaCard(Modifier.fillMaxWidth()) {
             Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 val ready = recovery.readiness
                 if (ready == null) {
@@ -48,15 +48,13 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                         cardiac?.restingHeartRateBpm?.let { "${it.roundToInt()} lpm" }
                     ).joinToString(" · ").ifBlank { "Sin datos" }
                     Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
+                        Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Column(
                             Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
                             ReadinessFactor(
                                 "Sueño",
@@ -79,15 +77,13 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                         val track = MaterialTheme.colorScheme.surfaceVariant
                         Box(
                             Modifier
-                                .fillMaxHeight()
-                                .aspectRatio(1f)
-                                .widthIn(min = 120.dp, max = 168.dp)
+                                .size(124.dp)
                                 .semantics(mergeDescendants = true) {
                                     contentDescription = "Preparación ${score.roundToInt()} de 10"
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+                            Canvas(Modifier.fillMaxSize().padding(4.dp)) {
                                 val stroke = 11.dp.toPx()
                                 drawCircle(track, style = Stroke(stroke))
                                 drawArc(
@@ -106,10 +102,14 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     score.roundToInt().toString(),
-                                    style = MaterialTheme.typography.headlineLarge,
+                                    style = MaterialTheme.typography.displaySmall,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Text("de 10", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    "de 10",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }

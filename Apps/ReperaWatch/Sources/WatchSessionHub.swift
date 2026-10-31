@@ -1,5 +1,7 @@
+import CoreLocation
 import CoreMotion
 import Foundation
+import HealthKit
 import Observation
 import ReperaDomain
 import WatchConnectivity
@@ -14,6 +16,20 @@ final class WatchSessionHub: NSObject {
     private(set) var lastFinished: WorkoutSession?
     private(set) var liveActivity: WatchLiveActivitySnapshot?
     private(set) var liveCommandError: String?
+    private(set) var recentLiveSportIDs: [String] = []
+    private(set) var audioMuted = false
+    /// Índice / ítem del carrusel del hub (se restaura al Volver al inicio).
+    private(set) var hubCarouselIndex = 0
+    private(set) var lastHubItemID: String?
+    /// Tras Finalizar companion, ignorar snapshots de revisión del iPhone hasta nil.
+    private(set) var suppressCompanionLive = false
+    /// Esperando snapshot del iPhone tras startLive ok.
+    private(set) var pendingCompanionSport: WatchLiveSport?
+    private(set) var watchLiveSport: WatchLiveSport?
+    private(set) var watchLivePaused = false
+    private(set) var watchLiveElapsedSeconds = 0
+    private(set) var watchLiveDistanceMeters: Double = 0
+    private(set) var watchLiveElevationGainMeters: Double = 0
     private(set) var isPaused = false
     private(set) var restRemaining = 0
     private(set) var blockElapsed = 0
@@ -41,6 +57,14 @@ final class WatchSessionHub: NSObject {
     private var lastIntervalIndex = 0
     private var todayUpdatedAt: Date?
     private let persistenceKey = "repera.watch.offlineState.v1"
+    private var watchLiveSessionID: UUID?
+    private var watchLiveStartedAt: Date?
+    private var watchLivePausedAt: Date?
+    private var watchLivePausedAccum: TimeInterval = 0
+    private var watchLivePoints: [WorkoutRoutePoint] = []
+    private var lastAltitude: Double?
+    private let locationManager = CLLocationManager()
+    private var watchLiveTick: Timer?
 
     private struct OfflineState: Codable {
         var current: WorkoutSession?
@@ -67,12 +91,69 @@ final class WatchSessionHub: NSObject {
 
     override init() {
         super.init()
+        audioMuted = UserDefaults.standard.bool(forKey: "repera.watch.audioMuted")
+        recentLiveSportIDs = UserDefaults.standard.stringArray(forKey: "repera.watch.recentSports") ?? []
+        hubCarouselIndex = UserDefaults.standard.integer(forKey: "repera.watch.hubCarouselIndex")
+        lastHubItemID = UserDefaults.standard.string(forKey: "repera.watch.lastHubItemID")
         restore()
     }
 
     var todaysWorkout: WorkoutSession? {
+        // El día de sync es hoy; el plan puede ser de un día atrasado (efectivo).
         guard let todayUpdatedAt, Calendar.current.isDateInToday(todayUpdatedAt) else { return nil }
         return todayPlan
+    }
+
+    /// Carrusel del hub: plan → recientes → resto del catálogo.
+    var hubCarouselItems: [WatchHubItem] {
+        var items: [WatchHubItem] = []
+        if let plan = todaysWorkout, !plan.exercises.isEmpty {
+            items.append(.plan(plan))
+        }
+        var seen = Set<String>()
+        for id in recentLiveSportIDs {
+            guard let sport = WatchLiveSport(rawValue: id), seen.insert(id).inserted else { continue }
+            items.append(.sport(sport))
+        }
+        for sport in WatchLiveSport.allCases {
+            guard seen.insert(sport.rawValue).inserted else { continue }
+            items.append(.sport(sport))
+        }
+        return items
+    }
+
+    /// Índice del carrusel: prioriza el último ítem jugado/seleccionado (por id).
+    func resolvedHubCarouselIndex() -> Int {
+        let items = hubCarouselItems
+        guard !items.isEmpty else { return 0 }
+        if let id = lastHubItemID,
+           let idx = items.firstIndex(where: { $0.id == id }) {
+            return idx
+        }
+        return min(max(0, hubCarouselIndex), items.count - 1)
+    }
+
+    func setHubCarouselIndex(_ index: Int) {
+        let items = hubCarouselItems
+        guard !items.isEmpty else {
+            hubCarouselIndex = 0
+            lastHubItemID = nil
+            saveHubPrefs()
+            return
+        }
+        let clamped = min(max(0, index), items.count - 1)
+        hubCarouselIndex = clamped
+        lastHubItemID = items[clamped].id
+        saveHubPrefs()
+    }
+
+    /// Recuerda el deporte del hub para restaurarlo al Volver al inicio.
+    func rememberHubSport(_ sport: WatchLiveSport) {
+        lastHubItemID = WatchHubItem.sport(sport).id
+        if let idx = hubCarouselItems.firstIndex(where: { $0.id == lastHubItemID }) {
+            hubCarouselIndex = idx
+        }
+        saveHubPrefs()
     }
 
     var active: WorkoutSession? { controller?.session }
@@ -332,10 +413,243 @@ final class WatchSessionHub: NSObject {
     }
 
     func controlLiveActivity(_ command: String) {
-        guard let liveActivity, liveActivity.phase != .review else { return }
+        guard let live = liveActivity, live.phase != .review else { return }
         liveCommandError = connectivity.sendLiveCommand(
-            sessionId: liveActivity.id, command: command
+            sessionId: live.id, command: command
         ) ? nil : "Conecta el iPhone para controlar esta actividad"
+        // Finalizar companion: resumen local + «Volver al inicio»; el iPhone revisa/guarda.
+        if command == "finish", liveCommandError == nil {
+            let elapsed = Int(live.displayElapsed(at: Date()))
+            let session = WorkoutSession(
+                id: live.id,
+                title: live.sportTitle,
+                exercises: [],
+                phase: .finished,
+                startedAt: Date().addingTimeInterval(-Double(elapsed)),
+                finishedAt: Date(),
+                liveSportID: "companion",
+                recordedDistanceMeters: live.distanceMeters > 0 ? live.distanceMeters : nil,
+                activeDurationSeconds: Double(elapsed)
+            )
+            lastFinished = session
+            summaryDismissed = false
+            suppressCompanionLive = true
+            liveActivity = nil
+            save()
+        }
+    }
+
+    /// Cierra el resumen y vuelve al hub (sin reabrir la actividad).
+    func returnToHome() {
+        summaryDismissed = true
+        controller = nil
+        clearWatchLive()
+        // No reabrir companion en revisión; el hub debe quedar libre para elegir otro.
+        liveActivity = nil
+        suppressCompanionLive = true
+        checkpoint()
+    }
+
+    func toggleAudioMuted() {
+        audioMuted.toggle()
+        connectivity.sendAudioMuted(audioMuted)
+        saveHubPrefs()
+    }
+
+    /// Play de actividad desde el hub: preferir iPhone; si no, grabar en el reloj.
+    /// - Returns: `true` si el Watch es dueño de la grabación local.
+    @discardableResult
+    func playHubSport(_ sport: WatchLiveSport) -> Bool {
+        rememberHubSport(sport)
+        // Nueva elección del usuario: dejar de ignorar snapshots companion.
+        suppressCompanionLive = false
+        pendingCompanionSport = nil
+        if liveActivity?.phase == .review {
+            liveActivity = nil
+        }
+        if connectivity.sendStartLive(sportID: sport.rawValue, onResult: { [weak self] ok in
+            Task { @MainActor in
+                guard let self else { return }
+                if ok {
+                    // iPhone es dueño: esperar liveActivity (no grabar en local).
+                    self.pendingCompanionSport = sport
+                    return
+                }
+                self.pendingCompanionSport = nil
+                // Sin iPhone / entreno programado activo → grabar en el reloj.
+                self.startWatchOwnedLive(sport: sport)
+            }
+        }) {
+            // Mensaje enviado: UI companion en cuanto llegue el snapshot.
+            pendingCompanionSport = sport
+            return false
+        }
+        startWatchOwnedLive(sport: sport)
+        return true
+    }
+
+    private func startWatchOwnedLive(sport: WatchLiveSport) {
+        guard watchLiveSport == nil else { return }
+        pendingCompanionSport = nil
+        liveActivity = nil
+        ensureWatchLiveRunning(sport: sport)
+    }
+
+    func ensureWatchLiveRunning(sport: WatchLiveSport) {
+        guard watchLiveSport == nil, !hasWorkoutInProgress, liveActivity == nil else { return }
+        let id = UUID()
+        watchLiveSessionID = id
+        watchLiveSport = sport
+        watchLivePaused = false
+        watchLiveElapsedSeconds = 0
+        watchLiveDistanceMeters = 0
+        watchLiveElevationGainMeters = 0
+        watchLivePoints = []
+        lastAltitude = nil
+        watchLivePausedAccum = 0
+        watchLivePausedAt = nil
+        watchLiveStartedAt = Date()
+        health.startLive(
+            id: id, at: watchLiveStartedAt ?? Date(),
+            activityType: sport.healthKitActivityType,
+            outdoor: sport.usesGPS
+        )
+        if sport.usesGPS {
+            locationManager.delegate = self
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
+            locationManager.activityType = .fitness
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.startUpdatingLocation()
+        }
+        watchLiveTick?.invalidate()
+        watchLiveTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tickWatchLive() }
+        }
+        if !audioMuted {
+            WKInterfaceDevice.current().play(.start)
+        }
+    }
+
+    func toggleWatchLivePause() {
+        guard watchLiveSport != nil else { return }
+        if watchLivePaused {
+            if let pausedAt = watchLivePausedAt {
+                watchLivePausedAccum += Date().timeIntervalSince(pausedAt)
+            }
+            watchLivePausedAt = nil
+            watchLivePaused = false
+            health.resume()
+            if watchLiveSport?.usesGPS == true {
+                locationManager.startUpdatingLocation()
+            }
+        } else {
+            watchLivePaused = true
+            watchLivePausedAt = Date()
+            health.pause()
+            locationManager.stopUpdatingLocation()
+        }
+    }
+
+    /// Finaliza la live del Watch y muestra el resumen con «Volver al inicio».
+    func finishWatchLive() {
+        guard let sport = watchLiveSport, let id = watchLiveSessionID,
+              let started = watchLiveStartedAt else { return }
+        rememberHubSport(sport)
+        watchLiveTick?.invalidate()
+        watchLiveTick = nil
+        locationManager.stopUpdatingLocation()
+        tickWatchLive()
+        let finishedAt = Date()
+        let points = watchLivePoints
+        let distance = watchLiveDistanceMeters
+        let elapsed = watchLiveElapsedSeconds
+        let kcalSnapshot = health.kcal
+        let bpmSnapshot = health.averageBpm ?? health.pulseBpm.map(Double.init)
+        // Resumen primero (antes de clearWatchLive) para que la UI no reabra live.
+        var pending = WorkoutSession(
+            id: id,
+            title: sport.title,
+            exercises: [],
+            phase: .finished,
+            startedAt: started,
+            finishedAt: finishedAt,
+            routePoints: points,
+            liveSportID: sport.rawValue,
+            recordedDistanceMeters: distance > 0 ? distance : nil,
+            activeDurationSeconds: Double(elapsed)
+        )
+        pending.appleActiveEnergyKcal = kcalSnapshot
+        pending.appleAverageHeartRateBpm = bpmSnapshot
+        lastFinished = pending
+        summaryDismissed = false
+        clearWatchLive()
+        save()
+
+        health.finish { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                var session = pending
+                session.healthKitWorkoutUUID = result.uuid
+                session.appleActiveEnergyKcal = result.activeEnergyKcal ?? session.appleActiveEnergyKcal
+                session.appleDurationSeconds = result.durationSeconds
+                session.appleAverageHeartRateBpm = result.averageHeartRateBpm ?? session.appleAverageHeartRateBpm
+                session.appleHealthProvenance = "watchHealthKit"
+                self.lastFinished = session
+                self.summaryDismissed = false
+                self.connectivity.sendFinished(session)
+                self.save()
+            }
+        }
+        if !health.isRecording {
+            connectivity.sendFinished(pending)
+        }
+    }
+
+    func saveStandaloneTimer(details: TimerCompletionDetails, elapsedSeconds: Int) {
+        let session = WorkoutSession(
+            title: "Temporizador",
+            exercises: [],
+            phase: .finished,
+            startedAt: Date().addingTimeInterval(-Double(elapsedSeconds)),
+            finishedAt: Date(),
+            activeDurationSeconds: Double(elapsedSeconds),
+            timerDetails: details
+        )
+        lastFinished = session
+        summaryDismissed = false
+        connectivity.sendFinishedTimer(session)
+        save()
+    }
+
+    private func tickWatchLive() {
+        guard let started = watchLiveStartedAt, !watchLivePaused else { return }
+        let paused = watchLivePausedAccum
+        watchLiveElapsedSeconds = max(0, Int(Date().timeIntervalSince(started) - paused))
+    }
+
+    private func clearWatchLive() {
+        watchLiveSport = nil
+        watchLiveSessionID = nil
+        watchLiveStartedAt = nil
+        watchLivePaused = false
+        watchLivePausedAt = nil
+        watchLivePausedAccum = 0
+        watchLivePoints = []
+        lastAltitude = nil
+        watchLiveTick?.invalidate()
+        watchLiveTick = nil
+        locationManager.stopUpdatingLocation()
+    }
+
+    private func saveHubPrefs() {
+        UserDefaults.standard.set(audioMuted, forKey: "repera.watch.audioMuted")
+        UserDefaults.standard.set(recentLiveSportIDs, forKey: "repera.watch.recentSports")
+        UserDefaults.standard.set(hubCarouselIndex, forKey: "repera.watch.hubCarouselIndex")
+        if let lastHubItemID {
+            UserDefaults.standard.set(lastHubItemID, forKey: "repera.watch.lastHubItemID")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "repera.watch.lastHubItemID")
+        }
     }
 
     func applicationWillResignActive() {
@@ -359,6 +673,11 @@ final class WatchSessionHub: NSObject {
     func startToday() {
         guard !hasWorkoutInProgress, !awaitingHealthSave,
               let plan = todaysWorkout, !plan.exercises.isEmpty else { return }
+        lastHubItemID = WatchHubItem.plan(plan).id
+        if let idx = hubCarouselItems.firstIndex(where: { $0.id == lastHubItemID }) {
+            hubCarouselIndex = idx
+        }
+        saveHubPrefs()
         stopMotion()
         // The prescription ID is not the execution ID. Repeating a plan
         // creates a fresh workout, never overwriting a previous result.
@@ -937,9 +1256,7 @@ final class WatchSessionHub: NSObject {
         // Do not block navigation until HealthKit finishes. Retain the finished
         // result for offline transport, late HealthKit metrics and the phone ACK.
         guard lastFinished != nil else { return }
-        summaryDismissed = true
-        controller = nil
-        checkpoint()
+        returnToHome()
     }
 
     /// Cancela la sesión en curso sin guardar (iPhone terminó/descartó, o el atleta elige Descartar).
@@ -1192,6 +1509,24 @@ final class WatchSessionHub: NSObject {
 extension WatchSessionHub: WatchConnectivityClientDelegate {
     nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?) {
         Task { @MainActor in
+            if self.suppressCompanionLive {
+                guard let snapshot else {
+                    self.suppressCompanionLive = false
+                    self.liveActivity = nil
+                    return
+                }
+                // Solo reabrir si el iPhone arranca una grabación nueva (no revisión).
+                guard snapshot.phase == .recording else { return }
+                self.suppressCompanionLive = false
+            }
+            if snapshot != nil {
+                // Companion activo: no mantener grabación local en paralelo.
+                self.pendingCompanionSport = nil
+                if self.watchLiveSport != nil {
+                    self.health.discard()
+                    self.clearWatchLive()
+                }
+            }
             self.liveActivity = snapshot
             self.liveCommandError = nil
         }
@@ -1266,6 +1601,55 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 self.acknowledgedSessionID = sessionId
                 self.connectivity.acknowledge(sessionId)
                 self.save()
+            }
+        }
+    }
+
+    nonisolated func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {
+        Task { @MainActor in
+            if !recentSportIDs.isEmpty {
+                self.recentLiveSportIDs = recentSportIDs
+            }
+            if let audioMuted {
+                self.audioMuted = audioMuted
+            }
+            self.saveHubPrefs()
+        }
+    }
+}
+
+extension WatchSessionHub: CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        Task { @MainActor in
+            guard self.watchLiveSport?.usesGPS == true, !self.watchLivePaused else { return }
+            for location in locations where location.horizontalAccuracy >= 0 && location.horizontalAccuracy < 50 {
+                if let last = self.watchLivePoints.last {
+                    let previous = CLLocation(
+                        latitude: last.latitude, longitude: last.longitude
+                    )
+                    let delta = location.distance(from: previous)
+                    if delta > 0, delta < 80 {
+                        self.watchLiveDistanceMeters += delta
+                    }
+                }
+                let altitude = location.altitude
+                if location.verticalAccuracy >= 0, location.verticalAccuracy < 20 {
+                    if let lastAlt = self.lastAltitude, altitude > lastAlt {
+                        self.watchLiveElevationGainMeters += altitude - lastAlt
+                    }
+                    self.lastAltitude = altitude
+                }
+                let nextID = (self.watchLivePoints.last?.id ?? -1) + 1
+                self.watchLivePoints.append(WorkoutRoutePoint(
+                    id: nextID,
+                    latitude: location.coordinate.latitude,
+                    longitude: location.coordinate.longitude,
+                    recordedAt: location.timestamp,
+                    speedMps: location.speed >= 0 ? location.speed : nil,
+                    altitudeMeters: altitude,
+                    horizontalAccuracyMeters: location.horizontalAccuracy,
+                    verticalAccuracyMeters: location.verticalAccuracy
+                ))
             }
         }
     }

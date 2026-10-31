@@ -8,6 +8,9 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidReceive(session: WorkoutSession)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String)
+    /// - Returns: `true` si el iPhone arrancó Comenzar; `false` si está ocupado.
+    func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool
+    func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool)
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?)
     func phoneConnectivityDidRequestToday()
     /// An explicit request replies with today's CURRENT prescription.
@@ -23,6 +26,8 @@ protocol PhoneConnectivityDelegate: AnyObject {
 
 extension PhoneConnectivityDelegate {
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {}
+    func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
+    func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
     func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
@@ -51,7 +56,17 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     /// Latest-state sync via application context. Reachable message is optional hint only.
-    func send(session: WorkoutSession?, today: WorkoutSession? = nil, quickLogHint: (id: UUID, name: String)? = nil, sessionRevision: Int = 0, completedAck: UUID? = nil, completedAckHealthKitUUID: UUID? = nil, live: WatchLiveActivitySnapshot? = nil) {
+    func send(
+        session: WorkoutSession?,
+        today: WorkoutSession? = nil,
+        quickLogHint: (id: UUID, name: String)? = nil,
+        sessionRevision: Int = 0,
+        completedAck: UUID? = nil,
+        completedAckHealthKitUUID: UUID? = nil,
+        live: WatchLiveActivitySnapshot? = nil,
+        recentLiveSportIDs: [String] = [],
+        audioMuted: Bool = false
+    ) {
         guard WCSession.isSupported() else { return }
         var payload: [String: Any]
         if let session,
@@ -70,6 +85,8 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             payload["todayWorkout"] = Data()
         }
         payload["liveActivity"] = live.flatMap { try? JSONEncoder().encode($0) } ?? Data()
+        payload["recentLiveSportIDs"] = recentLiveSportIDs
+        payload["audioMuted"] = audioMuted
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
         if let completedAckHealthKitUUID {
             payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
@@ -206,6 +223,16 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             }
             delegate?.phoneConnectivityDidReceiveLiveCommand(sessionId: id, command: command)
             return ["ok": true]
+        case "startLive":
+            guard let sportID = message["sportID"] as? String, !sportID.isEmpty else {
+                return ["ok": false]
+            }
+            let started = await (delegate?.phoneConnectivityDidReceiveStartLive(sportID: sportID) ?? false)
+            return ["ok": started]
+        case "setAudioMuted":
+            let muted = message["audioMuted"] as? Bool ?? false
+            delegate?.phoneConnectivityDidReceiveAudioMuted(muted)
+            return ["ok": true]
         case "requestToday":
             // The iPhone resolves its current date-specific plan BEFORE replying,
             // rather than returning an outdated applicationContext payload.
@@ -216,6 +243,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             let today = await delegate.phoneConnectivityLatestWorkoutForToday()
             let data = today.flatMap { try? JSONEncoder().encode($0) } ?? Data()
             delegate.phoneConnectivityDidRequestToday()
+            // El contexto completo (recents, audio, live) se publica en sendWatchContextNow.
             return [
                 "ok": true,
                 "todayWorkout": data,

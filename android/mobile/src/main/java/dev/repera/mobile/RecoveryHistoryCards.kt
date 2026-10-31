@@ -299,15 +299,18 @@ internal fun SleepPhaseBar(
                 light to lightColor
             ).forEach { (hours, color) ->
                 if (hours > 0) {
-                    Box(
+                    BoxWithConstraints(
                         Modifier
                             .weight(hours.toFloat())
                             .fillMaxHeight()
                             .background(color),
                         contentAlignment = Alignment.Center
                     ) {
+                        // Si el tramo es estrecho, omitir « h» para no partir a dos líneas.
+                        val label = if (maxWidth < 34.dp) formatWeight(hours)
+                        else "${formatWeight(hours)} h"
                         Text(
-                            "${formatWeight(hours)} h",
+                            label,
                             style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                             fontWeight = FontWeight.Bold,
                             color = Color.White,

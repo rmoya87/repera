@@ -93,7 +93,7 @@ internal fun ProgressTab(
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
     val selectedRangeTitle = remember(selectedRange) {
-        ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }?.title ?: "Esta semana"
+        ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }?.title ?: "Últimos 7 días"
     }
     LaunchedEffect(pro) {if(!pro) selectedRange=ProgressTimeRange.WEEK.wire}
     // Apple 479d8407: la cobertura de Salud sigue al rango elegido (tambien al

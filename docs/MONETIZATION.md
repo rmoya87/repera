@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-10-29 (verificación de Pro en acceso 3D y pricing compacto)
+Última actualización: 2026-10-31 (Progreso gratis: Últimos 7 días)
 
 ## 1. Arquitectura
 
@@ -44,7 +44,7 @@ ReperaStore.featureAccess (gates en saveRoutine / addCustomExercise / Progressio
 | Escáner pizarra (éxito → revisión usable) | **4**/mes UTC | ilimitados |
 | Evolución / historial completo por ejercicio | última sesión + PR + teaser | completo |
 | Historial WOD / comparativas | mejor + último | completo |
-| Progreso | solo **Esta semana** + teaser | todos los periodos + métricas |
+| Progreso | solo **Últimos 7 días** + teaser | todos los periodos + métricas |
 | Mapa muscular / equilibrio / fatiga UI | teaser | completo |
 | `ProgressionEngine.applySuggestions` al empezar | off | on |
 | %→kg / 1RM básico / discos | ✓ | ✓ |

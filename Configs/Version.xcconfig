@@ -1,6 +1,6 @@
 // Fuente única para las versiones de Repera (iPhone, Apple Watch y widget).
 // Se actualiza al compilar desde Xcode y se conserva al regenerar con XcodeGen.
-REPERA_MARKETING_VERSION = 1.0
-REPERA_BUILD_NUMBER = 39
+REPERA_MARKETING_VERSION = 2026.11.0
+REPERA_BUILD_NUMBER = 56
 
 #include "GoogleSignIn.xcconfig"

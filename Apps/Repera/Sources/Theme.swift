@@ -497,12 +497,14 @@ extension View {
     }
 
     /// Cabecera grande como fila sin superficie propia de List o Form.
+    /// `leading: 0` igual que `ogCardListRow`: el margen lo pone `insetGrouped`,
+    /// así el título alinea con el borde izquierdo de las cards/tiles.
     func ogScrollingTitleListRow() -> some View {
         self
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             // Solo 6 pt de aire entre los botones y el título grande.
-            .listRowInsets(EdgeInsets(top: 6, leading: OG.pad, bottom: 0, trailing: OG.pad))
+            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
     }
 
     /// Título arriba del todo (sin franja vacía). Acciones opcionales a la derecha, misma fila.

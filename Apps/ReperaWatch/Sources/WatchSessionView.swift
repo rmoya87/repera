@@ -7,7 +7,7 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
     @State private var showSetDetails = false
-    @State private var confirmLiveFinish = false
+    @State private var showTimer = false
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
     // Filled accent buttons use OG.onAccent: black.
@@ -26,28 +26,49 @@ struct WatchSessionView: View {
                     } else {
                         readyView(active)
                     }
+                } else if let sport = hub.watchLiveSport {
+                    // Solo con sesión live real: no usar selección suelta (Volver reabría la actividad).
+                    WatchLiveSessionView(sport: sport)
                 } else if let live = hub.liveActivity {
                     liveActivityView(live)
-                } else if let today = hub.todaysWorkout {
-                    todayView(today)
+                } else if hub.pendingCompanionSport != nil {
+                    ProgressView("En iPhone…")
                 } else {
-                    emptyView
+                    WatchHomeHubView(
+                        showTimer: $showTimer,
+                        onPlayPlan: {
+                            hub.startToday()
+                        },
+                        onPlaySport: { sport in
+                            _ = hub.playHubSport(sport)
+                        }
+                    )
                 }
             }
-            .navigationTitle(pageTitle)
-            .navigationBarTitleDisplayMode(.automatic)
+            .navigationTitle(isHubHome ? "" : pageTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            // En el hub no hay título: libera las esquinas para mute (izq.) y timer (der.).
+            .toolbar(isHubHome ? .hidden : .automatic, for: .navigationBar)
             .sheet(isPresented: $showOutline) {
                 if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
-            .confirmationDialog("¿Finalizar actividad?", isPresented: $confirmLiveFinish) {
-                Button("Finalizar y revisar en iPhone", role: .destructive) {
-                    hub.controlLiveActivity("finish")
+            .sheet(isPresented: $showTimer) {
+                NavigationStack {
+                    WatchStandaloneTimerView()
                 }
-                Button("Cancelar", role: .cancel) {}
             }
         }
         .tint(accent)
+    }
+
+    /// Hub home: sin barra de navegación para anclar controles a las esquinas.
+    private var isHubHome: Bool {
+        hub.presentedSummary == nil
+            && hub.active == nil
+            && hub.watchLiveSport == nil
+            && hub.liveActivity == nil
+            && hub.pendingCompanionSport == nil
     }
 
     /// Native watchOS navigation title sits under the system clock.
@@ -58,50 +79,69 @@ struct WatchSessionView: View {
         if let active = hub.active {
             return hub.current?.displayBlockHeader ?? active.title
         }
+        if hub.watchLiveSport != nil { return hub.watchLiveSport?.title ?? "Actividad" }
         if let live = hub.liveActivity { return live.sportTitle }
-        return hub.todaysWorkout?.title ?? "Repera"
+        return ""
     }
 
-    /// Companion screen: iPhone owns GPS, HealthKit and persistence.
-    /// The watch displays aggregate metrics and sends validated controls only.
+    /// Companion screen: iPhone owns GPS/HealthKit. Título = navigationTitle (deporte).
     private func liveActivityView(_ live: WatchLiveActivitySnapshot) -> some View {
         ScrollView {
-            VStack(spacing: 9) {
-                Text(live.phase == .review ? "Pendiente de guardar en iPhone"
-                     : (live.phase == .paused ? "En pausa" : "Actividad en curso"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                if live.phase == .paused {
+                    Text("En pausa")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange)
+                } else if live.phase == .review {
+                    Text("Revisar en iPhone")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(timeLabel(Int(live.displayElapsed(at: context.date))))
-                        .font(.system(size: 37, weight: .bold, design: .rounded))
+                    let elapsed = Int(live.displayElapsed(at: context.date))
+                    Text(timeLabel(elapsed))
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(0.55)
                         .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Text("Tiempo activo").font(.caption2).foregroundStyle(.secondary)
-                HStack(spacing: 12) {
-                    VStack {
-                        Text(ReperaNumberFormat.decimal(live.distanceMeters / 1000))
-                            .font(.title3.weight(.bold))
-                        Text("km").font(.caption2).foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    WatchLiveMetricRow(
+                        label: "km",
+                        value: live.distanceMeters > 0
+                            ? ReperaNumberFormat.decimal(live.distanceMeters / 1000)
+                            : "—"
+                    )
+                    if let speed = live.averageSpeedKmh, speed > 0 {
+                        WatchLiveMetricRow(label: "km/h", value: ReperaNumberFormat.decimal(speed))
+                    } else {
+                        WatchLiveMetricRow(label: "Ritmo", value: companionPaceLabel(live))
                     }
-                    if let speed = live.averageSpeedKmh {
-                        VStack {
-                            Text(ReperaNumberFormat.decimal(speed))
-                                .font(.title3.weight(.bold))
-                            Text("km/h media").font(.caption2).foregroundStyle(.secondary)
-                        }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("FC")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm)
                     }
+                    WatchLiveMetricRow(
+                        label: "kcal",
+                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—"
+                    )
                 }
+
                 if let turn = live.nextTurn, live.phase != .review {
                     Label(turn, systemImage: "arrow.turn.up.right")
                         .font(.caption2)
-                        .lineLimit(3)
+                        .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
+                        .padding(7)
                         .background(.white.opacity(0.08),
                                     in: RoundedRectangle(cornerRadius: 10))
                 }
+
                 if live.phase != .review {
                     HStack(spacing: 10) {
                         Button {
@@ -110,16 +150,18 @@ struct WatchSessionView: View {
                             Image(systemName: live.phase == .paused ? "play.fill" : "pause.fill")
                                 .font(.title3.weight(.bold))
                                 .foregroundStyle(.black)
-                                .frame(minWidth: 58, minHeight: 52)
+                                .frame(maxWidth: .infinity, minHeight: 44)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
                         .accessibilityLabel(live.phase == .paused ? "Reanudar" : "Pausar")
-                        Button { confirmLiveFinish = true } label: {
+                        Button {
+                            hub.controlLiveActivity("finish")
+                        } label: {
                             Image(systemName: "flag.checkered")
                                 .font(.title3.weight(.bold))
                                 .foregroundStyle(.black)
-                                .frame(minWidth: 58, minHeight: 52)
+                                .frame(maxWidth: .infinity, minHeight: 44)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
@@ -130,8 +172,18 @@ struct WatchSessionView: View {
                     Text(message).font(.caption2).foregroundStyle(.orange)
                 }
             }
-            .padding(.horizontal, 7)
+            .padding(.horizontal, 6)
         }
+    }
+
+    private func companionPaceLabel(_ live: WatchLiveActivitySnapshot) -> String {
+        let meters = live.distanceMeters
+        let seconds = max(1, live.elapsedSeconds)
+        guard meters > 20 else { return "—" }
+        let pace = (seconds / meters) * 1000
+        let m = Int(pace) / 60
+        let s = Int(pace) % 60
+        return String(format: "%d'%02d\"", m, s)
     }
 
     private var emptyView: some View {
@@ -301,9 +353,10 @@ struct WatchSessionView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                Button { hub.play() } label: {
-                    Label(hub.currentIsWOD ? "Iniciar bloque" : "Empezar ejercicio",
-                          systemImage: "play.fill")
+                Button {
+                    hub.play()
+                } label: {
+                    Text(hub.currentIsWOD ? "Iniciar bloque" : "Empezar")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -314,7 +367,7 @@ struct WatchSessionView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
                     .foregroundStyle(.black)
-                Button("Descartar entreno", role: .destructive) {
+                Button("Descartar", role: .destructive) {
                     hub.discardActiveSession()
                 }
                 .font(.caption)
@@ -368,7 +421,7 @@ struct WatchSessionView: View {
                     )
                     .disabled(!hub.canConfirmCurrentEntry)
                 }
-                Button("Descartar entreno", role: .destructive) {
+                Button("Descartar", role: .destructive) {
                     hub.discardActiveSession()
                 }
                 .font(.caption2)
@@ -871,9 +924,10 @@ struct WatchSessionView: View {
     private func finishedView(_ session: WorkoutSession) -> some View {
         let sets = session.exercises.flatMap(\.loggedSets)
         let reps = sets.reduce(0) { $0 + $1.reps }
+        let isLive = session.liveSportID != nil || session.timerDetails != nil
         return ScrollView {
-            VStack(spacing: 9) {
-                HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.title2)
                         .foregroundStyle(accent)
@@ -882,9 +936,8 @@ struct WatchSessionView: View {
                     Spacer(minLength: 0)
                 }
                 Text(session.title)
-                    .font(.caption)
+                    .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                // Normal HealthKit saves are silent. Surface only real failures.
                 if let warning = hub.healthWarning {
                     Label(warning, systemImage: "exclamationmark.triangle")
                         .font(.caption2)
@@ -894,29 +947,59 @@ struct WatchSessionView: View {
                     icon: "clock", label: "Tiempo",
                     value: timeLabel(summaryDurationSeconds(session))
                 )
-                if let energy = session.appleActiveEnergyKcal {
-                    statsLine(icon: "flame.fill", label: "Calorías",
-                              value: "\(Int(energy.rounded())) kcal")
+                if isLive {
+                    let meters = session.recordedDistanceMeters ?? 0
+                    statsLine(
+                        icon: "figure.run",
+                        label: "Distancia",
+                        value: meters > 0 ? String(format: "%.2f km", meters / 1000) : "—"
+                    )
+                    statsLine(
+                        icon: "flame.fill",
+                        label: "Calorías",
+                        value: session.appleActiveEnergyKcal.map { "\(Int($0.rounded())) kcal" } ?? "—"
+                    )
+                    statsLine(
+                        icon: "heart.fill",
+                        label: "FC media",
+                        value: session.appleAverageHeartRateBpm.map { "\(Int($0.rounded())) lpm" } ?? "—"
+                    )
+                    if let timer = session.timerDetails {
+                        statsLine(
+                            icon: "timer",
+                            label: timer.modeTitle,
+                            value: timeLabel(max(timer.countdownSeconds, timer.configuredSeconds))
+                        )
+                    }
+                } else {
+                    if let energy = session.appleActiveEnergyKcal {
+                        statsLine(icon: "flame.fill", label: "Calorías",
+                                  value: "\(Int(energy.rounded())) kcal")
+                    }
+                    if let bpm = session.appleAverageHeartRateBpm {
+                        statsLine(icon: "heart.fill", label: "FC media",
+                                  value: "\(Int(bpm.rounded())) lpm")
+                    }
+                    statsLine(icon: "list.number", label: "Series", value: "\(sets.count)")
+                    statsLine(icon: "number", label: "Repeticiones", value: "\(reps)")
+                    statsLine(icon: "scalemass", label: "Volumen",
+                              value: "\(Int(session.totalVolumeKg.rounded())) kg")
+                    ForEach(session.wodResults) { result in
+                        statsLine(icon: "timer", label: result.format?.displayName ?? "WOD",
+                                  value: result.summaryLabel)
+                    }
                 }
-                if let bpm = session.appleAverageHeartRateBpm {
-                    statsLine(icon: "heart.fill", label: "FC media",
-                              value: "\(Int(bpm.rounded())) lpm")
+                Button("Volver al inicio") {
+                    hub.returnToHome()
                 }
-                statsLine(icon: "list.number", label: "Series", value: "\(sets.count)")
-                statsLine(icon: "number", label: "Repeticiones", value: "\(reps)")
-                statsLine(icon: "scalemass", label: "Volumen",
-                          value: "\(Int(session.totalVolumeKg.rounded())) kg")
-                ForEach(session.wodResults) { result in
-                    statsLine(icon: "timer", label: result.format?.displayName ?? "WOD",
-                              value: result.summaryLabel)
-                }
-                Button("Volver al inicio") { hub.clearSummary() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 6)
         }
+        .navigationTitle("Resultado")
     }
 
     private func statsLine(icon: String, label: String, value: String) -> some View {
@@ -941,6 +1024,9 @@ struct WatchSessionView: View {
     /// Prefiere duración HK razonable; evita mm:ss hinchados (p. ej. «5865:52»)
     /// cuando `startedAt` quedó antiguo respecto al cierre real.
     private func summaryDurationSeconds(_ session: WorkoutSession) -> Int {
+        if let active = session.activeDurationSeconds, active > 0 {
+            return Int(active.rounded())
+        }
         let wall: Int = {
             guard let start = session.startedAt, let end = session.finishedAt else { return 0 }
             return max(0, Int(end.timeIntervalSince(start)))

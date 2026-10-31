@@ -64,30 +64,35 @@ final class ProgressSnapshotEngineTests: XCTestCase {
         return cal.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
     }
 
-    func testWeekComparisonOnlyUsesElapsedWeekdays() {
+    func testWeekIsRollingSevenDaysPreviousWindow() {
+        // Martes 27 → actuales 21–27; previos 14–21 (fin exclusivo).
         let tuesday = day(2026, 10, 27)
         let bounds = ProgressTimeRange.week.previousPeriodBounds(now: tuesday, weekStartsOnMonday: true)!
         let cal = Calendar.current
-        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 10, 19)))
+        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 10, 14)))
         XCTAssertTrue(cal.isDate(bounds.end, inSameDayAs: day(2026, 10, 21)))
         XCTAssertTrue(ProgressTimeRange.week.containsInPreviousPeriod(day(2026, 10, 20), now: tuesday))
         XCTAssertFalse(ProgressTimeRange.week.containsInPreviousPeriod(day(2026, 10, 21), now: tuesday))
+        XCTAssertEqual(
+            ProgressTimeRange.week.startDate(now: tuesday),
+            cal.startOfDay(for: day(2026, 10, 21))
+        )
     }
 
-    func testWeekWithSundayStartComparesSundayAndMondayOnly() {
+    func testWeekRollingIgnoresWeekStartsOnMonday() {
         let monday = day(2026, 10, 26)
         let bounds = ProgressTimeRange.week.previousPeriodBounds(
             now: monday, weekStartsOnMonday: false
         )!
         let cal = Calendar.current
-        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 10, 18)))
+        XCTAssertTrue(cal.isDate(bounds.start, inSameDayAs: day(2026, 10, 13)))
         XCTAssertTrue(cal.isDate(bounds.end, inSameDayAs: day(2026, 10, 20)))
         XCTAssertFalse(ProgressTimeRange.week.containsInPreviousPeriod(
             day(2026, 10, 20), now: monday, weekStartsOnMonday: false
         ))
     }
 
-    func testFullWeekIncludesEntirePreviousWeek() {
+    func testRollingWeekPreviousSpanIsAlwaysSevenDays() {
         let sunday = day(2026, 11, 1)
         let bounds = ProgressTimeRange.week.previousPeriodBounds(now: sunday)!
         XCTAssertEqual(Calendar.current.dateComponents([.day], from: bounds.start, to: bounds.end).day, 7)

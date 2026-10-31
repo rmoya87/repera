@@ -1,23 +1,25 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
-**Nueva implementación 30/10/2026 (pendiente de E2E físico):** Wear recibe por
+**Hub Deportes 31/10/2026:** `WearHubHome` (plan efectivo → recientes → catálogo),
+Play, temporizador, mute; teléfono publica `effectivePlanSession` +
+`recentLiveSportIDs`/`audioMuted`; mensajes `/repera/live-start` y
+`/repera/timer-save`. Pendiente E2E físico.
+
+**Comenzar companion 30/10/2026 (pendiente de E2E físico):** Wear recibe por
 Data Layer las métricas agregadas de Comenzar en Android y permite pedir pausa,
 reanudación y paso a revisión por un servicio en segundo plano; la ruta GPS
-continúa teniendo un solo propietario en el teléfono. Un snapshot vacío no
+del companion sigue teniendo un solo propietario en el teléfono. Un snapshot vacío no
 borra sesiones autónomas del reloj; hay eventos terminales identificados por
-UUID y recepción background de series/cierre. No equivale a poder salir a
-correr solo con Wear ni constituye certificación de paridad final.
+UUID y recepción background de series/cierre.
 Documento: `docs/WATCH_WEAR_LIVE_SYNC_2026_10_30.md`.
 
 Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-30 — Progreso UI: tabs Entreno/Actividad/
-Recuperación sticky al scroll; SecondaryTabRow sin fondo gris en cards; modal
-Periodo sin card envolvente (verde solo en icono/check); Historial última fila
-de Entreno; `PROGRESS_DEMO_CHARTS` rellena gráficas vacías para revisión.
-Teclado 4×4 fillEqually (~328); chips Equipo grises como También.
+**Última actualización:** 2026-10-31 — Hub Wear (`WearHubHome`, plan efectivo,
+timer, live-start). Progreso UI (30/10): tabs sticky; SecondaryTabRow; modal
+Periodo; Historial; `PROGRESS_DEMO_CHARTS`; teclado 4×4; chips Equipo.
 Spec `docs/superpowers/specs/2026-10-30-android-settings-exercises-parity-design.md`.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /

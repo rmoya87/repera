@@ -1179,7 +1179,25 @@ final class ReperaStore: NSObject {
             let sessionId = session.id
             let title = session.title
             let savedReview = session.sessionReview
+            let routeForPlace = routePoints
+            let existingPin = session.locationPin
             Task {
+                // Geolocalización + POI ≤50 m también en entrenos programados.
+                if existingPin?.hasChosenPlace != true {
+                    let suggested = await SportNearbyPlaceSuggester.suggestForSession(
+                        sport: nil,
+                        routePoints: routeForPlace,
+                        existingPin: existingPin
+                    )
+                    if var updated = state.workouts.first(where: { $0.id == sessionId }),
+                       let suggested {
+                        if suggested.hasChosenPlace || updated.locationPin == nil {
+                            updated.locationPin = suggested
+                            upsertWorkout(updated)
+                            persistWorkouts()
+                        }
+                    }
+                }
                 let apple = await HealthKitStore.shared.finishWorkout(
                     sessionId: sessionId,
                     title: title,
@@ -1890,9 +1908,19 @@ final class ReperaStore: NSObject {
                 var completed = session
                 // No fabricated Health duration: displayDurationMinutes already
                 // provides the wall-clock fallback in the UI when HK is unavailable.
-                attachSessionReview(&completed, present: false)
+                // Comenzar desde Watch: presentar revisión en iPhone al consolidar.
+                let presentLive = session.liveSportID != nil && session.timerDetails == nil
+                attachSessionReview(&completed, present: presentLive)
                 upsertWorkout(completed)
                 if state.activeSession?.id == completed.id { state.activeSession = nil }
+                // Si el iPhone aún tenía Comenzar activo (companion), pasarlo a revisión.
+                let recorder = LiveActivityRecorder.shared
+                if recorder.phase == .recording || recorder.phase == .paused {
+                    recorder.finish()
+                    NotificationCenter.default.post(
+                        name: Notification.Name("repera.openComenzarFromWatch"), object: nil
+                    )
+                }
                 changed = true
             }
 
@@ -2076,7 +2104,10 @@ final class ReperaStore: NSObject {
     }
 
     private func professionalWorkoutForWatchToday() -> WorkoutSession? {
-        let key = BusinessDataStore.localDayKey(Date())
+        professionalWorkoutForWatch(onDayKey: BusinessDataStore.localDayKey(Date()))
+    }
+
+    private func professionalWorkoutForWatch(onDayKey key: String) -> WorkoutSession? {
         guard let assigned = BusinessDataStore.shared.trainingSessions.first(where: {
             $0.scheduledDate == key && $0.status == "scheduled" &&
             $0.prescription?.schemaVersion == 1 && $0.prescription?.blocks.isEmpty == false
@@ -2147,12 +2178,22 @@ final class ReperaStore: NSObject {
             ))
         }
         guard !blocks.isEmpty else { return nil }
+        let scheduled = parseBusinessDayKey(key) ?? Date()
         let routine = Routine(
             id: assigned.id, title: assigned.title,
-            scheduledDate: Date(), blocks: blocks, progression: .off
+            scheduledDate: scheduled, blocks: blocks, progression: .off
         )
         let preview = SessionController.from(routine: routine, exercises: catalog)
         return preview.exercises.isEmpty ? nil : preview
+    }
+
+    private func parseBusinessDayKey(_ key: String) -> Date? {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = .current
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt.date(from: key)
     }
 
     /// Rebuild from the current store on each explicit Watch request.
@@ -2165,8 +2206,65 @@ final class ReperaStore: NSObject {
             ?? professionalWorkoutForWatchToday()
     }
 
+    /// Hub del reloj: plan de hoy; si no hay, el pendiente más reciente atrasado.
+    func effectiveWatchPlan() -> WorkoutSession? {
+        currentWatchWorkoutForToday() ?? mostRecentOverdueWatchPlan()
+    }
+
+    private func mostRecentOverdueWatchPlan() -> WorkoutSession? {
+        let cal = Calendar.current
+        let todayStart = cal.startOfDay(for: Date())
+        let finishedRoutineIDs = Set(
+            state.workouts.compactMap { workout -> UUID? in
+                guard workout.phase == .finished, let rid = workout.routineId else { return nil }
+                return rid
+            }
+        )
+        let overduePersonal = state.routines
+            .compactMap { routine -> (Date, Routine)? in
+                guard let scheduled = routine.scheduledDate else { return nil }
+                let day = cal.startOfDay(for: scheduled)
+                guard day < todayStart else { return nil }
+                guard !finishedRoutineIDs.contains(routine.id) else { return nil }
+                let preview = SessionController.from(routine: routine, exercises: state.exercises)
+                guard !preview.exercises.isEmpty else { return nil }
+                return (day, routine)
+            }
+            .sorted { $0.0 > $1.0 }
+        if let newest = overduePersonal.first {
+            return SessionController.from(routine: newest.1, exercises: state.exercises)
+        }
+        let overdueBusiness = BusinessDataStore.shared.trainingSessions
+            .compactMap { assigned -> (Date, String)? in
+                guard assigned.status == "scheduled",
+                      assigned.prescription?.schemaVersion == 1,
+                      assigned.prescription?.blocks.isEmpty == false,
+                      let day = parseBusinessDayKey(assigned.scheduledDate)
+                else { return nil }
+                let start = cal.startOfDay(for: day)
+                guard start < todayStart else { return nil }
+                return (start, assigned.scheduledDate)
+            }
+            .sorted { $0.0 > $1.0 }
+        if let newest = overdueBusiness.first {
+            return professionalWorkoutForWatch(onDayKey: newest.1)
+        }
+        return nil
+    }
+
+    private func recentLiveSportIDsForWatch(limit: Int = 8) -> [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        for workout in state.workouts {
+            guard let id = workout.liveSportID, !id.isEmpty, seen.insert(id).inserted else { continue }
+            ordered.append(id)
+            if ordered.count >= limit { break }
+        }
+        return ordered
+    }
+
     private func sendWatchContextNow() {
-        let today = currentWatchWorkoutForToday()
+        let today = effectiveWatchPlan()
         connectivity.send(
             session: state.activeSession,
             today: today,
@@ -2176,7 +2274,9 @@ final class ReperaStore: NSObject {
             completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
                 state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID
             },
-            live: LiveActivityRecorder.shared.makeWatchSnapshot()
+            live: LiveActivityRecorder.shared.makeWatchSnapshot(),
+            recentLiveSportIDs: recentLiveSportIDsForWatch(),
+            audioMuted: UserDefaults.standard.object(forKey: "repera.live.spokenGuidance.enabled") as? Bool == false
         )
     }
 
@@ -3238,12 +3338,54 @@ extension ReperaStore: PhoneConnectivityDelegate {
         }
     }
 
+    nonisolated func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool {
+        await MainActor.run {
+            guard let sport = LiveSport(rawValue: sportID) else { return false }
+            // Entreno programado en curso: el Watch graba en local.
+            guard self.state.activeSession == nil else { return false }
+            let recorder = LiveActivityRecorder.shared
+            // Ya grabando / en pausa: espejo al Watch (misma actividad en iPhone).
+            if recorder.phase == .recording || recorder.phase == .paused {
+                self.sendWatchContextNow()
+                NotificationCenter.default.post(
+                    name: Notification.Name("repera.openComenzarFromWatch"), object: nil
+                )
+                return true
+            }
+            // Revisión pendiente del anterior: cerrar para poder arrancar el nuevo.
+            if recorder.phase == .review {
+                recorder.discard()
+            }
+            guard recorder.phase == .idle else { return false }
+            recorder.choose(sport)
+            recorder.start()
+            self.sendWatchContextNow()
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.openComenzarFromWatch"), object: nil
+            )
+            return true
+        }
+    }
+
+    nonisolated func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {
+        Task { @MainActor in
+            let key = "repera.live.spokenGuidance.enabled"
+            let enabled = !muted
+            UserDefaults.standard.set(enabled, forKey: key)
+            let recorder = LiveActivityRecorder.shared
+            if recorder.spokenGuidanceEnabled != enabled {
+                recorder.toggleSpokenGuidance()
+            }
+            self.sendWatchContextNow()
+        }
+    }
+
     nonisolated func phoneConnectivityDidRequestToday() {
         Task { @MainActor in self.sendWatchContextNow() }
     }
 
     nonisolated func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? {
-        await MainActor.run { self.currentWatchWorkoutForToday() }
+        await MainActor.run { self.effectiveWatchPlan() }
     }
 
     nonisolated func phoneConnectivityDidReceive(session: WorkoutSession) {

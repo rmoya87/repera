@@ -781,3 +781,98 @@ private extension String {
         return t.isEmpty ? nil : t
     }
 }
+
+/// Sugiere un POI cercano (pista, playa, estación…) a ≤50 m del GPS del
+/// iPhone/Watch. No inventa lugares: si no hay resultado en el radio, nil.
+enum SportNearbyPlaceSuggester {
+    static let maxDistanceMeters: CLLocationDistance = 50
+
+    static func suggest(
+        sport: LiveSport,
+        coordinate: CLLocationCoordinate2D,
+        recordedAt: Date = Date()
+    ) async -> WorkoutLocationPin? {
+        let queries = sport.nearbyPlaceQueries
+        guard !queries.isEmpty,
+              CLLocationCoordinate2DIsValid(coordinate) else { return nil }
+        let origin = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        var best: (item: MKMapItem, distance: CLLocationDistance)?
+
+        for query in queries {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = query
+            request.resultTypes = [.pointOfInterest, .address]
+            request.region = MKCoordinateRegion(
+                center: coordinate,
+                latitudinalMeters: maxDistanceMeters * 2.5,
+                longitudinalMeters: maxDistanceMeters * 2.5
+            )
+            guard let response = try? await MKLocalSearch(request: request).start() else { continue }
+            for item in response.mapItems {
+                let loc = item.location
+                let distance = origin.distance(from: loc)
+                guard distance <= maxDistanceMeters else { continue }
+                if best == nil || distance < best!.distance {
+                    best = (item, distance)
+                }
+            }
+            if best != nil { break }
+        }
+
+        guard let best else { return nil }
+        let item = best.item
+        let name = item.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let name, !name.isEmpty else { return nil }
+        let loc = item.location
+        return WorkoutLocationPin(
+            latitude: loc.coordinate.latitude,
+            longitude: loc.coordinate.longitude,
+            recordedAt: recordedAt,
+            name: name,
+            mapItemIdentifier: item.identifier?.rawValue,
+            pointOfInterestCategory: item.pointOfInterestCategory?.rawValue
+        )
+    }
+
+    /// Coordenada de sesión → sugerencia, o captura puntual del iPhone si no hay ruta.
+    @MainActor
+    static func suggestForSession(
+        sport: LiveSport?,
+        routePoints: [WorkoutRoutePoint],
+        existingPin: WorkoutLocationPin?
+    ) async -> WorkoutLocationPin? {
+        if let existing = existingPin, existing.hasChosenPlace { return existing }
+        let sport = sport ?? .other
+        let coordinate: CLLocationCoordinate2D
+        let capturedPin: WorkoutLocationPin?
+        if let first = routePoints.first {
+            coordinate = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
+            capturedPin = nil
+        } else if let existingPin {
+            coordinate = CLLocationCoordinate2D(
+                latitude: existingPin.latitude, longitude: existingPin.longitude
+            )
+            capturedPin = nil
+        } else if WorkoutLocationTracker.shared.isAuthorized,
+                  let pin = await WorkoutLocationTracker.shared.capturePin() {
+            coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+            capturedPin = pin
+        } else {
+            return existingPin
+        }
+        if let suggested = await suggest(
+            sport: sport,
+            coordinate: coordinate,
+            recordedAt: capturedPin?.recordedAt ?? existingPin?.recordedAt ?? Date()
+        ) {
+            return suggested
+        }
+        if let capturedPin { return capturedPin }
+        if let existingPin { return existingPin }
+        return WorkoutLocationPin(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            recordedAt: Date()
+        )
+    }
+}

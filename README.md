@@ -107,7 +107,7 @@ ni está autorizado para producción**. Véanse
 | **Diario** | Planificación personal de varias rutinas por fecha (cada una editable/borrable por separado) y sesiones profesionales de Supabase; ejecución profesional estructurada pendiente |
 | **Center** | Selector Clases/Citas con lectura de horarios reales, reservas y cancelaciones mediante Supabase cuando haya sesión y bono disponible; E2E pendiente |
 | **Crear desde Inicio** | Botón +: entreno libre, **Apuntar series**, favoritos, timer, foto pizarra/TV (sin pestaña propia); al elegir un favorito desde el calendario se programa una copia para ese día |
-| **Progreso** | Gratis: esta semana + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
+| **Progreso** | Gratis: últimos 7 días + teaser; Pro: periodos, deltas, cardio/kcal/peso, heatmap, equilibrio |
 | **Ejercicios** | Biblioteca + ficha, filtro Movilidad con 82 movimientos bilingües ES/EN; evolución completa = Pro (Gratis: última sesión + PR) |
 | **Sesión** | Series editables sin check por serie, borrado por swipe, WOD/temporizadores, RIR/RPE, menú ⋯ y Live Activity |
 | **Favoritos de entrenos** | Guardar como favorita una planificación crea una plantilla independiente reutilizable desde Crear → Favoritos; al borrar el día se conserva el favorito. Desde la vista previa, editor y Play se comprueba el guardado y el límite de Gratis. Pruebas en dispositivo y con iCloud **pendientes** | 

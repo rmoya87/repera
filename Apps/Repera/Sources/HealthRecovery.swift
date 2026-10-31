@@ -684,11 +684,13 @@ struct HealthRecoveryProgressView: View {
         return (deep, rem, light)
     }
 
-    private var hoursLabel: String {
+    /// Pie bajo las horas; sin «Última noche» (redundante con el valor).
+    private var hoursLabel: String? {
         if showingOutsideRange {
-            return displayNights.count <= 1 ? "Última noche disponible" : "Media · noches recientes"
+            return displayNights.count <= 1 ? nil : "Media · noches recientes"
         }
-        return isSingleNight ? "Última noche" : "Media · \(range.subtitleLabel)"
+        if isSingleNight { return nil }
+        return "Media · \(range.subtitleLabel)"
     }
 
     var body: some View {
@@ -1124,31 +1126,33 @@ struct HealthRecoveryProgressView: View {
     private func readinessFactor(
         _ title: String, icon: String, value: String
     ) -> some View {
-        HStack(alignment: .top, spacing: 9) {
+        HStack(alignment: .center, spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .regular))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(OG.label2)
-                .frame(width: 22, alignment: .center)
+                .frame(width: 20, alignment: .center)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(OG.label2)
                 Text(value)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(OG.label)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
     private var trainingRecoveryCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Preparación para entrenar")
-            OGCard {
+            // Padding corto: el contenido define la altura (sin minHeight de gráfica).
+            OGCard(padding: 12, verticalPadding: 12) {
                 Group {
                 if appliedRecoveryKey != trainingRecoveryRefreshKey && currentReadiness == nil {
                     HStack(spacing: 10) {
@@ -1157,11 +1161,12 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.label2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: readinessChartHeight, alignment: .center)
+                    .padding(.vertical, 8)
                 } else if let readiness = currentReadiness {
                     let tint = readinessColor(readiness.score)
-                    HStack(alignment: .center, spacing: 16) {
-                        VStack(alignment: .leading, spacing: usesExpandedLayout ? 8 : 10) {
+                    let ring: CGFloat = usesExpandedLayout ? 96 : 124
+                    HStack(alignment: .center, spacing: 14) {
+                        VStack(alignment: .leading, spacing: usesExpandedLayout ? 6 : 7) {
                             readinessFactor(
                                 "Sueño", icon: "moon",
                                 value: currentSleepHours.map {
@@ -1187,33 +1192,32 @@ struct HealthRecoveryProgressView: View {
 
                         ZStack {
                             Circle()
-                                .stroke(OG.surface3, lineWidth: 9)
+                                .stroke(OG.surface3, lineWidth: 11)
                             Circle()
                                 .trim(from: 0, to: CGFloat(readiness.score / 10))
-                                .stroke(tint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                                .stroke(tint, style: StrokeStyle(lineWidth: 11, lineCap: .round))
                                 .rotationEffect(.degrees(-90))
-                            VStack(spacing: 1) {
+                            VStack(spacing: 0) {
                                 Text("\(Int(readiness.score.rounded()))")
-                                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                                    .font(.system(
+                                        size: usesExpandedLayout ? 34 : 40,
+                                        weight: .bold, design: .rounded
+                                    ))
                                     .foregroundStyle(OG.label)
                                 Text("de 10")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: usesExpandedLayout ? 12 : 13, weight: .medium))
                                     .foregroundStyle(OG.label2)
                             }
                         }
-                        .frame(
-                            width: usesExpandedLayout ? 76 : 100,
-                            height: usesExpandedLayout ? 76 : 100
-                        )
+                        .frame(width: ring, height: ring)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                     }
-                    .frame(minHeight: readinessChartHeight, alignment: .center)
                 } else {
-                    ProgressEmptyChart(
-                        message: "Necesitamos datos de sueño y entrenamientos recientes",
-                        height: readinessChartHeight
-                    )
+                    Text("Necesitamos datos de sueño y entrenamientos recientes")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 }
             }
@@ -1293,7 +1297,7 @@ struct HealthRecoveryProgressView: View {
 
     private func sleepNightCard(
         hours: Double?,
-        hoursCaption: String,
+        hoursCaption: String?,
         deep: Double,
         rem: Double,
         light: Double,
@@ -1318,9 +1322,11 @@ struct HealthRecoveryProgressView: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(OG.label2)
                         }
-                        Text(hoursCaption)
-                            .font(.caption2)
-                            .foregroundStyle(OG.label3)
+                        if let hoursCaption, !hoursCaption.isEmpty {
+                            Text(hoursCaption)
+                                .font(.caption2)
+                                .foregroundStyle(OG.label3)
+                        }
                     }
                     if deep + rem + light > 0.2 {
                         phaseDistributionBar(deep: deep, rem: rem, light: light)
@@ -1396,6 +1402,7 @@ struct HealthRecoveryProgressView: View {
     }
 
     /// Etiquetas encima + dato dentro de cada color; esquinas redondeadas.
+    /// Si el tramo es estrecho, se omite « h» para no partir a dos líneas.
     private func phaseDistributionBar(deep: Double, rem: Double, light: Double) -> some View {
         let total = max(0.01, deep + rem + light)
         let phases: [(String, Double, Color)] = [
@@ -1422,10 +1429,13 @@ struct HealthRecoveryProgressView: View {
                 let w = geo.size.width
                 HStack(spacing: 0) {
                     ForEach(Array(phases.enumerated()), id: \.offset) { _, phase in
-                        Text("\(ReperaNumberFormat.decimal(phase.1)) h")
+                        let segment = max(0, w * phase.1 / total)
+                        Text(phaseHoursLabel(phase.1, segmentWidth: segment))
                             .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
                             .foregroundStyle(.white)
-                            .frame(width: max(0, w * phase.1 / total), height: 32)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .frame(width: segment, height: 32)
                             .background(phase.2)
                     }
                 }
@@ -1435,6 +1445,13 @@ struct HealthRecoveryProgressView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Distribución de fases")
+    }
+
+    private func phaseHoursLabel(_ hours: Double, segmentWidth: CGFloat) -> String {
+        let value = ReperaNumberFormat.decimal(hours)
+        // «7,6 h» ~36 pt a 11 pt bold; por debajo se deja solo el número.
+        if segmentWidth < 34 { return value }
+        return "\(value) h"
     }
 
     @ViewBuilder

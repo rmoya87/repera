@@ -1,6 +1,8 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-29 — R9 residuales: REVIEW live mapa+clima Open-Meteo; editar terminado página `historial-editar`; preview rutina con thumbs; AMRAP arte en reloj; catálogo Supabase apply siempre (como iOS); HC+mirror al guardar live; FGS pause/finish; glass Material translúcido. Maps: `~/.gradle/gradle.properties` → `REPERA_GOOGLE_MAPS_API_KEY` (nunca en repo); sin clave → MapLibre.
+**Última actualización:** 2026-10-31 — Hub Deportes en Wear (`WearHubHome`: plan efectivo → recientes → catálogo Comenzar; Play; temporizador; mute). Data Layer `/repera/today-plan` incluye `recentLiveSportIDs` y `audioMuted`; mensajes `/repera/live-start` y `/repera/timer-save`. Teléfono publica `effectivePlanSession` (hoy | atrasado pendiente).
+
+**Anterior (2026-10-29):** R9 residuales: REVIEW live mapa+clima Open-Meteo; editar terminado página `historial-editar`; preview rutina con thumbs; AMRAP arte en reloj; catálogo Supabase apply siempre (como iOS); HC+mirror al guardar live; FGS pause/finish; glass Material translúcido. Maps: `~/.gradle/gradle.properties` → `REPERA_GOOGLE_MAPS_API_KEY` (nunca en repo); sin clave → MapLibre.
 
 Implementación nativa independiente en `android/`:
 
@@ -11,7 +13,7 @@ Implementación nativa independiente en `android/`:
 - `domain`: reloj, `WeightUnit`, `TimerCompletionDetails`, WOD, CSV Hevy/Strong (incl. libras),
   resolución de conflictos.
 - `wear`: Compose for Wear OS Material 3 con paridad Watch (ready/outline/running/blockReview/
-  resumen W-01 sin bug de duración, Tile + complicaciones); Data Layer + cola offline;
+  resumen W-01, hub estilo Deportes, live companion phone-owned, temporizador mínimo); Data Layer + cola offline;
   Health Services E2E físico pendiente.
 - `Health Connect`: lectura voluntaria de pasos y calorías activas reales, sin datos inventados ni escrituras.
 

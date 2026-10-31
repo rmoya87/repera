@@ -24,21 +24,21 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Repera lee durante el entrenamiento tus pulsaciones, las calorías activas y las métricas verificadas por Apple Salud. Estos datos permanecen en tus dispositivos.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Repera guarda en Apple Salud el entrenamiento registrado por el reloj, con las mediciones calculadas por HealthKit.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Repera usa el movimiento del Watch para contar repeticiones durante el entrenamiento.</string>
-    <key>NSHealthShareUsageDescription</key>
-    <string>Repera lee las pulsaciones, calorías activas y el entrenamiento medidos por Apple Salud. Las mediciones permanecen en tus dispositivos.</string>
-    <key>NSHealthUpdateUsageDescription</key>
-    <string>Repera guarda el entrenamiento y sus mediciones reales del Apple Watch en Apple Salud.</string>
-    <key>WKBackgroundModes</key>
-    <array><string>workout-processing</string></array>
 	<key>WKApplication</key>
 	<true/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.app.repera</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
-	<key>CFBundleURLTypes</key>
-	<array><dict><key>CFBundleURLSchemes</key><array><string>repera-watch</string></array></dict></array>
 </dict>
 </plist>

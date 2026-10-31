@@ -159,7 +159,7 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 - [ ] Crear 6º ejercicio custom → paywall; catálogo seed sin límite.
 - [ ] 4 escaneos OK en el mes; 5º → paywall; fallo OCR / cancelar no consumen.
 - [ ] Ficha ejercicio Gratis: última sesión + teaser; Pro: evolución completa.
-- [ ] Progreso Gratis: solo «Esta semana»; periodos Pro abren paywall sin cambiar rango.
+- [ ] Progreso Gratis: solo «Últimos 7 días»; periodos Pro abren paywall sin cambiar rango.
 - [ ] WOD: registro libre; historial completo = Pro.
 - [ ] Restaurar compras (sandbox) y gestionar suscripción (enlace Apple).
 - [ ] Import JSON no activa Pro; export sigue incluyendo datos deportivos.
@@ -201,7 +201,7 @@ Detalle: [MONETIZATION.md](MONETIZATION.md).
 
 ## Progreso
 
-- [ ] Periodo «Esta semana» → tiles muestran delta vs semana previa (sin switch).
+- [ ] Periodo «Últimos 7 días» → tiles muestran delta vs los 7 días previos (sin switch).
 - [ ] Con «Todo» no hay deltas.
 - [ ] Cardio / kcal con Salud autorizada.
 - [ ] **Peso**: gráfica + línea de meta si hay objetivo; Δ actual vs objetivo.

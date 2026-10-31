@@ -1,6 +1,6 @@
 import Foundation
 
-/// Filtro global de Progreso (cabecera). Por defecto: esta semana.
+/// Filtro global de Progreso (cabecera). Por defecto: últimos 7 días.
 public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
     case today
     case week
@@ -14,7 +14,7 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
     public var title: String {
         switch self {
         case .today: return "Hoy"
-        case .week: return "Esta semana"
+        case .week: return "Últimos 7 días"
         case .month: return "Este mes"
         case .days90: return "90 días"
         case .days180: return "180 días"
@@ -52,9 +52,8 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
         case .today:
             return today
         case .week:
-            let weekday = cal.component(.weekday, from: today)
-            let delta = (weekday - cal.firstWeekday + 7) % 7
-            return cal.date(byAdding: .day, value: -delta, to: today)
+            // Ventana móvil: hoy + 6 días anteriores (no semana calendario lun–dom).
+            return cal.date(byAdding: .day, value: -6, to: today)
         case .month:
             let comps = cal.dateComponents([.year, .month], from: today)
             return cal.date(from: comps)
@@ -113,13 +112,12 @@ public enum ProgressTimeRange: String, CaseIterable, Identifiable, Sendable {
             let start = cal.date(byAdding: .day, value: -1, to: today) ?? today
             return (start, today)
         case .week:
+            // Misma ventana móvil de 7 días inmediatamente anterior.
             guard let weekStart = startDate(now: now, calendar: cal, weekStartsOnMonday: weekStartsOnMonday) else {
                 return nil
             }
             let prevStart = cal.date(byAdding: .day, value: -7, to: weekStart) ?? weekStart
-            let elapsedDays = max(1, cal.dateComponents([.day], from: weekStart, to: today).day.map { $0 + 1 } ?? 1)
-            let comparableEnd = cal.date(byAdding: .day, value: min(7, elapsedDays), to: prevStart) ?? weekStart
-            return (prevStart, min(comparableEnd, weekStart))
+            return (prevStart, weekStart)
         case .month:
             guard let monthStart = startDate(now: now, calendar: cal, weekStartsOnMonday: weekStartsOnMonday) else {
                 return nil

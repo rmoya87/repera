@@ -31,7 +31,7 @@ struct PaywallView: View {
     private var comparisonRows: [(label: String, free: String, pro: String)] {
         [
             ("Mapa", "2D", "2D + 3D"),
-            ("Progreso", "Esta semana", "Todos los periodos"),
+            ("Progreso", "Últimos 7 días", "Todos los periodos"),
             ("Por ejercicio", "Última + récord", "Historial completo"),
             ("Rutinas / favoritos", "\(FreePlanLimits.maxLibraryRoutines) / \(FreePlanLimits.maxFavoriteItems)", "Sin límites"),
             ("Ejercicios propios", "\(FreePlanLimits.maxCustomExercises)", "Sin límites"),

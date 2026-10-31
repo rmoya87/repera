@@ -81,8 +81,19 @@ struct RootTabView: View {
                 }
             ))
             // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
-            .onChange(of: LiveActivityRecorder.shared.phase) { _, _ in
+            .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
                 store.refreshContinueChrome()
+                // Inicio desde Watch / grabación activa → mostrar Comenzar.
+                if phase == .recording || phase == .paused || phase == .review {
+                    flowPath = []
+                    tab = .start
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: Notification.Name("repera.openComenzarFromWatch")
+            )) { _ in
+                flowPath = []
+                tab = .start
             }
             .task(id: LiveActivityRecorder.shared.isActive) {
                 store.refreshContinueChrome()

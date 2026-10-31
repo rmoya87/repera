@@ -88,6 +88,25 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     }
 
     func start(id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool) {
+        let type: HKWorkoutActivityType
+        if includesWOD && includesStrength {
+            type = .crossTraining
+        } else if includesWOD {
+            type = .highIntensityIntervalTraining
+        } else {
+            type = .functionalStrengthTraining
+        }
+        startConfigured(id: id, at: date, activityType: type, outdoor: false)
+    }
+
+    /// Comenzar iniciado en el reloj: tipo HK del deporte y GPS outdoor si aplica.
+    func startLive(id: UUID, at date: Date, activityType: HKWorkoutActivityType, outdoor: Bool) {
+        startConfigured(id: id, at: date, activityType: activityType, outdoor: outdoor)
+    }
+
+    private func startConfigured(
+        id: UUID, at date: Date, activityType: HKWorkoutActivityType, outdoor: Bool
+    ) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
             return
@@ -116,14 +135,8 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             guard self.workoutID == id, !self.finishing else { return }
 
             let config = HKWorkoutConfiguration()
-            if includesWOD && includesStrength {
-                config.activityType = .crossTraining
-            } else if includesWOD {
-                config.activityType = .highIntensityIntervalTraining
-            } else {
-                config.activityType = .functionalStrengthTraining
-            }
-            config.locationType = .indoor
+            config.activityType = activityType
+            config.locationType = outdoor ? .outdoor : .indoor
 
             do {
                 let session = try HKWorkoutSession(healthStore: self.store, configuration: config)

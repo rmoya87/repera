@@ -112,13 +112,42 @@ object WearActiveSessionBridge {
      * offline del reloj: equivale al todayPlan que el iPhone envía por
      * WatchConnectivity. null limpia el plan en el reloj.
      */
-    fun publishTodayPlan(context: Context, plan: JSONObject?) {
+    /**
+     * Plan efectivo del reloj (hoy | atrasado) más metadatos del hub Deportes.
+     * `effectivePlanSession` en el teléfono alimenta [plan].
+     */
+    fun publishTodayPlan(
+        context: Context,
+        plan: JSONObject?,
+        recentLiveSportIDs: List<String> = emptyList(),
+        audioMuted: Boolean = false,
+        todayDayStart: String? = null
+    ) {
+        publishHubMeta(context, plan, recentLiveSportIDs, audioMuted, todayDayStart)
+    }
+
+    fun publishHubMeta(
+        context: Context,
+        plan: JSONObject?,
+        recentLiveSportIDs: List<String> = emptyList(),
+        audioMuted: Boolean = false,
+        todayDayStart: String? = null
+    ) {
+        val dayStart = todayDayStart ?: java.time.LocalDate.now().toString()
         val request = PutDataMapRequest.create("/repera/today-plan").apply {
             dataMap.putByteArray("plan",
                 plan?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf())
+            dataMap.putStringArray("recentLiveSportIDs", recentLiveSportIDs.toTypedArray())
+            dataMap.putBoolean("audioMuted", audioMuted)
+            dataMap.putString("todayDayStart", dayStart)
             dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()
         Wearable.getDataClient(context).putDataItem(request)
+    }
+
+    fun watchHubAudioMuted(context: Context): Boolean {
+        val guidance = context.getSharedPreferences("repera.live.guidance", Context.MODE_PRIVATE)
+        return !guidance.getBoolean("audioEnabled", true)
     }
 
     /**

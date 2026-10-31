@@ -306,13 +306,89 @@ enum LiveSport: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Solo calcular desnivel cuando la actividad tiene sentido en pendiente.
-    var tracksElevation: Bool {
+    /// Elevación y velocidad mín/media/máx solo en estos deportes (ficha + live).
+    var showsElevationAndSpeedStats: Bool {
         switch self {
-        case .hiking, .trail, .mountainBike, .skiing,
-             .snowboarding, .crossCountrySkiing:
+        case .walking, .hiking,
+             .cycling, .mountainBike, .gravel,
+             .skiing, .snowboarding, .surfing, .skateboarding:
             true
         default: false
+        }
+    }
+
+    /// Pádel/tenis/raqueta: tiles Tiempo · Kcal · Pasos.
+    var usesRacketSummaryTiles: Bool {
+        switch self {
+        case .tennis, .padel, .badminton, .pickleball, .squash: true
+        default: false
+        }
+    }
+
+    /// Equipo / combate: misma terna Tiempo · Kcal · Pasos.
+    var usesStepsKcalSummaryTiles: Bool {
+        if usesRacketSummaryTiles { return true }
+        switch self {
+        case .soccer, .basketball, .volleyball, .americanFootball, .baseball,
+             .softball, .hockey, .lacrosse, .rugby,
+             .boxing, .kickboxing, .martialArts, .wrestling:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Indoor de fitness suave: Tiempo · Kcal · FC.
+    var usesHeartRateSummaryTiles: Bool {
+        switch self {
+        case .yoga, .pilates, .mobility, .dance, .coreTraining: true
+        default: false
+        }
+    }
+
+    /// HIIT / CrossFit / HYROX / fuerza Comenzar: Tiempo · Kcal · FC (o Pasos).
+    var usesFitnessClassSummaryTiles: Bool {
+        switch self {
+        case .hiit, .crossfit, .hyrox, .strength, .functionalStrength: true
+        default: false
+        }
+    }
+
+    /// Solo calcular desnivel cuando la actividad tiene sentido en pendiente.
+    var tracksElevation: Bool { showsElevationAndSpeedStats }
+
+    /// Consultas / categorías para sugerir un lugar a ≤50 m (pista, playa, estación…).
+    var nearbyPlaceQueries: [String] {
+        switch self {
+        case .tennis, .padel, .badminton, .pickleball, .squash:
+            ["pádel", "tenis", "club de pádel", "club de tenis", "pista de tenis"]
+        case .skiing, .snowboarding, .crossCountrySkiing:
+            ["estación de esquí", "puerto de montaña", "estación de snowboard"]
+        case .surfing, .windsurfing, .kitesurfing, .swimming,
+             .kayaking, .rowing, .canoeing, .sailing:
+            ["playa", "club náutico", "puerto deportivo"]
+        case .golf:
+            ["campo de golf", "golf"]
+        case .climbing:
+            ["rocódromo", "escalada"]
+        case .soccer, .americanFootball, .rugby:
+            ["campo de fútbol", "estadio"]
+        case .basketball:
+            ["pista de baloncesto", "pabellón"]
+        case .volleyball:
+            ["pista de voleibol", "pabellón"]
+        case .hockey, .lacrosse, .iceSkating:
+            ["pista de hielo", "pabellón"]
+        case .baseball, .softball:
+            ["campo de béisbol"]
+        case .boxing, .kickboxing, .martialArts, .wrestling:
+            ["gimnasio", "boxeo", "artes marciales"]
+        case .yoga, .pilates, .mobility, .dance, .coreTraining,
+             .functionalStrength, .hiit, .crossfit, .hyrox, .strength,
+             .elliptical, .stairClimbing:
+            ["gimnasio", "centro deportivo"]
+        default:
+            []
         }
     }
 
@@ -943,6 +1019,8 @@ final class LiveActivityRecorder: NSObject {
     private(set) var elevationLossMeters: Double = 0
     private var elevationReferenceMeters: Double?
     var hasElevationSamples: Bool { elevationReferenceMeters != nil }
+    /// Pin GPS o POI sugerido (pista/playa/estación ≤50 m) al pasar a review.
+    private(set) var reviewLocationPin: WorkoutLocationPin?
     private(set) var currentCoordinate: CLLocationCoordinate2D?
     private(set) var currentSpeedMps: Double?
     private(set) var currentCourseDegrees: Double?
@@ -1518,6 +1596,7 @@ final class LiveActivityRecorder: NSObject {
             startedAt: startedAt,
             finishedAt: max(finishedAt, startedAt.addingTimeInterval(1)),
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            locationPin: reviewLocationPin,
             routePoints: routePoints,
             liveSportID: sport.rawValue,
             liveRouteID: chosenRoute?.id,
@@ -1525,6 +1604,10 @@ final class LiveActivityRecorder: NSObject {
             activeDurationSeconds: durationSeconds,
             liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds)
         )
+    }
+
+    func applyReviewLocationPin(_ pin: WorkoutLocationPin?) {
+        reviewLocationPin = pin
     }
 
     func discard(saved: Bool = false) {
@@ -1558,6 +1641,7 @@ final class LiveActivityRecorder: NSObject {
         elevationGainMeters = 0
         elevationLossMeters = 0
         elevationReferenceMeters = nil
+        reviewLocationPin = nil
         currentSpeedMps = nil
         currentCourseDegrees = nil
         currentCoordinate = nil
@@ -3172,7 +3256,16 @@ struct LiveActivityView: View {
         let first = recorder.routePoints.first
         let last = recorder.routePoints.last
         // Sugerencia editable, nunca reemplazar el título si el usuario ya escribió.
+        // Pin GPS + POI ≤50 m (pista, playa, estación…) para el mapa de todos los deportes.
         Task { @MainActor in
+            let pin = await SportNearbyPlaceSuggester.suggestForSession(
+                sport: sport,
+                routePoints: recorder.routePoints,
+                existingPin: recorder.reviewLocationPin
+            )
+            if recorder.phase == .review, recorder.startedAt == activityStart {
+                recorder.applyReviewLocationPin(pin)
+            }
             let suggested = await LiveActivityLocationName.suggest(
                 sport: sport, start: first, end: last)
             guard recorder.phase == .review, recorder.startedAt == activityStart,
@@ -3181,7 +3274,7 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Resumen estilo Fitness/Historial: mapa protagonista, métricas y guardado.
+    /// Misma plantilla que el detalle de Historial: subtítulo, métricas, mapa, detalles.
     private var review: some View {
         List {
             if let session = recorder.makeSession(title: title, notes: notes) {
@@ -3200,158 +3293,45 @@ struct LiveActivityView: View {
                     )
                 }
                 let distanceMeters = session.recordedDistanceMeters ?? 0
+                let placePin = session.locationPin ?? recorder.reviewLocationPin
+                let isGPS = recorder.sport.usesGPS
 
-                // 1) Mapa hero solo si hay puntos GPS.
-                if !previewPoints.isEmpty {
-                    Section {
-                        SessionMapWeatherCard(
-                            mapHeight: 280,
-                            latitude: route.first?.latitude,
-                            longitude: route.first?.longitude,
-                            workoutDate: session.startedAt ?? .now
-                        ) {
-                            WorkoutMapTapTarget(
-                                accessibilityLabel: "Abrir recorrido a pantalla completa"
-                            ) {
-                                fullScreenRoutePoints = route
-                                showFullScreenRoute = true
-                            } map: {
-                                HealthWorkoutRouteMap(
-                                    points: route, isInteractive: false,
-                                    isWaterSport: recorder.sport.isWaterSport,
-                                    paceMode: recorder.sport.routePaceMode,
-                                    referenceRoutePoints: isRecordedRoute
-                                        ? (recorder.chosenRoute?.points ?? []) : []
-                                )
-                                .matchedTransitionSource(
-                                    id: "live-review-route", in: routeZoomNamespace
-                                )
-                            }
-                        }
-                        .ogCardListRow()
-                    }
-                }
+                OGScrollablePageTitle(title.isEmpty ? recorder.sport.title : title)
+                    .ogScrollingTitleListRow()
 
-                // 2) Fecha + tiles (tiempo / distancia / ritmo / energía).
                 Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(SpanishDate.format(
-                            session.startedAt ?? Date(),
-                            date: .complete,
-                            time: .shortened
-                        ))
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-
-                        // Una sola fila: tiempo · distancia · ritmo · energía.
-                        HStack(spacing: 8) {
-                            reviewTile(
-                                "Tiempo",
-                                value: formattedTime(recorder.durationSeconds),
-                                icon: "clock.fill", tint: OG.blue
-                            )
-                            if recorder.sport.usesGPS {
-                                reviewTile(
-                                    "Distancia",
-                                    value: "\(ReperaNumberFormat.decimal(distanceMeters / 1000)) km",
-                                    icon: "point.bottomleft.forward.to.point.topright.scurvepath",
-                                    tint: OG.accent
-                                )
-                                reviewTile(
-                                    recorder.sport.displaysSpeed ? "Veloc." : "Ritmo",
-                                    value: paceOrSpeed,
-                                    icon: recorder.sport.displaysSpeed
-                                        ? "gauge.with.dots.needle.67percent"
-                                        : "speedometer",
-                                    tint: OG.blue
-                                )
-                            }
-                            reviewTile(
-                                "Energía",
-                                value: previewHealthExtras.flatMap { extras in
-                                    extras.hasExternalSaludSource
-                                        ? extras.activeEnergyKcal.map {
-                                            "\(Int($0.rounded())) kcal"
-                                        }
-                                        : nil
-                                } ?? "—",
-                                icon: "flame.fill",
-                                tint: OG.orange
-                            )
-                        }
-
-                        if recorder.estimatedRecoveryMeters > 0 {
-                            Label(
-                                "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. El tiempo de ese intervalo también es aproximado; no son medidas GPS.",
-                                systemImage: "location.north.line"
-                            )
-                            .font(.caption)
-                            .foregroundStyle(OG.label2)
-                        }
-                        if recorder.sport.tracksElevation && recorder.hasElevationSamples {
-                            HStack(spacing: 14) {
-                                Label(
-                                    "+\(Int(recorder.elevationGainMeters.rounded())) m de ascenso",
-                                    systemImage: "arrow.up.right"
-                                )
-                                Label(
-                                    "−\(Int(recorder.elevationLossMeters.rounded())) m de descenso",
-                                    systemImage: "arrow.down.right"
-                                )
-                            }
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(OG.label2)
-                        }
-                    }
-                    .ogCardListRow(top: 4, bottom: 4)
-                }
-
-                // Tras los tiles: aviso si no hay mapa GPS.
-                if previewPoints.isEmpty, recorder.sport.usesGPS {
-                    Section {
-                        HStack(alignment: .center, spacing: 14) {
-                            ZStack {
-                                Circle()
-                                    .fill(OG.accent.opacity(0.14))
-                                    .frame(width: 48, height: 48)
-                                Image(systemName: "map")
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .foregroundStyle(OG.accent)
-                            }
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Recorrido no disponible")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                Text(
-                                    distanceMeters > 0
-                                    ? "La distancia y los parciales se conservan, pero no hay puntos GPS para dibujar el mapa."
-                                    : "No se registraron puntos GPS en esta actividad."
-                                )
-                                .font(.system(size: 13))
+                    VStack(alignment: .leading, spacing: 10) {
+                        let dateLine = reviewSubtitle(session: session)
+                        if !dateLine.isEmpty {
+                            Text(dateLine)
+                                .font(.system(size: 15, weight: .regular))
                                 .foregroundStyle(OG.label2)
                                 .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer(minLength: 0)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .padding(OG.pad)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(OG.surface, in: RoundedRectangle(
-                            cornerRadius: OG.radiusCard, style: .continuous
-                        ))
-                        .ogCardListRow()
+                        SessionSummaryTilesRow(
+                            specs: SessionSummaryTilesBuilder.tiles(
+                                session: session,
+                                sport: recorder.sport,
+                                health: previewHealthExtras,
+                                durationLabel: reviewDurationLabel,
+                                paceOrSpeedLabel: isGPS ? paceOrSpeed : nil
+                            )
+                        )
                     }
+                    .ogCardListRow(top: 0, bottom: 2)
                 }
 
-                // 3) Parciales + Salud (plantilla Historial).
+                // Métricas primero, sin título «Entreno».
                 let hasSportValues = (distanceMeters > 0
                     && (session.activeDurationSeconds ?? 0) > 0)
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
                 let hasHealthValues = previewHealthExtras?.hasAuthenticSaludMetrics == true
                     || previewHealthExtras?.hasExternalSaludSource == true
-                if hasSportValues || hasHealthValues {
+                if hasSportValues || hasHealthValues || !isGPS {
                     Section {
                         VStack(alignment: .leading, spacing: 14) {
-                            if hasSportValues || !recorder.sport.usesGPS {
+                            if hasSportValues || !isGPS {
                                 CardioSplitsView(
                                     routePoints: isRecordedRoute ? route : [],
                                     heartRate: previewHealthExtras?.heartRateSeries ?? [],
@@ -3367,14 +3347,23 @@ struct LiveActivityView: View {
                             }
                             if let extras = previewHealthExtras,
                                extras.hasAuthenticSaludMetrics || extras.hasExternalSaludSource {
-                                if hasSportValues || !recorder.sport.usesGPS {
+                                if hasSportValues || !isGPS {
                                     Divider().opacity(0.35)
                                 }
                                 HealthSessionMetricsCard(
                                     extras: extras,
                                     includeSourceRows: extras.hasExternalSaludSource,
-                                    embedded: true
+                                    embedded: true,
+                                    showsAltitudeProfile: recorder.sport.showsElevationAndSpeedStats
                                 )
+                            }
+                            if recorder.estimatedRecoveryMeters > 0 {
+                                Label(
+                                    "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. El tiempo de ese intervalo también es aproximado; no son medidas GPS.",
+                                    systemImage: "location.north.line"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
                             }
                         }
                         .padding(OG.pad)
@@ -3382,9 +3371,19 @@ struct LiveActivityView: View {
                             cornerRadius: OG.radiusCard, style: .continuous
                         ))
                         .ogCardListRow()
-                    } header: {
-                        Text("Entreno").foregroundStyle(OG.accent).textCase(nil)
                     }
+                }
+
+                // GPS: mapa tras métricas.
+                if isGPS {
+                    reviewMapSections(
+                        session: session,
+                        route: route,
+                        previewPoints: previewPoints,
+                        isRecordedRoute: isRecordedRoute,
+                        placePin: placePin,
+                        distanceMeters: distanceMeters
+                    )
                 }
 
                 Section("Detalles de la actividad") {
@@ -3397,6 +3396,19 @@ struct LiveActivityView: View {
                             .foregroundStyle(OG.label2)
                     }
                 }
+
+                // No GPS: mapa/pin al final (como Historial).
+                if !isGPS {
+                    reviewMapSections(
+                        session: session,
+                        route: route,
+                        previewPoints: previewPoints,
+                        isRecordedRoute: isRecordedRoute,
+                        placePin: placePin,
+                        distanceMeters: distanceMeters
+                    )
+                }
+
                 Section {
                     Button {
                         saveRecordedActivity()
@@ -3431,6 +3443,7 @@ struct LiveActivityView: View {
         }
         .ogListChrome()
         .listSectionSpacing(12)
+        .ogScrollingTitleNav()
         .task(id: recorder.phase) {
             guard recorder.phase == .review,
                   let workout = recorder.makeSession(title: title, notes: notes) else {
@@ -3441,10 +3454,98 @@ struct LiveActivityView: View {
         }
     }
 
-    private func reviewTile(
-        _ label: String, value: String, icon: String, tint: Color
+    private func reviewSubtitle(session: WorkoutSession) -> String {
+        guard let start = session.startedAt else { return "" }
+        return SpanishDate.sessionSubtitle(start: start, end: session.finishedAt)
+    }
+
+    private var reviewDurationLabel: String {
+        let minutes = max(0, Int((recorder.durationSeconds / 60).rounded()))
+        return minutes > 0 ? "\(minutes)′" : "—"
+    }
+
+    @ViewBuilder
+    private func reviewMapSections(
+        session: WorkoutSession,
+        route: [HealthKitStore.RoutePoint],
+        previewPoints: [WorkoutRoutePoint],
+        isRecordedRoute: Bool,
+        placePin: WorkoutLocationPin?,
+        distanceMeters: Double
     ) -> some View {
-        WorkoutSummaryTile(title: label, value: value, icon: icon, tint: tint)
+        if !previewPoints.isEmpty || placePin != nil {
+            Section {
+                SessionMapWeatherCard(
+                    mapHeight: 280,
+                    latitude: route.first?.latitude ?? placePin?.latitude,
+                    longitude: route.first?.longitude ?? placePin?.longitude,
+                    workoutDate: session.startedAt ?? .now,
+                    placePin: placePin
+                ) {
+                    if !previewPoints.isEmpty {
+                        WorkoutMapTapTarget(
+                            accessibilityLabel: "Abrir recorrido a pantalla completa"
+                        ) {
+                            fullScreenRoutePoints = route
+                            showFullScreenRoute = true
+                        } map: {
+                            HealthWorkoutRouteMap(
+                                points: route, isInteractive: false,
+                                isWaterSport: recorder.sport.isWaterSport,
+                                paceMode: recorder.sport.routePaceMode,
+                                referenceRoutePoints: isRecordedRoute
+                                    ? (recorder.chosenRoute?.points ?? []) : []
+                            )
+                            .matchedTransitionSource(
+                                id: "live-review-route", in: routeZoomNamespace
+                            )
+                        }
+                    } else if let placePin {
+                        WorkoutLocationPinMap(pin: placePin, isInteractive: false)
+                    }
+                }
+                .ogCardListRow()
+                if let placePin, placePin.hasChosenPlace {
+                    Label(placePin.name ?? "Lugar sugerido", systemImage: "mappin.and.ellipse")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.label2)
+                        .ogCardListRow()
+                }
+            }
+        } else if recorder.sport.usesGPS {
+            Section {
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(OG.accent.opacity(0.14))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: "map")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Recorrido no disponible")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                        Text(
+                            distanceMeters > 0
+                            ? "La distancia y los parciales se conservan, pero no hay puntos GPS para dibujar el mapa."
+                            : "No se registraron puntos GPS en esta actividad."
+                        )
+                        .font(.system(size: 13))
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(OG.pad)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(OG.surface, in: RoundedRectangle(
+                    cornerRadius: OG.radiusCard, style: .continuous
+                ))
+                .ogCardListRow()
+            }
+        }
     }
 
     private func saveRecordedActivity() {

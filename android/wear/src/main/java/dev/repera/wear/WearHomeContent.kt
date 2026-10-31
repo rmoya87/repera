@@ -2,8 +2,12 @@ package dev.repera.wear
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +32,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TextButton
 import dev.repera.domain.Effort
+import dev.repera.domain.LiveSport
 import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.WeightUnit
 import dev.repera.domain.WodClock
@@ -72,8 +77,34 @@ internal data class WearHomeState(
     val reviewExtraReps: Int = 0,
     val reviewElapsedSeconds: Int = 0,
     val setReviewIndex: Int? = null,
-    val liveActivity: JSONObject? = null
+    val liveActivity: JSONObject? = null,
+    val hubIndex: Int = 0,
+    val recentLiveSportIDs: List<String> = emptyList(),
+    val audioMuted: Boolean = false
 )
+
+/** Ítems del carrusel estilo Deportes: plan → recientes → catálogo. */
+internal sealed class WearHubCarouselItem {
+    data class Plan(val plan: JSONObject) : WearHubCarouselItem()
+    data class Sport(val sportId: String, val title: String) : WearHubCarouselItem()
+}
+
+internal fun wearHubCarouselItems(
+    plan: JSONObject?,
+    recentLiveSportIDs: List<String>
+): List<WearHubCarouselItem> {
+    val items = mutableListOf<WearHubCarouselItem>()
+    plan?.let { items += WearHubCarouselItem.Plan(it) }
+    val seen = mutableSetOf<String>()
+    for (id in recentLiveSportIDs) {
+        val sport = LiveSport.byId(id) ?: continue
+        if (seen.add(id)) items += WearHubCarouselItem.Sport(id, sport.title)
+    }
+    for (sport in LiveSport.selectableCases) {
+        if (seen.add(sport.id)) items += WearHubCarouselItem.Sport(sport.id, sport.title)
+    }
+    return items
+}
 
 internal class WearHomeCallbacks(
     val onDismissFinished: (FinishedSummary) -> Unit = {},
@@ -119,7 +150,11 @@ internal class WearHomeCallbacks(
     val onAdjustReviewRounds: (Int) -> Unit = {},
     val onAdjustReviewExtraReps: (Int) -> Unit = {},
     val onAdjustReviewElapsed: (Int) -> Unit = {},
-    val onSwipeSet: (Int) -> Unit = {}
+    val onSwipeSet: (Int) -> Unit = {},
+    val onHubPlay: (WearHubCarouselItem) -> Unit = {},
+    val onHubIndexChange: (Int) -> Unit = {},
+    val onOpenTimer: () -> Unit = {},
+    val onToggleHubAudioMuted: () -> Unit = {}
 )
 
 @Composable
@@ -149,10 +184,8 @@ internal fun WearHomeContent(
                 runningItems(state, callbacks)
             state.liveActivity != null ->
                 liveActivityItems(state.liveActivity, callbacks)
-            state.todayPlan != null ->
-                todayItems(state.todayPlan, callbacks)
             else ->
-                emptyItems(state, callbacks)
+                hubItems(state, callbacks)
         }
         pendingItems(state, callbacks)
         state.sendStatus?.let {
@@ -163,12 +196,18 @@ internal fun WearHomeContent(
     }
 }
 
-/** Phone owns GPS/Health and the watch only displays aggregate real metrics. */
+/** Phone owns GPS/Health. Título = sportTitle en toolbar del Activity; body = reloj + métricas. */
 private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, callbacks: WearHomeCallbacks) {
     val phase = live.optString("phase")
-    item {
-        Text(live.optString("sportTitle", "Actividad"),
-            style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+    if (phase == "paused") {
+        item {
+            Text("En pausa", color = WearOg.accent, style = MaterialTheme.typography.labelSmall)
+        }
+    } else if (phase == "review") {
+        item {
+            Text("Revisar en el teléfono", color = WearOg.label2,
+                style = MaterialTheme.typography.labelSmall)
+        }
     }
     item {
         val now = remember(live.optString("sessionId")) {
@@ -183,34 +222,72 @@ private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, call
         val extra = if (phase == "recording")
             ((now.longValue - live.optLong("capturedAtMillis")) / 1000.0).coerceAtLeast(0.0)
         else 0.0
-        Text(dev.repera.domain.LiveSportHistory.formatDuration(
-            live.optDouble("elapsedSeconds", 0.0) + extra),
-            style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
-        Text("Tiempo activo", style = MaterialTheme.typography.labelSmall)
+        Text(
+            dev.repera.domain.LiveSportHistory.formatDuration(
+                live.optDouble("elapsedSeconds", 0.0) + extra
+            ),
+            style = MaterialTheme.typography.displayMedium,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
     item {
-        Text(ReperaNumberFormat.decimal(live.optDouble("distanceMeters", 0.0) / 1000.0) + " km",
-            style = MaterialTheme.typography.titleMedium)
-    }
-    if (!live.isNull("averageSpeedKmh")) {
-        item {
-            Text(ReperaNumberFormat.decimal(live.optDouble("averageSpeedKmh")) + " km/h media",
-                style = MaterialTheme.typography.labelMedium)
+        val km = live.optDouble("distanceMeters", 0.0) / 1000.0
+        val speed = live.optDouble("averageSpeedKmh").takeIf { !live.isNull("averageSpeedKmh") }
+        val elapsed = live.optDouble("elapsedSeconds", 0.0).coerceAtLeast(1.0)
+        val meters = live.optDouble("distanceMeters", 0.0)
+        val paceLabel = if (meters > 20 && speed == null) {
+            val pace = (elapsed / meters) * 1000.0
+            val m = pace.toInt() / 60
+            val s = pace.toInt() % 60
+            "%d'%02d\"".format(m, s)
+        } else null
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(horizontalAlignment = Alignment.Start) {
+                Text(
+                    if (km > 0) ReperaNumberFormat.decimal(km) else "—",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text("km", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
+            }
+            Column(horizontalAlignment = Alignment.Start) {
+                Text(
+                    when {
+                        speed != null && speed > 0 -> ReperaNumberFormat.decimal(speed)
+                        paceLabel != null -> paceLabel
+                        else -> "—"
+                    },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    if (speed != null && speed > 0) "km/h" else "Ritmo",
+                    color = WearOg.label2,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
     if (!live.isNull("nextTurn") && phase != "review") {
-        item { Text(live.optString("nextTurn"), textAlign = TextAlign.Center) }
+        item { Text(live.optString("nextTurn"), textAlign = TextAlign.Start) }
     }
     if (phase == "review") {
-        item { Text("Finalizada · revisa y guarda en el teléfono",
-            textAlign = TextAlign.Center) }
+        item {
+            Text(
+                "Finalizada · guarda en el teléfono",
+                textAlign = TextAlign.Start,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
     } else {
         item {
             val confirm = remember(live.optString("sessionId")) {
                 androidx.compose.runtime.mutableStateOf(false)
             }
             if (confirm.value) {
-                Text("¿Finalizar actividad?", style = MaterialTheme.typography.labelMedium)
+                Text("¿Finalizar?", style = MaterialTheme.typography.labelMedium)
                 Row {
                     TextButton(onClick = { confirm.value = false }) { Text("Cancelar") }
                     TextButton(onClick = {
@@ -222,8 +299,8 @@ private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, call
                 Row {
                     TextButton(onClick = {
                         callbacks.onLiveCommand(if (phase == "paused") "resume" else "pause")
-                    }) { Text(if (phase == "paused") "Reanudar" else "Pausar") }
-                    TextButton(onClick = { confirm.value = true }) { Text("Terminar") }
+                    }) { Text(if (phase == "paused") "▶" else "⏸") }
+                    TextButton(onClick = { confirm.value = true }) { Text("🏁") }
                 }
             }
         }
@@ -256,16 +333,166 @@ private fun TransformingLazyColumnScope.finishedItems(
         )
     }
     item { WearStatsLine("Tiempo", finished.durationLabel) }
-    finished.kcal?.let { item { WearStatsLine("Calorías", "${it} kcal") } }
-    finished.avgHr?.let { item { WearStatsLine("FC media", "$it lpm") } }
-    item { WearStatsLine("Series", "${finished.sets}") }
-    item { WearStatsLine("Repeticiones", "${finished.reps}") }
-    item { WearStatsLine("Volumen", "${finished.volumeKg} kg") }
-    finished.wodLines.forEach { (label, value) ->
-        item { WearStatsLine(label, value) }
+    if (finished.isLive) {
+        item { WearStatsLine("Distancia", finished.distanceLabel ?: "—") }
+        item { WearStatsLine("Calorías", finished.kcal?.let { "$it kcal" } ?: "—") }
+        item { WearStatsLine("FC media", finished.avgHr?.let { "$it lpm" } ?: "—") }
+    } else {
+        finished.kcal?.let { item { WearStatsLine("Calorías", "${it} kcal") } }
+        finished.avgHr?.let { item { WearStatsLine("FC media", "$it lpm") } }
+        item { WearStatsLine("Series", "${finished.sets}") }
+        item { WearStatsLine("Repeticiones", "${finished.reps}") }
+        item { WearStatsLine("Volumen", "${finished.volumeKg} kg") }
+        finished.wodLines.forEach { (label, value) ->
+            item { WearStatsLine(label, value) }
+        }
     }
     item {
         WearPrimaryButton("Volver al inicio") { callbacks.onDismissFinished(finished) }
+    }
+}
+
+private fun TransformingLazyColumnScope.hubItems(
+    state: WearHomeState,
+    callbacks: WearHomeCallbacks
+) {
+    item {
+        WearHubHome(
+            plan = state.todayPlan,
+            recentLiveSportIDs = state.recentLiveSportIDs,
+            hubIndex = state.hubIndex,
+            audioMuted = state.audioMuted,
+            syncProblem = state.syncProblem,
+            onHubIndexChange = callbacks.onHubIndexChange,
+            onHubPlay = callbacks.onHubPlay,
+            onOpenTimer = callbacks.onOpenTimer,
+            onToggleAudioMuted = callbacks.onToggleHubAudioMuted,
+            onSyncRequest = callbacks.onSyncRequest,
+            modifier = Modifier.fillMaxWidth().height(180.dp)
+        )
+    }
+}
+
+@Composable
+internal fun WearHubHome(
+    plan: JSONObject?,
+    recentLiveSportIDs: List<String>,
+    hubIndex: Int,
+    audioMuted: Boolean,
+    syncProblem: Boolean,
+    onHubIndexChange: (Int) -> Unit,
+    onHubPlay: (WearHubCarouselItem) -> Unit,
+    onOpenTimer: () -> Unit,
+    onToggleAudioMuted: () -> Unit,
+    onSyncRequest: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val items = remember(plan, recentLiveSportIDs) {
+        wearHubCarouselItems(plan, recentLiveSportIDs)
+    }
+    val index = hubIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Box(
+        modifier = modifier
+            .onRotaryScrollEvent { event ->
+                val delta = if (event.verticalScrollPixels > 0) 1 else -1
+                onHubIndexChange((index + delta).coerceIn(0, items.lastIndex.coerceAtLeast(0)))
+                true
+            }
+            .focusRequester(focus)
+            .focusable()
+    ) {
+        val current = items.getOrNull(index)
+        // Centro: tocar inicia (sin botón Play).
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 28.dp)
+                .then(
+                    if (current != null) {
+                        Modifier.pointerInput(current) {
+                            detectTapGestures { onHubPlay(current) }
+                        }
+                    } else {
+                        Modifier.pointerInput(syncProblem) {
+                            detectTapGestures { onSyncRequest() }
+                        }
+                    }
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            when (val item = current) {
+                is WearHubCarouselItem.Plan -> {
+                    Text("📋", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        item.plan.optString("title").ifBlank { "Entreno" },
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Text(planFormat(item.plan), color = WearOg.label2,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(planDuration(item.plan), color = WearOg.label2,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                is WearHubCarouselItem.Sport -> {
+                    Text("🏃", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        item.title,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2
+                    )
+                }
+                null -> {
+                    Text(
+                        if (syncProblem) "Sin sync · tocar" else "Actividades",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+        // Sonido: esquina inferior izquierda.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 2.dp, bottom = 2.dp)
+                .semantics {
+                    contentDescription = if (audioMuted) "Activar audio" else "Silenciar audio"
+                }
+        ) {
+            Button(
+                onClick = onToggleAudioMuted,
+                modifier = Modifier.height(34.dp)
+            ) {
+                Text(
+                    if (audioMuted) "🔇" else "🔊",
+                    style = MaterialTheme.typography.titleSmall
+                )
+            }
+        }
+        // Temporizador: esquina inferior derecha.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 2.dp, bottom = 2.dp)
+                .semantics { contentDescription = "Temporizador" }
+        ) {
+            Button(
+                onClick = onOpenTimer,
+                modifier = Modifier.height(34.dp)
+            ) {
+                Text("⏱", style = MaterialTheme.typography.titleSmall)
+            }
+        }
     }
 }
 
@@ -346,7 +573,7 @@ private fun TransformingLazyColumnScope.readyItems(
     }
     item {
         WearPrimaryButton(
-            if (session.wodFormatLabel != null) "▶ Iniciar bloque" else "▶ Empezar ejercicio"
+            if (session.wodFormatLabel != null) "Iniciar bloque" else "Empezar"
         ) { callbacks.onPlayReady() }
     }
     item {
@@ -410,7 +637,7 @@ private fun TransformingLazyColumnScope.outlineItems(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                "Descartar entreno",
+                "Descartar",
                 color = WearOg.red,
                 style = MaterialTheme.typography.labelSmall
             )

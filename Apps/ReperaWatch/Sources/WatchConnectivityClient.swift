@@ -9,6 +9,11 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?)
     func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool)
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
+    func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
+}
+
+extension WatchConnectivityClientDelegate {
+    func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
 }
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
@@ -59,6 +64,47 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             self?.logger.warning("Live watch command failed: \(error.localizedDescription, privacy: .public)")
         }
         return true
+    }
+
+    /// Pide al iPhone iniciar Comenzar con el deporte elegido en el hub.
+    /// - Returns: `true` si el mensaje se envió (reachable). `onResult(false)` si el
+    ///   teléfono rechaza (p. ej. revisión abierta) o falla el envío → el hub cae a local.
+    @discardableResult
+    func sendStartLive(sportID: String, onResult: ((Bool) -> Void)? = nil) -> Bool {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              WCSession.default.isReachable else { return false }
+        WCSession.default.sendMessage([
+            "action": "startLive",
+            "sportID": sportID,
+            "actionId": UUID().uuidString
+        ], replyHandler: { reply in
+            let ok = (reply["ok"] as? Bool) ?? false
+            onResult?(ok)
+        }) { [weak self] error in
+            self?.logger.warning("startLive failed: \(error.localizedDescription, privacy: .public)")
+            onResult?(false)
+        }
+        return true
+    }
+
+    func sendFinishedTimer(_ session: WorkoutSession) {
+        sendFinished(session)
+    }
+
+    func sendAudioMuted(_ muted: Bool) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        let payload: [String: Any] = [
+            "action": "setAudioMuted",
+            "audioMuted": muted,
+            "actionId": UUID().uuidString
+        ]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { _ in }
+        } else {
+            WCSession.default.transferUserInfo(payload)
+        }
     }
 
     /// Descarte explícito: el iPhone debe limpiar `activeSession` aunque no
@@ -199,6 +245,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     private func applyContext(_ payload: [String: Any]) {
+        let recent = payload["recentLiveSportIDs"] as? [String] ?? []
+        let muted = payload["audioMuted"] as? Bool
+        if !recent.isEmpty || muted != nil {
+            delegate?.watchConnectivityDidReceiveHubMeta(recentSportIDs: recent, audioMuted: muted)
+        }
         if let data = payload["liveActivity"] as? Data,
            data != lastInboundLive {
             lastInboundLive = data

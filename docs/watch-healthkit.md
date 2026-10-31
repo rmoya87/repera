@@ -1,6 +1,14 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-10-29 (discard iPhone↔Watch + Descartar en UI)
+Última actualización: 2026-10-31 (hub Deportes: plan efectivo, Comenzar autónomo, timer)
+
+## Hub (31/10/2026)
+
+`WatchHomeHubView` es la raíz cuando no hay sesión activa: plan efectivo del iPhone
+(`effectiveWatchPlan`: hoy \| atrasado reciente), recientes y catálogo Comenzar.
+Play del plan → flujo fuerza/WOD. Play de deporte → `startLive` al iPhone o
+grabación local (`WatchLiveSessionView` + GPS + HK). Temporizador libre en
+`WatchStandaloneTimerView`. Mute sincroniza `spokenGuidance` del iPhone.
 
 ## Fuente de verdad
 

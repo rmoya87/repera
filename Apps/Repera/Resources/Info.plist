@@ -2,34 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- iOS 27 native opportunistic refresh for the public exercise catalog. -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array><string>com.app.repera.catalog.refresh</string></array>
-	<key>UIBackgroundModes</key>
-	<array><string>fetch</string><string>location</string></array>
+	<array>
+		<string>com.app.repera.catalog.refresh</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Repera</string>
-	<key>GIDClientID</key>
-	<string>$(REPERA_GOOGLE_IOS_CLIENT_ID)</string>
-	<key>GIDServerClientID</key>
-	<string>$(REPERA_GOOGLE_SERVER_CLIENT_ID)</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.app.repera.auth</string>
-			<key>CFBundleURLSchemes</key>
-			<array><string>repera</string></array>
-		</dict>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.app.repera.google</string>
-			<key>CFBundleURLSchemes</key>
-			<array><string>$(REPERA_GOOGLE_REVERSED_CLIENT_ID)</string></array>
-		</dict>
-	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -42,8 +22,31 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.app.repera.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>repera</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.app.repera.google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(REPERA_GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>GIDClientID</key>
+	<string>$(REPERA_GOOGLE_IOS_CLIENT_ID)</string>
+	<key>GIDServerClientID</key>
+	<string>$(REPERA_GOOGLE_SERVER_CLIENT_ID)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -60,9 +63,7 @@
 		<string>Repera usa ubicación precisa para el pin del gym y la ruta del entreno.</string>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Repera registra la ruta y la distancia durante un entreno, incluso al bloquear el iPhone.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Repera continúa registrando el recorrido de tu entrenamiento con el iPhone bloqueado.</string>
+	<string>Repera utiliza el GPS durante una actividad en vivo, incluso con la pantalla bloqueada, para registrar distancia y recorrido y seguir rutas guardadas.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Repera lee fotos de pizarras o pantallas para importar el entrenamiento.</string>
 	<key>NSSupportsLiveActivities</key>
@@ -85,6 +86,11 @@
 	<string>https://uvzgujlrqohreoucirms.supabase.co</string>
 	<key>RevenueCatPublicAPIKey</key>
 	<string>YOUR_REVENUECAT_PUBLIC_API_KEY</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>location</string>
+	</array>
 	<key>UIFileSharingEnabled</key>
 	<false/>
 	<key>UILaunchStoryboardName</key>

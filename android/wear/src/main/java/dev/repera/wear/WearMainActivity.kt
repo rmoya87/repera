@@ -46,6 +46,7 @@ import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
+import dev.repera.domain.LiveSport
 import dev.repera.domain.WearBlockHeader
 
 /**
@@ -139,6 +140,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var syncProblem by mutableStateOf(false)
     private var showingCachedSession by mutableStateOf(false)
     private var liveActivityJson by mutableStateOf<JSONObject?>(null)
+    /** Tras finalizar companion, no reabrir la cara live con el snapshot de revisión. */
+    private var suppressCompanionLive = false
+    private var hubIndex by mutableStateOf(0)
+    private var recentLiveSportIDs by mutableStateOf<List<String>>(emptyList())
+    private var hubAudioMuted by mutableStateOf(false)
+    private enum class WearHubOverlay { HOME, TIMER_CONFIG, TIMER_RUN }
+    private var hubOverlay by mutableStateOf(WearHubOverlay.HOME)
+    private var timerDraft by mutableStateOf(WearTimerDraft())
     private var showOutline by mutableStateOf(false)
     private var showSetDetails by mutableStateOf(false)
     private var reviewingBlock by mutableStateOf(false)
@@ -196,6 +205,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         effortUnit = sessionCache.getString("effortUnit", "rir")?.takeIf { it in setOf("rir", "rpe") } ?: "rir"
         weightUnit = sessionCache.getString("weightUnit", "kg")?.takeIf { it in setOf("kg", "lb") } ?: "kg"
+        hubIndex = sessionCache.getInt("hubIndex", 0)
+        // Tras cargar plan/recents se re-resuelve; aquí solo semilla.
+        hubAudioMuted = sessionCache.getBoolean("hubAudioMuted", false)
+        sessionCache.getString("recentLiveSportIDs", null)?.let { raw ->
+            recentLiveSportIDs = runCatching {
+                JSONArray(raw).let { arr -> (0 until arr.length()).map { arr.getString(it) } }
+            }.getOrDefault(emptyList())
+        }
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
@@ -205,13 +222,40 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             )) {
                 AppScaffold {
                     ScreenScaffold { insets ->
-                        WearHomeContent(
+                        when (hubOverlay) {
+                            WearHubOverlay.TIMER_CONFIG -> androidx.compose.foundation.layout.Box(
+                                Modifier.fillMaxSize().padding(insets)
+                            ) {
+                                WearTimerConfigScreen(
+                                    draft = timerDraft,
+                                    onDraftChange = { timerDraft = it },
+                                    onStart = { hubOverlay = WearHubOverlay.TIMER_RUN },
+                                    onBack = { hubOverlay = WearHubOverlay.HOME }
+                                )
+                            }
+                            WearHubOverlay.TIMER_RUN -> androidx.compose.foundation.layout.Box(
+                                Modifier.fillMaxSize().padding(insets)
+                            ) {
+                                WearTimerRunScreen(
+                                    draft = timerDraft,
+                                    audioMuted = hubAudioMuted,
+                                    onFinished = { details, started, finished ->
+                                        hubOverlay = WearHubOverlay.HOME
+                                        sendTimerDetailsToPhone(details, started, finished)
+                                    },
+                                    onDiscard = { hubOverlay = WearHubOverlay.HOME }
+                                )
+                            }
+                            WearHubOverlay.HOME -> WearHomeContent(
                             state = WearHomeState(
                                 session = visibleSession,
                                 liveActivity = liveActivityJson,
                                 showingCachedSession = showingCachedSession,
                                 finishedSummary = finishedSummary,
                                 todayPlan = todayPlanJson,
+                                hubIndex = resolvedHubIndex(),
+                                recentLiveSportIDs = recentLiveSportIDs,
+                                audioMuted = hubAudioMuted,
                                 syncProblem = syncProblem,
                                 health = health,
                                 wodTimerJson = effectiveWodTimer(visibleSession),
@@ -244,6 +288,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     sessionCache.edit().putString(
                                         "finishedDismissed", finished.sessionId).apply()
                                     finishedSummary = null
+                                    suppressCompanionLive = true
+                                    liveActivityJson = null
+                                    hubIndex = resolvedHubIndex()
                                 },
                                 onStartTodayPlan = { startTodayPlan() },
                                 onStartTodayPlanAt = { startTodayPlan(it) },
@@ -367,10 +414,32 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     val planned = maxOf(1, session.plannedWorkSets)
                                     val base = setReviewIndex ?: session.recordedSets
                                     setReviewIndex = (base + delta).coerceIn(0, maxOf(0, planned - 1))
+                                },
+                                onHubPlay = { item -> onHubPlay(item) },
+                                onHubIndexChange = { idx ->
+                                    hubIndex = idx
+                                    val items = wearHubCarouselItems(todayPlanJson, recentLiveSportIDs)
+                                    val id = items.getOrNull(idx)?.let { carouselItemId(it) }
+                                    sessionCache.edit()
+                                        .putInt("hubIndex", idx)
+                                        .apply {
+                                            if (id != null) putString("lastHubItemID", id)
+                                            else remove("lastHubItemID")
+                                        }
+                                        .apply()
+                                },
+                                onOpenTimer = { hubOverlay = WearHubOverlay.TIMER_CONFIG },
+                                onToggleHubAudioMuted = {
+                                    hubAudioMuted = !hubAudioMuted
+                                    sessionCache.edit()
+                                        .putBoolean("hubAudioMuted", hubAudioMuted)
+                                        .putBoolean("hubAudioMutedTouched", true)
+                                        .apply()
                                 }
                             ),
                             modifier = Modifier.fillMaxSize().padding(insets)
                         )
+                        }
                     }
                 }
             }
@@ -415,9 +484,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     }
                     if (item.uri.path == "/repera/today-plan") {
                         val map = DataMapItem.fromDataItem(item).dataMap
-                        val bytes = map.getByteArray("plan")
-                        val at = map.getLong("updatedAtMillis", System.currentTimeMillis())
-                        runOnUiThread { showTodayPlan(bytes, at) }
+                        runOnUiThread { showTodayPlanFromMap(map) }
                     }
                 }
             } finally {
@@ -467,9 +534,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
             if (event.dataItem.uri.path == "/repera/today-plan") {
                 val map = DataMapItem.fromDataItem(event.dataItem).dataMap
-                val bytes = map.getByteArray("plan")
-                val at = map.getLong("updatedAtMillis", System.currentTimeMillis())
-                runOnUiThread { showTodayPlan(bytes, at) }
+                runOnUiThread { showTodayPlanFromMap(map) }
             }
         }
     }
@@ -655,19 +720,57 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun showLiveActivity(bytes: ByteArray?) {
+        if (suppressCompanionLive) {
+            if (bytes == null || bytes.isEmpty()) {
+                suppressCompanionLive = false
+                liveActivityJson = null
+                return
+            }
+            val parsed = runCatching {
+                JSONObject(String(bytes, Charsets.UTF_8))
+            }.getOrNull()
+            // Nueva grabación del teléfono: dejar de suprimir.
+            if (parsed?.optString("phase") == "recording") {
+                suppressCompanionLive = false
+                liveActivityJson = parsed
+            }
+            return
+        }
         liveActivityJson = bytes?.takeIf { it.isNotEmpty() }?.let {
             runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
         }
     }
 
+    private fun presentCompanionFinished(live: JSONObject) {
+        val elapsed = live.optDouble("elapsedSeconds", 0.0)
+            .takeIf { it.isFinite() }?.toInt()?.coerceAtLeast(0) ?: 0
+        val meters = live.optDouble("distanceMeters", 0.0).takeIf { it.isFinite() && it > 0 }
+        finishedSummary = FinishedSummary(
+            sessionId = live.optString("sessionId").ifBlank { "companion" },
+            title = live.optString("sportTitle").ifBlank { "Actividad" },
+            durationLabel = wearClockLabel(elapsed),
+            exercises = 0,
+            sets = 0,
+            reps = 0,
+            volumeKg = 0,
+            isLive = true,
+            distanceLabel = meters?.let { String.format("%.2f km", it / 1000.0) }
+        )
+        suppressCompanionLive = true
+        liveActivityJson = null
+    }
+
     private fun requestLiveCommand(command: String) {
         if (command !in setOf("pause", "resume", "finish")) return
-        val id = liveActivityJson?.optString("sessionId").orEmpty()
+        val live = liveActivityJson ?: return
+        val id = live.optString("sessionId").orEmpty()
         if (id.isBlank()) return
         val payload = JSONObject().put("sessionId", id).put("command", command)
             .toString().toByteArray(Charsets.UTF_8)
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            if (liveActivityJson?.optString("sessionId") != id) return@addOnSuccessListener
+            if (liveActivityJson?.optString("sessionId") != id && command != "finish") {
+                return@addOnSuccessListener
+            }
             if (nodes.isEmpty()) {
                 sendStatus = "Móvil desconectado; actividad conservada"
                 return@addOnSuccessListener
@@ -677,8 +780,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     node.id, "/repera/live-command", payload
                 )
             }
-            sendStatus = "Control enviado; esperando estado del móvil"
+            if (command == "finish") {
+                presentCompanionFinished(live)
+                sendStatus = null
+            } else {
+                sendStatus = "Control enviado; esperando estado del móvil"
+            }
         }
+    }
+
+    private fun showTodayPlanFromMap(map: com.google.android.gms.wearable.DataMap) {
+        val bytes = map.getByteArray("plan")
+        val updatedAtMillis = map.getLong("updatedAtMillis", System.currentTimeMillis())
+        map.getStringArray("recentLiveSportIDs")?.toList()?.let { ids ->
+            recentLiveSportIDs = ids
+            sessionCache.edit()
+                .putString("recentLiveSportIDs", JSONArray(ids).toString())
+                .apply()
+        }
+        if (map.containsKey("audioMuted") &&
+            !sessionCache.getBoolean("hubAudioMutedTouched", false)) {
+            hubAudioMuted = map.getBoolean("audioMuted")
+        }
+        showTodayPlan(bytes, updatedAtMillis)
     }
 
     private fun showTodayPlan(bytes: ByteArray?, updatedAtMillis: Long = System.currentTimeMillis()) {
@@ -697,6 +821,96 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 .apply()
         } else {
             sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
+        }
+    }
+
+    private fun onHubPlay(item: WearHubCarouselItem) {
+        // Conservar el ítem del carrusel para restaurarlo al Volver al inicio.
+        val itemId = when (item) {
+            is WearHubCarouselItem.Plan ->
+                "plan-${item.plan.optString("id").ifBlank { item.plan.optString("title") }}"
+            is WearHubCarouselItem.Sport -> "sport-${item.sportId}"
+        }
+        sessionCache.edit().putString("lastHubItemID", itemId).apply()
+        val items = wearHubCarouselItems(todayPlanJson, recentLiveSportIDs)
+        items.indexOfFirst { carouselItemId(it) == itemId }.takeIf { it >= 0 }?.let { idx ->
+            hubIndex = idx
+            sessionCache.edit().putInt("hubIndex", idx).apply()
+        }
+        when (item) {
+            is WearHubCarouselItem.Plan -> startTodayPlan()
+            is WearHubCarouselItem.Sport -> requestLiveStart(item.sportId)
+        }
+    }
+
+    private fun carouselItemId(item: WearHubCarouselItem): String = when (item) {
+        is WearHubCarouselItem.Plan ->
+            "plan-${item.plan.optString("id").ifBlank { item.plan.optString("title") }}"
+        is WearHubCarouselItem.Sport -> "sport-${item.sportId}"
+    }
+
+    private fun resolvedHubIndex(): Int {
+        val items = wearHubCarouselItems(todayPlanJson, recentLiveSportIDs)
+        if (items.isEmpty()) return 0
+        val lastId = sessionCache.getString("lastHubItemID", null)
+        if (!lastId.isNullOrBlank()) {
+            val idx = items.indexOfFirst { carouselItemId(it) == lastId }
+            if (idx >= 0) return idx
+        }
+        return hubIndex.coerceIn(0, items.lastIndex)
+    }
+
+    private fun requestLiveStart(sportId: String) {
+        if (sportId.isBlank()) return
+        suppressCompanionLive = false
+        val phase = liveActivityJson?.optString("phase")
+        if (liveActivityJson != null && phase != "review") {
+            sendStatus = "Actividad en curso en el teléfono"
+            return
+        }
+        if (phase == "review") {
+            liveActivityJson = null
+        }
+        if (visibleSession != null) {
+            sendStatus = "Hay un entreno activo; termínalo antes de Comenzar"
+            return
+        }
+        val payload = JSONObject().put("sportId", sportId)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (nodes.isEmpty()) {
+                sendStatus = "Móvil desconectado; abre Repera en el teléfono"
+                return@addOnSuccessListener
+            }
+            nodes.forEach { node ->
+                messageClient.sendMessage(node.id, "/repera/live-start", payload)
+            }
+            sendStatus = "Iniciando ${LiveSport.byId(sportId)?.title ?: "actividad"}…"
+        }
+    }
+
+    private fun sendTimerDetailsToPhone(
+        details: dev.repera.domain.TimerCompletionDetails,
+        startedAtMillis: Long,
+        finishedAtMillis: Long
+    ) {
+        val id = java.util.UUID.randomUUID().toString()
+        val payload = JSONObject()
+            .put("id", id)
+            .put("startedAtMillis", startedAtMillis)
+            .put("finishedAtMillis", finishedAtMillis)
+            .put("timerDetails", details.toJson())
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (nodes.isEmpty()) {
+                // TODO: cola local de timerDetails cuando no hay /repera/timer-save reachable.
+                sendStatus = "Temporizador listo; sin teléfono para guardar"
+                return@addOnSuccessListener
+            }
+            nodes.forEach { node ->
+                messageClient.sendMessage(node.id, "/repera/timer-save", payload)
+            }
+            sendStatus = "Temporizador enviado al teléfono"
         }
     }
 
@@ -1639,7 +1853,9 @@ internal data class FinishedSummary(
     val volumeKg: Int,
     val kcal: Int? = null,
     val avgHr: Int? = null,
-    val wodLines: List<Pair<String, String>> = emptyList()
+    val wodLines: List<Pair<String, String>> = emptyList(),
+    val isLive: Boolean = false,
+    val distanceLabel: String? = null
 ) {
     companion object {
         fun fromBytes(bytes: ByteArray?): FinishedSummary? {
@@ -1702,6 +1918,12 @@ internal data class FinishedSummary(
                     wodLines += fmt to value
                 }
             }
+            val isLive = w.optString("liveSportID").isNotBlank() ||
+                (w.optJSONObject("timerDetails") != null)
+            val meters = if (w.has("recordedDistanceMeters") && !w.isNull("recordedDistanceMeters")) {
+                w.optDouble("recordedDistanceMeters").takeIf { it.isFinite() && it > 0 }
+            } else null
+            val distanceLabel = meters?.let { String.format("%.2f km", it / 1000.0) }
             return FinishedSummary(
                 id,
                 w.optString("title").ifBlank { "Entrenamiento" },
@@ -1712,7 +1934,9 @@ internal data class FinishedSummary(
                 kotlin.math.round(volume).toInt(),
                 kcal,
                 avgHr,
-                wodLines
+                wodLines,
+                isLive,
+                distanceLabel
             )
         }
     }

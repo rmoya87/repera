@@ -1,11 +1,10 @@
 package dev.repera.domain
 
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Filtro global de Progreso (cabecera). Por defecto: esta semana.
+ * Filtro global de Progreso (cabecera). Por defecto: últimos 7 días.
  * Port 1:1 de ProgressTimeRange.swift (iOS).
  */
 enum class ProgressTimeRange(val wire: String) {
@@ -19,7 +18,7 @@ enum class ProgressTimeRange(val wire: String) {
     val title: String
         get() = when (this) {
             TODAY -> "Hoy"
-            WEEK -> "Esta semana"
+            WEEK -> "Últimos 7 días"
             MONTH -> "Este mes"
             DAYS_90 -> "90 días"
             DAYS_180 -> "180 días"
@@ -54,10 +53,8 @@ enum class ProgressTimeRange(val wire: String) {
     fun startDate(now: LocalDate = LocalDate.now(), weekStartsOnMonday: Boolean = true): LocalDate =
         when (this) {
             TODAY -> now
-            WEEK -> {
-                val first = if (weekStartsOnMonday) DayOfWeek.MONDAY else DayOfWeek.SUNDAY
-                now.minusDays(((now.dayOfWeek.value - first.value) + 7L) % 7L)
-            }
+            // Ventana móvil: hoy + 6 días anteriores (no semana calendario lun–dom).
+            WEEK -> now.minusDays(6)
             MONTH -> now.withDayOfMonth(1)
             DAYS_90 -> now.minusDays(89)
             DAYS_180 -> now.minusDays(179)
@@ -70,20 +67,14 @@ enum class ProgressTimeRange(val wire: String) {
         return !date.isBefore(startDate(now, weekStartsOnMonday))
     }
 
-    /** Periodo comparable (602e9c39): en semana y mes solo los días transcurridos,
-     *  nunca todo el periodo anterior si el actual aún no ha concluido; el fin es
-     *  EXCLUSIVO. Los periodos móviles (90/180/360 días) comparan ventanas completas. */
+    /** Periodo comparable: mes solo días transcurridos; week/90/180/360 = ventana móvil
+     *  completa. Fin exclusivo. */
     fun previousPeriodBounds(now: LocalDate = LocalDate.now(),
                              weekStartsOnMonday: Boolean = true): Pair<LocalDate, LocalDate> {
         val start = startDate(now, weekStartsOnMonday)
         return when (this) {
             TODAY -> now.minusDays(1) to now
-            WEEK -> {
-                val elapsedDays = maxOf(1, java.time.temporal.ChronoUnit.DAYS.between(start, now).toInt() + 1)
-                val prevStart = start.minusDays(7)
-                val comparableEnd = prevStart.plusDays(minOf(7, elapsedDays).toLong())
-                prevStart to minOf(comparableEnd, start)
-            }
+            WEEK -> start.minusDays(7) to start
             MONTH -> {
                 val elapsedDays = maxOf(1, java.time.temporal.ChronoUnit.DAYS.between(start, now).toInt() + 1)
                 val prevStart = start.minusMonths(1)

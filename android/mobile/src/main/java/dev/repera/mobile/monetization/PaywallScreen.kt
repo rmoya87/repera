@@ -251,7 +251,7 @@ private fun PaywallComparison() {
     val rows = listOf(
         // Paridad PaywallView.swift: («Mapa», «2D», «2D + 3D»).
         Triple("Mapa", "2D", "2D + 3D"),
-        Triple("Progreso", "Esta semana", "Todos los periodos"),
+        Triple("Progreso", "Últimos 7 días", "Todos los periodos"),
         Triple("Por ejercicio", "Última + récord", "Historial completo"),
         Triple("Rutinas / favoritos",
             "${limits.MAX_LIBRARY_ROUTINES} / ${limits.MAX_FAVORITE_ITEMS}", "Sin límites"),

@@ -19,10 +19,20 @@
   la escritura es idempotente por ID de serie y solo se confirma tras persistencia.
   El cronómetro activo dispone de checkpoint para recuperación tras recreación.
 
+## Hub 31/10/2026 (complemento)
+
+Además del companion phone-owned, el hub Deportes permite iniciar un deporte
+desde el reloj: con teléfono reachable usa `startLive` (el móvil abre Comenzar;
+si había revisión abierta se descarta; Finalizar en el reloj → revisión en el
+teléfono). Offline o con entreno programado activo graba en el reloj (HK + GPS)
+y consolida al finalizar. Spec:
+`docs/superpowers/specs/2026-10-31-watch-wear-hub-design.md`.
+
 ## Límites deliberados: no declarar paridad completa
-1. Comenzar **desde el reloj sin teléfono** con GPS propio, sensor deportivo y
-   ruta autónoma necesita un flujo distinto de HealthKit/Health Services, con
-   propiedad única de captura, historial y reconciliación explícita.
+1. El inicio autónomo desde el reloj existe en código (hub 31/10) pero **exige
+   validación en hardware** (permisos ubicación, background workout, batería,
+   reconciliación de rutas/HK con el teléfono). No declarar paridad completa
+   hasta pasar la checklist de aceptación.
 2. La lectura de métricas HealthKit/Health Services no se simula ni se deduce de
    distancia/repeticiones. Cuando el móvil posee la actividad libre el reloj
    acompaña y controla; no debe escribir otro workout de Salud.

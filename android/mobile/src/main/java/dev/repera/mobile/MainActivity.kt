@@ -1382,13 +1382,74 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if (event.path == "/repera/request-today-plan") {
             runOnUiThread {
                 val id = profile?.uniqueId ?: return@runOnUiThread
+                publishEffectiveWatchPlan(id)
+            }
+            return
+        }
+        if (event.path == "/repera/live-start") {
+            val sportId = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8)).optString("sportId")
+            }.getOrNull().orEmpty()
+            if (sportId.isBlank()) return
+            runOnUiThread {
+                val account = profile?.uniqueId ?: return@runOnUiThread
+                if (activeWorkout != null || busy) return@runOnUiThread
+                val sport = dev.repera.domain.LiveSport.byId(sportId) ?: return@runOnUiThread
+                val runtime = LiveActivityRuntime.forAccount(this, account)
+                val phase = runtime.state.phase
+                // Ya en curso: publicar estado al Wear (espejo).
+                if (phase == dev.repera.domain.LiveActivityState.Phase.RECORDING ||
+                    phase == dev.repera.domain.LiveActivityState.Phase.PAUSED
+                ) {
+                    WearActiveSessionBridge.publishLive(this, runtime)
+                    runCatching { LiveActivityService.startFromVisibleUI(this, account) }
+                    return@runOnUiThread
+                }
+                // Revisión pendiente: descartar para arrancar la nueva desde Wear.
+                if (phase == dev.repera.domain.LiveActivityState.Phase.REVIEW) {
+                    runtime.discard()
+                }
+                if (runtime.state.phase != dev.repera.domain.LiveActivityState.Phase.IDLE) return@runOnUiThread
+                if (LiveActivityRuntime.hasPendingActivity(this, account) && runtime.recoveryBlocked) return@runOnUiThread
+                runtime.choose(sport)
+                runtime.start()
+                runCatching { LiveActivityService.startFromVisibleUI(this, account) }
+                    .onFailure { runtime.pause() }
+            }
+            return
+        }
+        if (event.path == "/repera/timer-save") {
+            val body = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
+                ?: return
+            val details = dev.repera.domain.TimerCompletionDetails
+                .fromJson(body.optJSONObject("timerDetails")) ?: return
+            val sessionId = body.optString("id").ifBlank { return }
+            runOnUiThread {
+                val account = profile?.uniqueId ?: return@runOnUiThread
+                if (busy) return@runOnUiThread
+                busy = true
                 lifecycleScope.launch {
-                    val plan = withContext(Dispatchers.IO) {
-                        WorkoutRepository(this@MainActivity, id)
-                            .todayPlanSession(professional = centerSnapshot?.trainingSessions.orEmpty())
+                    try {
+                        val ok = withContext(Dispatchers.IO) {
+                            runCatching {
+                                WorkoutRepository(this@MainActivity, account).saveTimerSession(
+                                    id = sessionId,
+                                    title = "Temporizador · ${details.modeTitle}",
+                                    startedAtMillis = body.optLong("startedAtMillis"),
+                                    finishedAtMillis = body.optLong("finishedAtMillis"),
+                                    details = details
+                                )
+                                true
+                            }.getOrDefault(false)
+                        }
+                        if (ok && profile?.uniqueId == account) {
+                            reloadFor(account)
+                            DriveSyncWorker.syncNow(this@MainActivity)
+                            if (verifiedSupabase != null) syncWorkoutMirror()
+                        }
+                    } finally {
+                        if (profile?.uniqueId == account) busy = false
                     }
-                    if (profile?.uniqueId == id)
-                        WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
                 }
             }
             return
@@ -1659,10 +1720,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 is BusinessCenterStore.LoadResult.Loaded -> {
                     centerSnapshot = result.snapshot
                     centerError = null
-                    profile?.uniqueId?.let {id ->
-                        val plan=withContext(Dispatchers.IO) {WorkoutRepository(this@MainActivity,id).todayPlanSession(professional=result.snapshot.trainingSessions)}
-                        if(centerGate.accepts(session.userId,revision))
-                            WearActiveSessionBridge.publishTodayPlan(this@MainActivity,plan)
+                    profile?.uniqueId?.let { id ->
+                        if (centerGate.accepts(session.userId, revision)) {
+                            publishEffectiveWatchPlan(id, result.snapshot.trainingSessions)
+                        }
                     }
                 }
                 is BusinessCenterStore.LoadResult.Failed -> {
@@ -2299,12 +2360,31 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         // Local persistence is the source of truth. A missing/disconnected watch
         // must not make a saved training action appear to have failed.
         withContext(Dispatchers.IO) {
-            if(!current()) return@withContext
+            if (!current()) return@withContext
             runCatching { WearActiveSessionBridge.publish(this@MainActivity, bytes) }
-            runCatching {
-                val plan = WorkoutRepository(this@MainActivity, id).todayPlanSession(professional=centerSnapshot?.trainingSessions.orEmpty())
-                if(current()) WearActiveSessionBridge.publishTodayPlan(this@MainActivity, plan)
+        }
+        if (current()) publishEffectiveWatchPlan(id)
+    }
+
+    /** Plan efectivo + recientes + audio para el hub Deportes del reloj. */
+    private fun publishEffectiveWatchPlan(
+        userId: String,
+        professional: List<BusinessCenterStore.ProfessionalSession>? = null
+    ) {
+        lifecycleScope.launch {
+            val pro = professional ?: centerSnapshot?.trainingSessions.orEmpty()
+            val (plan, recents, muted) = withContext(Dispatchers.IO) {
+                val repo = WorkoutRepository(this@MainActivity, userId)
+                Triple(
+                    repo.effectivePlanSession(professional = pro),
+                    repo.recentLiveSportIDsForWatch(),
+                    WearActiveSessionBridge.watchHubAudioMuted(this@MainActivity)
+                )
             }
+            if (profile?.uniqueId != userId) return@launch
+            WearActiveSessionBridge.publishTodayPlan(
+                this@MainActivity, plan, recents, muted
+            )
         }
     }
 
