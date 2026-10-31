@@ -36,7 +36,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private(set) var isRecording = false
 
     func recoverIfNeeded(id: UUID, completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
-        guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
+        guard workout == nil, workoutID == nil, HKHealthStore.isHealthDataAvailable() else {
             completion?(workout != nil)
             return
         }
@@ -129,7 +129,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     toShare: [HKObjectType.workoutType()], read: read
                 )
             } catch {
-                if self.workoutID == id { self.permissionIssue = error.localizedDescription }
+                if self.workoutID == id {
+                    self.permissionIssue = error.localizedDescription
+                    self.workoutID = nil
+                }
                 return
             }
             guard self.workoutID == id, !self.finishing else { return }
@@ -187,10 +190,14 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     session.end()
                     self.workout = nil
                     self.builder = nil
+                    self.workoutID = nil
                     self.isRecording = false
                 }
             } catch {
-                if self.workoutID == id { self.permissionIssue = error.localizedDescription }
+                if self.workoutID == id {
+                    self.permissionIssue = error.localizedDescription
+                    self.workoutID = nil
+                }
             }
         }
     }
@@ -302,13 +309,16 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let unit = HKUnit.count().unitDivided(by: .minute())
-        let bpm = workoutBuilder.statistics(for: heart)?.mostRecentQuantity()?.doubleValue(for: unit)
-        let average = workoutBuilder.statistics(for: heart)?.averageQuantity()?.doubleValue(for: unit)
-        let active = workoutBuilder.statistics(for: energy)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+        // Do not infer heart rate from energy samples. Only update on real HR data.
+        let hasHeart = collectedTypes.contains(heart)
+        let hasEnergy = collectedTypes.contains(energy)
+        let bpm = hasHeart ? workoutBuilder.statistics(for: heart)?.mostRecentQuantity()?.doubleValue(for: unit) : nil
+        let average = hasHeart ? workoutBuilder.statistics(for: heart)?.averageQuantity()?.doubleValue(for: unit) : nil
+        let active = hasEnergy ? workoutBuilder.statistics(for: energy)?.sumQuantity()?.doubleValue(for: .kilocalorie()) : nil
         Task { @MainActor in
             if let bpm, bpm.isFinite, bpm > 0 { self.pulseBpm = Int(bpm.rounded()) }
             if let average, average.isFinite, average > 0 { self.averageBpm = average }
-            if let active, active.isFinite, active > 0 { self.kcal = active }
+            if let active, active.isFinite, active >= 0 { self.kcal = active }
         }
     }
 
