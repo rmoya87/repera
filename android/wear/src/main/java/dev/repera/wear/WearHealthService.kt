@@ -7,6 +7,7 @@ import android.os.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import androidx.health.services.client.data.ExerciseType
 
 /** Owns Health Services independently of Activity. Starts only from visible UI. */
 internal class WearHealthService:Service() {
@@ -37,14 +38,25 @@ internal class WearHealthService:Service() {
     }
     private val binder=Connection()
     private val changes=SharedPreferences.OnSharedPreferenceChangeListener {_,key ->
-        if(key=="snapshot") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
+        if(key=="snapshot" || key=="companionLiveSensor") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
     }
     override fun onCreate() {super.onCreate();cache.registerOnSharedPreferenceChangeListener(changes)}
     override fun onBind(intent:Intent?):IBinder=binder
     private fun cachedId():String?=cache.getString("snapshot",null)?.let {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
-    private fun isCurrent(id:String)=cachedId()==id
+    private fun companionLiveId():String?=cache.getString("companionLiveSensor",null)
+    private fun isCurrent(id:String)=cachedId()==id || companionLiveId()==id
+    private fun exerciseTypeFor(id:String):ExerciseType {
+        if(companionLiveId()!=id) return ExerciseType.STRENGTH_TRAINING
+        return when(cache.getString("companionLiveSport",null)) {
+            "walking" -> ExerciseType.WALKING
+            "running", "trail" -> ExerciseType.RUNNING
+            "hiking" -> ExerciseType.HIKING
+            "cycling", "gravel", "mountainBike" -> ExerciseType.BIKING
+            else -> ExerciseType.WORKOUT
+        }
+    }
     private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
     private fun publish() {
         observer?.invoke(snapshot())
@@ -92,7 +104,7 @@ internal class WearHealthService:Service() {
         owner=id;status=null;starting=true
         val token=revision
         scope.launch {
-            val result=runCatching {sensors.start(id) {token==revision && isCurrent(id)}}
+            val result=runCatching {sensors.start(id,exerciseTypeFor(id)) {token==revision && isCurrent(id)}}
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
             // recording=false can mean a failed callback/start await, not provider termination.
             // Retain the foreground owner on unknown/owned status so visible UI can retry/stop.
