@@ -394,6 +394,20 @@ internal fun WearHeartRateZoneBar(bpm: Int?, estimatedMaxBpm: Double = 190.0) {
             modifier = Modifier.width(36.dp),
             maxLines = 1
         )
+        val zone = bpm?.let {
+            when {
+                it < estimatedMaxBpm * 0.60 -> 1
+                it < estimatedMaxBpm * 0.70 -> 2
+                it < estimatedMaxBpm * 0.80 -> 3
+                it < estimatedMaxBpm * 0.90 -> 4
+                else -> 5
+            }
+        }
+        Text(
+            zone?.let { "Z$it" } ?: "—",
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+        )
         BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
