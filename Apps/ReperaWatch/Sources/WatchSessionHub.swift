@@ -137,14 +137,10 @@ final class WatchSessionHub: NSObject {
         return items
     }
 
-    /// Índice del carrusel: prioriza el último ítem jugado/seleccionado (por id).
+    /// Índice del carrusel: el que eligió el usuario (corona). Por defecto 0 = plan del día.
     func resolvedHubCarouselIndex() -> Int {
         let items = hubCarouselItems
         guard !items.isEmpty else { return 0 }
-        if let id = lastHubItemID,
-           let idx = items.firstIndex(where: { $0.id == id }) {
-            return idx
-        }
         return min(max(0, hubCarouselIndex), items.count - 1)
     }
 

@@ -2,12 +2,16 @@ package dev.repera.wear
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import androidx.wear.watchface.complications.data.ComplicationData
+import androidx.wear.watchface.complications.data.ComplicationText
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.LongTextComplicationData
 import androidx.wear.watchface.complications.data.MonochromaticImage
 import androidx.wear.watchface.complications.data.MonochromaticImageComplicationData
+import androidx.wear.watchface.complications.data.PhotoImageComplicationData
 import androidx.wear.watchface.complications.data.PlainComplicationText
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import androidx.wear.watchface.complications.data.SmallImage
@@ -18,8 +22,9 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 import org.json.JSONObject
 
 /**
- * Complicación de esfera equivalente a la del Apple Watch (ReperaWatchWidget):
- * abre el entreno de hoy en Repera desde cualquier esfera.
+ * Complicación de esfera: **icono de la app Repera** (misma mascota/verde que iOS).
+ * - SMALL_IMAGE / PHOTO_IMAGE → bitmap a color (no vector tintado)
+ * - MONOCHROMATIC_* → silueta blanca del mismo icono
  */
 class ReperaComplicationService : SuspendingComplicationDataSourceService() {
 
@@ -34,11 +39,23 @@ class ReperaComplicationService : SuspendingComplicationDataSourceService() {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
 
-    /** Silueta blanca para tonos de esfera (MONOCHROMATIC / SHORT_TEXT). */
-    private fun monoIcon(): Icon = Icon.createWithResource(this, R.drawable.ic_repera_complication)
+    private fun colorLogoBitmap(): Bitmap {
+        val opts = BitmapFactory.Options().apply {
+            inScaled = false
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        return BitmapFactory.decodeResource(resources, R.drawable.ic_repera_logo, opts)
+            ?: Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).also { bmp ->
+                bmp.eraseColor(0xFF30D158.toInt())
+            }
+    }
 
-    /** Logo a color (mismo AppIcon iOS) para huecos SMALL_IMAGE. */
-    private fun logoIcon(): Icon = Icon.createWithResource(this, R.drawable.ic_repera_logo)
+    private fun colorLogo(): Icon = Icon.createWithBitmap(colorLogoBitmap())
+
+    private fun monoLogo(): Icon = Icon.createWithResource(this, R.drawable.ic_repera_logo_mono)
+
+    private fun contentDescription(): ComplicationText =
+        PlainComplicationText.Builder("Abrir Repera").build()
 
     private fun todayTitle(): String {
         val prefs = getSharedPreferences("repera.wear.session", MODE_PRIVATE)
@@ -55,23 +72,34 @@ class ReperaComplicationService : SuspendingComplicationDataSourceService() {
     private fun build(type: ComplicationType): ComplicationData? = when (type) {
         ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
             PlainComplicationText.Builder("Repera").build(),
-            PlainComplicationText.Builder("Abrir el entreno de hoy").build()
-        ).setMonochromaticImage(MonochromaticImage.Builder(monoIcon()).build())
-            .setTapAction(tapAction()).build()
+            contentDescription()
+        ).setMonochromaticImage(MonochromaticImage.Builder(monoLogo()).build())
+            .setTapAction(tapAction())
+            .build()
+
         ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(
             PlainComplicationText.Builder(todayTitle()).build(),
-            PlainComplicationText.Builder("Repera · Entreno").build()
+            contentDescription()
         ).setTitle(PlainComplicationText.Builder("Repera").build())
-            .setMonochromaticImage(MonochromaticImage.Builder(monoIcon()).build())
-            .setTapAction(tapAction()).build()
+            .setMonochromaticImage(MonochromaticImage.Builder(monoLogo()).build())
+            .setTapAction(tapAction())
+            .build()
+
         ComplicationType.MONOCHROMATIC_IMAGE -> MonochromaticImageComplicationData.Builder(
-            MonochromaticImage.Builder(monoIcon()).build(),
-            PlainComplicationText.Builder("Abrir el entreno de hoy").build()
+            MonochromaticImage.Builder(monoLogo()).build(),
+            contentDescription()
         ).setTapAction(tapAction()).build()
+
         ComplicationType.SMALL_IMAGE -> SmallImageComplicationData.Builder(
-            SmallImage.Builder(logoIcon(), SmallImageType.PHOTO).build(),
-            PlainComplicationText.Builder("Abrir el entreno de hoy").build()
+            SmallImage.Builder(colorLogo(), SmallImageType.PHOTO).build(),
+            contentDescription()
         ).setTapAction(tapAction()).build()
+
+        ComplicationType.PHOTO_IMAGE -> PhotoImageComplicationData.Builder(
+            colorLogo(),
+            contentDescription()
+        ).setTapAction(tapAction()).build()
+
         else -> null
     }
 

@@ -1,9 +1,10 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
-**Hub Deportes 31/10/2026:** `WearHubHome` (plan efectivo → recientes → catálogo),
-Play, temporizador, mute; teléfono publica `effectivePlanSession` +
-`recentLiveSportIDs`/`audioMuted`; mensajes `/repera/live-start` y
-`/repera/timer-save`. Pendiente E2E físico.
+**Hub Deportes 31/10/2026:** `WearHubHome` fullscreen (plan → recientes →
+catálogo); swipe/rotary; mute/timer **abajo** (`FilledTonalIconButton` +
+`touchTargetAwareSize`); títulos con `TextAutoSize`; timer sin chips de 3;
+Play; teléfono publica `effectivePlanSession` + `recentLiveSportIDs`/`audioMuted`;
+mensajes `/repera/live-start` y `/repera/timer-save`. Pendiente E2E físico.
 
 **Comenzar companion 30/10/2026 (pendiente de E2E físico):** Wear recibe por
 Data Layer las métricas agregadas de Comenzar en Android y permite pedir pausa,
@@ -17,9 +18,10 @@ Referencia Apple + Android en la misma línea: `origin/main` (2026-10-28, merge
 `App-android` + leftovers); P0 `#119` y leftover `#121`/`#122`/`#124`/`#125`/
 `#127`/`#129`/`#131` (ownership Play Apple-parity) en main.
 
-**Última actualización:** 2026-10-31 — Hub Wear (`WearHubHome`, plan efectivo,
-timer, live-start). Progreso UI (30/10): tabs sticky; SecondaryTabRow; modal
-Periodo; Historial; `PROGRESS_DEMO_CHARTS`; teclado 4×4; chips Equipo.
+**Última actualización:** 2026-10-31 — Live Wear con métricas por deporte + pager
+controles + modal finalizar; timer centrado; sin «Control enviado». Hub
+Deportes/HIG. Progreso UI (30/10): tabs sticky; SecondaryTabRow; modal Periodo;
+Historial; `PROGRESS_DEMO_CHARTS`; teclado 4×4; chips Equipo.
 Spec `docs/superpowers/specs/2026-10-30-android-settings-exercises-parity-design.md`.
 
 La implementación Android **todavía no es completa** (E2E hardware / Play Console /

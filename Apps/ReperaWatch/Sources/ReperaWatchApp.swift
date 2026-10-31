@@ -1,6 +1,7 @@
 import Observation
 import SwiftUI
 import WatchKit
+import WidgetKit
 
 /// watchOS notifies this delegate when a crash interrupted a native workout.
 @Observable
@@ -26,6 +27,11 @@ struct ReperaWatchApp: App {
                 .environment(hub)
                 .task {
                     hub.activate()
+                    // Registra / refresca la complicación (Chrono) al abrir la app — como Cafesito.
+                    WidgetCenter.shared.reloadTimelines(
+                        ofKind: "com.app.repera.watch.complication"
+                    )
+                    WidgetCenter.shared.reloadAllTimelines()
                     if appDelegate.recoveryRequested { hub.recoverHealthSession() }
                 }
                 .onChange(of: appDelegate.recoveryRequested) { _, wantsRecovery in

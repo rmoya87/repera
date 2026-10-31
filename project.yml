@@ -271,9 +271,12 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/ReperaWatchWidget/ReperaWatchWidget.swift
+      - path: Apps/ReperaWatchWidget/ReperaComplicationAppIconStore.swift
       - path: Apps/ReperaWatchWidget/Assets.xcassets
         buildPhase: resources
-      - path: Apps/ReperaWatchWidget/repera_logo.png
+      - path: Apps/ReperaWatchWidget/ReperaWatchAppIcon.png
+        buildPhase: resources
+      - path: Apps/ReperaWatchWidget/repera_complication.png
         buildPhase: resources
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp.widget

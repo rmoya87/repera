@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -21,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Button
@@ -51,18 +53,42 @@ internal fun WearStepButton(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
+    // Compacto para esfera redonda: el 58×62 anterior desbordaba con − valor +.
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .size(width = 58.dp, height = 62.dp)
+            .size(width = 40.dp, height = 40.dp)
             .semantics { this.contentDescription = contentDescription },
-        shape = RoundedCornerShape(18.dp)
+        shape = CircleShape
     ) {
         Text(
             symbol,
             color = WearOg.onAccent,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+        )
+    }
+}
+
+/** Texto de botón a ancho: Wear Material3 alinea el slot a la izquierda. */
+@Composable
+internal fun WearButtonLabel(
+    text: String,
+    color: Color = Color.Unspecified,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleSmall
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text,
+            color = color,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            style = style
         )
     }
 }
@@ -80,7 +106,7 @@ internal fun WearPrimaryButton(
             .fillMaxWidth()
             .height(44.dp)
     ) {
-        Text(label, color = WearOg.onAccent, maxLines = 1)
+        WearButtonLabel(label, color = WearOg.onAccent)
     }
 }
 
@@ -92,19 +118,25 @@ internal fun WearClockText(
 ) {
     Text(
         wearClockLabel(seconds),
-        modifier = modifier.then(
-            if (contentDescription != null)
-                Modifier.semantics { this.contentDescription = contentDescription }
-            else Modifier
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(modifier)
+            .then(
+                if (contentDescription != null)
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                else Modifier
+            ),
         color = Color.White,
         style = MaterialTheme.typography.displayMedium.copy(
             fontSize = 43.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.SansSerif,
-            letterSpacing = 0.sp
+            letterSpacing = 0.sp,
+            textAlign = TextAlign.Center
         ),
-        maxLines = 1
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        softWrap = false
     )
 }
 
@@ -173,25 +205,36 @@ internal fun WearMetricStepper(
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            label,
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            softWrap = false
+        )
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             WearStepButton("−", "Reducir $label", enabled, onMinus)
             Text(
                 value,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.widthIn(min = 36.dp, max = 72.dp),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 32.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.SansSerif
                 ),
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false
             )
             WearStepButton("+", "Aumentar $label", enabled, onPlus)
         }
-        Text(label, color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
     }
 }

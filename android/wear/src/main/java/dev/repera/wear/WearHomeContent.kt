@@ -1,8 +1,11 @@
 package dev.repera.wear
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,29 +15,48 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.FilledTonalIconButton
 import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.IconButtonDefaults
+import androidx.wear.compose.material3.LocalContentColor
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TextButton
+import androidx.wear.compose.material3.touchTargetAwareSize
 import dev.repera.domain.Effort
 import dev.repera.domain.LiveSport
 import dev.repera.domain.ReperaNumberFormat
@@ -110,6 +132,30 @@ internal fun wearHubCarouselItems(
     return items
 }
 
+/** Desplazamiento vertical del dedo → pasos de carrusel (abajo = siguiente). */
+internal fun wearHubSwipeSteps(
+    accumulatedPx: Float,
+    thresholdPx: Float = 48f
+): Pair<Int, Float> {
+    var acc = accumulatedPx
+    var steps = 0
+    val threshold = thresholdPx.coerceAtLeast(1f)
+    while (acc >= threshold) {
+        steps += 1
+        acc -= threshold
+    }
+    while (acc <= -threshold) {
+        steps -= 1
+        acc += threshold
+    }
+    return steps to acc
+}
+
+internal fun wearHubIndexAfterSteps(index: Int, steps: Int, itemCount: Int): Int {
+    if (itemCount <= 0) return 0
+    return (index + steps).coerceIn(0, itemCount - 1)
+}
+
 internal class WearHomeCallbacks(
     val onDismissFinished: (FinishedSummary) -> Unit = {},
     val onLiveCommand: (String) -> Unit = {},
@@ -169,6 +215,52 @@ internal fun WearHomeContent(
     callbacks: WearHomeCallbacks,
     modifier: Modifier = Modifier
 ) {
+    // Hub a pantalla completa: fuera del LazyColumn para que swipe/mute/timer
+    // no los robe el scroll de la lista (causa de “no cambian actividades”).
+    val onHub = state.session == null &&
+        state.liveActivity == null &&
+        state.finishedSummary == null
+    if (onHub) {
+        Box(modifier = modifier.fillMaxSize()) {
+            WearHubHome(
+                plan = state.todayPlan,
+                recentLiveSportIDs = state.recentLiveSportIDs,
+                hubIndex = state.hubIndex,
+                audioMuted = state.audioMuted,
+                syncProblem = state.syncProblem,
+                onHubIndexChange = callbacks.onHubIndexChange,
+                onHubPlay = callbacks.onHubPlay,
+                onOpenTimer = callbacks.onOpenTimer,
+                onToggleAudioMuted = callbacks.onToggleHubAudioMuted,
+                onSyncRequest = callbacks.onSyncRequest,
+                modifier = Modifier.fillMaxSize()
+            )
+            if (state.pendingCount > 0) {
+                // Arriba, para no tapar mute/timer del borde inferior (patrón Deportes).
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    hubPendingStrip(state, callbacks)
+                }
+            }
+        }
+        return
+    }
+    // Live companion: pantalla propia (métricas + controles en 2ª página + modal).
+    state.liveActivity?.let { live ->
+        WearLiveActivityScreen(
+            live = live,
+            health = state.health,
+            onLiveCommand = callbacks.onLiveCommand,
+            onDismissLiveToHome = callbacks.onDismissLiveToHome,
+            modifier = modifier.fillMaxSize()
+        )
+        return
+    }
     TransformingLazyColumn(
         state = rememberTransformingLazyColumnState(),
         modifier = modifier,
@@ -188,196 +280,24 @@ internal fun WearHomeContent(
                 readyItems(state.session, callbacks)
             state.session != null ->
                 runningItems(state, callbacks)
-            state.liveActivity != null ->
-                liveActivityItems(state.liveActivity, callbacks)
-            else ->
-                hubItems(state, callbacks)
         }
         pendingItems(state, callbacks)
-        state.sendStatus?.let {
-            item {
-                Text(it, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-            }
-        }
-    }
-}
-
-/** Phone owns GPS/Health. Título = sportTitle en toolbar del Activity; body = reloj + métricas. */
-private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, callbacks: WearHomeCallbacks) {
-    val phase = live.optString("phase")
-    if (phase == "paused") {
-        item {
-            Text("En pausa", color = WearOg.accent, style = MaterialTheme.typography.labelSmall)
-        }
-    } else if (phase == "review") {
-        item {
-            Text("Revisar en el teléfono", color = WearOg.label2,
-                style = MaterialTheme.typography.labelSmall)
-        }
-    }
-    item {
-        val now = remember(live.optString("sessionId")) {
-            androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis())
-        }
-        LaunchedEffect(live.optString("sessionId"), phase) {
-            while (true) {
-                kotlinx.coroutines.delay(1_000)
-                now.longValue = System.currentTimeMillis()
-            }
-        }
-        val extra = if (phase == "recording")
-            ((now.longValue - live.optLong("capturedAtMillis")) / 1000.0).coerceAtLeast(0.0)
-        else 0.0
-        Text(
-            dev.repera.domain.LiveSportHistory.formatDuration(
-                live.optDouble("elapsedSeconds", 0.0) + extra
-            ),
-            style = MaterialTheme.typography.displayMedium,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-    item {
-        val km = live.optDouble("distanceMeters", 0.0) / 1000.0
-        val speed = live.optDouble("averageSpeedKmh").takeIf { !live.isNull("averageSpeedKmh") }
-        val elapsed = live.optDouble("elapsedSeconds", 0.0).coerceAtLeast(1.0)
-        val meters = live.optDouble("distanceMeters", 0.0)
-        val paceLabel = if (meters > 20 && speed == null) {
-            val pace = (elapsed / meters) * 1000.0
-            val m = pace.toInt() / 60
-            val s = pace.toInt() % 60
-            "%d'%02d\"".format(m, s)
-        } else null
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Column(horizontalAlignment = Alignment.Start) {
-                Text(
-                    if (km > 0) ReperaNumberFormat.decimal(km) else "—",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text("km", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
-            }
-            Column(horizontalAlignment = Alignment.Start) {
-                Text(
-                    when {
-                        speed != null && speed > 0 -> ReperaNumberFormat.decimal(speed)
-                        paceLabel != null -> paceLabel
-                        else -> "—"
-                    },
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    if (speed != null && speed > 0) "km/h" else "Ritmo",
-                    color = WearOg.label2,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-    }
-    if (!live.isNull("nextTurn") && phase != "review") {
-        item { Text(live.optString("nextTurn"), textAlign = TextAlign.Start) }
-    }
-    // Condiciones antes de controles: al hacer scroll, Pausar/Finalizar quedan al final.
-    live.optJSONObject("conditions")?.let { conditionsItems(it) }
-    if (phase == "review") {
-        item {
-            Text(
-                "Finalizada · guarda en el teléfono",
-                textAlign = TextAlign.Start,
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-        item {
-            WearPrimaryButton("Volver al inicio") { callbacks.onDismissLiveToHome() }
-        }
-    } else {
-        item {
-            val confirm = remember(live.optString("sessionId")) {
-                androidx.compose.runtime.mutableStateOf(false)
-            }
-            if (confirm.value) {
-                Text("¿Finalizar?", style = MaterialTheme.typography.labelMedium)
-                Row {
-                    TextButton(onClick = { confirm.value = false }) { Text("Cancelar") }
-                    TextButton(onClick = {
-                        confirm.value = false
-                        callbacks.onLiveCommand("finish")
-                    }) { Text("Finalizar") }
-                }
-            } else {
-                Row {
-                    TextButton(onClick = {
-                        callbacks.onLiveCommand(if (phase == "paused") "resume" else "pause")
-                    }) { Text(if (phase == "paused") "▶" else "⏸") }
-                    TextButton(onClick = { confirm.value = true }) { Text("🏁") }
+        state.sendStatus?.let { status ->
+            // No spam de sync ni «Control enviado…».
+            if (!status.contains("sensor", ignoreCase = true) &&
+                !status.contains("Control enviado", ignoreCase = true)
+            ) {
+                item {
+                    Text(
+                        status,
+                        style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
-    }
-}
-
-private fun TransformingLazyColumnScope.conditionsItems(conditions: JSONObject) {
-    val snap = runCatching {
-        dev.repera.domain.ActivityConditionsSnapshot.fromJson(conditions)
-    }.getOrNull() ?: return
-    if (snap.family != dev.repera.domain.ActivityConditionsFamily.WATER &&
-        snap.family != dev.repera.domain.ActivityConditionsFamily.SNOW &&
-        snap.temperatureC == null && snap.windKmh == null
-    ) return
-    item {
-        Text(
-            "Condiciones",
-            color = WearOg.label2,
-            style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-    snap.temperatureC?.let {
-        item { WearStatsLine("Temp", String.format("%.0f °C", it)) }
-    }
-    snap.windKmh?.let {
-        item { WearStatsLine("Viento", String.format("%.0f km/h", it)) }
-    }
-    if (snap.family == dev.repera.domain.ActivityConditionsFamily.WATER) {
-        snap.tideHeightMeters?.let { h ->
-            val trend = snap.tideTrendLabel?.let { " · $it" }.orEmpty()
-            item { WearStatsLine("Marea", String.format("%.2f m%s", h, trend)) }
-        }
-        snap.nextTideLabel?.let { item { WearStatsLine("Próxima", it) } }
-        snap.waveHeightMeters?.let {
-            item { WearStatsLine("Oleaje", String.format("%.1f m", it)) }
-        }
-    }
-    if (snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW) {
-        snap.snowfallCm?.takeIf { it > 0 }?.let {
-            item { WearStatsLine("Nevada", String.format("%.1f cm/h", it)) }
-        }
-        snap.snowDepthMeters?.takeIf { it > 0 }?.let {
-            item { WearStatsLine("Nieve", String.format("%.0f cm", it * 100)) }
-        }
-    }
-    snap.disclaimer?.let {
-        item {
-            Text(
-                it,
-                color = WearOg.label2,
-                style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-    item {
-        Text(
-            snap.attribution,
-            color = WearOg.label2,
-            style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
@@ -426,25 +346,52 @@ private fun TransformingLazyColumnScope.finishedItems(
     }
 }
 
-private fun TransformingLazyColumnScope.hubItems(
-    state: WearHomeState,
-    callbacks: WearHomeCallbacks
-) {
-    item {
-        WearHubHome(
-            plan = state.todayPlan,
-            recentLiveSportIDs = state.recentLiveSportIDs,
-            hubIndex = state.hubIndex,
-            audioMuted = state.audioMuted,
-            syncProblem = state.syncProblem,
-            onHubIndexChange = callbacks.onHubIndexChange,
-            onHubPlay = callbacks.onHubPlay,
-            onOpenTimer = callbacks.onOpenTimer,
-            onToggleAudioMuted = callbacks.onToggleHubAudioMuted,
-            onSyncRequest = callbacks.onSyncRequest,
-            modifier = Modifier.fillMaxWidth().height(180.dp)
-        )
+@Composable
+private fun hubPendingStrip(state: WearHomeState, callbacks: WearHomeCallbacks) {
+    WearHubScalingTitle(
+        text = if (state.pendingCount == 1) "1 serie pendiente"
+        else "${state.pendingCount} series pendientes",
+        maxFontSp = 12.sp,
+        minFontSp = 10.sp,
+        maxLines = 1
+    )
+    TextButton(onClick = { callbacks.onResendPending() }) {
+        Text("Reintentar", style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
+}
+
+/**
+ * Título de hub: escala como `minimumScaleFactor` en watchOS (no corta con …).
+ * Insets horizontales amplios para la zona útil de la esfera redonda.
+ */
+@Composable
+internal fun WearHubScalingTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxFontSp: androidx.compose.ui.unit.TextUnit = 18.sp,
+    minFontSp: androidx.compose.ui.unit.TextUnit = 12.sp,
+    maxLines: Int = 2
+) {
+    val color = LocalContentColor.current
+    val base = MaterialTheme.typography.titleMedium
+    BasicText(
+        text = text,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        style = base.copy(
+            color = base.color.takeOrElse { color },
+            textAlign = TextAlign.Center
+        ),
+        maxLines = maxLines,
+        overflow = TextOverflow.Clip,
+        softWrap = true,
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = minFontSp,
+            maxFontSize = maxFontSp,
+            stepSize = 0.5.sp
+        )
+    )
 }
 
 @Composable
@@ -465,118 +412,141 @@ internal fun WearHubHome(
         wearHubCarouselItems(plan, recentLiveSportIDs)
     }
     val index = hubIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    val indexLatest = rememberUpdatedState(index)
     val focus = remember { FocusRequester() }
+    var swipeAcc by remember { mutableFloatStateOf(0f) }
+    val cornerBtn = IconButtonDefaults.SmallButtonSize
+    val cornerIcon = IconButtonDefaults.iconSizeFor(cornerBtn)
     LaunchedEffect(Unit) { focus.requestFocus() }
     Box(
         modifier = modifier
             .onRotaryScrollEvent { event ->
                 val delta = if (event.verticalScrollPixels > 0) 1 else -1
-                onHubIndexChange((index + delta).coerceIn(0, items.lastIndex.coerceAtLeast(0)))
+                onHubIndexChange(
+                    wearHubIndexAfterSteps(index, delta, items.size)
+                )
                 true
             }
             .focusRequester(focus)
             .focusable()
     ) {
         val current = items.getOrNull(index)
-        // Centro: tocar inicia (sin botón Play).
-        Column(
+        // Misma geometría que WatchHomeHubView: centro con márgenes; mute/timer abajo.
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 28.dp)
-                .then(
-                    if (current != null) {
-                        Modifier.pointerInput(current) {
-                            detectTapGestures { onHubPlay(current) }
-                        }
-                    } else {
-                        Modifier.pointerInput(syncProblem) {
-                            detectTapGestures { onSyncRequest() }
-                        }
+                .padding(start = 22.dp, end = 22.dp, top = 28.dp, bottom = 44.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    when {
+                        current != null -> onHubPlay(current)
+                        syncProblem -> onSyncRequest()
                     }
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                }
+                .pointerInput(items.size) {
+                    detectVerticalDragGestures(
+                        onDragEnd = { swipeAcc = 0f },
+                        onDragCancel = { swipeAcc = 0f },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            val (steps, rem) = wearHubSwipeSteps(swipeAcc + dragAmount)
+                            swipeAcc = rem
+                            if (steps != 0) {
+                                onHubIndexChange(
+                                    wearHubIndexAfterSteps(
+                                        indexLatest.value,
+                                        steps,
+                                        items.size
+                                    )
+                                )
+                            }
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
         ) {
-            when (val item = current) {
-                is WearHubCarouselItem.Plan -> {
-                    Icon(
-                        imageVector = Icons.Outlined.FitnessCenter,
-                        contentDescription = null,
-                        tint = WearOg.accent,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Text(
-                        item.plan.optString("title").ifBlank { "Entreno" },
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Text(planFormat(item.plan), color = WearOg.label2,
-                            style = MaterialTheme.typography.labelSmall)
-                        Text(planDuration(item.plan), color = WearOg.label2,
-                            style = MaterialTheme.typography.labelSmall)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
+            ) {
+                when (val item = current) {
+                    is WearHubCarouselItem.Plan -> {
+                        Icon(
+                            imageVector = Icons.Outlined.FitnessCenter,
+                            contentDescription = null,
+                            tint = WearOg.accent,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        WearHubScalingTitle(
+                            text = item.plan.optString("title").ifBlank { "Entreno" }
+                        )
+                        WearHubScalingTitle(
+                            text = "${planFormat(item.plan)} · ${planDuration(item.plan)}",
+                            maxFontSp = 12.sp,
+                            minFontSp = 10.sp,
+                            maxLines = 1
+                        )
                     }
-                }
-                is WearHubCarouselItem.Sport -> {
-                    val sport = LiveSport.byId(item.sportId)
-                    Icon(
-                        imageVector = sport?.wearIcon ?: Icons.Outlined.FitnessCenter,
-                        contentDescription = item.title,
-                        tint = WearOg.accent,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Text(
-                        item.title,
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2
-                    )
-                }
-                null -> {
-                    Text(
-                        if (syncProblem) "Sin sync · tocar" else "Actividades",
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    is WearHubCarouselItem.Sport -> {
+                        val sport = LiveSport.byId(item.sportId)
+                        Icon(
+                            imageVector = sport?.wearIcon ?: Icons.Outlined.FitnessCenter,
+                            contentDescription = item.title,
+                            tint = WearOg.accent,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        WearHubScalingTitle(text = item.title)
+                    }
+                    null -> {
+                        WearHubScalingTitle(
+                            text = if (syncProblem) "Sin sync · tocar" else "Actividades",
+                            maxFontSp = 14.sp,
+                            minFontSp = 11.sp,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
-        // Sonido: esquina inferior izquierda.
-        Box(
+        // Silenciar / temporizador: abajo izq/der como Deportes en Apple Watch.
+        // touchTargetAwareSize + inset del borde redondo para no recortar el círculo.
+        FilledTonalIconButton(
+            onClick = onToggleAudioMuted,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 2.dp, bottom = 2.dp)
+                .zIndex(2f)
+                .padding(start = 10.dp, bottom = 8.dp)
+                .touchTargetAwareSize(cornerBtn)
                 .semantics {
                     contentDescription = if (audioMuted) "Activar audio" else "Silenciar audio"
                 }
         ) {
-            Button(
-                onClick = onToggleAudioMuted,
-                modifier = Modifier.height(34.dp)
-            ) {
-                Text(
-                    if (audioMuted) "🔇" else "🔊",
-                    style = MaterialTheme.typography.titleSmall
-                )
-            }
+            Icon(
+                imageVector = if (audioMuted) {
+                    Icons.AutoMirrored.Outlined.VolumeOff
+                } else {
+                    Icons.AutoMirrored.Outlined.VolumeUp
+                },
+                contentDescription = null,
+                modifier = Modifier.size(cornerIcon)
+            )
         }
-        // Temporizador: esquina inferior derecha.
-        Box(
+        FilledTonalIconButton(
+            onClick = onOpenTimer,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 2.dp, bottom = 2.dp)
+                .zIndex(2f)
+                .padding(end = 10.dp, bottom = 8.dp)
+                .touchTargetAwareSize(cornerBtn)
                 .semantics { contentDescription = "Temporizador" }
         ) {
-            Button(
-                onClick = onOpenTimer,
-                modifier = Modifier.height(34.dp)
-            ) {
-                Text("⏱", style = MaterialTheme.typography.titleSmall)
-            }
+            Icon(
+                imageVector = Icons.Outlined.Timer,
+                contentDescription = null,
+                modifier = Modifier.size(cornerIcon)
+            )
         }
     }
 }
@@ -713,19 +683,22 @@ private fun TransformingLazyColumnScope.outlineItems(
         }
     }
     // Ramón F-5: el Watch ofrece descartar (además de finalizar).
+    // TextButton Wear es circular y corta «Descartar» → Button a ancho.
     item {
-        TextButton(
+        Button(
             onClick = {
                 callbacks.onShowOutline(false)
                 callbacks.onDiscardSession(session)
             },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                "Descartar",
-                color = WearOg.red,
-                style = MaterialTheme.typography.labelSmall
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = WearOg.red
             )
+        ) {
+            WearButtonLabel("Descartar", color = WearOg.red)
         }
     }
 }
@@ -1329,11 +1302,28 @@ private fun TransformingLazyColumnScope.pendingItems(
                 style = MaterialTheme.typography.labelSmall
             )
         }
-        item { Button(onClick = { callbacks.onDiscardPending() }) { Text("Sí, descartar") } }
-        item { Button(onClick = { callbacks.onDiscardConfirm(false) }) { Text("Cancelar") } }
+        item {
+            Button(
+                onClick = { callbacks.onDiscardPending() },
+                modifier = Modifier.fillMaxWidth().height(44.dp)
+            ) { WearButtonLabel("Sí, descartar") }
+        }
+        item {
+            Button(
+                onClick = { callbacks.onDiscardConfirm(false) },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = WearOg.red
+                )
+            ) { WearButtonLabel("Cancelar", color = WearOg.red) }
+        }
     } else {
         item {
-            Button(onClick = { callbacks.onDiscardConfirm(true) }) { Text("Descartar pendientes") }
+            Button(
+                onClick = { callbacks.onDiscardConfirm(true) },
+                modifier = Modifier.fillMaxWidth().height(44.dp)
+            ) { WearButtonLabel("Descartar pendientes") }
         }
     }
 }

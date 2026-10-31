@@ -1,6 +1,6 @@
 # Repera Android y Wear OS (trabajo en curso)
 
-**Última actualización:** 2026-10-31 — Hub Deportes en Wear (`WearHubHome`: plan efectivo → recientes → catálogo Comenzar; Play; temporizador; mute). Data Layer `/repera/today-plan` incluye `recentLiveSportIDs` y `audioMuted`; mensajes `/repera/live-start` y `/repera/timer-save`. Teléfono publica `effectivePlanSession` (hoy | atrasado pendiente).
+**Última actualización:** 2026-10-31 — Wear launcher `ic_launcher`/`round` (menú de apps); hub + live Wear. Data Layer `/repera/today-plan` + live con `elevationGainMeters`; mensajes `/repera/live-start` y `/repera/timer-save`. Teléfono publica `effectivePlanSession` (hoy | atrasado pendiente).
 
 **Anterior (2026-10-29):** R9 residuales: REVIEW live mapa+clima Open-Meteo; editar terminado página `historial-editar`; preview rutina con thumbs; AMRAP arte en reloj; catálogo Supabase apply siempre (como iOS); HC+mirror al guardar live; FGS pause/finish; glass Material translúcido. Maps: `~/.gradle/gradle.properties` → `REPERA_GOOGLE_MAPS_API_KEY` (nunca en repo); sin clave → MapLibre.
 

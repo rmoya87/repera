@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-10-31 (complicación circular: accent+SF Symbol; evita disco gris plantilla)
+Última actualización: 2026-10-31 (complicación AppIcon patrón Cafesito: UIImage + markDiameter)
 
 ## Hub (31/10/2026)
 
@@ -41,7 +41,7 @@ No se infiere la concesión de permisos de una lista de muestras vacía. Una lec
 
 La extensión `ReperaWatchWidget` utiliza la estructura nativa de WidgetKit: `ReperaWatchWidget: Widget` devuelve `StaticConfiguration` desde `body: some WidgetConfiguration`, mientras que `ReperaWatchWidgetBundle: WidgetBundle` devuelve `ReperaWatchWidget()` desde `body: some Widget`. Nunca colocar `StaticConfiguration` directamente en el cuerpo de un `WidgetBundle`, porque `WidgetBundleBuilder.buildExpression` solo acepta tipos `Widget` y Swift devuelve `No exact matches in call to static method 'buildExpression'`.
 
-Circular/rectangular: **mismo AppIcon** que la app (`ReperaIcon` / `repera_logo.png`) con `widgetAccentedRenderingMode(.fullColor)` para que la mascota no se aplane a disco verde. Enlace `repera-watch://today`. Wear: `ic_repera_logo` (AppIcon).
+Complicación = **icono de la app** (mascota). Watch: `ReperaIcon`/`repera_logo.png` + `.fullColor` + `contentMarginsDisabled` (sin SF Symbol). Wear: `ic_repera_logo` a color (`SMALL_IMAGE`/`PHOTO_IMAGE`) y `ic_repera_logo_mono` en huecos monocromos; sin esto la esfera queda vacía. **Launcher Wear** (menú de apps): `android:icon`/`roundIcon` = `@mipmap/ic_launcher(_round)` (mismo que el móvil); sin esto el cajón muestra el icono genérico/vacío.
 
 ## Pruebas antes de publicar
 
@@ -131,7 +131,9 @@ Para comprobarlo: abrir el Watch sin plan, programar el entreno para el **día a
 
 ## Identidad visual: icono único en iOS, watchOS y complicación
 
-El recurso canónico es `Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. La app Apple Watch (`Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`) y el recurso `ReperaIcon` de la complicación (`Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png`) reutilizan **exactamente el mismo archivo PNG**, sin recrearlo ni cambiar colores o dibujo. Los `Contents.json` mantienen el identificador y la plataforma específicos de cada destino. Si se actualiza el icono de iPhone, copiar también los bytes de ese PNG a los dos recursos del reloj. El test `test_watch_app_and_complication_icons_match_ios` verifica esa igualdad.
+El recurso canónico es `Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. La app Apple Watch y `ReperaIcon` de la complicación (`…/ReperaIcon.imageset/repera{,@2x,@3x}.png`) reutilizan ese PNG (`template-rendering-intent: original`, `pre-rendered`).
+
+**Patrón de complicación (como Cafesito):** `ReperaComplicationAppIconStore` carga `UIImage` desde PNG suelto (`ReperaWatchAppIcon.png` / `repera_complication.png`) o imageset `ReperaComplicationIcon`. La vista `ReperaComplicationAppLogoMark` usa `Image(uiImage:)` + `.interpolation(.high)` + `.widgetAccentedRenderingMode(.fullColor)` + **frame fijo** (`markDiameter`) + `clipShape(Circle())` — **sin** `GeometryReader` (Chrono deja el slot vacío). El provider hace `seedFromBundleIfNeeded()` en placeholder/snapshot/timeline; el widget aplica `.containerBackground(.fill.tertiary, for: .widget)`. Kind **estable**: `com.app.repera.watch.complication` — no sufijar `.v2`/`.v3`. Familias: circular, corner, rectangular, inline. Tras instalar, abrir Repera una vez en el Watch (`WidgetCenter.reloadTimelines`). Disco lleno → círculo negro. El test `test_watch_app_and_complication_icons_match_ios` verifica la igualdad del 1x de `ReperaIcon` con iOS.
 
 ## Ejecutar la app Watch en el simulador
 

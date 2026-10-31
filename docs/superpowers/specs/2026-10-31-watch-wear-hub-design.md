@@ -1,6 +1,6 @@
 # Watch / Wear hub — plan + Comenzar + temporizador
 
-Última actualización: 2026-10-31
+Última actualización: 2026-10-31 (Wear: swipe vertical + hub fullscreen)
 
 ## Objetivo
 
@@ -15,7 +15,7 @@ Hub de pocos toques en Apple Watch y Wear OS inspirado en Deportes de Apple Watc
 | Plan | Hoy; si no, pendiente más reciente de días pasados |
 | Live | FC/kcal/duración + GPS outdoor; sin mapa en reloj |
 | Carrusel | Plan → recientes/favoritos → catálogo LiveSport |
-| Chrome | Mute círculo abajo izq., timer abajo der.; tap en el centro inicia (sin Play) |
+| Chrome | Mute círculo abajo izq., timer abajo der. (Watch y Wear; inset bisel redondo); tap en el centro inicia (sin Play); títulos con auto-size |
 | Audio off | Silencia pitidos/cuenta atrás; conserva hápticos |
 | Arranque | Cuenta atrás 3 s si audio on |
 
@@ -45,7 +45,7 @@ Hub de pocos toques en Apple Watch y Wear OS inspirado en Deportes de Apple Watc
 
 ## UI home
 
-Icono + título del ítem; corona/rotary cambia ítem; **tocar el centro inicia**; mute abajo izq. y timer abajo der.; sin pantallas vacías «Sin plan» — si no hay plan, primer ítem del catálogo.
+Icono + título del ítem; corona/rotary cambia ítem (Wear: también swipe vertical); **tocar el centro inicia**; mute/timer abajo en Watch y Wear (hub fullscreen); títulos auto-size; sin pantallas vacías «Sin plan» — si no hay plan, primer ítem del catálogo.
 
 ## Live
 

@@ -37,25 +37,29 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import dev.repera.domain.LiveSport
 
 /**
- * Equivalentes Material de los SF Symbols de Comenzar en iPhone
- * (`LiveSport.symbol` / `LiveSportIcon` del móvil).
+ * Misma tabla que `LiveSport.materialIcon` del móvil Android
+ * (`android/mobile/.../LiveSportIcon.kt`): equivalentes Material de los
+ * SF Symbols de iPhone (`LiveSport.symbol`). No hay 1:1 exacto en combate /
+ * bádminton·pickleball·squash (raqueta / MMA / kabaddi).
  */
 internal val LiveSport.wearIcon: ImageVector
     get() = when (this) {
-        LiveSport.RUNNING, LiveSport.TRAIL, LiveSport.HYROX -> Icons.Outlined.DirectionsRun
+        LiveSport.RUNNING, LiveSport.TRAIL -> Icons.Outlined.DirectionsRun
         LiveSport.WALKING -> Icons.Outlined.DirectionsWalk
         LiveSport.HIKING -> Icons.Outlined.Hiking
         LiveSport.CYCLING, LiveSport.MOUNTAIN_BIKE, LiveSport.GRAVEL -> Icons.Outlined.DirectionsBike
-        LiveSport.CROSSFIT, LiveSport.STRENGTH, LiveSport.FUNCTIONAL_STRENGTH,
-        LiveSport.CORE_TRAINING -> Icons.Outlined.FitnessCenter
+        LiveSport.CROSSFIT -> Icons.Outlined.FitnessCenter
+        LiveSport.STRENGTH -> Icons.Outlined.FitnessCenter
+        LiveSport.HYROX -> Icons.Outlined.DirectionsRun
         LiveSport.HIIT -> Icons.Outlined.Timer
-        LiveSport.TENNIS, LiveSport.PADEL, LiveSport.BADMINTON,
-        LiveSport.PICKLEBALL, LiveSport.SQUASH -> Icons.Outlined.SportsTennis
-        LiveSport.SURFING, LiveSport.KITESURFING -> Icons.Outlined.Surfing
+        LiveSport.TENNIS, LiveSport.PADEL -> Icons.Outlined.SportsTennis
+        LiveSport.SURFING -> Icons.Outlined.Surfing
         LiveSport.SWIMMING -> Icons.Outlined.Pool
-        LiveSport.WINDSURFING, LiveSport.SAILING -> Icons.Outlined.Sailing
+        LiveSport.WINDSURFING -> Icons.Outlined.Sailing
+        LiveSport.KITESURFING -> Icons.Outlined.Surfing
         LiveSport.KAYAKING -> Icons.Outlined.Kayaking
         LiveSport.ROWING, LiveSport.CANOEING -> Icons.Outlined.Rowing
+        LiveSport.SAILING -> Icons.Outlined.Sailing
         LiveSport.GOLF -> Icons.Outlined.GolfCourse
         LiveSport.SKIING -> Icons.Outlined.DownhillSkiing
         LiveSport.ICE_SKATING -> Icons.Outlined.IceSkating
@@ -68,8 +72,12 @@ internal val LiveSport.wearIcon: ImageVector
         LiveSport.DANCE -> Icons.Outlined.MusicNote
         LiveSport.PILATES, LiveSport.YOGA, LiveSport.MOBILITY -> Icons.Outlined.SelfImprovement
         LiveSport.SKATEBOARDING -> Icons.Outlined.Skateboarding
-        LiveSport.BOXING, LiveSport.KICKBOXING, LiveSport.MARTIAL_ARTS -> Icons.Outlined.SportsMma
+        LiveSport.BOXING -> Icons.Outlined.SportsMma
+        LiveSport.KICKBOXING -> Icons.Outlined.SportsMma
+        LiveSport.MARTIAL_ARTS -> Icons.Outlined.SportsMma
         LiveSport.WRESTLING -> Icons.Outlined.SportsKabaddi
+        LiveSport.BADMINTON, LiveSport.PICKLEBALL, LiveSport.SQUASH -> Icons.Outlined.SportsTennis
+        LiveSport.FUNCTIONAL_STRENGTH, LiveSport.CORE_TRAINING -> Icons.Outlined.FitnessCenter
         LiveSport.ELLIPTICAL -> Icons.Outlined.DirectionsRun
         LiveSport.STAIR_CLIMBING -> Icons.Outlined.Stairs
         LiveSport.AMERICAN_FOOTBALL -> Icons.Outlined.SportsFootball

@@ -73,15 +73,16 @@ struct WatchHomeHubView: View {
             ) {
                 hub.toggleAudioMuted()
             }
-            .padding(.leading, 2)
-            .padding(.bottom, 2)
+            // Inset del bisel redondo (HIG): evitar recorte del círculo Liquid Glass.
+            .padding(.leading, 8)
+            .padding(.bottom, 6)
         }
         .overlay(alignment: .bottomTrailing) {
             cornerCircleButton(systemName: "timer", label: "Temporizador") {
                 showTimer = true
             }
-            .padding(.trailing, 2)
-            .padding(.bottom, 2)
+            .padding(.trailing, 8)
+            .padding(.bottom, 6)
         }
         .focusable(true)
         .focused($crownFocused)

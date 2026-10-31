@@ -2,7 +2,7 @@
 
 ## Hub Apple Watch / Wear OS — plan + Comenzar + temporizador (31/10/2026)
 
-Home estilo Deportes: **plan efectivo** (hoy; si no, pendiente atrasado más reciente) → recientes Comenzar → catálogo completo. Complicación de esfera (Watch WidgetKit + Wear complication/tile) abre el hub en el plan (`repera-watch://today` / `EXTRA_OPEN_TODAY`); no inicia sola. Iconos de deporte = mismos SF Symbols / Material que Comenzar en el teléfono. Corona/rotary cambia ítem (sin contador `n/total`); **tocar el centro inicia** (sin botón Play); mute abajo izq. y temporizador abajo der. en círculos **Liquid Glass**. En live, mute arriba der. (círculo accent, icono negro). Con iPhone reachable, Comenzar arranca en el teléfono (abre pestaña Comenzar; si había revisión abierta se descarta) y el Watch hace de mando; **Finalizar** en el Watch pasa el iPhone a revisión / consolida la sesión. Sin teléfono o con entreno programado activo → grabación local en el reloj. En live, tras Condiciones: **Pausar** + **Finalizar** (bandera); resumen → **Volver al inicio** (restaura el ítem del carrusel).
+Home estilo Deportes: **plan efectivo** (hoy; si no, pendiente atrasado más reciente) → recientes Comenzar → catálogo completo. Complicación de esfera (Watch WidgetKit + Wear complication/tile) abre el hub en el plan (`repera-watch://today` / `EXTRA_OPEN_TODAY`); no inicia sola. Icono de complicación = **AppIcon** a color (Watch WidgetKit kind estable + corner/circular; Wear bitmap PHOTO_IMAGE). Iconos de deporte = mismos SF Symbols / Material que Comenzar en el teléfono. Corona/rotary cambia ítem; en **Wear OS** también el **swipe vertical** (abajo = siguiente); **tocar el centro inicia**. Mute/timer **abajo** izq/der en Watch y Wear (patrón Deportes / HIG esfera redonda; `touchTargetAwareSize` + inset). Títulos con **auto-size** (Watch `minimumScaleFactor`, Wear `TextAutoSize`) sin cortar con …; temporizador Wear con modos a **ancho completo** (no 3 chips) + steppers compactos; sin textos de «registro de sensores» en el hub. En live Watch, mute arriba der. Con iPhone reachable, Comenzar arranca en el teléfono (abre pestaña Comenzar; si había revisión abierta se descarta) y el Watch hace de mando; **Finalizar** en el Watch pasa el iPhone a revisión / consolida la sesión. Sin teléfono o con entreno programado activo → grabación local en el reloj. Live Wear: métricas por deporte (km / ritmo|km/h / desnivel / FC / kcal, como Watch); **Pausar/Finalizar en 2ª página** (swipe); confirmación de fin = **modal**; sin texto «Control enviado…». Temporizador Wear: reloj **centrado**; pausa/descartar en 2ª página + modal. Resumen → **Volver al inicio**.
 
 - **Play plan** → flujo fuerza/WOD offline (sin cambios de registro).
 - **Play deporte** con teléfono reachable → `startLive` en el móvil (companion existente).
@@ -25,7 +25,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-10-31 (paridad Android detalle resumen: tiles kcal/FC/pasos + orden)
+Última actualización: 2026-10-31 (Watch complicación AppIcon = patrón Cafesito UIImage/frame fijo)
 
 ## Completar una clase de CrossFit grabada desde «Comenzar» (29/10/2026)
 

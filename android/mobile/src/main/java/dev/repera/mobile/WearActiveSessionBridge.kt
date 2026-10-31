@@ -178,6 +178,14 @@ object WearActiveSessionBridge {
             .put("elapsedSeconds", state.durationSeconds(System.currentTimeMillis()))
             .put("distanceMeters", if (state.sport.usesGPS) state.distanceMeters else 0)
             .put("averageSpeedKmh", state.averageSpeedKmh(System.currentTimeMillis()) ?: JSONObject.NULL)
+            .put(
+                "elevationGainMeters",
+                if (state.sport.tracksElevation && state.elevationGainMeters > 0) {
+                    state.elevationGainMeters
+                } else {
+                    JSONObject.NULL
+                }
+            )
             .put("nextTurn", runtime.upcomingTurn ?: JSONObject.NULL)
             .put("capturedAtMillis", System.currentTimeMillis())
             .apply {

@@ -294,12 +294,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     finishedSummary = null
                                     suppressCompanionLive = true
                                     liveActivityJson = null
-                                    hubIndex = resolvedHubIndex()
+                                    restoreLastHubItem()
                                 },
                                 onDismissLiveToHome = {
                                     suppressCompanionLive = true
                                     liveActivityJson = null
-                                    hubIndex = resolvedHubIndex()
+                                    restoreLastHubItem()
                                 },
                                 onStartTodayPlan = { startTodayPlan() },
                                 onStartTodayPlanAt = { startTodayPlan(it) },
@@ -812,10 +812,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
             if (command == "finish") {
                 presentCompanionFinished(live)
-                sendStatus = null
-            } else {
-                sendStatus = "Control enviado; esperando estado del móvil"
             }
+            // Sin toast «Control enviado…»: el snapshot del móvil actualiza la UI.
+            sendStatus = null
         }
     }
 
@@ -843,12 +842,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val fresh = parsed != null &&
             updatedAtMillis > 0L &&
             System.currentTimeMillis() - updatedAtMillis <= TODAY_PLAN_TTL_MS
+        val hadPlan = todayPlanJson != null
         todayPlanJson = parsed.takeIf { fresh }
         if (todayPlanJson != null) {
             sessionCache.edit()
                 .putString("todayPlan", todayPlanJson.toString())
                 .putLong("todayPlanAt", updatedAtMillis)
                 .apply()
+            // Plan nuevo → mostrar primero el entreno del día.
+            if (!hadPlan) {
+                hubIndex = 0
+                sessionCache.edit().putInt("hubIndex", 0).apply()
+            }
         } else {
             sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
         }
@@ -879,15 +884,23 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         is WearHubCarouselItem.Sport -> "sport-${item.sportId}"
     }
 
+    /** Índice del hub: corona/usuario. Por defecto 0 = plan del día si existe. */
     private fun resolvedHubIndex(): Int {
         val items = wearHubCarouselItems(todayPlanJson, recentLiveSportIDs)
         if (items.isEmpty()) return 0
-        val lastId = sessionCache.getString("lastHubItemID", null)
-        if (!lastId.isNullOrBlank()) {
-            val idx = items.indexOfFirst { carouselItemId(it) == lastId }
-            if (idx >= 0) return idx
-        }
         return hubIndex.coerceIn(0, items.lastIndex)
+    }
+
+    /** Tras volver de live: restaura el último deporte/plan jugado. */
+    private fun restoreLastHubItem() {
+        val items = wearHubCarouselItems(todayPlanJson, recentLiveSportIDs)
+        if (items.isEmpty()) return
+        val lastId = sessionCache.getString("lastHubItemID", null) ?: return
+        val idx = items.indexOfFirst { carouselItemId(it) == lastId }
+        if (idx >= 0) {
+            hubIndex = idx
+            sessionCache.edit().putInt("hubIndex", idx).apply()
+        }
     }
 
     private fun requestLiveStart(sportId: String) {
@@ -1675,12 +1688,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun startHealthForCurrentSession() {
-        val id=visibleSession?.sessionId ?: return
-        if(!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            sendStatus="Abre Repera para iniciar o recuperar sensores";return
+        val id = visibleSession?.sessionId ?: return
+        if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            sendStatus = "Abre Repera en el teléfono"
+            return
         }
-        runCatching {WearHealthService.startFromVisibleUI(this,id)}
-            .onFailure {sendStatus=it.localizedMessage ?: "No se pudo iniciar el registro de sensores"}
+        runCatching { WearHealthService.startFromVisibleUI(this, id) }
+            .onFailure { sendStatus = it.localizedMessage ?: "No se pudo iniciar la actividad" }
     }
 
     private fun ensureHealthRecording() {
