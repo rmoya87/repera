@@ -79,11 +79,14 @@ class WearLiveCommandListener : WearableListenerService() {
                 ackLiveStart(node, false, "Hay otra actividad pendiente en el móvil")
                 return@post
             }
-            runtime.choose(sport)
-            runtime.start()
             // Android 14+ limita arrancar un FGS de ubicación en segundo plano.
-            // Si el SO lo rechaza, deshacer el inicio; no fingir que se graba.
+            // Una excepción en GPS o en el FGS revierte el intento completo.
             val result = runCatching {
+                runtime.choose(sport)
+                runtime.start()
+                check(runtime.state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
+                    "No se pudo comenzar el GPS"
+                }
                 LiveActivityService.startFromVisibleUI(this, identity.uniqueId)
             }
             if (result.isFailure) {

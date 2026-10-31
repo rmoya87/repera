@@ -38,6 +38,8 @@ struct ReperaWatchApp: App {
                 .onChange(of: appDelegate.recoveryRequested) { _, wantsRecovery in
                     if wantsRecovery { hub.recoverHealthSession() }
                 }
+                .onChange(of: hub.active?.id) { _, _ in hub.publishComplicationSnapshot(force: true) }
+                .onChange(of: hub.presentedSummary?.id) { _, _ in hub.publishComplicationSnapshot(force: true) }
                 .onChange(of: hub.heartRateBpm) { _, _ in hub.publishComplicationSnapshot() }
                 .onChange(of: hub.measuredEnergyKcal) { _, _ in hub.publishComplicationSnapshot() }
                 .onChange(of: hub.sessionElapsed) { _, _ in hub.publishComplicationSnapshot() }
