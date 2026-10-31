@@ -38,10 +38,11 @@ private struct ReperaLogo: View {
                     .resizable()
                     .scaledToFit()
             } else {
+                // resizable() debe ir antes: widgetAccentedRenderingMode type-erasea a View.
                 Image("ReperaComplicationIcon")
                     .resizable()
-                    .scaledToFit()
                     .widgetAccentedRenderingMode(.desaturated)
+                    .scaledToFit()
             }
         }
         .frame(width: diameter, height: diameter)
