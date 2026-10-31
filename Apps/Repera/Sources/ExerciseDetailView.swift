@@ -305,6 +305,8 @@ private struct MuscleChipGlyph: View {
 struct ExerciseDetailView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
+    @Environment(OGDuoContextRailStore.self) private var duoRail
+    @Environment(\.dismiss) private var dismiss
     let exerciseId: UUID
     /// Entreno desde el que se abrió la ficha (para «Esta sesión» vs anteriores).
     var highlightSessionId: UUID? = nil
@@ -417,9 +419,9 @@ struct ExerciseDetailView: View {
                 .background(OG.bg.ignoresSafeArea())
                 .ogScrollingTitleNav(usesGroupedList: false)
                 .ogDiaryTransparentNav()
-                .toolbar(showsInlineHeader ? .hidden : .visible, for: .navigationBar)
+                .toolbar(showsInlineHeader || duoRail.isExpanded ? .hidden : .visible, for: .navigationBar)
                 .toolbar {
-                    if !showsInlineHeader {
+                    if !showsInlineHeader && !duoRail.isExpanded {
                     ToolbarItem(placement: .topBarTrailing) {
                         OGToolbarGlassButton(
                             systemName: exercise.isFavorite ? "star.fill" : "star",
@@ -445,10 +447,48 @@ struct ExerciseDetailView: View {
                 .sheet(isPresented: $showQuickLog) {
                     QuickLogSheet(exercise: exercise)
                 }
+                .onAppear { publishDuoDetailActions() }
+                .onChange(of: duoRail.isExpanded) { _, _ in publishDuoDetailActions() }
+                .onChange(of: exercise.isFavorite) { _, _ in publishDuoDetailActions() }
+                .onDisappear { duoRail.clear(owner: "exercise-detail") }
             } else {
                 ContentUnavailableView("Ejercicio no encontrado", systemImage: "questionmark")
             }
         }
+    }
+
+    /// En la ficha abierta desde el catálogo, Volver/Favorito/Apuntar viven
+    /// a la derecha. Se elimina la fila nativa vacía del encabezado.
+    private func publishDuoDetailActions() {
+        guard duoRail.isExpanded, !showsInlineHeader, let exercise else { return }
+        var actions: [OGDuoContextRailStore.Action] = [
+            .init(
+                id: "detail-back",
+                systemName: "chevron.left",
+                accessibilityLabel: "Volver a Ejercicios"
+            ) {
+                dismiss()
+            },
+            .init(
+                id: "detail-favorite",
+                systemName: exercise.isFavorite ? "star.fill" : "star",
+                accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Marcar favorito",
+                tint: OG.favoriteAmber
+            ) {
+                store.toggleFavorite(resolvedId)
+            }
+        ]
+        if showsQuickLogToolbarAction {
+            actions.append(.init(
+                id: "detail-log",
+                systemName: "plus",
+                accessibilityLabel: "Apuntar ejercicio",
+                tint: OG.accent
+            ) {
+                showQuickLog = true
+            })
+        }
+        duoRail.publish(owner: "exercise-detail", actions: actions)
     }
 
     @ViewBuilder
