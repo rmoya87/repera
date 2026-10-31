@@ -31,21 +31,23 @@ internal class WearPendingSetStore(context: Context) {
         require(deficitCm == null || deficitCm in 0..100)
         require(intervalIndex == null || intervalIndex in 0..100000)
         val effectiveKind = if (warmup) "straight" else kind
+        val effectiveDrops = if (warmup) emptyList() else drops
+        val effectiveClusters = if (warmup) emptyList() else clusters
         require(effectiveKind in setOf("straight", "dropset", "restpause"))
         if (effectiveKind == "dropset") {
-            require(drops.size in 1..5) { "La dropset necesita entre 1 y 5 caídas" }
-            drops.forEach { (reps, w) ->
+            require(effectiveDrops.size in 1..5) { "La dropset necesita entre 1 y 5 caídas" }
+            effectiveDrops.forEach { (reps, w) ->
                 require(reps in 1..10000)
                 require(w == null || (w.isFinite() && w >= 0))
             }
-        } else require(drops.isEmpty())
+        } else require(effectiveDrops.isEmpty())
         if (effectiveKind == "restpause") {
-            require(clusters.isNotEmpty()) { "El rest-pause necesita mini-series" }
-            clusters.forEach { (reps, rest) ->
+            require(effectiveClusters.isNotEmpty()) { "El rest-pause necesita mini-series" }
+            effectiveClusters.forEach { (reps, rest) ->
                 require(reps in 1..10000)
                 require(rest in 1..600)
             }
-        } else require(clusters.isEmpty())
+        } else require(effectiveClusters.isEmpty())
         val values = JSONArray(prefs.getString("outbox", "[]"))
         require(values.length() < 100) { "Hay demasiadas series sin sincronizar" }
         val id = UUID.randomUUID().toString()
@@ -60,18 +62,18 @@ internal class WearPendingSetStore(context: Context) {
         if (deficitCm != null) command.put("deficitCm", deficitCm)
         if (intervalIndex != null) command.put("intervalIndex", intervalIndex)
         if (sessionJson != null) command.put("session", JSONObject(sessionJson))
-        if (drops.isNotEmpty()) {
+        if (effectiveDrops.isNotEmpty()) {
             val arr = JSONArray()
-            drops.forEach { (reps, w) ->
+            effectiveDrops.forEach { (reps, w) ->
                 val seg = JSONObject().put("reps", reps)
                 if (w != null) seg.put("weightKg", w)
                 arr.put(seg)
             }
             command.put("drops", arr)
         }
-        if (clusters.isNotEmpty()) {
+        if (effectiveClusters.isNotEmpty()) {
             val arr = JSONArray()
-            clusters.forEach { (reps, rest) ->
+            effectiveClusters.forEach { (reps, rest) ->
                 arr.put(JSONObject().put("reps", reps).put("restSeconds", rest))
             }
             command.put("clusters", arr)
