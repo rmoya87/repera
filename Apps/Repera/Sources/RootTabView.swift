@@ -239,6 +239,9 @@ struct RootTabView: View {
                 }
             }
         }
+        // También para destinos del flujo, sheets y fichas abiertas fuera
+        // del TabView (no solo para las cuatro pestañas).
+        .environment(duoRail)
     }
 
     /// Mostrar únicamente los controles de la pestaña visible, aunque SwiftUI
