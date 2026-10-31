@@ -481,7 +481,8 @@ final class WatchSessionHub: NSObject {
             )
             // Starting another sport while the previous HKWorkout was being
             // finalized must not discard the previous recording.
-            if let current = self.liveActivity {
+            if !self.suppressCompanionLive,
+               let current = self.liveActivity, current.id != id {
                 self.startCompanionSensorsIfNeeded(current)
             }
         }
