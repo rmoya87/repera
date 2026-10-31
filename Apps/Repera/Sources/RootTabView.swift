@@ -16,6 +16,7 @@ struct RootTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var duoRail = OGDuoContextRailStore()
     @State private var lastAvailableSize: CGSize = .zero
+    @State private var duoRailTrailingOffset: CGFloat = 0
     @State private var tab: AppTab = .home
     @State private var showStartHub = false
     @State private var sportFavoriteOpenError: String?
@@ -134,6 +135,10 @@ struct RootTabView: View {
                 OGDuoContextRail(actions: selectedDuoActions)
                     .padding(.trailing, 26)
                     .padding(.top, 8)
+                    // Algunas variantes del TabView reservan la columna del
+                    // menú fuera de su tamaño SwiftUI. Desplazar solo el
+                    // overlay, nunca el contenido, al borde real de UIWindow.
+                    .offset(x: duoRailTrailingOffset)
                     .zIndex(100)
             }
         }
@@ -263,6 +268,10 @@ struct RootTabView: View {
 
         let width = max(sceneSize.width, availableSize.width)
         let height = max(sceneSize.height, availableSize.height)
+        let trailingOffset = max(0, sceneSize.width - availableSize.width)
+        if abs(duoRailTrailingOffset - trailingOffset) > 0.5 {
+            duoRailTrailingOffset = trailingOffset
+        }
         // Duo vertical/iPad: ventana con raíl lateral. Un iPhone convencional
         // de <= 440 pt o un iPhone apaisado compacto no se ve afectado.
         let isWidePortrait = width >= 450 && height > width
@@ -271,10 +280,11 @@ struct RootTabView: View {
         guard duoRail.isExpanded != expanded else { return }
         duoRail.isExpanded = expanded
         NSLog(
-            "Repera Duo: %@ window=%.0fx%.0f root=%.0fx%.0f",
+            "Repera Duo: %@ window=%.0fx%.0f root=%.0fx%.0f offset=%.0f",
             expanded ? "expanded" : "compact",
             sceneSize.width, sceneSize.height,
-            availableSize.width, availableSize.height
+            availableSize.width, availableSize.height,
+            trailingOffset
         )
     }
 
