@@ -20,6 +20,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     weak var delegate: WatchConnectivityClientDelegate?
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
     private let pendingKey = "repera.watch.completedOutbox.v1"
+    private var lastWatchLiveTransfer = Date.distantPast
     private var lastInboundLive: Data?
     private var lastInboundSession: Data?
     private var lastInboundSessionRevision = -1
@@ -86,6 +87,35 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             onResult?(false)
         }
         return true
+    }
+
+    /// A watch-owned activity mirrors its aggregate state to the iPhone so it
+    /// can present the same native lock-screen Live Activity. The Watch alone
+    /// owns HealthKit/GPS; no second workout is created on the phone.
+    func sendWatchOwnedLive(
+        id: UUID, sportID: String, phase: String, startedAt: Date,
+        elapsedSeconds: Int, distanceMeters: Double, reliable: Bool
+    ) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        let payload: [String: Any] = [
+            "action": "watchOwnedLive",
+            "sessionId": id.uuidString,
+            "sportID": sportID,
+            "phase": phase,
+            "startedAt": startedAt.timeIntervalSince1970,
+            "elapsedSeconds": Double(max(0, elapsedSeconds)),
+            "distanceMeters": max(0, distanceMeters)
+        ]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { _ in }
+        }
+        // Transfer persists while the phone is locked/offline; avoid queueing
+        // every sensor tick (watchOS transferUserInfo is not a realtime stream).
+        if reliable || Date().timeIntervalSince(lastWatchLiveTransfer) >= 60 {
+            WCSession.default.transferUserInfo(payload)
+            lastWatchLiveTransfer = Date()
+        }
     }
 
     /// Durable companion HealthKit result; same UUID as the phone-owned GPS session.
