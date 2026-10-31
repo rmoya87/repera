@@ -37,7 +37,7 @@ struct RootTabView: View {
                         onStart: openTodayPreview,
                         onStartRoutine: openRoutinePreview
                     )
-                    .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
+                    
                 }
 
                 SwiftUI.Tab(
@@ -55,7 +55,7 @@ struct RootTabView: View {
                         },
                         onOpenWorkout: openWorkout
                     )
-                    .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
+                    
                 }
 
                 SwiftUI.Tab(
@@ -64,12 +64,12 @@ struct RootTabView: View {
                     value: AppTab.stats
                 ) {
                     StatsView()
-                        .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
+                        
                 }
 
                 SwiftUI.Tab("Ejercicios", systemImage: "dumbbell", value: AppTab.exercises) {
                     LibraryView(onOpenedWorkout: openWorkout)
-                        .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
+                        
                 }
             }
             // Observe Equatable chrome — not the full `activeSession` graph.
@@ -87,12 +87,9 @@ struct RootTabView: View {
                     }
                 }
             ))
-            // Los hijos publican sus acciones; la posición lateral pertenece al
-            // TabView y no al contenido, cuya anchura excluye el menú nativo.
+            // Los hijos publican acciones; el contenedor raíz las representa
+            // junto a la barra nativa, que permanece visible en Duo.
             .environment(duoRail)
-            .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
-            // No medir TabView: en el Duo la barra nativa puede restarle
-            // ancho y hacer que la medición baje de 480 pt.
             // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
             .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
                 store.refreshContinueChrome()
@@ -132,14 +129,20 @@ struct RootTabView: View {
                 .zIndex(1)
             }
         }
-        // El raíl contextual y la navegación son UNA SOLA columna real.
-        // safeAreaInset le reserva ancho exclusivo junto al contenido.
-        // No superponer acciones a la toolbar ni al TabView nativo.
-        .safeAreaInset(edge: .trailing, spacing: 0) {
-            // Las rutas de Play/Editar/Preview ocupan la pantalla completa,
-            // como hacían con el TabView nativo; no dejar navegación detrás.
-            if duoRail.isExpanded && flowPath.isEmpty {
-                duoSidebar
+        // Los iconos principales vuelven a ser los del TabView nativo.
+        // Las herramientas van en el MISMO lateral físico derecho, por
+        // debajo del reloj y del estado de conexión, sin reservar una
+        // segunda columna ni empujar fuera la navegación del sistema.
+        .overlay(alignment: .topTrailing) {
+            if duoRail.isExpanded && flowPath.isEmpty && !selectedDuoActions.isEmpty {
+                OGDuoContextRail(actions: selectedDuoActions)
+                    // El raíl nativo centra sus botones a ~53 pt del borde.
+                    .padding(.trailing, 26)
+                    // El status (hora + conexión) está encima de las herramientas.
+                    // Este bloque ocupa el área vacía entre status y tab rail.
+                    .padding(.top, 168)
+                    .zIndex(10)
+                    .accessibilityIdentifier("repera-duo-context-actions")
             }
         }
         // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
@@ -284,65 +287,6 @@ struct RootTabView: View {
             availableSize.width, availableSize.height,
             ratio
         )
-    }
-
-    /// Navegación y herramientas comparten EXACTAMENTE la misma columna.
-    /// La pestaña nativa se oculta solo mientras está abierto el Duo.
-    private var duoSidebar: some View {
-        VStack(spacing: 0) {
-            if !selectedDuoActions.isEmpty {
-                OGDuoContextRail(actions: selectedDuoActions)
-                    .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
-            }
-
-            Spacer(minLength: 18)
-
-            VStack(spacing: 6) {
-                duoTabButton(.home, symbol: "house", label: "Inicio")
-                duoTabButton(.start, symbol: "play.circle.fill", label: "Comenzar")
-                duoTabButton(.stats, symbol: "chart.bar.fill", label: "Progreso")
-                duoTabButton(.exercises, symbol: "dumbbell", label: "Ejercicios")
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 10)
-            .background(.regularMaterial, in: Capsule())
-        }
-        .frame(width: 66)
-        .frame(maxHeight: .infinity)
-        .padding(.leading, 8)
-        .padding(.trailing, 10)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .background(OG.bg.opacity(0.001))
-        .accessibilityIdentifier("repera-duo-sidebar")
-    }
-
-    private func duoTabButton(
-        _ target: AppTab,
-        symbol: String,
-        label: String
-    ) -> some View {
-        let isSelected = tab == target
-        return Button {
-            flowPath = []
-            tab = target
-        } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 23, weight: .semibold))
-                .foregroundStyle(isSelected ? OG.accent : OG.label)
-                .frame(width: 54, height: 54)
-                .background {
-                    if isSelected {
-                        Circle().fill(OG.label.opacity(0.10))
-                    }
-                }
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityIdentifier("repera-duo-tab-\(label)")
     }
 
     /// Mostrar únicamente los controles de la pestaña visible, aunque SwiftUI
