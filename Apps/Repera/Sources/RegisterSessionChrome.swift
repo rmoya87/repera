@@ -24,13 +24,15 @@ struct WorkoutSummaryTile: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, height: 17, alignment: .center)
+            .frame(height: 17)
+            .frame(maxWidth: .infinity, alignment: .center)
             Text(value)
                 .font(.system(size: 19, weight: .semibold, design: .rounded).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
-                .frame(maxWidth: .infinity, height: 27, alignment: .center)
+                .frame(height: 27)
+                .frame(maxWidth: .infinity, alignment: .center)
             // Reservar el mismo renglón en los tres tiles: valor/alto alineados.
             Text(subtitle ?? " ")
                 .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
@@ -38,9 +40,11 @@ struct WorkoutSummaryTile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .opacity(subtitle == nil ? 0 : 1)
-                .frame(maxWidth: .infinity, height: 13, alignment: .center)
+                .frame(height: 13)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, height: 73)
+        .frame(height: 73)
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 6)
         .background(OG.surface, in: RoundedRectangle(
             cornerRadius: OG.radiusCard, style: .continuous
