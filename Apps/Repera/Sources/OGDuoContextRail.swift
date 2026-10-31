@@ -18,23 +18,26 @@ final class OGDuoContextRailStore {
     }
 
     var isExpanded = false
-    private(set) var owner: String?
-    private(set) var actions: [Action] = []
+
+    /// Cada vista conserva sus acciones aunque un detalle aparezca junto al
+    /// catálogo. Con un único owner, el detalle borraba Filtro y Nuevo.
+    private var groups: [String: [Action]] = [:]
 
     func publish(owner: String, actions: [Action]) {
-        self.owner = owner
-        self.actions = actions
+        groups[owner] = actions
     }
 
     func clear(owner: String) {
-        guard self.owner == owner else { return }
-        self.owner = nil
-        actions = []
+        groups.removeValue(forKey: owner)
+    }
+
+    func actions(for owner: String) -> [Action] {
+        groups[owner] ?? []
     }
 }
 
-/// Se sitúa sobre el menú nativo de pestañas, en la MISMA coordenada horizontal.
-/// No sustituye ni replica el TabView: solo muestra acciones de la pantalla actual.
+/// Acciones del mismo lateral donde iOS presenta hora, conexión y menú.
+/// La navegación sigue siendo 100 % nativa; este componente no la sustituye.
 struct OGDuoContextRail: View {
     let actions: [OGDuoContextRailStore.Action]
 
