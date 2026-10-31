@@ -53,7 +53,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
             androidx.compose.foundation.layout.Column(
                 androidx.compose.ui.Modifier.fillMaxSize()
                     .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                FinishedWorkoutEditorSection(w, "acc", false, catalog, onSave)
+                FinishedWorkoutEditorSection(w, "acc", false, exerciseCatalog = catalog, onSave = onSave)
             }
         }
     }
@@ -320,7 +320,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
                 LocalDragAutoScroller provides DragScroller({ d -> scrollState.dispatchRawDelta(d) }, { null })) {
                 androidx.compose.foundation.layout.Column(
                     androidx.compose.ui.Modifier.fillMaxSize().verticalScroll(scrollState)) {
-                    FinishedWorkoutEditorSection(w, "acc", false, cat) { saved = it }
+                    FinishedWorkoutEditorSection(w, "acc", false, exerciseCatalog = cat, onSave = { saved = it })
                 }
             }
         }

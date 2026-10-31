@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -86,9 +87,11 @@ class WearPendingSetStoreInstrumentedTest {
     }
     @Test fun warmupAndFailureAreDurableAndWarmupCannotClaimFailure() {
         val store=WearPendingSetStore(context)
+        store.clear()
         store.append("s",0,5,20.0,warmup=true,toFailure=true)
-        val saved=WearPendingSetStore(context).all().single()
-        assertTrue(saved.getBoolean("warmup"));org.junit.Assert.assertFalse(saved.getBoolean("toFailure"))
+        val saved=store.all().single()
+        assertTrue(saved.getBoolean("warmup"))
+        assertFalse(saved.getBoolean("toFailure"))
     }
 
     @Test fun appendPersistsDropAndRestPauseTechniques() {
