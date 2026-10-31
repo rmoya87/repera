@@ -94,7 +94,7 @@ private enum ReperaComplicationArtwork {
 
                 // Blanco premultiplicado con alfa. WidgetKit utiliza el alfa
                 // como plantilla al tintar; jamás incluir píxeles opacos del
-                // fondo verde ni un Circle() detrás de la mascota.
+                // fondo verde ni un círculo artificial detrás de la mascota.
                 pixels[index] = alpha
                 pixels[index + 1] = alpha
                 pixels[index + 2] = alpha
