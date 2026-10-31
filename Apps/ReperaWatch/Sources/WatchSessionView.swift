@@ -62,6 +62,12 @@ struct WatchSessionView: View {
             }
         }
         .tint(accent)
+        .onChange(of: hub.complicationOpenEpoch) { _, _ in
+            // Pulsar la esfera debe abrir inicio/actividad, no un sheet anterior.
+            showTimer = false
+            showOutline = false
+            showSetDetails = false
+        }
     }
 
     /// Hub home: sin barra de navegación para anclar controles a las esquinas.

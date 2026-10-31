@@ -18,6 +18,8 @@ final class WatchSessionHub: NSObject {
     private(set) var liveActivity: WatchLiveActivitySnapshot?
     private(set) var liveCommandError: String?
     private(set) var isFinishingCompanionLive = false
+    /// Permite que la apertura desde esfera cierre modales antiguos en la vista.
+    private(set) var complicationOpenEpoch = 0
     private(set) var recentLiveSportIDs: [String] = []
     private(set) var audioMuted = false
     /// Índice / ítem del carrusel del hub (se restaura al Volver al inicio).
@@ -788,11 +790,13 @@ final class WatchSessionHub: NSObject {
         let host = (url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
             .lowercased()
         guard host == "today" || host == "active" || host.isEmpty else { return }
+        complicationOpenEpoch &+= 1
+        // Los resúmenes anteriores no deben superponerse a la sesión en curso.
+        summaryDismissed = true
         if hasWorkoutInProgress || watchLiveSport != nil || liveActivity != nil {
             refreshToday()
             return
         }
-        summaryDismissed = true
         refreshToday()
         if let plan = todaysWorkout, !plan.exercises.isEmpty {
             lastHubItemID = WatchHubItem.plan(plan).id

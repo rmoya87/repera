@@ -23,9 +23,10 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
-/// En watchOS la esfera puede sustituir TODOS los colores del PNG.
-//// La marca a una tinta sigue siendo visible en modo accented; el AppIcon
-/// original se utiliza donde la esfera permite fullColor.
+/// Logo real de Repera, no un círculo de relleno: el editor de esferas suele
+/// utilizar el modo accented incluso aunque la app tenga un icono a todo color.
+/// La variante de complicación conserva los detalles del PNG y la luminancia
+/// (una imagen opaca como template se convertiría en un círculo macizo).
 private struct ReperaLogo: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     var diameter: CGFloat = 34
@@ -37,12 +38,10 @@ private struct ReperaLogo: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                ZStack {
-                    Circle().fill(.white.opacity(0.20)).widgetAccentable()
-                    Text("R")
-                        .font(.system(size: diameter * 0.63, weight: .black, design: .rounded))
-                        .foregroundStyle(.primary)
-                }
+                Image("ReperaComplicationIcon")
+                    .resizable()
+                    .scaledToFit()
+                    .widgetAccentedRenderingMode(.desaturated)
             }
         }
         .frame(width: diameter, height: diameter)
@@ -60,24 +59,27 @@ private struct ReperaWatchComplication: View {
             switch family {
             case .accessoryRectangular:
                 if let live = entry.session {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Image(systemName: live.paused ? "pause.fill" : "figure.walk")
-                                .widgetAccentable()
-                            Text(live.title).font(.caption.weight(.semibold)).lineLimit(1)
+                    HStack(alignment: .center, spacing: 6) {
+                        ReperaLogo(diameter: 26)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Image(systemName: live.paused ? "pause.fill" : "figure.walk")
+                                    .widgetAccentable()
+                                Text(live.title).font(.caption.weight(.semibold)).lineLimit(1)
+                            }
+                            HStack(spacing: 6) {
+                                Text(live.elapsedLabel).monospacedDigit()
+                                if let distance = live.distanceLabel { Text(distance) }
+                            }.font(.caption2).lineLimit(1)
+                            HStack(spacing: 6) {
+                                if let bpm = live.heartRateBpm {
+                                    Label("\(bpm)", systemImage: "heart.fill").widgetAccentable()
+                                }
+                                if let kcal = live.energyKcal {
+                                    Label("\(Int(kcal.rounded()))", systemImage: "flame.fill")
+                                }
+                            }.font(.caption2).lineLimit(1)
                         }
-                        HStack(spacing: 6) {
-                            Text(live.elapsedLabel).monospacedDigit()
-                            if let distance = live.distanceLabel { Text(distance) }
-                        }.font(.caption2).lineLimit(1)
-                        HStack(spacing: 6) {
-                            if let bpm = live.heartRateBpm {
-                                Label("\(bpm)", systemImage: "heart.fill").widgetAccentable()
-                            }
-                            if let kcal = live.energyKcal {
-                                Label("\(Int(kcal.rounded()))", systemImage: "flame.fill")
-                            }
-                        }.font(.caption2).lineLimit(1)
                     }
                 } else {
                     HStack(spacing: 6) {
@@ -89,6 +91,10 @@ private struct ReperaWatchComplication: View {
                         Spacer(minLength: 0)
                     }
                 }
+            case .accessoryCircular:
+                // La complicación circular es el acceso directo a Repera, incluso
+                // durante una sesión. Las métricas se muestran en rectangular.
+                ReperaLogo(diameter: 36)
             case .accessoryInline:
                 if let live = entry.session {
                     Text("\(live.paused ? "⏸" : "▶") \(live.title) · \(live.elapsedLabel)")
@@ -96,31 +102,9 @@ private struct ReperaWatchComplication: View {
                     Text("Repera")
                 }
             case .accessoryCorner:
-                if let live = entry.session {
-                    VStack(spacing: 0) {
-                        Image(systemName: live.paused ? "pause.fill" : "figure.walk")
-                        Text(live.heartRateBpm.map { "\($0)" } ?? live.elapsedLabel)
-                            .font(.caption2.weight(.bold)).monospacedDigit()
-                    }
-                    .widgetAccentable()
-                } else {
-                    ReperaLogo(diameter: 28)
-                }
+                ReperaLogo(diameter: 28)
             default:
-                if let live = entry.session {
-                    VStack(spacing: 1) {
-                        Image(systemName: live.paused ? "pause.fill" : "heart.fill")
-                            .font(.caption2).widgetAccentable()
-                        Text(live.heartRateBpm.map { "\($0)" } ?? live.elapsedLabel)
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .minimumScaleFactor(0.7).lineLimit(1)
-                            .monospacedDigit()
-                        Text(live.heartRateBpm != nil ? "ppm" : "min")
-                            .font(.system(size: 9))
-                    }
-                } else {
-                    ReperaLogo(diameter: 36)
-                }
+                ReperaLogo(diameter: 34)
             }
         }
         .widgetURL(URL(string: entry.session == nil
