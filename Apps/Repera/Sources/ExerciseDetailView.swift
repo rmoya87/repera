@@ -354,28 +354,33 @@ struct ExerciseDetailView: View {
                                     .foregroundStyle(OG.label)
                                     .lineLimit(2)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                Button {
-                                    store.toggleFavorite(resolvedId)
-                                } label: {
-                                    Image(systemName: exercise.isFavorite ? "star.fill" : "star")
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(OG.favoriteAmber)
-                                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                        .glassEffect(.regular.interactive(), in: .circle)
+                                // La vista detalle del catálogo Duo mantiene
+                                // el título pero manda las acciones al raíl
+                                // global, junto a Filtro y Nuevo ejercicio.
+                                if !(duoRail.isExpanded && usesDuoRail) {
+                                    Button {
+                                        store.toggleFavorite(resolvedId)
+                                    } label: {
+                                        Image(systemName: exercise.isFavorite ? "star.fill" : "star")
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundStyle(OG.favoriteAmber)
+                                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                            .glassEffect(.regular.interactive(), in: .circle)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(exercise.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
+                                    Button {
+                                        showQuickLog = true
+                                    } label: {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundStyle(OG.label)
+                                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                            .glassEffect(.regular.interactive(), in: .circle)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("Apuntar ejercicio")
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(exercise.isFavorite ? "Quitar de favoritos" : "Marcar favorito")
-                                Button {
-                                    showQuickLog = true
-                                } label: {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(OG.label)
-                                        .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                        .glassEffect(.regular.interactive(), in: .circle)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Apuntar ejercicio")
                             }
                             .padding(.horizontal, OG.pad)
                             .padding(.top, 12)
@@ -464,24 +469,29 @@ struct ExerciseDetailView: View {
     /// En la ficha abierta desde el catálogo, Volver/Favorito/Apuntar viven
     /// a la derecha. Se elimina la fila nativa vacía del encabezado.
     private func publishDuoDetailActions() {
-        guard duoRail.isExpanded, usesDuoRail, !showsInlineHeader, let exercise else { return }
-        var actions: [OGDuoContextRailStore.Action] = [
-            .init(
+        guard duoRail.isExpanded, usesDuoRail, let exercise else {
+            duoRail.clear(owner: "exercise-detail")
+            return
+        }
+
+        var actions: [OGDuoContextRailStore.Action] = []
+        if !showsInlineHeader {
+            actions.append(.init(
                 id: "detail-back",
                 systemName: "chevron.left",
                 accessibilityLabel: "Volver a Ejercicios"
             ) {
                 dismiss()
-            },
-            .init(
-                id: "detail-favorite",
-                systemName: exercise.isFavorite ? "star.fill" : "star",
-                accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Marcar favorito",
-                tint: OG.favoriteAmber
-            ) {
-                store.toggleFavorite(resolvedId)
-            }
-        ]
+            })
+        }
+        actions.append(.init(
+            id: "detail-favorite",
+            systemName: exercise.isFavorite ? "star.fill" : "star",
+            accessibilityLabel: exercise.isFavorite ? "Quitar de favoritos" : "Marcar favorito",
+            tint: OG.favoriteAmber
+        ) {
+            store.toggleFavorite(resolvedId)
+        })
         if showsQuickLogToolbarAction {
             actions.append(.init(
                 id: "detail-log",
