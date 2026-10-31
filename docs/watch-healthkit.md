@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-10-31 (complicación AppIcon patrón Cafesito: UIImage + markDiameter)
+Última actualización: 2026-10-31 (`ReperaIcon` = solo `repera.png`, sin @2x/@3x huérfanos)
 
 ## Hub (31/10/2026)
 
@@ -131,9 +131,7 @@ Para comprobarlo: abrir el Watch sin plan, programar el entreno para el **día a
 
 ## Identidad visual: icono único en iOS, watchOS y complicación
 
-El recurso canónico es `Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. La app Apple Watch y `ReperaIcon` de la complicación (`…/ReperaIcon.imageset/repera{,@2x,@3x}.png`) reutilizan ese PNG (`template-rendering-intent: original`, `pre-rendered`).
-
-**Patrón de complicación (como Cafesito):** `ReperaComplicationAppIconStore` carga `UIImage` desde PNG suelto (`ReperaWatchAppIcon.png` / `repera_complication.png`) o imageset `ReperaComplicationIcon`. La vista `ReperaComplicationAppLogoMark` usa `Image(uiImage:)` + `.interpolation(.high)` + `.widgetAccentedRenderingMode(.fullColor)` + **frame fijo** (`markDiameter`) + `clipShape(Circle())` — **sin** `GeometryReader` (Chrono deja el slot vacío). El provider hace `seedFromBundleIfNeeded()` en placeholder/snapshot/timeline; el widget aplica `.containerBackground(.fill.tertiary, for: .widget)`. Kind **estable**: `com.app.repera.watch.complication` — no sufijar `.v2`/`.v3`. Familias: circular, corner, rectangular, inline. Tras instalar, abrir Repera una vez en el Watch (`WidgetCenter.reloadTimelines`). Disco lleno → círculo negro. El test `test_watch_app_and_complication_icons_match_ios` verifica la igualdad del 1x de `ReperaIcon` con iOS.
+El recurso canónico es `Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. La app Apple Watch y la complicación reutilizan ese PNG: `ReperaIcon.imageset` solo tiene **`repera.png`** (escala `1x`, `template-rendering-intent: original`, `pre-rendered`). No dejar `repera@2x.png` / `repera@3x.png` sueltos en el imageset: Xcode marca «unassigned children». Detalle de render `fullColor` / `accented` y CI en `docs/WATCH_WEAR_SENSOR_COMPLICATIONS_2026_10_31.md` y `tests/test_watch_complication_contract.py`.
 
 ## Ejecutar la app Watch en el simulador
 

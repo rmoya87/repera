@@ -28,6 +28,7 @@ REQUIRED = (
     "WorkoutLiveActivityCoordinator.swift",
     "LiveSportHistoryView.swift",
     "OGDuoContextRail.swift",
+    "OGDuoWindowContextActions.swift",
 )
 WATCH_REQUIRED = (
     "ReperaWatchApp.swift",
@@ -89,7 +90,7 @@ def validate(root: Path) -> None:
     for name in ("RemoteExerciseCatalogStore.swift", "LiveActivityView.swift",
                  "LiveActivityLocationName.swift",
                  "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
-                 "OGDuoContextRail.swift"):
+                 "OGDuoContextRail.swift", "OGDuoWindowContextActions.swift"):
         if f"- path: Apps/Repera/Sources/{name}" not in spec:
             raise ValueError(
                 f"project.yml no incluye expresamente {name}. "
@@ -130,11 +131,11 @@ def validate(root: Path) -> None:
             )
 
     # WidgetKit extension: SharedStore defines ReperaComplicationSnapshot.
+    # El render usa ReperaIcon del asset catalog; AppIconStore ya no forma parte del target.
     widget_sources = _target_compile_sources(pbx, "ReperaWatchWidget")
     for name in (
         "ReperaWatchWidget.swift",
         "ReperaComplicationSharedStore.swift",
-        "ReperaComplicationAppIconStore.swift",
     ):
         if f"{name} in Sources" not in widget_sources:
             raise ValueError(
@@ -142,6 +143,11 @@ def validate(root: Path) -> None:
                 "Cierra Xcode, regenera con xcodegen generate --spec project.yml "
                 "y vuelve a abrir Repera.xcodeproj."
             )
+    if "ReperaComplicationAppIconStore.swift in Sources" in widget_sources:
+        raise ValueError(
+            "ReperaWatchWidget no debe compilar ReperaComplicationAppIconStore.swift; "
+            "el icono canónico es ReperaIcon en Assets.xcassets."
+        )
 
 
 def main() -> int:

@@ -18,11 +18,18 @@ class WatchComplicationTests(unittest.TestCase):
 
         # El widget debe tener una única escala canónica: nada de miniaturas
         # alternativas que puedan verse distintas en el editor de esferas.
+        # PNG sueltos @2x/@3x sin entrada en Contents.json provocan
+        # «unassigned children» en el asset catalog.
         import json
-        contents = json.loads(read("Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/Contents.json"))
+        imageset = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset"
+        contents = json.loads((imageset / "Contents.json").read_text(encoding="utf-8"))
         self.assertEqual(contents["images"], [
             {"filename": "repera.png", "idiom": "universal", "scale": "1x"}
         ])
+        self.assertEqual(
+            sorted(p.name for p in imageset.iterdir() if p.suffix.lower() == ".png"),
+            ["repera.png"],
+        )
 
     def test_capas_de_render_según_la_documentacion_de_apple(self):
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")

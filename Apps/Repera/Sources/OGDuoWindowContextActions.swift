@@ -44,13 +44,21 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
         override var intrinsicContentSize: CGSize { .zero }
     }
 
-    @MainActor
-    final class Coordinator {
-        private let host = UIHostingController(
-            rootView: OGDuoContextRail(actions: [])
+    /// Tipo concreto para UIHostingController: no se puede almacenar
+    /// `UIHostingController<some View>` ni pasar el opaque View a MainActor.
+    private struct RailChrome: View {
+        let actions: [OGDuoContextRailStore.Action]
+
+        var body: some View {
+            OGDuoContextRail(actions: actions)
                 .padding(.vertical, 8)
                 .background(.regularMaterial, in: Capsule())
-        )
+        }
+    }
+
+    @MainActor
+    final class Coordinator {
+        private let host: UIHostingController<RailChrome>
         private weak var hostWindow: UIWindow?
         private var constraints: [NSLayoutConstraint] = []
         private var trailingConstraint: NSLayoutConstraint?
@@ -58,6 +66,7 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
         private var currentActions: [OGDuoContextRailStore.Action] = []
 
         init() {
+            host = UIHostingController(rootView: RailChrome(actions: []))
             host.view.backgroundColor = .clear
             host.view.isOpaque = false
             host.view.translatesAutoresizingMaskIntoConstraints = false
@@ -66,9 +75,7 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
 
         func update(actions: [OGDuoContextRailStore.Action]) {
             currentActions = actions
-            host.rootView = OGDuoContextRail(actions: actions)
-                .padding(.vertical, 8)
-                .background(.regularMaterial, in: Capsule())
+            host.rootView = RailChrome(actions: actions)
             heightConstraint?.constant = idealHeight(for: actions.count)
             host.view.isHidden = actions.isEmpty
             host.view.isUserInteractionEnabled = !actions.isEmpty
