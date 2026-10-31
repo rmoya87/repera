@@ -329,7 +329,10 @@ struct StandaloneTimerView: View {
                 config = lastUsed
             }
             TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
+            publishTimerDuoActions()
         }
+        .onChange(of: duoRail.isExpanded) { _, _ in publishTimerDuoActions() }
+        .onChange(of: editingFavoriteId) { _, _ in publishTimerDuoActions() }
         .onChange(of: config) { _, updated in
             StandaloneTimerConfigurationStore.save(updated)
         }
@@ -356,6 +359,7 @@ struct StandaloneTimerView: View {
             // Una fullScreenCover mantiene vivo el owner del reloj;
             // abandonar de verdad el editor detiene el temporizador.
             if !showClock { stopTimer() }
+            duoRail.clear(owner: "timer")
         }
     }
 
@@ -474,29 +478,32 @@ struct StandaloneTimerView: View {
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if duoRail.isExpanded {
-                OGDuoContextRail(actions: [
-                    .init(
-                        id: "timer-favorite",
-                        systemName: editingFavoriteId == nil ? "star" : "star.fill",
-                        accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
-                        tint: OG.favoriteAmber
-                    ) {
-                        requestFavoriteSave()
-                    },
-                    .init(
-                        id: "timer-back",
-                        systemName: "chevron.left",
-                        accessibilityLabel: "Volver"
-                    ) {
-                        dismiss()
-                    }
-                ])
-                .padding(.trailing, 26)
-                .padding(.top, 8)
-            }
+    }
+
+    /// El temporizador participa en el raíl derecho de RootTabView, en vez
+    /// de dibujar una nueva fila a la derecha de su propio topbar.
+    private func publishTimerDuoActions() {
+        guard duoRail.isExpanded else {
+            duoRail.clear(owner: "timer")
+            return
         }
+        duoRail.publish(owner: "timer", actions: [
+            .init(
+                id: "timer-favorite",
+                systemName: editingFavoriteId == nil ? "star" : "star.fill",
+                accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
+                tint: OG.favoriteAmber
+            ) {
+                requestFavoriteSave()
+            },
+            .init(
+                id: "timer-back",
+                systemName: "chevron.left",
+                accessibilityLabel: "Volver"
+            ) {
+                dismiss()
+            }
+        ])
     }
 
     private func requestFavoriteSave() {
