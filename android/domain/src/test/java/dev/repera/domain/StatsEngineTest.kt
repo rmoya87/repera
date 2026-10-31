@@ -114,7 +114,7 @@ class StatsEngineTest {
         val week = StatsEngine.dailyMetricSeries(listOf(cardio),
             metric = "cardioMinutes", range = ProgressTimeRange.WEEK,
             now = now, zone = zone)
-        assertEquals(6, week.size) // lunes 19 .. sabado 24
+        assertEquals(7, week.size) // domingo 18 .. sabado 24 (ventana móvil)
         assertEquals(25.0, week.last().value, 0.0001)
         assertEquals(0.0, week.first().value, 0.0001)
         val long = StatsEngine.dailyMetricSeries(listOf(cardio),

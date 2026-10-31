@@ -73,9 +73,8 @@ class ProgressChartBuilderTest {
     fun `media diaria y periodo anterior comparables`() {
         val charts = week(listOf(DailyActiveEnergyPoint(now, 300.0),
             DailyActiveEnergyPoint(now.minusDays(1), 200.0), DailyActiveEnergyPoint(now.minusDays(2), 200.0)))
-        assertEquals(300.0, charts.caloriesDailyAverage!!, 1e-9)
-        // 602e9c39: el lunes solo es comparable con el lunes anterior; sin datos
-        // de ese día no hay media previa (antes se usaba toda la semana previa).
+        assertEquals(700.0 / 3.0, charts.caloriesDailyAverage!!, 1e-9)
+        // Ventana móvil de 7 días: sin datos en el periodo anterior comparable.
         assertEquals(null, charts.previousCaloriesDailyAverage)
         assertEquals(null, CalorieAverageStats.change(charts.caloriesDailyAverage, charts.previousCaloriesDailyAverage))
     }
