@@ -57,7 +57,6 @@ targets:
           - WorkoutLiveActivityCoordinator.swift
           - LiveSportHistoryView.swift
           - OGDuoContextRail.swift
-          - OGDuoWindowContextActions.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
       # Referencias explícitas: XcodeGen no puede omitir estas fuentes del target.
       - path: Apps/Repera/Sources/LiveActivityView.swift
@@ -65,7 +64,6 @@ targets:
       - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift
       - path: Apps/Repera/Sources/LiveSportHistoryView.swift
       - path: Apps/Repera/Sources/OGDuoContextRail.swift
-      - path: Apps/Repera/Sources/OGDuoWindowContextActions.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.

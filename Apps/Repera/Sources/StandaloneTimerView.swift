@@ -246,7 +246,6 @@ struct TimerNumericInput: View {
 /// Temporizador libre (Crear): configuración + reloj LED.
 struct StandaloneTimerView: View {
     @Environment(ReperaStore.self) private var store
-    @Environment(OGDuoContextRailStore.self) private var duoRail
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
@@ -329,10 +328,7 @@ struct StandaloneTimerView: View {
                 config = lastUsed
             }
             TimerScreenAwake.setRunning(isRunning || pausedDisplaySeconds != nil, for: .standalone)
-            publishTimerDuoActions()
         }
-        .onChange(of: duoRail.isExpanded) { _, _ in publishTimerDuoActions() }
-        .onChange(of: editingFavoriteId) { _, _ in publishTimerDuoActions() }
         .onChange(of: config) { _, updated in
             StandaloneTimerConfigurationStore.save(updated)
         }
@@ -359,7 +355,6 @@ struct StandaloneTimerView: View {
             // Una fullScreenCover mantiene vivo el owner del reloj;
             // abandonar de verdad el editor detiene el temporizador.
             if !showClock { stopTimer() }
-            duoRail.clear(owner: "timer")
         }
     }
 
@@ -462,48 +457,17 @@ struct StandaloneTimerView: View {
         // ScrollView independiente: no usar el margen de listas agrupadas
         // durante la transición tras cerrar "Añadir entreno".
         .ogScrollingTitleNav(usesGroupedList: false)
-        // Sin fila superior vacía en Duo: volver y favorito están sobre el
-        // lateral derecho, junto al menú de navegación.
-        .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .navigationBar)
         .toolbar {
-            if !duoRail.isExpanded {
-                ToolbarItem(placement: .topBarTrailing) {
-                    OGToolbarGlassButton(
-                        systemName: editingFavoriteId == nil ? "star" : "star.fill",
-                        accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
-                        tint: OG.favoriteAmber
-                    ) {
-                        requestFavoriteSave()
-                    }
+            ToolbarItem(placement: .topBarTrailing) {
+                OGToolbarGlassButton(
+                    systemName: editingFavoriteId == nil ? "star" : "star.fill",
+                    accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
+                    tint: OG.favoriteAmber
+                ) {
+                    requestFavoriteSave()
                 }
             }
         }
-    }
-
-    /// El temporizador participa en el raíl derecho de RootTabView, en vez
-    /// de dibujar una nueva fila a la derecha de su propio topbar.
-    private func publishTimerDuoActions() {
-        guard duoRail.isExpanded else {
-            duoRail.clear(owner: "timer")
-            return
-        }
-        duoRail.publish(owner: "timer", actions: [
-            .init(
-                id: "timer-favorite",
-                systemName: editingFavoriteId == nil ? "star" : "star.fill",
-                accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
-                tint: OG.favoriteAmber
-            ) {
-                requestFavoriteSave()
-            },
-            .init(
-                id: "timer-back",
-                systemName: "chevron.left",
-                accessibilityLabel: "Volver"
-            ) {
-                dismiss()
-            }
-        ])
     }
 
     private func requestFavoriteSave() {

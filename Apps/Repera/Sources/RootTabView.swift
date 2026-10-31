@@ -87,8 +87,7 @@ struct RootTabView: View {
                     }
                 }
             ))
-            // Los hijos publican acciones; el contenedor raíz las representa
-            // junto a la barra nativa, que permanece visible en Duo.
+            // isExpanded adapta layouts anchos; el raíl de tabs es 100 % nativo.
             .environment(duoRail)
             // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
             .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
@@ -129,20 +128,10 @@ struct RootTabView: View {
                 .zIndex(1)
             }
         }
-        // El TabView nativo reserva un carril lateral fuera de su viewport
-        // SwiftUI. Un .overlay alineado al TabView queda sobre el topbar
-        // del contenido; por eso los botones aparecían desplazados.
-        // El host se monta en la UIWindow REAL, con la misma coordenada X
-        // que Inicio/Comenzar/Progreso/Ejercicios y debajo de hora/Wi-Fi.
-        .background {
-            OGDuoWindowContextActions(
-                actions: duoRail.isExpanded && flowPath.isEmpty
-                    ? selectedDuoActions : []
-            )
-            // Una sonda real de 1 pt: SwiftUI no debe optimizar una
-            // UIViewRepresentable de tamaño cero antes de obtener UIWindow.
-            .frame(width: 1, height: 1)
-        }
+        // No montar overlays en UIWindow sobre el raíl vertical del Duo:
+        // status + tabs comparten esa columna nativa; un host encima
+        // recorta iconos de pestaña e intercepta toques («no van»).
+        // Las acciones contextuales viven en el contenido / toolbar.
         // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
         .onGeometryChange(for: CGSize.self, of: { $0.size }) { _, size in
             updateDuoLayout(availableSize: size)
@@ -285,33 +274,6 @@ struct RootTabView: View {
             availableSize.width, availableSize.height,
             ratio
         )
-    }
-
-    /// Mostrar únicamente los controles de la pestaña visible, aunque SwiftUI
-    /// mantenga vivas otras pantallas del TabView por rendimiento.
-    private var selectedDuoActions: [OGDuoContextRailStore.Action] {
-        guard flowPath.isEmpty else { return [] }
-
-        // Los modales muestran sus controles en el mismo raíl físico
-        // aunque su contenido sea presentado por un NavigationStack anidado.
-        if !duoRail.actions(for: "routes").isEmpty {
-            return duoRail.actions(for: "routes")
-        }
-        if !duoRail.actions(for: "timer").isEmpty {
-            return duoRail.actions(for: "timer")
-        }
-
-        switch tab {
-        case .start:
-            return duoRail.actions(for: "start")
-        case .stats:
-            return duoRail.actions(for: "stats")
-        case .exercises:
-            return duoRail.actions(for: "exercises")
-                + duoRail.actions(for: "exercise-detail")
-        case .home:
-            return []
-        }
     }
 
     /// Continuar encima del menú: en la pestaña Comenzar solo Play (no Live).

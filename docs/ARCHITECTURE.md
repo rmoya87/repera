@@ -181,7 +181,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 `RootTabView`: **Inicio · Diario · Crear|Center · Progreso · Ejercicios**. La pestaña central es **Crear** (`StartHubSheet`) salvo vínculo/invitación a gimnasio o entrenador, cuando pasa a **Center**. El + de Inicio sigue abriendo Crear en hoja. `CenterView` divide **Clases / Citas** con datos reales de Supabase.
 
 - Flujo de entreno: overlay `NavigationStack` (`sessionPreview` → `workout`).
-- Tab bar: `minimize` con accesorio Continuar (fuerza o Comenzar); accessory **Continuar** desde `ContinueAccessoryModel` (sesión Play o `LiveActivityRecorder`).
+- Tab bar: `minimize` con accesorio Continuar (fuerza o Comenzar); accessory **Continuar** desde `ContinueAccessoryModel` (sesión Play o `LiveActivityRecorder`). En **iPhone Duo** el raíl vertical de pestañas es el nativo del `TabView`; `OGDuoContextRailStore` solo señala layout expandido (sin overlay sobre status/tabs).
 
 La pestaña Diario prioriza **Entrenador** y conserva **Personal · Rutinas** como alternativas sin sobrescribir almacenamiento local. Ajustes: **Buscar centro o entrenador**, ficha con bonos/sesiones, sync unificado; mensajes en topbar de Inicio.
 
@@ -405,7 +405,7 @@ Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios 
 
 ## Conexión guiada con asistentes (2026-10-24)
 
-Última actualización: 2026-10-27 (navegación GPX en Comenzar y widget ActivityKit)
+Última actualización: 2026-10-31 (Duo: raíl de tabs nativo, sin overlay UIWindow)
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
 

@@ -2137,7 +2137,6 @@ private struct LiveSportPicker: View {
 }
 
 struct LiveActivityView: View {
-    @Environment(OGDuoContextRailStore.self) private var duoRail
     @Environment(\.colorScheme) private var colorScheme
     @Environment(SubscriptionManager.self) private var subscriptions
 
@@ -2185,12 +2184,6 @@ struct LiveActivityView: View {
     /// Una suscripción caducada nunca restaura la perspectiva 3D.
     private var navigation3DAllowed: Bool { subscriptions.policy.canUse3DNavigation }
     private var effectiveNavigation3D: Bool { navigationMapEnabled && navigation3DAllowed }
-
-    /// Actualiza los controles cuando cambia deporte, fase, pantalla, sonido
-    /// o modo del mapa. No se reactiva la grabación ni se reinicia la cámara.
-    private var duoRailSignature: String {
-        "\(duoRail.isExpanded)|\(recorder.sport.rawValue)|\(recorder.phase)|\(showingMetrics)|\(recorder.spokenGuidanceEnabled)|\(effectiveNavigation3D)|\(navigation3DAllowed)|\(mapIsCentered)|\(recorder.currentCoordinate != nil)|\(routePicker)"
-    }
 
     /// El TabView ya mete el accessory Continuar en el safe area inferior.
     /// Solo hace falta la misma holgura de 10 pt que frente al menú; un lift
@@ -2288,12 +2281,6 @@ struct LiveActivityView: View {
             }
         }
         .tint(OG.accent)
-        .onChange(of: duoRailSignature, initial: true) { _, _ in
-            publishDuoActions()
-        }
-        .onDisappear {
-            duoRail.clear(owner: "start")
-        }
         .onChange(of: scenePhase) { _, next in
             if next == .active {
                 recorder.refreshWhenActive()
@@ -2324,103 +2311,6 @@ struct LiveActivityView: View {
                 }
             }
         }
-    }
-
-    /// Acciones del mapa y de las métricas en el mismo raíl vertical que
-    /// las pestañas del Duo. Las acciones nativas quedan en su lugar habitual
-    /// si el dispositivo vuelve al modo compacto.
-    private func publishDuoActions() {
-        guard duoRail.isExpanded, recorder.phase != .review, !routePicker else {
-            duoRail.clear(owner: "start")
-            return
-        }
-
-        var actions: [OGDuoContextRailStore.Action] = []
-
-        if recorder.sport.usesGPS && !showingMetrics {
-            actions.append(.init(
-                id: "map-3d",
-                systemName: effectiveNavigation3D ? "map" : "view.3d",
-                accessibilityLabel: effectiveNavigation3D ? "Cambiar a vista 2D"
-                    : (navigation3DAllowed ? "Cambiar a vista 3D" : "Desbloquear navegación 3D con Repera Pro"),
-                tint: effectiveNavigation3D ? OG.accent : OG.label
-            ) {
-                toggleNavigationMapMode()
-            })
-
-            if !mapIsCentered, recorder.currentCoordinate != nil {
-                actions.append(.init(
-                    id: "map-center",
-                    systemName: "location.fill",
-                    accessibilityLabel: "Centrar en mi posición"
-                ) {
-                    if let user = recorder.currentCoordinate {
-                        cancelPendingMapRecenter()
-                        mapIsCentered = true
-                        center3DMap(on: user)
-                    }
-                })
-            }
-
-            actions.append(.init(
-                id: "show-metrics",
-                systemName: "chart.bar.xaxis",
-                accessibilityLabel: "Ver métricas"
-            ) {
-                showingMetrics = true
-            })
-        } else if recorder.sport.usesGPS {
-            actions.append(.init(
-                id: "show-map",
-                systemName: "map",
-                accessibilityLabel: "Ver mapa"
-            ) {
-                showingMetrics = false
-            })
-        }
-
-        if showGuidanceToggle {
-            actions.append(.init(
-                id: "voice",
-                systemName: guidanceSymbol,
-                accessibilityLabel: guidanceAccessibilityLabel
-            ) {
-                recorder.toggleSpokenGuidance()
-            })
-        }
-
-        if recorder.phase == .recording {
-            actions.append(.init(
-                id: "pause",
-                systemName: "pause.fill",
-                accessibilityLabel: "Pausar grabación",
-                tint: .black,
-                fill: OG.yellow
-            ) {
-                recorder.pause()
-            })
-        } else if recorder.phase == .paused {
-            actions.append(.init(
-                id: "resume",
-                systemName: "play.fill",
-                accessibilityLabel: "Reanudar grabación",
-                tint: .black,
-                fill: OG.accent
-            ) {
-                recorder.resume()
-            })
-            actions.append(.init(
-                id: "finish",
-                systemName: "flag.checkered",
-                accessibilityLabel: "Finalizar y guardar",
-                tint: .white,
-                fill: .black
-            ) {
-                finishAndShowSave()
-            })
-        }
-
-        duoRail.publish(owner: "start", actions: actions)
     }
 
     private struct LiveColoredMapSegment: Identifiable {
@@ -2611,10 +2501,8 @@ struct LiveActivityView: View {
                             alignment: .topLeading
                         )
                         Spacer(minLength: 0)
-                        if !duoRail.isExpanded {
-                            mapHeader
-                                .frame(width: 44, alignment: .trailing)
-                        }
+                        mapHeader
+                            .frame(width: 44, alignment: .trailing)
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
                     .padding(.bottom, 10 + continueChromeLift)
@@ -2634,12 +2522,10 @@ struct LiveActivityView: View {
                 } else {
                     VStack(spacing: 12) {
                         ZStack(alignment: .topLeading) {
-                            if !duoRail.isExpanded {
-                                mapHeader
-                            }
+                            mapHeader
                             if recorder.chosenRoute != nil {
                                 navigationDirectionsBanner
-                                    .padding(.trailing, duoRail.isExpanded ? 0 : 64)
+                                    .padding(.trailing, 64)
                             }
                         }
                         mapStatusMessages
@@ -3133,24 +3019,22 @@ struct LiveActivityView: View {
                             .lineLimit(2)
                             .minimumScaleFactor(0.68)
                             .frame(
-                                width: duoRail.isExpanded ? nil : min(126, max(48, header.size.width - 240)),
-                                height: duoRail.isExpanded ? 42 : 54,
+                                width: min(126, max(48, header.size.width - 240)),
+                                height: 54,
                                 alignment: .leading
                             )
                         // Separación flexible ENTRE el deporte y la primera
                         // acción. Audio, Mapa y Pausa/Play van juntos a la
                         // derecha: ningún hueco invisible entre sus botones.
                         Spacer(minLength: 0)
-                        if !duoRail.isExpanded {
-                            metricsTrailingActions
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
+                        metricsTrailingActions
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .frame(height: duoRail.isExpanded ? 48 : 68)
+                .frame(height: 68)
                 .padding(.horizontal, OG.topBarHorizontalInset)
-                .padding(.top, duoRail.isExpanded ? 4 : 14)
+                .padding(.top, 14)
                 if recorder.chosenRoute != nil, recorder.phase != .idle {
                     HStack(spacing: 9) {
                         Image(systemName: recorder.upcomingTurnSymbol)
@@ -3932,7 +3816,6 @@ private struct LiveRouteTrace: Shape {
 private struct LiveRouteLibraryPickerView: View {
     @State private var routes = LiveRoutesStore.shared
     @Environment(ReperaStore.self) private var store
-    @Environment(OGDuoContextRailStore.self) private var duoRail
 
     private var recentRoutes: [LiveSavedRoute] {
         routes.recentRoutes(using: store.state.workouts)
@@ -3961,18 +3844,16 @@ private struct LiveRouteLibraryPickerView: View {
                                 .foregroundStyle(OG.label2)
                         }
                         Spacer()
-                        if !duoRail.isExpanded {
-                            Button(action: onClose) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .frame(width: 42, height: 42)
-                                    .glassEffect(.regular.interactive(), in: .circle)
-                            }
-                            .buttonStyle(.plain)
-                            .tint(OG.label)
-                            .accessibilityLabel("Cerrar Mis rutas")
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(OG.label)
+                                .frame(width: 42, height: 42)
+                                .glassEffect(.regular.interactive(), in: .circle)
                         }
+                        .buttonStyle(.plain)
+                        .tint(OG.label)
+                        .accessibilityLabel("Cerrar Mis rutas")
                     }
                     .padding(.vertical, 4)
                 }
@@ -4040,26 +3921,6 @@ private struct LiveRouteLibraryPickerView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
-        .onAppear { publishRouteDuoActions() }
-        .onChange(of: duoRail.isExpanded) { _, _ in publishRouteDuoActions() }
-        .onDisappear { duoRail.clear(owner: "routes") }
-    }
-
-    /// El cierre se coloca en la misma columna derecha de la hora y del
-    /// menú de Inicio/Comenzar/Progreso/Ejercicios, no en el topbar del sheet.
-    private func publishRouteDuoActions() {
-        guard duoRail.isExpanded else {
-            duoRail.clear(owner: "routes")
-            return
-        }
-        duoRail.publish(owner: "routes", actions: [
-            .init(
-                id: "close-routes",
-                systemName: "xmark",
-                accessibilityLabel: "Cerrar Mis rutas",
-                handler: onClose
-            )
-        ])
     }
 }
 

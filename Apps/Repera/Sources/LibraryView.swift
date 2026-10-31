@@ -130,57 +130,25 @@ struct LibraryView: View {
                 .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
-            // En Duo las acciones están sobre la columna de navegación
-            // nativa. No conservar una segunda pareja de botones en el título.
-            if !duoRail.isExpanded {
-                OGToolbarGlassButton(
-                    systemName: "line.3.horizontal.decrease",
-                    accessibilityLabel: "Filtrar y ordenar",
-                    appliesGlass: true
-                ) {
-                    showFilter = true
-                }
-                OGToolbarGlassButton(
-                    systemName: "plus",
-                    accessibilityLabel: "Nuevo ejercicio",
-                    appliesGlass: true
-                ) {
-                    createExerciseIfAllowed()
-                }
+            // Acciones en el título: el raíl Duo es solo del sistema (tabs).
+            OGToolbarGlassButton(
+                systemName: "line.3.horizontal.decrease",
+                accessibilityLabel: "Filtrar y ordenar",
+                appliesGlass: true
+            ) {
+                showFilter = true
+            }
+            OGToolbarGlassButton(
+                systemName: "plus",
+                accessibilityLabel: "Nuevo ejercicio",
+                appliesGlass: true
+            ) {
+                createExerciseIfAllowed()
             }
         }
         .padding(.horizontal, OG.topBarHorizontalInset)
         .padding(.top, duoRail.isExpanded ? 4 : OG.topBarTopInset)
         .padding(.bottom, duoRail.isExpanded ? 4 : OG.topBarBottomInset)
-    }
-
-    /// El contenedor principal alinea estas acciones con el raíl de tabs
-    /// (fuera del ancho del catálogo). El filtro sigue accesible en WODs.
-    private func publishDuoActions() {
-        guard duoRail.isExpanded else {
-            duoRail.clear(owner: "exercises")
-            return
-        }
-        var actions: [OGDuoContextRailStore.Action] = [
-            .init(
-                id: "filter",
-                systemName: "line.3.horizontal.decrease",
-                accessibilityLabel: "Filtrar y ordenar"
-            ) {
-                showFilter = true
-            }
-        ]
-        if filterMode != .wods && filterMode != .sports {
-            actions.append(.init(
-                id: "add",
-                systemName: "plus",
-                accessibilityLabel: "Nuevo ejercicio",
-                tint: OG.accent
-            ) {
-                createExerciseIfAllowed()
-            })
-        }
-        duoRail.publish(owner: "exercises", actions: actions)
     }
 
     private var exerciseSearchField: some View {
@@ -319,27 +287,21 @@ struct LibraryView: View {
                 if filterMode != .wods && filterMode != .sports {
                     prefetchVisibleThumbs()
                 }
-                publishDuoActions()
-            }
-            .onChange(of: duoRail.isExpanded) { _, _ in
-                publishDuoActions()
             }
             .onAppear {
                 if filterMode != .wods && filterMode != .sports {
                     prefetchVisibleThumbs()
                 }
-                publishDuoActions()
             }
             .onDisappear {
                 ExerciseArt.cancelThumbPrefetch()
-                duoRail.clear(owner: "exercises")
             }
             // Ejercicios conserva dos filas fijas de controles; WODs y Deportes
             // dibujan el título en la propia lista para ocultarlo al desplazar.
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .ogDiaryTransparentNav()
-            .toolbar(duoRail.isExpanded || hasCustomExerciseHeader ? .hidden : .visible, for: .navigationBar)
+            .toolbar(hasCustomExerciseHeader ? .hidden : .visible, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if usesCompactExerciseHeader {
                     VStack(spacing: 0) {
@@ -351,7 +313,7 @@ struct LibraryView: View {
                 }
             }
             .toolbar {
-                if !hasCustomExerciseHeader && !duoRail.isExpanded {
+                if !hasCustomExerciseHeader {
                 ToolbarItem(placement: .topBarTrailing) {
                     OGToolbarGlassButton(
                         systemName: "line.3.horizontal.decrease",
@@ -381,8 +343,7 @@ struct LibraryView: View {
             .navigationDestination(for: UUID.self) { id in
                 ExerciseDetailView(
                     exerciseId: id,
-                    onOpenedWorkout: onOpenedWorkout,
-                    usesDuoRail: true
+                    onOpenedWorkout: onOpenedWorkout
                 )
                     .modifier(ExerciseZoomDestinationModifier(
                         id: id,

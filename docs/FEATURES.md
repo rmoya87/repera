@@ -25,7 +25,11 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-10-31 (Watch: marca en dos capas para watchOS accented, preview de complicación nueva, PNG original fullColor)
+Última actualización: 2026-10-31 (Duo: tabs nativos sin overlay UIWindow)
+
+## iPhone Duo — barra lateral (31/10/2026)
+
+En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **raíl vertical nativo** (junto a hora y Wi‑Fi). No se montan overlays en `UIWindow` ni se sustituye ese raíl: tapar la columna rompe o recorta los iconos de pestaña. `OGDuoContextRailStore.isExpanded` solo adapta layouts anchos (p. ej. catálogo partido); filtro, +, calendario y controles de Comenzar permanecen en el contenido / toolbar.
 
 ## Completar una clase de CrossFit grabada desde «Comenzar» (29/10/2026)
 
