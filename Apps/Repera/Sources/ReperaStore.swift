@@ -3367,6 +3367,14 @@ extension ReperaStore: PhoneConnectivityDelegate {
         }
     }
 
+    nonisolated func phoneConnectivityDidReceiveLiveHealth(sessionId: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?) {
+        Task { @MainActor in
+            LiveActivityRecorder.shared.receiveCompanionHealth(
+                sessionID: sessionId, kcal: kcal, averageBpm: averageBpm, workoutUUID: workoutUUID
+            )
+        }
+    }
+
     nonisolated func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {
         Task { @MainActor in
             let key = "repera.live.spokenGuidance.enabled"
