@@ -21,9 +21,7 @@ class ProgressTopicsInstrumentedTest {
    Box(Modifier.fillMaxSize().safeDrawingPadding()) {ProgressTab(false,false,null,overview,{},{},{},{},{},{_,_,_,_,_,_->},{_,_,_->})}
   }}}
  }
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun proTopicsSeparateTrainingActivityAndRecoveryWithEmptyAxesAndRealWeight() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun proTopicsSeparateTrainingActivityAndRecoveryWithEmptyAxesAndRealWeight() {
   show(false)
   compose.onNodeWithTag("progress_topic_1").performClick()
   compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Todavía no hay puntuaciones basadas en tu historial."))
@@ -38,9 +36,7 @@ class ProgressTopicsInstrumentedTest {
   compose.onNodeWithText("Resultados recientes").assertDoesNotExist()
   capture("progreso_recuperacion_vacio.png")
  }
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun freeActivityIsExplicitExampleAndNeverRendersPrivateWeight() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun freeActivityIsExplicitExampleAndNeverRendersPrivateWeight() {
   show(true)
   compose.onNodeWithTag("progress_topic_1").performClick()
   compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Peso corporal · ejemplo"))

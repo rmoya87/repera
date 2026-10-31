@@ -33,9 +33,7 @@ class LiveActivityControlsInstrumentedTest {
         val uri = context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)!!
         context.contentResolver.openOutputStream(uri)!!.use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
     }
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun activeClassicWorkoutRoutesToContinueWithoutStartingLiveRecorder() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun activeClassicWorkoutRoutesToContinueWithoutStartingLiveRecorder() {
         val account = "test-classic-guard-${UUID.randomUUID()}"
         var opened = false
         LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
@@ -51,9 +49,7 @@ class LiveActivityControlsInstrumentedTest {
             LiveActivityRuntime.stopAll()
         }
     }
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun sportPickerSelectsIndoorActivityAndClosesWithoutStartingSensors() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun sportPickerSelectsIndoorActivityAndClosesWithoutStartingSensors() {
         val account = "test-picker-${UUID.randomUUID()}"
         LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
@@ -79,9 +75,7 @@ class LiveActivityControlsInstrumentedTest {
             LiveActivityRuntime.stopAll()
         }
     }
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun gpsCanvasAlternatesMetricsAndMapWithSyntheticPointsWithoutSensors() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun gpsCanvasAlternatesMetricsAndMapWithSyntheticPointsWithoutSensors() {
         val account = "test-canvas-${UUID.randomUUID()}"
         val runtime = LiveActivityRuntime.forAccount(context,account)
         runtime.choose(LiveSport.RUNNING)
@@ -136,9 +130,7 @@ class LiveActivityControlsInstrumentedTest {
         compose.onNodeWithText("Modo navegador").assertIsDisplayed()
         compose.runOnIdle { runtime.discard();LiveActivityRuntime.stopAll() }
     }
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun savingReviewReturnsSessionStartDayNotSaveDayAndClearsDraft() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun savingReviewReturnsSessionStartDayNotSaveDayAndClearsDraft() {
         val account="test-save-day-${UUID.randomUUID()}"
         LocalSnapshotStore(context,account).write(org.json.JSONObject().put("workouts",org.json.JSONArray())
             .put("exercises",org.json.JSONArray()).put("routines",org.json.JSONArray()).toString().toByteArray())

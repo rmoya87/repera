@@ -13,10 +13,7 @@ class ExerciseCatalogFiltersInstrumentedTest {
             muscleGroup = group, sportTag = sport,
             hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(name))
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun hyroxTagIsAdditiveAndDoesNotRetagCrossfit() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun hyroxTagIsAdditiveAndDoesNotRetagCrossfit() {
         val ski = e("SkiErg", group = "Espalda")
         assertTrue(ExerciseCatalogFilters.matches(ski, "Hyrox"))
         assertTrue(ExerciseCatalogFilters.matches(ski, "CrossFit"))

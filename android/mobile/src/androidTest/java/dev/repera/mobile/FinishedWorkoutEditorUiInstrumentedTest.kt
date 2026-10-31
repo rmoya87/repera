@@ -141,10 +141,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         assertEquals(listOf("e2", "e1"), (0 until 2).map { dest.getJSONObject(it).getString("id") })
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun searchFindsExerciseAcrossFullCatalogIgnoringAccents() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun searchFindsExerciseAcrossFullCatalogIgnoringAccents() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val catalog = (1..200).map { ExerciseEntry("c$it", "Ejercicio $it", true, true) } +
             ExerciseEntry("tri", "Extensión de tríceps", true, true)
@@ -161,10 +158,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         assertEquals(0, items.getJSONObject(2).getJSONArray("plannedSets").getJSONObject(0).optInt("targetRir", 0))
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun rirEditPersistsInDraft() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun rirEditPersistsInDraft() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = twoBlocks)
         showEditor(w, emptyList()) { saved = it }
@@ -183,10 +177,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         {"id":"m1","exerciseId":"x2","name":"Press","reps":10,"weightFemaleKg":30,"scaleAlternative":"30 kg","notes":"n"}]}]"""
     private val cat = listOf(ExerciseEntry("x1", "Sentadilla", true, true), ExerciseEntry("x2", "Press", true, true))
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun wodMovementEditSavesAndKeepsOtherFields() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun wodMovementEditSavesAndKeepsOtherFields() {
         var saved: WorkoutRepository.FinishedWorkoutEdit? = null
         val w = workout.copy(editableBlocksJson = wodBlocks)
         showEditor(w, cat) { saved = it }

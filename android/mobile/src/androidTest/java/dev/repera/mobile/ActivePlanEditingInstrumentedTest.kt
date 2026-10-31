@@ -61,10 +61,7 @@ class ActivePlanEditingInstrumentedTest {
   }
  }
 
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
- @Test fun editorDraftIsReadOnlyAndSavedReorderKeepsSessionAndLoggedSets() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun editorDraftIsReadOnlyAndSavedReorderKeepsSessionAndLoggedSets() {
   val context=InstrumentationRegistry.getInstrumentation().targetContext
   val account="test-active-editor-${java.util.UUID.randomUUID()}";val local=LocalSnapshotStore(context,account)
   local.write(JSONObject().put("exercises",JSONArray().put(JSONObject().put("id","a").put("name","Sentadilla"))

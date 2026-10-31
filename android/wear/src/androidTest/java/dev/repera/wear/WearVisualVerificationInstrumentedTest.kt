@@ -21,6 +21,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
@@ -225,8 +226,8 @@ class WearVisualVerificationInstrumentedTest {
             }
         }
         compose.waitForIdle()
-        // El botón → / confirmar queda deshabilitado en pausa.
-        compose.onNodeWithText("→").assertIsNotEnabled()
+        // El botón confirmar queda deshabilitado en pausa (contentDescription, no solo glyph).
+        compose.onNode(hasContentDescription("Siguiente")).assertIsNotEnabled()
         save("wear_paused_confirmation", compose.onRoot().captureToImage())
     }
 

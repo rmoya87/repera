@@ -60,10 +60,7 @@ class ProgressSnapshotInstrumentedTest {
         assertTrue(snap.hasHardSets)
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun fullArchiveFeedsRecordsStreakAndSummary() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun fullArchiveFeedsRecordsStreakAndSummary() {
         val state = JSONObject()
             .put("workouts", JSONArray()
                 .put(session(now, 50) { put("exercises", JSONArray().put(strengthEntry(100.0, 5, 1.0))) })

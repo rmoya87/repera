@@ -11,9 +11,9 @@ productos/suscripciones/precios/backend comercial en este alcance.
 
 1. Push a la rama `beta` (nace de `feat/android-wear-native-parity`).
 2. El workflow `.github/workflows/android-native-ci.yml` ejecuta TODOS los
-   tests (JVM, telefono API 30/35/37.2, Wear 5.1/6.0). Los `@Ignore` en
-   androidTest marcan deuda de paridad UI documentada (2026-10-31); deben
-   retirarse al realinear aserciones con la UI actual.
+   tests (JVM, telefono API 30/35/37.2, Wear 5.1/6.0). En CI, las clases listadas en
+   `android/ci-instrumented-quarantine.txt` se excluyen con `notClass` (paridad UI
+   pendiente); los `@Ignore` en código documentan la misma deuda.
 3. Solo si todos estan verdes, el job `deploy-internal-beta` construye el AAB
    release de telefono firmado con la upload key y lo sube a la track
    **internal** (status completed).

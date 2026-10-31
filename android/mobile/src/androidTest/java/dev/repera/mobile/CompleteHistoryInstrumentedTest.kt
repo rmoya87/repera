@@ -9,9 +9,7 @@ import org.json.*
 import org.junit.*
 class CompleteHistoryInstrumentedTest {
  @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun fullHistoryRendersOlderThanTwentyAndExternalReadOnlyDetail() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun fullHistoryRendersOlderThanTwentyAndExternalReadOnlyDetail() {
   val workouts=JSONArray()
   for(i in 0..24) {
    val start=java.time.LocalDate.of(2026,10,25).minusDays(i.toLong()).atTime(10,0).atZone(java.time.ZoneId.systemDefault()).toInstant()

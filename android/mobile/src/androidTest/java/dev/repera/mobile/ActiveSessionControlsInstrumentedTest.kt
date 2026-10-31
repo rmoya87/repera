@@ -13,9 +13,7 @@ import org.junit.Assert.*
 
 class ActiveSessionControlsInstrumentedTest {
     @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun navigationNeverConfirmsAndNotesPersistAcrossReloadAndFinish() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun navigationNeverConfirmsAndNotesPersistAcrossReloadAndFinish() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val account="test-active-nav-${java.util.UUID.randomUUID()}"
         val local=LocalSnapshotStore(context,account)
