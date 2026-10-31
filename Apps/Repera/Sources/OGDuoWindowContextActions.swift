@@ -54,6 +54,7 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
         private weak var hostWindow: UIWindow?
         private var constraints: [NSLayoutConstraint] = []
         private var trailingConstraint: NSLayoutConstraint?
+        private var heightConstraint: NSLayoutConstraint?
         private var currentActions: [OGDuoContextRailStore.Action] = []
 
         init() {
@@ -68,8 +69,14 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
             host.rootView = OGDuoContextRail(actions: actions)
                 .padding(.vertical, 8)
                 .background(.regularMaterial, in: Capsule())
+            heightConstraint?.constant = idealHeight(for: actions.count)
             host.view.isHidden = actions.isEmpty
             host.view.isUserInteractionEnabled = !actions.isEmpty
+        }
+
+        private func idealHeight(for count: Int) -> CGFloat {
+            guard count > 0 else { return 0 }
+            return CGFloat(16 + count * 44 + (count - 1) * 12)
         }
 
         func attach(to window: UIWindow?) {
@@ -98,6 +105,10 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
                 equalTo: window.trailingAnchor, constant: -26
             )
             trailingConstraint = trailing
+            let height = host.view.heightAnchor.constraint(
+                equalToConstant: idealHeight(for: currentActions.count)
+            )
+            heightConstraint = height
             constraints = [
                 trailing,
                 host.view.topAnchor.constraint(
@@ -105,9 +116,7 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
                     constant: max(120, window.safeAreaInsets.top + 52)
                 ),
                 host.view.widthAnchor.constraint(equalToConstant: 54),
-                host.view.heightAnchor.constraint(
-                    lessThanOrEqualTo: window.heightAnchor, multiplier: 0.45
-                )
+                height
             ]
             NSLayoutConstraint.activate(constraints)
             updateNativeRailAlignment(in: window)
@@ -147,6 +156,7 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
         func detach() {
             NSLayoutConstraint.deactivate(constraints)
             trailingConstraint = nil
+            heightConstraint = nil
             constraints.removeAll()
             host.view.removeFromSuperview()
             hostWindow = nil
