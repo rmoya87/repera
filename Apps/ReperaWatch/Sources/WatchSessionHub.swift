@@ -17,6 +17,7 @@ final class WatchSessionHub: NSObject {
     private(set) var lastFinished: WorkoutSession?
     private(set) var liveActivity: WatchLiveActivitySnapshot?
     private(set) var liveCommandError: String?
+    private(set) var isFinishingCompanionLive = false
     private(set) var recentLiveSportIDs: [String] = []
     private(set) var audioMuted = false
     /// Índice / ítem del carrusel del hub (se restaura al Volver al inicio).
@@ -475,32 +476,55 @@ final class WatchSessionHub: NSObject {
     }
 
     func controlLiveActivity(_ command: String) {
-        guard let live = liveActivity, live.phase != .review else { return }
+        guard let live = liveActivity else { return }
+        if command == "finish" {
+            guard !isFinishingCompanionLive else { return }
+            // La revisión del iPhone solo puede existir tras un primer intento
+            // fallido: permitir Reintentar desde Watch sin perder el resumen.
+            isFinishingCompanionLive = true
+            liveCommandError = nil
+            let sent = connectivity.sendLiveCommand(
+                sessionId: live.id, command: command
+            ) { [weak self] saved in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.isFinishingCompanionLive = false
+                    guard saved else {
+                        self.liveCommandError = "No se pudo guardar en iPhone. Reintenta."
+                        return
+                    }
+                    let elapsed = Int(live.displayElapsed(at: Date()))
+                    let finished = WorkoutSession(
+                        id: live.id, title: live.sportTitle, exercises: [],
+                        phase: .finished,
+                        startedAt: Date().addingTimeInterval(-Double(elapsed)),
+                        finishedAt: Date(), liveSportID: "companion",
+                        recordedDistanceMeters: live.distanceMeters > 0
+                            ? live.distanceMeters : nil,
+                        activeDurationSeconds: Double(elapsed)
+                    )
+                    self.lastFinished = finished
+                    self.summaryDismissed = false
+                    self.suppressCompanionLive = true
+                    self.liveActivity = nil
+                    if self.companionSensorID != nil {
+                        self.health.discard()
+                        self.companionSensorID = nil
+                    }
+                    self.publishComplicationSnapshot(force: true)
+                    self.save()
+                }
+            }
+            if !sent {
+                isFinishingCompanionLive = false
+                liveCommandError = "Conecta el iPhone para guardar esta actividad"
+            }
+            return
+        }
+        guard live.phase != .review else { return }
         liveCommandError = connectivity.sendLiveCommand(
             sessionId: live.id, command: command
         ) ? nil : "Conecta el iPhone para controlar esta actividad"
-        // Finalizar companion: resumen local + «Volver al inicio»; el iPhone revisa/guarda.
-        if command == "finish", liveCommandError == nil {
-            let elapsed = Int(live.displayElapsed(at: Date()))
-            let session = WorkoutSession(
-                id: live.id,
-                title: live.sportTitle,
-                exercises: [],
-                phase: .finished,
-                startedAt: Date().addingTimeInterval(-Double(elapsed)),
-                finishedAt: Date(),
-                liveSportID: "companion",
-                recordedDistanceMeters: live.distanceMeters > 0 ? live.distanceMeters : nil,
-                activeDurationSeconds: Double(elapsed)
-            )
-            lastFinished = session
-            summaryDismissed = false
-            suppressCompanionLive = true
-            liveActivity = nil
-            if companionSensorID != nil { health.discard(); companionSensorID = nil }
-            publishComplicationSnapshot(force: true)
-            save()
-        }
     }
 
     /// Cierra el resumen y vuelve al hub (sin reabrir la actividad).
@@ -1655,7 +1679,11 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 self.companionSensorID = nil
             }
             self.liveActivity = snapshot
-            self.liveCommandError = nil
+            // No ocultar un error de guardado solo porque haya llegado la
+            // revisión del iPhone; el botón Reintentar debe seguir disponible.
+            if snapshot?.phase != .review && !self.isFinishingCompanionLive {
+                self.liveCommandError = nil
+            }
             self.publishComplicationSnapshot(force: true)
         }
     }

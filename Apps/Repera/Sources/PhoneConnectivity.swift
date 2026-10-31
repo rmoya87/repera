@@ -7,7 +7,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
-    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String)
+    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool
     /// - Returns: `true` si el iPhone arrancó Comenzar; `false` si está ocupado.
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool)
@@ -25,7 +25,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
-    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {}
+    func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool { false }
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
@@ -221,8 +221,10 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                   ["pause", "resume", "finish"].contains(command) else {
                 return ["ok": false]
             }
-            delegate?.phoneConnectivityDidReceiveLiveCommand(sessionId: id, command: command)
-            return ["ok": true]
+            let applied = await delegate?.phoneConnectivityDidReceiveLiveCommand(
+                sessionId: id, command: command
+            ) ?? false
+            return ["ok": applied]
         case "startLive":
             guard let sportID = message["sportID"] as? String, !sportID.isEmpty else {
                 return ["ok": false]
