@@ -27,6 +27,9 @@ struct RootTabView: View {
     }
 
     var body: some View {
+        // Bool Sendable: onGeometryChange(of:) es @Sendable y no puede leer
+        // la Environment MainActor-isolated horizontalSizeClass.
+        let prefersRegularWidth = horizontalSizeClass == .regular
         ZStack {
             TabView(selection: $tab) {
                 SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
@@ -90,7 +93,7 @@ struct RootTabView: View {
                 // El Duo abierto tiene un ancho útil mayor que un iPhone normal
                 // incluso en vertical. Evitar el raíl en iPhone apaisado compacto.
                 return size.width >= 480
-                    && (size.width <= size.height || horizontalSizeClass == .regular)
+                    && (size.width <= size.height || prefersRegularWidth)
             }) { _, expanded in
                 duoRail.isExpanded = expanded
             }
